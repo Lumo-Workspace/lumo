@@ -1,36 +1,201 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lumo - AI-Powered Document & Project Management Platform
 
-## Getting Started
+A comprehensive, modern document and project management platform built with Next.js, featuring AI-powered assistance, Kanban boards, team collaboration, and a Notion-like editor experience.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 📝 Document Management
+- **Notion-like Editor**: Rich text editing with block-based content
+- **Slash Commands**: Quick content insertion with `/` commands
+- **Auto-save**: Automatic document saving with visual indicators
+- **Page Hierarchy**: Nested page structure with expandable tree view
+- **Context Menus**: Right-click actions for page management
+
+### 🎯 Project Management
+- **Team Structure**: Hierarchical organization (Teams → Projects → PRDs → Epics → Stories → Tasks)
+- **Kanban Boards**: Drag-and-drop task management with status tracking
+- **Story Creation Wizard**: Guided user story creation with quality checks
+- **BMAD Framework**: Business Model and Design methodology integration
+- **Progress Tracking**: Visual progress indicators and AI-powered summaries
+
+### 🤖 AI Integration
+- **AI Chat Assistant**: Contextual help and document assistance
+- **Smart Suggestions**: AI-powered content recommendations
+- **Progress Analysis**: Automated project progress insights
+- **Quality Checks**: AI-assisted story validation
+
+### 👥 Collaboration
+- **Team Views**: Multiple view modes for different team needs
+- **Notifications**: Real-time updates and mentions
+- **Shared Documents**: Collaborative document sharing
+- **Inbox**: Centralized notification management
+
+### 🎨 Modern UI/UX
+- **Responsive Design**: Works seamlessly across devices
+- **Dark/Light Themes**: Theme switching support
+- **Smooth Animations**: Polished user interactions
+- **Accessibility**: WCAG compliant interface
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI + Custom Components
+- **State Management**: React Hooks
+- **Icons**: Lucide React
+- **Drag & Drop**: @hello-pangea/dnd
+- **Forms**: React Hook Form + Zod validation
+- **Date Handling**: date-fns
+
+## 📦 Installation
+
+### Prerequisites
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd lumo
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   # or
+   bun install
+   ```
+
+3. **Start the development server**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   # or
+   bun dev
+   ```
+
+4. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## 🏗️ Project Structure
+
+```
+lumo/
+├── app/                    # Next.js App Router
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Home page
+│   └── test-kanban/       # Test pages
+├── components/            # React components
+│   ├── ui/               # Reusable UI components
+│   ├── kanban/           # Kanban-specific components
+│   ├── story-wizard/     # Story creation wizard
+│   ├── ai-chat.tsx       # AI chat interface
+│   ├── kanban-board.tsx  # Main Kanban board
+│   ├── notion-editor.tsx # Main editor component
+│   └── sidebar.tsx       # Application sidebar
+├── hooks/                # Custom React hooks
+│   ├── use-pages.ts      # Page management
+│   ├── use-teams.ts      # Team/project management
+│   ├── use-blocks.ts     # Document blocks
+│   └── use-ui-state.ts   # UI state management
+├── lib/                  # Utility libraries
+├── utils/                # Helper functions
+└── styles/               # Additional styles
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🎯 Usage
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Document Editing
+1. **Create Pages**: Click the "+" button in the sidebar
+2. **Edit Content**: Click on any page to start editing
+3. **Use Slash Commands**: Type `/` to access quick insertion menu
+4. **Navigate**: Use the page tree to move between documents
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Project Management
+1. **Team Setup**: Create teams and projects in the Teams view
+2. **Create Stories**: Use the Story Creation Wizard for structured user stories
+3. **Kanban Management**: Drag and drop tasks between status columns
+4. **Track Progress**: Monitor project progress with AI-powered insights
 
-## Learn More
+### AI Assistant
+1. **Open AI Chat**: Click the AI button in the sidebar
+2. **Ask Questions**: Get help with document editing and project management
+3. **Fullscreen Mode**: Toggle fullscreen for focused AI interaction
 
-To learn more about Next.js, take a look at the following resources:
+## 🔧 Configuration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Environment Variables
+Create a `.env.local` file in the root directory:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+# Add your environment variables here
+# Example:
+# NEXT_PUBLIC_API_URL=your_api_url
+# DATABASE_URL=your_database_url
+```
 
-## Deploy on Vercel
+### Customization
+- **Themes**: Modify `tailwind.config.ts` for custom styling
+- **Components**: Extend UI components in `components/ui/`
+- **Hooks**: Add custom logic in `hooks/`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📱 Responsive Design
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The platform is fully responsive and works on:
+- Desktop (1024px+)
+- Tablet (768px - 1023px)
+- Mobile (320px - 767px)
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Deploy with zero configuration
+
+### Other Platforms
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [Radix UI](https://www.radix-ui.com/)
+- Icons from [Lucide](https://lucide.dev/)
+- Styling with [Tailwind CSS](https://tailwindcss.com/)
+
+## 📞 Support
+
+For support, email support@lumo.ai or create an issue in the repository.
+
+---
+
+**Lumo** - Empowering teams with AI-driven project management and document collaboration.
