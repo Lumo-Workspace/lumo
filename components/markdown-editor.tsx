@@ -19,7 +19,7 @@ import { useNotifications } from "../hooks/use-notifications"
 import { useUIState } from "../hooks/use-ui-state"
 import { useTeams } from "../hooks/use-teams"
 
-export default function NotionEditor() {
+export default function MarkdownEditor() {
   const {
     pages,
     currentPageId,

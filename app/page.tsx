@@ -1,5 +1,5 @@
-import NotionEditor from "@/components/notion-editor"
+import MarkdownEditor from "@/components/markdown-editor"
 
 export default function HomePage() {
-  return <NotionEditor />
+  return <MarkdownEditor />
 }

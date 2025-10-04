@@ -1,11 +1,11 @@
 # Lumo - AI-Powered Document & Project Management Platform
 
-A comprehensive, modern document and project management platform built with Next.js, featuring AI-powered assistance, Kanban boards, team collaboration, and a Notion-like editor experience.
+A comprehensive, modern document and project management platform built with Next.js, featuring AI-powered assistance, Kanban boards, team collaboration, and a Markdown editor experience.
 
 ## 🚀 Features
 
 ### 📝 Document Management
-- **Notion-like Editor**: Rich text editing with block-based content
+- **Markdown Editor**: Rich text editing with block-based content
 - **Slash Commands**: Quick content insertion with `/` commands
 - **Auto-save**: Automatic document saving with visual indicators
 - **Page Hierarchy**: Nested page structure with expandable tree view
@@ -102,7 +102,7 @@ lumo/
 │   ├── story-wizard/     # Story creation wizard
 │   ├── ai-chat.tsx       # AI chat interface
 │   ├── kanban-board.tsx  # Main Kanban board
-│   ├── notion-editor.tsx # Main editor component
+│   ├── markdown-editor.tsx # Main editor component
 │   └── sidebar.tsx       # Application sidebar
 ├── hooks/                # Custom React hooks
 │   ├── use-pages.ts      # Page management
