@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react"
 import mermaid from "mermaid"
+import { MermaidPreviewModal } from "./mermaid-preview-modal"
 
 interface MermaidDiagramProps {
   content: string
@@ -12,6 +13,7 @@ interface MermaidDiagramProps {
 export function MermaidDiagram({ content, onUpdate, isEditing = false }: MermaidDiagramProps) {
   const [isEditingMode, setIsEditingMode] = useState(isEditing)
   const [editContent, setEditContent] = useState(content)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const diagramRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -103,6 +105,11 @@ export function MermaidDiagram({ content, onUpdate, isEditing = false }: Mermaid
     }, 100)
   }
 
+  // 点击图表打开预览模态框
+  const handleDiagramClick = () => {
+    setIsModalOpen(true)
+  }
+
   if (isEditingMode) {
     return (
       <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -145,18 +152,31 @@ export function MermaidDiagram({ content, onUpdate, isEditing = false }: Mermaid
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-700">Mermaid 图表</h3>
-        <button
-          onClick={handleEdit}
-          className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-        >
-          编辑
-        </button>
+    <>
+      <div className="border border-gray-200 rounded-lg p-4 bg-white">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-gray-700">Mermaid 图表</h3>
+          <button
+            onClick={handleEdit}
+            className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+          >
+            编辑
+          </button>
+        </div>
+        
+        <div 
+          ref={diagramRef} 
+          className="min-h-[200px] flex items-center justify-center cursor-pointer hover:bg-gray-50 rounded transition-colors"
+          onClick={handleDiagramClick}
+          title="点击预览图表"
+        />
       </div>
-      
-      <div ref={diagramRef} className="min-h-[200px] flex items-center justify-center" />
-    </div>
+
+      <MermaidPreviewModal
+        isOpen={isModalOpen}
+        content={content}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </>
   )
 }
