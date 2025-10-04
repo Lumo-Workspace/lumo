@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 
+// 块类型定义
 export interface Block {
   id: string
   type:
@@ -20,6 +21,7 @@ export interface Block {
   completed?: boolean
 }
 
+// 页面类型定义
 export interface Page {
   id: string
   title: string
@@ -29,6 +31,7 @@ export interface Page {
   isExpanded?: boolean
 }
 
+// 初始页面数据
 const initialPages: Record<string, Page> = {
   "1": {
     id: "1",
@@ -77,17 +80,26 @@ export function usePages() {
   const [pages, setPages] = useState<Record<string, Page>>(initialPages)
   const [currentPageId, setCurrentPageId] = useState<string>("1")
 
-  const getCurrentPage = () => pages[currentPageId]
-  const getCurrentBlocks = () => getCurrentPage()?.blocks || []
+  // 获取当前页面
+  const getCurrentPage = useCallback((): Page | undefined => {
+    return pages[currentPageId]
+  }, [pages, currentPageId])
 
-  const togglePageExpansion = (pageId: string) => {
+  // 获取当前页面的块
+  const getCurrentBlocks = useCallback((): Block[] => {
+    return getCurrentPage()?.blocks || []
+  }, [getCurrentPage])
+
+  // 切换页面展开状态
+  const togglePageExpansion = useCallback((pageId: string): void => {
     setPages((prev) => ({
       ...prev,
       [pageId]: { ...prev[pageId], isExpanded: !prev[pageId].isExpanded },
     }))
-  }
+  }, [])
 
-  const expandPathToPage = (targetPageId: string) => {
+  // 展开到指定页面的路径
+  const expandPathToPage = useCallback((targetPageId: string): void => {
     const getPathToRoot = (pageId: string): string[] => {
       const path: string[] = []
       let currentId = pageId
@@ -116,9 +128,10 @@ export function usePages() {
       })
       return updated
     })
-  }
+  }, [pages])
 
-  const createNewPage = (parentId?: string) => {
+  // 创建新页面
+  const createNewPage = useCallback((parentId?: string): void => {
     const newPageId = Date.now().toString()
     const newPage: Page = {
       id: newPageId,
@@ -143,9 +156,10 @@ export function usePages() {
       return updated
     })
     setCurrentPageId(newPageId)
-  }
+  }, [])
 
-  const updatePageTitle = (pageId: string, title: string) => {
+  // 更新页面标题
+  const updatePageTitle = useCallback((pageId: string, title: string): void => {
     setPages((prev) => ({
       ...prev,
       [pageId]: {
@@ -156,9 +170,10 @@ export function usePages() {
         ),
       },
     }))
-  }
+  }, [])
 
-  const deletePage = (pageId: string) => {
+  // 删除页面
+  const deletePage = useCallback((pageId: string): void => {
     setPages((prev) => {
       const updated = { ...prev }
       const pageToDelete = updated[pageId]
@@ -188,11 +203,15 @@ export function usePages() {
         setCurrentPageId(remainingPages[0])
       }
     }
-  }
+  }, [currentPageId, pages])
 
   return {
+    // 状态
     pages,
     currentPageId,
+    setPages,
+    
+    // 页面操作方法
     setCurrentPageId,
     getCurrentPage,
     getCurrentBlocks,
@@ -201,6 +220,5 @@ export function usePages() {
     createNewPage,
     updatePageTitle,
     deletePage,
-    setPages, // Added setPages to the return object so useBlocks can update page state
   }
 }

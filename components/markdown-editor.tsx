@@ -1,8 +1,8 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
 
+// 组件导入
 import SlashMenu from "./slash-menu"
 import ContextMenu from "./context-menu"
 import DeleteDialog from "./delete-dialog"
@@ -13,6 +13,7 @@ import SharedView from "./shared-view"
 import TeamView from "./team-view"
 import AIChat from "./ai-chat"
 
+// Hooks导入
 import { usePages } from "../hooks/use-pages"
 import { useBlocks } from "../hooks/use-blocks"
 import { useNotifications } from "../hooks/use-notifications"
@@ -20,6 +21,7 @@ import { useUIState } from "../hooks/use-ui-state"
 import { useTeams } from "../hooks/use-teams"
 
 export default function MarkdownEditor() {
+  // 页面管理
   const {
     pages,
     currentPageId,
@@ -34,6 +36,7 @@ export default function MarkdownEditor() {
     setPages,
   } = usePages()
 
+  // 块管理
   const {
     showSlashMenu,
     setShowSlashMenu,
@@ -49,7 +52,7 @@ export default function MarkdownEditor() {
     handleKeyDown,
     handleFocus,
     handleBlur,
-  } = useBlocks(pages, setPages, currentPageId)
+  } = useBlocks({ pages, setPages, currentPageId })
 
   const { notifications, selectedNotification, setSelectedNotification, markNotificationAsRead } = useNotifications()
 
