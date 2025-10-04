@@ -136,9 +136,48 @@ export default function EditorView({
       if (clickY > lastBlockRect.bottom + 20) { // 20px 的容差
         const lastBlockId = blocks[blocks.length - 1]?.id
         if (lastBlockId) {
-          onAddBlock(lastBlockId)
+          const newBlockId = onAddBlock(lastBlockId)
+          
+          // 聚焦到新创建的块
+          setTimeout(() => {
+            const newBlockElement = document.querySelector(`textarea[data-block-id="${newBlockId}"]`) as HTMLTextAreaElement
+            if (newBlockElement) {
+              newBlockElement.focus()
+              // 将光标移动到文本区域的开始位置
+              newBlockElement.setSelectionRange(0, 0)
+            }
+          }, 10)
         }
       }
+    }
+  }
+
+  // Handle mouse hover to show cursor
+  const handleEditorMouseMove = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    const editorContainer = editorRef.current
+    
+    if (!editorContainer) return
+    
+    // 检查鼠标是否在空白区域
+    if (target === editorContainer || target.closest('.space-y-2') === editorContainer.querySelector('.space-y-2')) {
+      const blocksContainer = editorContainer.querySelector('.space-y-2')
+      if (!blocksContainer) return
+      
+      const lastBlock = blocksContainer.lastElementChild
+      if (!lastBlock) return
+      
+      const lastBlockRect = lastBlock.getBoundingClientRect()
+      const mouseY = e.clientY
+      
+      // 如果鼠标在最后一个块的下方，显示文本光标
+      if (mouseY > lastBlockRect.bottom + 20) {
+        editorContainer.style.cursor = 'text'
+      } else {
+        editorContainer.style.cursor = 'default'
+      }
+    } else {
+      editorContainer.style.cursor = 'default'
     }
   }
 
@@ -149,7 +188,7 @@ export default function EditorView({
       <div className="px-6 py-1 text-xs text-gray-500 border-b border-gray-100">最近修改: 16 分钟前</div>
 
       <div className="flex-1 overflow-auto bg-gray-25">
-        <div className="max-w-3xl mx-auto px-6 py-8" ref={editorRef} onClick={handleEditorClick}>
+        <div className="max-w-3xl mx-auto px-6 py-8" ref={editorRef} onClick={handleEditorClick} onMouseMove={handleEditorMouseMove}>
           <div className="space-y-2">
             {blocks.map((block) => (
               <div key={block.id} className="group relative">
