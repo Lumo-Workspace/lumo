@@ -139,7 +139,7 @@ const alignmentButtons = [
 ]
 
 export function FloatingMenu({ position, onFormat, onClose, selectedText }: FloatingMenuProps) {
-  const [currentHeading, setCurrentHeading] = useState("T 正文")
+  const [currentHeading, setCurrentHeading] = useState("正文")
   const [showHeadingMenu, setShowHeadingMenu] = useState(false)
   const [showSubmenu, setShowSubmenu] = useState(false)
 
@@ -153,7 +153,7 @@ export function FloatingMenu({ position, onFormat, onClose, selectedText }: Floa
 
   // 处理标题级别选择
   const handleHeadingSelect = (value: string, label: string) => {
-    if (value === "heading4" && label === "Hn 其他标题") {
+    if (value === "heading4" && label === "其他标题") {
       setShowSubmenu(true)
       return
     }
@@ -218,13 +218,25 @@ export function FloatingMenu({ position, onFormat, onClose, selectedText }: Floa
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-xs font-medium hover:bg-gray-100 flex items-center gap-1"
+          className="h-8 px-2 text-sm font-medium hover:bg-gray-100 flex items-center gap-1"
           onClick={(e) => {
             e.stopPropagation()
             setShowHeadingMenu(!showHeadingMenu)
           }}
         >
-          <span>{currentHeading}</span>
+          {(() => {
+            const currentOption = headingOptions.find(option => option.label === currentHeading)
+            const Icon = currentOption?.icon
+            return (
+              <>
+                {typeof Icon === 'string' ? (
+                  <span className="w-4 h-4 text-gray-600 text-xs font-bold flex items-center justify-center">{Icon}</span>
+                ) : (
+                  <Icon className="w-4 h-4 text-gray-600" />
+                )}
+              </>
+            )
+          })()}
           <ChevronDown className="w-3 h-3 text-gray-500" />
         </Button>
         
