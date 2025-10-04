@@ -58,7 +58,7 @@ export function useBlocks(
     if (!currentPage) return
 
     const updatedBlocks = currentPage.blocks.map((block) =>
-      block.id === blockId ? { ...block, type: newType } : block,
+      block.id === blockId ? { ...block, type: newType, content: "" } : block,
     )
 
     setPages((prev) => ({
@@ -88,11 +88,19 @@ export function useBlocks(
     if (e.key === "/") {
       console.log("[v0] Slash detected, focused block matches:", focusedBlockId === blockId)
       if (focusedBlockId === blockId) {
-        const rect = e.currentTarget.getBoundingClientRect()
-        setSlashMenuPosition({ x: rect.left, y: rect.bottom })
-        setActiveBlockId(blockId)
-        setShowSlashMenu(true)
-        console.log("[v0] Slash menu state set to true, position:", { x: rect.left, y: rect.bottom })
+        const target = e.target as HTMLTextAreaElement
+        const cursorPosition = target.selectionStart
+        const textBeforeCursor = target.value.substring(0, cursorPosition)
+        
+        // Only show slash menu if cursor is at start of line or after whitespace
+        if (cursorPosition === 0 || /^\s*$/.test(textBeforeCursor)) {
+          e.preventDefault() // Prevent the / from being added to the text
+          const rect = e.currentTarget.getBoundingClientRect()
+          setSlashMenuPosition({ x: rect.left, y: rect.bottom })
+          setActiveBlockId(blockId)
+          setShowSlashMenu(true)
+          console.log("[v0] Slash menu state set to true, position:", { x: rect.left, y: rect.bottom })
+        }
       }
     } else if (e.key === "Enter" && !showSlashMenu) {
       e.preventDefault()
@@ -115,15 +123,8 @@ export function useBlocks(
 
   const handleBlur = (blockId: string) => {
     console.log("[v0] Block blurred:", blockId, "Show slash menu:", showSlashMenu)
-    // Don't immediately hide slash menu on blur, let it be handled by menu interactions
-    // Only clear focused block after a delay to allow slash menu interactions
-    setTimeout(() => {
-      setFocusedBlockId(null)
-      // Only hide slash menu if no active interaction is happening
-      if (!document.querySelector(".slash-menu:hover")) {
-        setShowSlashMenu(false)
-      }
-    }, 150)
+    // Don't hide slash menu immediately on blur - let it be handled by click outside
+    setFocusedBlockId(null)
   }
 
   return {

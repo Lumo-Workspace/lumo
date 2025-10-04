@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useRef } from "react"
+import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Breadcrumb from "./breadcrumb"
 import BlockRenderer from "./block-renderer"
+import { FloatingMenu } from "./floating-menu"
 
 interface Block {
   id: string
@@ -59,6 +60,47 @@ export default function EditorView({
   onBlur,
 }: EditorViewProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  
+  // 本地浮动菜单状态
+  const [localSelection, setLocalSelection] = useState<{
+    isVisible: boolean
+    position: { x: number; y: number }
+    selectedText: string
+  }>({
+    isVisible: false,
+    position: { x: 0, y: 0 },
+    selectedText: ""
+  })
+
+  // console.log('=== EditorView Component Loaded ===')
+
+  // 处理来自BlockRenderer的文本选择
+  const handleTextSelection = (position: { x: number; y: number }, selectedText: string) => {
+    console.log('🎯 Text selection received in EditorView:', position, selectedText)
+    setLocalSelection({
+      isVisible: true,
+      position,
+      selectedText
+    })
+  }
+
+  // 设置点击外部隐藏菜单的事件监听器
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setLocalSelection(prev => ({ ...prev, isVisible: false }))
+    }
+    
+    document.addEventListener('click', handleClickOutside)
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [])
+
+  // Handle text formatting
+  const formatText = (command: string, value?: string) => {
+    document.execCommand(command, false, value)
+  }
 
   return (
     <div className="flex-1 flex flex-col">
@@ -76,20 +118,30 @@ export default function EditorView({
                     <Plus className="w-3 h-3" />
                   </Button>
                 </div>
-                <BlockRenderer
-                  block={block}
-                  onUpdate={onUpdateBlock}
-                  onKeyDown={onKeyDown}
-                  onToggleTodo={onToggleTodo}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                  isFocused={focusedBlockId === block.id}
-                />
+                       <BlockRenderer
+                         block={block}
+                         onUpdate={onUpdateBlock}
+                         onKeyDown={onKeyDown}
+                         onToggleTodo={onToggleTodo}
+                         onFocus={onFocus}
+                         onBlur={onBlur}
+                         isFocused={focusedBlockId === block.id}
+                         onTextSelection={handleTextSelection}
+                       />
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Floating Menu */}
+      {localSelection.isVisible && (
+        <FloatingMenu
+          position={localSelection.position}
+          onFormat={formatText}
+          onClose={() => setLocalSelection(prev => ({ ...prev, isVisible: false }))}
+        />
+      )}
     </div>
   )
 }

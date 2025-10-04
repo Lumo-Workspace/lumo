@@ -1,7 +1,26 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { PanelRight, PanelRightClose } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { 
+  PanelRight, 
+  PanelRightClose, 
+  Bold, 
+  Italic, 
+  Underline, 
+  Strikethrough,
+  List,
+  ListOrdered,
+  Code,
+  Code2,
+  Link,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Image,
+  Type
+} from "lucide-react"
 
 interface DocumentEditorToolbarProps {
   onFormat: (command: string, value?: string) => void
@@ -41,17 +60,190 @@ export function DocumentEditorToolbar({
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => onFormat("bold")} className="min-w-[44px]">
-          <strong>B</strong>
+      <div className="flex items-center gap-1">
+        {/* Heading Selector */}
+        <Select onValueChange={(value) => onFormat("formatBlock", value)}>
+          <SelectTrigger className="w-[60px] h-8">
+            <SelectValue placeholder="H4" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="div">Normal</SelectItem>
+            <SelectItem value="h1">H1</SelectItem>
+            <SelectItem value="h2">H2</SelectItem>
+            <SelectItem value="h3">H3</SelectItem>
+            <SelectItem value="h4">H4</SelectItem>
+            <SelectItem value="h5">H5</SelectItem>
+            <SelectItem value="h6">H6</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Lists */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("insertUnorderedList")} 
+          className="h-8 w-8 p-0"
+          title="Bullet List"
+        >
+          <List className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onFormat("italic")} className="min-w-[44px]">
-          <em>I</em>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("insertOrderedList")} 
+          className="h-8 w-8 p-0"
+          title="Numbered List"
+        >
+          <ListOrdered className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onFormat("insertUnorderedList")} className="min-w-[44px]">
-          •
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Text Formatting */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("bold")} 
+          className="h-8 w-8 p-0"
+          title="Bold (Ctrl+B)"
+        >
+          <Bold className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={onAddTask} className="ml-2 bg-transparent">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("italic")} 
+          className="h-8 w-8 p-0"
+          title="Italic (Ctrl+I)"
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("underline")} 
+          className="h-8 w-8 p-0"
+          title="Underline (Ctrl+U)"
+        >
+          <Underline className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("strikeThrough")} 
+          className="h-8 w-8 p-0"
+          title="Strikethrough"
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Code */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("insertText", "`")} 
+          className="h-8 w-8 p-0"
+          title="Inline Code"
+        >
+          <Code className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("formatBlock", "pre")} 
+          className="h-8 w-8 p-0"
+          title="Code Block"
+        >
+          <Code2 className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Link */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            const url = prompt("Enter URL:");
+            if (url) onFormat("createLink", url);
+          }} 
+          className="h-8 w-8 p-0"
+          title="Insert Link"
+        >
+          <Link className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Alignment */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("justifyLeft")} 
+          className="h-8 w-8 p-0"
+          title="Align Left"
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("justifyCenter")} 
+          className="h-8 w-8 p-0"
+          title="Align Center"
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("justifyRight")} 
+          className="h-8 w-8 p-0"
+          title="Align Right"
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onFormat("justifyFull")} 
+          className="h-8 w-8 p-0"
+          title="Justify"
+        >
+          <AlignJustify className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Media */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            const url = prompt("Enter image URL:");
+            if (url) {
+              const img = document.createElement('img');
+              img.src = url;
+              img.alt = 'Image';
+              img.style.maxWidth = '100%';
+              img.style.height = 'auto';
+              document.execCommand('insertHTML', false, img.outerHTML);
+            }
+          }} 
+          className="h-8 w-8 p-0"
+          title="Insert Image"
+        >
+          <Image className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Task and Sidebar */}
+        <Button variant="outline" size="sm" onClick={onAddTask} className="ml-2">
           + Task
         </Button>
 
@@ -59,7 +251,7 @@ export function DocumentEditorToolbar({
           variant="outline"
           size="sm"
           onClick={onToggleSidebar}
-          className="ml-2 bg-transparent"
+          className="ml-2"
           title={isSidebarOpen ? "Hide task panel" : "Show task panel"}
         >
           {isSidebarOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}

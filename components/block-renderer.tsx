@@ -27,6 +27,7 @@ interface BlockRendererProps {
   onFocus?: (blockId: string) => void
   onBlur?: () => void
   isFocused?: boolean
+  onTextSelection?: (position: { x: number; y: number }, selectedText: string) => void
 }
 
 export default function BlockRenderer({
@@ -37,8 +38,31 @@ export default function BlockRenderer({
   onFocus,
   onBlur,
   isFocused,
+  onTextSelection,
 }: BlockRendererProps) {
   const baseClasses = "w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400"
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    console.log('🔥 Mouse up in textarea!')
+    setTimeout(() => {
+      const selection = window.getSelection()
+      console.log('Selection after mouseup:', selection)
+      
+      if (selection && selection.toString().trim()) {
+        console.log('Selected text:', selection.toString().trim())
+        
+        // 使用鼠标位置作为浮动菜单的位置
+        const mouseX = e.clientX
+        const mouseY = e.clientY
+        console.log('Mouse position:', mouseX, mouseY)
+        
+        onTextSelection?.({
+          x: mouseX,
+          y: mouseY
+        }, selection.toString().trim())
+      }
+    }, 0)
+  }
 
   const commonProps = {
     value: block.content,
@@ -46,6 +70,7 @@ export default function BlockRenderer({
     onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, block.id),
     onFocus: () => onFocus?.(block.id),
     onBlur: () => onBlur?.(),
+    onMouseUp: handleMouseUp,
     rows: 1,
     style: { height: "auto" },
     "data-block-id": block.id,

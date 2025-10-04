@@ -8,6 +8,15 @@ import TeamTree from "./team-tree"
 import CreateDialog from "./create-dialog"
 import { useState } from "react"
 import type { Team } from "../hooks/use-teams"
+import { 
+  Search, 
+  Plus, 
+  Inbox, 
+  Users, 
+  ChevronDown, 
+  ChevronRight, 
+  Sparkles 
+} from "lucide-react"
 
 interface Page {
   id: string
@@ -134,7 +143,7 @@ export default function Sidebar({
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="w-8 h-8 p-0 hover:bg-gray-100">
-              <span className="text-gray-600">🔍</span>
+              <Search className="w-4 h-4 text-gray-600" />
             </Button>
             <Button
               variant="ghost"
@@ -142,7 +151,7 @@ export default function Sidebar({
               className="w-8 h-8 p-0 hover:bg-gray-100"
               onClick={() => setShowCreateDialog(true)}
             >
-              <span className="text-gray-600">✏️</span>
+              <Plus className="w-4 h-4 text-gray-600" />
             </Button>
           </div>
         </div>
@@ -157,7 +166,7 @@ export default function Sidebar({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-gray-700">📥</span>
+              <Inbox className="w-4 h-4 text-gray-700" />
               <span className="text-sm text-gray-900">Inbox</span>
             </div>
             {notifications.filter((n) => n.unread).length > 0 && (
@@ -174,7 +183,7 @@ export default function Sidebar({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-gray-700">👥</span>
+              <Users className="w-4 h-4 text-gray-700" />
               <span className="text-sm text-gray-900">Shared with me</span>
             </div>
           </div>
@@ -184,8 +193,12 @@ export default function Sidebar({
             className="flex items-center px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer mt-4 -mx-2"
           >
             <span className="text-sm text-gray-900 font-medium">My Workspace</span>
-            <div className="p-0.5 hover:bg-gray-200 rounded ml-1">
-              <span className="text-gray-700">{workspaceExpanded ? "▼" : "▶"}</span>
+            <div className="p-0.5 rounded ml-1">
+              {workspaceExpanded ? (
+                <ChevronDown className="w-3 h-3 text-gray-700" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-700" />
+              )}
             </div>
           </div>
 
@@ -211,8 +224,12 @@ export default function Sidebar({
             className="flex items-center px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer mt-4 -mx-2"
           >
             <span className="text-sm text-gray-900 font-medium">My Teams</span>
-            <div className="p-0.5 hover:bg-gray-200 rounded ml-1">
-              <span className="text-gray-700">{teamsExpanded ? "▼" : "▶"}</span>
+            <div className="p-0.5 rounded ml-1">
+              {teamsExpanded ? (
+                <ChevronDown className="w-3 h-3 text-gray-700" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-700" />
+              )}
             </div>
           </div>
 
@@ -249,7 +266,7 @@ export default function Sidebar({
 
       <div className="p-3 border-t border-gray-200">
         <Button variant="ghost" size="sm" className="w-full justify-start gap-2 hover:bg-gray-100" onClick={onAIToggle}>
-          <span className="text-gray-600">✨</span>
+          <Sparkles className="w-4 h-4 text-gray-600" />
           <span className="text-sm text-gray-900">AI 助手</span>
         </Button>
       </div>

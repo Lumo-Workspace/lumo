@@ -8,6 +8,7 @@ import TaskModal from "@/components/task-modal"
 import TaskSidebar from "@/components/task-sidebar"
 import { DocumentEditorToolbar } from "@/components/document-editor-toolbar"
 import { DocumentBlock } from "@/components/document-block"
+import { FloatingMenu } from "@/components/floating-menu"
 import {
   useDocumentBlocks,
   type DocumentBlock as DocumentBlockType,
@@ -15,6 +16,7 @@ import {
 } from "@/hooks/use-document-blocks"
 import { useAutoSave } from "@/hooks/use-auto-save"
 import { useTaskManagement } from "@/hooks/use-task-management"
+import { useTextSelection } from "@/hooks/use-text-selection"
 
 interface DocumentEditorProps {
   initialContent?: DocumentBlockType[]
@@ -42,9 +44,38 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
   const { isTaskModalOpen, editingTask, modalMode, openCreateTaskModal, openEditTaskModal, closeTaskModal } =
     useTaskManagement()
 
+  const { selection, hideMenu } = useTextSelection()
+
   // Handle text formatting
   const formatText = (command: string, value?: string) => {
     document.execCommand(command, false, value)
+  }
+
+  // Handle keyboard shortcuts
+  const handleKeyboardShortcuts = (e: React.KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault()
+          formatText('bold')
+          break
+        case 'i':
+          e.preventDefault()
+          formatText('italic')
+          break
+        case 'u':
+          e.preventDefault()
+          formatText('underline')
+          break
+        case 'k':
+          e.preventDefault()
+          const url = prompt("Enter URL:")
+          if (url) formatText('createLink', url)
+          break
+        default:
+          break
+      }
+    }
   }
 
   // Handle task operations
@@ -97,6 +128,8 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
         <div
           ref={editorRef}
           className="min-h-[500px] bg-white rounded-lg border border-gray-200 p-6 focus-within:border-blue-500 transition-colors"
+          onKeyDown={handleKeyboardShortcuts}
+          tabIndex={0}
         >
           {blocks.map((block, index) => (
             <DocumentBlock
@@ -106,7 +139,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
               isActive={activeBlockId === block.id}
               onContentChange={updateBlockContent}
               onFocus={setActiveBlockId}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleKeyboardShortcuts}
               onAddTask={() => openCreateTaskModal()}
               onTaskStatusChange={handleTaskStatusChange}
               onTaskEdit={handleTaskEdit}
@@ -151,6 +184,15 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
           onTaskStatusChange={handleTaskStatusChange}
           onTaskEdit={handleTaskEdit}
           onTaskDelete={handleTaskDelete}
+        />
+      )}
+
+      {/* Floating Menu */}
+      {selection.isVisible && (
+        <FloatingMenu
+          position={selection.position}
+          onFormat={formatText}
+          onClose={hideMenu}
         />
       )}
     </div>

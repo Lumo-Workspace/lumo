@@ -20,7 +20,7 @@ interface DocumentBlockProps {
   onTaskDelete: (taskId: string) => void
 }
 
-export function DocumentBlockComponent({
+export function DocumentBlock({
   block,
   index,
   isActive,
@@ -55,7 +55,7 @@ export function DocumentBlockComponent({
             onFocus={() => onFocus(block.id)}
             onKeyDown={(e) => onKeyDown(e, block.id)}
             dangerouslySetInnerHTML={{ __html: block.content }}
-            placeholder={index === 0 ? "Start writing your document..." : "Continue writing..."}
+            data-placeholder={index === 0 ? "Start writing your document..." : "Continue writing..."}
           />
 
           {/* Block Actions */}

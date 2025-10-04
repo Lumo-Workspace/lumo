@@ -164,3 +164,46 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* Force team tree text to be visible */
+.team-tree-text,
+.team-tree-text *,
+span.team-tree-text {
+  color: #1a1a1a !important;
+}
+
+/* Additional override for any dark theme */
+.dark .team-tree-text,
+.dark .team-tree-text *,
+.dark span.team-tree-text {
+  color: #1a1a1a !important;
+}
+
+/* Even more specific selectors */
+div span.team-tree-text,
+div span.team-tree-text * {
+  color: #1a1a1a !important;
+}
+
+/* Target top-level team names specifically */
+.group span,
+.group span *,
+div.group span,
+div.group span *,
+.group div span,
+.group div span *,
+.space-y-0 span,
+.space-y-0 span *,
+div.space-y-0 span,
+div.space-y-0 span * {
+  color: #1a1a1a !important;
+}
+
+/* Nuclear option - target everything in the team tree */
+[class*="team"] span,
+[class*="Team"] span,
+div[class*="team"] span,
+div[class*="Team"] span {
+  color: #1a1a1a !important;
+}
+

@@ -66,7 +66,7 @@ export default function PageTree({
                   e.stopPropagation()
                   onToggleExpansion(pageId)
                 }}
-                className="p-0.5 hover:bg-gray-200 rounded"
+                className="p-0.5 rounded"
               >
                 {page.isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>

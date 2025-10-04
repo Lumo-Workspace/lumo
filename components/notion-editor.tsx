@@ -219,7 +219,13 @@ export default function NotionEditor() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800" onClick={closeContextMenu}>
+    <div className="flex h-screen bg-gray-50 text-gray-800" onClick={(e) => {
+      closeContextMenu()
+      // Close slash menu if clicking outside of it
+      if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
+        setShowSlashMenu(false)
+      }
+    }}>
       {showAIChat && aiChatFullscreen ? (
         // Fullscreen AI Chat
         <div className="fixed inset-0 z-50 bg-white">
