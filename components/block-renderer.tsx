@@ -27,7 +27,7 @@ interface BlockRendererProps {
   onFocus?: (blockId: string) => void
   onBlur?: () => void
   isFocused?: boolean
-  onTextSelection?: (position: { x: number; y: number }, selectedText: string) => void
+  onTextSelection?: (position: { x: number; y: number }, selectedText: string, blockType?: string) => void
 }
 
 export default function BlockRenderer({
@@ -59,7 +59,7 @@ export default function BlockRenderer({
         onTextSelection?.({
           x: mouseX,
           y: mouseY
-        }, selection.toString().trim())
+        }, selection.toString().trim(), block.type)
       }
     }, 0)
   }

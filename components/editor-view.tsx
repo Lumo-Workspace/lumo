@@ -75,8 +75,15 @@ export default function EditorView({
   // console.log('=== EditorView Component Loaded ===')
 
   // 处理来自BlockRenderer的文本选择
-  const handleTextSelection = (position: { x: number; y: number }, selectedText: string) => {
-    console.log('🎯 Text selection received in EditorView:', position, selectedText)
+  const handleTextSelection = (position: { x: number; y: number }, selectedText: string, blockType?: string) => {
+    console.log('🎯 Text selection received in EditorView:', position, selectedText, 'Block type:', blockType)
+    
+    // 如果是标题类型，不显示浮动菜单
+    if (blockType && ['heading1', 'heading2', 'heading3'].includes(blockType)) {
+      console.log('🎯 Heading selected, not showing floating menu')
+      return
+    }
+    
     setLocalSelection({
       isVisible: true,
       position,
