@@ -15,7 +15,8 @@ import {
   Users, 
   ChevronDown, 
   ChevronRight, 
-  Sparkles 
+  Sparkles,
+  ChevronDown as ChevronDownIcon
 } from "lucide-react"
 
 interface Page {
@@ -139,7 +140,7 @@ export default function Sidebar({
               <span className="text-white text-xs font-bold">I</span>
             </div>
             <span className="font-semibold text-gray-900">Lumo AI</span>
-            <span className="text-gray-500">▼</span>
+            <ChevronDownIcon className="w-4 h-4 text-gray-500" />
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="w-8 h-8 p-0 hover:bg-gray-100">
@@ -195,9 +196,9 @@ export default function Sidebar({
             <span className="text-sm text-gray-900 font-medium">My Workspace</span>
             <div className="p-0.5 rounded ml-1">
               {workspaceExpanded ? (
-                <ChevronDown className="w-3 h-3 text-gray-700" />
+                <ChevronDown className="w-4 h-4 text-gray-700" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-gray-700" />
+                <ChevronRight className="w-4 h-4 text-gray-700" />
               )}
             </div>
           </div>
@@ -226,9 +227,9 @@ export default function Sidebar({
             <span className="text-sm text-gray-900 font-medium">My Teams</span>
             <div className="p-0.5 rounded ml-1">
               {teamsExpanded ? (
-                <ChevronDown className="w-3 h-3 text-gray-700" />
+                <ChevronDown className="w-4 h-4 text-gray-700" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-gray-700" />
+                <ChevronRight className="w-4 h-4 text-gray-700" />
               )}
             </div>
           </div>
