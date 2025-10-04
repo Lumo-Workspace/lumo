@@ -82,6 +82,18 @@ export function useBlocks(
     }))
   }
 
+  const deleteBlock = (blockId: string) => {
+    const currentPage = pages[currentPageId]
+    if (!currentPage) return
+
+    const updatedBlocks = currentPage.blocks.filter((block) => block.id !== blockId)
+    
+    setPages((prev) => ({
+      ...prev,
+      [currentPageId]: { ...currentPage, blocks: updatedBlocks },
+    }))
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent, blockId: string) => {
     console.log("[v0] Key pressed:", e.key, "Block ID:", blockId, "Focused Block:", focusedBlockId)
 
@@ -111,6 +123,33 @@ export function useBlocks(
           newBlockElement.focus()
         }
       }, 10)
+    } else if (e.key === "Backspace") {
+      const currentPage = pages[currentPageId]
+      if (!currentPage) return
+      
+      const block = currentPage.blocks.find((b) => b.id === blockId)
+      const target = e.target as HTMLTextAreaElement
+      const cursorPosition = target.selectionStart
+      
+      // If the block is empty and cursor is at the beginning, delete the block
+      if (block?.content === "" && cursorPosition === 0 && currentPage.blocks.length > 1) {
+        e.preventDefault()
+        deleteBlock(blockId)
+        
+        // Focus the previous block after deletion
+        const blockIndex = currentPage.blocks.findIndex((b) => b.id === blockId)
+        if (blockIndex > 0) {
+          const previousBlock = currentPage.blocks[blockIndex - 1]
+          setTimeout(() => {
+            const previousBlockElement = document.querySelector(`textarea[data-block-id="${previousBlock.id}"]`) as HTMLTextAreaElement
+            if (previousBlockElement) {
+              previousBlockElement.focus()
+              // Move cursor to the end of the previous block
+              previousBlockElement.setSelectionRange(previousBlockElement.value.length, previousBlockElement.value.length)
+            }
+          }, 10)
+        }
+      }
     } else if (e.key === "Escape") {
       setShowSlashMenu(false)
     }
@@ -137,6 +176,7 @@ export function useBlocks(
     updateBlock,
     changeBlockType,
     toggleTodo,
+    deleteBlock,
     handleKeyDown,
     handleFocus,
     handleBlur,
