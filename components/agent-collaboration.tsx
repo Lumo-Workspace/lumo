@@ -63,7 +63,7 @@ export default function AgentCollaboration({
       const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
 
       // This would normally update the agent status in the parent component
-      console.log(`[v0] Agent ${randomAgent.name} status changed to ${randomStatus}`)
+      // TODO: Update agent status in parent component
     }, 3000)
 
     return () => clearInterval(interval)
@@ -146,7 +146,7 @@ export default function AgentCollaboration({
     }
 
     // This would normally be handled by the parent component
-    console.log("[v0] New requirement added:", requirement)
+    // TODO: Handle new requirement in parent component
     setNewRequirement("")
   }
 

@@ -51,7 +51,7 @@ export default function AgentStatusDashboard({
   useEffect(() => {
     const interval = setInterval(() => {
       // This would normally come from a real-time data source
-      console.log("[v0] Updating agent statuses...")
+      // TODO: Implement real-time status updates
     }, 5000)
 
     return () => clearInterval(interval)

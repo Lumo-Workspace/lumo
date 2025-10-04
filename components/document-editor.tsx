@@ -95,7 +95,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
     const blockToDelete = blocks.find((b) => b.task?.id === taskId)
     if (blockToDelete) {
       // This would need to be implemented in the useDocumentBlocks hook
-      console.log("Delete task block:", blockToDelete.id)
+      // TODO: Implement task block deletion
     }
   }
 

@@ -345,14 +345,12 @@ export default function MarkdownEditor() {
             searchQuery={slashMenuSearch}
             onSearchChange={setSlashMenuSearch}
             onBlockTypeSelect={(blockType) => {
-              console.log("[v0] Block type selected:", blockType, "Active block:", activeBlockId)
               if (activeBlockId) {
                 changeBlockType(activeBlockId, blockType)
                 setSlashMenuSearch("") // Clear search when block type is selected
               }
             }}
             onClose={() => {
-              console.log("[v0] Slash menu closed")
               setShowSlashMenu(false)
             }}
           />

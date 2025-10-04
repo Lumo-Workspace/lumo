@@ -51,7 +51,7 @@ export function MermaidDiagram({ content, onUpdate, isEditing = false }: Mermaid
       const { svg } = await mermaid.render(id, cleanContent)
       diagramRef.current.innerHTML = svg
     } catch (error) {
-      console.error('Mermaid rendering error:', error)
+      // Handle mermaid rendering error gracefully
       diagramRef.current.innerHTML = `<div class="text-red-500 p-4 border border-red-200 rounded bg-red-50">图表渲染错误: ${error}</div>`
     }
   }

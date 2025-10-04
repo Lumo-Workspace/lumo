@@ -37,7 +37,7 @@ export default function EnhancedKanbanBoard({ items, onStatusChange, type, conte
               type={type === "prd" ? "epic" : "story"}
               context={context}
               onGenerate={(items) => {
-                console.log("Generated items:", items)
+                // TODO: Handle generated items
               }}
             />
           )}
