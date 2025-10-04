@@ -331,6 +331,7 @@ export default function MarkdownEditor() {
               onFocus={handleFocus}
               onBlur={handleBlur}
               onAddBlock={addNewBlock}
+              onChangeBlockType={changeBlockType}
             />
           )}
         </>

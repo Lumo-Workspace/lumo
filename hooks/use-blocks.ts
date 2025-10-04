@@ -96,6 +96,18 @@ export function useBlocks({ pages, setPages, currentPageId }: UseBlocksProps) {
     }))
     
     setSlashMenu(prev => ({ ...prev, isVisible: false }))
+
+    // 强制重新渲染以应用新样式
+    setTimeout(() => {
+      const textareaElement = document.querySelector(`textarea[data-block-id="${blockId}"]`) as HTMLTextAreaElement
+      if (textareaElement) {
+        // 重置样式
+        textareaElement.style.height = "auto"
+        textareaElement.style.minHeight = "1.5rem"
+        // 重新计算高度
+        textareaElement.style.height = textareaElement.scrollHeight + "px"
+      }
+    }, 10)
   }, [pages, currentPageId, setPages])
 
   // 切换待办事项状态

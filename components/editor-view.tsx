@@ -47,6 +47,7 @@ interface EditorViewProps {
   onFocus: (blockId: string) => void
   onBlur: () => void
   onAddBlock?: (afterBlockId?: string) => void
+  onChangeBlockType?: (blockId: string, newType: Block["type"]) => void
 }
 
 export default function EditorView({
@@ -61,6 +62,7 @@ export default function EditorView({
   onFocus,
   onBlur,
   onAddBlock,
+  onChangeBlockType,
 }: EditorViewProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   
@@ -91,12 +93,27 @@ export default function EditorView({
 
   // 处理文本格式化
   const formatText = (command: string, value?: string) => {
-    document.execCommand(command, false, value)
+    if (command === "changeBlockType") {
+      // 处理块类型切换
+      const activeElement = document.activeElement as HTMLElement
+      const blockId = activeElement?.getAttribute('data-block-id')
+      if (blockId && value && onChangeBlockType) {
+        onChangeBlockType(blockId, value as Block["type"])
+      }
+    } else {
+      document.execCommand(command, false, value)
+    }
   }
 
   // 点击外部隐藏浮动菜单
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // 检查点击是否在浮动菜单内部
+      const floatingMenu = document.querySelector('.floating-menu')
+      if (floatingMenu && floatingMenu.contains(target)) {
+        return // 如果点击在浮动菜单内部，不隐藏
+      }
       setLocalSelection(prev => ({ ...prev, isVisible: false }))
     }
     

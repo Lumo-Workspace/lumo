@@ -90,16 +90,12 @@ export default function BlockRenderer({
 
   // 渲染不同类型的块
   const renderBlock = () => {
-    const blockProps = {
-      key: block.id,
-      ...commonProps,
-    }
-
     switch (block.type) {
       case "heading1":
         return (
           <textarea
-            {...blockProps}
+            key={block.id}
+            {...commonProps}
             className={`${baseClasses} text-4xl font-bold leading-relaxed text-gray-800 py-2`}
             placeholder="标题"
           />
@@ -108,7 +104,8 @@ export default function BlockRenderer({
       case "heading2":
         return (
           <textarea
-            {...blockProps}
+            key={block.id}
+            {...commonProps}
             className={`${baseClasses} text-2xl font-semibold leading-relaxed text-gray-800 py-1.5`}
             placeholder="标题 2"
           />
@@ -117,7 +114,8 @@ export default function BlockRenderer({
       case "heading3":
         return (
           <textarea
-            {...blockProps}
+            key={block.id}
+            {...commonProps}
             className={`${baseClasses} text-xl font-medium leading-relaxed text-gray-800 py-1`}
             placeholder="标题 3"
           />
@@ -179,8 +177,9 @@ export default function BlockRenderer({
       default:
         return (
           <textarea
-            {...blockProps}
-            className={`${baseClasses} leading-relaxed`}
+            key={block.id}
+            {...commonProps}
+            className={`${baseClasses} leading-relaxed py-0`}
             placeholder={isFocused && block.content.trim() === "" ? "输入 '/' 查看命令" : ""}
           />
         )
