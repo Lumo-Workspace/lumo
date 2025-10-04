@@ -46,6 +46,7 @@ interface EditorViewProps {
   onToggleTodo: (blockId: string) => void
   onFocus: (blockId: string) => void
   onBlur: () => void
+  onAddBlock?: (afterBlockId?: string) => void
 }
 
 export default function EditorView({
@@ -59,6 +60,7 @@ export default function EditorView({
   onToggleTodo,
   onFocus,
   onBlur,
+  onAddBlock,
 }: EditorViewProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   
@@ -110,6 +112,36 @@ export default function EditorView({
     document.execCommand(command, false, value)
   }
 
+  // Handle clicking on empty space to create new block
+  const handleEditorClick = (e: React.MouseEvent) => {
+    // 检查点击是否在空白区域
+    const target = e.target as HTMLElement
+    const editorContainer = editorRef.current
+    
+    if (!editorContainer || !onAddBlock) return
+    
+    // 检查点击的元素是否是编辑器容器本身或其直接子元素
+    if (target === editorContainer || target.closest('.space-y-2') === editorContainer.querySelector('.space-y-2')) {
+      // 检查是否点击在最后一个块的下方
+      const blocksContainer = editorContainer.querySelector('.space-y-2')
+      if (!blocksContainer) return
+      
+      const lastBlock = blocksContainer.lastElementChild
+      if (!lastBlock) return
+      
+      const lastBlockRect = lastBlock.getBoundingClientRect()
+      const clickY = e.clientY
+      
+      // 如果点击位置在最后一个块的下方，创建新块
+      if (clickY > lastBlockRect.bottom + 20) { // 20px 的容差
+        const lastBlockId = blocks[blocks.length - 1]?.id
+        if (lastBlockId) {
+          onAddBlock(lastBlockId)
+        }
+      }
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       <Breadcrumb pages={pages} currentPageId={currentPageId} onPageClick={onPageClick} />
@@ -117,7 +149,7 @@ export default function EditorView({
       <div className="px-6 py-1 text-xs text-gray-500 border-b border-gray-100">最近修改: 16 分钟前</div>
 
       <div className="flex-1 overflow-auto bg-gray-25">
-        <div className="max-w-3xl mx-auto px-6 py-8" ref={editorRef}>
+        <div className="max-w-3xl mx-auto px-6 py-8" ref={editorRef} onClick={handleEditorClick}>
           <div className="space-y-2">
             {blocks.map((block) => (
               <div key={block.id} className="group relative">

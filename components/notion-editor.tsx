@@ -42,6 +42,7 @@ export default function NotionEditor() {
     setSlashMenuSearch,
     activeBlockId,
     focusedBlockId,
+    addNewBlock,
     updateBlock,
     changeBlockType,
     toggleTodo,
@@ -326,6 +327,7 @@ export default function NotionEditor() {
               onToggleTodo={toggleTodo}
               onFocus={handleFocus}
               onBlur={handleBlur}
+              onAddBlock={addNewBlock}
             />
           )}
         </>
