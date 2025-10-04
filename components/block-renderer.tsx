@@ -44,30 +44,37 @@ export default function BlockRenderer({
   isFocused,
   onTextSelection,
 }: BlockRendererProps) {
+  // 基础样式类
   const baseClasses = "w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400"
 
+  // 处理文本选择事件
   const handleMouseUp = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-    console.log('🔥 Mouse up in textarea!')
     setTimeout(() => {
       const selection = window.getSelection()
-      console.log('Selection after mouseup:', selection)
       
       if (selection && selection.toString().trim()) {
-        console.log('Selected text:', selection.toString().trim())
-        
-        // 使用鼠标位置作为浮动菜单的位置
+        const selectedText = selection.toString().trim()
         const mouseX = e.clientX
         const mouseY = e.clientY
-        console.log('Mouse position:', mouseX, mouseY)
         
         onTextSelection?.({
           x: mouseX,
           y: mouseY
-        }, selection.toString().trim(), block.type)
+        }, selectedText, block.type)
       }
     }, 0)
   }
 
+  // 自动调整高度
+  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement
+    if (target.style.height !== target.scrollHeight + "px") {
+      target.style.height = "auto"
+      target.style.height = target.scrollHeight + "px"
+    }
+  }
+
+  // 通用属性
   const commonProps = {
     value: block.content,
     onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate(block.id, e.target.value),
@@ -75,98 +82,110 @@ export default function BlockRenderer({
     onFocus: () => onFocus?.(block.id),
     onBlur: () => onBlur?.(),
     onMouseUp: handleMouseUp,
+    onInput: handleInput,
     rows: 1,
     style: { height: "auto" },
     "data-block-id": block.id,
-    onInput: (e: React.FormEvent<HTMLTextAreaElement>) => {
-      const target = e.target as HTMLTextAreaElement
-      if (target.style.height !== target.scrollHeight + "px") {
-        target.style.height = "auto"
-        target.style.height = target.scrollHeight + "px"
-      }
-    },
   }
 
-  switch (block.type) {
-    case "heading1":
-      return (
-        <textarea
-          key={block.id}
-          {...commonProps}
-          className={`${baseClasses} text-4xl font-bold leading-relaxed text-gray-800 py-2`}
-          placeholder="标题"
-        />
-      )
-    case "heading2":
-      return (
-        <textarea
-          key={block.id}
-          {...commonProps}
-          className={`${baseClasses} text-2xl font-semibold leading-relaxed text-gray-800 py-1.5`}
-          placeholder="标题 2"
-        />
-      )
-    case "heading3":
-      return (
-        <textarea
-          key={block.id}
-          {...commonProps}
-          className={`${baseClasses} text-xl font-medium leading-relaxed text-gray-800 py-1`}
-          placeholder="标题 3"
-        />
-      )
-    case "quote":
-      return (
-        <div key={block.id} className="border-l-4 border-gray-300 pl-4">
-          <textarea {...commonProps} className={`${baseClasses} text-gray-600 italic`} placeholder="空引用" />
-        </div>
-      )
-    case "code":
-      return (
-        <div key={block.id} className="bg-gray-50 rounded-md p-4 border border-gray-200">
+  // 渲染不同类型的块
+  const renderBlock = () => {
+    const blockProps = {
+      key: block.id,
+      ...commonProps,
+    }
+
+    switch (block.type) {
+      case "heading1":
+        return (
           <textarea
-            {...commonProps}
-            className={`${baseClasses} font-mono text-sm bg-transparent text-gray-700`}
-            placeholder="输入代码..."
-            rows={3}
+            {...blockProps}
+            className={`${baseClasses} text-4xl font-bold leading-relaxed text-gray-800 py-2`}
+            placeholder="标题"
           />
-        </div>
-      )
-    case "todo":
-      return (
-        <div key={block.id} className="flex items-start gap-2">
-          <button
-            onClick={() => onToggleTodo(block.id)}
-            className="mt-1 w-4 h-4 border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50 transition-colors"
-          >
-            {block.completed && <div className="w-2 h-2 bg-gray-600 rounded-sm" />}
-          </button>
+        )
+
+      case "heading2":
+        return (
           <textarea
-            {...commonProps}
-            className={`${baseClasses} flex-1 ${block.completed ? "line-through text-gray-500" : "text-gray-700"}`}
-            placeholder="待办事项"
+            {...blockProps}
+            className={`${baseClasses} text-2xl font-semibold leading-relaxed text-gray-800 py-1.5`}
+            placeholder="标题 2"
           />
-        </div>
-      )
-    case "divider":
-      return <div key={block.id} className="border-t border-gray-200 my-4" />
-    case "mermaid":
-      return (
-        <MermaidDiagram
-          key={block.id}
-          content={block.content}
-          onUpdate={(content) => onUpdate(block.id, content)}
-          isEditing={isFocused && block.content.trim() === ""}
-        />
-      )
-    default:
-      return (
-        <textarea
-          key={block.id}
-          {...commonProps}
-          className={`${baseClasses} leading-relaxed`}
-          placeholder={isFocused && block.content.trim() === "" ? "输入 '/' 查看命令" : ""}
-        />
-      )
+        )
+
+      case "heading3":
+        return (
+          <textarea
+            {...blockProps}
+            className={`${baseClasses} text-xl font-medium leading-relaxed text-gray-800 py-1`}
+            placeholder="标题 3"
+          />
+        )
+
+      case "quote":
+        return (
+          <div key={block.id} className="border-l-4 border-gray-300 pl-4">
+            <textarea 
+              {...commonProps} 
+              className={`${baseClasses} text-gray-600 italic`} 
+              placeholder="空引用" 
+            />
+          </div>
+        )
+
+      case "code":
+        return (
+          <div key={block.id} className="bg-gray-50 rounded-md p-4 border border-gray-200">
+            <textarea
+              {...commonProps}
+              className={`${baseClasses} font-mono text-sm bg-transparent text-gray-700`}
+              placeholder="输入代码..."
+              rows={3}
+            />
+          </div>
+        )
+
+      case "todo":
+        return (
+          <div key={block.id} className="flex items-start gap-2">
+            <button
+              onClick={() => onToggleTodo(block.id)}
+              className="mt-1 w-4 h-4 border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50 transition-colors"
+            >
+              {block.completed && <div className="w-2 h-2 bg-gray-600 rounded-sm" />}
+            </button>
+            <textarea
+              {...commonProps}
+              className={`${baseClasses} flex-1 ${block.completed ? "line-through text-gray-500" : "text-gray-700"}`}
+              placeholder="待办事项"
+            />
+          </div>
+        )
+
+      case "divider":
+        return <div key={block.id} className="border-t border-gray-200 my-4" />
+
+      case "mermaid":
+        return (
+          <MermaidDiagram
+            key={block.id}
+            content={block.content}
+            onUpdate={(content) => onUpdate(block.id, content)}
+            isEditing={isFocused && block.content.trim() === ""}
+          />
+        )
+
+      default:
+        return (
+          <textarea
+            {...blockProps}
+            className={`${baseClasses} leading-relaxed`}
+            placeholder={isFocused && block.content.trim() === "" ? "输入 '/' 查看命令" : ""}
+          />
+        )
+    }
   }
+
+  return renderBlock()
 }
