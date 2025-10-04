@@ -77,8 +77,14 @@ export function MermaidPreviewModal({ isOpen, content, onClose }: MermaidPreview
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-2xl w-[95vw] h-[90vh] flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-2xl w-[95vw] h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 头部工具栏 */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-4">
@@ -136,7 +142,7 @@ export function MermaidPreviewModal({ isOpen, content, onClose }: MermaidPreview
 
         {/* 底部状态栏 */}
         <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-sm text-gray-500">
-          <span>按 Esc 键关闭预览</span>
+          <span>按 Esc 键或点击外部区域关闭预览</span>
         </div>
       </div>
     </div>
