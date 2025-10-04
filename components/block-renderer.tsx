@@ -1,6 +1,9 @@
 "use client"
 
 import type React from "react"
+import { useEffect, useRef, useState } from "react"
+import mermaid from "mermaid"
+import { MermaidDiagram } from "./mermaid-diagram"
 
 interface Block {
   id: string
@@ -15,6 +18,7 @@ interface Block {
     | "quote"
     | "code"
     | "divider"
+    | "mermaid"
   content: string
   completed?: boolean
 }
@@ -146,6 +150,15 @@ export default function BlockRenderer({
       )
     case "divider":
       return <div key={block.id} className="border-t border-gray-200 my-4" />
+    case "mermaid":
+      return (
+        <MermaidDiagram
+          key={block.id}
+          content={block.content}
+          onUpdate={(content) => onUpdate(block.id, content)}
+          isEditing={isFocused && block.content.trim() === ""}
+        />
+      )
     default:
       return (
         <textarea

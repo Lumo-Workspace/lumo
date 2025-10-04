@@ -12,6 +12,7 @@ export function useBlocks(
 ) {
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 })
+  const [slashMenuSearch, setSlashMenuSearch] = useState("")
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null)
 
@@ -170,6 +171,8 @@ export function useBlocks(
     showSlashMenu,
     setShowSlashMenu,
     slashMenuPosition,
+    slashMenuSearch,
+    setSlashMenuSearch,
     activeBlockId,
     focusedBlockId,
     addNewBlock,

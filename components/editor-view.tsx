@@ -21,6 +21,7 @@ interface Block {
     | "quote"
     | "code"
     | "divider"
+    | "mermaid"
   content: string
   completed?: boolean
 }

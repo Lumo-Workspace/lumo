@@ -2,7 +2,7 @@
 import { Input } from "@/components/ui/input"
 import type React from "react"
 
-import { FileText, Hash, List, CheckSquare, Code, Quote, Divide } from "lucide-react"
+import { FileText, Hash, List, CheckSquare, Code, Quote, Divide, GitBranch } from "lucide-react"
 
 interface Block {
   id: string
@@ -17,6 +17,7 @@ interface Block {
     | "quote"
     | "code"
     | "divider"
+    | "mermaid"
   content: string
   completed?: boolean
 }
@@ -31,6 +32,7 @@ const blockTypes = [
   { type: "todo", label: "待办事项", icon: CheckSquare, description: "跟踪任务的待办事项列表。" },
   { type: "quote", label: "引用", icon: Quote, description: "捕获引用。" },
   { type: "code", label: "代码", icon: Code, description: "捕获代码片段。" },
+  { type: "mermaid", label: "流程图", icon: GitBranch, description: "创建 Mermaid 流程图和图表。" },
   { type: "divider", label: "分割线", icon: Divide, description: "在视觉上分割块。" },
 ]
 

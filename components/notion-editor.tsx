@@ -38,6 +38,8 @@ export default function NotionEditor() {
     showSlashMenu,
     setShowSlashMenu,
     slashMenuPosition,
+    slashMenuSearch,
+    setSlashMenuSearch,
     activeBlockId,
     focusedBlockId,
     updateBlock,
@@ -96,8 +98,6 @@ export default function NotionEditor() {
     showDeleteDialog,
     hideDeleteDialog,
   } = useUIState()
-
-  const [slashMenuSearch, setSlashMenuSearch] = useState("")
 
   const handleContextMenu = (e: React.MouseEvent, pageId: string) => {
     e.preventDefault()
