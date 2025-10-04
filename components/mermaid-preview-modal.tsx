@@ -139,11 +139,6 @@ export function MermaidPreviewModal({ isOpen, content, onClose }: MermaidPreview
             }}
           />
         </div>
-
-        {/* 底部状态栏 */}
-        <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-center text-sm text-gray-500">
-          <span>按 Esc 键或点击外部区域关闭预览</span>
-        </div>
       </div>
     </div>
   )
