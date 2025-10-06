@@ -271,22 +271,21 @@ export interface SortOptions {
 }
 
 // UI 相关类型
-export type ViewType = 'document' | 'teams' | 'shared'
-export type ViewMode = 'list' | 'grid' | 'kanban'
+export type ViewType = 'editor' | 'inbox' | 'shared' | 'teams'
+export type ViewMode = 'list' | 'grid' | 'kanban' | 'document'
+export type TeamViewMode = 'document' | 'kanban'
 
 export interface ContextMenuState {
   show: boolean
-  position: { x: number; y: number }
-  onRename: () => void
-  onDelete: () => void
+  x: number
+  y: number
+  pageId: string
 }
 
 export interface DeleteDialogState {
   show: boolean
-  itemType: string
-  itemName: string
-  onConfirm: () => void
-  onCancel: () => void
+  pageId: string
+  pageTitle: string
 }
 
 // 导出所有类型的联合类型

@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 
 // 组件导入
 import SlashMenu from "./slash-menu"
@@ -32,7 +31,6 @@ export default function MarkdownEditor({ onBackToHome }: MarkdownEditorProps) {
     pages,
     currentPageId,
     setCurrentPageId,
-    getCurrentPage,
     getCurrentBlocks,
     togglePageExpansion,
     expandPathToPage,

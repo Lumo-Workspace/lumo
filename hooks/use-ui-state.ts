@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import type { ViewType, ViewMode, ContextMenuState, DeleteDialogState } from "@/types"
+import type { ViewType, ViewMode, TeamViewMode, ContextMenuState, DeleteDialogState } from "@/types"
 import { STORAGE_KEYS } from "@/constants"
 import { storage as storageUtils } from "@/utils"
 
@@ -15,7 +15,7 @@ interface UIState {
   teamsExpanded: boolean
   editingPageId: string | null
   editingTitle: string
-  teamViewMode: ViewMode
+  teamViewMode: TeamViewMode
   contextMenu: ContextMenuState
   deleteDialog: DeleteDialogState
 }
@@ -23,26 +23,24 @@ interface UIState {
 // ==================== 默认状态 ====================
 
 const DEFAULT_STATE: UIState = {
-  currentView: "document",
+  currentView: "editor",
   showAIChat: false,
   aiChatFullscreen: false,
   workspaceExpanded: true,
   teamsExpanded: true,
   editingPageId: null,
   editingTitle: "",
-  teamViewMode: "list",
+  teamViewMode: "document",
   contextMenu: {
     show: false,
-    position: { x: 0, y: 0 },
-    onRename: () => {},
-    onDelete: () => {},
+    x: 0,
+    y: 0,
+    pageId: "",
   },
   deleteDialog: {
     show: false,
-    itemType: "",
-    itemName: "",
-    onConfirm: () => {},
-    onCancel: () => {},
+    pageId: "",
+    pageTitle: "",
   },
 }
 
@@ -179,7 +177,7 @@ export function useUIState() {
     setTeamsExpanded: (expanded: boolean) => saveState({ teamsExpanded: expanded }),
     setEditingPageId: (id: string | null) => saveState({ editingPageId: id }),
     setEditingTitle: (title: string) => saveState({ editingTitle: title }),
-    setTeamViewMode: (mode: ViewMode) => saveState({ teamViewMode: mode }),
+    setTeamViewMode: (mode: TeamViewMode) => saveState({ teamViewMode: mode }),
     setContextMenu: (menu: ContextMenuState) => saveState({ contextMenu: menu }),
     setDeleteDialog: (dialog: DeleteDialogState) => saveState({ deleteDialog: dialog }),
   }

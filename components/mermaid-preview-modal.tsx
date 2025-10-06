@@ -108,7 +108,7 @@ export function MermaidPreviewModal({ isOpen, content, onClose }: MermaidPreview
     e.stopPropagation()
   }
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
+  const handleMouseLeave = () => {
     setIsDragging(false)
   }
 
