@@ -326,7 +326,7 @@ export async function withRetry<T>(
 
 // 错误边界工具
 export function createErrorBoundaryHandler() {
-  return (error: Error, errorInfo: any) => {
+  return (error: Error) => {
     const globalHandler = GlobalErrorHandler.getInstance()
     globalHandler.handleError(error, 'error_boundary', undefined, undefined)
   }

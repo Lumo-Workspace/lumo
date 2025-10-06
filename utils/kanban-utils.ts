@@ -84,7 +84,6 @@ export const handleDragLeave = () => {
 export const handleDrop = (
   e: React.DragEvent,
   columnId: string,
-  items: KanbanItem[],
   setDraggedItem: (id: string | null) => void,
   setDraggedOver: (id: string | null) => void,
   onStatusChange: (itemId: string, newStatus: string) => void,

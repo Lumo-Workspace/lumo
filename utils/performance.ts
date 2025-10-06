@@ -262,9 +262,6 @@ export const batchUtils = {
    * 批量DOM操作
    */
   batchDOMUpdates: (updates: (() => void)[]): void => {
-    // 使用DocumentFragment减少重排
-    const fragment = document.createDocumentFragment()
-    
     // 批量执行更新
     updates.forEach(update => update())
   },

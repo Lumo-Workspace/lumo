@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import type { ViewType, ViewMode, TeamViewMode, ContextMenuState, DeleteDialogState } from "@/types"
+import type { ViewType, TeamViewMode, ContextMenuState, DeleteDialogState } from "@/types"
 import { STORAGE_KEYS } from "@/constants"
 import { storage as storageUtils } from "@/utils"
 
@@ -47,7 +47,7 @@ const DEFAULT_STATE: UIState = {
 export function useUIState() {
   // 从本地存储恢复状态
   const [state, setState] = useState<UIState>(() => {
-    const savedState = storageUtils.get<Partial<UIState>>(STORAGE_KEYS.userPreferences, {})
+    const savedState = storageUtils.get<Partial<UIState>>(STORAGE_KEYS.USER_PREFERENCES, {})
     return { ...DEFAULT_STATE, ...savedState }
   })
 
@@ -55,7 +55,7 @@ export function useUIState() {
   const saveState = useCallback((newState: Partial<UIState>) => {
     setState(prev => {
       const updatedState = { ...prev, ...newState }
-      storageUtils.set(STORAGE_KEYS.userPreferences, updatedState)
+      storageUtils.set(STORAGE_KEYS.USER_PREFERENCES, updatedState)
       return updatedState
     })
   }, [])
@@ -63,7 +63,7 @@ export function useUIState() {
   // 重置状态
   const resetState = useCallback(() => {
     setState(DEFAULT_STATE)
-    storageUtils.remove(STORAGE_KEYS.userPreferences)
+    storageUtils.remove(STORAGE_KEYS.USER_PREFERENCES)
   }, [])
 
   // 上下文菜单操作

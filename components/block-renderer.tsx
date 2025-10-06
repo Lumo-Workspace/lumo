@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
-import mermaid from "mermaid"
 import { MermaidDiagram } from "./mermaid-diagram"
 
 interface Block {
@@ -170,7 +168,7 @@ export default function BlockRenderer({
             key={block.id}
             content={block.content}
             onUpdate={(content) => onUpdate(block.id, content)}
-            isEditing={isFocused && block.content.trim() === ""}
+            isEditing={Boolean(isFocused && block.content.trim() === "")}
           />
         )
 

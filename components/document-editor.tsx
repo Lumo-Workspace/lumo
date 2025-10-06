@@ -36,7 +36,6 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
     addTextBlock,
     addTaskBlock,
     updateTaskBlock,
-    handleKeyDown,
   } = useDocumentBlocks(initialContent)
 
   const { isAutoSaving, lastSaved } = useAutoSave(blocks, onSave)

@@ -7,7 +7,7 @@ import { MermaidPreviewModal } from "./mermaid-preview-modal"
 interface MermaidDiagramProps {
   content: string
   onUpdate?: (content: string) => void
-  isEditing?: boolean
+  isEditing?: boolean | undefined
 }
 
 export function MermaidDiagram({ content, onUpdate, isEditing = false }: MermaidDiagramProps) {

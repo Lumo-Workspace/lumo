@@ -13,7 +13,6 @@ import {
   AlignCenter,
   AlignRight,
   Type,
-  Hash,
   List,
   CheckSquare,
   Quote,
@@ -23,20 +22,12 @@ import {
   ChevronRight,
   Highlighter,
   Layers,
-  ListOrdered,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6
+  ListOrdered
 } from "lucide-react"
 
 interface FloatingMenuProps {
   position: { x: number; y: number }
   onFormat: (command: string, value?: string) => void
-  onClose: () => void
-  selectedText?: string
 }
 
 // 标题级别选项
@@ -138,7 +129,7 @@ const alignmentButtons = [
   }
 ]
 
-export function FloatingMenu({ position, onFormat, onClose, selectedText }: FloatingMenuProps) {
+export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
   const [currentHeading, setCurrentHeading] = useState("正文")
   const [showHeadingMenu, setShowHeadingMenu] = useState(false)
   const [showSubmenu, setShowSubmenu] = useState(false)

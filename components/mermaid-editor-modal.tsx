@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Copy, Download, ZoomIn, ZoomOut, RotateCcw } from "lucide-react"
+import { X, Copy, ZoomIn, ZoomOut, RotateCcw } from "lucide-react"
 import mermaid from "mermaid"
 
 interface MermaidEditorModalProps {

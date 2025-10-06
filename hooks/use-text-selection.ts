@@ -56,7 +56,7 @@ export function useTextSelection() {
   }, [])
 
   useEffect(() => {
-    const handleMouseUp = (e: Event) => {
+    const handleMouseUp = () => {
       handleSelectionChange()
     }
     

@@ -18,8 +18,7 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
-  Image,
-  Type
+  Image
 } from "lucide-react"
 
 interface DocumentEditorToolbarProps {

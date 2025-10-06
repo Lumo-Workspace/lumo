@@ -5,8 +5,7 @@ import {
   ChevronRight, 
   FileText, 
   FolderOpen, 
-  Folder, 
-  Users 
+  Folder 
 } from "lucide-react"
 
 interface TeamTreeProps {

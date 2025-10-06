@@ -161,8 +161,8 @@ export default function TeamView({
           id: task.id,
           title: task.title,
           status: task.status,
-          assignee: task.assignee,
-          dueDate: task.dueDate,
+          assignee: task.assignee || undefined,
+          dueDate: task.dueDate || undefined,
           updatedAt: task.updatedAt,
           type: "task" as const,
           content: task.content,
@@ -186,7 +186,7 @@ export default function TeamView({
     )
   }
 
-  const getStatusBadge = (status: string, type: string) => {
+  const getStatusBadge = (status: string) => {
     const statusConfig = {
       // Team statuses
       active: { color: "bg-green-100 text-green-800", label: "活跃" },
@@ -333,7 +333,7 @@ export default function TeamView({
                   <div key={project.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-medium text-gray-900">{project.title}</h3>
-                      {getStatusBadge(project.status, "project")}
+                      {getStatusBadge(project.status)}
                     </div>
                     <p className="text-gray-600 text-sm mb-2">{project.description}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -358,7 +358,7 @@ export default function TeamView({
               </div>
               <div className="flex items-center gap-2">
                 {renderViewModeToggle()}
-                {getStatusBadge(project.status, "project")}
+                {getStatusBadge(project.status)}
                 <Button variant="outline" size="sm">
                   编辑项目
                 </Button>
@@ -397,7 +397,7 @@ export default function TeamView({
                         <h3 className="font-medium text-gray-900">{prd.title}</h3>
                         <div className="flex items-center gap-2">
                           <Badge className="bg-gray-100 text-gray-800 border-0">{prd.version}</Badge>
-                          {getStatusBadge(prd.status, "prd")}
+                          {getStatusBadge(prd.status)}
                         </div>
                       </div>
                       <p className="text-gray-600 text-sm mb-2">{prd.content.substring(0, 100)}...</p>
@@ -427,7 +427,7 @@ export default function TeamView({
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{prd.title}</h1>
                 <div className="flex items-center gap-2">
                   <Badge className="bg-gray-100 text-gray-800 border-0">{prd.version}</Badge>
-                  {getStatusBadge(prd.status, "prd")}
+                  {getStatusBadge(prd.status)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -456,7 +456,7 @@ export default function TeamView({
                     <div key={epic.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">{epic.title}</h3>
-                        {getStatusBadge(epic.status, "epic")}
+                        {getStatusBadge(epic.status)}
                       </div>
                       <p className="text-gray-600 text-sm mb-2">{epic.content}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -483,7 +483,7 @@ export default function TeamView({
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{epic.title}</h1>
-                {getStatusBadge(epic.status, "epic")}
+                {getStatusBadge(epic.status)}
               </div>
               <div className="flex items-center gap-2">
                 {renderViewModeToggle()}
@@ -523,7 +523,7 @@ export default function TeamView({
                           >
                             {story.priority === "high" ? "高" : story.priority === "medium" ? "中" : "低"}
                           </Badge>
-                          {getStatusBadge(story.status, "story")}
+                          {getStatusBadge(story.status)}
                         </div>
                       </div>
                       <p className="text-gray-600 text-sm mb-2">{story.content}</p>
@@ -563,7 +563,7 @@ export default function TeamView({
                   >
                     {story.priority === "high" ? "高优先级" : story.priority === "medium" ? "中优先级" : "低优先级"}
                   </Badge>
-                  {getStatusBadge(story.status, "story")}
+                  {getStatusBadge(story.status)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -592,7 +592,7 @@ export default function TeamView({
                     <div key={task.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">{task.title}</h3>
-                        {getStatusBadge(task.status, "task")}
+                        {getStatusBadge(task.status)}
                       </div>
                       <p className="text-gray-600 text-sm mb-2">{task.content}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -620,7 +620,7 @@ export default function TeamView({
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{task.title}</h1>
-                {getStatusBadge(task.status, "task")}
+                {getStatusBadge(task.status)}
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">

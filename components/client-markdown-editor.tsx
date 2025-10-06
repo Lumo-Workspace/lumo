@@ -17,10 +17,8 @@ const MarkdownEditor = dynamic(() => import("./markdown-editor"), {
   ),
 })
 
-interface ClientMarkdownEditorProps {
-  onBackToHome?: () => void
-}
+interface ClientMarkdownEditorProps {}
 
-export default function ClientMarkdownEditor({ onBackToHome }: ClientMarkdownEditorProps) {
-  return <MarkdownEditor onBackToHome={onBackToHome} />
+export default function ClientMarkdownEditor({}: ClientMarkdownEditorProps) {
+  return <MarkdownEditor />
 }

@@ -13,9 +13,9 @@ interface MetadataItem {
   createdAt: string
   updatedAt: string
   owner?: string
-  assignee?: string
+  assignee?: string | undefined
   priority?: "high" | "medium" | "low"
-  dueDate?: string
+  dueDate?: string | undefined
   version?: string
   description?: string
 }

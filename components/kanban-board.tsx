@@ -11,8 +11,8 @@ interface KanbanItem {
   title: string
   status: string
   priority?: string
-  assignee?: string
-  dueDate?: string
+  assignee?: string | undefined
+  dueDate?: string | undefined
   updatedAt: string
   type: "prd" | "epic" | "story" | "task"
   content?: string

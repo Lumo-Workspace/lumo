@@ -13,14 +13,12 @@ import EstimationStep from "./story-wizard/estimation-step"
 import StoryPreview from "./story-wizard/story-preview"
 
 interface StoryCreationWizardProps {
-  epicId: string
   existingStories: Array<{ id: string; title: string }>
   onStoryCreate: (story: StoryData) => void
   onClose: () => void
 }
 
 export default function StoryCreationWizard({
-  epicId,
   existingStories,
   onStoryCreate,
   onClose,

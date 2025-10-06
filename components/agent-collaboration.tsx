@@ -58,11 +58,6 @@ export default function AgentCollaboration({
   useEffect(() => {
     const interval = setInterval(() => {
       // Randomly update agent statuses to simulate activity
-      const randomAgent = session.agents[Math.floor(Math.random() * session.agents.length)]
-      const statuses: Agent["status"][] = ["active", "thinking", "reviewing", "idle"]
-      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
-
-      // This would normally update the agent status in the parent component
       // TODO: Update agent status in parent component
     }, 3000)
 
@@ -137,7 +132,8 @@ export default function AgentCollaboration({
   const handleAddRequirement = () => {
     if (!activeAgent || !newRequirement.trim()) return
 
-    const requirement: AgentRequirement = {
+    // Create new requirement object
+    const newRequirementData: AgentRequirement = {
       agentId: activeAgent,
       requirement: newRequirement,
       priority: selectedPriority,
@@ -147,6 +143,7 @@ export default function AgentCollaboration({
 
     // This would normally be handled by the parent component
     // TODO: Handle new requirement in parent component
+    console.log('New requirement created:', newRequirementData)
     setNewRequirement("")
   }
 

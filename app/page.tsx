@@ -8,7 +8,7 @@ export default function HomePage() {
   const [showApp, setShowApp] = useState(false)
 
   if (showApp) {
-    return <ClientMarkdownEditor onBackToHome={() => setShowApp(false)} />
+    return <ClientMarkdownEditor />
   }
 
   return <LandingPage onGetStarted={() => setShowApp(true)} />

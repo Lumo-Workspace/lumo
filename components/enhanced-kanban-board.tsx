@@ -25,7 +25,6 @@ interface EnhancedKanbanBoardProps {
 export default function EnhancedKanbanBoard({ items, onStatusChange, type, context }: EnhancedKanbanBoardProps) {
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
   const [draggedOver, setDraggedOver] = useState<string | null>(null)
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
 
   return (
     <div className="h-full flex flex-col">
@@ -62,7 +61,7 @@ export default function EnhancedKanbanBoard({ items, onStatusChange, type, conte
               }`}
               onDragOver={(e) => handleDragOver(e, column.id, setDraggedOver)}
               onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, column.id, items, setDraggedItem, setDraggedOver, onStatusChange)}
+              onDrop={(e) => handleDrop(e, column.id, setDraggedItem, setDraggedOver, onStatusChange)}
             >
               {getItemsByStatus(items, column.id).map((item) => (
                 <KanbanCard

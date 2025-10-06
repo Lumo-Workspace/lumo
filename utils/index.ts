@@ -127,7 +127,7 @@ export function throttle<T extends (...args: any[]) => any>(
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean
-  return function executedFunction(...args: Parameters<T>) {
+  return function executedFunction(this: any, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args)
       inThrottle = true
@@ -205,7 +205,7 @@ export function paginate<T>(
 }
 
 // 对象属性选择
-export function pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
   const result = {} as Pick<T, K>
   keys.forEach(key => {
     if (key in obj) {
@@ -256,13 +256,13 @@ export function set(obj: any, path: string, value: any): any {
   
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i]
-    if (!(key in current) || typeof current[key] !== 'object') {
-      current[key] = {}
+    if (!key || !(key in current) || typeof current[key] !== 'object') {
+      current[key!] = {}
     }
-    current = current[key]
+    current = current[key!]
   }
   
-  current[keys[keys.length - 1]] = value
+  current[keys[keys.length - 1]!] = value
   return result
 }
 
@@ -281,9 +281,9 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
+        r: parseInt(result[1]!, 16),
+        g: parseInt(result[2]!, 16),
+        b: parseInt(result[3]!, 16),
       }
     : null
 }
@@ -298,8 +298,7 @@ export const storage = {
     try {
       const item = localStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
-    } catch (error) {
-      console.error('Error reading from localStorage:', error)
+    } catch {
       return defaultValue || null
     }
   },
@@ -307,24 +306,24 @@ export const storage = {
   set: <T = any>(key: string, value: T): void => {
     try {
       localStorage.setItem(key, JSON.stringify(value))
-    } catch (error) {
-      console.error('Error writing to localStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 
   remove: (key: string): void => {
     try {
       localStorage.removeItem(key)
-    } catch (error) {
-      console.error('Error removing from localStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 
   clear: (): void => {
     try {
       localStorage.clear()
-    } catch (error) {
-      console.error('Error clearing localStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 }
@@ -335,8 +334,7 @@ export const sessionStorage = {
     try {
       const item = window.sessionStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
-    } catch (error) {
-      console.error('Error reading from sessionStorage:', error)
+    } catch {
       return defaultValue || null
     }
   },
@@ -344,24 +342,24 @@ export const sessionStorage = {
   set: <T = any>(key: string, value: T): void => {
     try {
       window.sessionStorage.setItem(key, JSON.stringify(value))
-    } catch (error) {
-      console.error('Error writing to sessionStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 
   remove: (key: string): void => {
     try {
       window.sessionStorage.removeItem(key)
-    } catch (error) {
-      console.error('Error removing from sessionStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 
   clear: (): void => {
     try {
       window.sessionStorage.clear()
-    } catch (error) {
-      console.error('Error clearing sessionStorage:', error)
+    } catch {
+      // Silent fail
     }
   },
 }

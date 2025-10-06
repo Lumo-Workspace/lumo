@@ -56,8 +56,9 @@ export default function KanbanCard({ item, draggedItem, onDragStart, onMouseEnte
               storyId={item.id}
               storyTitle={item.title}
               storyContent={item.content || ""}
-              onApplyOptimization={(optimizations) => {
+              onApplyOptimization={(appliedOptimizations) => {
                 // TODO: Handle applied optimizations
+                console.log('Applied optimizations:', appliedOptimizations)
               }}
             />
           </div>

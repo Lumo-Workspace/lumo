@@ -10,7 +10,6 @@ import type { DocumentBlock, TaskWidget } from "@/hooks/use-document-blocks"
 interface DocumentBlockProps {
   block: DocumentBlock
   index: number
-  isActive: boolean
   onContentChange: (blockId: string, content: string) => void
   onFocus: (blockId: string) => void
   onKeyDown: (e: React.KeyboardEvent, blockId: string) => void
@@ -23,7 +22,6 @@ interface DocumentBlockProps {
 export function DocumentBlock({
   block,
   index,
-  isActive,
   onContentChange,
   onFocus,
   onKeyDown,
