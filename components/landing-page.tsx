@@ -36,20 +36,20 @@ function GradientBackground() {
     }))
 
     const animate = () => {
-      // Fill with a purple gradient background
+      // Fill with subtle purple gradient background for visual depth
       const baseGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
-      baseGradient.addColorStop(0, 'rgba(147, 51, 234, 0.2)')
-      baseGradient.addColorStop(0.3, 'rgba(168, 85, 255, 0.15)')
-      baseGradient.addColorStop(0.7, 'rgba(196, 132, 252, 0.1)')
-      baseGradient.addColorStop(1, 'rgba(233, 213, 255, 0.05)')
+      baseGradient.addColorStop(0, 'rgba(147, 51, 234, 0.03)')
+      baseGradient.addColorStop(0.3, 'rgba(168, 85, 255, 0.02)')
+      baseGradient.addColorStop(0.7, 'rgba(196, 132, 252, 0.015)')
+      baseGradient.addColorStop(1, 'rgba(233, 213, 255, 0.01)')
       ctx.fillStyle = baseGradient
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       // Draw blobs
       blobs.forEach((blob) => {
         const gradient = ctx.createRadialGradient(blob.x, blob.y, 0, blob.x, blob.y, blob.radius)
-        gradient.addColorStop(0, `hsla(${blob.hue}, 70%, 70%, 0.3)`)
-        gradient.addColorStop(1, `hsla(${blob.hue}, 70%, 70%, 0)`)
+        gradient.addColorStop(0, `hsla(${blob.hue}, 55%, 80%, 0.12)`)
+        gradient.addColorStop(1, `hsla(${blob.hue}, 55%, 80%, 0)`)
 
         ctx.fillStyle = gradient
         ctx.beginPath()
@@ -75,7 +75,7 @@ function GradientBackground() {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="fixed inset-0 w-screen h-screen -z-10 opacity-70" aria-hidden="true" />
+  return <canvas ref={canvasRef} className="fixed inset-0 w-screen h-screen -z-10 opacity-40" aria-hidden="true" />
 }
 
 // Sound Wave Animation Component
@@ -102,38 +102,38 @@ function SoundWaveAnimation({ className }: SoundWaveAnimationProps) {
     setCanvasDimensions()
     window.addEventListener("resize", setCanvasDimensions)
 
-    // Wave parameters with refined purple color scheme and slower animation
+    // Wave parameters with subtle purple color scheme and slower animation
     const waves = [
       {
         amplitude: 40,
         frequency: 0.005,
         speed: 0.02,
-        color: "rgba(168, 85, 255, 0.4)",
-        strokeColor: "rgba(168, 85, 255, 0.5)",
+        color: "rgba(168, 85, 255, 0.08)",
+        strokeColor: "rgba(168, 85, 255, 0.12)",
         offset: 0,
       },
       {
         amplitude: 25,
         frequency: 0.015,
         speed: 0.015,
-        color: "rgba(192, 132, 252, 0.35)",
-        strokeColor: "rgba(192, 132, 252, 0.5)",
+        color: "rgba(192, 132, 252, 0.06)",
+        strokeColor: "rgba(192, 132, 252, 0.1)",
         offset: 100,
       },
       {
         amplitude: 15,
         frequency: 0.025,
         speed: 0.01,
-        color: "rgba(139, 92, 246, 0.3)",
-        strokeColor: "rgba(139, 92, 246, 0.45)",
+        color: "rgba(139, 92, 246, 0.05)",
+        strokeColor: "rgba(139, 92, 246, 0.08)",
         offset: 200,
       },
       {
         amplitude: 30,
         frequency: 0.01,
         speed: 0.012,
-        color: "rgba(124, 58, 237, 0.35)",
-        strokeColor: "rgba(124, 58, 237, 0.5)",
+        color: "rgba(124, 58, 237, 0.06)",
+        strokeColor: "rgba(124, 58, 237, 0.1)",
         offset: 300,
       },
     ]
@@ -227,7 +227,7 @@ function SoundWaveAnimation({ className }: SoundWaveAnimationProps) {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className={`absolute w-full h-[400px] opacity-80 ${className}`} aria-hidden="true" />
+  return <canvas ref={canvasRef} className={`absolute w-full h-[400px] opacity-35 ${className}`} aria-hidden="true" />
 }
 
 interface LandingPageProps {
@@ -238,19 +238,19 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-white">
       {/* Gradient Background */}
       <GradientBackground />
       
       {/* Refined Animated Wave Layers with Glow Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Soft purple radial glow behind title */}
-        <div 
-          className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] opacity-50"
-          style={{
-            background: 'radial-gradient(circle at 50% 30%, rgba(180,100,255,0.2), transparent 60%)'
-          }}
-        ></div>
+         {/* Soft purple radial glow behind title */}
+         <div 
+           className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] opacity-25"
+           style={{
+             background: 'radial-gradient(circle at 50% 30%, rgba(180,100,255,0.05), transparent 60%)'
+           }}
+         ></div>
         
         {/* Sound Wave Animation */}
         <SoundWaveAnimation className="top-1/3 transform -translate-y-1/2" />
