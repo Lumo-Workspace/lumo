@@ -1,37 +1,152 @@
 /**
- * 统一的类型定义文件
- * 集中管理项目中所有的TypeScript类型定义
+ * 核心业务类型定义
+ * Core business type definitions
  */
 
-// ==================== 基础类型 ====================
-
-export type ID = string
-
-export type Status = 'active' | 'thinking' | 'reviewing' | 'idle' | 'offline'
-
-export type Priority = 'low' | 'medium' | 'high'
-
-export type Role = 'PM' | 'UX' | 'Dev' | 'QA' | 'BA'
-
-export type ViewMode = 'document' | 'kanban'
-
-export type ViewType = 'editor' | 'inbox' | 'shared' | 'teams'
-
-export type BlockType = 'text' | 'task' | 'heading' | 'list' | 'quote' | 'code' | 'divider' | 'mermaid'
-
-export type TaskStatus = 'todo' | 'in-progress' | 'review' | 'done'
-
-export type ModalMode = 'create' | 'edit'
-
-// ==================== 用户和团队相关 ====================
-
+// 用户和团队相关类型
 export interface User {
-  id: ID
+  id: string
   name: string
   email: string
   avatar?: string
-  role: Role
-  status: Status
+  role: UserRole
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type UserRole = 'admin' | 'manager' | 'member' | 'viewer'
+
+export interface Team {
+  id: string
+  name: string
+  description?: string
+  members: TeamMember[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface TeamMember {
+  userId: string
+  role: TeamRole
+  joinedAt: Date
+}
+
+export type TeamRole = 'owner' | 'admin' | 'member'
+
+// 项目结构类型
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  teamId: string
+  status: ProjectStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled'
+
+export interface PRD {
+  id: string
+  title: string
+  description?: string
+  projectId: string
+  status: PRDStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type PRDStatus = 'draft' | 'review' | 'approved' | 'archived'
+
+export interface Epic {
+  id: string
+  title: string
+  description?: string
+  prdId: string
+  priority: Priority
+  status: EpicStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type EpicStatus = 'backlog' | 'in-progress' | 'review' | 'done'
+export type Priority = 'low' | 'medium' | 'high' | 'critical'
+
+// 用户故事和任务类型
+export interface Story {
+  id: string
+  title: string
+  asA: string
+  iWant: string
+  soThat: string
+  acceptanceCriteria: string[]
+  epicId: string
+  priority: Priority
+  status: StoryStatus
+  estimatedPoints: number
+  actualPoints?: number
+  assignee?: string
+  tags: string[]
+  dependencies: string[]
+  businessValue: string
+  technicalNotes?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type StoryStatus = 'backlog' | 'ready' | 'in-progress' | 'review' | 'done'
+
+export interface Task {
+  id: string
+  title: string
+  description?: string
+  storyId?: string
+  status: TaskStatus
+  priority: Priority
+  assignee?: string
+  dueDate?: Date
+  estimatedHours?: number
+  actualHours?: number
+  tags: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type TaskStatus = 'draft' | 'todo' | 'in-progress' | 'review' | 'done'
+
+// 文档和页面类型
+export interface Page {
+  id: string
+  title: string
+  content: string
+  parentId?: string
+  type: PageType
+  status: PageStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type PageType = 'document' | 'note' | 'template'
+export type PageStatus = 'draft' | 'published' | 'archived'
+
+export interface Block {
+  id: string
+  type: BlockType
+  content: string
+  metadata?: Record<string, any>
+  order: number
+}
+
+export type BlockType = 'text' | 'heading' | 'list' | 'code' | 'image' | 'quote' | 'divider'
+
+// AI 相关类型
+export interface Agent {
+  id: string
+  name: string
+  role: AgentRole
+  avatar: string
+  status: AgentStatus
+  currentTask?: string
   expertise: string[]
   workload: number // 0-100
   efficiency: number // 0-100
@@ -41,237 +156,38 @@ export interface User {
   collaborationScore: number // 0-100
 }
 
-export interface Team {
-  id: ID
-  name: string
-  description: string
-  members: User[]
-  isExpanded: boolean
-  projects: Project[]
-}
-
-// ==================== 项目管理相关 ====================
-
-export interface Project {
-  id: ID
-  name: string
-  description: string
-  isExpanded: boolean
-  prds: PRD[]
-}
-
-export interface PRD {
-  id: ID
-  title: string
-  description: string
-  isExpanded: boolean
-  epics: Epic[]
-}
-
-export interface Epic {
-  id: ID
-  title: string
-  description: string
-  isExpanded: boolean
-  stories: Story[]
-}
-
-export interface Story {
-  id: ID
-  title: string
-  asA: string // "As a..."
-  iWant: string // "I want..."
-  soThat: string // "So that..."
-  acceptanceCriteria: string[]
-  priority: Priority
-  estimatedPoints: number
-  dependencies: string[]
-  tags: string[]
-  businessValue: string
-  technicalNotes: string
-  status: TaskStatus
-  assignee?: User
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Task {
-  id: ID
-  title: string
-  description: string
-  status: TaskStatus
-  priority: Priority
-  assignee?: User
-  storyId?: ID
-  dueDate?: string
-  estimatedHours?: number
-  actualHours?: number
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-}
-
-// ==================== 文档和编辑器相关 ====================
-
-export interface DocumentBlock {
-  id: ID
-  type: BlockType
-  content: string
-  task?: TaskWidget
-  metadata?: Record<string, unknown>
-}
-
-export interface TaskWidget {
-  id: ID
-  title: string
-  description: string
-  status: TaskStatus
-  priority: Priority
-  assignee?: User
-  dueDate?: string
-  estimatedHours?: number
-  actualHours?: number
-  tags: string[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Page {
-  id: ID
-  title: string
-  content: DocumentBlock[]
-  parentId?: ID
-  children: Page[]
-  isExpanded: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-// ==================== UI状态相关 ====================
-
-export interface UIState {
-  currentView: ViewType
-  showAIChat: boolean
-  aiChatFullscreen: boolean
-  workspaceExpanded: boolean
-  teamsExpanded: boolean
-  editingPageId: ID | null
-  editingTitle: string
-  teamViewMode: ViewMode
-  contextMenu: ContextMenuState
-  deleteDialog: DeleteDialogState
-}
-
-export interface ContextMenuState {
-  show: boolean
-  x: number
-  y: number
-  pageId: ID
-}
-
-export interface DeleteDialogState {
-  show: boolean
-  pageId: ID
-  pageTitle: string
-}
-
-// ==================== AI和协作相关 ====================
-
-export interface Agent extends User {
-  currentTask?: string
-}
+export type AgentRole = 'PM' | 'UX' | 'Dev' | 'QA' | 'BA'
+export type AgentStatus = 'active' | 'thinking' | 'reviewing' | 'idle' | 'offline'
 
 export interface AgentRecommendation {
-  agentId: ID
+  agentId: string
   reason: string
-  confidence: number
+  confidence: number // 0-100
   taskType: string
 }
 
-export interface CommunicationLog {
-  id: ID
-  timestamp: string
-  agentId: ID
-  message: string
-  type: 'info' | 'warning' | 'error' | 'success'
-}
-
-export interface AgentRequirement {
-  agentId: ID
-  requirement: string
-  priority: Priority
-  status: TaskStatus
-}
-
-// ==================== 质量检查相关 ====================
-
+// 质量检查类型
 export interface QualityCheck {
   id: string
   name: string
   description: string
-  passed: boolean
   required: boolean
+  passed: boolean
   message?: string
+  category: QualityCategory
 }
 
-export interface StoryData {
-  title: string
-  asA: string
-  iWant: string
-  soThat: string
-  acceptanceCriteria: string[]
-  priority: Priority
-  estimatedPoints: number
-  dependencies: string[]
-  tags: string[]
-  businessValue: string
-  technicalNotes: string
-}
+export type QualityCategory = 'completeness' | 'clarity' | 'feasibility' | 'consistency'
 
-// ==================== 通知相关 ====================
-
-export interface Notification {
-  id: ID
-  title: string
-  message: string
-  type: 'info' | 'success' | 'warning' | 'error'
-  timestamp: string
-  read: boolean
-  actionUrl?: string
-}
-
-// ==================== 事件相关 ====================
-
-export interface DragItem {
-  id: ID
-  type: string
-  data: unknown
-}
-
-export interface SlashMenuState {
-  show: boolean
-  position: { x: number; y: number }
-  items: SlashMenuItem[]
-}
-
-export interface SlashMenuItem {
-  id: string
-  title: string
-  description: string
-  icon: string
-  action: () => void
-}
-
-// ==================== API响应相关 ====================
-
-export interface ApiResponse<T = unknown> {
+// API 响应类型
+export interface ApiResponse<T = any> {
   success: boolean
   data?: T
   error?: string
   message?: string
 }
 
-export interface PaginatedResponse<T = unknown> extends ApiResponse<T[]> {
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   pagination: {
     page: number
     limit: number
@@ -280,57 +196,103 @@ export interface PaginatedResponse<T = unknown> extends ApiResponse<T[]> {
   }
 }
 
-// ==================== 表单相关 ====================
-
-export interface FormField<T = string> {
-  value: T
-  error?: string
-  touched: boolean
-  required?: boolean
+// 表单和验证类型
+export interface ValidationError {
+  field: string
+  message: string
 }
 
-export interface FormState<T extends Record<string, unknown>> {
-  fields: Record<keyof T, FormField<T[keyof T]>>
-  isValid: boolean
+export interface FormState<T = any> {
+  data: T
+  errors: ValidationError[]
   isSubmitting: boolean
-  isDirty: boolean
+  isValid: boolean
 }
 
-// ==================== 配置相关 ====================
-
-export interface AppConfig {
-  theme: 'light' | 'dark' | 'system'
-  language: 'en' | 'zh'
-  autoSave: boolean
-  autoSaveInterval: number
-  maxFileSize: number
-  allowedFileTypes: string[]
+// 事件类型
+export interface BaseEvent {
+  id: string
+  type: string
+  timestamp: Date
+  userId?: string
 }
 
-// ==================== 工具类型 ====================
-
-export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P]
+export interface PageEvent extends BaseEvent {
+  type: 'page.created' | 'page.updated' | 'page.deleted'
+  pageId: string
 }
 
-export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+export interface StoryEvent extends BaseEvent {
+  type: 'story.created' | 'story.updated' | 'story.deleted' | 'story.status-changed'
+  storyId: string
+  epicId?: string
+}
 
-export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>
+export interface TaskEvent extends BaseEvent {
+  type: 'task.created' | 'task.updated' | 'task.deleted' | 'task.status-changed'
+  taskId: string
+  storyId?: string
+}
 
-export type NonNullable<T> = T extends null | undefined ? never : T
+export type AppEvent = PageEvent | StoryEvent | TaskEvent
 
-// ==================== 事件处理器类型 ====================
+// 通知类型
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  message: string
+  read: boolean
+  userId: string
+  relatedId?: string
+  relatedType?: string
+  createdAt: Date
+}
 
-export type EventHandler<T = Event> = (event: T) => void
+export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 
-export type ChangeHandler<T = string> = (value: T) => void
+// 搜索和过滤类型
+export interface SearchFilters {
+  query?: string
+  type?: string
+  status?: string
+  priority?: Priority
+  assignee?: string
+  tags?: string[]
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+}
 
-export type AsyncHandler<T = unknown, R = void> = (data: T) => Promise<R>
+export interface SortOptions {
+  field: string
+  direction: 'asc' | 'desc'
+}
 
-export type ValidationRule<T = unknown> = (value: T) => string | undefined
+// UI 相关类型
+export type ViewType = 'document' | 'teams' | 'shared'
+export type ViewMode = 'list' | 'grid' | 'kanban'
 
-// ==================== 导出所有类型 ====================
+export interface ContextMenuState {
+  show: boolean
+  position: { x: number; y: number }
+  onRename: () => void
+  onDelete: () => void
+}
 
-export type * from './api'
-export type * from './forms'
-export type * from './kanban'
+export interface DeleteDialogState {
+  show: boolean
+  itemType: string
+  itemName: string
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+// 导出所有类型的联合类型
+export type EntityId = string
+export type Timestamp = Date
+export type EntityWithTimestamps = {
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}

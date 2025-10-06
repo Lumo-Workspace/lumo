@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import type { ViewType, ViewMode, ContextMenuState, DeleteDialogState } from "@/types"
 import { STORAGE_KEYS } from "@/constants"
-import { storageUtils } from "@/utils"
+import { storage as storageUtils } from "@/utils"
 
 // ==================== UI状态接口 ====================
 
@@ -23,24 +23,26 @@ interface UIState {
 // ==================== 默认状态 ====================
 
 const DEFAULT_STATE: UIState = {
-  currentView: "editor",
+  currentView: "document",
   showAIChat: false,
   aiChatFullscreen: false,
   workspaceExpanded: true,
   teamsExpanded: true,
   editingPageId: null,
   editingTitle: "",
-  teamViewMode: "document",
+  teamViewMode: "list",
   contextMenu: {
     show: false,
-    x: 0,
-    y: 0,
-    pageId: "",
+    position: { x: 0, y: 0 },
+    onRename: () => {},
+    onDelete: () => {},
   },
   deleteDialog: {
     show: false,
-    pageId: "",
-    pageTitle: "",
+    itemType: "",
+    itemName: "",
+    onConfirm: () => {},
+    onCancel: () => {},
   },
 }
 

@@ -1,282 +1,358 @@
 /**
  * 应用常量定义
- * 集中管理项目中所有的常量值
+ * Application constants
  */
 
-import type { 
-  Priority, 
-  TaskStatus, 
-  Role, 
-  ViewMode, 
-  ViewType, 
-  BlockType,
-  Status 
-} from '@/types'
-
-// ==================== 应用配置 ====================
-
+// 应用基本信息
 export const APP_CONFIG = {
   name: 'Lumo',
   version: '1.0.0',
   description: 'AI-Powered Document & Project Management Platform',
   author: 'Lumo Team',
   repository: 'https://github.com/lumoai/lumo',
-  supportEmail: 'support@lumo.ai',
 } as const
 
-// ==================== 主题配置 ====================
+// 路由路径常量
+export const ROUTES = {
+  HOME: '/',
+  DASHBOARD: '/dashboard',
+  DOCUMENTS: '/documents',
+  PROJECTS: '/projects',
+  TEAMS: '/teams',
+  SETTINGS: '/settings',
+  PROFILE: '/profile',
+  LOGIN: '/login',
+  REGISTER: '/register',
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
+} as const
 
-export const THEME_CONFIG = {
-  light: {
-    primary: '#0f172a',
-    secondary: '#64748b',
-    accent: '#3b82f6',
-    background: '#ffffff',
-    surface: '#f8fafc',
-    text: '#0f172a',
-    muted: '#64748b',
+// API 端点常量
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/api/auth/login',
+    LOGOUT: '/api/auth/logout',
+    REGISTER: '/api/auth/register',
+    REFRESH: '/api/auth/refresh',
+    FORGOT_PASSWORD: '/api/auth/forgot-password',
+    RESET_PASSWORD: '/api/auth/reset-password',
   },
-  dark: {
-    primary: '#f8fafc',
-    secondary: '#94a3b8',
-    accent: '#60a5fa',
-    background: '#0f172a',
-    surface: '#1e293b',
-    text: '#f8fafc',
-    muted: '#94a3b8',
-  },
+  USERS: '/api/users',
+  TEAMS: '/api/teams',
+  PROJECTS: '/api/projects',
+  PRDS: '/api/prds',
+  EPICS: '/api/epics',
+  STORIES: '/api/stories',
+  TASKS: '/api/tasks',
+  PAGES: '/api/pages',
+  AGENTS: '/api/agents',
+  SEARCH: '/api/search',
+  UPLOAD: '/api/upload',
+  EXPORT: '/api/export',
+  IMPORT: '/api/import',
 } as const
 
-// ==================== 状态选项 ====================
-
-export const STATUS_OPTIONS = {
-  task: [
-    { value: 'todo', label: '待办', color: 'bg-gray-500' },
-    { value: 'in-progress', label: '进行中', color: 'bg-blue-500' },
-    { value: 'review', label: '审查', color: 'bg-yellow-500' },
-    { value: 'done', label: '完成', color: 'bg-green-500' },
-  ] as const,
-  agent: [
-    { value: 'active', label: '活跃', color: 'bg-green-500' },
-    { value: 'thinking', label: '思考中', color: 'bg-yellow-500' },
-    { value: 'reviewing', label: '审查中', color: 'bg-blue-500' },
-    { value: 'idle', label: '空闲', color: 'bg-gray-400' },
-    { value: 'offline', label: '离线', color: 'bg-red-500' },
-  ] as const,
-} as const
-
-// ==================== 优先级选项 ====================
-
-export const PRIORITY_OPTIONS = [
-  { value: 'low', label: '低', color: 'bg-green-500', icon: '↓' },
-  { value: 'medium', label: '中', color: 'bg-yellow-500', icon: '→' },
-  { value: 'high', label: '高', color: 'bg-red-500', icon: '↑' },
-] as const
-
-// ==================== 角色选项 ====================
-
-export const ROLE_OPTIONS = [
-  { value: 'PM', label: '产品经理', icon: '🎯', color: 'bg-purple-500' },
-  { value: 'UX', label: '用户体验', icon: '🎨', color: 'bg-pink-500' },
-  { value: 'Dev', label: '开发工程师', icon: '💻', color: 'bg-blue-500' },
-  { value: 'QA', label: '质量保证', icon: '🔍', color: 'bg-orange-500' },
-  { value: 'BA', label: '业务分析师', icon: '📊', color: 'bg-green-500' },
-] as const
-
-// ==================== 视图选项 ====================
-
-export const VIEW_OPTIONS = {
-  mode: [
-    { value: 'document', label: '文档视图', icon: '📄' },
-    { value: 'kanban', label: '看板视图', icon: '📋' },
-  ] as const,
-  type: [
-    { value: 'editor', label: '编辑器', icon: '✏️' },
-    { value: 'inbox', label: '收件箱', icon: '📥' },
-    { value: 'shared', label: '共享', icon: '🔗' },
-    { value: 'teams', label: '团队', icon: '👥' },
-  ] as const,
-} as const
-
-// ==================== 块类型选项 ====================
-
-export const BLOCK_TYPE_OPTIONS = [
-  { value: 'text', label: '文本', icon: '📝', description: '普通文本块' },
-  { value: 'heading', label: '标题', icon: '📌', description: '标题块' },
-  { value: 'list', label: '列表', icon: '📋', description: '有序或无序列表' },
-  { value: 'quote', label: '引用', icon: '💬', description: '引用块' },
-  { value: 'code', label: '代码', icon: '💻', description: '代码块' },
-  { value: 'task', label: '任务', icon: '✅', description: '任务块' },
-  { value: 'mermaid', label: '图表', icon: '📊', description: 'Mermaid 图表' },
-  { value: 'divider', label: '分割线', icon: '➖', description: '分割线' },
-] as const
-
-// ==================== 评估点数 ====================
-
-export const ESTIMATION_POINTS = [
-  { value: 1, label: '1 点', description: '非常简单，几分钟内完成' },
-  { value: 2, label: '2 点', description: '简单，几小时内完成' },
-  { value: 3, label: '3 点', description: '中等复杂度，1天内完成' },
-  { value: 5, label: '5 点', description: '较复杂，2-3天内完成' },
-  { value: 8, label: '8 点', description: '复杂，1周内完成' },
-  { value: 13, label: '13 点', description: '非常复杂，需要拆分' },
-] as const
-
-// ==================== 标签预设 ====================
-
-export const TAG_PRESETS = [
-  { value: 'frontend', label: '前端', color: 'bg-blue-500' },
-  { value: 'backend', label: '后端', color: 'bg-green-500' },
-  { value: 'database', label: '数据库', color: 'bg-orange-500' },
-  { value: 'ui', label: 'UI设计', color: 'bg-purple-500' },
-  { value: 'ux', label: '用户体验', color: 'bg-pink-500' },
-  { value: 'testing', label: '测试', color: 'bg-yellow-500' },
-  { value: 'documentation', label: '文档', color: 'bg-gray-500' },
-  { value: 'bug', label: 'Bug修复', color: 'bg-red-500' },
-  { value: 'feature', label: '新功能', color: 'bg-indigo-500' },
-  { value: 'refactor', label: '重构', color: 'bg-teal-500' },
-] as const
-
-// ==================== 通知类型 ====================
-
-export const NOTIFICATION_TYPES = {
-  info: { icon: 'ℹ️', color: 'bg-blue-500' },
-  success: { icon: '✅', color: 'bg-green-500' },
-  warning: { icon: '⚠️', color: 'bg-yellow-500' },
-  error: { icon: '❌', color: 'bg-red-500' },
-} as const
-
-// ==================== 文件类型限制 ====================
-
-export const FILE_CONFIG = {
-  maxSize: 10 * 1024 * 1024, // 10MB
-  allowedTypes: [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
-    'text/plain',
-    'application/json',
-    'text/markdown',
-  ],
-  allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt', '.json', '.md'],
-} as const
-
-// ==================== 键盘快捷键 ====================
-
-export const KEYBOARD_SHORTCUTS = {
-  save: 'Cmd+S',
-  newPage: 'Cmd+N',
-  search: 'Cmd+K',
-  toggleSidebar: 'Cmd+B',
-  toggleTheme: 'Cmd+Shift+T',
-  undo: 'Cmd+Z',
-  redo: 'Cmd+Shift+Z',
-  bold: 'Cmd+B',
-  italic: 'Cmd+I',
-  code: 'Cmd+E',
-  link: 'Cmd+K',
-} as const
-
-// ==================== 本地存储键 ====================
-
+// 本地存储键名
 export const STORAGE_KEYS = {
-  theme: 'lumo-theme',
-  language: 'lumo-language',
-  sidebarExpanded: 'lumo-sidebar-expanded',
-  teamsExpanded: 'lumo-teams-expanded',
-  recentPages: 'lumo-recent-pages',
-  userPreferences: 'lumo-user-preferences',
-  workspaceLayout: 'lumo-workspace-layout',
+  AUTH_TOKEN: 'lumo_auth_token',
+  REFRESH_TOKEN: 'lumo_refresh_token',
+  USER_PREFERENCES: 'lumo_user_preferences',
+  THEME: 'lumo_theme',
+  LANGUAGE: 'lumo_language',
+  SIDEBAR_STATE: 'lumo_sidebar_state',
+  DASHBOARD_LAYOUT: 'lumo_dashboard_layout',
+  RECENT_PAGES: 'lumo_recent_pages',
+  SEARCH_HISTORY: 'lumo_search_history',
 } as const
 
-// ==================== API配置 ====================
-
-export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
-  timeout: 30000,
-  retryAttempts: 3,
-  retryDelay: 1000,
+// 主题相关常量
+export const THEME = {
+  LIGHT: 'light',
+  DARK: 'dark',
+  SYSTEM: 'system',
 } as const
 
-// ==================== 分页配置 ====================
-
-export const PAGINATION_CONFIG = {
-  defaultPageSize: 20,
-  pageSizeOptions: [10, 20, 50, 100],
-  maxPageSize: 100,
+// 语言支持
+export const LANGUAGES = {
+  EN: 'en',
+  ZH: 'zh',
+  ZH_CN: 'zh-CN',
+  ZH_TW: 'zh-TW',
 } as const
 
-// ==================== 自动保存配置 ====================
-
-export const AUTO_SAVE_CONFIG = {
-  enabled: true,
-  interval: 2000, // 2 seconds
-  debounceDelay: 500,
-  maxRetries: 3,
+// 分页默认值
+export const PAGINATION = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_LIMIT: 20,
+  MAX_LIMIT: 100,
+  PAGE_SIZES: [10, 20, 50, 100],
 } as const
 
-// ==================== 动画配置 ====================
-
-export const ANIMATION_CONFIG = {
-  duration: {
-    fast: 150,
-    normal: 300,
-    slow: 500,
-  },
-  easing: {
-    easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
-    easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
-    easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
+// 文件上传限制
+export const FILE_UPLOAD = {
+  MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  ALLOWED_TYPES: {
+    IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    DOCUMENTS: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    SPREADSHEETS: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
   },
 } as const
 
-// ==================== 验证规则 ====================
-
-export const VALIDATION_RULES = {
-  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  url: /^https?:\/\/.+/,
-  phone: /^[\+]?[1-9][\d]{0,15}$/,
-  username: /^[a-zA-Z0-9_]{3,20}$/,
-  password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/,
+// 表单验证规则
+export const VALIDATION = {
+  EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  PASSWORD_MIN_LENGTH: 8,
+  USERNAME_MIN_LENGTH: 3,
+  USERNAME_MAX_LENGTH: 50,
+  TITLE_MAX_LENGTH: 200,
+  DESCRIPTION_MAX_LENGTH: 1000,
+  CONTENT_MAX_LENGTH: 10000,
 } as const
 
-// ==================== 默认值 ====================
+// 状态颜色映射
+export const STATUS_COLORS = {
+  DRAFT: '#6B7280',
+  TODO: '#3B82F6',
+  'IN_PROGRESS': '#F59E0B',
+  REVIEW: '#8B5CF6',
+  DONE: '#10B981',
+  CANCELLED: '#EF4444',
+} as const
 
-export const DEFAULT_VALUES = {
-  page: {
-    title: 'Untitled',
-    content: [{ id: '1', type: 'text', content: '' }],
+// 优先级颜色映射
+export const PRIORITY_COLORS = {
+  LOW: '#10B981',
+  MEDIUM: '#F59E0B',
+  HIGH: '#F97316',
+  CRITICAL: '#EF4444',
+} as const
+
+// 角色权限映射
+export const ROLE_PERMISSIONS = {
+  ADMIN: ['read', 'write', 'delete', 'admin'],
+  MANAGER: ['read', 'write', 'delete'],
+  MEMBER: ['read', 'write'],
+  VIEWER: ['read'],
+} as const
+
+// 通知类型配置
+export const NOTIFICATION_TYPES = {
+  INFO: {
+    icon: 'info',
+    color: '#3B82F6',
+    duration: 5000,
   },
-  story: {
-    title: '',
-    asA: '',
-    iWant: '',
-    soThat: '',
-    acceptanceCriteria: [''],
-    priority: 'medium' as Priority,
-    estimatedPoints: 0,
-    dependencies: [],
-    tags: [],
-    businessValue: '',
-    technicalNotes: '',
+  SUCCESS: {
+    icon: 'check-circle',
+    color: '#10B981',
+    duration: 3000,
   },
-  task: {
-    title: '',
-    description: '',
-    status: 'todo' as TaskStatus,
-    priority: 'medium' as Priority,
-    tags: [],
+  WARNING: {
+    icon: 'alert-triangle',
+    color: '#F59E0B',
+    duration: 7000,
   },
-  team: {
-    name: '',
-    description: '',
-    members: [],
+  ERROR: {
+    icon: 'x-circle',
+    color: '#EF4444',
+    duration: 10000,
   },
 } as const
 
-// ==================== 导出所有常量 ====================
+// 日期格式常量
+export const DATE_FORMATS = {
+  SHORT: 'MMM dd, yyyy',
+  LONG: 'MMMM dd, yyyy',
+  TIME: 'HH:mm',
+  DATETIME: 'MMM dd, yyyy HH:mm',
+  ISO: 'yyyy-MM-dd',
+  DISPLAY: 'dd/MM/yyyy',
+} as const
 
-export * from './routes'
-export * from './messages'
+// 搜索配置
+export const SEARCH_CONFIG = {
+  MIN_QUERY_LENGTH: 2,
+  DEBOUNCE_DELAY: 300,
+  MAX_SUGGESTIONS: 10,
+  MAX_RESULTS: 100,
+} as const
+
+// 自动保存配置
+export const AUTO_SAVE = {
+  ENABLED: true,
+  INTERVAL: 30000, // 30 seconds
+  DEBOUNCE_DELAY: 1000, // 1 second
+} as const
+
+// 动画配置
+export const ANIMATION = {
+  DURATION: {
+    FAST: 150,
+    NORMAL: 300,
+    SLOW: 500,
+  },
+  EASING: {
+    EASE_IN: 'cubic-bezier(0.4, 0, 1, 1)',
+    EASE_OUT: 'cubic-bezier(0, 0, 0.2, 1)',
+    EASE_IN_OUT: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  },
+} as const
+
+// 响应式断点
+export const BREAKPOINTS = {
+  SM: 640,
+  MD: 768,
+  LG: 1024,
+  XL: 1280,
+  '2XL': 1536,
+} as const
+
+// 组件尺寸
+export const SIZES = {
+  XS: 'xs',
+  SM: 'sm',
+  MD: 'md',
+  LG: 'lg',
+  XL: 'xl',
+} as const
+
+// 组件变体
+export const VARIANTS = {
+  PRIMARY: 'primary',
+  SECONDARY: 'secondary',
+  OUTLINE: 'outline',
+  GHOST: 'ghost',
+  DESTRUCTIVE: 'destructive',
+} as const
+
+// 拖拽相关常量
+export const DRAG_AND_DROP = {
+  TYPES: {
+    TASK: 'task',
+    STORY: 'story',
+    PAGE: 'page',
+  },
+  EFFECTS: {
+    MOVE: 'move',
+    COPY: 'copy',
+  },
+} as const
+
+// 快捷键配置
+export const KEYBOARD_SHORTCUTS = {
+  SAVE: 'Ctrl+S',
+  NEW_PAGE: 'Ctrl+N',
+  NEW_STORY: 'Ctrl+Shift+N',
+  NEW_TASK: 'Ctrl+T',
+  SEARCH: 'Ctrl+K',
+  CLOSE: 'Escape',
+  FULLSCREEN: 'F11',
+  UNDO: 'Ctrl+Z',
+  REDO: 'Ctrl+Y',
+} as const
+
+// 错误代码
+export const ERROR_CODES = {
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  RATE_LIMIT: 'RATE_LIMIT',
+  SERVER_ERROR: 'SERVER_ERROR',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+} as const
+
+// 质量检查规则
+export const QUALITY_CHECKS = {
+  STORY: {
+    MIN_TITLE_LENGTH: 5,
+    MIN_DESCRIPTION_LENGTH: 10,
+    MIN_ACCEPTANCE_CRITERIA: 1,
+    MAX_ESTIMATED_POINTS: 13,
+  },
+  TASK: {
+    MIN_TITLE_LENGTH: 3,
+    MIN_DESCRIPTION_LENGTH: 5,
+    MAX_ESTIMATED_HOURS: 40,
+  },
+} as const
+
+// 导出配置
+export const EXPORT_CONFIG = {
+  FORMATS: ['csv', 'xlsx', 'pdf', 'json'],
+  MAX_RECORDS: 10000,
+  CHUNK_SIZE: 1000,
+} as const
+
+// 导入配置
+export const IMPORT_CONFIG = {
+  FORMATS: ['csv', 'xlsx', 'json'],
+  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+  MAX_RECORDS: 1000,
+} as const
+
+// WebSocket 事件类型
+export const WS_EVENTS = {
+  CONNECT: 'connect',
+  DISCONNECT: 'disconnect',
+  ERROR: 'error',
+  ENTITY_UPDATED: 'entity.updated',
+  ENTITY_CREATED: 'entity.created',
+  ENTITY_DELETED: 'entity.deleted',
+  NOTIFICATION: 'notification',
+  COLLABORATION: 'collaboration',
+} as const
+
+// 缓存配置
+export const CACHE_CONFIG = {
+  TTL: {
+    SHORT: 5 * 60 * 1000, // 5 minutes
+    MEDIUM: 30 * 60 * 1000, // 30 minutes
+    LONG: 24 * 60 * 60 * 1000, // 24 hours
+  },
+  KEYS: {
+    USER_DATA: 'user_data',
+    TEAM_DATA: 'team_data',
+    PROJECT_DATA: 'project_data',
+    SEARCH_RESULTS: 'search_results',
+  },
+} as const
+
+// 性能监控配置
+export const PERFORMANCE_CONFIG = {
+  SAMPLE_RATE: 0.1, // 10% sampling
+  MAX_METRICS: 1000,
+  CLEANUP_INTERVAL: 5 * 60 * 1000, // 5 minutes
+} as const
+
+// 导出所有常量的类型
+export type AppConfig = typeof APP_CONFIG
+export type Routes = typeof ROUTES
+export type ApiEndpoints = typeof API_ENDPOINTS
+export type StorageKeys = typeof STORAGE_KEYS
+export type Theme = typeof THEME
+export type Languages = typeof LANGUAGES
+export type Pagination = typeof PAGINATION
+export type FileUpload = typeof FILE_UPLOAD
+export type Validation = typeof VALIDATION
+export type StatusColors = typeof STATUS_COLORS
+export type PriorityColors = typeof PRIORITY_COLORS
+export type RolePermissions = typeof ROLE_PERMISSIONS
+export type NotificationTypes = typeof NOTIFICATION_TYPES
+export type DateFormats = typeof DATE_FORMATS
+export type SearchConfig = typeof SEARCH_CONFIG
+export type AutoSave = typeof AUTO_SAVE
+export type Animation = typeof ANIMATION
+export type Breakpoints = typeof BREAKPOINTS
+export type Sizes = typeof SIZES
+export type Variants = typeof VARIANTS
+export type DragAndDrop = typeof DRAG_AND_DROP
+export type KeyboardShortcuts = typeof KEYBOARD_SHORTCUTS
+export type ErrorCodes = typeof ERROR_CODES
+export type QualityChecks = typeof QUALITY_CHECKS
+export type ExportConfig = typeof EXPORT_CONFIG
+export type ImportConfig = typeof IMPORT_CONFIG
+export type WSEvents = typeof WS_EVENTS
+export type CacheConfig = typeof CACHE_CONFIG
+export type PerformanceConfig = typeof PERFORMANCE_CONFIG

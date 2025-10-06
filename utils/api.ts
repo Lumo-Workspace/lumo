@@ -1,242 +1,287 @@
 /**
- * API相关工具函数
+ * API 相关工具函数
+ * API related utility functions
  */
 
-import type { ApiRequest, ApiResponse, ApiError } from '@/types/api'
+// import type { ApiResponse } from '@/types/api'
 
-// ==================== API请求工具 ====================
+// 临时定义 ApiResponse 类型
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
 
-export const apiUtils = {
-  /**
-   * 发送API请求
-   */
-  request: async <T = unknown>(
+// API 基础配置
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+const DEFAULT_TIMEOUT = 10000 // 10 seconds
+
+// 创建 API 客户端
+class ApiClient {
+  private baseURL: string
+  private timeout: number
+  private defaultHeaders: Record<string, string>
+
+  constructor(baseURL: string = API_BASE_URL, timeout: number = DEFAULT_TIMEOUT) {
+    this.baseURL = baseURL
+    this.timeout = timeout
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+    }
+  }
+
+  // 设置认证头
+  setAuthToken(token: string): void {
+    this.defaultHeaders['Authorization'] = `Bearer ${token}`
+  }
+
+  // 移除认证头
+  removeAuthToken(): void {
+    delete this.defaultHeaders['Authorization']
+  }
+
+  // 设置自定义头
+  setHeader(key: string, value: string): void {
+    this.defaultHeaders[key] = value
+  }
+
+  // 移除自定义头
+  removeHeader(key: string): void {
+    delete this.defaultHeaders[key]
+  }
+
+  // 通用请求方法
+  private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> => {
+  ): Promise<ApiResponse<T>> {
+    const url = `${this.baseURL}${endpoint}`
+    
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        ...this.defaultHeaders,
+        ...options.headers,
+      },
+    }
+
+    // 设置超时
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+
     try {
-      const response = await fetch(endpoint, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal,
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      clearTimeout(timeoutId)
 
       const data = await response.json()
+
+      if (!response.ok) {
+        throw new ApiError({
+          code: data.code || 'API_ERROR',
+          message: data.message || 'An error occurred',
+          details: data.details,
+          timestamp: new Date(),
+        })
+      }
+
       return {
         success: true,
-        data,
+        data: data.data || data,
+        message: data.message,
       }
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
-  },
-
-  /**
-   * GET请求
-   */
-  get: async <T = unknown>(
-    endpoint: string,
-    params?: Record<string, unknown>
-  ): Promise<ApiResponse<T>> => {
-    const url = params ? `${endpoint}?${new URLSearchParams(params as Record<string, string>)}` : endpoint
-    return apiUtils.request<T>(url, { method: 'GET' })
-  },
-
-  /**
-   * POST请求
-   */
-  post: async <T = unknown>(
-    endpoint: string,
-    data?: unknown
-  ): Promise<ApiResponse<T>> => {
-    return apiUtils.request<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    })
-  },
-
-  /**
-   * PUT请求
-   */
-  put: async <T = unknown>(
-    endpoint: string,
-    data?: unknown
-  ): Promise<ApiResponse<T>> => {
-    return apiUtils.request<T>(endpoint, {
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    })
-  },
-
-  /**
-   * DELETE请求
-   */
-  delete: async <T = unknown>(endpoint: string): Promise<ApiResponse<T>> => {
-    return apiUtils.request<T>(endpoint, { method: 'DELETE' })
-  },
-
-  /**
-   * 带重试的请求
-   */
-  requestWithRetry: async <T = unknown>(
-    endpoint: string,
-    options: RequestInit = {},
-    maxRetries = 3,
-    delay = 1000
-  ): Promise<ApiResponse<T>> => {
-    let lastError: Error | null = null
-
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        const result = await apiUtils.request<T>(endpoint, options)
-        if (result.success) {
-          return result
-        }
-        lastError = new Error(result.error || 'Request failed')
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown error')
-      }
-
-      if (i < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)))
-      }
-    }
-
-    return {
-      success: false,
-      error: lastError?.message || 'Request failed after retries',
-    }
-  },
-
-  /**
-   * 并行请求
-   */
-  parallel: async <T extends unknown[]>(
-    requests: Array<() => Promise<ApiResponse<T[number]>>>
-  ): Promise<ApiResponse<T>> => {
-    try {
-      const results = await Promise.all(requests.map(request => request()))
+      clearTimeout(timeoutId)
       
-      // 检查是否有失败的请求
-      const failedRequest = results.find(result => !result.success)
-      if (failedRequest) {
-        return {
-          success: false,
-          error: failedRequest.error || 'One or more requests failed',
-        }
+      if (error instanceof ApiError) {
+        throw error
       }
 
-      return {
-        success: true,
-        data: results.map(result => result.data) as T,
+      const errorObj = error as Error
+      if (errorObj.name === 'AbortError') {
+        throw new ApiError({
+          code: 'TIMEOUT',
+          message: 'Request timeout',
+          timestamp: new Date(),
+        })
       }
+
+      throw new ApiError({
+        code: 'NETWORK_ERROR',
+        message: errorObj.message || 'Network error',
+        timestamp: new Date(),
+      })
+    }
+  }
+
+  // GET 请求
+  async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+    const url = params ? `${endpoint}?${new URLSearchParams(params).toString()}` : endpoint
+    return this.request<T>(url, { method: 'GET' })
+  }
+
+  // POST 请求
+  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : null,
+    })
+  }
+
+  // PUT 请求
+  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : null,
+    })
+  }
+
+  // PATCH 请求
+  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : null,
+    })
+  }
+
+  // DELETE 请求
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE' })
+  }
+
+  // 文件上传
+  async upload<T>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    if (additionalData) {
+      Object.entries(additionalData).forEach(([key, value]) => {
+        formData.append(key, String(value))
+      })
+    }
+
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // 不设置 Content-Type，让浏览器自动设置
+        ...Object.fromEntries(
+          Object.entries(this.defaultHeaders).filter(([key]) => key !== 'Content-Type')
+        ),
+      },
+    })
+  }
+
+  // 下载文件
+  async download(endpoint: string, filename?: string): Promise<void> {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      headers: this.defaultHeaders,
+    })
+
+    if (!response.ok) {
+      throw new Error('Download failed')
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename || 'download'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+}
+
+// 创建默认 API 客户端实例
+export const apiClient = new ApiClient()
+
+// API 错误类
+export class ApiError extends Error {
+  public readonly code: string
+  public readonly details?: Record<string, any> | undefined
+  public readonly timestamp: Date
+
+  constructor({ code, message, details, timestamp }: {
+    code: string
+    message: string
+    details?: Record<string, any> | undefined
+    timestamp: Date
+  }) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.details = details
+    this.timestamp = timestamp
+  }
+}
+
+// API 响应处理工具
+export function handleApiResponse<T>(response: ApiResponse<T>): T {
+  if (!response.success) {
+    throw new ApiError({
+      code: 'API_ERROR',
+      message: response.error || 'Unknown error',
+      timestamp: new Date(),
+    })
+  }
+
+  if (response.data === undefined) {
+    throw new ApiError({
+      code: 'NO_DATA',
+      message: 'No data returned from API',
+      timestamp: new Date(),
+    })
+  }
+
+  return response.data
+}
+
+// 请求重试工具
+export async function withRetry<T>(
+  apiCall: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  let lastError: Error
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiCall()
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Parallel requests failed',
+      lastError = error as Error
+      
+      // 如果是最后一次尝试或者是非网络错误，直接抛出
+      if (attempt === maxRetries || !isRetryableError(error)) {
+        throw error
       }
+
+      // 等待后重试
+      await new Promise(resolve => setTimeout(resolve, delay * attempt))
     }
-  },
+  }
+
+  throw lastError!
 }
 
-// ==================== 请求拦截器 ====================
-
-export class ApiInterceptor {
-  private requestInterceptors: Array<(config: ApiRequest) => ApiRequest> = []
-  private responseInterceptors: Array<(response: ApiResponse) => ApiResponse> = []
-  private errorInterceptors: Array<(error: ApiError) => ApiError> = []
-
-  /**
-   * 添加请求拦截器
-   */
-  addRequestInterceptor(interceptor: (config: ApiRequest) => ApiRequest): void {
-    this.requestInterceptors.push(interceptor)
+// 判断错误是否可重试
+function isRetryableError(error: any): boolean {
+  if (error instanceof ApiError) {
+    return ['NETWORK_ERROR', 'TIMEOUT', 'SERVER_ERROR'].includes(error.code)
   }
-
-  /**
-   * 添加响应拦截器
-   */
-  addResponseInterceptor(interceptor: (response: ApiResponse) => ApiResponse): void {
-    this.responseInterceptors.push(interceptor)
-  }
-
-  /**
-   * 添加错误拦截器
-   */
-  addErrorInterceptor(interceptor: (error: ApiError) => ApiError): void {
-    this.errorInterceptors.push(interceptor)
-  }
-
-  /**
-   * 移除请求拦截器
-   */
-  removeRequestInterceptor(interceptor: (config: ApiRequest) => ApiRequest): void {
-    const index = this.requestInterceptors.indexOf(interceptor)
-    if (index > -1) {
-      this.requestInterceptors.splice(index, 1)
-    }
-  }
-
-  /**
-   * 移除响应拦截器
-   */
-  removeResponseInterceptor(interceptor: (response: ApiResponse) => ApiResponse): void {
-    const index = this.responseInterceptors.indexOf(interceptor)
-    if (index > -1) {
-      this.responseInterceptors.splice(index, 1)
-    }
-  }
-
-  /**
-   * 移除错误拦截器
-   */
-  removeErrorInterceptor(interceptor: (error: ApiError) => ApiError): void {
-    const index = this.errorInterceptors.indexOf(interceptor)
-    if (index > -1) {
-      this.errorInterceptors.splice(index, 1)
-    }
-  }
-
-  /**
-   * 应用请求拦截器
-   */
-  applyRequestInterceptors(config: ApiRequest): ApiRequest {
-    return this.requestInterceptors.reduce((acc, interceptor) => interceptor(acc), config)
-  }
-
-  /**
-   * 应用响应拦截器
-   */
-  applyResponseInterceptors(response: ApiResponse): ApiResponse {
-    return this.responseInterceptors.reduce((acc, interceptor) => interceptor(acc), response)
-  }
-
-  /**
-   * 应用错误拦截器
-   */
-  applyErrorInterceptors(error: ApiError): ApiError {
-    return this.errorInterceptors.reduce((acc, interceptor) => interceptor(acc), error)
-  }
+  return false
 }
 
-// ==================== 缓存工具 ====================
-
-export class ApiCache {
+// 请求缓存工具
+class RequestCache {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
 
-  /**
-   * 设置缓存
-   */
-  set<T>(key: string, data: T, ttl: number = 300000): void { // 默认5分钟
+  set(key: string, data: any, ttl: number = 5 * 60 * 1000): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -244,10 +289,7 @@ export class ApiCache {
     })
   }
 
-  /**
-   * 获取缓存
-   */
-  get<T>(key: string): T | null {
+  get(key: string): any | null {
     const item = this.cache.get(key)
     if (!item) return null
 
@@ -259,153 +301,87 @@ export class ApiCache {
     return item.data
   }
 
-  /**
-   * 删除缓存
-   */
-  delete(key: string): void {
-    this.cache.delete(key)
-  }
-
-  /**
-   * 清空缓存
-   */
   clear(): void {
     this.cache.clear()
   }
 
-  /**
-   * 生成缓存键
-   */
-  generateKey(endpoint: string, params?: Record<string, unknown>): string {
-    const paramStr = params ? JSON.stringify(params) : ''
-    return `${endpoint}:${paramStr}`
+  delete(key: string): void {
+    this.cache.delete(key)
   }
 }
 
-// ==================== 上传工具 ====================
+export const requestCache = new RequestCache()
 
-export const uploadUtils = {
-  /**
-   * 上传文件
-   */
-  upload: async (
-    file: File,
-    endpoint: string,
-    onProgress?: (progress: number) => void
-  ): Promise<ApiResponse<{ url: string; fileId: string }>> => {
-    return new Promise((resolve) => {
-      const formData = new FormData()
-      formData.append('file', file)
+// 带缓存的 API 请求
+export async function cachedRequest<T>(
+  key: string,
+  apiCall: () => Promise<T>,
+  ttl?: number
+): Promise<T> {
+  const cached = requestCache.get(key)
+  if (cached) {
+    return cached
+  }
 
-      const xhr = new XMLHttpRequest()
-
-      // 监听上传进度
-      if (onProgress) {
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = (event.loaded / event.total) * 100
-            onProgress(progress)
-          }
-        })
-      }
-
-      // 监听上传完成
-      xhr.addEventListener('load', () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText)
-            resolve({
-              success: true,
-              data: response,
-            })
-          } catch (error) {
-            resolve({
-              success: false,
-              error: 'Failed to parse response',
-            })
-          }
-        } else {
-          resolve({
-            success: false,
-            error: `Upload failed with status ${xhr.status}`,
-          })
-        }
-      })
-
-      // 监听上传错误
-      xhr.addEventListener('error', () => {
-        resolve({
-          success: false,
-          error: 'Upload failed',
-        })
-      })
-
-      xhr.open('POST', endpoint)
-      xhr.send(formData)
-    })
-  },
-
-  /**
-   * 批量上传文件
-   */
-  uploadMultiple: async (
-    files: File[],
-    endpoint: string,
-    onProgress?: (progress: number) => void
-  ): Promise<ApiResponse<Array<{ url: string; fileId: string }>>> => {
-    const results: Array<{ url: string; fileId: string }> = []
-    let completed = 0
-
-    const uploadPromises = files.map(async (file, index) => {
-      const result = await uploadUtils.upload(file, endpoint, (progress) => {
-        if (onProgress) {
-          const totalProgress = ((completed + progress / 100) / files.length) * 100
-          onProgress(totalProgress)
-        }
-      })
-
-      completed++
-      
-      if (result.success && result.data) {
-        results[index] = result.data
-      }
-
-      return result
-    })
-
-    const uploadResults = await Promise.all(uploadPromises)
-    const hasError = uploadResults.some(result => !result.success)
-
-    if (hasError) {
-      return {
-        success: false,
-        error: 'One or more files failed to upload',
-      }
-    }
-
-    return {
-      success: true,
-      data: results,
-    }
-  },
-
-  /**
-   * 验证文件
-   */
-  validateFile: (file: File, maxSize: number, allowedTypes: string[]): string | null => {
-    if (file.size > maxSize) {
-      return `文件大小不能超过 ${Math.round(maxSize / 1024 / 1024)}MB`
-    }
-
-    if (!allowedTypes.includes(file.type)) {
-      return `不支持的文件类型: ${file.type}`
-    }
-
-    return null
-  },
+  const data = await apiCall()
+  requestCache.set(key, data, ttl)
+  return data
 }
 
-// ==================== 导出 ====================
+// 批量请求工具
+export async function batchRequest<T>(
+  requests: Array<() => Promise<T>>,
+  concurrency: number = 5
+): Promise<T[]> {
+  const results: T[] = []
+  const executing: Promise<void>[] = []
 
-export const apiInterceptor = new ApiInterceptor()
-export const apiCache = new ApiCache()
+  for (const request of requests) {
+    const promise = request().then(result => {
+      results.push(result)
+    })
+
+    executing.push(promise)
+
+    if (executing.length >= concurrency) {
+      await Promise.race(executing)
+      executing.splice(executing.findIndex(p => p === promise), 1)
+    }
+  }
+
+  await Promise.all(executing)
+  return results
+}
+
+// 请求取消工具
+export class RequestCanceller {
+  private controllers = new Map<string, AbortController>()
+
+  create(key: string): AbortController {
+    // 取消之前的请求
+    this.cancel(key)
+
+    const controller = new AbortController()
+    this.controllers.set(key, controller)
+    return controller
+  }
+
+  cancel(key: string): void {
+    const controller = this.controllers.get(key)
+    if (controller) {
+      controller.abort()
+      this.controllers.delete(key)
+    }
+  }
+
+  cancelAll(): void {
+    this.controllers.forEach(controller => controller.abort())
+    this.controllers.clear()
+  }
+}
+
+export const requestCanceller = new RequestCanceller()
+
+// 导出 API 客户端实例和工具函数
+export { ApiClient }
+export default apiClient

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Play, CheckCircle } from "lucide-react"
+import { ArrowRight, Play } from "lucide-react"
 
 // Gradient Background Component
 function GradientBackground() {
@@ -17,7 +17,7 @@ function GradientBackground() {
 
     // Set canvas dimensions
     const setCanvasDimensions = () => {
-      const rect = canvas.getBoundingClientRect()
+      // const rect = canvas.getBoundingClientRect()
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
     }
@@ -226,7 +226,7 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
-  const [isHovered, setIsHovered] = useState(false)
+  // const [isHovered, setIsHovered] = useState(false)
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white">
@@ -317,8 +317,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               size="lg"
               onClick={onGetStarted}
               className="group bg-gradient-to-r from-[#A020F0] to-[#C874FF] hover:from-[#8B1FA8] hover:to-[#B85CF0] text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-transform duration-300 hover:scale-[1.03]"
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
+                        // onMouseEnter={() => setIsHovered(true)}
+                        // onMouseLeave={() => setIsHovered(false)}
             >
               <Play className="mr-3 w-5 h-5" />
               Try Interactive Demo

@@ -1,541 +1,467 @@
 /**
  * 通用工具函数
- * 提供项目中常用的工具函数和帮助方法
+ * Common utility functions
  */
 
-// ==================== 字符串工具 ====================
+import { type ClassValue, clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 
-export const stringUtils = {
-  /**
-   * 生成随机ID
-   */
-  generateId: (prefix = ''): string => {
-    const timestamp = Date.now().toString(36)
-    const randomStr = Math.random().toString(36).substring(2, 8)
-    return prefix ? `${prefix}_${timestamp}_${randomStr}` : `${timestamp}_${randomStr}`
-  },
-
-  /**
-   * 首字母大写
-   */
-  capitalize: (str: string): string => {
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
-  },
-
-  /**
-   * 驼峰命名转横线命名
-   */
-  kebabCase: (str: string): string => {
-    return str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()
-  },
-
-  /**
-   * 横线命名转驼峰命名
-   */
-  camelCase: (str: string): string => {
-    return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
-  },
-
-  /**
-   * 截断字符串
-   */
-  truncate: (str: string, length: number, suffix = '...'): string => {
-    if (str.length <= length) return str
-    return str.substring(0, length - suffix.length) + suffix
-  },
-
-  /**
-   * 移除HTML标签
-   */
-  stripHtml: (html: string): string => {
-    return html.replace(/<[^>]*>/g, '')
-  },
-
-  /**
-   * 高亮搜索关键词
-   */
-  highlightText: (text: string, keyword: string, className = 'highlight'): string => {
-    if (!keyword) return text
-    const regex = new RegExp(`(${keyword})`, 'gi')
-    return text.replace(regex, `<span class="${className}">$1</span>`)
-  },
-
-  /**
-   * 生成slug
-   */
-  slugify: (str: string): string => {
-    return str
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-  },
+// 类名合并工具函数
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
 }
 
-// ==================== 日期工具 ====================
-
-export const dateUtils = {
-  /**
-   * 格式化日期
-   */
-  format: (date: Date | string, format = 'YYYY-MM-DD'): string => {
-    const d = new Date(date)
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    const seconds = String(d.getSeconds()).padStart(2, '0')
-
-    return format
-      .replace('YYYY', String(year))
-      .replace('MM', month)
-      .replace('DD', day)
-      .replace('HH', hours)
-      .replace('mm', minutes)
-      .replace('ss', seconds)
-  },
-
-  /**
-   * 相对时间
-   */
-  timeAgo: (date: Date | string): string => {
-    const now = new Date()
-    const past = new Date(date)
-    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000)
-
-    if (diffInSeconds < 60) return '刚刚'
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}分钟前`
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}小时前`
-    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}天前`
-    if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}个月前`
-    return `${Math.floor(diffInSeconds / 31536000)}年前`
-  },
-
-  /**
-   * 检查是否为今天
-   */
-  isToday: (date: Date | string): boolean => {
-    const today = new Date()
-    const targetDate = new Date(date)
-    return (
-      today.getFullYear() === targetDate.getFullYear() &&
-      today.getMonth() === targetDate.getMonth() &&
-      today.getDate() === targetDate.getDate()
-    )
-  },
-
-  /**
-   * 检查是否为本周
-   */
-  isThisWeek: (date: Date | string): boolean => {
-    const today = new Date()
-    const targetDate = new Date(date)
-    const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()))
-    const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 6))
-    return targetDate >= startOfWeek && targetDate <= endOfWeek
-  },
-
-  /**
-   * 获取日期范围
-   */
-  getDateRange: (start: Date | string, end: Date | string): Date[] => {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    const dates: Date[] = []
-
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d))
-    }
-
-    return dates
-  },
+// 格式化日期
+export function formatDate(
+  date: Date | string | number,
+  options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }
+): string {
+  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+  return new Intl.DateTimeFormat('zh-CN', options).format(dateObj)
 }
 
-// ==================== 数组工具 ====================
+// 格式化相对时间
+export function formatRelativeTime(date: Date | string | number): string {
+  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000)
 
-export const arrayUtils = {
-  /**
-   * 数组去重
-   */
-  unique: <T>(arr: T[], key?: keyof T): T[] => {
-    if (!key) return [...new Set(arr)]
-    const seen = new Set()
-    return arr.filter(item => {
-      const value = item[key]
-      if (seen.has(value)) return false
-      seen.add(value)
-      return true
-    })
-  },
+  if (diffInSeconds < 60) {
+    return '刚刚'
+  }
 
-  /**
-   * 数组分组
-   */
-  groupBy: <T, K extends string | number>(
-    arr: T[],
-    key: keyof T | ((item: T) => K)
-  ): Record<K, T[]> => {
-    return arr.reduce((groups, item) => {
-      const groupKey = typeof key === 'function' ? key(item) : (item[key] as K)
-      if (!groups[groupKey]) groups[groupKey] = []
-      groups[groupKey].push(item)
-      return groups
-    }, {} as Record<K, T[]>)
-  },
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes}分钟前`
+  }
 
-  /**
-   * 数组排序
-   */
-  sortBy: <T>(arr: T[], key: keyof T, order: 'asc' | 'desc' = 'asc'): T[] => {
-    return [...arr].sort((a, b) => {
-      const aVal = a[key]
-      const bVal = b[key]
-      if (aVal < bVal) return order === 'asc' ? -1 : 1
-      if (aVal > bVal) return order === 'asc' ? 1 : -1
-      return 0
-    })
-  },
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) {
+    return `${diffInHours}小时前`
+  }
 
-  /**
-   * 数组分页
-   */
-  paginate: <T>(arr: T[], page: number, limit: number): T[] => {
-    const startIndex = (page - 1) * limit
-    return arr.slice(startIndex, startIndex + limit)
-  },
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays < 7) {
+    return `${diffInDays}天前`
+  }
 
-  /**
-   * 数组扁平化
-   */
-  flatten: <T>(arr: (T | T[])[]): T[] => {
-    return arr.reduce<T[]>((flat, item) => {
-      return flat.concat(Array.isArray(item) ? arrayUtils.flatten(item) : item)
-    }, [])
-  },
+  const diffInWeeks = Math.floor(diffInDays / 7)
+  if (diffInWeeks < 4) {
+    return `${diffInWeeks}周前`
+  }
 
-  /**
-   * 数组交集
-   */
-  intersection: <T>(arr1: T[], arr2: T[]): T[] => {
-    return arr1.filter(item => arr2.includes(item))
-  },
+  const diffInMonths = Math.floor(diffInDays / 30)
+  if (diffInMonths < 12) {
+    return `${diffInMonths}个月前`
+  }
 
-  /**
-   * 数组差集
-   */
-  difference: <T>(arr1: T[], arr2: T[]): T[] => {
-    return arr1.filter(item => !arr2.includes(item))
-  },
+  const diffInYears = Math.floor(diffInDays / 365)
+  return `${diffInYears}年前`
 }
 
-// ==================== 对象工具 ====================
+// 格式化文件大小
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes'
 
-export const objectUtils = {
-  /**
-   * 深度克隆对象
-   */
-  deepClone: <T>(obj: T): T => {
-    if (obj === null || typeof obj !== 'object') return obj
-    if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T
-    if (obj instanceof Array) return obj.map(item => objectUtils.deepClone(item)) as unknown as T
-    if (typeof obj === 'object') {
-      const clonedObj = {} as T
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          clonedObj[key] = objectUtils.deepClone(obj[key])
-        }
-      }
-      return clonedObj
-    }
-    return obj
-  },
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
 
-  /**
-   * 深度合并对象
-   */
-  deepMerge: <T extends Record<string, any>>(target: T, source: Partial<T>): T => {
-    const result = { ...target }
-    for (const key in source) {
-      if (source.hasOwnProperty(key)) {
-        if (
-          source[key] &&
-          typeof source[key] === 'object' &&
-          !Array.isArray(source[key]) &&
-          result[key] &&
-          typeof result[key] === 'object' &&
-          !Array.isArray(result[key])
-        ) {
-          result[key] = objectUtils.deepMerge(result[key], source[key])
-        } else {
-          result[key] = source[key]
-        }
-      }
-    }
-    return result
-  },
-
-  /**
-   * 获取嵌套属性值
-   */
-  get: <T>(obj: any, path: string, defaultValue?: T): T | undefined => {
-    const keys = path.split('.')
-    let result = obj
-    for (const key of keys) {
-      if (result == null || typeof result !== 'object') return defaultValue
-      result = result[key]
-    }
-    return result !== undefined ? result : defaultValue
-  },
-
-  /**
-   * 设置嵌套属性值
-   */
-  set: (obj: any, path: string, value: any): void => {
-    const keys = path.split('.')
-    let current = obj
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i]
-      if (!(key in current) || typeof current[key] !== 'object') {
-        current[key] = {}
-      }
-      current = current[key]
-    }
-    current[keys[keys.length - 1]] = value
-  },
-
-  /**
-   * 检查对象是否为空
-   */
-  isEmpty: (obj: any): boolean => {
-    if (obj == null) return true
-    if (Array.isArray(obj) || typeof obj === 'string') return obj.length === 0
-    if (typeof obj === 'object') return Object.keys(obj).length === 0
-    return false
-  },
-
-  /**
-   * 选择对象的指定属性
-   */
-  pick: <T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> => {
-    const result = {} as Pick<T, K>
-    keys.forEach(key => {
-      if (key in obj) {
-        result[key] = obj[key]
-      }
-    })
-    return result
-  },
-
-  /**
-   * 排除对象的指定属性
-   */
-  omit: <T, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> => {
-    const result = { ...obj }
-    keys.forEach(key => {
-      delete result[key]
-    })
-    return result
-  },
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// ==================== 验证工具 ====================
+// 生成唯一ID
+export function generateId(prefix = ''): string {
+  const timestamp = Date.now().toString(36)
+  const randomStr = Math.random().toString(36).substring(2, 8)
+  return prefix ? `${prefix}_${timestamp}_${randomStr}` : `${timestamp}_${randomStr}`
+}
 
-export const validationUtils = {
-  /**
-   * 验证邮箱
-   */
-  isEmail: (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
-  },
+// 深拷贝对象
+export function deepClone<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj
+  if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T
+  if (obj instanceof Array) return obj.map(item => deepClone(item)) as unknown as T
+  if (typeof obj === 'object') {
+    const clonedObj = {} as T
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        clonedObj[key] = deepClone(obj[key])
+      }
+    }
+    return clonedObj
+  }
+  return obj
+}
 
-  /**
-   * 验证URL
-   */
-  isUrl: (url: string): boolean => {
-    try {
-      new URL(url)
-      return true
-    } catch {
+// 防抖函数
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  immediate = false
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null
+
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      timeout = null
+      if (!immediate) func(...args)
+    }
+
+    const callNow = immediate && !timeout
+
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+
+    if (callNow) func(...args)
+  }
+}
+
+// 节流函数
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean
+  return function executedFunction(...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => (inThrottle = false), limit)
+    }
+  }
+}
+
+// 数组去重
+export function unique<T>(array: T[], key?: keyof T): T[] {
+  if (!key) {
+    return [...new Set(array)]
+  }
+  
+  const seen = new Set()
+  return array.filter(item => {
+    const value = item[key]
+    if (seen.has(value)) {
       return false
     }
-  },
-
-  /**
-   * 验证手机号
-   */
-  isPhone: (phone: string): boolean => {
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
-    return phoneRegex.test(phone.replace(/\s/g, ''))
-  },
-
-  /**
-   * 验证密码强度
-   */
-  isStrongPassword: (password: string): boolean => {
-    // 至少8位，包含大小写字母、数字
-    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/
-    return strongPasswordRegex.test(password)
-  },
-
-  /**
-   * 验证用户名
-   */
-  isUsername: (username: string): boolean => {
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
-    return usernameRegex.test(username)
-  },
-
-  /**
-   * 验证身份证号
-   */
-  isIdCard: (idCard: string): boolean => {
-    const idCardRegex = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/
-    return idCardRegex.test(idCard)
-  },
+    seen.add(value)
+    return true
+  })
 }
 
-// ==================== 存储工具 ====================
-
-export const storageUtils = {
-  /**
-   * 设置本地存储
-   */
-  set: (key: string, value: any): void => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value))
-    } catch (error) {
-      console.error('Failed to save to localStorage:', error)
+// 数组分组
+export function groupBy<T, K extends string | number>(
+  array: T[],
+  key: keyof T | ((item: T) => K)
+): Record<K, T[]> {
+  return array.reduce((groups, item) => {
+    const groupKey = typeof key === 'function' ? key(item) : (item[key] as K)
+    if (!groups[groupKey]) {
+      groups[groupKey] = []
     }
-  },
+    groups[groupKey].push(item)
+    return groups
+  }, {} as Record<K, T[]>)
+}
 
-  /**
-   * 获取本地存储
-   */
-  get: <T>(key: string, defaultValue?: T): T | null => {
+// 数组排序
+export function sortBy<T>(
+  array: T[],
+  key: keyof T | ((item: T) => any),
+  direction: 'asc' | 'desc' = 'asc'
+): T[] {
+  return [...array].sort((a, b) => {
+    const aVal = typeof key === 'function' ? key(a) : a[key]
+    const bVal = typeof key === 'function' ? key(b) : b[key]
+    
+    if (aVal < bVal) return direction === 'asc' ? -1 : 1
+    if (aVal > bVal) return direction === 'asc' ? 1 : -1
+    return 0
+  })
+}
+
+// 数组分页
+export function paginate<T>(
+  array: T[],
+  page: number,
+  limit: number
+): { data: T[]; total: number; pages: number; currentPage: number } {
+  const total = array.length
+  const pages = Math.ceil(total / limit)
+  const startIndex = (page - 1) * limit
+  const endIndex = startIndex + limit
+  const data = array.slice(startIndex, endIndex)
+
+  return {
+    data,
+    total,
+    pages,
+    currentPage: page,
+  }
+}
+
+// 对象属性选择
+export function pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+  const result = {} as Pick<T, K>
+  keys.forEach(key => {
+    if (key in obj) {
+      result[key] = obj[key]
+    }
+  })
+  return result
+}
+
+// 对象属性排除
+export function omit<T, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
+  const result = { ...obj }
+  keys.forEach(key => {
+    delete result[key]
+  })
+  return result
+}
+
+// 检查是否为空值
+export function isEmpty(value: any): boolean {
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  if (typeof value === 'object') return Object.keys(value).length === 0
+  return false
+}
+
+// 安全获取嵌套对象属性
+export function get<T = any>(obj: any, path: string, defaultValue?: T): T | undefined {
+  const keys = path.split('.')
+  let result = obj
+  
+  for (const key of keys) {
+    if (result === null || result === undefined) {
+      return defaultValue
+    }
+    result = result[key]
+  }
+  
+  return result !== undefined ? result : defaultValue
+}
+
+// 设置嵌套对象属性
+export function set(obj: any, path: string, value: any): any {
+  const keys = path.split('.')
+  const result = { ...obj }
+  let current = result
+  
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i]
+    if (!(key in current) || typeof current[key] !== 'object') {
+      current[key] = {}
+    }
+    current = current[key]
+  }
+  
+  current[keys[keys.length - 1]] = value
+  return result
+}
+
+// 生成随机字符串
+export function randomString(length = 8): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
+// 颜色工具函数
+export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null
+}
+
+export function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+}
+
+// 本地存储工具
+export const storage = {
+  get: <T = any>(key: string, defaultValue?: T): T | null => {
     try {
       const item = localStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
     } catch (error) {
-      console.error('Failed to read from localStorage:', error)
+      console.error('Error reading from localStorage:', error)
       return defaultValue || null
     }
   },
 
-  /**
-   * 删除本地存储
-   */
+  set: <T = any>(key: string, value: T): void => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch (error) {
+      console.error('Error writing to localStorage:', error)
+    }
+  },
+
   remove: (key: string): void => {
     try {
       localStorage.removeItem(key)
     } catch (error) {
-      console.error('Failed to remove from localStorage:', error)
+      console.error('Error removing from localStorage:', error)
     }
   },
 
-  /**
-   * 清空本地存储
-   */
   clear: (): void => {
     try {
       localStorage.clear()
     } catch (error) {
-      console.error('Failed to clear localStorage:', error)
+      console.error('Error clearing localStorage:', error)
     }
   },
+}
 
-  /**
-   * 设置会话存储
-   */
-  setSession: (key: string, value: any): void => {
+// 会话存储工具
+export const sessionStorage = {
+  get: <T = any>(key: string, defaultValue?: T): T | null => {
     try {
-      sessionStorage.setItem(key, JSON.stringify(value))
-    } catch (error) {
-      console.error('Failed to save to sessionStorage:', error)
-    }
-  },
-
-  /**
-   * 获取会话存储
-   */
-  getSession: <T>(key: string, defaultValue?: T): T | null => {
-    try {
-      const item = sessionStorage.getItem(key)
+      const item = window.sessionStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
     } catch (error) {
-      console.error('Failed to read from sessionStorage:', error)
+      console.error('Error reading from sessionStorage:', error)
       return defaultValue || null
     }
   },
-}
 
-// ==================== 格式化工具 ====================
-
-export const formatUtils = {
-  /**
-   * 格式化文件大小
-   */
-  formatFileSize: (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  set: <T = any>(key: string, value: T): void => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value))
+    } catch (error) {
+      console.error('Error writing to sessionStorage:', error)
+    }
   },
 
-  /**
-   * 格式化数字
-   */
-  formatNumber: (num: number, decimals = 0): string => {
-    return new Intl.NumberFormat('zh-CN', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(num)
+  remove: (key: string): void => {
+    try {
+      window.sessionStorage.removeItem(key)
+    } catch (error) {
+      console.error('Error removing from sessionStorage:', error)
+    }
   },
 
-  /**
-   * 格式化货币
-   */
-  formatCurrency: (amount: number, currency = 'CNY'): string => {
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency,
-    }).format(amount)
-  },
-
-  /**
-   * 格式化百分比
-   */
-  formatPercent: (value: number, decimals = 1): string => {
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'percent',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value / 100)
-  },
-
-  /**
-   * 格式化时长
-   */
-  formatDuration: (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-
-    if (hours > 0) {
-      return `${hours}小时${minutes}分钟`
-    } else if (minutes > 0) {
-      return `${minutes}分钟${secs}秒`
-    } else {
-      return `${secs}秒`
+  clear: (): void => {
+    try {
+      window.sessionStorage.clear()
+    } catch (error) {
+      console.error('Error clearing sessionStorage:', error)
     }
   },
 }
 
-// ==================== 导出所有工具 ====================
+// URL 工具函数
+export function buildUrl(baseUrl: string, params: Record<string, any>): string {
+  const url = new URL(baseUrl)
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, String(value))
+    }
+  })
+  return url.toString()
+}
 
+export function parseQueryString(queryString: string): Record<string, string> {
+  const params = new URLSearchParams(queryString)
+  const result: Record<string, string> = {}
+  
+  for (const [key, value] of params.entries()) {
+    result[key] = value
+  }
+  
+  return result
+}
+
+// 性能测量工具
+export function measurePerformance<T extends (...args: any[]) => any>(
+  fn: T,
+  label?: string
+): T {
+  return ((...args: Parameters<T>) => {
+    const start = performance.now()
+    const result = fn(...args)
+    const end = performance.now()
+    
+    if (label) {
+      console.log(`${label}: ${end - start}ms`)
+    }
+    
+    return result
+  }) as T
+}
+
+// 异步重试工具
+export async function retry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  delay = 1000
+): Promise<T> {
+  let lastError: Error
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error as Error
+      
+      if (attempt === maxAttempts) {
+        throw lastError
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, delay * attempt))
+    }
+  }
+
+  throw lastError!
+}
+
+// 类型守卫函数
+export function isString(value: any): value is string {
+  return typeof value === 'string'
+}
+
+export function isNumber(value: any): value is number {
+  return typeof value === 'number' && !isNaN(value)
+}
+
+export function isBoolean(value: any): value is boolean {
+  return typeof value === 'boolean'
+}
+
+export function isArray<T>(value: any): value is T[] {
+  return Array.isArray(value)
+}
+
+export function isObject(value: any): value is Record<string, any> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function isFunction(value: any): value is Function {
+  return typeof value === 'function'
+}
+
+export function isPromise<T>(value: any): value is Promise<T> {
+  return value && typeof value.then === 'function'
+}
+
+// 导出所有工具函数
 export * from './api'
+export * from './validation'
 export * from './dom'
 export * from './performance'
