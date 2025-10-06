@@ -286,7 +286,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <main className="relative z-20 min-h-[90vh] flex flex-col justify-center px-6 pt-16">
         <div className="max-w-6xl mx-auto text-center">
           {/* Refined Badge */}
-          <div className="inline-flex items-center px-3 py-1.5 bg-[#E9D5FF] text-[#7C3AED] rounded-full text-xs font-medium mb-8 animate-fade-in-up">
+          <div className="inline-flex items-center px-3 py-1.5 bg-[#E9D5FF] text-[#7C3AED] rounded-full text-md font-large mb-8 animate-fade-in-up">
             Introducing Lumo
           </div>
 
