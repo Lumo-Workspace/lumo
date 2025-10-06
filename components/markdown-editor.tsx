@@ -19,8 +19,14 @@ import { useBlocks } from "../hooks/use-blocks"
 import { useNotifications } from "../hooks/use-notifications"
 import { useUIState } from "../hooks/use-ui-state"
 import { useTeams } from "../hooks/use-teams"
+import { Button } from "@/components/ui/button"
+import { Home } from "lucide-react"
 
-export default function MarkdownEditor() {
+interface MarkdownEditorProps {
+  onBackToHome?: () => void
+}
+
+export default function MarkdownEditor({ onBackToHome }: MarkdownEditorProps) {
   // 页面管理
   const {
     pages,
@@ -230,6 +236,20 @@ export default function MarkdownEditor() {
         setShowSlashMenu(false)
       }
     }}>
+      {/* Back to Home Button */}
+      {onBackToHome && (
+        <div className="absolute top-4 left-4 z-50">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBackToHome}
+            className="bg-white/90 backdrop-blur-sm border-gray-300 hover:bg-white"
+          >
+            <Home className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+        </div>
+      )}
       {showAIChat && aiChatFullscreen ? (
         // Fullscreen AI Chat
         <div className="fixed inset-0 z-50 bg-white">
@@ -329,8 +349,14 @@ export default function MarkdownEditor() {
               onKeyDown={handleKeyDown}
               onToggleTodo={toggleTodo}
               onFocus={handleFocus}
-              onBlur={handleBlur}
-              onAddBlock={addNewBlock}
+              onBlur={() => handleBlur("")}
+              onAddBlock={(afterBlockId?: string) => {
+                if (afterBlockId) {
+                  addNewBlock(afterBlockId)
+                } else {
+                  addNewBlock("")
+                }
+              }}
               onChangeBlockType={changeBlockType}
             />
           )}
@@ -360,7 +386,6 @@ export default function MarkdownEditor() {
             position={{ x: contextMenu.x, y: contextMenu.y }}
             onRename={() => handleRename(contextMenu.pageId)}
             onDelete={() => handleDelete(contextMenu.pageId)}
-            onClose={closeContextMenu}
           />
 
           <DeleteDialog
