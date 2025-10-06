@@ -32,17 +32,24 @@ function GradientBackground() {
       radius: Math.random() * 300 + 100,
       dx: Math.random() * 0.2 - 0.1,
       dy: Math.random() * 0.2 - 0.1,
-      hue: Math.random() * 60 + 220, // Blue to purple range
+      hue: Math.random() * 40 + 260, // Purple to violet range
     }))
 
     const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Fill with a purple gradient background
+      const baseGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
+      baseGradient.addColorStop(0, 'rgba(147, 51, 234, 0.2)')
+      baseGradient.addColorStop(0.3, 'rgba(168, 85, 255, 0.15)')
+      baseGradient.addColorStop(0.7, 'rgba(196, 132, 252, 0.1)')
+      baseGradient.addColorStop(1, 'rgba(233, 213, 255, 0.05)')
+      ctx.fillStyle = baseGradient
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       // Draw blobs
       blobs.forEach((blob) => {
         const gradient = ctx.createRadialGradient(blob.x, blob.y, 0, blob.x, blob.y, blob.radius)
-        gradient.addColorStop(0, `hsla(${blob.hue}, 80%, 60%, 0.4)`)
-        gradient.addColorStop(1, `hsla(${blob.hue}, 80%, 60%, 0)`)
+        gradient.addColorStop(0, `hsla(${blob.hue}, 70%, 70%, 0.3)`)
+        gradient.addColorStop(1, `hsla(${blob.hue}, 70%, 70%, 0)`)
 
         ctx.fillStyle = gradient
         ctx.beginPath()
