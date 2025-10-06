@@ -96,45 +96,58 @@ function SoundWaveAnimation({ className }: SoundWaveAnimationProps) {
     // Set canvas dimensions
     const setCanvasDimensions = () => {
       canvas.width = window.innerWidth
-      canvas.height = 400
+      canvas.height = 200
     }
 
     setCanvasDimensions()
     window.addEventListener("resize", setCanvasDimensions)
 
-    // Wave parameters with subtle purple color scheme and slower animation
+    // Wave parameters for horizontal flowing waves with lower opacity
     const waves = [
       {
-        amplitude: 40,
-        frequency: 0.005,
-        speed: 0.02,
-        color: "rgba(168, 85, 255, 0.08)",
-        strokeColor: "rgba(168, 85, 255, 0.12)",
+        amplitude: 25,
+        frequency: 0.008,
+        speed: 0.015,
+        color: "rgba(124, 58, 237, 0.03)",
+        strokeColor: "rgba(124, 58, 237, 0.06)",
         offset: 0,
+        yOffset: 0,
       },
       {
-        amplitude: 25,
-        frequency: 0.015,
-        speed: 0.015,
-        color: "rgba(192, 132, 252, 0.06)",
-        strokeColor: "rgba(192, 132, 252, 0.1)",
-        offset: 100,
+        amplitude: 18,
+        frequency: 0.012,
+        speed: 0.012,
+        color: "rgba(109, 40, 217, 0.025)",
+        strokeColor: "rgba(109, 40, 217, 0.05)",
+        offset: 150,
+        yOffset: 15,
+      },
+      {
+        amplitude: 12,
+        frequency: 0.016,
+        speed: 0.008,
+        color: "rgba(91, 33, 182, 0.02)",
+        strokeColor: "rgba(91, 33, 182, 0.04)",
+        offset: 300,
+        yOffset: 30,
+      },
+      {
+        amplitude: 20,
+        frequency: 0.01,
+        speed: 0.01,
+        color: "rgba(124, 58, 237, 0.025)",
+        strokeColor: "rgba(124, 58, 237, 0.05)",
+        offset: 450,
+        yOffset: -10,
       },
       {
         amplitude: 15,
-        frequency: 0.025,
-        speed: 0.01,
-        color: "rgba(139, 92, 246, 0.05)",
-        strokeColor: "rgba(139, 92, 246, 0.08)",
-        offset: 200,
-      },
-      {
-        amplitude: 30,
-        frequency: 0.01,
-        speed: 0.012,
-        color: "rgba(124, 58, 237, 0.06)",
-        strokeColor: "rgba(124, 58, 237, 0.1)",
-        offset: 300,
+        frequency: 0.014,
+        speed: 0.009,
+        color: "rgba(109, 40, 217, 0.02)",
+        strokeColor: "rgba(109, 40, 217, 0.04)",
+        offset: 600,
+        yOffset: 25,
       },
     ]
 
@@ -161,61 +174,39 @@ function SoundWaveAnimation({ className }: SoundWaveAnimationProps) {
         color: string
         strokeColor: string
         offset: number
+        yOffset: number
       },
       time: number,
       width: number,
       height: number,
     ) => {
-      const { amplitude, frequency, speed, color, strokeColor, offset } = wave
-      const y = height / 2
+      const { amplitude, frequency, speed, strokeColor, offset, yOffset } = wave
+      const y = height / 2 + yOffset
 
-      // First draw the filled wave
+      // Draw smooth horizontal wave lines
       ctx.beginPath()
-
-      // Store the wave points to reuse for stroke
-      const points: [number, number][] = []
-
-      // Draw the top curve of the wave
+      
       for (let x = 0; x < width; x++) {
-        // Create a sine wave pattern
+        // Create a smooth sine wave pattern
         const dx = x * frequency
         const sine = Math.sin(dx + time * speed + offset)
         const dy = sine * amplitude
-
-        const point: [number, number] = [x, y + dy]
-        points.push(point)
+        
+        const pointX = x
+        const pointY = y + dy
 
         if (x === 0) {
-          ctx.moveTo(x, y + dy)
+          ctx.moveTo(pointX, pointY)
         } else {
-          ctx.lineTo(x, y + dy)
+          ctx.lineTo(pointX, pointY)
         }
       }
 
-      // Complete the path by drawing to the bottom right and back to start
-      ctx.lineTo(width, height)
-      ctx.lineTo(0, height)
-      ctx.closePath()
-
-      // Fill with gradient
-      const gradient = ctx.createLinearGradient(0, 0, 0, height)
-      gradient.addColorStop(0, color)
-      gradient.addColorStop(1, "rgba(255, 255, 255, 0)")
-      ctx.fillStyle = gradient
-      ctx.fill()
-
-      // Now draw just the top curve with a stroke for more visibility
-      ctx.beginPath()
-      points.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point[0], point[1])
-        } else {
-          ctx.lineTo(point[0], point[1])
-        }
-      })
-
+      // Set stroke style for the wave line
       ctx.strokeStyle = strokeColor
-      ctx.lineWidth = 2
+      ctx.lineWidth = 1.5
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
       ctx.stroke()
     }
 
@@ -227,7 +218,7 @@ function SoundWaveAnimation({ className }: SoundWaveAnimationProps) {
     }
   }, [])
 
-  return <canvas ref={canvasRef} className={`absolute w-full h-[400px] opacity-35 ${className}`} aria-hidden="true" />
+  return <canvas ref={canvasRef} className={`absolute w-full h-[200px] opacity-20 ${className}`} aria-hidden="true" />
 }
 
 interface LandingPageProps {
@@ -253,7 +244,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
          ></div>
         
         {/* Sound Wave Animation */}
-        <SoundWaveAnimation className="top-1/3 transform -translate-y-1/2" />
+        <SoundWaveAnimation className="bottom-1/4 transform translate-y-1/2" />
       </div>
 
       {/* Header */}
@@ -276,18 +267,18 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <a href="#pricing" className="text-gray-700 hover:text-purple-600 transition-colors font-medium">Pricing</a>
           </div>
 
-          {/* Auth buttons */}
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-              Sign In
-            </Button>
-            <Button 
-              onClick={onGetStarted}
-              className="bg-purple-600 hover:bg-purple-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-300"
-            >
-              Get Started
-            </Button>
-          </div>
+           {/* Auth buttons */}
+           <div className="flex items-center gap-3">
+             <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-700">
+               Sign In
+             </Button>
+             <Button 
+               onClick={onGetStarted}
+               className="bg-purple-600 hover:bg-purple-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-300"
+             >
+               Get Started
+             </Button>
+           </div>
         </nav>
       </header>
 
@@ -296,7 +287,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="max-w-6xl mx-auto text-center">
           {/* Refined Badge */}
           <div className="inline-flex items-center px-3 py-1.5 bg-[#E9D5FF] text-[#7C3AED] rounded-full text-xs font-medium mb-8 animate-fade-in-up">
-            • Introducing Lumo
+            Introducing Lumo
           </div>
 
           {/* Refined Main Headline */}
@@ -332,14 +323,14 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <Play className="mr-3 w-5 h-5" />
               Try Interactive Demo
             </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-8 py-4 text-lg font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.03]"
-            >
-              Learn More
-              <ArrowRight className="ml-3 w-5 h-5" />
-            </Button>
+             <Button 
+               size="lg" 
+               variant="outline" 
+               className="bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 px-8 py-4 text-lg font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.03]"
+             >
+               Learn More
+               <ArrowRight className="ml-3 w-5 h-5" />
+             </Button>
           </div>
 
           {/* Enhanced Features Grid */}
