@@ -30,14 +30,16 @@ export const domUtils = {
    * 根据类名获取元素
    */
   getByClass: <T extends Element>(className: string): NodeListOf<T> => {
-    return document.getElementsByClassName(className) as NodeListOf<T>
+    return document.getElementsByClassName(
+      className
+    ) as unknown as NodeListOf<T>
   },
 
   /**
    * 根据标签名获取元素
    */
   getByTag: <T extends Element>(tagName: string): NodeListOf<T> => {
-    return document.getElementsByTagName(tagName) as NodeListOf<T>
+    return document.getElementsByTagName(tagName) as unknown as NodeListOf<T>
   },
 
   /**
@@ -49,7 +51,7 @@ export const domUtils = {
     content?: string
   ): HTMLElementTagNameMap[T] => {
     const element = document.createElement(tagName)
-    
+
     if (attributes) {
       Object.entries(attributes).forEach(([key, value]) => {
         element.setAttribute(key, value)
@@ -122,7 +124,11 @@ export const styleUtils = {
   /**
    * 替换类名
    */
-  replaceClass: (element: Element, oldClass: string, newClass: string): void => {
+  replaceClass: (
+    element: Element,
+    oldClass: string,
+    newClass: string
+  ): void => {
     element.classList.replace(oldClass, newClass)
   },
 }
@@ -237,7 +243,7 @@ export const positionUtils = {
   isInViewport: (element: Element): boolean => {
     const rect = element.getBoundingClientRect()
     const viewport = positionUtils.getViewportSize()
-    
+
     return (
       rect.top >= 0 &&
       rect.left >= 0 &&
@@ -283,25 +289,25 @@ export const animationUtils = {
    * 淡入动画
    */
   fadeIn: (element: HTMLElement, duration = 300): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       element.style.opacity = '0'
       element.style.display = 'block'
-      
+
       const start = performance.now()
-      
+
       const animate = (timestamp: number) => {
         const elapsed = timestamp - start
         const progress = Math.min(elapsed / duration, 1)
-        
+
         element.style.opacity = String(progress)
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate)
         } else {
           resolve()
         }
       }
-      
+
       requestAnimationFrame(animate)
     })
   },
@@ -310,15 +316,15 @@ export const animationUtils = {
    * 淡出动画
    */
   fadeOut: (element: HTMLElement, duration = 300): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const start = performance.now()
-      
+
       const animate = (timestamp: number) => {
         const elapsed = timestamp - start
         const progress = Math.min(elapsed / duration, 1)
-        
+
         element.style.opacity = String(1 - progress)
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate)
         } else {
@@ -326,7 +332,7 @@ export const animationUtils = {
           resolve()
         }
       }
-      
+
       requestAnimationFrame(animate)
     })
   },
@@ -335,20 +341,20 @@ export const animationUtils = {
    * 滑动显示动画
    */
   slideDown: (element: HTMLElement, duration = 300): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       element.style.height = '0'
       element.style.overflow = 'hidden'
       element.style.display = 'block'
-      
+
       const targetHeight = element.scrollHeight
       const start = performance.now()
-      
+
       const animate = (timestamp: number) => {
         const elapsed = timestamp - start
         const progress = Math.min(elapsed / duration, 1)
-        
+
         element.style.height = `${targetHeight * progress}px`
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate)
         } else {
@@ -357,7 +363,7 @@ export const animationUtils = {
           resolve()
         }
       }
-      
+
       requestAnimationFrame(animate)
     })
   },
@@ -366,19 +372,19 @@ export const animationUtils = {
    * 滑动隐藏动画
    */
   slideUp: (element: HTMLElement, duration = 300): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const startHeight = element.offsetHeight
       element.style.height = `${startHeight}px`
       element.style.overflow = 'hidden'
-      
+
       const start = performance.now()
-      
+
       const animate = (timestamp: number) => {
         const elapsed = timestamp - start
         const progress = Math.min(elapsed / duration, 1)
-        
+
         element.style.height = `${startHeight * (1 - progress)}px`
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate)
         } else {
@@ -388,7 +394,7 @@ export const animationUtils = {
           resolve()
         }
       }
-      
+
       requestAnimationFrame(animate)
     })
   },
@@ -403,11 +409,11 @@ export const formUtils = {
   getFormData: (form: HTMLFormElement): Record<string, any> => {
     const formData = new FormData(form)
     const data: Record<string, any> = {}
-    
+
     for (const [key, value] of formData.entries()) {
       data[key] = value
     }
-    
+
     return data
   },
 
@@ -449,14 +455,14 @@ export const formUtils = {
   getFormErrors: (form: HTMLFormElement): Record<string, string> => {
     const errors: Record<string, string> = {}
     const elements = form.querySelectorAll('input, select, textarea')
-    
-    elements.forEach((element) => {
+
+    elements.forEach(element => {
       const input = element as HTMLInputElement
       if (!input.checkValidity()) {
         errors[input.name] = input.validationMessage
       }
     })
-    
+
     return errors
   },
 }

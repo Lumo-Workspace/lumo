@@ -2,12 +2,12 @@
  * Kanban相关的类型定义
  */
 
-import type { ID, Priority, TaskStatus, User } from './index'
+import type { Priority, TaskStatus, User } from './index'
 
 // ==================== Kanban基础类型 ====================
 
 export interface KanbanColumn {
-  id: ID
+  id: string
   title: string
   status: TaskStatus
   items: KanbanItem[]
@@ -18,7 +18,7 @@ export interface KanbanColumn {
 }
 
 export interface KanbanItem {
-  id: ID
+  id: string
   title: string
   description?: string
   status: TaskStatus
@@ -30,7 +30,7 @@ export interface KanbanItem {
   tags: string[]
   createdAt: string
   updatedAt: string
-  dependencies?: ID[]
+  dependencies?: string[]
   subtasks?: KanbanItem[]
   attachments?: Attachment[]
   comments?: Comment[]
@@ -38,7 +38,7 @@ export interface KanbanItem {
 }
 
 export interface Attachment {
-  id: ID
+  id: string
   name: string
   url: string
   type: string
@@ -48,7 +48,7 @@ export interface Attachment {
 }
 
 export interface Comment {
-  id: ID
+  id: string
   content: string
   author: User
   createdAt: string
@@ -59,28 +59,28 @@ export interface Comment {
 // ==================== 拖拽相关 ====================
 
 export interface DragResult {
-  draggableId: ID
+  draggableId: string
   source: DropLocation
   destination?: DropLocation
   reason: 'DROP' | 'CANCEL'
 }
 
 export interface DropLocation {
-  droppableId: ID
+  droppableId: string
   index: number
 }
 
 export interface DragState {
   isDragging: boolean
   draggedItem?: KanbanItem
-  dragOverColumn?: ID
-  dragOverItem?: ID
+  dragOverColumn?: string
+  dragOverItem?: string
 }
 
 // ==================== 过滤器 ====================
 
 export interface KanbanFilter {
-  assignee?: ID[]
+  assignee?: string[]
   priority?: Priority[]
   tags?: string[]
   dueDate?: {
@@ -92,7 +92,7 @@ export interface KanbanFilter {
 }
 
 export interface KanbanView {
-  id: ID
+  id: string
   name: string
   description?: string
   columns: KanbanColumn[]
@@ -126,7 +126,7 @@ export interface KanbanStats {
 }
 
 export interface ColumnStats {
-  columnId: ID
+  columnId: string
   itemCount: number
   averageAge: number
   oldestItem?: KanbanItem
@@ -167,9 +167,9 @@ export interface AIInsight {
 // ==================== 依赖关系 ====================
 
 export interface DependencyRelation {
-  id: ID
-  fromItem: ID
-  toItem: ID
+  id: string
+  fromItem: string
+  toItem: string
   type: 'blocks' | 'blocks-by' | 'relates' | 'duplicates'
   description?: string
 }
@@ -180,15 +180,15 @@ export interface DependencyGraph {
 }
 
 export interface DependencyNode {
-  id: ID
+  id: string
   type: 'item' | 'column'
   data: KanbanItem | KanbanColumn
 }
 
 export interface DependencyEdge {
-  id: ID
-  source: ID
-  target: ID
+  id: string
+  source: string
+  target: string
   type: string
   data: DependencyRelation
 }
@@ -196,7 +196,7 @@ export interface DependencyEdge {
 // ==================== 模板 ====================
 
 export interface KanbanTemplate {
-  id: ID
+  id: string
   name: string
   description: string
   columns: Omit<KanbanColumn, 'items'>[]
@@ -210,23 +210,28 @@ export interface KanbanTemplate {
 // ==================== 事件 ====================
 
 export interface KanbanEvent {
-  type: 'item-moved' | 'item-created' | 'item-updated' | 'item-deleted' | 'column-updated'
-  itemId?: ID
-  columnId?: ID
+  type:
+    | 'item-moved'
+    | 'item-created'
+    | 'item-updated'
+    | 'item-deleted'
+    | 'column-updated'
+  itemId?: string
+  columnId?: string
   data?: unknown
   timestamp: string
-  userId: ID
+  userId: string
 }
 
 // ==================== 导出类型 ====================
 
 export type KanbanBoard = {
-  id: ID
+  id: string
   name: string
   description?: string
   columns: KanbanColumn[]
   views: KanbanView[]
-  currentView?: ID
+  currentView?: string
   filters?: KanbanFilter
   sorting?: KanbanSorting
   stats?: KanbanStats

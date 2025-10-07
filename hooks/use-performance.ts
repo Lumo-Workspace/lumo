@@ -24,24 +24,30 @@ export function usePerformanceMeasure(label: string) {
     return 0
   }, [label])
 
-  const measure = useCallback(<T>(fn: () => T): T => {
-    start()
-    const result = fn()
-    end()
-    return result
-  }, [start, end])
-
-  const measureAsync = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
-    start()
-    try {
-      const result = await fn()
+  const measure = useCallback(
+    <T>(fn: () => T): T => {
+      start()
+      const result = fn()
       end()
       return result
-    } catch (error) {
-      end()
-      throw error
-    }
-  }, [start, end])
+    },
+    [start, end]
+  )
+
+  const measureAsync = useCallback(
+    async <T>(fn: () => Promise<T>): Promise<T> => {
+      start()
+      try {
+        const result = await fn()
+        end()
+        return result
+      } catch (error) {
+        end()
+        throw error
+      }
+    },
+    [start, end]
+  )
 
   return {
     start,
@@ -68,7 +74,7 @@ export function useRenderCount(componentName?: string) {
 // 组件挂载时间 Hook
 export function useMountTime() {
   const mountTimeRef = useRef<number>()
-  
+
   useEffect(() => {
     mountTimeRef.current = performance.now()
   }, [])
@@ -119,13 +125,13 @@ export function useNetworkStatus() {
     if ('connection' in navigator) {
       const connection = (navigator as any).connection
       setConnectionType(connection.effectiveType || 'unknown')
-      
+
       const handleConnectionChange = () => {
         setConnectionType(connection.effectiveType || 'unknown')
       }
-      
+
       connection.addEventListener('change', handleConnectionChange)
-      
+
       return () => {
         window.removeEventListener('online', handleOnline)
         window.removeEventListener('offline', handleOffline)
@@ -197,24 +203,27 @@ export function useInfiniteScroll(
   const [isIntersecting, setIsIntersecting] = useState(false)
   const observerRef = useRef<IntersectionObserver>()
 
-  const lastElementRef = useCallback((node: HTMLElement | null) => {
-    if (isLoading) return
-    if (observerRef.current) observerRef.current.disconnect()
+  const lastElementRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (isLoading) return
+      if (observerRef.current) observerRef.current.disconnect()
 
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage) {
-          setIsIntersecting(true)
-          onLoadMore()
+      observerRef.current = new IntersectionObserver(
+        entries => {
+          if (entries[0] && entries[0].isIntersecting && hasNextPage) {
+            setIsIntersecting(true)
+            onLoadMore()
+          }
+        },
+        {
+          rootMargin: `${threshold}px`,
         }
-      },
-      {
-        rootMargin: `${threshold}px`,
-      }
-    )
+      )
 
-    if (node) observerRef.current.observe(node)
-  }, [isLoading, hasNextPage, onLoadMore, threshold])
+      if (node) observerRef.current.observe(node)
+    },
+    [isLoading, hasNextPage, onLoadMore, threshold]
+  )
 
   return {
     lastElementRef,
@@ -278,7 +287,9 @@ export function useCache<T>(
   fetchFunction: () => Promise<T>,
   ttl: number = 5 * 60 * 1000 // 5 minutes
 ) {
-  const cacheRef = useRef<Map<string, { data: T; timestamp: number }>>(new Map())
+  const cacheRef = useRef<Map<string, { data: T; timestamp: number }>>(
+    new Map()
+  )
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -304,13 +315,13 @@ export function useCache<T>(
 
     try {
       const result = await fetchFunction()
-      
+
       // 缓存结果
       cacheRef.current.set(key, {
         data: result,
         timestamp: Date.now(),
       })
-      
+
       setData(result)
       return result
     } catch (err) {
@@ -352,18 +363,21 @@ export function useBatchUpdate<T>(
   const batchRef = useRef<T[]>([])
   const timeoutRef = useRef<NodeJS.Timeout>()
 
-  const addUpdate = useCallback((update: T) => {
-    batchRef.current.push(update)
+  const addUpdate = useCallback(
+    (update: T) => {
+      batchRef.current.push(update)
 
-    if (batchRef.current.length >= batchSize) {
-      flushUpdates()
-    } else {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
+      if (batchRef.current.length >= batchSize) {
+        flushUpdates()
+      } else {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+        timeoutRef.current = setTimeout(flushUpdates, delay)
       }
-      timeoutRef.current = setTimeout(flushUpdates, delay)
-    }
-  }, [batchSize, delay])
+    },
+    [batchSize, delay]
+  )
 
   const flushUpdates = useCallback(() => {
     if (batchRef.current.length > 0) {
@@ -394,18 +408,4 @@ export function useBatchUpdate<T>(
     flushUpdates,
     clearBatch,
   }
-}
-
-// 导出所有性能相关的 Hooks
-export {
-  usePerformanceMeasure,
-  useRenderCount,
-  useMountTime,
-  useMemoryUsage,
-  useNetworkStatus,
-  useVirtualScroll,
-  useInfiniteScroll,
-  useLazyLoad,
-  useCache,
-  useBatchUpdate,
 }

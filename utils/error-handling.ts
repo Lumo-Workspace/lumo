@@ -39,21 +39,37 @@ export function createAppError(
 ): AppError {
   const error = new Error(message) as AppError
   error.code = code
-  error.statusCode = statusCode
-  error.details = details
+  if (statusCode !== undefined) {
+    error.statusCode = statusCode
+  }
+  if (details !== undefined) {
+    error.details = details
+  }
   error.timestamp = new Date()
-  error.context = context
+  if (context !== undefined) {
+    error.context = context
+  }
   return error
 }
 
 // 错误分类器
 export function classifyError(error: any): {
-  type: 'network' | 'validation' | 'auth' | 'permission' | 'notFound' | 'server' | 'unknown'
+  type:
+    | 'network'
+    | 'validation'
+    | 'auth'
+    | 'permission'
+    | 'notFound'
+    | 'server'
+    | 'unknown'
   severity: 'low' | 'medium' | 'high' | 'critical'
   recoverable: boolean
 } {
   // 网络错误
-  if (error.code === ERROR_CODES.NETWORK_ERROR || error.name === 'NetworkError') {
+  if (
+    error.code === ERROR_CODES.NETWORK_ERROR ||
+    error.name === 'NetworkError'
+  ) {
     return {
       type: 'network',
       severity: 'medium',
@@ -126,7 +142,7 @@ export function classifyError(error: any): {
 // 错误消息本地化
 export function getErrorMessage(error: any, fallback?: string): string {
   const classification = classifyError(error)
-  
+
   // 如果有自定义消息，使用它
   if (error.message && error.message !== 'Unknown error') {
     return error.message
@@ -154,7 +170,7 @@ export function generateErrorReport(
   sessionId?: string
 ): ErrorReport {
   const errorId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  
+
   return {
     errorId,
     message: error.message || 'Unknown error',
@@ -163,11 +179,13 @@ export function generateErrorReport(
     statusCode: error.statusCode,
     details: error.details,
     timestamp: new Date(),
-    context,
-    userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
-    url: typeof window !== 'undefined' ? window.location.href : undefined,
-    userId,
-    sessionId,
+    ...(context && { context }),
+    ...(typeof window !== 'undefined' && {
+      userAgent: window.navigator.userAgent,
+    }),
+    ...(typeof window !== 'undefined' && { url: window.location.href }),
+    ...(userId && { userId }),
+    ...(sessionId && { sessionId }),
   }
 }
 
@@ -219,24 +237,30 @@ export class GlobalErrorHandler {
 
   private setupGlobalErrorHandlers(): void {
     // 捕获未处理的 JavaScript 错误
-    window.addEventListener('error', (event) => {
+    window.addEventListener('error', event => {
       this.handleError(event.error, 'unhandled_error')
     })
 
     // 捕获未处理的 Promise 拒绝
-    window.addEventListener('unhandledrejection', (event) => {
+    window.addEventListener('unhandledrejection', event => {
       this.handleError(event.reason, 'unhandled_promise_rejection')
     })
 
     // 捕获资源加载错误
-    window.addEventListener('error', (event) => {
-      if (event.target !== window) {
-        this.handleError(
-          new Error(`Resource loading error: ${(event.target as any).src || (event.target as any).href}`),
-          'resource_loading_error'
-        )
-      }
-    }, true)
+    window.addEventListener(
+      'error',
+      event => {
+        if (event.target !== window) {
+          this.handleError(
+            new Error(
+              `Resource loading error: ${(event.target as any).src || (event.target as any).href}`
+            ),
+            'resource_loading_error'
+          )
+        }
+      },
+      true
+    )
   }
 
   private startBatchProcessor(): void {
@@ -245,12 +269,17 @@ export class GlobalErrorHandler {
     }, this.flushInterval)
   }
 
-  handleError(error: any, context?: string, userId?: string, sessionId?: string): void {
+  handleError(
+    error: any,
+    context?: string,
+    userId?: string,
+    sessionId?: string
+  ): void {
     const report = generateErrorReport(error, context, userId, sessionId)
-    
+
     // 添加到队列
     this.errorQueue.push(report)
-    
+
     // 如果队列满了，立即处理
     if (this.errorQueue.length >= this.maxQueueSize) {
       this.flushErrorQueue()
@@ -261,12 +290,14 @@ export class GlobalErrorHandler {
     if (this.errorQueue.length === 0) return
 
     const batch = this.errorQueue.splice(0, this.batchSize)
-    
+
     try {
       await Promise.all(batch.map(report => sendErrorReport(report)))
     } catch (error) {
       // 如果发送失败，将错误重新加入队列（最多重试一次）
-      this.errorQueue.unshift(...batch.filter((_, index) => index < this.batchSize / 2))
+      this.errorQueue.unshift(
+        ...batch.filter((_, index) => index < this.batchSize / 2)
+      )
     }
   }
 
@@ -295,7 +326,7 @@ export async function withRetry<T>(
     maxRetries = 3,
     delay = 1000,
     backoff = 'exponential',
-    retryCondition = (error) => classifyError(error).recoverable
+    retryCondition = error => classifyError(error).recoverable,
   } = options
 
   let lastError: any
@@ -312,9 +343,10 @@ export async function withRetry<T>(
       }
 
       // 计算延迟时间
-      const currentDelay = backoff === 'exponential' 
-        ? delay * Math.pow(2, attempt - 1)
-        : delay * attempt
+      const currentDelay =
+        backoff === 'exponential'
+          ? delay * Math.pow(2, attempt - 1)
+          : delay * attempt
 
       // 等待后重试
       await new Promise(resolve => setTimeout(resolve, currentDelay))
@@ -335,17 +367,4 @@ export function createErrorBoundaryHandler() {
 // 初始化全局错误处理
 export function initializeErrorHandling(): void {
   GlobalErrorHandler.getInstance()
-}
-
-// 导出所有错误处理工具
-export {
-  createAppError,
-  classifyError,
-  getErrorMessage,
-  generateErrorReport,
-  sendErrorReport,
-  GlobalErrorHandler,
-  withRetry,
-  createErrorBoundaryHandler,
-  initializeErrorHandling,
 }

@@ -1,23 +1,22 @@
-"use client"
-
+'use client'
 
 // 组件导入
-import SlashMenu from "./slash-menu"
-import ContextMenu from "./context-menu"
-import DeleteDialog from "./delete-dialog"
-import Sidebar from "./sidebar"
-import InboxView from "./inbox-view"
-import EditorView from "./editor-view"
-import SharedView from "./shared-view"
-import TeamView from "./team-view"
-import AIChat from "./ai-chat"
+import SlashMenu from './slash-menu'
+import ContextMenu from './context-menu'
+import DeleteDialog from './delete-dialog'
+import Sidebar from './sidebar'
+import InboxView from './inbox-view'
+import EditorView from './editor-view'
+import SharedView from './shared-view'
+import TeamView from './team-view'
+import AIChat from './ai-chat'
 
 // Hooks导入
-import { usePages } from "../hooks/use-pages"
-import { useBlocks } from "../hooks/use-blocks"
-import { useNotifications } from "../hooks/use-notifications"
-import { useUIState } from "../hooks/use-ui-state"
-import { useTeams } from "../hooks/use-teams"
+import { usePages } from '../hooks/use-pages'
+import { useBlocks } from '../hooks/use-blocks'
+import { useNotifications } from '../hooks/use-notifications'
+import { useUIState } from '../hooks/use-ui-state'
+import { useTeams } from '../hooks/use-teams'
 
 interface MarkdownEditorProps {}
 
@@ -54,7 +53,12 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     handleBlur,
   } = useBlocks({ pages, setPages, currentPageId })
 
-  const { notifications, selectedNotification, setSelectedNotification, markNotificationAsRead } = useNotifications()
+  const {
+    notifications,
+    selectedNotification,
+    setSelectedNotification,
+    markNotificationAsRead,
+  } = useNotifications()
 
   const {
     teams,
@@ -136,14 +140,14 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
       updatePageTitle(pageId, editingTitle)
     }
     setEditingPageId(null)
-    setEditingTitle("")
+    setEditingTitle('')
   }
 
   const switchToDocument = (documentId: string) => {
     if (pages[documentId]) {
       expandPathToPage(documentId)
       setCurrentPageId(documentId)
-      setCurrentView("editor")
+      setCurrentView('editor')
       setSelectedNotification(null)
       setWorkspaceExpanded(true) // Ensure workspace is expanded
     }
@@ -151,58 +155,69 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
 
   const handlePageClick = (pageId: string) => {
     setCurrentPageId(pageId)
-    setCurrentView("editor")
+    setCurrentView('editor')
     setSelectedNotification(null)
   }
 
   const handleTeamClick = (teamId: string) => {
     setCurrentTeamId(teamId)
-    setCurrentProjectId("")
-    setCurrentPRDId("")
-    setCurrentEpicId("")
-    setCurrentStoryId("")
-    setCurrentTaskId("")
-    setCurrentView("teams")
+    setCurrentProjectId('')
+    setCurrentPRDId('')
+    setCurrentEpicId('')
+    setCurrentStoryId('')
+    setCurrentTaskId('')
+    setCurrentView('teams')
   }
 
   const handleProjectClick = (teamId: string, projectId: string) => {
     setCurrentTeamId(teamId)
     setCurrentProjectId(projectId)
-    setCurrentPRDId("")
-    setCurrentEpicId("")
-    setCurrentStoryId("")
-    setCurrentTaskId("")
-    setCurrentView("teams")
+    setCurrentPRDId('')
+    setCurrentEpicId('')
+    setCurrentStoryId('')
+    setCurrentTaskId('')
+    setCurrentView('teams')
   }
 
   const handlePRDClick = (teamId: string, projectId: string, prdId: string) => {
     setCurrentTeamId(teamId)
     setCurrentProjectId(projectId)
     setCurrentPRDId(prdId)
-    setCurrentEpicId("")
-    setCurrentStoryId("")
-    setCurrentTaskId("")
-    setCurrentView("teams")
+    setCurrentEpicId('')
+    setCurrentStoryId('')
+    setCurrentTaskId('')
+    setCurrentView('teams')
   }
 
-  const handleEpicClick = (teamId: string, projectId: string, prdId: string, epicId: string) => {
+  const handleEpicClick = (
+    teamId: string,
+    projectId: string,
+    prdId: string,
+    epicId: string
+  ) => {
     setCurrentTeamId(teamId)
     setCurrentProjectId(projectId)
     setCurrentPRDId(prdId)
     setCurrentEpicId(epicId)
-    setCurrentStoryId("")
-    setCurrentTaskId("")
-    setCurrentView("teams")
+    setCurrentStoryId('')
+    setCurrentTaskId('')
+    setCurrentView('teams')
   }
 
-  const handleStoryClick = (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => {
+  const handleStoryClick = (
+    teamId: string,
+    projectId: string,
+    prdId: string,
+    epicId: string,
+    storyId: string
+  ) => {
     setCurrentTeamId(teamId)
     setCurrentProjectId(projectId)
     setCurrentPRDId(prdId)
     setCurrentEpicId(epicId)
     setCurrentStoryId(storyId)
-    setCurrentTaskId("")
-    setCurrentView("teams")
+    setCurrentTaskId('')
+    setCurrentView('teams')
   }
 
   const handleTaskClick = (
@@ -211,7 +226,7 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     prdId: string,
     epicId: string,
     storyId: string,
-    taskId: string,
+    taskId: string
   ) => {
     setCurrentTeamId(teamId)
     setCurrentProjectId(projectId)
@@ -219,20 +234,23 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     setCurrentEpicId(epicId)
     setCurrentStoryId(storyId)
     setCurrentTaskId(taskId)
-    setCurrentView("teams")
+    setCurrentView('teams')
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800" onClick={(e) => {
-      closeContextMenu()
-      // Close slash menu if clicking outside of it
-      if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
-        setShowSlashMenu(false)
-      }
-    }}>
+    <div
+      className='flex h-screen bg-gray-50 text-gray-800'
+      onClick={e => {
+        closeContextMenu()
+        // Close slash menu if clicking outside of it
+        if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
+          setShowSlashMenu(false)
+        }
+      }}
+    >
       {showAIChat && aiChatFullscreen ? (
         // Fullscreen AI Chat
-        <div className="fixed inset-0 z-50 bg-white">
+        <div className='fixed inset-0 z-50 bg-white'>
           <AIChat
             onClose={() => setShowAIChat(false)}
             isFullscreen={true}
@@ -242,7 +260,7 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
       ) : (
         <>
           {showAIChat ? (
-            <div className="w-64">
+            <div className='w-64'>
               <AIChat
                 onClose={() => setShowAIChat(false)}
                 isFullscreen={false}
@@ -288,13 +306,13 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onTitleSubmit={handleTitleSubmit}
               onTitleCancel={() => {
                 setEditingPageId(null)
-                setEditingTitle("")
+                setEditingTitle('')
               }}
               onAIToggle={() => setShowAIChat(true)}
             />
           )}
 
-          {currentView === "inbox" ? (
+          {currentView === 'inbox' ? (
             <InboxView
               notifications={notifications}
               selectedNotification={selectedNotification}
@@ -303,9 +321,9 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onSwitchToDocument={switchToDocument}
               pages={pages}
             />
-          ) : currentView === "shared" ? (
+          ) : currentView === 'shared' ? (
             <SharedView onSwitchToDocument={switchToDocument} />
-          ) : currentView === "teams" ? (
+          ) : currentView === 'teams' ? (
             <TeamView
               teams={teams}
               currentTeamId={currentTeamId}
@@ -329,12 +347,12 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onKeyDown={handleKeyDown}
               onToggleTodo={toggleTodo}
               onFocus={handleFocus}
-              onBlur={() => handleBlur("")}
+              onBlur={handleBlur}
               onAddBlock={(afterBlockId?: string) => {
                 if (afterBlockId) {
                   addNewBlock(afterBlockId)
                 } else {
-                  addNewBlock("")
+                  addNewBlock('')
                 }
               }}
               onChangeBlockType={changeBlockType}
@@ -350,10 +368,10 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
             position={slashMenuPosition}
             searchQuery={slashMenuSearch}
             onSearchChange={setSlashMenuSearch}
-            onBlockTypeSelect={(blockType) => {
+            onBlockTypeSelect={blockType => {
               if (activeBlockId) {
                 changeBlockType(activeBlockId, blockType)
-                setSlashMenuSearch("") // Clear search when block type is selected
+                setSlashMenuSearch('') // Clear search when block type is selected
               }
             }}
             onClose={() => {

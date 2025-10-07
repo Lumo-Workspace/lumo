@@ -34,7 +34,7 @@ export const performanceUtils = {
 
     return (...args: Parameters<T>) => {
       const now = Date.now()
-      
+
       if (now - lastCall >= delay) {
         lastCall = now
         func(...args)
@@ -42,10 +42,13 @@ export const performanceUtils = {
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-        timeoutId = setTimeout(() => {
-          lastCall = Date.now()
-          func(...args)
-        }, delay - (now - lastCall))
+        timeoutId = setTimeout(
+          () => {
+            lastCall = Date.now()
+            func(...args)
+          },
+          delay - (now - lastCall)
+        )
       }
     }
   },
@@ -92,15 +95,15 @@ export const lazyLoadUtils = {
    */
   lazyLoadImages: (selector = 'img[data-src]'): void => {
     const images = document.querySelectorAll<HTMLImageElement>(selector)
-    
+
     if (!images.length) return
 
-    const imageObserver = lazyLoadUtils.createObserver((entries) => {
-      entries.forEach((entry) => {
+    const imageObserver = lazyLoadUtils.createObserver(entries => {
+      entries.forEach(entry => {
         if (entry.isIntersecting) {
           const img = entry.target as HTMLImageElement
           const src = img.dataset.src
-          
+
           if (src) {
             img.src = src
             img.removeAttribute('data-src')
@@ -110,7 +113,7 @@ export const lazyLoadUtils = {
       })
     })
 
-    images.forEach((img) => imageObserver.observe(img))
+    images.forEach(img => imageObserver.observe(img))
   },
 
   /**
@@ -118,15 +121,15 @@ export const lazyLoadUtils = {
    */
   lazyLoadComponents: (selector = '[data-lazy-component]'): void => {
     const components = document.querySelectorAll(selector)
-    
+
     if (!components.length) return
 
-    const componentObserver = lazyLoadUtils.createObserver((entries) => {
-      entries.forEach((entry) => {
+    const componentObserver = lazyLoadUtils.createObserver(entries => {
+      entries.forEach(entry => {
         if (entry.isIntersecting) {
           const component = entry.target as HTMLElement
           const componentName = component.dataset.lazyComponent
-          
+
           if (componentName) {
             // 这里可以动态导入组件
             componentObserver.unobserve(component)
@@ -135,7 +138,7 @@ export const lazyLoadUtils = {
       })
     })
 
-    components.forEach((component) => componentObserver.observe(component))
+    components.forEach(component => componentObserver.observe(component))
   },
 }
 
@@ -153,8 +156,14 @@ export const virtualScrollUtils = {
     overscan = 5
   ) => {
     const visibleCount = Math.ceil(containerHeight / itemHeight)
-    const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan)
-    const endIndex = Math.min(totalItems - 1, startIndex + visibleCount + overscan * 2)
+    const startIndex = Math.max(
+      0,
+      Math.floor(scrollTop / itemHeight) - overscan
+    )
+    const endIndex = Math.min(
+      totalItems - 1,
+      startIndex + visibleCount + overscan * 2
+    )
 
     return {
       startIndex,
@@ -186,10 +195,12 @@ export const memoryUtils = {
    */
   createWeakCache: <K extends object, V>() => {
     const cache = new WeakMap<K, V>()
-    
+
     return {
       get: (key: K): V | undefined => cache.get(key),
-      set: (key: K, value: V): void => cache.set(key, value),
+      set: (key: K, value: V): void => {
+        cache.set(key, value)
+      },
       has: (key: K): boolean => cache.has(key),
       delete: (key: K): boolean => cache.delete(key),
     }
@@ -200,7 +211,7 @@ export const memoryUtils = {
    */
   createLRUCache: <K, V>(maxSize: number = 100) => {
     const cache = new Map<K, V>()
-    
+
     return {
       get: (key: K): V | undefined => {
         if (cache.has(key)) {
@@ -211,17 +222,19 @@ export const memoryUtils = {
         }
         return undefined
       },
-      
+
       set: (key: K, value: V): void => {
         if (cache.has(key)) {
           cache.delete(key)
         } else if (cache.size >= maxSize) {
           const firstKey = cache.keys().next().value
-          cache.delete(firstKey)
+          if (firstKey !== undefined) {
+            cache.delete(firstKey)
+          }
         }
         cache.set(key, value)
       },
-      
+
       has: (key: K): boolean => cache.has(key),
       delete: (key: K): boolean => cache.delete(key),
       clear: (): void => cache.clear(),
@@ -233,7 +246,7 @@ export const memoryUtils = {
    * 清理定时器
    */
   clearTimers: (timers: Set<NodeJS.Timeout | number>): void => {
-    timers.forEach((timer) => {
+    timers.forEach(timer => {
       clearTimeout(timer)
       clearInterval(timer)
     })
@@ -243,11 +256,13 @@ export const memoryUtils = {
   /**
    * 清理事件监听器
    */
-  clearEventListeners: (listeners: Array<{
-    element: Element
-    event: string
-    handler: EventListener
-  }>): void => {
+  clearEventListeners: (
+    listeners: Array<{
+      element: Element
+      event: string
+      handler: EventListener
+    }>
+  ): void => {
     listeners.forEach(({ element, event, handler }) => {
       element.removeEventListener(event, handler)
     })
@@ -284,13 +299,13 @@ export const batchUtils = {
     batchSize: number = 5
   ): Promise<T[]> => {
     const results: T[] = []
-    
+
     for (let i = 0; i < requests.length; i += batchSize) {
       const batch = requests.slice(i, i + batchSize)
       const batchResults = await Promise.all(batch.map(request => request()))
       results.push(...batchResults)
     }
-    
+
     return results
   },
 }
@@ -301,19 +316,16 @@ export const performanceMonitor = {
   /**
    * 测量函数执行时间
    */
-  measure: <T extends (...args: any[]) => any>(
-    func: T,
-    name?: string
-  ): T => {
+  measure: <T extends (...args: any[]) => any>(func: T, name?: string): T => {
     return ((...args: Parameters<T>) => {
       const start = performance.now()
       const result = func(...args)
       const end = performance.now()
-      
+
       if (name) {
         console.log(`${name} took ${end - start} milliseconds`)
       }
-      
+
       return result
     }) as T
   },
@@ -329,11 +341,11 @@ export const performanceMonitor = {
       const start = performance.now()
       const result = await func(...args)
       const end = performance.now()
-      
+
       if (name) {
         console.log(`${name} took ${end - start} milliseconds`)
       }
-      
+
       return result
     }) as T
   },
@@ -342,29 +354,33 @@ export const performanceMonitor = {
    * 获取性能指标
    */
   getMetrics: (): {
-    memory?: PerformanceMemory
+    memory?: any
     navigation?: PerformanceNavigationTiming
     paint?: PerformancePaintTiming[]
   } => {
     const metrics: any = {}
-    
+
     // 内存使用情况
     if ('memory' in performance) {
       metrics.memory = (performance as any).memory
     }
-    
+
     // 导航时间
-    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+    const navigation = performance.getEntriesByType(
+      'navigation'
+    )[0] as PerformanceNavigationTiming
     if (navigation) {
       metrics.navigation = navigation
     }
-    
+
     // 绘制时间
-    const paint = performance.getEntriesByType('paint') as PerformancePaintTiming[]
+    const paint = performance.getEntriesByType(
+      'paint'
+    ) as PerformancePaintTiming[]
     if (paint.length > 0) {
       metrics.paint = paint
     }
-    
+
     return metrics
   },
 
@@ -374,11 +390,11 @@ export const performanceMonitor = {
   observeLongTasks: (callback: (entries: PerformanceEntry[]) => void): void => {
     if ('PerformanceObserver' in window) {
       try {
-        const observer = new PerformanceObserver((list) => {
+        const observer = new PerformanceObserver(list => {
           const entries = list.getEntries()
           callback(entries)
         })
-        
+
         observer.observe({ entryTypes: ['longtask'] })
       } catch (error) {
         console.warn('Long task observer not supported:', error)

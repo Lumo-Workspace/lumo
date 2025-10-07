@@ -4,13 +4,12 @@
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { deepClone } from '@/utils'
 
 // 优化的 useState Hook
 export function useOptimizedState<T>(initialState: T | (() => T)) {
   const [state, setState] = useState(initialState)
   const stateRef = useRef(state)
-  
+
   // 更新 ref 以保持最新值
   useEffect(() => {
     stateRef.current = state
@@ -86,7 +85,9 @@ export function useArrayState<T>(initialArray: T[] = []) {
   }, [])
 
   const update = useCallback((index: number, item: T) => {
-    setArray(prev => prev.map((existingItem, i) => (i === index ? item : existingItem)))
+    setArray(prev =>
+      prev.map((existingItem, i) => (i === index ? item : existingItem))
+    )
   }, [])
 
   const insert = useCallback((index: number, item: T) => {
@@ -101,7 +102,9 @@ export function useArrayState<T>(initialArray: T[] = []) {
     setArray(prev => {
       const newArray = [...prev]
       const item = newArray.splice(fromIndex, 1)[0]
-      newArray.splice(toIndex, 0, item)
+      if (item !== undefined) {
+        newArray.splice(toIndex, 0, item)
+      }
       return newArray
     })
   }, [])
@@ -139,40 +142,53 @@ export function useFormState<T extends Record<string, any>>(
   validationSchema?: Record<keyof T, (value: any) => string | null>
 ) {
   const [data, setData] = useState<T>(initialData)
-  const [errors, setErrors] = useState<Record<keyof T, string>>({} as Record<keyof T, string>)
-  const [touched, setTouched] = useState<Record<keyof T, boolean>>({} as Record<keyof T, boolean>)
+  const [errors, setErrors] = useState<Record<keyof T, string>>(
+    {} as Record<keyof T, string>
+  )
+  const [touched, setTouched] = useState<Record<keyof T, boolean>>(
+    {} as Record<keyof T, boolean>
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const setField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
-    setData(prev => ({ ...prev, [field]: value }))
-    
-    // 清除该字段的错误
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
-    }
-  }, [errors])
+  const setField = useCallback(
+    <K extends keyof T>(field: K, value: T[K]) => {
+      setData(prev => ({ ...prev, [field]: value }))
 
-  const setFieldTouched = useCallback(<K extends keyof T>(field: K, isTouched = true) => {
-    setTouched(prev => ({ ...prev, [field]: isTouched }))
-    
-    // 如果字段被触摸且有验证规则，立即验证
-    if (isTouched && validationSchema?.[field]) {
-      const error = validationSchema[field](data[field])
-      setErrors(prev => ({ ...prev, [field]: error || '' }))
-    }
-  }, [data, validationSchema])
+      // 清除该字段的错误
+      if (errors[field]) {
+        setErrors(prev => ({ ...prev, [field]: '' }))
+      }
+    },
+    [errors]
+  )
 
-  const validateField = useCallback(<K extends keyof T>(field: K): string | null => {
-    if (!validationSchema?.[field]) return null
-    return validationSchema[field](data[field])
-  }, [data, validationSchema])
+  const setFieldTouched = useCallback(
+    <K extends keyof T>(field: K, isTouched = true) => {
+      setTouched(prev => ({ ...prev, [field]: isTouched }))
+
+      // 如果字段被触摸且有验证规则，立即验证
+      if (isTouched && validationSchema?.[field]) {
+        const error = validationSchema[field](data[field])
+        setErrors(prev => ({ ...prev, [field]: error || '' }))
+      }
+    },
+    [data, validationSchema]
+  )
+
+  const validateField = useCallback(
+    <K extends keyof T>(field: K): string | null => {
+      if (!validationSchema?.[field]) return null
+      return validationSchema[field](data[field])
+    },
+    [data, validationSchema]
+  )
 
   const validateForm = useCallback((): boolean => {
     if (!validationSchema) return true
-    
+
     const newErrors = {} as Record<keyof T, string>
     let isValid = true
-    
+
     for (const field in validationSchema) {
       const error = validationSchema[field](data[field])
       if (error) {
@@ -180,7 +196,7 @@ export function useFormState<T extends Record<string, any>>(
         isValid = false
       }
     }
-    
+
     setErrors(newErrors)
     return isValid
   }, [data, validationSchema])
@@ -192,17 +208,20 @@ export function useFormState<T extends Record<string, any>>(
     setIsSubmitting(false)
   }, [initialData])
 
-  const submitForm = useCallback(async (onSubmit: (data: T) => Promise<void> | void) => {
-    setIsSubmitting(true)
-    try {
-      const isValid = validateForm()
-      if (isValid) {
-        await onSubmit(data)
+  const submitForm = useCallback(
+    async (onSubmit: (data: T) => Promise<void> | void) => {
+      setIsSubmitting(true)
+      try {
+        const isValid = validateForm()
+        if (isValid) {
+          await onSubmit(data)
+        }
+      } finally {
+        setIsSubmitting(false)
       }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [data, validateForm])
+    },
+    [data, validateForm]
+  )
 
   // 计算属性
   const isValid = useMemo(() => {
@@ -243,7 +262,7 @@ export function useAsyncState<T>(
   const execute = useCallback(async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const result = await asyncFunction()
       setData(result)
@@ -280,7 +299,7 @@ export function useCachedState<T>(
 ) {
   const [state, setState] = useState<T>(() => {
     if (typeof window === 'undefined') return initialValue
-    
+
     try {
       const cached = localStorage.getItem(key)
       if (cached) {
@@ -292,25 +311,28 @@ export function useCachedState<T>(
     } catch (error) {
       console.warn('Failed to load cached state:', error)
     }
-    
+
     return initialValue
   })
 
-  const setCachedState = useCallback((newValue: T) => {
-    setState(newValue)
-    
-    if (typeof window !== 'undefined') {
-      try {
-        const cacheData = {
-          value: newValue,
-          timestamp: Date.now(),
+  const setCachedState = useCallback(
+    (newValue: T) => {
+      setState(newValue)
+
+      if (typeof window !== 'undefined') {
+        try {
+          const cacheData = {
+            value: newValue,
+            timestamp: Date.now(),
+          }
+          localStorage.setItem(key, JSON.stringify(cacheData))
+        } catch (error) {
+          console.warn('Failed to cache state:', error)
         }
-        localStorage.setItem(key, JSON.stringify(cacheData))
-      } catch (error) {
-        console.warn('Failed to cache state:', error)
       }
-    }
-  }, [key])
+    },
+    [key]
+  )
 
   const clearCache = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -327,10 +349,7 @@ export function useCachedState<T>(
 }
 
 // 防抖状态管理 Hook
-export function useDebouncedState<T>(
-  initialValue: T,
-  delay: number = 300
-) {
+export function useDebouncedState<T>(initialValue: T, delay: number = 300) {
   const [state, setState] = useState<T>(initialValue)
   const [debouncedState, setDebouncedState] = useState<T>(initialValue)
   const timeoutRef = useRef<NodeJS.Timeout>()
@@ -355,10 +374,7 @@ export function useDebouncedState<T>(
 }
 
 // 节流状态管理 Hook
-export function useThrottledState<T>(
-  initialValue: T,
-  limit: number = 1000
-) {
+export function useThrottledState<T>(initialValue: T, limit: number = 1000) {
   const [state, setState] = useState<T>(initialValue)
   const [throttledState, setThrottledState] = useState<T>(initialValue)
   const lastRun = useRef(Date.now())
@@ -367,27 +383,19 @@ export function useThrottledState<T>(
     if (Date.now() - lastRun.current >= limit) {
       setThrottledState(state)
       lastRun.current = Date.now()
+      return undefined
     } else {
-      const timer = setTimeout(() => {
-        setThrottledState(state)
-        lastRun.current = Date.now()
-      }, limit - (Date.now() - lastRun.current))
+      const timer = setTimeout(
+        () => {
+          setThrottledState(state)
+          lastRun.current = Date.now()
+        },
+        limit - (Date.now() - lastRun.current)
+      )
 
       return () => clearTimeout(timer)
     }
   }, [state, limit])
 
   return [state, setState, throttledState] as const
-}
-
-// 导出所有优化的 Hooks
-export {
-  useOptimizedState,
-  useObjectState,
-  useArrayState,
-  useFormState,
-  useAsyncState,
-  useCachedState,
-  useDebouncedState,
-  useThrottledState,
 }
