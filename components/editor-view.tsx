@@ -1,13 +1,14 @@
 'use client'
 
 import type React from 'react'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { TypographySmall } from '@/components/ui/typography'
 import { Plus } from 'lucide-react'
 import Breadcrumb from './breadcrumb'
 import BlockRenderer from './block-renderer'
 import { FloatingMenu } from './floating-menu'
+import DocumentOutline from './document-outline'
 
 interface Block {
   id: string
@@ -67,6 +68,9 @@ export default function EditorView({
 }: EditorViewProps) {
   const editorRef = useRef<HTMLDivElement>(null)
 
+  // 文档目录状态
+  const [isOutlineCollapsed, setIsOutlineCollapsed] = useState(false)
+
   // 浮动菜单状态
   const [localSelection, setLocalSelection] = useState<{
     isVisible: boolean
@@ -77,6 +81,25 @@ export default function EditorView({
     position: { x: 0, y: 0 },
     selectedText: '',
   })
+
+  // 生成文档大纲
+  const documentOutline = useMemo(() => {
+    return blocks
+      .map((block, index) => {
+        if (block.type.startsWith('heading')) {
+          const level = parseInt(block.type.replace('heading', ''))
+          return {
+            id: block.id,
+            title: block.content.replace(/<[^>]*>/g, ''), // 移除HTML标签
+            level,
+            type: 'heading' as const,
+            index,
+          }
+        }
+        return null
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  }, [blocks])
 
   // 处理文本选择事件
   const handleTextSelection = (
@@ -94,6 +117,18 @@ export default function EditorView({
       position,
       selectedText,
     })
+  }
+
+  // 处理目录项点击
+  const handleOutlineItemClick = (itemId: string) => {
+    const element = document.querySelector(`[data-block-id="${itemId}"]`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // 聚焦到该元素
+      if (element instanceof HTMLElement) {
+        element.focus()
+      }
+    }
   }
 
   // 处理文本格式化
@@ -220,38 +255,66 @@ export default function EditorView({
       </div>
 
       {/* 编辑器主体 */}
-      <div className='flex-1 overflow-auto bg-gray-25'>
-        <div
-          className='max-w-3xl mx-auto px-6 py-8'
-          ref={editorRef}
-          onClick={handleEditorClick}
-          onMouseMove={handleEditorMouseMove}
-        >
-          <div className='space-y-2'>
-            {blocks.map(block => (
-              <div key={block.id} className='group relative'>
-                {/* 添加块按钮 */}
-                <div className='absolute -left-6 top-1 opacity-0 group-hover:opacity-100 transition-opacity'>
-                  <Button variant='ghost' size='sm' className='w-5 h-5 p-0'>
-                    <Plus className='w-3 h-3' />
-                  </Button>
-                </div>
+      <div className='flex-1 overflow-auto bg-gray-25 flex'>
+        {/* 文档目录 */}
+        {!isOutlineCollapsed && (
+          <DocumentOutline
+            items={documentOutline}
+            currentItemId={focusedBlockId || undefined}
+            onItemClick={handleOutlineItemClick}
+            isCollapsed={isOutlineCollapsed}
+            onToggleCollapse={() => setIsOutlineCollapsed(!isOutlineCollapsed)}
+          />
+        )}
 
-                {/* 块渲染器 */}
-                <BlockRenderer
-                  block={block}
-                  onUpdate={onUpdateBlock}
-                  onKeyDown={onKeyDown}
-                  onToggleTodo={onToggleTodo}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                  isFocused={focusedBlockId === block.id}
-                  onTextSelection={handleTextSelection}
-                />
-              </div>
-            ))}
+        {/* 编辑器内容 */}
+        <div className='flex-1 flex flex-col'>
+          <div
+            className='max-w-3xl mx-auto px-6 py-8 flex-1'
+            ref={editorRef}
+            onClick={handleEditorClick}
+            onMouseMove={handleEditorMouseMove}
+          >
+            <div className='space-y-2'>
+              {blocks.map(block => (
+                <div key={block.id} className='group relative'>
+                  {/* 添加块按钮 */}
+                  <div className='absolute -left-6 top-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+                    <Button variant='ghost' size='sm' className='w-5 h-5 p-0'>
+                      <Plus className='w-3 h-3' />
+                    </Button>
+                  </div>
+
+                  {/* 块渲染器 */}
+                  <BlockRenderer
+                    block={block}
+                    onUpdate={onUpdateBlock}
+                    onKeyDown={onKeyDown}
+                    onToggleTodo={onToggleTodo}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    isFocused={focusedBlockId === block.id}
+                    onTextSelection={handleTextSelection}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* 如果目录被折叠，显示展开按钮 */}
+        {isOutlineCollapsed && (
+          <div className='w-8 bg-gray-100 border-r border-gray-200 flex items-start justify-center pt-4'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setIsOutlineCollapsed(false)}
+              className='h-8 w-8 p-0'
+            >
+              <Plus className='h-4 w-4 rotate-90' />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 浮动菜单 */}
