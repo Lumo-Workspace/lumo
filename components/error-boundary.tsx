@@ -7,7 +7,13 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertTriangle, RefreshCw, Bug, Home } from 'lucide-react'
 
@@ -27,7 +33,10 @@ interface ErrorBoundaryProps {
   isolate?: boolean
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   private resetTimeoutId: number | null = null
 
   constructor(props: ErrorBoundaryProps) {
@@ -48,7 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { onError } = this.props
 
     this.setState({
@@ -65,7 +74,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentDidUpdate(prevProps: ErrorBoundaryProps) {
+  override componentDidUpdate(prevProps: ErrorBoundaryProps) {
     const { resetKeys, resetOnPropsChange } = this.props
     const { hasError } = this.state
 
@@ -76,7 +85,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId)
     }
@@ -84,7 +93,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   private logError = (error: Error, errorInfo: ErrorInfo) => {
     const { errorId } = this.state
-    
+
     const errorLog = {
       errorId,
       message: error.message,
@@ -150,7 +159,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     window.location.href = '/'
   }
 
-  render() {
+  override render() {
     const { hasError, error, errorInfo, errorId } = this.state
     const { children, fallback, isolate } = this.props
 
@@ -163,9 +172,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // 隔离模式：只显示简单的错误信息
       if (isolate) {
         return (
-          <div className="flex items-center justify-center min-h-[200px] p-4">
-            <Alert className="max-w-md">
-              <AlertTriangle className="h-4 w-4" />
+          <div className='flex items-center justify-center min-h-[200px] p-4'>
+            <Alert className='max-w-md'>
+              <AlertTriangle className='h-4 w-4' />
               <AlertDescription>
                 出现了一个错误。请刷新页面重试。
               </AlertDescription>
@@ -176,13 +185,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // 完整的错误界面
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <Bug className="h-6 w-6 text-red-600" />
+        <div className='min-h-screen bg-gray-50 flex items-center justify-center p-4'>
+          <Card className='w-full max-w-2xl'>
+            <CardHeader className='text-center'>
+              <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100'>
+                <Bug className='h-6 w-6 text-red-600' />
               </div>
-              <CardTitle className="text-xl font-semibold text-gray-900">
+              <CardTitle className='text-xl font-semibold text-gray-900'>
                 出现了意外错误
               </CardTitle>
               <CardDescription>
@@ -190,15 +199,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-6">
+            <CardContent className='space-y-6'>
               {/* 错误信息 */}
-              <div className="rounded-lg bg-red-50 p-4">
-                <h3 className="text-sm font-medium text-red-800 mb-2">错误详情</h3>
-                <p className="text-sm text-red-700 font-mono">
+              <div className='rounded-lg bg-red-50 p-4'>
+                <h3 className='text-sm font-medium text-red-800 mb-2'>
+                  错误详情
+                </h3>
+                <p className='text-sm text-red-700 font-mono'>
                   {error?.message || '未知错误'}
                 </p>
                 {errorId && (
-                  <p className="text-xs text-red-600 mt-2">
+                  <p className='text-xs text-red-600 mt-2'>
                     错误 ID: {errorId}
                   </p>
                 )}
@@ -206,21 +217,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
               {/* 开发环境显示详细错误信息 */}
               {process.env.NODE_ENV === 'development' && error && (
-                <details className="rounded-lg bg-gray-100 p-4">
-                  <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
+                <details className='rounded-lg bg-gray-100 p-4'>
+                  <summary className='cursor-pointer text-sm font-medium text-gray-700 mb-2'>
                     开发模式：详细错误信息
                   </summary>
-                  <div className="space-y-3">
+                  <div className='space-y-3'>
                     <div>
-                      <h4 className="text-xs font-medium text-gray-600 mb-1">错误堆栈:</h4>
-                      <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border overflow-auto max-h-32">
+                      <h4 className='text-xs font-medium text-gray-600 mb-1'>
+                        错误堆栈:
+                      </h4>
+                      <pre className='text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border overflow-auto max-h-32'>
                         {error.stack}
                       </pre>
                     </div>
                     {errorInfo?.componentStack && (
                       <div>
-                        <h4 className="text-xs font-medium text-gray-600 mb-1">组件堆栈:</h4>
-                        <pre className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border overflow-auto max-h-32">
+                        <h4 className='text-xs font-medium text-gray-600 mb-1'>
+                          组件堆栈:
+                        </h4>
+                        <pre className='text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border overflow-auto max-h-32'>
                           {errorInfo.componentStack}
                         </pre>
                       </div>
@@ -230,35 +245,35 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               )}
 
               {/* 操作按钮 */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className='flex flex-col sm:flex-row gap-3'>
                 <Button
                   onClick={this.handleRetry}
-                  className="flex-1"
-                  variant="default"
+                  className='flex-1'
+                  variant='default'
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className='h-4 w-4 mr-2' />
                   重试
                 </Button>
                 <Button
                   onClick={this.handleReload}
-                  className="flex-1"
-                  variant="outline"
+                  className='flex-1'
+                  variant='outline'
                 >
                   刷新页面
                 </Button>
                 <Button
                   onClick={this.handleGoHome}
-                  className="flex-1"
-                  variant="ghost"
+                  className='flex-1'
+                  variant='ghost'
                 >
-                  <Home className="h-4 w-4 mr-2" />
+                  <Home className='h-4 w-4 mr-2' />
                   返回首页
                 </Button>
               </div>
 
               {/* 帮助信息 */}
-              <div className="text-center">
-                <p className="text-sm text-gray-500">
+              <div className='text-center'>
+                <p className='text-sm text-gray-500'>
                   如果问题持续存在，请联系技术支持并提供错误 ID。
                 </p>
               </div>

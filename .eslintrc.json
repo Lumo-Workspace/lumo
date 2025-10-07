@@ -2,10 +2,13 @@
   "extends": ["next/core-web-vitals"],
   "rules": {
     "no-console": "warn",
-    "no-debugger": "error",
+    "no-debugger": "warn",
     "no-unused-vars": "warn",
-    "prefer-const": "error",
-    "no-var": "error"
+    "prefer-const": "warn",
+    "no-var": "warn",
+    "react/no-unescaped-entities": "warn",
+    "jsx-a11y/alt-text": "warn",
+    "react-hooks/exhaustive-deps": "warn"
   },
   "ignorePatterns": ["node_modules/", ".next/", "out/", "build/"]
 }

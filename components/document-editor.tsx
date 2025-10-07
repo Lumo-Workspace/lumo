@@ -1,22 +1,22 @@
-"use client"
+'use client'
 
-import type React from "react"
-import { useRef, useState } from "react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import TaskModal from "@/components/task-modal"
-import TaskSidebar from "@/components/task-sidebar"
-import { DocumentEditorToolbar } from "@/components/document-editor-toolbar"
-import { DocumentBlock } from "@/components/document-block"
-import { FloatingMenu } from "@/components/floating-menu"
+import type React from 'react'
+import { useRef, useState } from 'react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import TaskModal from '@/components/task-modal'
+import TaskSidebar from '@/components/task-sidebar'
+import { DocumentEditorToolbar } from '@/components/document-editor-toolbar'
+import { DocumentBlock } from '@/components/document-block'
+import { FloatingMenu } from '@/components/floating-menu'
 import {
   useDocumentBlocks,
   type DocumentBlock as DocumentBlockType,
   type TaskWidget,
-} from "@/hooks/use-document-blocks"
-import { useAutoSave } from "@/hooks/use-auto-save"
-import { useTaskManagement } from "@/hooks/use-task-management"
-import { useTextSelection } from "@/hooks/use-text-selection"
+} from '@/hooks/use-document-blocks'
+import { useAutoSave } from '@/hooks/use-auto-save'
+import { useTaskManagement } from '@/hooks/use-task-management'
+import { useTextSelection } from '@/hooks/use-text-selection'
 
 interface DocumentEditorProps {
   initialContent?: DocumentBlockType[]
@@ -24,13 +24,16 @@ interface DocumentEditorProps {
   className?: string
 }
 
-const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], onSave, className }) => {
+const DocumentEditor: React.FC<DocumentEditorProps> = ({
+  initialContent = [],
+  onSave,
+  className,
+}) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   const {
     blocks,
-    activeBlockId,
     setActiveBlockId,
     updateBlockContent,
     addTextBlock,
@@ -40,10 +43,16 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
 
   const { isAutoSaving, lastSaved } = useAutoSave(blocks, onSave)
 
-  const { isTaskModalOpen, editingTask, modalMode, openCreateTaskModal, openEditTaskModal, closeTaskModal } =
-    useTaskManagement()
+  const {
+    isTaskModalOpen,
+    editingTask,
+    modalMode,
+    openCreateTaskModal,
+    openEditTaskModal,
+    closeTaskModal,
+  } = useTaskManagement()
 
-  const { selection, hideMenu } = useTextSelection()
+  const { selection } = useTextSelection()
 
   // Handle text formatting
   const formatText = (command: string, value?: string) => {
@@ -68,7 +77,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
           break
         case 'k':
           e.preventDefault()
-          const url = prompt("Enter URL:")
+          const url = prompt('Enter URL:')
           if (url) formatText('createLink', url)
           break
         default:
@@ -78,12 +87,18 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
   }
 
   // Handle task operations
-  const handleTaskStatusChange = (taskId: string, newStatus: TaskWidget["status"]) => {
-    updateTaskBlock({ ...blocks.find((b) => b.task?.id === taskId)?.task!, status: newStatus })
+  const handleTaskStatusChange = (
+    taskId: string,
+    newStatus: TaskWidget['status']
+  ) => {
+    updateTaskBlock({
+      ...blocks.find(b => b.task?.id === taskId)?.task!,
+      status: newStatus,
+    })
   }
 
   const handleTaskEdit = (taskId: string) => {
-    const block = blocks.find((b) => b.task?.id === taskId)
+    const block = blocks.find(b => b.task?.id === taskId)
     if (block?.task) {
       openEditTaskModal(block.task)
     }
@@ -91,7 +106,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
 
   const handleTaskDelete = (taskId: string) => {
     // Remove the block containing this task
-    const blockToDelete = blocks.find((b) => b.task?.id === taskId)
+    const blockToDelete = blocks.find(b => b.task?.id === taskId)
     if (blockToDelete) {
       // This would need to be implemented in the useDocumentBlocks hook
       // TODO: Implement task block deletion
@@ -99,7 +114,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
   }
 
   const handleTaskSave = (taskData: TaskWidget) => {
-    if (modalMode === "create") {
+    if (modalMode === 'create') {
       addTaskBlock(taskData)
     } else {
       updateTaskBlock(taskData)
@@ -108,12 +123,14 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
   }
 
   // Get all tasks from blocks
-  const allTasks = blocks.filter((block) => block.type === "task" && block.task).map((block) => block.task!)
+  const allTasks = blocks
+    .filter(block => block.type === 'task' && block.task)
+    .map(block => block.task!)
 
   return (
-    <div className={cn("flex", className)}>
+    <div className={cn('flex', className)}>
       {/* Main Editor */}
-      <div className="flex-1 max-w-4xl mx-auto">
+      <div className='flex-1 max-w-4xl mx-auto'>
         <DocumentEditorToolbar
           onFormat={formatText}
           onAddTask={openCreateTaskModal}
@@ -126,7 +143,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
         {/* Document Content */}
         <div
           ref={editorRef}
-          className="min-h-[500px] bg-white rounded-lg border border-gray-200 p-6 focus-within:border-blue-500 transition-colors"
+          className='min-h-[500px] bg-white rounded-lg border border-gray-200 p-6 focus-within:border-blue-500 transition-colors'
           onKeyDown={handleKeyboardShortcuts}
           tabIndex={0}
         >
@@ -135,7 +152,6 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
               key={block.id}
               block={block}
               index={index}
-              isActive={activeBlockId === block.id}
               onContentChange={updateBlockContent}
               onFocus={setActiveBlockId}
               onKeyDown={handleKeyboardShortcuts}
@@ -147,20 +163,20 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
           ))}
 
           {/* Add Block Button */}
-          <div className="flex items-center gap-2 mt-8 pt-4 border-t border-gray-100">
+          <div className='flex items-center gap-2 mt-8 pt-4 border-t border-gray-100'>
             <Button
-              variant="ghost"
-              size="sm"
+              variant='ghost'
+              size='sm'
               onClick={() => addTextBlock()}
-              className="text-gray-500 hover:text-gray-700"
+              className='text-gray-500 hover:text-gray-700'
             >
               + Add text
             </Button>
             <Button
-              variant="ghost"
-              size="sm"
+              variant='ghost'
+              size='sm'
               onClick={openCreateTaskModal}
-              className="text-gray-500 hover:text-gray-700"
+              className='text-gray-500 hover:text-gray-700'
             >
               + Add task
             </Button>
@@ -188,11 +204,7 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent = [], on
 
       {/* Floating Menu */}
       {selection.isVisible && (
-        <FloatingMenu
-          position={selection.position}
-          onFormat={formatText}
-          onClose={hideMenu}
-        />
+        <FloatingMenu position={selection.position} onFormat={formatText} />
       )}
     </div>
   )
