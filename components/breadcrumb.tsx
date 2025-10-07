@@ -1,5 +1,7 @@
-"use client"
-import { ChevronRight } from "lucide-react"
+'use client'
+
+import React from 'react'
+import UnifiedBreadcrumb from './unified-breadcrumb'
 
 interface Page {
   id: string
@@ -14,7 +16,11 @@ interface BreadcrumbProps {
   onPageClick: (pageId: string) => void
 }
 
-export default function Breadcrumb({ pages, currentPageId, onPageClick }: BreadcrumbProps) {
+export default function Breadcrumb({
+  pages,
+  currentPageId,
+  onPageClick,
+}: BreadcrumbProps) {
   const getBreadcrumbPath = (pageId: string): Page[] => {
     const path: Page[] = []
     let currentPage = pages[pageId]
@@ -33,24 +39,28 @@ export default function Breadcrumb({ pages, currentPageId, onPageClick }: Breadc
 
   const path = getBreadcrumbPath(currentPageId)
 
+  // 转换为统一面包屑格式
+  const breadcrumbItems = path.map(page => ({
+    id: page.id,
+    title: page.title,
+    type: 'page' as const,
+  }))
+
+  const handleItemClick = (item: {
+    id: string
+    title: string
+    type?: string
+  }) => {
+    onPageClick(item.id)
+  }
+
   return (
-    <div className="h-12 border-b border-gray-200 flex items-center justify-between px-6">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 text-sm text-gray-600">
-          {path.map((page, index, array) => (
-            <div key={page.id} className="flex items-center gap-1">
-              <button onClick={() => onPageClick(page.id)} className="hover:text-gray-900 transition-colors">
-                {page.title}
-              </button>
-              {index < array.length - 1 && <ChevronRight className="w-3 h-3 text-gray-400" />}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 transition-colors">分享</button>
-        <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 transition-colors">更新</button>
-      </div>
-    </div>
+    <UnifiedBreadcrumb
+      items={breadcrumbItems}
+      onItemClick={handleItemClick}
+      showActions={true}
+      onShare={() => console.log('分享页面')}
+      onUpdate={() => console.log('更新页面')}
+    />
   )
 }

@@ -3,6 +3,7 @@
 import type React from 'react'
 import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { TypographySmall } from '@/components/ui/typography'
 import { Plus } from 'lucide-react'
 import Breadcrumb from './breadcrumb'
 import BlockRenderer from './block-renderer'
@@ -212,8 +213,10 @@ export default function EditorView({
       />
 
       {/* 最近修改时间 */}
-      <div className='px-6 py-1 text-xs text-gray-500 border-b border-gray-100'>
-        最近修改: 16 分钟前
+      <div className='px-6 py-1 border-b border-gray-100'>
+        <TypographySmall className='text-muted-foreground'>
+          最近修改: 16 分钟前
+        </TypographySmall>
       </div>
 
       {/* 编辑器主体 */}

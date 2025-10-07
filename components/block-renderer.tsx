@@ -105,7 +105,7 @@ export default function BlockRenderer({
           <textarea
             key={block.id}
             {...commonProps}
-            className={`${baseClasses} text-4xl font-bold leading-relaxed text-gray-800 py-2`}
+            className={`${baseClasses} scroll-m-20 text-4xl font-extrabold tracking-tight text-balance text-gray-800 py-2`}
             placeholder='标题'
           />
         )
@@ -115,7 +115,7 @@ export default function BlockRenderer({
           <textarea
             key={block.id}
             {...commonProps}
-            className={`${baseClasses} text-2xl font-semibold leading-relaxed text-gray-800 py-1.5`}
+            className={`${baseClasses} scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0 text-gray-800 py-1.5`}
             placeholder='标题 2'
           />
         )
@@ -125,17 +125,17 @@ export default function BlockRenderer({
           <textarea
             key={block.id}
             {...commonProps}
-            className={`${baseClasses} text-xl font-medium leading-relaxed text-gray-800 py-1`}
+            className={`${baseClasses} scroll-m-20 text-2xl font-semibold tracking-tight text-gray-800 py-1`}
             placeholder='标题 3'
           />
         )
 
       case 'quote':
         return (
-          <div key={block.id} className='border-l-4 border-gray-300 pl-4'>
+          <div key={block.id} className='mt-6 border-l-2 pl-6 italic'>
             <textarea
               {...commonProps}
-              className={`${baseClasses} text-gray-600 italic`}
+              className={`${baseClasses} text-muted-foreground`}
               placeholder='空引用'
             />
           </div>
@@ -145,11 +145,11 @@ export default function BlockRenderer({
         return (
           <div
             key={block.id}
-            className='bg-gray-50 rounded-md p-4 border border-gray-200'
+            className='mb-4 mt-6 overflow-x-auto rounded-lg border bg-muted p-4'
           >
             <textarea
               {...commonProps}
-              className={`${baseClasses} font-mono text-sm bg-transparent text-gray-700`}
+              className={`${baseClasses} relative font-mono text-sm font-semibold bg-transparent text-gray-700`}
               placeholder='输入代码...'
               rows={3}
             />
@@ -190,7 +190,7 @@ export default function BlockRenderer({
           <textarea
             key={block.id}
             {...commonProps}
-            className={`${baseClasses} leading-relaxed py-0`}
+            className={`${baseClasses} leading-7 py-0`}
             placeholder={
               isFocused && block.content.trim() === ''
                 ? "输入 '/' 查看命令"

@@ -335,6 +335,12 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               viewMode={teamViewMode}
               onViewModeChange={setTeamViewMode}
               onStatusChange={updateItemStatus}
+              onTeamClick={handleTeamClick}
+              onProjectClick={handleProjectClick}
+              onPRDClick={handlePRDClick}
+              onEpicClick={handleEpicClick}
+              onStoryClick={handleStoryClick}
+              onTaskClick={handleTaskClick}
             />
           ) : (
             <EditorView
