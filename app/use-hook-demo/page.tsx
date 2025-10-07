@@ -2,6 +2,7 @@
 
 import { use, Suspense } from 'react'
 import ErrorBoundary from '@/components/error-boundary'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // Types for our data
 interface Post {
@@ -113,21 +114,21 @@ function PostCard({ post }: { post: Post }) {
 function PostsLoading() {
   return (
     <div className='space-y-4'>
-      <div className='h-8 bg-gray-200 rounded animate-pulse'></div>
+      <Skeleton className='h-8 w-full' />
       {[1, 2, 3].map(i => (
         <div
           key={i}
           className='bg-white rounded-lg shadow-md p-6 border border-gray-200'
         >
           <div className='flex items-start justify-between mb-3'>
-            <div className='h-6 bg-gray-200 rounded animate-pulse w-3/4'></div>
-            <div className='h-4 bg-gray-200 rounded animate-pulse w-1/4'></div>
+            <Skeleton className='h-6 w-3/4' />
+            <Skeleton className='h-4 w-1/4' />
           </div>
           <div className='space-y-2'>
-            <div className='h-4 bg-gray-200 rounded animate-pulse'></div>
-            <div className='h-4 bg-gray-200 rounded animate-pulse w-5/6'></div>
+            <Skeleton className='h-4 w-full' />
+            <Skeleton className='h-4 w-5/6' />
           </div>
-          <div className='mt-3 h-3 bg-gray-200 rounded animate-pulse w-1/3'></div>
+          <Skeleton className='mt-3 h-3 w-1/3' />
         </div>
       ))}
     </div>

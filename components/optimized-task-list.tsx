@@ -4,6 +4,15 @@ import React, { memo, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { Task } from '@/types'
 
 // ==================== 接口定义 ====================
@@ -12,9 +21,6 @@ interface OptimizedTaskListProps {
   tasks: Task[]
   selectedTaskIds: string[]
   onTaskSelect: (taskId: string) => void
-  onTaskUpdate: (taskId: string, updates: Partial<Task>) => void
-  onTaskDelete: (taskId: string) => void
-  onBulkSelect: (taskIds: string[]) => void
   loading?: boolean
   error?: string
 }
@@ -177,15 +183,7 @@ TaskItem.displayName = 'TaskItem'
 // ==================== 主列表组件 ====================
 
 export const OptimizedTaskList = memo<OptimizedTaskListProps>(
-  ({
-    tasks,
-    selectedTaskIds,
-    onTaskSelect,
-    onTaskUpdate,
-    onTaskDelete,
-    loading = false,
-    error,
-  }) => {
+  ({ tasks, selectedTaskIds, onTaskSelect, loading = false, error }) => {
     // 使用useMemo优化选中状态计算
     const selectedTaskSet = useMemo(
       () => new Set(selectedTaskIds),
@@ -266,18 +264,82 @@ export const OptimizedTaskList = memo<OptimizedTaskListProps>(
         </div>
 
         {/* 任务列表 */}
-        <div className='space-y-3'>
-          {tasks.map(task => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              isSelected={selectedTaskSet.has(task.id)}
-              onSelect={onTaskSelect}
-              onUpdate={onTaskUpdate}
-              onDelete={onTaskDelete}
-            />
-          ))}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>任务列表</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className='w-12'>选择</TableHead>
+                  <TableHead>任务</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>优先级</TableHead>
+                  <TableHead>负责人</TableHead>
+                  <TableHead>截止日期</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tasks.map(task => (
+                  <TableRow key={task.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedTaskSet.has(task.id)}
+                        onCheckedChange={() => onTaskSelect(task.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className='space-y-1'>
+                        <div className='font-medium'>{task.title}</div>
+                        {task.description && (
+                          <div className='text-sm text-gray-500'>
+                            {task.description}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant='outline' className='text-xs'>
+                        {task.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant='outline' className='text-xs'>
+                        {task.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {task.assignee ? (
+                        <div className='flex items-center gap-2'>
+                          <Avatar className='w-6 h-6'>
+                            <AvatarFallback className='text-xs'>
+                              {task.assignee.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className='text-sm'>{task.assignee}</span>
+                        </div>
+                      ) : (
+                        <span className='text-sm text-gray-400'>未分配</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {task.dueDate ? (
+                        <span className='text-sm'>
+                          {new Date(task.dueDate).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span className='text-sm text-gray-400'>
+                          无截止日期
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     )
   }

@@ -3,6 +3,13 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import {
   Bold,
   Italic,
   Underline,
@@ -211,23 +218,46 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
       }}
     >
       {/* 标题级别选择下拉菜单 */}
-      <div className='relative'>
-        <Button
-          variant='ghost'
-          size='sm'
-          className='h-8 px-2 text-sm font-medium hover:bg-gray-100 flex items-center gap-1'
-          onClick={e => {
-            e.stopPropagation()
-            setShowHeadingMenu(!showHeadingMenu)
-          }}
-        >
-          {(() => {
-            const currentOption = headingOptions.find(
-              option => option.label === currentHeading
-            )
-            const Icon = currentOption?.icon
+      <DropdownMenu open={showHeadingMenu} onOpenChange={setShowHeadingMenu}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-8 px-2 text-sm font-medium hover:bg-gray-100 flex items-center gap-1'
+          >
+            {(() => {
+              const currentOption = headingOptions.find(
+                option => option.label === currentHeading
+              )
+              const Icon = currentOption?.icon
+              return (
+                <>
+                  {typeof Icon === 'string' ? (
+                    <span className='w-4 h-4 text-gray-600 text-xs font-bold flex items-center justify-center'>
+                      {Icon}
+                    </span>
+                  ) : Icon ? (
+                    <Icon className='w-4 h-4 text-gray-600' />
+                  ) : null}
+                </>
+              )
+            })()}
+            <ChevronDown className='w-3 h-3 text-gray-500' />
+          </Button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent className='w-48'>
+          {headingOptions.map(option => {
+            const Icon = option.icon as any
+            const isSelected = currentHeading === option.label
             return (
-              <>
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => handleHeadingSelect(option.value, option.label)}
+                className={`flex items-center gap-2 px-2 py-1.5 text-sm ${
+                  isSelected ? 'bg-blue-50 text-blue-600' : ''
+                }`}
+              >
                 {typeof Icon === 'string' ? (
                   <span className='w-4 h-4 text-gray-600 text-xs font-bold flex items-center justify-center'>
                     {Icon}
@@ -235,27 +265,27 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
                 ) : Icon ? (
                   <Icon className='w-4 h-4 text-gray-600' />
                 ) : null}
-              </>
+                <span className='text-gray-900 flex-1'>{option.label}</span>
+                {isSelected && <span className='text-blue-600'>✓</span>}
+                {option.hasSubmenu && (
+                  <ChevronRight className='w-4 h-4 text-gray-400' />
+                )}
+              </DropdownMenuItem>
             )
-          })()}
-          <ChevronDown className='w-3 h-3 text-gray-500' />
-        </Button>
-
-        {/* 自定义下拉菜单 */}
-        {showHeadingMenu && (
-          <div className='absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-50 flex'>
-            {/* 左侧主菜单 */}
-            <div className='w-48'>
-              {headingOptions.map(option => {
+          })}
+          {showSubmenu && (
+            <>
+              <DropdownMenuSeparator />
+              {otherHeadingOptions.map(option => {
                 const Icon = option.icon as any
                 const isSelected = currentHeading === option.label
                 return (
-                  <div
+                  <DropdownMenuItem
                     key={option.value}
                     onClick={() =>
-                      handleHeadingSelect(option.value, option.label)
+                      handleSubmenuSelect(option.value, option.label)
                     }
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm ${
+                    className={`flex items-center gap-2 px-2 py-1.5 text-sm ${
                       isSelected ? 'bg-blue-50 text-blue-600' : ''
                     }`}
                   >
@@ -268,49 +298,13 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
                     ) : null}
                     <span className='text-gray-900 flex-1'>{option.label}</span>
                     {isSelected && <span className='text-blue-600'>✓</span>}
-                    {option.hasSubmenu && (
-                      <ChevronRight className='w-4 h-4 text-gray-400' />
-                    )}
-                  </div>
+                  </DropdownMenuItem>
                 )
               })}
-            </div>
-
-            {/* 右侧子菜单 */}
-            {showSubmenu && (
-              <div className='w-48 border-l border-gray-200 ml-1 pl-1'>
-                {otherHeadingOptions.map(option => {
-                  const Icon = option.icon as any
-                  const isSelected = currentHeading === option.label
-                  return (
-                    <div
-                      key={option.value}
-                      onClick={() =>
-                        handleSubmenuSelect(option.value, option.label)
-                      }
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm ${
-                        isSelected ? 'bg-blue-50 text-blue-600' : ''
-                      }`}
-                    >
-                      {typeof Icon === 'string' ? (
-                        <span className='w-4 h-4 text-gray-600 text-xs font-bold flex items-center justify-center'>
-                          {Icon}
-                        </span>
-                      ) : Icon ? (
-                        <Icon className='w-4 h-4 text-gray-600' />
-                      ) : null}
-                      <span className='text-gray-900 flex-1'>
-                        {option.label}
-                      </span>
-                      {isSelected && <span className='text-blue-600'>✓</span>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div className='w-px h-6 bg-gray-300 mx-1' />
 

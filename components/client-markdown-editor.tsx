@@ -1,17 +1,16 @@
-"use client"
+'use client'
 
-import dynamic from "next/dynamic"
+import dynamic from 'next/dynamic'
+import { Skeleton } from '@/components/ui/skeleton'
 
-const MarkdownEditor = dynamic(() => import("./markdown-editor"), {
+const MarkdownEditor = dynamic(() => import('./markdown-editor'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-screen bg-gray-50 text-gray-800 items-center justify-center">
-      <div className="text-center">
-        <div className="animate-pulse">
-          <div className="h-16 w-16 bg-gray-200 rounded-full mx-auto mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-48 mx-auto mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-64 mx-auto"></div>
-        </div>
+    <div className='flex h-screen bg-gray-50 text-gray-800 items-center justify-center'>
+      <div className='text-center space-y-4'>
+        <Skeleton className='h-16 w-16 rounded-full mx-auto' />
+        <Skeleton className='h-4 w-48 mx-auto' />
+        <Skeleton className='h-3 w-64 mx-auto' />
       </div>
     </div>
   ),
