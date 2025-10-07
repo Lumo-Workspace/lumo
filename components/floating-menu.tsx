@@ -173,7 +173,7 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
   const renderButtonGroup = (buttons: any[], showSeparator = false) => (
     <>
       {buttons.map((button, index) => {
-        const Icon = button.icon
+        const Icon = button.icon as any
         const handleClick = button.isSpecial
           ? handleLinkInsert
           : () => onFormat(button.command, button.value)
@@ -247,7 +247,7 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
             {/* 左侧主菜单 */}
             <div className='w-48'>
               {headingOptions.map(option => {
-                const Icon = option.icon
+                const Icon = option.icon as any
                 const isSelected = currentHeading === option.label
                 return (
                   <div
@@ -280,7 +280,7 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
             {showSubmenu && (
               <div className='w-48 border-l border-gray-200 ml-1 pl-1'>
                 {otherHeadingOptions.map(option => {
-                  const Icon = option.icon
+                  const Icon = option.icon as any
                   const isSelected = currentHeading === option.label
                   return (
                     <div

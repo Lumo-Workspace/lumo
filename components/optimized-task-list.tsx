@@ -1,24 +1,20 @@
-"use client"
+'use client'
 
-import React, { memo, useCallback, useMemo } from 'react'
+import React, { memo, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import type { Task, TaskStatus, Priority, User, ID } from '@/types'
-import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '@/constants'
-import { dateUtils, stringUtils } from '@/utils'
+import type { Task } from '@/types'
 
 // ==================== 接口定义 ====================
 
 interface OptimizedTaskListProps {
   tasks: Task[]
-  selectedTaskIds: ID[]
-  onTaskSelect: (taskId: ID) => void
-  onTaskUpdate: (taskId: ID, updates: Partial<Task>) => void
-  onTaskDelete: (taskId: ID) => void
-  onBulkSelect: (taskIds: ID[]) => void
+  selectedTaskIds: string[]
+  onTaskSelect: (taskId: string) => void
+  onTaskUpdate: (taskId: string, updates: Partial<Task>) => void
+  onTaskDelete: (taskId: string) => void
+  onBulkSelect: (taskIds: string[]) => void
   loading?: boolean
   error?: string
 }
@@ -26,61 +22,59 @@ interface OptimizedTaskListProps {
 interface TaskItemProps {
   task: Task
   isSelected: boolean
-  onSelect: (taskId: ID) => void
-  onUpdate: (taskId: ID, updates: Partial<Task>) => void
-  onDelete: (taskId: ID) => void
+  onSelect: (taskId: string) => void
+  onUpdate: (taskId: string, updates: Partial<Task>) => void
+  onDelete: (taskId: string) => void
 }
 
 // ==================== 任务项组件（使用memo优化） ====================
 
-const TaskItem = memo<TaskItemProps>(({ 
-  task, 
-  isSelected, 
-  onSelect, 
-  onUpdate, 
-  onDelete 
-}) => {
-  // 使用useCallback优化事件处理函数
-  const handleSelect = useCallback(() => {
-    onSelect(task.id)
-  }, [task.id, onSelect])
-
-  const handleStatusChange = useCallback((status: TaskStatus) => {
-    onUpdate(task.id, { status })
-  }, [task.id, onUpdate])
-
-  const handlePriorityChange = useCallback((priority: Priority) => {
-    onUpdate(task.id, { priority })
-  }, [task.id, onUpdate])
-
-  const handleDelete = useCallback(() => {
-    onDelete(task.id)
-  }, [task.id, onDelete])
-
+const TaskItem = memo<TaskItemProps>(({ task, isSelected }) => {
   // 使用useMemo优化计算属性
-  const priorityOption = useMemo(() => 
-    PRIORITY_OPTIONS.find(opt => opt.value === task.priority),
-    [task.priority]
-  )
+  const priorityOption = useMemo(() => {
+    const priorityMap: Record<string, { label: string; color: string }> = {
+      low: { label: 'Low', color: 'text-green-600' },
+      medium: { label: 'Medium', color: 'text-yellow-600' },
+      high: { label: 'High', color: 'text-orange-600' },
+      critical: { label: 'Critical', color: 'text-red-600' },
+    }
+    return (
+      priorityMap[task.priority] || { label: 'Unknown', color: 'text-gray-600' }
+    )
+  }, [task.priority])
 
-  const statusOption = useMemo(() => 
-    STATUS_OPTIONS.task.find(opt => opt.value === task.status),
-    [task.status]
-  )
+  const statusOption = useMemo(() => {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      todo: { label: 'To Do', color: 'text-gray-600' },
+      'in-progress': { label: 'In Progress', color: 'text-blue-600' },
+      done: { label: 'Done', color: 'text-green-600' },
+    }
+    return (
+      statusMap[task.status] || { label: 'Unknown', color: 'text-gray-600' }
+    )
+  }, [task.status])
 
   const isOverdue = useMemo(() => {
     if (!task.dueDate) return false
     return new Date(task.dueDate) < new Date() && task.status !== 'done'
   }, [task.dueDate, task.status])
 
-  const timeAgo = useMemo(() => 
-    dateUtils.timeAgo(task.updatedAt),
-    [task.updatedAt]
-  )
+  const timeAgo = useMemo(() => {
+    const now = new Date()
+    const updatedAt = new Date(task.updatedAt)
+    const diffInMs = now.getTime() - updatedAt.getTime()
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+
+    if (diffInDays === 0) return 'Today'
+    if (diffInDays === 1) return 'Yesterday'
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`
+    return `${Math.floor(diffInDays / 30)} months ago`
+  }, [task.updatedAt])
 
   const assigneeInitials = useMemo(() => {
     if (!task.assignee) return '?'
-    return task.assignee.name
+    return task.assignee
       .split(' ')
       .map(word => word.charAt(0))
       .join('')
@@ -89,87 +83,66 @@ const TaskItem = memo<TaskItemProps>(({
   }, [task.assignee])
 
   return (
-    <Card className={`transition-all duration-200 hover:shadow-md ${
-      isSelected ? 'ring-2 ring-blue-500' : ''
-    } ${isOverdue ? 'border-red-200 bg-red-50' : ''}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={handleSelect}
-              className="mt-1"
-            />
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-base font-medium line-clamp-2">
+    <Card
+      className={`transition-all duration-200 hover:shadow-md ${
+        isSelected ? 'ring-2 ring-blue-500' : ''
+      } ${isOverdue ? 'border-red-200 bg-red-50' : ''}`}
+    >
+      <CardHeader className='pb-3'>
+        <div className='flex items-start justify-between'>
+          <div className='flex items-start gap-3 flex-1'>
+            <div className='w-4 h-4 mt-1' />
+            <div className='flex-1 min-w-0'>
+              <CardTitle className='text-base font-medium line-clamp-2'>
                 {task.title}
               </CardTitle>
               {task.description && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                <p className='text-sm text-muted-foreground mt-1 line-clamp-2'>
                   {task.description}
                 </p>
               )}
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
+
+          <div className='flex items-center gap-2'>
             {task.assignee && (
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs">
+              <Avatar className='h-8 w-8'>
+                <AvatarFallback className='text-xs'>
                   {assigneeInitials}
                 </AvatarFallback>
               </Avatar>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDelete}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-            >
-              ×
-            </Button>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* 状态选择 */}
-            <select
-              value={task.status}
-              onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-              className={`text-xs px-2 py-1 rounded border-0 bg-transparent ${
-                statusOption?.color || 'bg-gray-100'
-              } text-white font-medium`}
+      <CardContent className='pt-0'>
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-2'>
+            {/* 状态显示 */}
+            <Badge
+              variant='secondary'
+              className={`text-xs ${statusOption?.color || 'bg-gray-100 text-gray-600'}`}
             >
-              {STATUS_OPTIONS.task.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              {statusOption?.label || task.status}
+            </Badge>
 
-            {/* 优先级选择 */}
-            <select
-              value={task.priority}
-              onChange={(e) => handlePriorityChange(e.target.value as Priority)}
-              className={`text-xs px-2 py-1 rounded border-0 bg-transparent ${
-                priorityOption?.color || 'bg-gray-100'
-              } text-white font-medium`}
+            {/* 优先级显示 */}
+            <Badge
+              variant='outline'
+              className={`text-xs ${priorityOption?.color || 'bg-gray-100 text-gray-600'}`}
             >
-              {PRIORITY_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.icon} {option.label}
-                </option>
-              ))}
-            </select>
+              {priorityOption?.label || task.priority}
+            </Badge>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
             {task.dueDate && (
               <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                {dateUtils.format(task.dueDate, 'MM-DD')}
+                {new Date(task.dueDate).toLocaleDateString('en-US', {
+                  month: '2-digit',
+                  day: '2-digit',
+                })}
               </span>
             )}
             <span>{timeAgo}</span>
@@ -178,9 +151,9 @@ const TaskItem = memo<TaskItemProps>(({
 
         {/* 标签 */}
         {task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-3">
+          <div className='flex flex-wrap gap-1 mt-3'>
             {task.tags.map(tag => (
-              <Badge key={tag} variant="secondary" className="text-xs">
+              <Badge key={tag} variant='secondary' className='text-xs'>
                 {tag}
               </Badge>
             ))}
@@ -189,13 +162,9 @@ const TaskItem = memo<TaskItemProps>(({
 
         {/* 时间估算 */}
         {(task.estimatedHours || task.actualHours) && (
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-            {task.estimatedHours && (
-              <span>预估: {task.estimatedHours}h</span>
-            )}
-            {task.actualHours && (
-              <span>实际: {task.actualHours}h</span>
-            )}
+          <div className='flex items-center gap-4 mt-3 text-xs text-muted-foreground'>
+            {task.estimatedHours && <span>预估: {task.estimatedHours}h</span>}
+            {task.actualHours && <span>实际: {task.actualHours}h</span>}
           </div>
         )}
       </CardContent>
@@ -207,123 +176,112 @@ TaskItem.displayName = 'TaskItem'
 
 // ==================== 主列表组件 ====================
 
-export const OptimizedTaskList = memo<OptimizedTaskListProps>(({
-  tasks,
-  selectedTaskIds,
-  onTaskSelect,
-  onTaskUpdate,
-  onTaskDelete,
-  onBulkSelect,
-  loading = false,
-  error
-}) => {
-  // 使用useMemo优化选中状态计算
-  const selectedTaskSet = useMemo(() => 
-    new Set(selectedTaskIds),
-    [selectedTaskIds]
-  )
+export const OptimizedTaskList = memo<OptimizedTaskListProps>(
+  ({
+    tasks,
+    selectedTaskIds,
+    onTaskSelect,
+    onTaskUpdate,
+    onTaskDelete,
+    loading = false,
+    error,
+  }) => {
+    // 使用useMemo优化选中状态计算
+    const selectedTaskSet = useMemo(
+      () => new Set(selectedTaskIds),
+      [selectedTaskIds]
+    )
 
-  // 使用useCallback优化批量选择
-  const handleSelectAll = useCallback(() => {
-    if (selectedTaskIds.length === tasks.length) {
-      onBulkSelect([])
-    } else {
-      onBulkSelect(tasks.map(task => task.id))
+    // 使用useMemo优化统计信息
+    const statistics = useMemo(() => {
+      const total = tasks.length
+      const selected = selectedTaskIds.length
+      const completed = tasks.filter(task => task.status === 'done').length
+      const overdue = tasks.filter(task => {
+        if (!task.dueDate) return false
+        return new Date(task.dueDate) < new Date() && task.status !== 'done'
+      }).length
+
+      return { total, selected, completed, overdue }
+    }, [tasks, selectedTaskIds])
+
+    // 加载状态
+    if (loading) {
+      return (
+        <div className='space-y-4'>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card key={index} className='animate-pulse'>
+              <CardHeader>
+                <div className='h-4 bg-gray-200 rounded w-3/4'></div>
+              </CardHeader>
+              <CardContent>
+                <div className='h-3 bg-gray-200 rounded w-1/2'></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )
     }
-  }, [selectedTaskIds.length, tasks.length, tasks, onBulkSelect])
 
-  // 使用useMemo优化统计信息
-  const statistics = useMemo(() => {
-    const total = tasks.length
-    const selected = selectedTaskIds.length
-    const completed = tasks.filter(task => task.status === 'done').length
-    const overdue = tasks.filter(task => {
-      if (!task.dueDate) return false
-      return new Date(task.dueDate) < new Date() && task.status !== 'done'
-    }).length
+    // 错误状态
+    if (error) {
+      return (
+        <Card className='border-red-200 bg-red-50'>
+          <CardContent className='pt-6'>
+            <p className='text-red-600 text-center'>{error}</p>
+          </CardContent>
+        </Card>
+      )
+    }
 
-    return { total, selected, completed, overdue }
-  }, [tasks, selectedTaskIds])
+    // 空状态
+    if (tasks.length === 0) {
+      return (
+        <Card>
+          <CardContent className='pt-6'>
+            <p className='text-center text-muted-foreground'>暂无任务</p>
+          </CardContent>
+        </Card>
+      )
+    }
 
-  // 加载状态
-  if (loading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index} className="animate-pulse">
-            <CardHeader>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
+      <div className='space-y-4'>
+        {/* 统计信息和批量操作 */}
+        <div className='flex items-center justify-between p-4 bg-muted/50 rounded-lg'>
+          <div className='flex items-center gap-4 text-sm'>
+            <span>总计: {statistics.total}</span>
+            <span>已完成: {statistics.completed}</span>
+            <span className={statistics.overdue > 0 ? 'text-red-600' : ''}>
+              逾期: {statistics.overdue}
+            </span>
+          </div>
 
-  // 错误状态
-  if (error) {
-    return (
-      <Card className="border-red-200 bg-red-50">
-        <CardContent className="pt-6">
-          <p className="text-red-600 text-center">{error}</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // 空状态
-  if (tasks.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">暂无任务</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* 统计信息和批量操作 */}
-      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-        <div className="flex items-center gap-4 text-sm">
-          <span>总计: {statistics.total}</span>
-          <span>已完成: {statistics.completed}</span>
-          <span className={statistics.overdue > 0 ? 'text-red-600' : ''}>
-            逾期: {statistics.overdue}
-          </span>
+          <div className='flex items-center gap-2'>
+            <div className='w-4 h-4' />
+            <span className='text-sm text-muted-foreground'>
+              {statistics.selected > 0 && `已选择 ${statistics.selected} 项`}
+            </span>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={statistics.selected === statistics.total && statistics.total > 0}
-            onCheckedChange={handleSelectAll}
-          />
-          <span className="text-sm text-muted-foreground">
-            {statistics.selected > 0 && `已选择 ${statistics.selected} 项`}
-          </span>
+
+        {/* 任务列表 */}
+        <div className='space-y-3'>
+          {tasks.map(task => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              isSelected={selectedTaskSet.has(task.id)}
+              onSelect={onTaskSelect}
+              onUpdate={onTaskUpdate}
+              onDelete={onTaskDelete}
+            />
+          ))}
         </div>
       </div>
-
-      {/* 任务列表 */}
-      <div className="space-y-3">
-        {tasks.map(task => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            isSelected={selectedTaskSet.has(task.id)}
-            onSelect={onTaskSelect}
-            onUpdate={onTaskUpdate}
-            onDelete={onTaskDelete}
-          />
-        ))}
-      </div>
-    </div>
-  )
-})
+    )
+  }
+)
 
 OptimizedTaskList.displayName = 'OptimizedTaskList'
 
