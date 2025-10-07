@@ -3,7 +3,14 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { TypographySmall } from '@/components/ui/typography'
-import { ChevronDown, ChevronRight, FileText, Hash } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  FileText,
+  Hash,
+} from 'lucide-react'
 
 interface DocumentOutlineItem {
   id: string
@@ -133,9 +140,9 @@ export default function DocumentOutline({
               className='h-6 w-6 p-0'
             >
               {isCollapsed ? (
-                <ChevronRight className='h-4 w-4' />
+                <ChevronsRight className='h-4 w-4' />
               ) : (
-                <ChevronDown className='h-4 w-4' />
+                <ChevronsLeft className='h-4 w-4' />
               )}
             </Button>
           )}

@@ -4,7 +4,7 @@ import type React from 'react'
 import { useRef, useEffect, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { TypographySmall } from '@/components/ui/typography'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronsRight } from 'lucide-react'
 import Breadcrumb from './breadcrumb'
 import BlockRenderer from './block-renderer'
 import { FloatingMenu } from './floating-menu'
@@ -256,6 +256,20 @@ export default function EditorView({
 
       {/* 编辑器主体 */}
       <div className='flex-1 overflow-auto bg-gray-25 flex'>
+        {/* 如果目录被折叠，显示展开按钮 */}
+        {isOutlineCollapsed && (
+          <div className='w-8 bg-gray-100 border-r border-gray-200 flex items-start justify-center pt-4'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setIsOutlineCollapsed(false)}
+              className='h-8 w-8 p-0'
+            >
+              <ChevronsRight className='h-4 w-4' />
+            </Button>
+          </div>
+        )}
+
         {/* 文档目录 */}
         {!isOutlineCollapsed && (
           <DocumentOutline
@@ -301,20 +315,6 @@ export default function EditorView({
             </div>
           </div>
         </div>
-
-        {/* 如果目录被折叠，显示展开按钮 */}
-        {isOutlineCollapsed && (
-          <div className='w-8 bg-gray-100 border-r border-gray-200 flex items-start justify-center pt-4'>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => setIsOutlineCollapsed(false)}
-              className='h-8 w-8 p-0'
-            >
-              <Plus className='h-4 w-4 rotate-90' />
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* 浮动菜单 */}
