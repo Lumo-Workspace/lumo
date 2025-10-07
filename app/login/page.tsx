@@ -50,7 +50,7 @@ export default function LoginPage() {
             {/* Google Login Button */}
             <Button
               variant='outline'
-              className='w-full h-12 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300'
+              className='w-full h-12 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 text-gray-700 hover:text-gray-800'
               onClick={() => {
                 // Handle Google login here
                 // TODO: Implement Google OAuth
