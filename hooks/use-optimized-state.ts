@@ -352,7 +352,7 @@ export function useCachedState<T>(
 export function useDebouncedState<T>(initialValue: T, delay: number = 300) {
   const [state, setState] = useState<T>(initialValue)
   const [debouncedState, setDebouncedState] = useState<T>(initialValue)
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -377,7 +377,7 @@ export function useDebouncedState<T>(initialValue: T, delay: number = 300) {
 export function useThrottledState<T>(initialValue: T, limit: number = 1000) {
   const [state, setState] = useState<T>(initialValue)
   const [throttledState, setThrottledState] = useState<T>(initialValue)
-  const lastRun = useRef(Date.now())
+  const lastRun = useRef<number>(Date.now())
 
   useEffect(() => {
     if (Date.now() - lastRun.current >= limit) {

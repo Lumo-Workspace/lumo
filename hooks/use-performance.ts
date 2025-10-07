@@ -7,8 +7,8 @@ import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
 
 // 性能测量 Hook
 export function usePerformanceMeasure(label: string) {
-  const startTimeRef = useRef<number>()
-  const endTimeRef = useRef<number>()
+  const startTimeRef = useRef<number | undefined>(undefined)
+  const endTimeRef = useRef<number | undefined>(undefined)
 
   const start = useCallback(() => {
     startTimeRef.current = performance.now()
@@ -73,7 +73,7 @@ export function useRenderCount(componentName?: string) {
 
 // 组件挂载时间 Hook
 export function useMountTime() {
-  const mountTimeRef = useRef<number>()
+  const mountTimeRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     mountTimeRef.current = performance.now()
@@ -201,7 +201,7 @@ export function useInfiniteScroll(
   threshold: number = 100
 ) {
   const [isIntersecting, setIsIntersecting] = useState(false)
-  const observerRef = useRef<IntersectionObserver>()
+  const observerRef = useRef<IntersectionObserver | undefined>(undefined)
 
   const lastElementRef = useCallback(
     (node: HTMLElement | null) => {
@@ -361,7 +361,7 @@ export function useBatchUpdate<T>(
   delay: number = 100
 ) {
   const batchRef = useRef<T[]>([])
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const addUpdate = useCallback(
     (update: T) => {
