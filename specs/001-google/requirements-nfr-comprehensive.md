@@ -175,7 +175,7 @@ const user = await prisma.user.findUnique({
 // Prisma connection pool configuration
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("PRISMA_DATABASE_URL")
   // Connection pool settings
   connection_limit = 20    // Max connections
   pool_timeout = 5000      // 5 second timeout

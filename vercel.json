@@ -13,7 +13,7 @@
   },
   "build": {
     "env": {
-      "DATABASE_URL": "@database_url",
+      "PRISMA_DATABASE_URL": "@prisma_database_url",
       "NEXTAUTH_SECRET": "@nextauth_secret",
       "NEXTAUTH_URL": "@nextauth_url",
       "GOOGLE_CLIENT_ID": "@google_client_id",

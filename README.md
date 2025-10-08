@@ -170,7 +170,7 @@ Create a `.env.local` file in the root directory:
 
 ```env
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/lumo"
+PRISMA_DATABASE_URL="postgresql://username:password@localhost:5432/lumo"
 
 # NextAuth.js
 NEXTAUTH_URL="http://localhost:3000"

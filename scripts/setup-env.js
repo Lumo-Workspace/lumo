@@ -38,7 +38,7 @@ function main() {
   } else {
     // Fallback template
     envContent = `# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/lumo_dev"
+PRISMA_DATABASE_URL="postgresql://username:password@localhost:5432/lumo_dev"
 
 # NextAuth.js
 NEXTAUTH_URL="http://localhost:3000"
@@ -86,7 +86,9 @@ BLOB_READ_WRITE_TOKEN="your-vercel-blob-token"
   console.log(
     '1. Update GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET with your Google OAuth credentials'
   )
-  console.log('2. Update DATABASE_URL with your PostgreSQL connection string')
+  console.log(
+    '2. Update PRISMA_DATABASE_URL with your PostgreSQL connection string'
+  )
   console.log('3. Update NEXTAUTH_URL to match your deployment URL')
   console.log(
     '4. Update BLOB_READ_WRITE_TOKEN with your Vercel Blob storage token'
@@ -95,7 +97,7 @@ BLOB_READ_WRITE_TOKEN="your-vercel-blob-token"
 
   // Check for Prisma dev server connection string
   console.log(
-    '\n💡 Tip: If you\'re using Prisma dev server, update DATABASE_URL with the connection string from "npx prisma dev"'
+    '\n💡 Tip: If you\'re using Prisma dev server, update PRISMA_DATABASE_URL with the connection string from "npx prisma dev"'
   )
 }
 
