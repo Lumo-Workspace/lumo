@@ -5,6 +5,7 @@ A comprehensive, modern document and project management platform built with Next
 ## 🚀 Features
 
 ### 📝 Document Management
+
 - **Markdown Editor**: Rich text editing with block-based content
 - **Slash Commands**: Quick content insertion with `/` commands
 - **Auto-save**: Automatic document saving with visual indicators
@@ -12,6 +13,7 @@ A comprehensive, modern document and project management platform built with Next
 - **Context Menus**: Right-click actions for page management
 
 ### 🎯 Project Management
+
 - **Team Structure**: Hierarchical organization (Teams → Projects → PRDs → Epics → Stories → Tasks)
 - **Kanban Boards**: Drag-and-drop task management with status tracking
 - **Story Creation Wizard**: Guided user story creation with quality checks
@@ -19,18 +21,29 @@ A comprehensive, modern document and project management platform built with Next
 - **Progress Tracking**: Visual progress indicators and AI-powered summaries
 
 ### 🤖 AI Integration
+
 - **AI Chat Assistant**: Contextual help and document assistance
 - **Smart Suggestions**: AI-powered content recommendations
 - **Progress Analysis**: Automated project progress insights
 - **Quality Checks**: AI-assisted story validation
 
 ### 👥 Collaboration
+
 - **Team Views**: Multiple view modes for different team needs
 - **Notifications**: Real-time updates and mentions
 - **Shared Documents**: Collaborative document sharing
 - **Inbox**: Centralized notification management
 
+### 🔐 Authentication & Security
+
+- **Google OAuth Login**: Secure sign-in with Google accounts
+- **Account Linking**: Link Google accounts to existing profiles
+- **Session Management**: Secure session handling with automatic refresh
+- **Data Protection**: AES-256-GCM encryption for sensitive data
+- **GDPR Compliance**: Data export and deletion capabilities
+
 ### 🎨 Modern UI/UX
+
 - **Responsive Design**: Works seamlessly across devices
 - **Dark/Light Themes**: Theme switching support
 - **Smooth Animations**: Polished user interactions
@@ -41,28 +54,34 @@ A comprehensive, modern document and project management platform built with Next
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **UI Components**: Radix UI + Custom Components
+- **UI Components**: shadcn/ui + Radix UI primitives
+- **Authentication**: NextAuth.js v5 with Google OAuth 2.0
+- **Database**: PostgreSQL with Prisma ORM
 - **State Management**: React Hooks
 - **Icons**: Lucide React
 - **Drag & Drop**: @hello-pangea/dnd
 - **Forms**: React Hook Form + Zod validation
 - **Date Handling**: date-fns
+- **Testing**: Jest + React Testing Library (TDD)
 
 ## 📦 Installation
 
 ### Prerequisites
-- Node.js 18+ 
+
+- Node.js 18+
 - npm, yarn, pnpm, or bun
 
 ### Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd lumo
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    # or
@@ -74,6 +93,7 @@ A comprehensive, modern document and project management platform built with Next
    ```
 
 3. **Start the development server**
+
    ```bash
    npm run dev
    # or
@@ -117,18 +137,27 @@ lumo/
 ## 🎯 Usage
 
 ### Document Editing
+
 1. **Create Pages**: Click the "+" button in the sidebar
 2. **Edit Content**: Click on any page to start editing
 3. **Use Slash Commands**: Type `/` to access quick insertion menu
 4. **Navigate**: Use the page tree to move between documents
 
 ### Project Management
+
 1. **Team Setup**: Create teams and projects in the Teams view
 2. **Create Stories**: Use the Story Creation Wizard for structured user stories
 3. **Kanban Management**: Drag and drop tasks between status columns
 4. **Track Progress**: Monitor project progress with AI-powered insights
 
+### Authentication
+
+1. **Sign In**: Click "Sign in with Google" to authenticate
+2. **Account Linking**: Link Google accounts to existing profiles in settings
+3. **Account Management**: Manage connected accounts and security settings
+
 ### AI Assistant
+
 1. **Open AI Chat**: Click the AI button in the sidebar
 2. **Ask Questions**: Get help with document editing and project management
 3. **Fullscreen Mode**: Toggle fullscreen for focused AI interaction
@@ -136,16 +165,50 @@ lumo/
 ## 🔧 Configuration
 
 ### Environment Variables
+
 Create a `.env.local` file in the root directory:
 
 ```env
-# Add your environment variables here
-# Example:
-# NEXT_PUBLIC_API_URL=your_api_url
-# DATABASE_URL=your_database_url
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/lumo"
+
+# NextAuth.js
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-key-here"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# Encryption Keys (generate with: openssl rand -base64 32)
+ACCESS_TOKEN_KEY="your-32-byte-encryption-key"
+REFRESH_TOKEN_KEY="your-32-byte-encryption-key"
 ```
 
+### Database Setup
+
+1. **Install PostgreSQL** and create a database
+2. **Run Prisma migrations**:
+   ```bash
+   npx prisma migrate dev
+   ```
+3. **Generate Prisma client**:
+   ```bash
+   npx prisma generate
+   ```
+
+### Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google` (development)
+   - `https://yourdomain.com/api/auth/callback/google` (production)
+
 ### Customization
+
 - **Themes**: Modify `tailwind.config.ts` for custom styling
 - **Components**: Extend UI components in `components/ui/`
 - **Hooks**: Add custom logic in `hooks/`
@@ -153,6 +216,7 @@ Create a `.env.local` file in the root directory:
 ## 📱 Responsive Design
 
 The platform is fully responsive and works on:
+
 - Desktop (1024px+)
 - Tablet (768px - 1023px)
 - Mobile (320px - 767px)
@@ -160,11 +224,13 @@ The platform is fully responsive and works on:
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
+
 1. Push your code to GitHub
 2. Connect your repository to Vercel
 3. Deploy with zero configuration
 
 ### Other Platforms
+
 ```bash
 # Build the application
 npm run build
