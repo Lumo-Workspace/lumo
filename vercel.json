@@ -11,18 +11,6 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "build": {
-    "env": {
-      "NEXTAUTH_SECRET": "@nextauth_secret",
-      "NEXTAUTH_URL": "@nextauth_url",
-      "GOOGLE_CLIENT_ID": "@google_client_id",
-      "GOOGLE_CLIENT_SECRET": "@google_client_secret",
-      "OAUTH_ENCRYPTION_KEY": "@oauth_encryption_key",
-      "ACCESS_TOKEN_KEY": "@access_token_key",
-      "REFRESH_TOKEN_KEY": "@refresh_token_key",
-      "BLOB_READ_WRITE_TOKEN": "@blob_read_write_token"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/auth/(.*)",
