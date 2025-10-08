@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import { JWT } from 'next-auth/jwt'
 import { Session } from 'next-auth'
-import { createUserFromGoogleProfile } from './user-creation'
+import { createGoogleUser } from './user-creation'
 import { AuthLogger } from '@/lib/utils/logger'
 
 export const authCallbacks: NextAuthOptions['callbacks'] = {
@@ -17,27 +17,25 @@ export const authCallbacks: NextAuthOptions['callbacks'] = {
 
       // Handle Google OAuth specifically
       if (account?.provider === 'google' && profile) {
-        const googleProfile = {
-          id: (profile as any).sub || (profile as any).id,
+        const googleProfile: any = {
+          sub: (profile as any).sub || (profile as any).id || '',
           email: profile.email || '',
-          name: profile.name || '',
-          picture: (profile as any).picture || null,
-          verified_email: (profile as any).email_verified || false,
+          email_verified: (profile as any).email_verified || false,
         }
 
-        const accountData = {
-          provider: account.provider,
-          type: account.type,
-          providerAccountId: account.providerAccountId,
-          access_token: account.access_token || '',
-          refresh_token: account.refresh_token || '',
-          expires_at: account.expires_at || 0,
-          token_type: account.token_type || 'Bearer',
-          scope: account.scope || 'openid email profile',
-        }
+        // Add optional properties only if they exist
+        if (profile.name) googleProfile.name = profile.name
+        if ((profile as any).given_name)
+          googleProfile.given_name = (profile as any).given_name
+        if ((profile as any).family_name)
+          googleProfile.family_name = (profile as any).family_name
+        if ((profile as any).picture)
+          googleProfile.picture = (profile as any).picture
+        if ((profile as any).locale)
+          googleProfile.locale = (profile as any).locale
 
         // Create or find user
-        await createUserFromGoogleProfile(googleProfile, accountData)
+        await createGoogleUser(googleProfile)
       }
 
       return true
@@ -89,9 +87,9 @@ export const authCallbacks: NextAuthOptions['callbacks'] = {
         accessTokenExpires: account.expires_at ? account.expires_at * 1000 : 0,
         user: {
           id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.profileImage,
+          email: user.email ?? null,
+          name: user.name ?? null,
+          image: user.image ?? null,
         },
       }
     }

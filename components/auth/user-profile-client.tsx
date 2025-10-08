@@ -49,7 +49,7 @@ export function UserProfileClient({
   return (
     <UserProfileContent
       session={session}
-      className={className}
+      {...(className && { className })}
       showPreferences={showPreferences}
       showSettings={showSettings}
     />

@@ -65,17 +65,19 @@ export async function createGoogleUser(profile: GoogleProfile) {
  */
 export async function updateGoogleUser(userId: string, profile: GoogleProfile) {
   try {
+    const updateData: any = {
+      name: profile.name || null,
+      image: profile.picture || null,
+    }
+
+    // Update emailVerified only if the profile is verified
+    if (profile.email_verified) {
+      updateData.emailVerified = new Date()
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
-      data: {
-        name: profile.name || null,
-        image: profile.picture || null,
-        // Update emailVerified if it wasn't set before
-        emailVerified:
-          profile.email_verified && !prisma.user.findUnique
-            ? new Date()
-            : undefined,
-      },
+      data: updateData,
     })
 
     console.log('Updated user from Google profile:', {

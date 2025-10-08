@@ -23,7 +23,7 @@ export function UserProfile({
     return (
       <UserProfileContent
         session={sessionProp}
-        className={className}
+        {...(className && { className })}
         showPreferences={showPreferences}
         showSettings={showSettings}
       />
@@ -33,7 +33,7 @@ export function UserProfile({
   // Otherwise, use the client-side version with useSession hook
   return (
     <UserProfileClient
-      className={className}
+      {...(className && { className })}
       showPreferences={showPreferences}
       showSettings={showSettings}
     />

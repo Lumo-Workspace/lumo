@@ -44,7 +44,7 @@ export async function findUserById(
         action: 'user_lookup',
         result: 'success',
         userId,
-        email: user.email,
+        email: user.email ?? undefined,
       })
     }
 
@@ -87,7 +87,7 @@ export async function findUserByEmail(
         action: 'user_lookup_by_email',
         result: 'success',
         userId: user.id,
-        email: user.email,
+        email: user.email ?? undefined,
       })
     }
 

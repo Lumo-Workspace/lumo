@@ -6,7 +6,7 @@ export interface AccountMergeResult {
   mergedAccountId?: string
   preservedData?: {
     originalUserId: string
-    originalEmail: string
+    originalEmail: string | null
     originalName: string
     originalBio?: string
     originalPreferences?: any
@@ -87,11 +87,11 @@ export async function mergeGoogleAccountWithExistingUser(
     })
 
     // Update user profile with Google picture if not already set
-    if (!existingUser.profileImage && googleProfile.picture) {
+    if (!existingUser.image && googleProfile.picture) {
       await prisma.user.update({
         where: { id: existingUser.id },
         data: {
-          profileImage: googleProfile.picture,
+          image: googleProfile.picture,
         },
       })
     }

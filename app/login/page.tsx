@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { GoogleLoginButton } from '@/components/auth/google-login-button'
 import { AuthErrorAlert } from '@/components/auth/auth-error-alert'
 
@@ -11,7 +10,13 @@ import { AuthErrorAlert } from '@/components/auth/auth-error-alert'
  * - UX-002: Responsive design
  */
 
-function LoginContent({ searchParams }: { searchParams: { error?: string } }) {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const params = await searchParams
+
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8'>
       <div className='max-w-md w-full space-y-6'>
@@ -26,9 +31,9 @@ function LoginContent({ searchParams }: { searchParams: { error?: string } }) {
         </div>
 
         {/* Error Alert */}
-        {searchParams.error && (
+        {params.error && (
           <AuthErrorAlert
-            error={searchParams.error}
+            error={params.error}
             onRetry={() => (window.location.href = '/login')}
           />
         )}
@@ -46,23 +51,5 @@ function LoginContent({ searchParams }: { searchParams: { error?: string } }) {
         </div>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: { error?: string }
-}) {
-  return (
-    <Suspense
-      fallback={
-        <div className='flex min-h-screen items-center justify-center'>
-          <div className='text-center'>Loading...</div>
-        </div>
-      }
-    >
-      <LoginContent searchParams={searchParams} />
-    </Suspense>
   )
 }

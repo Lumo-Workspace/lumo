@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import Link from 'next/link'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -18,8 +17,13 @@ import { getErrorMessage } from '@/lib/auth/errors'
  * @see specs/001-google/research.md Section 9
  */
 
-function ErrorContent({ searchParams }: { searchParams: { error?: string } }) {
-  const errorCode = searchParams.error ?? null
+export default async function ErrorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const params = await searchParams
+  const errorCode = params.error ?? null
   const errorInfo = getErrorMessage(errorCode)
 
   return (
@@ -88,23 +92,5 @@ function ErrorContent({ searchParams }: { searchParams: { error?: string } }) {
         </div>
       </div>
     </div>
-  )
-}
-
-export default function ErrorPage({
-  searchParams,
-}: {
-  searchParams: { error?: string }
-}) {
-  return (
-    <Suspense
-      fallback={
-        <div className='flex min-h-screen items-center justify-center'>
-          <div className='text-center'>Loading...</div>
-        </div>
-      }
-    >
-      <ErrorContent searchParams={searchParams} />
-    </Suspense>
   )
 }

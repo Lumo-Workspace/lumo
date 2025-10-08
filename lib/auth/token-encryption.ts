@@ -14,7 +14,7 @@ import crypto from 'crypto'
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 12 // 96 bits recommended for GCM
 const AUTH_TAG_LENGTH = 16 // 128 bits for GCM auth tag
-const SALT_LENGTH = 32 // For key derivation
+// const SALT_LENGTH = 32 // For key derivation (reserved for future use)
 
 interface EncryptionResult {
   encrypted: string // Base64 encoded: iv:authTag:ciphertext
@@ -158,7 +158,7 @@ function tryDecrypt(
   try {
     // Parse iv:authTag:ciphertext
     const parts = ciphertext.split(':')
-    if (parts.length !== 3) {
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
       return {
         decrypted: null,
         success: false,

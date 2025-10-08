@@ -2,7 +2,6 @@ import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from '@/lib/db/prisma'
-import { encryptToken, decryptToken } from './token-encryption'
 
 /**
  * NextAuth.js Configuration for Google OAuth
@@ -75,9 +74,9 @@ export const authOptions: NextAuthOptions = {
       // Initial sign in - add user info to token
       if (account && profile && user) {
         token.userId = user.id
-        token.email = user.email
-        token.picture = user.image
-        token.name = user.name
+        token.email = user.email ?? null
+        token.picture = user.image ?? null
+        token.name = user.name ?? null
       }
 
       return token
@@ -149,7 +148,7 @@ export const authOptions: NextAuthOptions = {
 
   // Events for logging and monitoring
   events: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       console.log('User signed in:', {
         userId: user.id,
         email: user.email,
