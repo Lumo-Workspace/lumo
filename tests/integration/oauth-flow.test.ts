@@ -1,186 +1,281 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals'
+/**
+ * OAuth Flow Integration Tests
+ *
+ * End-to-end tests for complete OAuth authentication flow
+ *
+ * Requirements:
+ * - UR-001: New user can sign in with Google
+ * - UR-002: Redirect to dashboard after successful login
+ * - UR-005: Display errors on OAuth failure
+ *
+ * Flow: Login page → Google consent → Callback → Dashboard
+ */
 
-// Mock the logger with a simple implementation
-const mockAuthLogger = {
-  logSignIn: jest.fn(),
-  logSignInFailure: jest.fn(),
-  logSignOut: jest.fn(),
-  logAccountLink: jest.fn(),
-  logAccountUnlink: jest.fn(),
-  logRateLimitExceeded: jest.fn(),
-  logSecurityIncident: jest.fn(),
-}
+import { authOptions } from '@/lib/auth/config'
+import {
+  prismaMock,
+  resetPrismaMock,
+  createMockDatabaseState,
+} from '../__mocks__/prisma'
+import {
+  createMockUser,
+  createMockAccount,
+  createMockGoogleProfile,
+  mockAuthEnv,
+  clearAuthEnv,
+} from '../auth/test-utils'
 
 describe('OAuth Flow Integration', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    mockAuthEnv()
+    resetPrismaMock()
   })
 
-  describe('New User Google Login Flow', () => {
-    it('should complete full OAuth flow in under 30 seconds', async () => {
-      const startTime = Date.now()
+  afterAll(() => {
+    clearAuthEnv()
+  })
 
-      // Simulate OAuth flow steps (reduced durations for testing)
-      const steps = [
-        { step: 'redirect_to_google', duration: 10 },
-        { step: 'user_consent', duration: 50 }, // Reduced for testing
-        { step: 'callback_processing', duration: 20 },
-        { step: 'user_creation', duration: 30 },
-        { step: 'session_creation', duration: 10 },
-        { step: 'redirect_to_dashboard', duration: 10 },
-      ]
+  describe('Complete OAuth Flow - New User', () => {
+    it('should complete full OAuth flow for new user', async () => {
+      const googleProfile = createMockGoogleProfile()
+      const newUser = createMockUser({
+        id: 'new-user-id',
+        email: googleProfile.email,
+        name: googleProfile.name,
+        image: googleProfile.picture,
+      })
 
-      for (const step of steps) {
-        // Simulate step processing time
-        await new Promise(resolve => setTimeout(resolve, step.duration))
-      }
-
-      const totalTime = Date.now() - startTime
-      expect(totalTime).toBeLessThan(30000) // Under 30 seconds per SC-001
-    }, 10000) // 10 second timeout for this test
-
-    it('should handle OAuth consent screen redirects properly', async () => {
-      const mockRedirect = jest.fn()
-
-      // Simulate redirect to Google OAuth
-      const googleAuthUrl =
-        'https://accounts.google.com/oauth/authorize?client_id=test&redirect_uri=test&scope=openid%20email%20profile'
-
-      mockRedirect(googleAuthUrl)
-
-      expect(mockRedirect).toHaveBeenCalledWith(
-        expect.stringContaining('accounts.google.com')
+      // Mock Prisma adapter behavior for new user
+      prismaMock.user.findUnique.mockResolvedValue(null) // User doesn't exist
+      prismaMock.user.create.mockResolvedValue(newUser)
+      prismaMock.account.create.mockResolvedValue(
+        createMockAccount({ userId: newUser.id })
       )
-      expect(mockRedirect).toHaveBeenCalledWith(
-        expect.stringContaining('scope=openid%20email%20profile')
-      )
+      prismaMock.session.count.mockResolvedValue(0)
+
+      // Step 1: signIn callback validates provider and profile
+      const signInCallback = authOptions.callbacks?.signIn!
+      const signInResult = await signInCallback({
+        user: newUser,
+        account: createMockAccount({ userId: newUser.id }),
+        profile: googleProfile,
+        email: { verificationRequest: false },
+        credentials: undefined,
+      })
+
+      expect(signInResult).toBe(true)
+
+      // Step 2: jwt callback creates token with user info
+      const jwtCallback = authOptions.callbacks?.jwt!
+      const tokenResult = await jwtCallback({
+        token: {},
+        user: newUser,
+        account: createMockAccount({ userId: newUser.id }),
+        profile: googleProfile,
+        trigger: 'signIn',
+        isNewUser: true,
+        session: undefined,
+      })
+
+      expect(tokenResult.userId).toBe(newUser.id)
+      expect(tokenResult.email).toBe(newUser.email)
+      expect(tokenResult.name).toBe(newUser.name)
+
+      // Step 3: session callback creates session with user data
+      const sessionCallback = authOptions.callbacks?.session!
+      const sessionResult = await sessionCallback({
+        session: {
+          user: {} as any,
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+        token: tokenResult,
+        user: newUser,
+        trigger: 'getSession',
+        newSession: undefined,
+      })
+
+      expect(sessionResult.user?.id).toBe(newUser.id)
+      expect(sessionResult.user?.email).toBe(newUser.email)
+      expect(sessionResult.user?.name).toBe(newUser.name)
+      expect(sessionResult.user?.image).toBe(newUser.image)
     })
 
-    it('should create new user account automatically on first login', async () => {
-      const userData = {
+    it('should auto-create user profile on first login (UR-001)', async () => {
+      const googleProfile = createMockGoogleProfile({
         email: 'newuser@example.com',
         name: 'New User',
-        profileImage: 'https://example.com/avatar.jpg',
-      }
+        picture: 'https://example.com/newuser.jpg',
+      })
 
-      // Simulate user creation
-      const createdUser = {
-        id: 'user_123',
-        ...userData,
-        createdAt: new Date(),
-      }
+      const newUser = createMockUser({
+        email: googleProfile.email,
+        name: googleProfile.name,
+        image: googleProfile.picture,
+        emailVerified: new Date(),
+      })
 
-      expect(createdUser.email).toBe(userData.email)
-      expect(createdUser.name).toBe(userData.name)
-      expect(createdUser.profileImage).toBe(userData.profileImage)
-      expect(createdUser.id).toBeDefined()
+      prismaMock.user.create.mockResolvedValue(newUser)
+
+      // Verify user creation would happen via Prisma adapter
+      expect(authOptions.adapter).toBeDefined()
+      expect(authOptions.adapter?.createUser).toBeDefined()
+    })
+  })
+
+  describe('Complete OAuth Flow - Existing User', () => {
+    it('should sign in existing user successfully', async () => {
+      const existingUser = createMockUser({
+        id: 'existing-user-id',
+        email: 'existing@example.com',
+      })
+
+      const existingAccount = createMockAccount({
+        userId: existingUser.id,
+        providerAccountId: 'google-123456',
+      })
+
+      // Mock existing user and account
+      prismaMock.user.findUnique.mockResolvedValue(existingUser)
+      prismaMock.account.findFirst.mockResolvedValue(existingAccount)
+      prismaMock.session.count.mockResolvedValue(1) // One existing session
+
+      const signInCallback = authOptions.callbacks?.signIn!
+      const signInResult = await signInCallback({
+        user: existingUser,
+        account: existingAccount,
+        profile: createMockGoogleProfile({ email: existingUser.email }),
+        email: { verificationRequest: false },
+        credentials: undefined,
+      })
+
+      expect(signInResult).toBe(true)
     })
 
-    it('should validate Google access tokens and refresh tokens', async () => {
-      const mockTokenValidation = jest.fn()
+    it('should update lastUsedAt timestamp on sign in', async () => {
+      const user = createMockUser()
+      const account = createMockAccount({ userId: user.id })
 
-      const accessToken = 'valid_access_token'
-      const refreshToken = 'valid_refresh_token'
+      prismaMock.session.count.mockResolvedValue(0)
+      prismaMock.account.updateMany.mockResolvedValue({ count: 1 })
 
-      mockTokenValidation.mockReturnValue({ valid: true })
+      // Trigger signIn event
+      const signInEvent = authOptions.events?.signIn!
+      await signInEvent({
+        user,
+        account,
+        profile: createMockGoogleProfile(),
+        isNewUser: false,
+      })
 
-      const accessResult = mockTokenValidation(accessToken)
-      const refreshResult = mockTokenValidation(refreshToken)
+      // Verify account lastUsedAt was updated
+      expect(prismaMock.account.updateMany).toHaveBeenCalledWith({
+        where: {
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+        },
+        data: {
+          lastUsedAt: expect.any(Date),
+        },
+      })
+    })
+  })
 
-      expect(accessResult.valid).toBe(true)
-      expect(refreshResult.valid).toBe(true)
+  describe('OAuth Error Scenarios', () => {
+    beforeEach(() => {
+      jest.spyOn(console, 'error').mockImplementation(() => {})
     })
 
-    it('should handle OAuth errors gracefully with user-friendly messages', async () => {
-      const errorScenarios = [
-        {
-          error: 'OAuthSignin',
-          expectedMessage: 'Unable to sign in with Google',
-        },
-        {
-          error: 'OAuthCallback',
-          expectedMessage: 'Authentication failed. Please try again',
-        },
-        {
-          error: 'OAuthCreateAccount',
-          expectedMessage: 'Unable to create account. Please try again',
-        },
-        {
-          error: 'Callback',
-          expectedMessage: 'Something went wrong. Please try again',
-        },
-      ]
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
 
-      errorScenarios.forEach(({ error, expectedMessage }) => {
-        // Test that error messages are user-friendly and don't expose technical details
-        expect(expectedMessage).not.toContain('OAuth')
-        expect(expectedMessage).not.toContain('callback')
-        expect(expectedMessage).toBeTruthy()
+    it('should reject OAuth flow if provider is not Google', async () => {
+      const signInCallback = authOptions.callbacks?.signIn!
+
+      const result = await signInCallback({
+        user: createMockUser(),
+        account: createMockAccount({ provider: 'github' }),
+        profile: createMockGoogleProfile(),
+        email: { verificationRequest: false },
+        credentials: undefined,
+      })
+
+      expect(result).toBe(false)
+      expect(console.error).toHaveBeenCalledWith(
+        'Invalid OAuth provider:',
+        'github'
+      )
+    })
+
+    it('should reject OAuth flow if email is missing', async () => {
+      const signInCallback = authOptions.callbacks?.signIn!
+
+      const result = await signInCallback({
+        user: createMockUser(),
+        account: createMockAccount(),
+        profile: createMockGoogleProfile({ email: undefined }),
+        email: { verificationRequest: false },
+        credentials: undefined,
+      })
+
+      expect(result).toBe(false)
+      expect(console.error).toHaveBeenCalledWith(
+        'No email provided by Google OAuth'
+      )
+    })
+
+    it('should redirect to error page on callback failure', () => {
+      expect(authOptions.pages?.error).toBe('/login')
+    })
+  })
+
+  describe('Session Management During OAuth', () => {
+    it('should enforce concurrent session limit (SR-015)', async () => {
+      const user = createMockUser({ id: 'user-with-max-sessions' })
+      const account = createMockAccount({ userId: user.id })
+
+      // Mock max sessions (3)
+      prismaMock.session.count.mockResolvedValue(3)
+
+      const oldestSession = {
+        id: 'oldest-session',
+        sessionToken: 'old-token',
+        userId: user.id,
+        expires: new Date(Date.now() + 1000),
+        createdAt: new Date(Date.now() - 100000),
+      }
+
+      prismaMock.session.findFirst.mockResolvedValue(oldestSession)
+      prismaMock.session.delete.mockResolvedValue(oldestSession)
+
+      const signInCallback = authOptions.callbacks?.signIn!
+      const result = await signInCallback({
+        user,
+        account,
+        profile: createMockGoogleProfile(),
+        email: { verificationRequest: false },
+        credentials: undefined,
+      })
+
+      expect(result).toBe(true)
+      expect(prismaMock.session.delete).toHaveBeenCalledWith({
+        where: { id: 'oldest-session' },
       })
     })
 
-    it('should achieve 95% OAuth authentication success rate', async () => {
-      const totalAttempts = 100
-      const successfulAttempts = 95
-      const successRate = (successfulAttempts / totalAttempts) * 100
-
-      expect(successRate).toBeGreaterThanOrEqual(95) // Per SC-002
-    })
-
-    it('should log authentication events for security monitoring', async () => {
-      // Simulate successful login
-      mockAuthLogger.logSignIn(
-        'user_123',
-        'test@example.com',
-        'google',
-        '192.168.1.1',
-        'Mozilla/5.0'
-      )
-
-      expect(mockAuthLogger.logSignIn).toHaveBeenCalledWith(
-        'user_123',
-        'test@example.com',
-        'google',
-        '192.168.1.1',
-        'Mozilla/5.0'
-      )
+    it('should create session with 24-hour expiration', () => {
+      const expectedSeconds = 24 * 60 * 60
+      expect(authOptions.session?.maxAge).toBe(expectedSeconds)
     })
   })
 
-  describe('Error Handling and Edge Cases', () => {
-    it('should handle network timeouts gracefully', async () => {
-      const mockTimeout = jest
-        .fn()
-        .mockRejectedValue(new Error('Network timeout'))
-
-      try {
-        await mockTimeout()
-      } catch (error) {
-        expect(error.message).toBe('Network timeout')
-        // Should show user-friendly retry message
-      }
+  describe('Redirect Flow', () => {
+    it('should redirect to /login on error', () => {
+      expect(authOptions.pages?.error).toBe('/login')
     })
 
-    it('should handle invalid OAuth tokens', async () => {
-      const invalidToken = 'invalid_token'
-      const mockValidation = jest
-        .fn()
-        .mockReturnValue({ valid: false, error: 'Invalid token' })
-
-      const result = mockValidation(invalidToken)
-      expect(result.valid).toBe(false)
-      expect(result.error).toBeDefined()
-    })
-
-    it('should implement rate limiting for authentication attempts', async () => {
-      const mockRateLimit = jest.fn()
-      const attempts = Array(6)
-        .fill(null)
-        .map(() => mockRateLimit())
-
-      // After 5 attempts, should be rate limited
-      expect(attempts.length).toBeGreaterThan(5)
-      // Should trigger rate limiting logic
+    it('should use custom sign in page', () => {
+      expect(authOptions.pages?.signIn).toBe('/login')
     })
   })
 })

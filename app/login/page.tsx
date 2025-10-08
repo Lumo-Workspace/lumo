@@ -1,28 +1,68 @@
+import { Suspense } from 'react'
 import { GoogleLoginButton } from '@/components/auth/google-login-button'
+import { AuthErrorAlert } from '@/components/auth/auth-error-alert'
 
-export default function LoginPage() {
+/**
+ * Login Page
+ *
+ * Requirements:
+ * - UR-001: "Continue with Google" button
+ * - UR-005: Display OAuth errors
+ * - UX-002: Responsive design
+ */
+
+function LoginContent({ searchParams }: { searchParams: { error?: string } }) {
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8'>
-      <div className='max-w-md w-full space-y-8'>
-        <div>
-          <h2 className='mt-6 text-center text-3xl font-extrabold text-gray-900'>
+      <div className='max-w-md w-full space-y-6'>
+        {/* Header */}
+        <div className='text-center'>
+          <h1 className='text-3xl font-bold tracking-tight text-gray-900'>
             Sign in to your account
-          </h2>
-          <p className='mt-2 text-center text-sm text-gray-600'>
+          </h1>
+          <p className='mt-2 text-sm text-gray-600'>
             Use your Google account to sign in quickly and securely
           </p>
         </div>
 
-        <div className='mt-8'>
+        {/* Error Alert */}
+        {searchParams.error && (
+          <AuthErrorAlert
+            error={searchParams.error}
+            onRetry={() => (window.location.href = '/login')}
+          />
+        )}
+
+        {/* Login Button */}
+        <div>
           <GoogleLoginButton className='w-full' />
         </div>
 
-        <div className='mt-6 text-center'>
+        {/* Footer */}
+        <div className='text-center'>
           <p className='text-xs text-gray-500'>
             By signing in, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string }
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className='flex min-h-screen items-center justify-center'>
+          <div className='text-center'>Loading...</div>
+        </div>
+      }
+    >
+      <LoginContent searchParams={searchParams} />
+    </Suspense>
   )
 }

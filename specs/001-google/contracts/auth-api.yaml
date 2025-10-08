@@ -1,331 +1,498 @@
 openapi: 3.0.3
 info:
   title: Google OAuth Authentication API
-  description: API endpoints for Google OAuth login and account management
+  description: |
+    API contract for Google OAuth 2.0 authentication using NextAuth.js.
+    This specification defines the authentication endpoints, data models, and security requirements.
   version: 1.0.0
   contact:
     name: Lumo AI Team
-    email: dev@lumo.ai
+  license:
+    name: ISC
 
 servers:
-  - url: https://api.lumo.ai
+  - url: https://app.lumoai.com
     description: Production server
-  - url: http://localhost:3000/api
+  - url: http://localhost:3000
     description: Development server
 
+tags:
+  - name: Authentication
+    description: OAuth authentication endpoints
+  - name: Session
+    description: Session management endpoints
+  - name: Account
+    description: Account linking and management
+
 paths:
-  /auth/signin/google:
+  /api/auth/signin/google:
     get:
-      summary: Initiate Google OAuth login
-      description: Redirects user to Google OAuth consent screen
+      summary: Initiate Google OAuth sign-in
+      description: |
+        Initiates Google OAuth 2.0 authentication flow. Generates CSRF token and PKCE
+        code challenge, then redirects user to Google consent screen.
+      operationId: signInGoogle
       tags:
         - Authentication
+      parameters:
+        - name: callbackUrl
+          in: query
+          description: URL to redirect to after successful authentication
+          required: false
+          schema:
+            type: string
+            format: uri
+            default: /dashboard
+            example: /dashboard
       responses:
         '302':
           description: Redirect to Google OAuth consent screen
           headers:
             Location:
+              description: Google OAuth authorization URL
               schema:
                 type: string
                 format: uri
-        '400':
-          description: Invalid request or OAuth configuration error
-          content:
-            application/json:
+                example: https://accounts.google.com/o/oauth2/v2/auth?client_id=...
+            Set-Cookie:
+              description: CSRF token cookie
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: string
+                example: __Host-next-auth.csrf-token=...; HttpOnly; Secure; SameSite=Lax
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
 
-  /auth/callback/google:
+  /api/auth/callback/google:
     get:
-      summary: Handle Google OAuth callback
-      description: Processes Google OAuth callback and creates/updates user session
+      summary: Google OAuth callback handler
+      description: |
+        Handles Google OAuth callback after user grants or denies consent.
+        Validates CSRF token, exchanges authorization code for tokens, and creates/updates user session.
+      operationId: callbackGoogle
       tags:
         - Authentication
       parameters:
         - name: code
           in: query
+          description: Authorization code from Google
           required: true
           schema:
             type: string
-          description: Authorization code from Google
+            example: 4/0AY0e-g7X...
         - name: state
           in: query
+          description: CSRF state parameter
+          required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          description: Error code if user denied consent
           required: false
           schema:
             type: string
-          description: State parameter for CSRF protection
+            enum:
+              - access_denied
+            example: access_denied
       responses:
         '302':
-          description: Redirect to dashboard or error page
+          description: Redirect to callback URL or error page
           headers:
             Location:
+              description: Redirect URL
               schema:
                 type: string
-                format: uri
+                example: /dashboard
+            Set-Cookie:
+              description: Session token cookie
+              schema:
+                type: string
+                example: __Secure-next-auth.session-token=...; HttpOnly; Secure; SameSite=Lax; Max-Age=86400
         '400':
-          description: Invalid authorization code or state
+          description: Invalid request (missing code or CSRF validation failed)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded (5 attempts per minute)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: rate_limit_exceeded
+                message: Too many authentication attempts. Please try again later.
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
 
-  /auth/account/link:
-    post:
-      summary: Link Google account to existing user
-      description: Links a Google account to an existing user profile
+  /api/auth/session:
+    get:
+      summary: Get current session
+      description: |
+        Retrieves the current authenticated user's session information.
+        Returns null if user is not authenticated.
+      operationId: getSession
       tags:
-        - Account Management
+        - Session
       security:
-        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Session data (or null if not authenticated)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Session'
+                  - type: 'null'
+              examples:
+                authenticated:
+                  summary: Authenticated session
+                  value:
+                    user:
+                      id: clu123456
+                      name: John Doe
+                      email: john@example.com
+                      image: https://lh3.googleusercontent.com/...
+                    expires: '2025-01-28T10:00:00.000Z'
+                unauthenticated:
+                  summary: No active session
+                  value: null
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/signout:
+    post:
+      summary: Sign out current user
+      description: |
+        Invalidates the current user's session and clears session cookies.
+        Supports both POST (preferred) and GET for compatibility.
+      operationId: signOut
+      tags:
+        - Session
+      security:
+        - sessionCookie: []
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
               properties:
-                googleCode:
+                callbackUrl:
                   type: string
-                  description: Authorization code from Google OAuth
-                state:
-                  type: string
-                  description: State parameter for CSRF protection
-              required:
-                - googleCode
+                  format: uri
+                  description: URL to redirect to after sign out
+                  default: /login
+                  example: /login
+      responses:
+        '302':
+          description: Redirect to callback URL
+          headers:
+            Location:
+              description: Callback URL
+              schema:
+                type: string
+                example: /login
+            Set-Cookie:
+              description: Clear session cookie
+              schema:
+                type: string
+                example: __Secure-next-auth.session-token=; Max-Age=0
+        '200':
+          description: Sign out successful (JSON response)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    example: /login
+
+  /api/auth/error:
+    get:
+      summary: OAuth error page
+      description: |
+        Displays user-friendly error messages when OAuth authentication fails.
+        Maps error codes to user-friendly messages without exposing sensitive information.
+      operationId: authError
+      tags:
+        - Authentication
+      parameters:
+        - name: error
+          in: query
+          description: Error code
+          required: true
+          schema:
+            type: string
+            enum:
+              - Configuration
+              - AccessDenied
+              - Verification
+              - OAuthSignin
+              - OAuthCallback
+              - OAuthCreateAccount
+              - EmailCreateAccount
+              - Callback
+              - OAuthAccountNotLinked
+              - SessionRequired
+              - Default
+            example: AccessDenied
       responses:
         '200':
-          description: Account successfully linked
+          description: Error page with user-friendly message
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: '#/components/schemas/AccountLinkResponse'
-        '400':
-          description: Invalid request or account already linked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized - invalid session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Account merge conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountMergeResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: string
+              example: |
+                <html>
+                  <body>
+                    <h1>Authentication Error</h1>
+                    <p>You cancelled the sign-in process. Please try again if you'd like to continue.</p>
+                    <a href="/login">Try again</a>
+                  </body>
+                </html>
 
-  /auth/account/unlink:
+  /api/auth/csrf:
+    get:
+      summary: Get CSRF token
+      description: |
+        Returns a CSRF token for use in client-side authentication requests.
+        Token is automatically set as HTTP-only cookie.
+      operationId: getCsrfToken
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csrfToken:
+                    type: string
+                    description: CSRF token for authentication requests
+                    example: 2f9c8d3e1a4b5c6d7e8f9a0b1c2d3e4f
+              example:
+                csrfToken: 2f9c8d3e1a4b5c6d7e8f9a0b1c2d3e4f
+          headers:
+            Set-Cookie:
+              description: CSRF token cookie
+              schema:
+                type: string
+
+  /api/account/link/google:
+    post:
+      summary: Link Google account to existing user
+      description: |
+        Initiates Google OAuth flow to link Google account to currently authenticated user.
+        Requires active session. Used for account linking feature (P3 user story).
+      operationId: linkGoogleAccount
+      tags:
+        - Account
+      security:
+        - sessionCookie: []
+      responses:
+        '302':
+          description: Redirect to Google OAuth consent screen
+          headers:
+            Location:
+              description: Google OAuth URL with state=linkAccount
+              schema:
+                type: string
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Google account already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: account_already_linked
+                message: This Google account is already linked to another user.
+
+  /api/account/unlink/google:
     delete:
       summary: Unlink Google account from user
-      description: Removes Google account association from user profile
+      description: |
+        Removes Google OAuth account link from user. Requires alternative authentication
+        method to be configured before unlinking (SR-014).
+      operationId: unlinkGoogleAccount
       tags:
-        - Account Management
+        - Account
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       responses:
         '200':
-          description: Account successfully unlinked
+          description: Account unlinked successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Google account has been unlinked
         '400':
           description: Cannot unlink - no alternative authentication method
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+              example:
+                error: no_alternative_auth
+                message: You must have another authentication method before unlinking Google.
         '401':
-          description: Unauthorized - invalid session
+          description: Not authenticated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Google account not linked
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/session:
-    get:
-      summary: Get current session information
-      description: Returns current user session and authentication status
-      tags:
-        - Authentication
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Current session information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionResponse'
-        '401':
-          description: Unauthorized - invalid or expired session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/logout:
-    post:
-      summary: Logout current user
-      description: Invalidates current session and logs out user
-      tags:
-        - Authentication
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Successfully logged out
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '401':
-          description: Unauthorized - invalid session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
   schemas:
-    User:
+    Session:
       type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        name:
-          type: string
-          nullable: true
-        profileImage:
-          type: string
-          format: uri
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    SessionResponse:
-      type: object
+      description: User session information
+      required:
+        - user
+        - expires
       properties:
         user:
           $ref: '#/components/schemas/User'
         expires:
           type: string
           format: date-time
-        isAuthenticated:
-          type: boolean
+          description: Session expiration timestamp (ISO 8601)
+          example: '2025-01-28T10:00:00.000Z'
 
-    AccountLinkResponse:
+    User:
       type: object
+      description: Authenticated user information
+      required:
+        - id
+        - email
       properties:
-        success:
-          type: boolean
-        message:
+        id:
           type: string
-        user:
-          $ref: '#/components/schemas/User'
-        linkedAccount:
-          type: object
-          properties:
-            provider:
-              type: string
-            providerAccountId:
-              type: string
-            linkedAt:
-              type: string
-              format: date-time
-
-    AccountMergeResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
+          description: Unique user identifier (CUID)
+          example: clu123456789
+        name:
           type: string
-        mergeRequired:
-          type: boolean
-        conflictingUser:
-          type: object
-          properties:
-            email:
-              type: string
-              format: email
-            name:
-              type: string
-            accountCreated:
-              type: string
-              format: date-time
+          nullable: true
+          description: User's full name
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: john@example.com
+        image:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to user's profile picture
+          example: https://lh3.googleusercontent.com/a/...
 
-    ErrorResponse:
+    Error:
       type: object
+      description: Error response
+      required:
+        - error
+        - message
       properties:
         error:
           type: string
+          description: Error code (machine-readable)
+          example: access_denied
         message:
           type: string
-        code:
-          type: string
+          description: User-friendly error message (no sensitive information)
+          example: You cancelled the sign-in process. Please try again if you'd like to continue.
         details:
           type: object
-          nullable: true
+          description: Additional error context (optional, non-sensitive only)
+          additionalProperties: true
 
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Secure-next-auth.session-token
+      description: |
+        HTTP-only session cookie containing JWT or session token.
+        Automatically set by NextAuth.js after successful authentication.
+
+security:
+  - sessionCookie: []
+
+x-security-requirements:
+  csrf-protection:
+    description: All state-changing operations protected by CSRF tokens
+    implementation: NextAuth.js built-in CSRF protection + PKCE
+  rate-limiting:
+    description: Authentication attempts rate limited
+    implementation: 5 attempts per minute per IP address
+  https-only:
+    description: All cookies require HTTPS in production
+    implementation: Secure flag on all cookies, HSTS headers
+  token-encryption:
+    description: OAuth tokens encrypted at rest
+    implementation: AES-256-GCM encryption for refresh_token and access_token
+
+x-performance-targets:
+  oauth-flow-completion:
+    target: < 30 seconds
+    description: Total time from button click to dashboard access
+  api-response-time:
+    target: < 100ms
+    description: Session validation and authentication API endpoints
+  success-rate:
+    target: 95%+
+    description: Successful authentication completion rate
+
+x-monitoring:
+  metrics:
+    - signin_attempts_total
+    - signin_success_total
+    - signin_failure_total
+    - rate_limit_exceeded_total
+    - token_refresh_total
+    - session_created_total
+    - session_expired_total
+  logs:
+    - Authentication events with timestamp, IP (anonymized), user agent, result
+    - Rate limit violations
+    - Token refresh failures
+    - Account linking/unlinking events

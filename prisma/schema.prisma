@@ -17,17 +17,21 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String? @db.Text  // Encrypted with AES-256-GCM
+  access_token      String? @db.Text  // Encrypted with AES-256-GCM
   expires_at        Int?
   token_type        String?
   scope             String?
   id_token          String? @db.Text
   session_state     String?
+  
+  lastUsedAt        DateTime @default(now()) @updatedAt  // Track token usage for SR-009
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([lastUsedAt])  // For cleanup queries
   @@map("accounts")
 }
 
@@ -36,8 +40,12 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  createdAt    DateTime @default(now())
+  
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([expires])  // For cleanup queries
   @@map("sessions")
 }
 
@@ -52,12 +60,14 @@ model VerificationToken {
 
 // Custom models for Google OAuth Login feature
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  profileImage String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?  // Email verification timestamp from Google
+  image         String?    // Profile picture URL from Google
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Authentication relationships
   accounts Account[]
@@ -66,6 +76,7 @@ model User {
   // User data relationships
   profile UserProfile?
 
+  @@index([email])  // For account matching queries
   @@map("users")
 }
 

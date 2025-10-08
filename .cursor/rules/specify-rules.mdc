@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-08
 
 ## Active Technologies
 - TypeScript 5+ with Next.js 15+ App Router + NextAuth.js, Google OAuth 2.0 API, React Hook Form, Zod validation (001-google)
+- TypeScript 5 with strict mode enabled + Next.js 15.5.4, NextAuth.js 4.24.11, Prisma 6.17.0, React 19.2.0 (001-google)
+- PostgreSQL via Prisma ORM (existing schema needs updates for OAuth tables) (001-google)
 
 ## Project Structure
 ```
@@ -18,6 +20,7 @@ npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNO
 TypeScript 5+ with Next.js 15+ App Router: Follow standard conventions
 
 ## Recent Changes
+- 001-google: Added TypeScript 5 with strict mode enabled + Next.js 15.5.4, NextAuth.js 4.24.11, Prisma 6.17.0, React 19.2.0
 - 001-google: Added TypeScript 5+ with Next.js 15+ App Router + NextAuth.js, Google OAuth 2.0 API, React Hook Form, Zod validation
 
 <!-- MANUAL ADDITIONS START -->

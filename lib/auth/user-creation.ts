@@ -1,190 +1,91 @@
-import { PrismaClient } from '@prisma/client'
-import { encryptOAuthToken } from '@/lib/utils/encryption'
+/**
+ * User Creation Logic
+ *
+ * Handles automatic user profile creation from Google OAuth
+ *
+ * Requirements:
+ * - UR-001: Auto-create user profile on first login
+ * - UR-004: Store Google profile picture
+ * - SR-016: Email verification from Google
+ */
 
-// Default Prisma client instance
-const defaultPrisma = new PrismaClient()
+import { prisma } from '@/lib/db/prisma'
 
-interface GoogleProfile {
-  id: string
-  email: string
-  name?: string
-  picture?: string
-  verified_email?: boolean
-}
-
-interface AccountData {
-  provider: string
-  type: string
-  providerAccountId: string
-  access_token: string
-  refresh_token: string
-  expires_at: number
-  token_type: string
-  scope: string
+/**
+ * Google profile data from OAuth
+ */
+export interface GoogleProfile {
+  sub: string // Google user ID
+  email: string // User email
+  email_verified: boolean // Email verification status
+  name?: string // Full name
+  given_name?: string // First name
+  family_name?: string // Last name
+  picture?: string // Profile picture URL
+  locale?: string // Preferred locale
 }
 
 /**
- * Validates email format
+ * Create a new user from Google profile
+ * Called automatically on first login via NextAuth Prisma adapter
+ *
+ * @param profile - Google OAuth profile data
+ * @returns Created user record
  */
-function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-/**
- * Creates a new user from Google profile data
- * Handles both new user creation and existing user lookup
- */
-export async function createUserFromGoogleProfile(
-  googleProfile: GoogleProfile,
-  accountData: AccountData,
-  prisma: PrismaClient = defaultPrisma
-) {
-  // Validate email format
-  if (!validateEmail(googleProfile.email)) {
-    throw new Error('Invalid email format')
-  }
-
+export async function createGoogleUser(profile: GoogleProfile) {
   try {
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: googleProfile.email },
-    })
-
-    if (existingUser) {
-      // User exists - this is an account linking scenario
-      return existingUser
-    }
-
-    // Create new user
-    const newUser = await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
-        email: googleProfile.email,
-        name: googleProfile.name || null,
-        profileImage: googleProfile.picture || null,
+        email: profile.email,
+        emailVerified: profile.email_verified ? new Date() : null,
+        name: profile.name || null,
+        image: profile.picture || null,
       },
     })
 
-    // Create user profile
-    await prisma.userProfile.create({
-      data: {
-        userId: newUser.id,
-        preferences: {},
-        settings: {},
-      },
+    console.log('Created new user from Google profile:', {
+      userId: user.id,
+      email: user.email,
     })
 
-    // Create account with encrypted tokens
-    await prisma.account.create({
-      data: {
-        userId: newUser.id,
-        provider: accountData.provider,
-        type: accountData.type,
-        providerAccountId: accountData.providerAccountId,
-        access_token: encryptOAuthToken(accountData.access_token, 'access'),
-        refresh_token: encryptOAuthToken(accountData.refresh_token, 'refresh'),
-        expires_at: accountData.expires_at,
-        token_type: accountData.token_type,
-        scope: accountData.scope,
-      },
-    })
-
-    return newUser
+    return user
   } catch (error) {
-    console.error('Error creating user from Google profile:', error)
+    console.error('Failed to create user from Google profile:', error)
     throw error
   }
 }
 
 /**
- * Links a Google account to an existing user
+ * Update user profile from Google profile
+ * Updates name and picture if they have changed
+ *
+ * @param userId - Existing user ID
+ * @param profile - Google OAuth profile data
+ * @returns Updated user record
  */
-export async function linkGoogleAccountToUser(
-  userId: string,
-  googleProfile: GoogleProfile,
-  accountData: AccountData,
-  prisma: PrismaClient = defaultPrisma
-) {
+export async function updateGoogleUser(userId: string, profile: GoogleProfile) {
   try {
-    // Check if Google account is already linked to another user
-    const existingAccount = await prisma.account.findUnique({
-      where: {
-        provider_providerAccountId: {
-          provider: 'google',
-          providerAccountId: googleProfile.id,
-        },
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: profile.name || null,
+        image: profile.picture || null,
+        // Update emailVerified if it wasn't set before
+        emailVerified:
+          profile.email_verified && !prisma.user.findUnique
+            ? new Date()
+            : undefined,
       },
     })
 
-    if (existingAccount && existingAccount.userId !== userId) {
-      throw new Error('Google account is already linked to another user')
-    }
-
-    // Create or update account
-    await prisma.account.upsert({
-      where: {
-        provider_providerAccountId: {
-          provider: 'google',
-          providerAccountId: googleProfile.id,
-        },
-      },
-      update: {
-        access_token: encryptOAuthToken(accountData.access_token, 'access'),
-        refresh_token: encryptOAuthToken(accountData.refresh_token, 'refresh'),
-        expires_at: accountData.expires_at,
-        token_type: accountData.token_type,
-        scope: accountData.scope,
-      },
-      create: {
-        userId,
-        provider: accountData.provider,
-        type: accountData.type,
-        providerAccountId: accountData.providerAccountId,
-        access_token: encryptOAuthToken(accountData.access_token, 'access'),
-        refresh_token: encryptOAuthToken(accountData.refresh_token, 'refresh'),
-        expires_at: accountData.expires_at,
-        token_type: accountData.token_type,
-        scope: accountData.scope,
-      },
+    console.log('Updated user from Google profile:', {
+      userId: user.id,
+      email: user.email,
     })
 
-    // Update user profile with Google data if not already set
-    const updateData: any = {}
-    if (googleProfile.name) {
-      updateData.name = googleProfile.name
-    }
-    if (googleProfile.picture) {
-      updateData.profileImage = googleProfile.picture
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: updateData,
-      })
-    }
+    return user
   } catch (error) {
-    console.error('Error linking Google account:', error)
-    throw error
-  }
-}
-
-/**
- * Unlinks a Google account from a user
- */
-export async function unlinkGoogleAccount(
-  userId: string,
-  prisma: PrismaClient = defaultPrisma
-) {
-  try {
-    await prisma.account.deleteMany({
-      where: {
-        userId,
-        provider: 'google',
-      },
-    })
-  } catch (error) {
-    console.error('Error unlinking Google account:', error)
+    console.error('Failed to update user from Google profile:', error)
     throw error
   }
 }
