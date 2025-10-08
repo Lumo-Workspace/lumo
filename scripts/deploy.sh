@@ -40,7 +40,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "3. Set up database (if using Vercel Postgres):"
     echo "   - Create a Postgres database in Vercel"
-    echo "   - Update PRISMA_DATABASE_URL environment variable"
+    echo "   - Update DATABASE_URL environment variable"
     echo "   - Run: vercel env pull .env.local"
     echo "   - Run: npx prisma db push"
     echo ""

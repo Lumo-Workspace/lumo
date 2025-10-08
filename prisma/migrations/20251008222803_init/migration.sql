@@ -12,6 +12,7 @@ CREATE TABLE "accounts" (
     "scope" TEXT,
     "id_token" TEXT,
     "session_state" TEXT,
+    "lastUsedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "accounts_pkey" PRIMARY KEY ("id")
 );
@@ -22,6 +23,7 @@ CREATE TABLE "sessions" (
     "sessionToken" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "expires" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "sessions_pkey" PRIMARY KEY ("id")
 );
@@ -36,9 +38,10 @@ CREATE TABLE "verificationtokens" (
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
     "name" TEXT,
-    "profileImage" TEXT,
+    "email" TEXT,
+    "emailVerified" TIMESTAMP(3),
+    "image" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -58,10 +61,22 @@ CREATE TABLE "user_profiles" (
 );
 
 -- CreateIndex
+CREATE INDEX "accounts_userId_idx" ON "accounts"("userId");
+
+-- CreateIndex
+CREATE INDEX "accounts_lastUsedAt_idx" ON "accounts"("lastUsedAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "accounts_provider_providerAccountId_key" ON "accounts"("provider", "providerAccountId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "sessions_sessionToken_key" ON "sessions"("sessionToken");
+
+-- CreateIndex
+CREATE INDEX "sessions_userId_idx" ON "sessions"("userId");
+
+-- CreateIndex
+CREATE INDEX "sessions_expires_idx" ON "sessions"("expires");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "verificationtokens_token_key" ON "verificationtokens"("token");
@@ -71,6 +86,9 @@ CREATE UNIQUE INDEX "verificationtokens_identifier_token_key" ON "verificationto
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX "users_email_idx" ON "users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "user_profiles_userId_key" ON "user_profiles"("userId");
