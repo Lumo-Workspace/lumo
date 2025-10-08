@@ -13,7 +13,6 @@
   },
   "build": {
     "env": {
-      "DATABASE_URL": "@SUPA_POSTGRES_PRISMA_URL",
       "NEXTAUTH_SECRET": "@nextauth_secret",
       "NEXTAUTH_URL": "@nextauth_url",
       "GOOGLE_CLIENT_ID": "@google_client_id",
