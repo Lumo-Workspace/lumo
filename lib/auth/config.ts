@@ -3,6 +3,24 @@ import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { PrismaClient } from '@prisma/client'
 import { authCallbacks } from './callbacks'
+import {
+  validateEnvironmentVariables,
+  printEnvironmentSetup,
+} from '@/lib/utils/env-validation'
+
+// Validate environment variables at startup
+const envValidation = validateEnvironmentVariables()
+if (!envValidation.isValid) {
+  console.error('❌ NextAuth configuration failed due to environment errors:')
+  envValidation.errors.forEach(error => console.error(`   - ${error}`))
+  printEnvironmentSetup()
+  throw new Error('Invalid environment configuration. See errors above.')
+}
+
+if (envValidation.warnings.length > 0) {
+  console.warn('⚠️  NextAuth configuration warnings:')
+  envValidation.warnings.forEach(warning => console.warn(`   - ${warning}`))
+}
 
 const prisma = new PrismaClient()
 

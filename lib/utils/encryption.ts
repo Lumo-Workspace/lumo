@@ -13,10 +13,42 @@ export function generateEncryptionKey(): string {
 }
 
 /**
+ * Validate encryption key format and length
+ */
+export function validateEncryptionKey(key: string, keyName: string): void {
+  if (!key) {
+    throw new Error(`${keyName} encryption key is not configured`)
+  }
+
+  if (typeof key !== 'string') {
+    throw new Error(`${keyName} encryption key must be a string`)
+  }
+
+  // For hex keys, length should be 64 characters (32 bytes * 2)
+  if (key.length !== 64) {
+    throw new Error(
+      `${keyName} encryption key must be exactly 64 hex characters (32 bytes). Current length: ${key.length}`
+    )
+  }
+
+  // Validate hex format
+  if (!/^[0-9a-fA-F]+$/.test(key)) {
+    throw new Error(
+      `${keyName} encryption key must contain only hexadecimal characters (0-9, a-f, A-F)`
+    )
+  }
+}
+
+/**
  * Encrypt data using AES-256-GCM
  */
-export function encrypt(data: string, key: string): string {
+export function encrypt(
+  data: string,
+  key: string,
+  keyName: string = 'encryption'
+): string {
   try {
+    validateEncryptionKey(key, keyName)
     const keyBuffer = Buffer.from(key, 'hex')
     const iv = crypto.randomBytes(IV_LENGTH)
     const cipher = crypto.createCipheriv(ALGORITHM, keyBuffer, iv)
@@ -82,6 +114,9 @@ export function encryptOAuthToken(
     throw new Error(`${tokenType} token encryption key not configured`)
   }
 
+  // Validate key format before use
+  validateEncryptionKey(key, tokenType)
+
   return encrypt(token, key)
 }
 
@@ -100,6 +135,9 @@ export function decryptOAuthToken(
   if (!key) {
     throw new Error(`${tokenType} token decryption key not configured`)
   }
+
+  // Validate key format before use
+  validateEncryptionKey(key, tokenType)
 
   return decrypt(encryptedToken, key)
 }

@@ -93,17 +93,17 @@ description: 'Task list template for feature implementation'
 
 ### Tests for User Story 2 (MANDATORY - TDD Required) ⚠️
 
-- [ ] T027 [P] [US2] Unit test for existing user login flow in tests/auth/existing-user-login.test.tsx
-- [ ] T028 [P] [US2] Integration test for session management in tests/integration/session-management.test.ts
-- [ ] T029 [P] [US2] Contract test for session API endpoints in tests/contract/session-api.test.ts
+- [x] T027 [P] [US2] Unit test for existing user login flow in tests/auth/existing-user-login.test.tsx
+- [x] T028 [P] [US2] Integration test for session management in tests/integration/session-management.test.ts
+- [x] T029 [P] [US2] Contract test for session API endpoints in tests/contract/session-api.test.ts
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement user lookup service in lib/auth/user-lookup.ts
-- [ ] T031 [US2] Enhance OAuth callback handling for existing users in lib/auth/callbacks.ts
-- [ ] T032 [US2] Implement session validation middleware in lib/auth/session-validation.ts
-- [ ] T033 [US2] Create user profile display component in components/auth/user-profile.tsx
-- [ ] T034 [US2] Enhance dashboard page with existing user data in app/dashboard/page.tsx
+- [x] T030 [US2] Implement user lookup service in lib/auth/user-lookup.ts
+- [x] T031 [US2] Enhance OAuth callback handling for existing users in lib/auth/callbacks.ts
+- [x] T032 [US2] Implement session validation middleware in lib/auth/session-validation.ts
+- [x] T033 [US2] Create user profile display component in components/auth/user-profile.tsx
+- [x] T034 [US2] Enhance dashboard page with existing user data in app/dashboard/page.tsx
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -141,12 +141,12 @@ description: 'Task list template for feature implementation'
 **Purpose**: Improvements that affect multiple user stories
 
 - [x] T046 [P] Documentation updates in README.md and quickstart.md
-- [ ] T047 Code cleanup and refactoring across all components
-- [ ] T048 Performance optimization for OAuth token refresh
-- [ ] T049 [P] Additional unit tests for edge cases in tests/unit/
-- [ ] T050 Security hardening and audit logging
-- [ ] T051 Error handling improvements and user feedback
-- [ ] T052 Run quickstart.md validation and integration tests
+- [x] T047 Code cleanup and refactoring across all components
+- [x] T048 Performance optimization for OAuth token refresh
+- [x] T049 [P] Additional unit tests for edge cases in tests/unit/
+- [x] T050 Security hardening and audit logging
+- [x] T051 Error handling improvements and user feedback
+- [x] T052 Run quickstart.md validation and integration tests
 
 ---
 
