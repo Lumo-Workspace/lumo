@@ -1,0 +1,24 @@
+# lumo Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-10-08
+
+## Active Technologies
+- TypeScript 5+ with Next.js 15+ App Router + NextAuth.js, Google OAuth 2.0 API, React Hook Form, Zod validation (001-google)
+
+## Project Structure
+```
+src/
+tests/
+```
+
+## Commands
+npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLOGIES] npm run lint
+
+## Code Style
+TypeScript 5+ with Next.js 15+ App Router: Follow standard conventions
+
+## Recent Changes
+- 001-google: Added TypeScript 5+ with Next.js 15+ App Router + NextAuth.js, Google OAuth 2.0 API, React Hook Form, Zod validation
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

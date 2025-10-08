@@ -1,130 +1,144 @@
 <!--
-同步影响报告：
-版本变更：3.2.0 → 4.0.0 (重大版本 - 基于项目实际内容重新定义)
-修改的原则：
-  - I. 多工具集成架构 → I. 文档原生项目管理架构
-  - II. 熟悉界面适配 → II. Specify方法论驱动开发
-  - III. 智能助手集成 → III. AI驱动的智能聚合
-  - IV. 无缝工作流切换 → IV. 代码-文档双向可追溯性
-  - V. 工具生态系统 → V. 开发者工具深度集成
-
-新增章节：
-  - Specify方法论集成要求
-  - GitHub和Cursor编辑器集成规范
-  - 文档原生项目管理标准
-  - 智能代理协作框架
-
-调整章节：
-  - 从多工具集成转向文档原生项目管理
-  - 强调Specify方法论和AI驱动的文档生成
-  - 突出代码-文档可追溯性的核心价值
-  - 集成开发者工具生态
-
-模板更新：
-  ✅ 需要更新计划模板以体现文档原生架构
-  ⚠️ 保持用户友好性但强调技术深度
-
-后续待办：确保所有功能都体现文档原生项目管理的核心价值
+Sync Impact Report:
+- Version change: 1.1.0 → 1.2.0 (UX prioritization and shadcn UI framework added)
+- Modified principles: Added UX Prioritization as core principle
+- Added sections: UX Prioritization principle, shadcn UI framework requirement
+- Removed sections: N/A
+- Templates requiring updates: ✅ plan-template.md, ✅ spec-template.md, ✅ tasks-template.md
+- Follow-up TODOs: None - all templates updated successfully
 -->
 
-# Lumo 宪法
+# Lumo AI Constitution
 
-<!-- AI驱动的文档原生产品开发平台 - 定义"项目管理活在文档中"类别 -->
+## Core Principles
 
-## 核心原则
+### I. Document-First Architecture (NON-NEGOTIABLE)
 
-### I. 文档原生项目管理架构
+Every feature MUST start as a structured document (Spec) that drives implementation.
+Documents are the source of truth for requirements, not code comments or separate
+documentation. All specifications must be executable and directly integrated with
+GitHub workflows.
 
-文档即项目管理：项目状态和内容统一存在，无需上下文切换；文档结构自然形成项目层次，无需强制模板；任务嵌入文档内容，而非独立于文档之外；项目智能内置于文档，而非需要复杂设置；零模板依赖，开箱即用的项目管理概念
+### II. GitHub Integration (NON-NEGOTIABLE)
 
-### II. Specify方法论驱动开发
+Every Spec MUST automatically generate corresponding Issues, PRs, tests, and tracking.
+Document changes MUST be traceable to GitHub commits and pull requests. All
+modifications must include AI-generated records with source attribution and
+confidence scores.
 
-基于Specify的智能文档创建：使用Specify模板确保文档质量和一致性；Specify智能代理协作，多角色AI代理参与文档生成；Specify工作流编排，结构化文档创建过程；Specify质量保证框架，自动验证文档完整性；团队可自定义Specify模板，适应不同工作流程
+### III. Test-Driven Development (NON-NEGOTIABLE)
 
-### III. AI驱动的智能聚合
+TDD is MANDATORY for all implementation work. The Red-Green-Refactor cycle MUST be
+strictly enforced: Tests written → Tests fail → Implementation → Tests pass →
+Refactor. No production code may be written without a failing test first. All
+tests must be independent, fast, and executable in isolation.
 
-从分散信息构建文档：多源输入聚合（会议记录、邮件、现有文档）；AI智能提取和分类产品信息；自动化PRD生成，减少30-40%文档开销；智能代理协作，PM、UX、Dev、架构师角色参与；置信度评分和人工审查机制，确保内容质量
+### IV. AI Collaboration (NON-NEGOTIABLE)
 
-### IV. 代码-文档双向可追溯性
+AI assistants (Copilot, Cursor, Lumo AI) MUST be able to read and understand
+document context for development assistance. All documents must be structured for
+AI consumption with clear metadata, relationships, and executable instructions.
 
-无缝的开发工作流集成：GitHub仓库与项目自动关联；提交信息与需求自动链接；Cursor编辑器深度集成，代码感知文档编辑；Pull Request与文档审查联动；GitHub Issues与任务系统双向同步；完整的实施追溯链，从需求到代码
+### V. Structured Specifications
 
-### V. 开发者工具深度集成
+All product requirements (PRD), technical designs, and project specifications MUST
+follow the established Spec template format. Documents must include user scenarios,
+acceptance criteria, and measurable success criteria. No implementation details
+should leak into specification documents.
 
-构建开发者友好的生态系统：Cursor编辑器无缝集成，保持熟悉的开发体验；GitHub全功能集成，仓库管理、Issues、Actions；ChatGPT智能助手内嵌，AI辅助决策；Gmail风格通知系统，项目消息统一管理；文件夹系统兼容，符合传统文件管理习惯
+### VI. UX Prioritization (NON-NEGOTIABLE)
 
-## 开发标准
+User experience MUST be prioritized in all design and implementation decisions.
+Every feature MUST include comprehensive UX requirements with measurable success
+criteria. User flows, interface design, accessibility, and usability MUST be
+specified and validated before implementation begins. UX quality gates MUST be
+enforced through dedicated checklists and testing protocols.
 
-### 文档原生项目管理要求
+### VII. Automated Execution
 
-- **文档中心设计**: 所有功能都围绕文档展开，项目状态嵌入文档结构
-- **零模板依赖**: 开箱即用的项目管理，无需复杂配置和模板设置
-- **嵌入式任务管理**: 任务直接在文档上下文中创建和管理
-- **实时协作编辑**: 多用户同时编辑文档，操作转换确保无冲突
-- **版本控制集成**: 文档版本与项目里程碑同步
+Every specification MUST be capable of generating executable workflows. Document
+changes MUST trigger appropriate GitHub actions, issue creation, and progress
+tracking. Manual intervention should be minimized through intelligent automation.
 
-### Specify方法论集成标准
+## Development Standards
 
-- **Specify模板引擎**: 内置PRD、技术规范、史诗分解等标准模板
-- **智能代理协作**: PM、UX、Dev、架构师AI代理协同工作
-- **工作流编排**: 结构化文档创建过程，分步指导和验证
-- **质量保证框架**: 自动检查文档完整性和一致性
-- **团队自定义**: 支持团队特定的模板和工作流定制
+### Technology Stack Requirements
 
-### AI智能聚合要求
+- Next.js 15+ with App Router for web interface
+- TypeScript for type safety and developer experience
+- shadcn/ui as the default UI framework for consistent, accessible components
+- Tailwind CSS for styling (integrated with shadcn/ui)
+- React Hook Form + Zod for form validation
+- GitHub API integration for automated workflows
 
-- **多源输入处理**: 支持会议转录、邮件、文档、音频等多种输入格式
-- **智能信息提取**: AI自动识别决策、需求、问题、反馈等关键信息
-- **自动化文档生成**: 从分散信息自动生成结构化PRD和项目文档
-- **置信度评分**: 为AI生成内容提供质量评分，低置信度内容标记人工审查
-- **源追溯性**: 维护从生成内容到原始输入源的完整追溯链
+### Quality Gates
 
-### 代码-文档可追溯性要求
+- All features must pass specification quality checklist before implementation
+- UX requirements must be validated through dedicated UX quality checklists
+- User stories must be independently testable and deliverable
+- TDD compliance: Tests must be written and failing before any implementation
+- All tests must pass before code review approval
+- Test coverage must meet minimum standards (unit, integration, contract tests)
+- UI components must use shadcn/ui framework for consistency and accessibility
+- AI assistants must be able to understand and assist with each component
+- GitHub integration must be validated for each new feature
 
-- **GitHub深度集成**: 仓库信息、提交历史、分支状态实时同步
-- **提交-需求链接**: 自动识别提交信息中的需求ID并建立关联
-- **Cursor编辑器集成**: 代码编辑与项目文档无缝切换
-- **Pull Request集成**: PR审查与需求文档联动
-- **Issues任务同步**: GitHub Issues与Lumo任务双向同步
+## Development Workflow
 
-### 开发者工具集成要求
+### Specification Process
 
-- **Cursor无缝集成**: 命令面板集成项目管理功能，代码感知文档编辑
-- **Git工作流集成**: Git提交、分支、合并与项目状态同步
-- **ChatGPT助手集成**: 项目上下文的AI对话和智能建议
-- **Gmail风格通知**: 项目消息统一管理，支持标签、过滤、搜索
-- **文件夹兼容性**: 传统文件管理习惯支持，拖拽操作
+1. Create feature specification using `/speckit.specify` command
+2. Validate specification quality using generated checklist
+3. Validate UX requirements using UX quality checklist
+4. Generate implementation plan using `/speckit.plan` command
+5. Create task breakdown using `/speckit.tasks` command
+6. Implement following user story priorities (P1 → P2 → P3) with strict TDD
 
-## 开发工作流
+### Test-Driven Development Process
 
-### 文档原生开发流程
+1. **Red Phase**: Write failing test based on specification requirements
+2. **Green Phase**: Write minimal code to make test pass
+3. **Refactor Phase**: Improve code while keeping tests green
+4. **Repeat**: Continue cycle for each new requirement
+5. **Validation**: All tests must pass before moving to next user story
 
-1. **需求收集**: 使用Specify方法论收集和聚合多源输入
-2. **智能文档生成**: AI代理协作生成结构化PRD和项目文档
-3. **代码开发**: 在Cursor编辑器中开发，自动关联文档需求
-4. **实时协作**: 多用户协作编辑文档，实时同步项目状态
-5. **质量保证**: Specify质量框架验证文档完整性和一致性
-6. **追溯验证**: 验证从需求到代码的完整追溯链
+### Code Review Requirements
 
-### 质量保证
+- All PRs must verify compliance with document-first principles
+- UX requirements must be validated and tested
+- TDD compliance must be verified: tests written before implementation
+- All tests must be passing and provide adequate coverage
+- UI components must follow shadcn/ui framework standards
+- GitHub integration must be tested for new features
+- AI assistance capabilities must be validated
+- Specification updates must be linked to implementation changes
 
-- Specify模板和智能代理质量验证
-- 代码-文档可追溯性完整性检查
-- AI生成内容的置信度评分和人工审查
-- 跨工具数据一致性和同步验证
-- 开发者工具集成的用户体验测试
+### Testing Standards
 
-## 治理
+- TDD is mandatory: Red-Green-Refactor cycle must be followed
+- Tests must be written before any production code
+- User stories must be independently testable
+- UX testing must validate user flows, accessibility, and usability
+- Unit tests must cover all business logic
+- Integration tests required for GitHub workflows and API endpoints
+- Contract tests required for external service integrations
+- UI component tests must validate shadcn/ui framework compliance
+- AI context understanding must be validated
+- Specification-to-implementation traceability must be verified
+- Test coverage minimum: 80% for new code, 70% for modified code
 
-所有开发必须遵守本宪法。宪法以文档原生项目管理为核心。修正案需要：
+## Governance
 
-- 文档原生价值主张验证和用户反馈分析
-- Specify方法论集成的技术可行性评估
-- AI智能聚合功能的准确性验证
-- 代码-文档可追溯性的完整性测试
-- 开发者工具集成的用户体验评估
-- 产品经理、技术架构师和开发者代表批准
+This constitution supersedes all other development practices. Amendments require:
 
-所有功能开发必须验证文档原生项目管理的核心价值。复杂性必须通过文档质量提升和开发效率改善来证明。优先考虑消除上下文切换和工具碎片化的实际工作流问题。技术实现应该对用户透明，专注于解决产品开发团队的真实痛点。
+1. Documentation of the change rationale
+2. Impact assessment on existing specifications
+3. Update to all dependent templates
+4. Validation that AI assistants can understand the changes
 
-**版本**: 4.0.0 | **批准日期**: 2025-01-27 | **最后修改**: 2025-01-27
+All development work must comply with these principles. Complexity must be
+justified against the core principle of document-driven development. Use the
+established command templates for consistent specification and implementation
+workflows.
+
+**Version**: 1.2.0 | **Ratified**: 2025-01-27 | **Last Amended**: 2025-01-27

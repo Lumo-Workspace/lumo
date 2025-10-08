@@ -20,7 +20,9 @@
 **Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
 **Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
 **Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Testing**: [e.g., Jest, Vitest, pytest, XCTest, cargo test or NEEDS CLARIFICATION] - TDD MANDATORY  
+**UI Framework**: shadcn/ui (mandatory for web applications) - [specify if not applicable]  
+**UX Requirements**: [UX prioritization mandatory - specify user flows, accessibility, usability criteria]  
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
 **Project Type**: [single/web/mobile - determines source structure]  
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
@@ -31,11 +33,49 @@
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-- **文档原生架构**: 功能是否体现文档原生vs模板依赖的差异化？是否零模板设置？
-- **Specify方法论**: 是否使用Specify模板和智能代理协作？是否符合Specify工作流？
-- **AI智能聚合**: 是否支持多源输入处理和自动化文档生成？是否有置信度评分？
-- **代码-文档可追溯性**: 是否实现GitHub集成和Cursor编辑器联动？是否有完整的追溯链？
-- **开发者工具集成**: 是否支持Cursor、GitHub、ChatGPT等开发者工具的深度集成？
+### Document-First Architecture ✅
+
+- Feature specification exists and drives implementation planning
+- Structured document format follows established template
+- All requirements documented with clear acceptance criteria
+
+### GitHub Integration ✅
+
+- Feature branch created ([###-feature])
+- Specification tracked in version control
+- Implementation plan will generate GitHub issues and tracking
+
+### Test-Driven Development ✅
+
+- TDD mandatory for all implementation work
+- Tests must be written before any production code
+- Red-Green-Refactor cycle will be enforced
+- Test coverage minimums: 80% new code, 70% modified code
+
+### UX Prioritization ✅
+
+- UX requirements must be validated through dedicated checklists
+- User flows, accessibility, and usability criteria specified
+- UI components must use shadcn/ui framework (if applicable)
+- UX quality gates enforced before implementation
+
+### AI Collaboration ✅
+
+- Documents structured for AI consumption with clear metadata
+- AI assistants can read and understand document context
+- All specifications include executable instructions
+
+### Structured Specifications ✅
+
+- User scenarios prioritized and independently testable
+- Acceptance criteria measurable and technology-agnostic
+- Success criteria defined with concrete metrics
+
+### Automated Execution ✅
+
+- Specification capable of generating executable workflows
+- Document changes will trigger appropriate GitHub actions
+- Manual intervention minimized through automation
 
 ## Project Structure
 

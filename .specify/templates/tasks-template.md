@@ -7,7 +7,9 @@ description: 'Task list template for feature implementation'
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: TDD is MANDATORY. All user stories MUST include test tasks following the Red-Green-Refactor cycle. Tests must be written and failing before any implementation begins.
+
+**UX**: UX prioritization is MANDATORY. All user stories MUST include UX validation tasks. UI components MUST use shadcn/ui framework for web applications.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -78,12 +80,20 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (MANDATORY - TDD Required) ⚠️
 
-**NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+**TDD REQUIREMENT: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test\_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test\_[name].py
+
+### UX Validation for User Story 1 (MANDATORY - UX Required) ⚠️
+
+**UX REQUIREMENT: Validate user experience requirements before implementation**
+
+- [ ] T010a [P] [US1] UX flow validation test in tests/ux/test\_[user_journey].tsx
+- [ ] T010b [P] [US1] Accessibility compliance test in tests/ux/test_accessibility.tsx
+- [ ] T010c [P] [US1] shadcn/ui component compliance test in tests/ux/test_components.tsx
 
 ### Implementation for User Story 1
 
@@ -104,7 +114,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (MANDATORY - TDD Required) ⚠️
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test\_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test\_[name].py
@@ -126,7 +136,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (MANDATORY - TDD Required) ⚠️
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test\_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test\_[name].py
@@ -149,10 +159,12 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] 文档原生功能验证 (Specify模板、智能代理协作、文档质量检查)
+- [ ] TXXX [P] Documentation updates in docs/
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX [P] Additional unit tests (TDD coverage) in tests/unit/
+- [ ] TXXXa [P] UX validation tests for all user flows in tests/ux/
+- [ ] TXXXb [P] shadcn/ui component compliance validation in tests/components/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
