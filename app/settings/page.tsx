@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth/config'
 import AccountLinking from '@/components/auth/account-linking'
 import UserProfile from '@/components/auth/user-profile'
+import { ProfileSettings } from '@/components/profile-settings'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -20,6 +21,9 @@ export default async function SettingsPage() {
             Manage your account preferences and connected services.
           </p>
         </div>
+
+        {/* Profile Management Section */}
+        <ProfileSettings />
 
         <div className='grid gap-8 md:grid-cols-2'>
           {/* User Profile Section */}

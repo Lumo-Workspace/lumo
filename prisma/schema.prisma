@@ -62,10 +62,15 @@ model VerificationToken {
 // Custom models for Google OAuth Login feature
 model User {
   id            String    @id @default(cuid())
-  name          String?
+  name          String?   // Display name (editable by user)
   email         String?   @unique
   emailVerified DateTime?  // Email verification timestamp from Google
-  image         String?    // Profile picture URL from Google
+  image         String?   // Profile picture URL from Google
+  
+  // New fields for account management
+  displayName   String?   // User's preferred display name
+  avatarUrl     String?   // URL to uploaded avatar image
+  avatarBlobId  String?   // Vercel Blob ID for avatar storage
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -78,6 +83,7 @@ model User {
   profile UserProfile?
 
   @@index([email])  // For account matching queries
+  @@index([displayName]) // For team member list queries
   @@map("users")
 }
 
@@ -86,9 +92,12 @@ model UserProfile {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Additional profile data
-  preferences Json?
-  settings     Json?
+  // Avatar metadata
+  avatarMetadata Json? // { originalSize, processedSize, format, dimensions }
+  
+  // Profile preferences
+  preferences Json? // { theme, notifications, etc. }
+  settings     Json? // { privacy, visibility, etc. }
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

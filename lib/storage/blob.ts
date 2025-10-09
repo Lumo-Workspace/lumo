@@ -1,162 +1,172 @@
-import { put } from '@vercel/blob'
-import { AuthLogger } from '@/lib/utils/logger'
+import { put, del } from '@vercel/blob'
+import { PROFILE_CONSTANTS } from '@/types/profile'
 
-export interface UploadResult {
-  success: boolean
-  url?: string
-  error?: string
+/**
+ * Vercel Blob Storage utilities for avatar management
+ * Handles avatar upload, deletion, and URL management
+ */
+
+export interface BlobUploadOptions {
+  access: 'public' | 'private'
+  contentType?: string
+  addRandomSuffix?: boolean
 }
 
+export interface BlobUploadResult {
+  url: string
+  pathname: string
+  contentType: string
+  contentDisposition: string
+  size: number
+  uploadedAt: Date
+}
+
+/**
+ * Upload avatar image to Vercel Blob Storage
+ */
 export async function uploadAvatar(
-  file: File,
-  userId: string
-): Promise<UploadResult> {
-  try {
-    AuthLogger.logError('Avatar upload attempt', {
-      userId,
-      fileName: file.name,
-      fileSize: file.size,
-    })
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      return {
-        success: false,
-        error: 'File must be an image',
-      }
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
-    if (file.size > maxSize) {
-      return {
-        success: false,
-        error: 'File size must be less than 5MB',
-      }
-    }
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop() || 'jpg'
-    const fileName = `avatars/${userId}/${Date.now()}.${fileExtension}`
-
-    // Upload to Vercel Blob
-    const blob = await put(fileName, file, {
-      access: 'public',
-      addRandomSuffix: false,
-    })
-
-    AuthLogger.logError('Avatar upload success', { userId, blobUrl: blob.url })
-
-    return {
-      success: true,
-      url: blob.url,
-    }
-  } catch (error) {
-    AuthLogger.logError('Avatar upload failed', {
-      userId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Upload failed',
-    }
-  }
-}
-
-export async function uploadDocument(
-  file: File,
+  file: Buffer,
   userId: string,
-  projectId?: string
-): Promise<UploadResult> {
+  options: Partial<BlobUploadOptions> = {}
+): Promise<BlobUploadResult> {
+  const config: BlobUploadOptions = {
+    contentType: 'image/jpeg',
+    addRandomSuffix: true,
+    ...options,
+    access: 'public', // Ensure access is always public for avatars
+  }
+
   try {
-    AuthLogger.logError('Document upload attempt', {
-      userId,
-      projectId,
-      fileName: file.name,
-      fileSize: file.size,
-    })
+    const filename = `avatars/${userId}-${Date.now()}.jpg`
 
-    // Validate file type (allow common document types)
-    const allowedTypes = [
-      'application/pdf',
-      'text/plain',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      return {
-        success: false,
-        error: 'File type not supported',
-      }
-    }
-
-    // Validate file size (max 25MB)
-    const maxSize = 25 * 1024 * 1024 // 25MB
-    if (file.size > maxSize) {
-      return {
-        success: false,
-        error: 'File size must be less than 25MB',
-      }
-    }
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop() || 'bin'
-    const folder = projectId ? `documents/${projectId}` : 'documents'
-    const fileName = `${folder}/${userId}/${Date.now()}.${fileExtension}`
-
-    // Upload to Vercel Blob
-    const blob = await put(fileName, file, {
+    const blob = await put(filename, file, {
       access: 'public',
-      addRandomSuffix: false,
-    })
-
-    AuthLogger.logError('Document upload success', {
-      userId,
-      projectId,
-      blobUrl: blob.url,
+      contentType: config.contentType || 'image/jpeg',
+      addRandomSuffix: config.addRandomSuffix || true,
     })
 
     return {
-      success: true,
       url: blob.url,
+      pathname: blob.pathname,
+      contentType: blob.contentType,
+      contentDisposition: blob.contentDisposition,
+      size: file.length, // Use file buffer length instead
+      uploadedAt: new Date(), // Use current date since uploadedAt is not available
     }
   } catch (error) {
-    AuthLogger.logError('Document upload failed', {
-      userId,
-      projectId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Upload failed',
-    }
+    throw new Error(
+      `Failed to upload avatar: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
   }
 }
 
-export async function deleteBlob(url: string): Promise<boolean> {
+/**
+ * Delete avatar from Vercel Blob Storage
+ */
+export async function deleteAvatar(blobId: string): Promise<void> {
   try {
-    // Note: Vercel Blob doesn't provide a direct delete method in the client
-    // In production, you would need to implement this on the server side
-    // or use Vercel's API to delete blobs
-    AuthLogger.logError('Blob delete requested', { url })
-
-    // For now, we'll just log the request
-    // TODO: Implement actual blob deletion via Vercel API
-    return true
+    await del(blobId)
   } catch (error) {
-    AuthLogger.logError('Blob delete failed', {
-      url,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
+    // Log error but don't throw - deletion failures shouldn't block user operations
+    console.error(`Failed to delete avatar blob ${blobId}:`, error)
+  }
+}
+
+/**
+ * Generate avatar filename for a user
+ */
+export function generateAvatarFilename(
+  userId: string,
+  timestamp?: number
+): string {
+  const ts = timestamp || Date.now()
+  return `avatars/${userId}-${ts}.jpg`
+}
+
+/**
+ * Extract blob ID from Vercel Blob URL
+ */
+export function extractBlobIdFromUrl(url: string): string | null {
+  try {
+    // Vercel Blob URLs have format: https://[hash].public.blob.vercel-storage.com/[pathname]
+    const urlObj = new URL(url)
+    return urlObj.pathname.substring(1) // Remove leading slash
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Validate blob URL format
+ */
+export function isValidBlobUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.hostname.includes('blob.vercel-storage.com')
+  } catch {
     return false
+  }
+}
+
+/**
+ * Get avatar URL with fallback to default
+ */
+export function getAvatarUrl(
+  avatarUrl?: string | null,
+  displayName?: string | null
+): string {
+  if (avatarUrl && isValidBlobUrl(avatarUrl)) {
+    return avatarUrl
+  }
+
+  // Return default avatar URL (will be generated client-side)
+  return `/api/avatar/default?name=${encodeURIComponent(displayName || '')}`
+}
+
+/**
+ * Clean up old avatar files (utility for maintenance)
+ */
+export async function cleanupOldAvatars(
+  userId: string,
+  keepLatest: number = 1
+): Promise<void> {
+  // This would require listing blobs, which isn't directly supported by Vercel Blob
+  // Implementation would need to track avatar history in database
+  // For now, we'll rely on the addRandomSuffix option to prevent conflicts
+  console.log(
+    `Avatar cleanup for user ${userId} - keeping latest ${keepLatest} files`
+  )
+}
+
+/**
+ * Get blob storage configuration
+ */
+export function getBlobConfig() {
+  const token = process.env.BLOB_READ_WRITE_TOKEN
+
+  if (!token) {
+    throw new Error('BLOB_READ_WRITE_TOKEN environment variable is required')
+  }
+
+  return {
+    token,
+    maxFileSize: PROFILE_CONSTANTS.AVATAR.MAX_FILE_SIZE,
+    supportedFormats: PROFILE_CONSTANTS.AVATAR.SUPPORTED_FORMATS,
+    targetDimensions: PROFILE_CONSTANTS.AVATAR.TARGET_DIMENSIONS,
+  }
+}
+
+/**
+ * Validate blob storage environment
+ */
+export function validateBlobEnvironment(): { valid: boolean; error?: string } {
+  try {
+    getBlobConfig()
+    return { valid: true }
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
   }
 }
