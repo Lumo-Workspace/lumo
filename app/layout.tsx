@@ -4,6 +4,7 @@ import { Inter, Source_Code_Pro } from 'next/font/google'
 import './globals.css'
 import { Suspense } from 'react'
 import { Providers } from '@/components/providers'
+import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className='font-sans'>
         <Providers>
           <Suspense>{children}</Suspense>
+          <Toaster />
         </Providers>
       </body>
     </html>
