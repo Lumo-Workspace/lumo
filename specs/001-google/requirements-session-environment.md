@@ -482,7 +482,8 @@ TOKEN_ENCRYPTION_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6  # Base64-encoded 32-byte 
 TOKEN_ENCRYPTION_KEY_PREVIOUS=    # Optional: For key rotation
 
 # Database (CHK099)
-DATABASE_URL=postgresql://user:password@localhost:5432/lumoai
+SUPA_POSTGRES_PRISMA_URL=postgresql://user:password@localhost:5432/lumoai
+SUPA_POSTGRES_URL_NON_POOLING=postgresql://user:password@localhost:5432/lumoai
 
 # Optional Configuration
 SESSION_MAX_AGE_HOURS=24           # Session expiration (default: 24)
@@ -533,7 +534,7 @@ function validateEnvironment() {
     'NEXTAUTH_URL',
     'NEXTAUTH_SECRET',
     'TOKEN_ENCRYPTION_KEY',
-    'DATABASE_URL',
+    'SUPA_POSTGRES_PRISMA_URL',
   ]
 
   const missing = required.filter(key => !process.env[key])

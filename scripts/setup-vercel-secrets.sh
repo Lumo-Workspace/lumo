@@ -19,12 +19,20 @@ fi
 
 source .env
 
-# Add DATABASE_URL
-if [ ! -z "$DATABASE_URL" ]; then
+# Add SUPA_POSTGRES_PRISMA_URL
+if [ ! -z "$SUPA_POSTGRES_PRISMA_URL" ]; then
     echo -e "${GREEN}Adding supa_postgres_prisma_url...${NC}"
-    vercel secrets add supa_postgres_prisma_url "$DATABASE_URL" --force
+    vercel secrets add supa_postgres_prisma_url "$SUPA_POSTGRES_PRISMA_URL" --force
 else
-    echo "Warning: DATABASE_URL not found in .env"
+    echo "Warning: SUPA_POSTGRES_PRISMA_URL not found in .env"
+fi
+
+# Add SUPA_POSTGRES_URL_NON_POOLING
+if [ ! -z "$SUPA_POSTGRES_URL_NON_POOLING" ]; then
+    echo -e "${GREEN}Adding supa_postgres_url_non_pooling...${NC}"
+    vercel secrets add supa_postgres_url_non_pooling "$SUPA_POSTGRES_URL_NON_POOLING" --force
+else
+    echo "Warning: SUPA_POSTGRES_URL_NON_POOLING not found in .env"
 fi
 
 # Add NEXTAUTH_SECRET

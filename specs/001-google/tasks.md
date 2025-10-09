@@ -533,7 +533,7 @@ This is a Next.js 15 web application with the following structure:
   - NEXTAUTH_URL (production URL)
   - NEXTAUTH_SECRET (new production secret)
   - TOKEN_ENCRYPTION_KEY (new production key)
-  - DATABASE_URL (production database)
+  - SUPA_POSTGRES_PRISMA_URL (production database)
 - [ ] **T112** [Polish] Run database migrations on production: `npx prisma migrate deploy`
 - [ ] **T113** [Polish] Update Google OAuth authorized redirect URIs with production URL
 - [ ] **T114** [Polish] Test OAuth flow in production/staging environment

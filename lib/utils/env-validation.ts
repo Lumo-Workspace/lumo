@@ -17,7 +17,7 @@ export function validateEnvironmentVariables(): EnvValidationResult {
 
   // Required variables
   const requiredVars = [
-    'DATABASE_URL',
+    'SUPA_POSTGRES_PRISMA_URL',
     'NEXTAUTH_URL',
     'NEXTAUTH_SECRET',
     'GOOGLE_CLIENT_ID',

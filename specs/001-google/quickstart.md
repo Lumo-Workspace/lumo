@@ -79,7 +79,8 @@ NEXTAUTH_SECRET=your_generated_secret_here
 TOKEN_ENCRYPTION_KEY=your_generated_encryption_key_here
 
 # Database URL (if not already configured)
-DATABASE_URL=postgresql://user:password@localhost:5432/lumo_db
+SUPA_POSTGRES_PRISMA_URL=postgresql://user:password@localhost:5432/lumo_db
+SUPA_POSTGRES_URL_NON_POOLING=postgresql://user:password@localhost:5432/lumo_db
 ```
 
 **Generate NEXTAUTH_SECRET**:
@@ -789,7 +790,8 @@ GOOGLE_CLIENT_SECRET=your_production_client_secret
 NEXTAUTH_URL=https://app.lumoai.com
 NEXTAUTH_SECRET=your_production_secret
 TOKEN_ENCRYPTION_KEY=your_production_encryption_key
-DATABASE_URL=your_production_database_url
+SUPA_POSTGRES_PRISMA_URL=your_production_database_url
+SUPA_POSTGRES_URL_NON_POOLING=your_production_database_url_non_pooling
 ```
 
 ### Step 7.2: Database Migration
