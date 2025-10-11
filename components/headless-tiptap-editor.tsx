@@ -8,7 +8,7 @@ import Image from '@tiptap/extension-image'
 import Typography from '@tiptap/extension-typography'
 import TextAlign from '@tiptap/extension-text-align'
 import Color from '@tiptap/extension-color'
-import { TextStyle } from '@tiptap/extension-text-style'
+import { TextStyle, TextStyleKit } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import Highlight from '@tiptap/extension-highlight'
 import TaskList from '@tiptap/extension-task-list'
@@ -44,16 +44,11 @@ export default function HeadlessTipTapEditor({
   })
   const [selectedText, setSelectedText] = useState('')
 
-  console.log('HeadlessTipTapEditor rendered')
-  console.log('Current state:', {
-    showFloatingMenu,
-    selectedText,
-    floatingMenuPosition,
-  })
   const editorRef = useRef<HTMLDivElement>(null)
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
+      TextStyleKit,
       StarterKit.configure({
         // 配置 StarterKit 中的扩展
         heading: {
@@ -161,34 +156,24 @@ export default function HeadlessTipTapEditor({
 
   // 处理文本选择和悬浮菜单显示 - 使用与基础测试相同的成功方法
   const handleTextSelection = useCallback(() => {
-    console.log('=== handleTextSelection called ===')
     if (typeof window === 'undefined') {
-      console.log('Not in browser environment')
       setShowFloatingMenu(false)
       return
     }
 
     const selection = window.getSelection()
-    console.log('Selection object:', selection)
     if (!selection) {
-      console.log('No selection object')
       setShowFloatingMenu(false)
       return
     }
 
     const selectedText = selection.toString().trim()
-    console.log('Selected text:', `"${selectedText}"`)
     setSelectedText(selectedText)
 
     // 简化逻辑，只要有选中文本就显示菜单
     if (selectedText && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
       const rect = range.getBoundingClientRect()
-      console.log(
-        'Setting menu position:',
-        rect.left + rect.width / 2,
-        rect.top - 50
-      )
 
       // 将菜单显示在选中文字上方，避免遮挡
       setFloatingMenuPosition({
@@ -196,17 +181,14 @@ export default function HeadlessTipTapEditor({
         y: rect.top - 50, // 增加距离，避免遮挡选中文字
       })
       setShowFloatingMenu(true)
-      console.log('Menu should show now')
     } else {
-      console.log('No valid selection, hiding menu')
       setShowFloatingMenu(false)
     }
   }, [])
 
-  // 添加文本选择事件监听 - 使用与基础测试相同的成功方法
+  // 添加文本选择事件监听
   useEffect(() => {
-    console.log('Setting up event listeners')
-    // 全局选择变化监听 - 这是最可靠的方法
+    // 全局选择变化监听
     document.addEventListener('selectionchange', handleTextSelection)
 
     // 点击其他地方隐藏悬浮菜单
@@ -243,188 +225,6 @@ export default function HeadlessTipTapEditor({
     }
   }, [handleTextSelection])
 
-  // 处理悬浮菜单命令
-  const handleFloatingMenuFormat = useCallback(
-    (command: string, value?: string): boolean => {
-      console.log('FloatingMenu command:', command, 'value:', value)
-      if (!editor) {
-        console.log('No editor available')
-        return false
-      }
-
-      try {
-        switch (command) {
-          case 'bold':
-            editor.chain().focus().toggleBold().run()
-            break
-          case 'italic':
-            editor.chain().focus().toggleItalic().run()
-            break
-          case 'underline':
-            editor.chain().focus().toggleUnderline().run()
-            break
-          case 'strikeThrough':
-            editor.chain().focus().toggleStrike().run()
-            break
-          case 'insertText':
-            if (value === '`') {
-              editor.chain().focus().toggleCode().run()
-            }
-            break
-          case 'createLink':
-            if (value) {
-              editor.chain().focus().setLink({ href: value }).run()
-            }
-            break
-          case 'heading1':
-            editor.chain().focus().setHeading({ level: 1 }).run()
-            break
-          case 'heading2':
-            editor.chain().focus().setHeading({ level: 2 }).run()
-            break
-          case 'heading3':
-            editor.chain().focus().setHeading({ level: 3 }).run()
-            break
-          case 'heading4':
-            editor.chain().focus().setHeading({ level: 4 }).run()
-            break
-          case 'heading5':
-            editor.chain().focus().setHeading({ level: 5 }).run()
-            break
-          case 'heading6':
-            editor.chain().focus().setHeading({ level: 6 }).run()
-            break
-          case 'paragraph':
-            editor.chain().focus().setParagraph().run()
-            break
-          case 'formatBlock':
-            switch (value) {
-              case 'h1':
-                editor.chain().focus().setHeading({ level: 1 }).run()
-                break
-              case 'h2':
-                editor.chain().focus().setHeading({ level: 2 }).run()
-                break
-              case 'h3':
-                editor.chain().focus().setHeading({ level: 3 }).run()
-                break
-              case 'h4':
-                editor.chain().focus().setHeading({ level: 4 }).run()
-                break
-              case 'h5':
-                editor.chain().focus().setHeading({ level: 5 }).run()
-                break
-              case 'h6':
-                editor.chain().focus().setHeading({ level: 6 }).run()
-                break
-              case 'p':
-                editor.chain().focus().setParagraph().run()
-                break
-              default:
-                return false
-            }
-            break
-          case 'changeBlockType':
-            console.log('changeBlockType with value:', value)
-            // 确保编辑器有焦点并且选择存在
-            if (!editor.isFocused) {
-              editor.commands.focus()
-            }
-
-            switch (value) {
-              case 'paragraph':
-                editor.chain().focus().setParagraph().run()
-                break
-              case 'heading1':
-                console.log(
-                  'Setting heading1, selection:',
-                  window.getSelection()?.toString()
-                )
-                const result1 = editor
-                  .chain()
-                  .focus()
-                  .setHeading({ level: 1 })
-                  .run()
-                console.log('setHeading result:', result1)
-                console.log('Editor content after heading1:', editor.getHTML())
-                break
-              case 'heading2':
-                console.log(
-                  'Setting heading2, selection:',
-                  window.getSelection()?.toString()
-                )
-                editor.chain().focus().setHeading({ level: 2 }).run()
-                break
-              case 'heading3':
-                console.log(
-                  'Setting heading3, selection:',
-                  window.getSelection()?.toString()
-                )
-                editor.chain().focus().setHeading({ level: 3 }).run()
-                break
-              case 'heading4':
-                console.log(
-                  'Setting heading4, selection:',
-                  window.getSelection()?.toString()
-                )
-                editor.chain().focus().setHeading({ level: 4 }).run()
-                break
-              case 'heading5':
-                console.log(
-                  'Setting heading5, selection:',
-                  window.getSelection()?.toString()
-                )
-                editor.chain().focus().setHeading({ level: 5 }).run()
-                break
-              case 'heading6':
-                console.log(
-                  'Setting heading6, selection:',
-                  window.getSelection()?.toString()
-                )
-                editor.chain().focus().setHeading({ level: 6 }).run()
-                break
-              case 'numberedList':
-                editor.chain().focus().toggleOrderedList().run()
-                break
-              case 'bulletList':
-                editor.chain().focus().toggleBulletList().run()
-                break
-              case 'code':
-                editor.chain().focus().toggleCodeBlock().run()
-                break
-              case 'quote':
-                editor.chain().focus().toggleBlockquote().run()
-                break
-              default:
-                return false
-            }
-            break
-          case 'justifyLeft':
-            editor.chain().focus().setTextAlign('left').run()
-            break
-          case 'justifyCenter':
-            editor.chain().focus().setTextAlign('center').run()
-            break
-          case 'justifyRight':
-            editor.chain().focus().setTextAlign('right').run()
-            break
-          case 'foreColor':
-            if (value) {
-              editor.chain().focus().setColor(value).run()
-            }
-            break
-          default:
-            return false
-        }
-        return true
-      } catch (error) {
-        // Format command failed
-        return false
-      }
-    },
-    [editor]
-  )
-
   // 清理编辑器实例
   useEffect(() => {
     return () => {
@@ -455,46 +255,9 @@ export default function HeadlessTipTapEditor({
         </div>
       </div>
 
-      {/* 临时简单悬浮菜单用于测试 */}
-      {showFloatingMenu && selectedText && (
-        <div
-          className='fixed z-50 bg-red-500 text-white p-2 rounded shadow-lg'
-          style={{
-            left: floatingMenuPosition.x,
-            top: floatingMenuPosition.y,
-            transform: 'translateX(-50%)',
-          }}
-        >
-          <div className='text-sm font-bold'>菜单出现!</div>
-          <div className='text-xs'>选中: {selectedText}</div>
-        </div>
-      )}
-
       {/* 完整悬浮菜单 */}
       {showFloatingMenu && selectedText && (
-        <FloatingMenu
-          position={floatingMenuPosition}
-          onFormat={handleFloatingMenuFormat}
-        />
-      )}
-
-      {/* 调试信息 */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className='fixed bottom-4 right-4 bg-black text-white p-3 text-xs rounded max-w-xs'>
-          <div className='font-bold mb-2'>调试信息</div>
-          <div>Selected: "{selectedText || 'none'}"</div>
-          <div>Show Menu: {showFloatingMenu ? 'yes' : 'no'}</div>
-          <div>
-            Position: {floatingMenuPosition.x}, {floatingMenuPosition.y}
-          </div>
-          <div>Editor Ref: {editorRef.current ? 'exists' : 'null'}</div>
-          <div>
-            Selection:{' '}
-            {typeof window !== 'undefined' && window.getSelection()
-              ? 'exists'
-              : 'null'}
-          </div>
-        </div>
+        <FloatingMenu position={floatingMenuPosition} editor={editor} />
       )}
     </div>
   )

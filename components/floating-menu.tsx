@@ -31,10 +31,13 @@ import {
   Layers,
   ListOrdered,
 } from 'lucide-react'
+import { useEditorState } from '@tiptap/react'
+import type { Editor } from '@tiptap/react'
 
 interface FloatingMenuProps {
   position: { x: number; y: number }
-  onFormat: (command: string, value?: string) => boolean
+  editor?: Editor
+  onFormat?: (command: string, value?: string) => boolean
 }
 
 // 标题级别选项
@@ -136,10 +139,54 @@ const alignmentButtons = [
   },
 ]
 
-export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
-  console.log('FloatingMenu component rendered with onFormat:', typeof onFormat)
+export function FloatingMenu({
+  position,
+  editor,
+  onFormat,
+}: FloatingMenuProps) {
+  // 使用 useEditorState 实时监听编辑器状态（仅在 TipTap 编辑器模式下）
+  const editorState = useEditorState({
+    editor,
+    selector: ctx => {
+      if (!editor) return {}
+      return {
+        isBold: ctx.editor.isActive('bold') ?? false,
+        canBold: ctx.editor.can().chain().toggleBold().run() ?? false,
+        isItalic: ctx.editor.isActive('italic') ?? false,
+        canItalic: ctx.editor.can().chain().toggleItalic().run() ?? false,
+        isStrike: ctx.editor.isActive('strike') ?? false,
+        canStrike: ctx.editor.can().chain().toggleStrike().run() ?? false,
+        isUnderline: ctx.editor.isActive('underline') ?? false,
+        canUnderline: ctx.editor.can().chain().toggleUnderline().run() ?? false,
+        isParagraph: ctx.editor.isActive('paragraph') ?? false,
+        isHeading1: ctx.editor.isActive('heading', { level: 1 }) ?? false,
+        isHeading2: ctx.editor.isActive('heading', { level: 2 }) ?? false,
+        isHeading3: ctx.editor.isActive('heading', { level: 3 }) ?? false,
+        isHeading4: ctx.editor.isActive('heading', { level: 4 }) ?? false,
+        isHeading5: ctx.editor.isActive('heading', { level: 5 }) ?? false,
+        isHeading6: ctx.editor.isActive('heading', { level: 6 }) ?? false,
+        isBulletList: ctx.editor.isActive('bulletList') ?? false,
+        isOrderedList: ctx.editor.isActive('orderedList') ?? false,
+        isCodeBlock: ctx.editor.isActive('codeBlock') ?? false,
+        isBlockquote: ctx.editor.isActive('blockquote') ?? false,
+      }
+    },
+  })
 
-  const [currentHeading, setCurrentHeading] = useState('正文')
+  // 根据当前状态确定标题级别标签
+  const getCurrentHeadingLabel = () => {
+    if (editor && editorState) {
+      if (editorState.isHeading1) return '一级标题'
+      if (editorState.isHeading2) return '二级标题'
+      if (editorState.isHeading3) return '三级标题'
+      if (editorState.isHeading4) return '四级标题'
+      if (editorState.isHeading5) return '五级标题'
+      if (editorState.isHeading6) return '六级标题'
+      if (editorState.isParagraph) return '正文'
+    }
+    return '正文'
+  }
+
   const [showHeadingMenu, setShowHeadingMenu] = useState(false)
   const [showSubmenu, setShowSubmenu] = useState(false)
 
@@ -149,31 +196,90 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
     e.stopPropagation()
     const url = prompt('输入链接地址:')
     if (url) {
-      onFormat('createLink', url)
+      if (editor) {
+        editor.chain().focus().setLink({ href: url }).run()
+      } else if (onFormat) {
+        onFormat('createLink', url)
+      }
     }
   }
 
   // 处理标题级别选择
   const handleHeadingSelect = (value: string, label: string) => {
-    console.log('handleHeadingSelect called with:', value, label)
     if (value === 'heading4' && label === '其他标题') {
       setShowSubmenu(true)
       return
     }
 
-    console.log('Calling onFormat with changeBlockType and', value)
-    onFormat('changeBlockType', value)
-    setCurrentHeading(label)
+    if (editor) {
+      // TipTap 编辑器模式
+      switch (value) {
+        case 'paragraph':
+          editor.chain().focus().setParagraph().run()
+          break
+        case 'heading1':
+          editor.chain().focus().setHeading({ level: 1 }).run()
+          break
+        case 'heading2':
+          editor.chain().focus().setHeading({ level: 2 }).run()
+          break
+        case 'heading3':
+          editor.chain().focus().setHeading({ level: 3 }).run()
+          break
+        case 'heading4':
+          editor.chain().focus().setHeading({ level: 4 }).run()
+          break
+        case 'heading5':
+          editor.chain().focus().setHeading({ level: 5 }).run()
+          break
+        case 'heading6':
+          editor.chain().focus().setHeading({ level: 6 }).run()
+          break
+        case 'numberedList':
+          editor.chain().focus().toggleOrderedList().run()
+          break
+        case 'bulletList':
+          editor.chain().focus().toggleBulletList().run()
+          break
+        case 'code':
+          editor.chain().focus().toggleCodeBlock().run()
+          break
+        case 'quote':
+          editor.chain().focus().toggleBlockquote().run()
+          break
+        case 'todo':
+          // 任务列表功能可以后续添加
+          break
+      }
+    } else if (onFormat) {
+      // 传统编辑器模式
+      onFormat('changeBlockType', value)
+    }
+
     setShowHeadingMenu(false)
     setShowSubmenu(false)
   }
 
   // 处理子菜单选择
   const handleSubmenuSelect = (value: string, label: string) => {
-    console.log('handleSubmenuSelect called with:', value, label)
-    console.log('Calling onFormat with changeBlockType and', value)
-    onFormat('changeBlockType', value)
-    setCurrentHeading(label)
+    if (editor) {
+      // TipTap 编辑器模式
+      switch (value) {
+        case 'heading4':
+          editor.chain().focus().setHeading({ level: 4 }).run()
+          break
+        case 'heading5':
+          editor.chain().focus().setHeading({ level: 5 }).run()
+          break
+        case 'heading6':
+          editor.chain().focus().setHeading({ level: 6 }).run()
+          break
+      }
+    } else if (onFormat) {
+      // 传统编辑器模式
+      onFormat('changeBlockType', value)
+    }
+
     setShowHeadingMenu(false)
     setShowSubmenu(false)
   }
@@ -183,7 +289,11 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
     e.preventDefault()
     e.stopPropagation()
     // 这里可以添加颜色选择器
-    onFormat('foreColor', '#3b82f6')
+    if (editor) {
+      editor.chain().focus().setColor('#3b82f6').run()
+    } else if (onFormat) {
+      onFormat('foreColor', '#3b82f6')
+    }
   }
 
   // 渲染按钮组
@@ -191,10 +301,70 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
     <>
       {buttons.map((button, index) => {
         const Icon = button.icon as any
+
+        // 根据 editorState 确定按钮是否激活
+        const isActive = (() => {
+          if (editor && editorState) {
+            switch (button.command) {
+              case 'bold':
+                return editorState.isBold
+              case 'italic':
+                return editorState.isItalic
+              case 'underline':
+                return editorState.isUnderline
+              case 'strikethrough':
+                return editorState.isStrike
+              default:
+                return false
+            }
+          }
+          return false
+        })()
+
+        // 根据 editorState 确定按钮是否可用
+        const isDisabled = (() => {
+          if (editor && editorState) {
+            switch (button.command) {
+              case 'bold':
+                return !editorState.canBold
+              case 'italic':
+                return !editorState.canItalic
+              case 'underline':
+                return !editorState.canUnderline
+              case 'strikethrough':
+                return !editorState.canStrike
+              default:
+                return false
+            }
+          }
+          return false
+        })()
+
         const handleClick = button.isSpecial
           ? handleLinkInsert
           : () => {
-              onFormat(button.command, button.value)
+              if (editor) {
+                // TipTap 编辑器模式
+                switch (button.command) {
+                  case 'bold':
+                    editor.chain().focus().toggleBold().run()
+                    break
+                  case 'italic':
+                    editor.chain().focus().toggleItalic().run()
+                    break
+                  case 'underline':
+                    editor.chain().focus().toggleUnderline().run()
+                    break
+                  case 'strikethrough':
+                    editor.chain().focus().toggleStrike().run()
+                    break
+                  default:
+                    break
+                }
+              } else if (onFormat) {
+                // 传统编辑器模式
+                onFormat(button.command, button.value)
+              }
             }
 
         return (
@@ -203,15 +373,24 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
             variant='ghost'
             size='sm'
             onClick={handleClick}
-            className='h-8 w-8 p-0 hover:bg-gray-100'
+            disabled={isDisabled}
+            className={`h-8 w-8 p-0 hover:bg-gray-100 ${
+              isActive ? 'bg-blue-100 text-blue-600' : ''
+            } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             title={button.title}
           >
             {typeof Icon === 'string' ? (
-              <span className='h-4 w-4 text-gray-600 text-xs font-bold flex items-center justify-center'>
+              <span
+                className={`h-4 w-4 text-xs font-bold flex items-center justify-center ${
+                  isActive ? 'text-blue-600' : 'text-gray-600'
+                }`}
+              >
                 {Icon}
               </span>
             ) : Icon ? (
-              <Icon className='h-4 w-4' />
+              <Icon
+                className={`h-4 w-4 ${isActive ? 'text-blue-600' : 'text-gray-600'}`}
+              />
             ) : null}
           </Button>
         )
@@ -237,7 +416,6 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
       <DropdownMenu
         open={showHeadingMenu}
         onOpenChange={open => {
-          console.log('DropdownMenu onOpenChange:', open)
           setShowHeadingMenu(open)
         }}
       >
@@ -248,8 +426,9 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
             className='h-8 px-2 text-sm font-medium hover:bg-gray-100 flex items-center gap-1'
           >
             {(() => {
+              const currentLabel = getCurrentHeadingLabel()
               const currentOption = headingOptions.find(
-                option => option.label === currentHeading
+                option => option.label === currentLabel
               )
               const Icon = currentOption?.icon
               return (
@@ -271,18 +450,13 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
         <DropdownMenuContent className='w-48'>
           {headingOptions.map(option => {
             const Icon = option.icon as any
-            const isSelected = currentHeading === option.label
+            const isSelected = getCurrentHeadingLabel() === option.label
             return (
               <DropdownMenuItem
                 key={option.value}
                 onClick={e => {
                   e.preventDefault()
                   e.stopPropagation()
-                  console.log(
-                    'DropdownMenuItem clicked:',
-                    option.value,
-                    option.label
-                  )
                   handleHeadingSelect(option.value, option.label)
                 }}
                 className={`flex items-center gap-2 px-2 py-1.5 text-sm ${
@@ -309,7 +483,7 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
               <DropdownMenuSeparator />
               {otherHeadingOptions.map(option => {
                 const Icon = option.icon as any
-                const isSelected = currentHeading === option.label
+                const isSelected = getCurrentHeadingLabel() === option.label
                 return (
                   <DropdownMenuItem
                     key={option.value}
