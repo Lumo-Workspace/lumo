@@ -34,7 +34,7 @@ import {
 
 interface FloatingMenuProps {
   position: { x: number; y: number }
-  onFormat: (command: string, value?: string) => void
+  onFormat: (command: string, value?: string) => boolean
 }
 
 // 标题级别选项
@@ -137,12 +137,16 @@ const alignmentButtons = [
 ]
 
 export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
+  console.log('FloatingMenu component rendered with onFormat:', typeof onFormat)
+
   const [currentHeading, setCurrentHeading] = useState('正文')
   const [showHeadingMenu, setShowHeadingMenu] = useState(false)
   const [showSubmenu, setShowSubmenu] = useState(false)
 
   // 处理链接插入
-  const handleLinkInsert = () => {
+  const handleLinkInsert = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     const url = prompt('输入链接地址:')
     if (url) {
       onFormat('createLink', url)
@@ -151,11 +155,13 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
 
   // 处理标题级别选择
   const handleHeadingSelect = (value: string, label: string) => {
+    console.log('handleHeadingSelect called with:', value, label)
     if (value === 'heading4' && label === '其他标题') {
       setShowSubmenu(true)
       return
     }
 
+    console.log('Calling onFormat with changeBlockType and', value)
     onFormat('changeBlockType', value)
     setCurrentHeading(label)
     setShowHeadingMenu(false)
@@ -164,6 +170,8 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
 
   // 处理子菜单选择
   const handleSubmenuSelect = (value: string, label: string) => {
+    console.log('handleSubmenuSelect called with:', value, label)
+    console.log('Calling onFormat with changeBlockType and', value)
     onFormat('changeBlockType', value)
     setCurrentHeading(label)
     setShowHeadingMenu(false)
@@ -171,7 +179,9 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
   }
 
   // 处理文本颜色
-  const handleTextColor = () => {
+  const handleTextColor = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     // 这里可以添加颜色选择器
     onFormat('foreColor', '#3b82f6')
   }
@@ -183,7 +193,9 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
         const Icon = button.icon as any
         const handleClick = button.isSpecial
           ? handleLinkInsert
-          : () => onFormat(button.command, button.value)
+          : () => {
+              onFormat(button.command, button.value)
+            }
 
         return (
           <Button
@@ -213,12 +225,22 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
       className='floating-menu fixed z-50 flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-lg p-1'
       style={{
         left: position.x,
-        top: position.y - 60,
+        top: position.y,
         transform: 'translateX(-50%)',
+      }}
+      onClick={e => {
+        // 阻止事件冒泡，防止点击菜单时菜单消失
+        e.stopPropagation()
       }}
     >
       {/* 标题级别选择下拉菜单 */}
-      <DropdownMenu open={showHeadingMenu} onOpenChange={setShowHeadingMenu}>
+      <DropdownMenu
+        open={showHeadingMenu}
+        onOpenChange={open => {
+          console.log('DropdownMenu onOpenChange:', open)
+          setShowHeadingMenu(open)
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <Button
             variant='ghost'
@@ -253,7 +275,16 @@ export function FloatingMenu({ position, onFormat }: FloatingMenuProps) {
             return (
               <DropdownMenuItem
                 key={option.value}
-                onClick={() => handleHeadingSelect(option.value, option.label)}
+                onClick={e => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  console.log(
+                    'DropdownMenuItem clicked:',
+                    option.value,
+                    option.label
+                  )
+                  handleHeadingSelect(option.value, option.label)
+                }}
                 className={`flex items-center gap-2 px-2 py-1.5 text-sm ${
                   isSelected ? 'bg-blue-50 text-blue-600' : ''
                 }`}

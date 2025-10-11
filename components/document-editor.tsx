@@ -55,8 +55,8 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({
   const { selection } = useTextSelection()
 
   // Handle text formatting
-  const formatText = (command: string, value?: string) => {
-    document.execCommand(command, false, value)
+  const formatText = (command: string, value?: string): boolean => {
+    return document.execCommand(command, false, value)
   }
 
   // Handle keyboard shortcuts

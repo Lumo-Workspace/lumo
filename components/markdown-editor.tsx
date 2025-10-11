@@ -1,7 +1,6 @@
 'use client'
 
 // 组件导入
-import SlashMenu from './slash-menu'
 import ContextMenu from './context-menu'
 import DeleteDialog from './delete-dialog'
 import Sidebar from './sidebar'
@@ -10,6 +9,7 @@ import InboxView from './inbox-view'
 import SharedView from './shared-view'
 import TeamView from './team-view'
 import AIChat from './ai-chat'
+import HeadlessTipTapEditor from './headless-tiptap-editor'
 
 // Hooks导入
 import { usePages } from '../hooks/use-pages'
@@ -220,7 +220,7 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
   return (
     <div
       className='flex h-screen bg-gray-50 text-gray-800'
-      onClick={e => {
+      onClick={() => {
         closeContextMenu()
         // Close slash menu if clicking outside of it
         // if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
@@ -323,15 +323,29 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onTaskClick={handleTaskClick}
             />
           ) : (
-            /* 空白编辑器页面 */
-            <div className='flex-1 flex items-center justify-center bg-gray-50'>
-              <div className='text-center'>
-                <h2 className='text-2xl font-semibold text-gray-600 mb-2'>
-                  编辑器
-                </h2>
-                <p className='text-gray-500'>编辑器内容将在这里显示</p>
-              </div>
-            </div>
+            /* TipTap 编辑器页面 */
+            <HeadlessTipTapEditor
+              content={
+                currentPageId && pages[currentPageId]
+                  ? pages[currentPageId].content || ''
+                  : ''
+              }
+              onUpdate={content => {
+                // 当编辑器内容更新时，更新当前页面的内容
+                if (currentPageId && pages[currentPageId]) {
+                  const updatedPages = {
+                    ...pages,
+                    [currentPageId]: {
+                      ...pages[currentPageId],
+                      content,
+                    },
+                  }
+                  setPages(updatedPages)
+                }
+              }}
+              placeholder='开始编写您的文档...'
+              editable={true}
+            />
           )}
         </>
       )}
