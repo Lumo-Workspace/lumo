@@ -139,14 +139,10 @@ const alignmentButtons = [
   },
 ]
 
-export function FloatingMenu({
-  position,
-  editor,
-  onFormat,
-}: FloatingMenuProps) {
-  // 使用 useEditorState 实时监听编辑器状态（仅在 TipTap 编辑器模式下）
+// 自定义 Hook 来安全地使用 useEditorState
+function useEditorStateSafe(editor: Editor | undefined) {
   const editorState = useEditorState({
-    editor,
+    editor: editor || ({} as Editor), // 提供一个空对象作为默认值
     selector: ctx => {
       if (!editor) return {}
       return {
@@ -173,6 +169,17 @@ export function FloatingMenu({
     },
   })
 
+  return editor ? editorState : null
+}
+
+export function FloatingMenu({
+  position,
+  editor,
+  onFormat,
+}: FloatingMenuProps) {
+  // 使用安全的 useEditorState Hook
+  const editorState = useEditorStateSafe(editor)
+
   // 根据当前状态确定标题级别标签
   const getCurrentHeadingLabel = () => {
     if (editor && editorState) {
@@ -182,6 +189,10 @@ export function FloatingMenu({
       if (editorState.isHeading4) return '四级标题'
       if (editorState.isHeading5) return '五级标题'
       if (editorState.isHeading6) return '六级标题'
+      if (editorState.isBulletList) return '无序列表'
+      if (editorState.isOrderedList) return '有序列表'
+      if (editorState.isCodeBlock) return '代码块'
+      if (editorState.isBlockquote) return '引用'
       if (editorState.isParagraph) return '正文'
     }
     return '正文'
@@ -261,7 +272,7 @@ export function FloatingMenu({
   }
 
   // 处理子菜单选择
-  const handleSubmenuSelect = (value: string, label: string) => {
+  const handleSubmenuSelect = (value: string, _label: string) => {
     if (editor) {
       // TipTap 编辑器模式
       switch (value) {

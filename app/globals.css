@@ -33,12 +33,46 @@
 .ProseMirror ol {
   padding: 0 1rem;
   margin: 1.25rem 1rem 1.25rem 0.4rem;
+  list-style-position: outside;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror ul li,
+.ProseMirror ol li {
+  display: list-item;
+  margin: 0.5rem 0;
 }
 
 .ProseMirror ul li p,
 .ProseMirror ol li p {
   margin-top: 0.25em;
   margin-bottom: 0.25em;
+  display: inline;
+}
+
+/* Nested lists */
+.ProseMirror ul ul {
+  list-style-type: circle;
+  margin: 0.25rem 0;
+}
+
+.ProseMirror ul ul ul {
+  list-style-type: square;
+}
+
+.ProseMirror ol ol {
+  list-style-type: lower-alpha;
+}
+
+.ProseMirror ol ol ol {
+  list-style-type: lower-roman;
 }
 
 /* Heading styles */
@@ -121,6 +155,20 @@
   padding-left: 1rem;
   color: #6b7280;
   font-style: italic;
+}
+
+/* Image styles */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  display: block;
+}
+
+.ProseMirror img:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
 }
 
 /* Horizontal rule */
