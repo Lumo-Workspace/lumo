@@ -6,14 +6,13 @@ import ContextMenu from './context-menu'
 import DeleteDialog from './delete-dialog'
 import Sidebar from './sidebar'
 import InboxView from './inbox-view'
-import EditorView from './editor-view'
+// import EditorView from './editor-view' // 暂时不使用
 import SharedView from './shared-view'
 import TeamView from './team-view'
 import AIChat from './ai-chat'
 
 // Hooks导入
 import { usePages } from '../hooks/use-pages'
-import { useBlocks } from '../hooks/use-blocks'
 import { useNotifications } from '../hooks/use-notifications'
 import { useUIState } from '../hooks/use-ui-state'
 import { useTeams } from '../hooks/use-teams'
@@ -26,7 +25,6 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     pages,
     currentPageId,
     setCurrentPageId,
-    getCurrentBlocks,
     togglePageExpansion,
     expandPathToPage,
     createNewPage,
@@ -34,24 +32,6 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     deletePage,
     setPages,
   } = usePages()
-
-  // 块管理
-  const {
-    showSlashMenu,
-    setShowSlashMenu,
-    slashMenuPosition,
-    slashMenuSearch,
-    setSlashMenuSearch,
-    activeBlockId,
-    focusedBlockId,
-    addNewBlock,
-    updateBlock,
-    changeBlockType,
-    toggleTodo,
-    handleKeyDown,
-    handleFocus,
-    handleBlur,
-  } = useBlocks({ pages, setPages, currentPageId })
 
   const {
     notifications,
@@ -243,9 +223,9 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
       onClick={e => {
         closeContextMenu()
         // Close slash menu if clicking outside of it
-        if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
-          setShowSlashMenu(false)
-        }
+        // if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
+        //   setShowSlashMenu(false)
+        // }
       }}
     >
       {showAIChat && aiChatFullscreen ? (
@@ -343,33 +323,23 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onTaskClick={handleTaskClick}
             />
           ) : (
-            <EditorView
-              pages={pages}
-              currentPageId={currentPageId}
-              blocks={getCurrentBlocks()}
-              focusedBlockId={focusedBlockId}
-              onPageClick={setCurrentPageId}
-              onUpdateBlock={updateBlock}
-              onKeyDown={handleKeyDown}
-              onToggleTodo={toggleTodo}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onAddBlock={(afterBlockId?: string) => {
-                if (afterBlockId) {
-                  addNewBlock(afterBlockId)
-                } else {
-                  addNewBlock('')
-                }
-              }}
-              onChangeBlockType={changeBlockType}
-            />
+            /* 空白编辑器页面 */
+            <div className='flex-1 flex items-center justify-center bg-gray-50'>
+              <div className='text-center'>
+                <h2 className='text-2xl font-semibold text-gray-600 mb-2'>
+                  编辑器
+                </h2>
+                <p className='text-gray-500'>编辑器内容将在这里显示</p>
+              </div>
+            </div>
           )}
         </>
       )}
 
       {!(showAIChat && aiChatFullscreen) && (
         <>
-          <SlashMenu
+          {/* SlashMenu 暂时注释掉 */}
+          {/* <SlashMenu
             show={showSlashMenu}
             position={slashMenuPosition}
             searchQuery={slashMenuSearch}
@@ -383,7 +353,7 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
             onClose={() => {
               setShowSlashMenu(false)
             }}
-          />
+          /> */}
 
           <ContextMenu
             show={contextMenu.show}
