@@ -165,6 +165,9 @@ function useEditorStateSafe(editor: Editor | undefined) {
         isOrderedList: ctx.editor.isActive('orderedList') ?? false,
         isCodeBlock: ctx.editor.isActive('codeBlock') ?? false,
         isBlockquote: ctx.editor.isActive('blockquote') ?? false,
+        isAlignLeft: ctx.editor.isActive({ textAlign: 'left' }) ?? false,
+        isAlignCenter: ctx.editor.isActive({ textAlign: 'center' }) ?? false,
+        isAlignRight: ctx.editor.isActive({ textAlign: 'right' }) ?? false,
       }
     },
   })
@@ -325,6 +328,12 @@ export function FloatingMenu({
                 return editorState.isUnderline
               case 'strikethrough':
                 return editorState.isStrike
+              case 'justifyLeft':
+                return editorState.isAlignLeft
+              case 'justifyCenter':
+                return editorState.isAlignCenter
+              case 'justifyRight':
+                return editorState.isAlignRight
               default:
                 return false
             }
@@ -368,6 +377,15 @@ export function FloatingMenu({
                     break
                   case 'strikethrough':
                     editor.chain().focus().toggleStrike().run()
+                    break
+                  case 'justifyLeft':
+                    editor.chain().focus().setTextAlign('left').run()
+                    break
+                  case 'justifyCenter':
+                    editor.chain().focus().setTextAlign('center').run()
+                    break
+                  case 'justifyRight':
+                    editor.chain().focus().setTextAlign('right').run()
                     break
                   default:
                     break
