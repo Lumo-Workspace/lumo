@@ -163,7 +163,9 @@ function useEditorStateSafe(editor: Editor | undefined) {
         isHeading6: ctx.editor.isActive('heading', { level: 6 }) ?? false,
         isBulletList: ctx.editor.isActive('bulletList') ?? false,
         isOrderedList: ctx.editor.isActive('orderedList') ?? false,
+        isTaskList: ctx.editor.isActive('taskList') ?? false,
         isCodeBlock: ctx.editor.isActive('codeBlock') ?? false,
+        isInlineCode: ctx.editor.isActive('code') ?? false,
         isBlockquote: ctx.editor.isActive('blockquote') ?? false,
         isAlignLeft: ctx.editor.isActive({ textAlign: 'left' }) ?? false,
         isAlignCenter: ctx.editor.isActive({ textAlign: 'center' }) ?? false,
@@ -194,6 +196,7 @@ export function FloatingMenu({
       if (editorState.isHeading6) return '六级标题'
       if (editorState.isBulletList) return '无序列表'
       if (editorState.isOrderedList) return '有序列表'
+      if (editorState.isTaskList) return '任务'
       if (editorState.isCodeBlock) return '代码块'
       if (editorState.isBlockquote) return '引用'
       if (editorState.isParagraph) return '正文'
@@ -262,7 +265,7 @@ export function FloatingMenu({
           editor.chain().focus().toggleBlockquote().run()
           break
         case 'todo':
-          // 任务列表功能可以后续添加
+          editor.chain().focus().toggleTaskList().run()
           break
       }
     } else if (onFormat) {
@@ -328,6 +331,8 @@ export function FloatingMenu({
                 return editorState.isUnderline
               case 'strikethrough':
                 return editorState.isStrike
+              case 'insertText':
+                return editorState.isInlineCode
               case 'justifyLeft':
                 return editorState.isAlignLeft
               case 'justifyCenter':
@@ -377,6 +382,9 @@ export function FloatingMenu({
                     break
                   case 'strikethrough':
                     editor.chain().focus().toggleStrike().run()
+                    break
+                  case 'insertText':
+                    editor.chain().focus().toggleCode().run()
                     break
                   case 'justifyLeft':
                     editor.chain().focus().setTextAlign('left').run()

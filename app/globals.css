@@ -75,6 +75,81 @@
   list-style-type: lower-roman;
 }
 
+/* Task list styles */
+.ProseMirror ul[data-type="taskList"],
+.ProseMirror ul.task-list {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 1.25rem 0 !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li,
+.ProseMirror ul.task-list li {
+  display: flex !important;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+  list-style: none !important;
+  list-style-type: none !important;
+  position: relative;
+}
+
+.ProseMirror ul[data-type="taskList"] li::before,
+.ProseMirror ul.task-list li::before,
+.ProseMirror ul[data-type="taskList"] li::marker,
+.ProseMirror ul.task-list li::marker {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+.ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
+  margin-right: 0.5rem;
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+  margin: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] input[type="checkbox"] {
+  text-decoration: line-through;
+}
+
+/* Disable spell check for task items */
+.ProseMirror ul[data-type="taskList"] li > div,
+.ProseMirror ul.task-list li > div {
+  -webkit-user-modify: read-write-plaintext-only;
+  -moz-user-modify: read-write;
+  user-modify: read-write;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div *,
+.ProseMirror ul.task-list li > div * {
+  -webkit-user-modify: read-write-plaintext-only;
+  -moz-user-modify: read-write;
+  user-modify: read-write;
+}
+
+/* General spell check disable for editor */
+.ProseMirror {
+  -webkit-user-modify: read-write-plaintext-only;
+  -moz-user-modify: read-write;
+  user-modify: read-write;
+}
+
 /* Heading styles */
 .ProseMirror h1,
 .ProseMirror h2,

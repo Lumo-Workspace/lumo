@@ -64,6 +64,16 @@ export default function HeadlessTipTapEditor({
           keepMarks: true,
           keepAttributes: false,
         },
+        code: {
+          HTMLAttributes: {
+            class: 'bg-gray-100 px-1 py-0.5 rounded text-sm font-mono',
+          },
+        },
+        codeBlock: {
+          HTMLAttributes: {
+            class: 'bg-gray-100 p-4 rounded-lg font-mono text-sm',
+          },
+        },
       }),
       Placeholder.configure({
         placeholder,
@@ -92,12 +102,12 @@ export default function HeadlessTipTapEditor({
       }),
       TaskList.configure({
         HTMLAttributes: {
-          class: 'not-prose',
+          class: 'task-list',
         },
       }),
       TaskItem.configure({
         HTMLAttributes: {
-          class: 'flex items-start space-x-2',
+          class: 'task-item',
         },
         nested: true,
       }),
