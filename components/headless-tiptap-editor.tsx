@@ -20,6 +20,8 @@ import TableHeader from '@tiptap/extension-table-header'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { FloatingMenu } from './floating-menu'
+import { TableOfContents } from './table-of-contents'
+import { TableOfContents as TableOfContentsExtension } from '../extensions/table-of-contents'
 
 interface HeadlessTipTapEditorProps {
   content?: string
@@ -125,6 +127,7 @@ export default function HeadlessTipTapEditor({
           class: 'my-8 border-t-2 border-gray-300',
         },
       }),
+      TableOfContentsExtension,
     ],
     content,
     editable,
@@ -244,9 +247,14 @@ export default function HeadlessTipTapEditor({
   }
 
   return (
-    <div className='bg-white relative h-full w-full'>
-      {/* 编辑器内容区域 */}
-      <div className='p-4 h-full'>
+    <div className='bg-white relative h-full w-full flex'>
+      {/* 左侧目录 */}
+      <div className='w-64 p-4 overflow-y-auto'>
+        <TableOfContents />
+      </div>
+
+      {/* 右侧编辑器内容区域 */}
+      <div className='flex-1 p-4 h-full'>
         <div ref={editorRef} className='w-full h-full'>
           <EditorContent
             editor={editor}
