@@ -1,19 +1,18 @@
 'use client'
 
 // 组件导入
-import SlashMenu from './slash-menu'
 import ContextMenu from './context-menu'
 import DeleteDialog from './delete-dialog'
 import Sidebar from './sidebar'
 import InboxView from './inbox-view'
-import EditorView from './editor-view'
+// import EditorView from './editor-view' // 暂时不使用
 import SharedView from './shared-view'
 import TeamView from './team-view'
 import AIChat from './ai-chat'
+import HeadlessTipTapEditor from './headless-tiptap-editor'
 
 // Hooks导入
 import { usePages } from '../hooks/use-pages'
-import { useBlocks } from '../hooks/use-blocks'
 import { useNotifications } from '../hooks/use-notifications'
 import { useUIState } from '../hooks/use-ui-state'
 import { useTeams } from '../hooks/use-teams'
@@ -26,7 +25,6 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     pages,
     currentPageId,
     setCurrentPageId,
-    getCurrentBlocks,
     togglePageExpansion,
     expandPathToPage,
     createNewPage,
@@ -34,24 +32,6 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
     deletePage,
     setPages,
   } = usePages()
-
-  // 块管理
-  const {
-    showSlashMenu,
-    setShowSlashMenu,
-    slashMenuPosition,
-    slashMenuSearch,
-    setSlashMenuSearch,
-    activeBlockId,
-    focusedBlockId,
-    addNewBlock,
-    updateBlock,
-    changeBlockType,
-    toggleTodo,
-    handleKeyDown,
-    handleFocus,
-    handleBlur,
-  } = useBlocks({ pages, setPages, currentPageId })
 
   const {
     notifications,
@@ -240,12 +220,12 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
   return (
     <div
       className='flex h-screen bg-gray-50 text-gray-800'
-      onClick={e => {
+      onClick={() => {
         closeContextMenu()
         // Close slash menu if clicking outside of it
-        if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
-          setShowSlashMenu(false)
-        }
+        // if (showSlashMenu && !(e.target as Element).closest('.slash-menu')) {
+        //   setShowSlashMenu(false)
+        // }
       }}
     >
       {showAIChat && aiChatFullscreen ? (
@@ -343,25 +323,28 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
               onTaskClick={handleTaskClick}
             />
           ) : (
-            <EditorView
-              pages={pages}
-              currentPageId={currentPageId}
-              blocks={getCurrentBlocks()}
-              focusedBlockId={focusedBlockId}
-              onPageClick={setCurrentPageId}
-              onUpdateBlock={updateBlock}
-              onKeyDown={handleKeyDown}
-              onToggleTodo={toggleTodo}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onAddBlock={(afterBlockId?: string) => {
-                if (afterBlockId) {
-                  addNewBlock(afterBlockId)
-                } else {
-                  addNewBlock('')
+            /* TipTap 编辑器页面 */
+            <HeadlessTipTapEditor
+              content={
+                currentPageId && pages[currentPageId]
+                  ? pages[currentPageId].content || ''
+                  : ''
+              }
+              onUpdate={content => {
+                // 当编辑器内容更新时，更新当前页面的内容
+                if (currentPageId && pages[currentPageId]) {
+                  const updatedPages = {
+                    ...pages,
+                    [currentPageId]: {
+                      ...pages[currentPageId],
+                      content,
+                    },
+                  }
+                  setPages(updatedPages)
                 }
               }}
-              onChangeBlockType={changeBlockType}
+              placeholder='开始编写您的文档...'
+              editable={true}
             />
           )}
         </>
@@ -369,7 +352,8 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
 
       {!(showAIChat && aiChatFullscreen) && (
         <>
-          <SlashMenu
+          {/* SlashMenu 暂时注释掉 */}
+          {/* <SlashMenu
             show={showSlashMenu}
             position={slashMenuPosition}
             searchQuery={slashMenuSearch}
@@ -383,7 +367,7 @@ export default function MarkdownEditor({}: MarkdownEditorProps) {
             onClose={() => {
               setShowSlashMenu(false)
             }}
-          />
+          /> */}
 
           <ContextMenu
             show={contextMenu.show}

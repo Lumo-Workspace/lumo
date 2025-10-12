@@ -28,6 +28,7 @@ export interface Page {
   parentId?: string
   children: string[]
   blocks: Block[]
+  content?: string // 添加 content 属性以支持 TipTap 编辑器
   isExpanded?: boolean
 }
 
