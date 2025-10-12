@@ -164,18 +164,24 @@
   color: #1a1a1a;
 }
 
-.ProseMirror h1,
-.ProseMirror h2 {
-  margin-top: 3.5rem;
-  margin-bottom: 1.5rem;
-}
-
 .ProseMirror h1 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
   font-size: 1.4rem;
 }
 
 .ProseMirror h2 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
   font-size: 1.2rem;
+}
+
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .ProseMirror h3 {
