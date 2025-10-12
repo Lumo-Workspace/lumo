@@ -6,11 +6,11 @@ export { FloatingMenu } from './core/editor/floating-menu/FloatingMenu'
 export { TableOfContents } from './core/editor/table-of-contents/TableOfContents'
 export { default as DocumentEditor } from './core/editor/DocumentEditor'
 export { DocumentEditorToolbar } from './core/editor/DocumentEditorToolbar'
-export { SlashMenu } from './core/editor/SlashMenu'
+export { default as SlashMenu } from './core/editor/SlashMenu'
 
 // Core UI Components
 export { default as ErrorBoundary } from './core/ui/ErrorBoundary'
-export { default as ErrorBoundaryV2 } from './core/ui/ErrorBoundaryV2'
+export { ErrorBoundary as ErrorBoundaryV2 } from './core/ui/ErrorBoundaryV2'
 export { default as ContextMenu } from './core/ui/ContextMenu'
 export { default as CreateDialog } from './core/ui/CreateDialog'
 export { default as DeleteDialog } from './core/ui/DeleteDialog'
@@ -18,10 +18,10 @@ export { default as TaskModal } from './core/ui/TaskModal'
 export { default as BlockRenderer } from './core/ui/BlockRenderer'
 
 // Core Forms
-export { default as UserFormActions } from './core/forms/UserFormActions'
+export { UserFormWithActions as UserFormActions } from './core/forms/UserFormActions'
 
 // Core Providers
-export { default as Providers } from './core/Providers'
+export { Providers } from './core/Providers'
 
 // AI Features
 export { default as AIChat } from './features/ai/AIChat'
@@ -51,10 +51,9 @@ export { default as BMADStep } from './features/project-management/story-wizard/
 export { default as EstimationStep } from './features/project-management/story-wizard/estimation-step'
 export { default as QualityChecker } from './features/project-management/story-wizard/quality-checker'
 export { default as StoryPreview } from './features/project-management/story-wizard/story-preview'
-export { default as WizardSteps } from './features/project-management/story-wizard/wizard-steps'
 
 // Team Management
-export { default as TeamMemberList } from './features/project-management/team/team-member-list'
+export { TeamMemberList } from './features/project-management/team/team-member-list'
 export { default as TeamTree } from './features/project-management/team/team-tree'
 export { default as TeamView } from './features/project-management/team/team-view'
 
@@ -68,7 +67,7 @@ export { default as OptimizedStoryList } from './features/project-management/opt
 export { default as OptimizedTaskList } from './features/project-management/optimized/optimized-task-list'
 
 // Document Management
-export { default as DocumentBlock } from './features/document-management/DocumentBlock'
+export { DocumentBlock } from './features/document-management/DocumentBlock'
 export { default as DocumentOutline } from './features/document-management/DocumentOutline'
 export { default as PageTree } from './features/document-management/PageTree'
 export { default as MetadataPanel } from './features/document-management/MetadataPanel'
@@ -76,35 +75,23 @@ export { default as InboxView } from './features/document-management/InboxView'
 export { default as SharedView } from './features/document-management/SharedView'
 
 // User Management
-export { default as ProfileSettings } from './features/user-management/ProfileSettings'
-export { default as AvatarDisplay } from './features/user-management/AvatarDisplay'
-export { default as AvatarUpload } from './features/user-management/AvatarUpload'
-export { default as DisplayNameForm } from './features/user-management/DisplayNameForm'
-export { default as RealtimeProfileView } from './features/user-management/RealtimeProfileView'
-export { default as OptimisticUserList } from './features/user-management/OptimisticUserList'
+export { ProfileSettings } from './features/user-management/ProfileSettings'
+export { AvatarDisplay } from './features/user-management/AvatarDisplay'
+export { AvatarUpload } from './features/user-management/AvatarUpload'
+export { DisplayNameForm } from './features/user-management/DisplayNameForm'
+export { RealtimeProfileView } from './features/user-management/RealtimeProfileView'
+export { OptimisticUserList } from './features/user-management/OptimisticUserList'
 
 // Auth Components
-export { default as GoogleLoginButton } from './features/user-management/auth/google-login-button'
-export { default as UserProfile } from './features/user-management/auth/user-profile'
-export { default as UserProfileClient } from './features/user-management/auth/user-profile-client'
-export { default as UserProfileContent } from './features/user-management/auth/user-profile-content'
+export { GoogleLoginButton } from './features/user-management/auth/google-login-button'
+export { UserProfile } from './features/user-management/auth/user-profile'
+export { UserProfileClient } from './features/user-management/auth/user-profile-client'
+export { UserProfileContent } from './features/user-management/auth/user-profile-content'
 export { default as AccountLinking } from './features/user-management/auth/account-linking'
-export { default as AuthErrorAlert } from './features/user-management/auth/auth-error-alert'
+export { AuthErrorAlert } from './features/user-management/auth/auth-error-alert'
 
 // Layouts
 export { default as Sidebar } from './layouts/Sidebar'
 export { default as Breadcrumb } from './layouts/Breadcrumb'
 export { default as UnifiedBreadcrumb } from './layouts/UnifiedBreadcrumb'
 export { default as LandingPage } from './layouts/LandingPage'
-
-// TipTap Components
-export { FloatingElement } from './core/editor/tiptap/tiptap-ui-utils/floating-element'
-export { Toolbar } from './core/editor/tiptap/tiptap-ui-primitive/toolbar'
-export {
-  Button,
-  ButtonGroup,
-} from './core/editor/tiptap/tiptap-ui-primitive/button'
-export { MarkButton } from './core/editor/tiptap/tiptap-ui/mark-button'
-
-// UI Components (shadcn/ui)
-export * from './ui'

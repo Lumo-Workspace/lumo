@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import UnifiedBreadcrumb from './unified-breadcrumb'
+import UnifiedBreadcrumb from './UnifiedBreadcrumb'
 
 interface Page {
   id: string

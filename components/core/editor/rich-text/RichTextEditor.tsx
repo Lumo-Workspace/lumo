@@ -3,7 +3,8 @@
 import './RichTextEditor.scss'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Placeholder from '@tiptap/extension-placeholder'
+import { CustomDocument } from '../tiptap/extensions/custom-document'
+import { CustomPlaceholder } from '../tiptap/extensions/custom-placeholder'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Typography from '@tiptap/extension-typography'
@@ -35,7 +36,6 @@ interface HeadlessTipTapEditorProps {
 export default function HeadlessTipTapEditor({
   content = '',
   onUpdate,
-  placeholder = '开始输入内容...',
   editable = true,
   className = '',
 }: HeadlessTipTapEditorProps) {
@@ -51,6 +51,7 @@ export default function HeadlessTipTapEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
+      CustomDocument, // 使用自定义文档扩展，确保始终有标题
       TextStyleKit,
       StarterKit.configure({
         // 配置 StarterKit 中的扩展
@@ -76,10 +77,7 @@ export default function HeadlessTipTapEditor({
           },
         },
       }),
-      Placeholder.configure({
-        placeholder,
-        showOnlyWhenEditable: true,
-      }),
+      CustomPlaceholder, // 使用自定义占位符扩展
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -187,6 +185,36 @@ export default function HeadlessTipTapEditor({
     // 简化逻辑，只要有选中文本就显示菜单
     if (selectedText && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
+
+      // 检查选中的文本是否在标题中
+      let isInHeading = false
+      try {
+        // 获取选中范围的起始容器
+        const startContainer = range.startContainer
+        let element =
+          startContainer.nodeType === Node.TEXT_NODE
+            ? startContainer.parentElement
+            : (startContainer as Element)
+
+        // 向上查找，检查是否在标题元素中
+        while (element && element !== editorRef.current) {
+          if (element.tagName && /^H[1-6]$/.test(element.tagName)) {
+            isInHeading = true
+            break
+          }
+          element = element.parentElement
+        }
+      } catch (error) {
+        // 如果检查过程中出错，默认允许显示菜单
+        console.warn('Error checking heading context:', error)
+      }
+
+      // 如果选中的文本在标题中，不显示浮动菜单
+      if (isInHeading) {
+        setShowFloatingMenu(false)
+        return
+      }
+
       const rect = range.getBoundingClientRect()
 
       // 将菜单显示在选中文字上方，避免遮挡
