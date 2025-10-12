@@ -6,9 +6,9 @@
 'use client'
 
 import React, { useState } from 'react'
-import { TeamMemberListDemo } from '@/components/team-member-list'
-import { RealtimeProfileViewDemo } from '@/components/realtime-profile-view'
-import { ProfileSettings } from '@/components/profile-settings'
+import { TeamMemberList } from '@/components/features/project-management/team/team-member-list'
+import { RealtimeProfileView } from '@/components/features/user-management/RealtimeProfileView'
+import { ProfileSettings } from '@/components/features/user-management/ProfileSettings'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -78,7 +78,7 @@ export default function RealtimeDemoPage() {
                   See how team member profiles update in real-time across all
                   team views.
                 </p>
-                <TeamMemberListDemo />
+                <TeamMemberList members={[]} />
               </CardContent>
             </Card>
 
@@ -93,7 +93,7 @@ export default function RealtimeDemoPage() {
                 <p className='text-sm text-muted-foreground mb-4'>
                   View detailed profile information with live updates.
                 </p>
-                <RealtimeProfileViewDemo />
+                <RealtimeProfileView userId='demo-user' />
               </CardContent>
             </Card>
           </div>
@@ -149,7 +149,7 @@ export default function RealtimeDemoPage() {
                 changes their profile. Try updating your profile in the Settings
                 tab to see the changes appear here instantly.
               </p>
-              <TeamMemberListDemo />
+              <TeamMemberList members={[]} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -165,7 +165,7 @@ export default function RealtimeDemoPage() {
                 connection status and last update time are displayed in
                 real-time.
               </p>
-              <RealtimeProfileViewDemo />
+              <RealtimeProfileView userId='demo-user' />
             </CardContent>
           </Card>
         </TabsContent>

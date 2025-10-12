@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import { redirect } from 'next/navigation'
-import { UserProfile } from '@/components/auth/user-profile'
+import { UserProfile } from '@/components/features/user-management/auth/user-profile'
 import Link from 'next/link'
 
 export default async function DashboardPage() {

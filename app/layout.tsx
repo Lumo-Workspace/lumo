@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { Inter, Source_Code_Pro } from 'next/font/google'
 import './globals.css'
 import { Suspense } from 'react'
-import { Providers } from '@/components/providers'
+import { Providers } from '@/components/core/Providers'
 import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({

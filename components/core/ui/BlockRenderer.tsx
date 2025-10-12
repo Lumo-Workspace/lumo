@@ -1,0 +1,205 @@
+'use client'
+
+import type React from 'react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { MermaidDiagram } from '../editor/mermaid/mermaid-diagram'
+
+interface Block {
+  id: string
+  type:
+    | 'heading1'
+    | 'heading2'
+    | 'heading3'
+    | 'paragraph'
+    | 'bulletList'
+    | 'numberedList'
+    | 'todo'
+    | 'quote'
+    | 'code'
+    | 'divider'
+    | 'mermaid'
+  content: string
+  completed?: boolean
+}
+
+interface BlockRendererProps {
+  block: Block
+  onUpdate: (blockId: string, content: string) => void
+  onKeyDown: (e: React.KeyboardEvent, blockId: string) => void
+  onToggleTodo: (blockId: string) => void
+  onFocus?: (blockId: string) => void
+  onBlur?: () => void
+  isFocused?: boolean
+  onTextSelection?: (
+    position: { x: number; y: number },
+    selectedText: string,
+    blockType?: string
+  ) => void
+}
+
+export default function BlockRenderer({
+  block,
+  onUpdate,
+  onKeyDown,
+  onToggleTodo,
+  onFocus,
+  onBlur,
+  isFocused,
+  onTextSelection,
+}: BlockRendererProps) {
+  // 基础样式类
+  const baseClasses =
+    'w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400'
+
+  // 处理文本选择事件
+  const handleMouseUp = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    setTimeout(() => {
+      const selection = window.getSelection()
+
+      if (selection && selection.toString().trim()) {
+        const selectedText = selection.toString().trim()
+        const mouseX = e.clientX
+        const mouseY = e.clientY
+
+        onTextSelection?.(
+          {
+            x: mouseX,
+            y: mouseY,
+          },
+          selectedText,
+          block.type
+        )
+      }
+    }, 0)
+  }
+
+  // 自动调整高度
+  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement
+    if (target.style.height !== target.scrollHeight + 'px') {
+      target.style.height = 'auto'
+      target.style.height = target.scrollHeight + 'px'
+    }
+  }
+
+  // 通用属性
+  const commonProps = {
+    value: block.content,
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+      onUpdate(block.id, e.target.value),
+    onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, block.id),
+    onFocus: () => onFocus?.(block.id),
+    onBlur: () => onBlur?.(),
+    onMouseUp: handleMouseUp,
+    onInput: handleInput,
+    rows: 1,
+    style: { height: 'auto' },
+    'data-block-id': block.id,
+  }
+
+  // 渲染不同类型的块
+  const renderBlock = () => {
+    switch (block.type) {
+      case 'heading1':
+        return (
+          <textarea
+            key={block.id}
+            {...commonProps}
+            className={`${baseClasses} scroll-m-20 text-4xl font-extrabold tracking-tight text-balance text-gray-800 py-2`}
+            placeholder='标题'
+          />
+        )
+
+      case 'heading2':
+        return (
+          <textarea
+            key={block.id}
+            {...commonProps}
+            className={`${baseClasses} scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0 text-gray-800 py-1.5`}
+            placeholder='标题 2'
+          />
+        )
+
+      case 'heading3':
+        return (
+          <textarea
+            key={block.id}
+            {...commonProps}
+            className={`${baseClasses} scroll-m-20 text-2xl font-semibold tracking-tight text-gray-800 py-1`}
+            placeholder='标题 3'
+          />
+        )
+
+      case 'quote':
+        return (
+          <div key={block.id} className='mt-6 border-l-2 pl-6 italic'>
+            <textarea
+              {...commonProps}
+              className={`${baseClasses} text-muted-foreground`}
+              placeholder='空引用'
+            />
+          </div>
+        )
+
+      case 'code':
+        return (
+          <div
+            key={block.id}
+            className='mb-4 mt-6 overflow-x-auto rounded-lg border bg-muted p-4'
+          >
+            <textarea
+              {...commonProps}
+              className={`${baseClasses} relative font-mono text-sm font-semibold bg-transparent text-gray-700`}
+              placeholder='输入代码...'
+              rows={3}
+            />
+          </div>
+        )
+
+      case 'todo':
+        return (
+          <div key={block.id} className='flex items-start gap-2'>
+            <Checkbox
+              checked={block.completed || false}
+              onCheckedChange={() => onToggleTodo(block.id)}
+              className='mt-1'
+            />
+            <textarea
+              {...commonProps}
+              className={`${baseClasses} flex-1 ${block.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}
+              placeholder='待办事项'
+            />
+          </div>
+        )
+
+      case 'divider':
+        return <div key={block.id} className='border-t border-gray-200 my-4' />
+
+      case 'mermaid':
+        return (
+          <MermaidDiagram
+            key={block.id}
+            content={block.content}
+            onUpdate={content => onUpdate(block.id, content)}
+            isEditing={Boolean(isFocused && block.content.trim() === '')}
+          />
+        )
+
+      default:
+        return (
+          <textarea
+            key={block.id}
+            {...commonProps}
+            className={`${baseClasses} leading-7 py-0`}
+            placeholder={
+              isFocused && block.content.trim() === ''
+                ? "输入 '/' 查看命令"
+                : ''
+            }
+          />
+        )
+    }
+  }
+
+  return renderBlock()
+}

@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import React, { useState } from "react"
-import { MermaidDiagram } from "@/components/mermaid-diagram"
+import React, { useState } from 'react'
+import { MermaidDiagram } from '@/components/core/editor/mermaid/mermaid-diagram'
 
 export default function MermaidTestPage() {
   const [diagramContent, setDiagramContent] = useState(`graph TD
@@ -16,25 +16,29 @@ export default function MermaidTestPage() {
     C --> H[结束]`)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Mermaid 流程图测试</h1>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">示例流程图</h2>
-          <MermaidDiagram 
+    <div className='min-h-screen bg-gray-50 p-8'>
+      <div className='max-w-4xl mx-auto'>
+        <h1 className='text-3xl font-bold text-gray-900 mb-8'>
+          Mermaid 流程图测试
+        </h1>
+
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-6'>
+          <h2 className='text-xl font-semibold text-gray-800 mb-4'>
+            示例流程图
+          </h2>
+          <MermaidDiagram
             content={diagramContent}
             onUpdate={setDiagramContent}
           />
         </div>
 
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">其他示例</h2>
-          
-          <div className="space-y-6">
+        <div className='mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6'>
+          <h2 className='text-xl font-semibold text-gray-800 mb-4'>其他示例</h2>
+
+          <div className='space-y-6'>
             <div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">时序图</h3>
-              <MermaidDiagram 
+              <h3 className='text-lg font-medium text-gray-700 mb-2'>时序图</h3>
+              <MermaidDiagram
                 content={`sequenceDiagram
     participant A as 用户
     participant B as 前端
@@ -51,8 +55,8 @@ export default function MermaidTestPage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">甘特图</h3>
-              <MermaidDiagram 
+              <h3 className='text-lg font-medium text-gray-700 mb-2'>甘特图</h3>
+              <MermaidDiagram
                 content={`gantt
     title 项目开发计划
     dateFormat  YYYY-MM-DD
@@ -69,8 +73,8 @@ export default function MermaidTestPage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">类图</h3>
-              <MermaidDiagram 
+              <h3 className='text-lg font-medium text-gray-700 mb-2'>类图</h3>
+              <MermaidDiagram
                 content={`classDiagram
     class User {
         +String name

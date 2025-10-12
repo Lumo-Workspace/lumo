@@ -1,11 +1,11 @@
 'use client'
 
-import ClientMarkdownEditor from '@/components/client-markdown-editor'
+import MarkdownEditor from '@/components/core/editor/markdown/MarkdownEditor'
 
 export default function AppPage() {
   return (
     <div className='min-h-screen bg-white'>
-      <ClientMarkdownEditor />
+      <MarkdownEditor />
     </div>
   )
 }

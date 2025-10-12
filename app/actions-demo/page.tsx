@@ -1,7 +1,7 @@
 'use client'
 
-import { UserFormWithActions } from '@/components/user-form-actions'
-import { OptimisticUserList } from '@/components/optimistic-user-list'
+import { UserFormWithActions } from '@/components/core/forms/UserFormActions'
+import { OptimisticUserList } from '@/components/features/user-management/OptimisticUserList'
 
 // Demo page showing both patterns
 export default function ActionsDemoPage() {

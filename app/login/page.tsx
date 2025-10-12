@@ -1,5 +1,5 @@
-import { GoogleLoginButton } from '@/components/auth/google-login-button'
-import { AuthErrorAlert } from '@/components/auth/auth-error-alert'
+import { GoogleLoginButton } from '@/components/features/user-management/auth/google-login-button'
+import { AuthErrorAlert } from '@/components/features/user-management/auth/auth-error-alert'
 
 /**
  * Login Page

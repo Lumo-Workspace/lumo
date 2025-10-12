@@ -1,9 +1,9 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth/config'
-import AccountLinking from '@/components/auth/account-linking'
-import UserProfile from '@/components/auth/user-profile'
-import { ProfileSettings } from '@/components/profile-settings'
+import AccountLinking from '@/components/features/user-management/auth/account-linking'
+import { UserProfile } from '@/components/features/user-management/auth/user-profile'
+import { ProfileSettings } from '@/components/features/user-management/ProfileSettings'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)

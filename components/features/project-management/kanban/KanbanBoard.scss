@@ -1,0 +1,213 @@
+/* Kanban Board Styles */
+.kanban-board {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  overflow-x: auto;
+  min-height: 100vh;
+  background: #f8fafc;
+
+  .kanban-column {
+    min-width: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+
+    .column-header {
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+      border-radius: 8px 8px 0 0;
+
+      .column-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: #374151;
+        margin: 0;
+      }
+
+      .task-count {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+    }
+
+    .column-content {
+      flex: 1;
+      padding: 8px;
+      overflow-y: auto;
+
+      .kanban-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+
+        &:hover {
+          border-color: #d1d5db;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        &.dragging {
+          opacity: 0.5;
+          transform: rotate(5deg);
+        }
+
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 8px;
+
+          .card-title {
+            font-weight: 500;
+            font-size: 14px;
+            color: #374151;
+            margin: 0;
+            line-height: 1.4;
+          }
+
+          .card-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+        }
+
+        &:hover .card-actions {
+          opacity: 1;
+        }
+
+        .card-description {
+          font-size: 12px;
+          color: #6b7280;
+          line-height: 1.4;
+          margin-bottom: 8px;
+        }
+
+        .card-meta {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 11px;
+          color: #9ca3af;
+
+          .card-priority {
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-weight: 500;
+
+            &.high {
+              background: #fef2f2;
+              color: #dc2626;
+            }
+
+            &.medium {
+              background: #fffbeb;
+              color: #d97706;
+            }
+
+            &.low {
+              background: #f0fdf4;
+              color: #16a34a;
+            }
+          }
+
+          .card-assignee {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+        }
+
+        .card-tags {
+          display: flex;
+          gap: 4px;
+          margin-top: 8px;
+          flex-wrap: wrap;
+
+          .tag {
+            padding: 2px 6px;
+            background: #f3f4f6;
+            color: #374151;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+          }
+        }
+      }
+
+      .add-card-button {
+        width: 100%;
+        padding: 12px;
+        border: 2px dashed #d1d5db;
+        border-radius: 6px;
+        background: transparent;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+
+        &:hover {
+          border-color: #9ca3af;
+          color: #374151;
+          background: #f9fafb;
+        }
+      }
+    }
+  }
+
+  .kanban-column.drag-over {
+    border: 2px dashed #3b82f6;
+    background: #eff6ff;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .kanban-board {
+    flex-direction: column;
+    gap: 12px;
+
+    .kanban-column {
+      min-width: 100%;
+      max-height: 60vh;
+    }
+  }
+}
+
+/* Drag and drop animations */
+@keyframes drag-start {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes drag-end {
+  0% {
+    transform: rotate(5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.kanban-card.drag-start {
+  animation: drag-start 0.2s ease forwards;
+}
+
+.kanban-card.drag-end {
+  animation: drag-end 0.2s ease forwards;
+}
