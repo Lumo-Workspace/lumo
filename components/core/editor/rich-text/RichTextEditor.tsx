@@ -20,8 +20,8 @@ import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
-import { useCallback, useEffect, useState, useRef } from 'react'
-import { FloatingMenu } from '../floating-menu/FloatingMenu'
+import { useEffect, useRef } from 'react'
+import { BubbleMenuComponent } from '../floating-menu/BubbleMenuComponent'
 import { TableOfContents } from '../table-of-contents/TableOfContents'
 import { TableOfContents as TableOfContentsExtension } from '../../../../extensions/table-of-contents'
 
@@ -39,14 +39,6 @@ export default function HeadlessTipTapEditor({
   editable = true,
   className = '',
 }: HeadlessTipTapEditorProps) {
-  // 悬浮菜单状态
-  const [showFloatingMenu, setShowFloatingMenu] = useState(false)
-  const [floatingMenuPosition, setFloatingMenuPosition] = useState({
-    x: 0,
-    y: 0,
-  })
-  const [selectedText, setSelectedText] = useState('')
-
   const editorRef = useRef<HTMLDivElement>(null)
   const editor = useEditor({
     immediatelyRender: false,
@@ -166,107 +158,6 @@ export default function HeadlessTipTapEditor({
     }
   }, [editor, editable])
 
-  // 处理文本选择和悬浮菜单显示 - 使用与基础测试相同的成功方法
-  const handleTextSelection = useCallback(() => {
-    if (typeof window === 'undefined') {
-      setShowFloatingMenu(false)
-      return
-    }
-
-    const selection = window.getSelection()
-    if (!selection) {
-      setShowFloatingMenu(false)
-      return
-    }
-
-    const selectedText = selection.toString().trim()
-    setSelectedText(selectedText)
-
-    // 简化逻辑，只要有选中文本就显示菜单
-    if (selectedText && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0)
-
-      // 检查选中的文本是否在标题中
-      let isInHeading = false
-      try {
-        // 获取选中范围的起始容器
-        const startContainer = range.startContainer
-        let element =
-          startContainer.nodeType === Node.TEXT_NODE
-            ? startContainer.parentElement
-            : (startContainer as Element)
-
-        // 向上查找，检查是否在标题元素中
-        while (element && element !== editorRef.current) {
-          if (element.tagName && /^H[1-6]$/.test(element.tagName)) {
-            isInHeading = true
-            break
-          }
-          element = element.parentElement
-        }
-      } catch (error) {
-        // 如果检查过程中出错，默认允许显示菜单
-        console.warn('Error checking heading context:', error)
-      }
-
-      // 如果选中的文本在标题中，不显示浮动菜单
-      if (isInHeading) {
-        setShowFloatingMenu(false)
-        return
-      }
-
-      const rect = range.getBoundingClientRect()
-
-      // 将菜单显示在选中文字上方，避免遮挡
-      setFloatingMenuPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 50, // 增加距离，避免遮挡选中文字
-      })
-      setShowFloatingMenu(true)
-    } else {
-      setShowFloatingMenu(false)
-    }
-  }, [])
-
-  // 添加文本选择事件监听
-  useEffect(() => {
-    // 全局选择变化监听
-    document.addEventListener('selectionchange', handleTextSelection)
-
-    // 点击其他地方隐藏悬浮菜单
-    const handleClickOutside = (e: MouseEvent) => {
-      const editorElement = editorRef.current
-      const target = e.target as Node
-
-      // 检查点击是否在编辑器内部
-      if (!editorElement || !editorElement.contains(target)) {
-        // 检查点击是否在悬浮菜单上（包括下拉菜单）
-        const floatingMenu = document.querySelector('.floating-menu')
-        const dropdownContent = document.querySelector(
-          '[data-radix-popper-content-wrapper]'
-        )
-        const dropdownPortal = document.querySelector('[data-radix-portal]')
-
-        const isClickOnFloatingMenu =
-          floatingMenu && floatingMenu.contains(target)
-        const isClickOnDropdown =
-          (dropdownContent && dropdownContent.contains(target)) ||
-          (dropdownPortal && dropdownPortal.contains(target))
-
-        if (!isClickOnFloatingMenu && !isClickOnDropdown) {
-          setShowFloatingMenu(false)
-        }
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-
-    return () => {
-      document.removeEventListener('selectionchange', handleTextSelection)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [handleTextSelection])
-
   // 清理编辑器实例
   useEffect(() => {
     return () => {
@@ -294,18 +185,16 @@ export default function HeadlessTipTapEditor({
 
       {/* 右侧编辑器内容区域 */}
       <div className='flex-1 p-4 h-full'>
-        <div ref={editorRef} className='w-full h-full'>
+        <div ref={editorRef} className='w-full h-full relative'>
           <EditorContent
             editor={editor}
             className='min-h-[200px] w-full h-full'
           />
+
+          {/* BubbleMenu 浮动菜单 */}
+          {editor && <BubbleMenuComponent editor={editor} />}
         </div>
       </div>
-
-      {/* 完整悬浮菜单 */}
-      {showFloatingMenu && selectedText && (
-        <FloatingMenu position={floatingMenuPosition} editor={editor} />
-      )}
     </div>
   )
 }

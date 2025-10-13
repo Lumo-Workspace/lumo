@@ -8,7 +8,6 @@ import TaskModal from '@/components/core/ui/TaskModal'
 import TaskSidebar from '@/components/features/project-management/tasks/task-sidebar'
 import { DocumentEditorToolbar } from '@/components/core/editor/DocumentEditorToolbar'
 import { DocumentBlock } from '@/components/features/document-management/DocumentBlock'
-import { FloatingMenu } from '@/components/core/editor/floating-menu/FloatingMenu'
 import {
   useDocumentBlocks,
   type DocumentBlock as DocumentBlockType,
@@ -16,7 +15,6 @@ import {
 } from '@/hooks/use-document-blocks'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { useTaskManagement } from '@/hooks/use-task-management'
-import { useTextSelection } from '@/hooks/use-text-selection'
 
 interface DocumentEditorProps {
   initialContent?: DocumentBlockType[]
@@ -51,8 +49,6 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({
     openEditTaskModal,
     closeTaskModal,
   } = useTaskManagement()
-
-  const { selection } = useTextSelection()
 
   // Handle text formatting
   const formatText = (command: string, value?: string): boolean => {
@@ -200,11 +196,6 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({
           onTaskEdit={handleTaskEdit}
           onTaskDelete={handleTaskDelete}
         />
-      )}
-
-      {/* Floating Menu */}
-      {selection.isVisible && (
-        <FloatingMenu position={selection.position} onFormat={formatText} />
       )}
     </div>
   )
