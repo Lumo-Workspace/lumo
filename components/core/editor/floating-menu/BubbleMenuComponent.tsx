@@ -3,6 +3,7 @@
 import React from 'react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import type { Editor } from '@tiptap/react'
+import './BubbleMenuComponent.scss'
 
 interface BubbleMenuComponentProps {
   editor: Editor
@@ -41,48 +42,36 @@ export function BubbleMenuComponent({ editor }: BubbleMenuComponentProps) {
       }}
       options={{ placement: 'bottom', offset: 8, flip: true }}
     >
-      <div className='flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2'>
+      <div className='bubble-menu'>
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            editor.isActive('bold')
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
+          className={editor.isActive('bold') ? 'is-active' : ''}
           type='button'
+          disabled={!editor.can().chain().focus().toggleBold().run()}
         >
           粗体
         </button>
         <button
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            editor.isActive('italic')
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
+          className={editor.isActive('italic') ? 'is-active' : ''}
           type='button'
+          disabled={!editor.can().chain().focus().toggleItalic().run()}
         >
           斜体
         </button>
         <button
           onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            editor.isActive('strike')
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
+          className={editor.isActive('strike') ? 'is-active' : ''}
           type='button'
+          disabled={!editor.can().chain().focus().toggleStrike().run()}
         >
           删除线
         </button>
         <button
           onClick={() => editor.chain().focus().toggleCode().run()}
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            editor.isActive('code')
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
+          className={editor.isActive('code') ? 'is-active' : ''}
           type='button'
+          disabled={!editor.can().chain().focus().toggleCode().run()}
         >
           代码
         </button>
