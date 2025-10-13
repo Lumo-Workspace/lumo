@@ -72,8 +72,60 @@ export default function HeadlessTipTapEditor({
       CustomPlaceholder, // 使用自定义占位符扩展
       Link.configure({
         openOnClick: false,
+        autolink: true,
+        defaultProtocol: 'https',
+        protocols: ['http', 'https'],
         HTMLAttributes: {
           class: 'text-blue-500 hover:text-blue-700 underline cursor-pointer',
+          rel: 'noopener noreferrer nofollow',
+        },
+        isAllowedUri: (url, ctx) => {
+          try {
+            // construct URL
+            const parsedUrl = url.includes(':')
+              ? new URL(url)
+              : new URL(`${ctx.defaultProtocol}://${url}`)
+
+            // use default validation
+            if (!ctx.defaultValidate(parsedUrl.href)) {
+              return false
+            }
+
+            // disallowed protocols
+            const disallowedProtocols = ['ftp', 'file', 'mailto']
+            const protocol = parsedUrl.protocol.replace(':', '')
+
+            if (disallowedProtocols.includes(protocol)) {
+              return false
+            }
+
+            // only allow protocols specified in ctx.protocols
+            const allowedProtocols = ctx.protocols.map(p =>
+              typeof p === 'string' ? p : p.scheme
+            )
+
+            if (!allowedProtocols.includes(protocol)) {
+              return false
+            }
+
+            // all checks have passed
+            return true
+          } catch {
+            return false
+          }
+        },
+        shouldAutoLink: url => {
+          try {
+            // construct URL
+            const parsedUrl = url.includes(':')
+              ? new URL(url)
+              : new URL(`https://${url}`)
+
+            // basic validation for autolink
+            return parsedUrl.hostname.length > 0
+          } catch {
+            return false
+          }
         },
       }),
       Image.configure({
