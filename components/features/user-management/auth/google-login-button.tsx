@@ -21,7 +21,7 @@ interface GoogleLoginButtonProps {
 }
 
 export function GoogleLoginButton({
-  callbackUrl = '/dashboard',
+  callbackUrl = '/app',
   className,
 }: GoogleLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
