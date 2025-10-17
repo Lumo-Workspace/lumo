@@ -40,21 +40,21 @@ export function GoogleLoginButton({
     <Button
       onClick={handleSignIn}
       disabled={isLoading}
-      variant='outline'
+      variant='default'
       size='lg'
-      className={`w-full h-11 text-base ${className || ''}`}
+      className={`w-full h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 text-white border-slate-900 hover:border-slate-800 transition-colors ${className || ''}`}
       aria-label={
         isLoading ? 'Signing in with Google...' : 'Continue with Google'
       }
     >
       {isLoading ? (
         <>
-          <SpinnerIcon className='mr-2 h-5 w-5 animate-spin' />
+          <SpinnerIcon className='mr-3 h-5 w-5 animate-spin' />
           Signing in...
         </>
       ) : (
         <>
-          <GoogleIcon className='mr-2 h-5 w-5' />
+          <GoogleIcon className='mr-3 h-5 w-5' />
           Continue with Google
         </>
       )}
