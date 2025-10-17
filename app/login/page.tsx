@@ -26,11 +26,11 @@ export default async function LoginPage({
           {/* Logo */}
           <div className='flex justify-center'>
             <Image
-              src='/logo-dark.png'
+              src='/logo-dark.svg'
               alt='Lumo Logo'
               width={62}
               height={62}
-              className='h-15 w-15'
+              className='h-[62px] w-[62px]'
               priority
             />
           </div>
