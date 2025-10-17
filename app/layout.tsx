@@ -17,7 +17,7 @@ const sourceCodePro = Source_Code_Pro({
 })
 
 export const metadata: Metadata = {
-  title: 'Document PM Platform',
+  title: 'Lumo AI',
   description: 'Document and Project Management Platform with Kanban View',
   generator: 'v0.app',
 }
