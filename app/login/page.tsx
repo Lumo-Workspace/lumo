@@ -1,13 +1,7 @@
 import Image from 'next/image'
 import { GoogleLoginButton } from '@/components/features/user-management/auth/google-login-button'
 import { AuthErrorAlert } from '@/components/features/user-management/auth/auth-error-alert'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 /**
  * Login Page
