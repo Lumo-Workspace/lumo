@@ -32,24 +32,19 @@ export default async function LoginPage({
           {/* Logo */}
           <div className='flex justify-center'>
             <Image
-              src='/logo-light.png'
+              src='/logo-dark.png'
               alt='Lumo Logo'
-              width={80}
-              height={80}
-              className='h-20 w-20'
+              width={62}
+              height={62}
+              className='h-15 w-15'
               priority
             />
           </div>
 
-          {/* Title and Description */}
-          <div className='space-y-2'>
-            <CardTitle className='text-2xl font-bold text-slate-900'>
-              Sign in to Lumo
-            </CardTitle>
-            <CardDescription className='text-slate-600'>
-              Use your Google account to sign in quickly and securely
-            </CardDescription>
-          </div>
+          {/* Title */}
+          <CardTitle className='text-sm font-normal text-slate-900'>
+            Sign in to Lumo
+          </CardTitle>
         </CardHeader>
 
         <CardContent className='space-y-6'>

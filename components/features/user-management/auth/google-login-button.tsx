@@ -41,8 +41,8 @@ export function GoogleLoginButton({
       onClick={handleSignIn}
       disabled={isLoading}
       variant='default'
-      size='lg'
-      className={`w-full h-12 text-base font-medium bg-slate-900 hover:bg-slate-800 text-white border-slate-900 hover:border-slate-800 transition-colors ${className || ''}`}
+      size='sm'
+      className={`w-full h-9 rounded-md text-sm font-normal bg-slate-900 hover:bg-slate-800 text-white border-slate-900 hover:border-slate-800 transition-colors ${className || ''}`}
       aria-label={
         isLoading ? 'Signing in with Google...' : 'Continue with Google'
       }
@@ -54,7 +54,7 @@ export function GoogleLoginButton({
         </>
       ) : (
         <>
-          <GoogleIcon className='mr-3 h-5 w-5' />
+          <GoogleIcon className='mr-3 h-3.5 w-3.5' />
           Continue with Google
         </>
       )}
