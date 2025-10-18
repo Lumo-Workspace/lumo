@@ -11,7 +11,7 @@ import {
 // Server Component - handles static content and metadata
 export default function ServerLandingPage() {
   return (
-    <div className='min-h-screen relative overflow-hidden bg-white'>
+    <div className='min-h-screen relative overflow-hidden'>
       {/* Gradient Background - Server Component */}
       <GradientBackground />
 
@@ -42,11 +42,11 @@ export default function ServerLandingPage() {
           {/* Logo */}
           <div className='flex items-center gap-3'>
             <Image
-              src='/logo-light.svg'
+              src='/logo-transparent.svg'
               alt='Lumo Logo'
               width={32}
               height={32}
-              className='w-8 h-8'
+              className='w-5 h-5'
             />
             <span className='text-2xl font-bold text-gray-800'>Lumo</span>
           </div>

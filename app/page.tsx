@@ -1,14 +1,17 @@
 import { Suspense } from 'react'
 import ServerLandingPage from './components/server-landing-page'
+import { AuroraBackground } from '@/components/ui/shadcn-io/aurora-background'
 
 // Server Component that conditionally renders based on URL or state
 export default function HomePage() {
   // For now, we'll always show the landing page
   // In a real app, you might check authentication state or URL params
   return (
-    <Suspense fallback={<LandingPageSkeleton />}>
-      <ServerLandingPage />
-    </Suspense>
+    <AuroraBackground>
+      <Suspense fallback={<LandingPageSkeleton />}>
+        <ServerLandingPage />
+      </Suspense>
+    </AuroraBackground>
   )
 }
 
