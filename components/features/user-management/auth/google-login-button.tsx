@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { GoogleIcon, SpinnerIcon } from '@/components/ui/icons'
 
@@ -29,6 +29,7 @@ export function GoogleLoginButton({
   const handleSignIn = async () => {
     try {
       setIsLoading(true)
+      await signOut({ redirect: false })
       await signIn('google', { callbackUrl })
     } catch (error) {
       console.error('Failed to initiate Google sign in:', error)
