@@ -4,8 +4,13 @@ import { authOptions } from '@/lib/auth/config'
 import { prisma } from '@/lib/db/prisma'
 import MarkdownEditor from '@/components/core/editor/markdown/MarkdownEditor'
 
-export default async function WorkspaceAppPage(props: any) {
-  const { params } = props
+// In Next.js 16 App Router, params is a Promise in server components
+export default async function WorkspaceAppPage({
+  params,
+}: {
+  params: Promise<{ workspaceUrl: string }>
+}) {
+  const { workspaceUrl } = await params
   const session = await getServerSession(authOptions)
 
   // Require auth
@@ -13,7 +18,6 @@ export default async function WorkspaceAppPage(props: any) {
     redirect('/login')
   }
 
-  const workspaceUrl = params.workspaceUrl
   if (!workspaceUrl) {
     redirect('/app')
   }
