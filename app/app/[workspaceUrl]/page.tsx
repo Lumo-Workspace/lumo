@@ -4,11 +4,8 @@ import { authOptions } from '@/lib/auth/config'
 import { prisma } from '@/lib/db/prisma'
 import MarkdownEditor from '@/components/core/editor/markdown/MarkdownEditor'
 
-type PageProps = {
-  params: { workspaceUrl: string }
-}
-
-export default async function WorkspaceAppPage({ params }: PageProps) {
+export default async function WorkspaceAppPage(props: any) {
+  const { params } = props
   const session = await getServerSession(authOptions)
 
   // Require auth
