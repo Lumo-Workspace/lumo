@@ -16,6 +16,11 @@ export default async function AppPage() {
     redirect('/onboarding')
   }
 
+  // If workspace slug is available, redirect to workspace-specific app URL
+  if (session.user.workspaceUrl) {
+    redirect(`/app/${session.user.workspaceUrl}`)
+  }
+
   return (
     <div className='min-h-screen bg-white'>
       <MarkdownEditor />

@@ -30,10 +30,12 @@ export async function POST(request: NextRequest) {
       teamName,
       workspaceUrl: customUrl,
       teamSize,
+      userRole,
     } = body as {
       teamName: string
       workspaceUrl?: string
       teamSize?: string
+      userRole?: string
     }
 
     // Validate team name
@@ -66,6 +68,18 @@ export async function POST(request: NextRequest) {
     ]
     if (teamSize && !allowedSizes.includes(teamSize)) {
       return NextResponse.json({ error: 'Invalid team size' }, { status: 400 })
+    }
+
+    // Validate optional userRole against allowed labels
+    const allowedRoles: readonly string[] = [
+      'Product Manager',
+      'Engineer',
+      'Designer',
+      'Founder / Executive',
+      'Project Manager',
+    ]
+    if (userRole && !allowedRoles.includes(userRole)) {
+      return NextResponse.json({ error: 'Invalid user role' }, { status: 400 })
     }
 
     // Generate or validate workspace URL
@@ -117,6 +131,23 @@ export async function POST(request: NextRequest) {
           role: 'owner',
         },
       })
+
+      // Persist userRole to the user's profile settings (not workspace)
+      if (userRole) {
+        const existingProfile = await tx.userProfile.findUnique({
+          where: { userId: session.user.id },
+        })
+
+        const prevSettings =
+          (existingProfile?.settings as Record<string, unknown> | null) || {}
+        const nextSettings = { ...prevSettings, userRole }
+
+        await tx.userProfile.upsert({
+          where: { userId: session.user.id },
+          update: { settings: nextSettings },
+          create: { userId: session.user.id, settings: nextSettings },
+        })
+      }
 
       return { team, workspace, membership }
     })

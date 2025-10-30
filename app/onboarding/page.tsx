@@ -24,8 +24,9 @@ export default function OnboardingPage() {
   const [urlAvailable, setUrlAvailable] = useState(true)
   const [checkingUrl, setCheckingUrl] = useState(false)
   const [urlManuallyEdited, setUrlManuallyEdited] = useState(false)
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [teamSize, setTeamSize] = useState<string>('')
+  const [userRole, setUserRole] = useState<string>('')
 
   // Auto-generate URL from team name until user edits the URL manually
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function OnboardingPage() {
     return () => clearTimeout(timeoutId)
   }, [workspaceUrl])
 
-  const createTeam = async (size?: string) => {
+  const createTeam = async (size?: string, role?: string) => {
     setIsSubmitting(true)
     setError('')
     try {
@@ -72,6 +73,7 @@ export default function OnboardingPage() {
           teamName,
           workspaceUrl,
           teamSize: size || undefined,
+          userRole: role || undefined,
         }),
       })
 
@@ -82,7 +84,7 @@ export default function OnboardingPage() {
         return
       }
 
-      router.push('/app')
+      router.push(`/app/${workspaceUrl}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -92,6 +94,10 @@ export default function OnboardingPage() {
     // Guard against invalid inputs
     if (!teamName || !workspaceUrl || !urlAvailable || Boolean(error)) return
     setStep(2)
+  }
+
+  const handleContinueFromStep2 = () => {
+    setStep(3)
   }
 
   return (
@@ -115,13 +121,15 @@ export default function OnboardingPage() {
             <CardTitle className='text-sm font-normal text-slate-900'>
               {step === 1
                 ? "Enter your team's name."
-                : "What's your company size?"}
+                : step === 2
+                  ? "What's your company size?"
+                  : 'What’s your role?'}
             </CardTitle>
           </div>
         </CardHeader>
 
         <CardContent>
-          {step === 1 ? (
+          {step === 1 && (
             <div className='space-y-4'>
               {/* Team Name Input */}
               <div className='space-y-2'>
@@ -205,7 +213,9 @@ export default function OnboardingPage() {
                 Continue
               </Button>
             </div>
-          ) : (
+          )}
+
+          {step === 2 && (
             <div className='space-y-6'>
               {/* Team Size Select */}
               <div className='space-y-2'>
@@ -229,7 +239,7 @@ export default function OnboardingPage() {
               <div className='flex flex-col gap-3'>
                 <Button
                   type='button'
-                  onClick={() => createTeam(teamSize || undefined)}
+                  onClick={handleContinueFromStep2}
                   disabled={isSubmitting}
                   className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
                 >
@@ -237,7 +247,7 @@ export default function OnboardingPage() {
                 </Button>
                 <Button
                   type='button'
-                  onClick={() => createTeam(undefined)}
+                  onClick={() => setStep(3)}
                   disabled={isSubmitting}
                   className='w-full h-12 text-base font-normal bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                 >
@@ -247,6 +257,54 @@ export default function OnboardingPage() {
             </div>
           )}
         </CardContent>
+        {step === 3 && (
+          <CardContent>
+            <div className='space-y-6'>
+              {/* User Role Select */}
+              <div className='space-y-2'>
+                <Select value={userRole} onValueChange={setUserRole}>
+                  <SelectTrigger id='userRole' className='w-full h-10'>
+                    <SelectValue placeholder='Select' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='Product Manager'>
+                      Product Manager
+                    </SelectItem>
+                    <SelectItem value='Engineer'>Engineer</SelectItem>
+                    <SelectItem value='Designer'>Designer</SelectItem>
+                    <SelectItem value='Founder / Executive'>
+                      Founder / Executive
+                    </SelectItem>
+                    <SelectItem value='Project Manager'>
+                      Project Manager
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className='flex flex-col gap-3'>
+                <Button
+                  type='button'
+                  onClick={() =>
+                    createTeam(teamSize || undefined, userRole || undefined)
+                  }
+                  disabled={isSubmitting}
+                  className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
+                >
+                  Continue
+                </Button>
+                <Button
+                  type='button'
+                  onClick={() => createTeam(teamSize || undefined, undefined)}
+                  disabled={isSubmitting}
+                  className='w-full h-12 text-base font-normal bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                >
+                  Skip
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
     </div>
   )
