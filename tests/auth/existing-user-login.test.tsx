@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 
 // Mock next-auth/react
@@ -50,9 +50,11 @@ describe('Existing User Login Flow', () => {
           name: 'Existing User',
           image: 'https://example.com/avatar.jpg',
         },
-      },
+        expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      } as any,
       status: 'authenticated',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
 
@@ -66,7 +68,8 @@ describe('Existing User Login Flow', () => {
     mockUseSession.mockReturnValue({
       data: null,
       status: 'loading',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
@@ -77,7 +80,8 @@ describe('Existing User Login Flow', () => {
     mockUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
     expect(screen.getByText('Not authenticated')).toBeInTheDocument()
@@ -96,9 +100,10 @@ describe('Existing User Login Flow', () => {
     }
 
     mockUseSession.mockReturnValue({
-      data: mockSession,
+      data: mockSession as any,
       status: 'authenticated',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
     expect(screen.getByText('Welcome, Existing User!')).toBeInTheDocument()
@@ -109,7 +114,8 @@ describe('Existing User Login Flow', () => {
     mockUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
     expect(screen.getByText('Not authenticated')).toBeInTheDocument()
@@ -125,9 +131,10 @@ describe('Existing User Login Flow', () => {
     }
 
     mockUseSession.mockReturnValue({
-      data: { user: mockUser },
+      data: { user: mockUser, expires: new Date().toISOString() } as any,
       status: 'authenticated',
-    })
+      update: jest.fn() as any,
+    } as any)
 
     render(<TestComponent />)
     expect(screen.getByText('Welcome, Existing User!')).toBeInTheDocument()
