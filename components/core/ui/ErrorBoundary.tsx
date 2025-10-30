@@ -5,7 +5,14 @@
 
 'use client'
 
-import React, { Component, ErrorInfo, ReactNode } from 'react'
+import {
+  Component,
+  ErrorInfo,
+  ReactNode,
+  useCallback,
+  useState,
+  useEffect,
+} from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -305,18 +312,18 @@ export function withErrorBoundary<P extends object>(
 
 // Hook：用于在函数组件中处理错误
 export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
-  const resetError = React.useCallback(() => {
+  const resetError = useCallback(() => {
     setError(null)
   }, [])
 
-  const captureError = React.useCallback((error: Error) => {
+  const captureError = useCallback((error: Error) => {
     setError(error)
   }, [])
 
   // 如果有错误，抛出它
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       throw error
     }
@@ -327,9 +334,9 @@ export function useErrorHandler() {
 
 // 异步错误边界 Hook
 export function useAsyncError() {
-  const [, setError] = React.useState()
+  const [, setError] = useState()
 
-  return React.useCallback((error: Error) => {
+  return useCallback((error: Error) => {
     setError(() => {
       throw error
     })

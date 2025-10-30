@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import mermaid from 'mermaid'

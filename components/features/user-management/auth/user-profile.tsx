@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import { Session } from 'next-auth'
 import { UserProfileContent } from './user-profile-content'
 import { UserProfileClient } from './user-profile-client'

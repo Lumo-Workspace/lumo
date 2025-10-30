@@ -5,7 +5,7 @@
 
 'use client'
 
-import React from 'react'
+import { useState } from 'react'
 import { useProfileUpdates } from '@/hooks/use-profile-updates'
 import { AvatarDisplay } from '@/components/features/user-management/AvatarDisplay'
 import { Badge } from '@/components/ui/badge'
@@ -172,7 +172,7 @@ function ConnectionStatus() {
 
 // Example usage component
 export function TeamMemberListDemo() {
-  const [members] = React.useState<TeamMember[]>([
+  const [members] = useState<TeamMember[]>([
     {
       id: 'user-1',
       displayName: 'Alice Johnson',

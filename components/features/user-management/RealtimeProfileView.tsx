@@ -5,7 +5,6 @@
 
 'use client'
 
-import React from 'react'
 import { useProfileUpdates } from '@/hooks/use-profile-updates'
 import { AvatarDisplay } from '@/components/features/user-management/AvatarDisplay'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

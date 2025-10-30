@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import { Fragment } from 'react'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -55,7 +55,7 @@ export default function UnifiedBreadcrumb({
             const isLast = index === items.length - 1
 
             return (
-              <React.Fragment key={item.id}>
+              <Fragment key={item.id}>
                 <BreadcrumbItem>
                   {isLast ? (
                     <BreadcrumbPage className='text-gray-900 font-medium'>
@@ -71,7 +71,7 @@ export default function UnifiedBreadcrumb({
                   )}
                 </BreadcrumbItem>
                 {!isLast && <BreadcrumbSeparator />}
-              </React.Fragment>
+              </Fragment>
             )
           })}
         </BreadcrumbList>

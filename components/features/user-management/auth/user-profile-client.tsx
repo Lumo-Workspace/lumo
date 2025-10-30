@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { UserProfileContent } from './user-profile-content'

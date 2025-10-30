@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Component, ReactNode } from 'react'
+import { useCallback, useState, useEffect, Component, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
@@ -119,17 +119,17 @@ export class ErrorBoundary extends Component<
 
 // Hook-based error boundary alternative for functional components
 export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
-  const resetError = React.useCallback(() => {
+  const resetError = useCallback(() => {
     setError(null)
   }, [])
 
-  const captureError = React.useCallback((error: Error) => {
+  const captureError = useCallback((error: Error) => {
     setError(error)
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       throw error
     }

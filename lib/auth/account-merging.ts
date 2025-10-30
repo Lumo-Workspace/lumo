@@ -59,8 +59,13 @@ export async function mergeGoogleAccountWithExistingUser(
       originalCreatedAt: existingUser.createdAt,
     }
 
-    // Check if Google account is already linked
-    const existingGoogleAccount = existingUser.accounts.find(
+    // Check if Google account is already linked (normalize 1:1 or 1:N)
+    const existingUserAccounts = Array.isArray(existingUser.accounts)
+      ? existingUser.accounts
+      : existingUser.accounts
+        ? [existingUser.accounts]
+        : []
+    const existingGoogleAccount = existingUserAccounts.find(
       account => account.provider === 'google'
     )
 
@@ -151,7 +156,12 @@ export async function handleAccountLinkingConflict(
     }
 
     // Transfer Google account to existing user
-    const googleAccount = googleUser.accounts.find(
+    const googleUserAccounts = Array.isArray(googleUser.accounts)
+      ? googleUser.accounts
+      : googleUser.accounts
+        ? [googleUser.accounts]
+        : []
+    const googleAccount = googleUserAccounts.find(
       account => account.provider === 'google'
     )
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback } from 'react'
+import { useCallback } from 'react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import type { Editor } from '@tiptap/react'
 import {

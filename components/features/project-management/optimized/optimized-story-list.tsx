@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { memo, useMemo, useCallback, useState } from 'react'
+import { memo, useMemo, useCallback, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {

@@ -10,8 +10,6 @@
  * - UX-003: Loading states
  */
 
-import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 // Mock next-auth before importing component

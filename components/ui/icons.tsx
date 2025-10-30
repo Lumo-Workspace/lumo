@@ -4,8 +4,6 @@
  * SVG icons used across the application
  */
 
-import React from 'react'
-
 /**
  * Google Logo Icon
  * Official Google brand colors
