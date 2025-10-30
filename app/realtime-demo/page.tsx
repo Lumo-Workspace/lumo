@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { TeamMemberList } from '@/components/features/project-management/team/team-member-list'
 import { RealtimeProfileView } from '@/components/features/user-management/RealtimeProfileView'
 import { ProfileSettings } from '@/components/features/user-management/ProfileSettings'
