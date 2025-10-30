@@ -92,6 +92,20 @@ export const authOptions: NextAuthOptions = {
         session.user.email = token.email as string
         session.user.image = token.picture as string
         session.user.name = token.name as string
+
+        // Add team information if user has a team
+        const teamMembership = await prisma.teamMember.findFirst({
+          where: { userId: token.userId as string },
+          include: {
+            team: true,
+          },
+        })
+
+        if (teamMembership) {
+          session.user.teamId = teamMembership.teamId
+          session.user.teamRole = teamMembership.role
+          session.user.workspaceUrl = teamMembership.team.workspaceUrl
+        }
       }
 
       return session

@@ -7,8 +7,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("SUPA_POSTGRES_PRISMA_URL")
-  directUrl = env("SUPA_POSTGRES_URL_NON_POOLING")
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // NextAuth.js required models
@@ -81,6 +81,9 @@ model User {
 
   // User data relationships
   profile UserProfile?
+  
+  // Team relationships
+  teamMemberships TeamMember[]
 
   @@index([email])  // For account matching queries
   @@index([displayName]) // For team member list queries
@@ -103,4 +106,50 @@ model UserProfile {
   updatedAt DateTime @updatedAt
 
   @@map("user_profiles")
+}
+
+// Team and Workspace models for onboarding
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  workspaceUrl String  @unique // e.g., "hello-world" for uselumo.ai/hello-world
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  members     TeamMember[]
+  workspace   Workspace?
+  
+  @@index([workspaceUrl])
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      String   @default("owner") // owner, member, admin
+  joinedAt  DateTime @default(now())
+  
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+  @@map("team_members")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  teamId    String   @unique
+  settings  Json?    // Workspace-specific settings
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relationships
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@map("workspaces")
 }
