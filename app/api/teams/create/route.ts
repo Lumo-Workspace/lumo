@@ -26,7 +26,15 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { teamName, workspaceUrl: customUrl } = body
+    const {
+      teamName,
+      workspaceUrl: customUrl,
+      teamSize,
+    } = body as {
+      teamName: string
+      workspaceUrl?: string
+      teamSize?: string
+    }
 
     // Validate team name
     if (
@@ -47,6 +55,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate optional teamSize against planned enum keys
+    const allowedSizes: readonly string[] = [
+      'ONE',
+      'TWO_TO_FIVE',
+      'SIX_TO_TWENTY',
+      'TWENTY_ONE_TO_FIFTY',
+      'FIFTY_ONE_TO_TWO_HUNDRED',
+      'TWO_HUNDRED_PLUS',
+    ]
+    if (teamSize && !allowedSizes.includes(teamSize)) {
+      return NextResponse.json({ error: 'Invalid team size' }, { status: 400 })
+    }
+
     // Generate or validate workspace URL
     const workspaceUrl = customUrl || generateWorkspaceSlug(teamName)
 
@@ -62,21 +83,9 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingTeam) {
-      // Suggest alternative
-      const alternatives = [
-        `${workspaceUrl}-1`,
-        `${workspaceUrl}-2`,
-        `${workspaceUrl}-team`,
-      ]
-
-      const available = alternatives.find(
-        alt => !validateWorkspaceUrl(alt).valid || !existingTeam
-      )
-
       return NextResponse.json(
         {
           error: 'This workspace URL is already taken',
-          suggestion: available,
         },
         { status: 400 }
       )
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
       const workspace = await tx.workspace.create({
         data: {
           teamId: team.id,
-          settings: {},
+          settings: teamSize ? { teamSize } : {},
         },
       })
 
@@ -124,7 +133,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error('Team creation error:', error)
     return NextResponse.json(
       { error: 'Failed to create team' },
       { status: 500 }

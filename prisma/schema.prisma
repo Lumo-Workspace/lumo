@@ -11,6 +11,16 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
+// Enum for onboarding: team size options
+enum TeamSize {
+  ONE                // 1 (Just me)
+  TWO_TO_FIVE        // 2–5
+  SIX_TO_TWENTY      // 6–20
+  TWENTY_ONE_TO_FIFTY // 21–50
+  FIFTY_ONE_TO_TWO_HUNDRED // 51–200
+  TWO_HUNDRED_PLUS   // 200+
+}
+
 // NextAuth.js required models
 model Account {
   id                String  @id @default(cuid())
@@ -145,6 +155,7 @@ model Workspace {
   id        String   @id @default(cuid())
   teamId    String   @unique
   settings  Json?    // Workspace-specific settings
+  teamSize  TeamSize?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
