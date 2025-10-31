@@ -84,7 +84,7 @@ export default function OnboardingPage() {
         return
       }
 
-      router.push(`/app/${workspaceUrl}`)
+      router.push(`/workspace/${workspaceUrl}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -286,7 +286,10 @@ export default function OnboardingPage() {
                 <Button
                   type='button'
                   onClick={() =>
-                    createTeam(teamSize || undefined, userRole || undefined)
+                    createTeam(
+                      teamSize ? teamSize : undefined,
+                      userRole ? userRole : undefined
+                    )
                   }
                   disabled={isSubmitting}
                   className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
@@ -295,7 +298,9 @@ export default function OnboardingPage() {
                 </Button>
                 <Button
                   type='button'
-                  onClick={() => createTeam(teamSize || undefined, undefined)}
+                  onClick={() =>
+                    createTeam(teamSize ? teamSize : undefined, undefined)
+                  }
                   disabled={isSubmitting}
                   className='w-full h-12 text-base font-normal bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                 >

@@ -16,9 +16,9 @@ export default async function AppPage() {
     redirect('/onboarding')
   }
 
-  // If workspace slug is available, redirect to workspace-specific app URL
+  // If workspace slug is available, redirect to workspace-specific URL
   if (session.user.workspaceUrl) {
-    redirect(`/app/${session.user.workspaceUrl}`)
+    redirect(`/workspace/${session.user.workspaceUrl}`)
   }
 
   return (

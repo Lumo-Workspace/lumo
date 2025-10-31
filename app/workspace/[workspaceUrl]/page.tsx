@@ -19,14 +19,14 @@ export default async function WorkspaceAppPage({
   }
 
   if (!workspaceUrl) {
-    redirect('/app')
+    redirect('/workspace')
   }
 
   // Verify workspace exists
   const team = await prisma.team.findUnique({ where: { workspaceUrl } })
   if (!team) {
     // Unknown slug → 404-like behaviour
-    redirect('/app')
+    redirect('/workspace')
   }
 
   // Verify user membership
@@ -37,7 +37,7 @@ export default async function WorkspaceAppPage({
   if (!membership) {
     // Not authorized for this workspace; if user has a default workspace, send them there
     if (session.user.workspaceUrl) {
-      redirect(`/app/${session.user.workspaceUrl}`)
+      redirect(`/workspace/${session.user.workspaceUrl}`)
     } else {
       redirect('/onboarding')
     }

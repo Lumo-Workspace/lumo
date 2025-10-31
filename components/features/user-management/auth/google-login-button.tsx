@@ -21,7 +21,7 @@ interface GoogleLoginButtonProps {
 }
 
 export function GoogleLoginButton({
-  callbackUrl = '/app',
+  callbackUrl = '/workspace',
   className,
 }: GoogleLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
@@ -31,8 +31,7 @@ export function GoogleLoginButton({
       setIsLoading(true)
       await signOut({ redirect: false })
       await signIn('google', { callbackUrl })
-    } catch (error) {
-      console.error('Failed to initiate Google sign in:', error)
+    } catch (_error) {
       setIsLoading(false)
     }
   }
