@@ -7,5 +7,5 @@ END $$;
 -- AlterTable
 ALTER TABLE "team_members" ALTER COLUMN "role" DROP DEFAULT;
 ALTER TABLE "team_members" ALTER COLUMN "role" TYPE "TeamRole" USING ("role"::text::"TeamRole");
-ALTER TABLE "team_members" ALTER COLUMN "role" SET DEFAULT 'owner';
+ALTER TABLE "team_members" ALTER COLUMN "role" SET DEFAULT 'member';
 

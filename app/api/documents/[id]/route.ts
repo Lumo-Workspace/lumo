@@ -6,10 +6,10 @@ import { authOptions } from '@/lib/auth/config'
 
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     const doc = await prisma.document.findUnique({
       where: { id },
     })
@@ -32,7 +32,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -40,7 +40,7 @@ export async function PATCH(
     if (!userId)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { id } = params
+    const { id } = await params
     const body = await req.json()
     const { title, content } = body ?? {}
 
@@ -78,10 +78,10 @@ export async function PATCH(
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     await prisma.document.update({
       where: { id },
       data: { deletedAt: new Date() },

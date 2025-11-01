@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract domain from user's email if not a public email provider
-    let domain: string | undefined
+    let domain: string | null = null
     if (session.user.email) {
       const emailDomain = extractEmailDomain(session.user.email)
       if (emailDomain && !isPublicEmailDomain(emailDomain)) {
