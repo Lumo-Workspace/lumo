@@ -93,10 +93,35 @@ export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_TYPES: {
     IMAGES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-    DOCUMENTS: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-    SPREADSHEETS: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+    DOCUMENTS: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    SPREADSHEETS: [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
   },
 } as const
+
+// 公共邮箱域名列表
+export const PUBLIC_EMAIL_DOMAINS = [
+  'gmail.com',
+  'outlook.com',
+  'hotmail.com',
+  'yahoo.com',
+  'icloud.com',
+  'aol.com',
+  'protonmail.com',
+  'yandex.com',
+  'mail.com',
+  'gmx.com',
+  'qq.com',
+  '163.com',
+  '126.com',
+  'sina.com',
+] as const
 
 // 表单验证规则
 export const VALIDATION = {
@@ -113,7 +138,7 @@ export const VALIDATION = {
 export const STATUS_COLORS = {
   DRAFT: '#6B7280',
   TODO: '#3B82F6',
-  'IN_PROGRESS': '#F59E0B',
+  IN_PROGRESS: '#F59E0B',
   REVIEW: '#8B5CF6',
   DONE: '#10B981',
   CANCELLED: '#EF4444',

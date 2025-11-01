@@ -6,8 +6,9 @@
 
 ## Tech Stack
 
-- [List your primary technologies]
-- [e.g., TypeScript, React, Node.js]
+- TipTap
+- Next.js
+- shadcn
 
 ## Project Conventions
 

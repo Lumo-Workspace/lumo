@@ -20,13 +20,15 @@ export function formatDate(
     day: 'numeric',
   }
 ): string {
-  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+  const dateObj =
+    typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
   return new Intl.DateTimeFormat('zh-CN', options).format(dateObj)
 }
 
 // 格式化相对时间
 export function formatRelativeTime(date: Date | string | number): string {
-  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+  const dateObj =
+    typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000)
 
@@ -78,14 +80,17 @@ export function formatFileSize(bytes: number): string {
 export function generateId(prefix = ''): string {
   const timestamp = Date.now().toString(36)
   const randomStr = Math.random().toString(36).substring(2, 8)
-  return prefix ? `${prefix}_${timestamp}_${randomStr}` : `${timestamp}_${randomStr}`
+  return prefix
+    ? `${prefix}_${timestamp}_${randomStr}`
+    : `${timestamp}_${randomStr}`
 }
 
 // 深拷贝对象
 export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj
   if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T
-  if (obj instanceof Array) return obj.map(item => deepClone(item)) as unknown as T
+  if (obj instanceof Array)
+    return obj.map(item => deepClone(item)) as unknown as T
   if (typeof obj === 'object') {
     const clonedObj = {} as T
     for (const key in obj) {
@@ -141,7 +146,7 @@ export function unique<T>(array: T[], key?: keyof T): T[] {
   if (!key) {
     return [...new Set(array)]
   }
-  
+
   const seen = new Set()
   return array.filter(item => {
     const value = item[key]
@@ -158,14 +163,17 @@ export function groupBy<T, K extends string | number>(
   array: T[],
   key: keyof T | ((item: T) => K)
 ): Record<K, T[]> {
-  return array.reduce((groups, item) => {
-    const groupKey = typeof key === 'function' ? key(item) : (item[key] as K)
-    if (!groups[groupKey]) {
-      groups[groupKey] = []
-    }
-    groups[groupKey].push(item)
-    return groups
-  }, {} as Record<K, T[]>)
+  return array.reduce(
+    (groups, item) => {
+      const groupKey = typeof key === 'function' ? key(item) : (item[key] as K)
+      if (!groups[groupKey]) {
+        groups[groupKey] = []
+      }
+      groups[groupKey].push(item)
+      return groups
+    },
+    {} as Record<K, T[]>
+  )
 }
 
 // 数组排序
@@ -177,7 +185,7 @@ export function sortBy<T>(
   return [...array].sort((a, b) => {
     const aVal = typeof key === 'function' ? key(a) : a[key]
     const bVal = typeof key === 'function' ? key(b) : b[key]
-    
+
     if (aVal < bVal) return direction === 'asc' ? -1 : 1
     if (aVal > bVal) return direction === 'asc' ? 1 : -1
     return 0
@@ -205,7 +213,10 @@ export function paginate<T>(
 }
 
 // 对象属性选择
-export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+export function pick<T extends object, K extends keyof T>(
+  obj: T,
+  keys: K[]
+): Pick<T, K> {
   const result = {} as Pick<T, K>
   keys.forEach(key => {
     if (key in obj) {
@@ -234,17 +245,21 @@ export function isEmpty(value: any): boolean {
 }
 
 // 安全获取嵌套对象属性
-export function get<T = any>(obj: any, path: string, defaultValue?: T): T | undefined {
+export function get<T = any>(
+  obj: any,
+  path: string,
+  defaultValue?: T
+): T | undefined {
   const keys = path.split('.')
   let result = obj
-  
+
   for (const key of keys) {
     if (result === null || result === undefined) {
       return defaultValue
     }
     result = result[key]
   }
-  
+
   return result !== undefined ? result : defaultValue
 }
 
@@ -253,7 +268,7 @@ export function set(obj: any, path: string, value: any): any {
   const keys = path.split('.')
   const result = { ...obj }
   let current = result
-  
+
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i]
     if (!key || !(key in current) || typeof current[key] !== 'object') {
@@ -261,7 +276,7 @@ export function set(obj: any, path: string, value: any): any {
     }
     current = current[key!]
   }
-  
+
   current[keys[keys.length - 1]!] = value
   return result
 }
@@ -277,7 +292,9 @@ export function randomString(length = 8): string {
 }
 
 // 颜色工具函数
-export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+export function hexToRgb(
+  hex: string
+): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? {
@@ -378,11 +395,11 @@ export function buildUrl(baseUrl: string, params: Record<string, any>): string {
 export function parseQueryString(queryString: string): Record<string, string> {
   const params = new URLSearchParams(queryString)
   const result: Record<string, string> = {}
-  
+
   for (const [key, value] of params.entries()) {
     result[key] = value
   }
-  
+
   return result
 }
 
@@ -395,11 +412,11 @@ export function measurePerformance<T extends (...args: any[]) => any>(
     const start = performance.now()
     const result = fn(...args)
     const end = performance.now()
-    
+
     if (label) {
       console.log(`${label}: ${end - start}ms`)
     }
-    
+
     return result
   }) as T
 }
@@ -417,11 +434,11 @@ export async function retry<T>(
       return await fn()
     } catch (error) {
       lastError = error as Error
-      
+
       if (attempt === maxAttempts) {
         throw lastError
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, delay * attempt))
     }
   }
@@ -456,6 +473,33 @@ export function isFunction(value: any): value is Function {
 
 export function isPromise<T>(value: any): value is Promise<T> {
   return value && typeof value.then === 'function'
+}
+
+// Email domain utilities
+export function extractEmailDomain(email: string): string | null {
+  if (!email || !email.includes('@')) return null
+  return email.split('@')[1]?.toLowerCase() || null
+}
+
+export function isPublicEmailDomain(domain: string): boolean {
+  // Import dynamically to avoid circular dependency
+  const publicDomains = [
+    'gmail.com',
+    'outlook.com',
+    'hotmail.com',
+    'yahoo.com',
+    'icloud.com',
+    'aol.com',
+    'protonmail.com',
+    'yandex.com',
+    'mail.com',
+    'gmx.com',
+    'qq.com',
+    '163.com',
+    '126.com',
+    'sina.com',
+  ]
+  return publicDomains.includes(domain.toLowerCase())
 }
 
 // 导出所有工具函数

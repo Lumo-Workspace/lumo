@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from '@/lib/db/prisma'
+import { extractEmailDomain, isPublicEmailDomain } from '@/utils'
 
 /**
  * NextAuth.js Configuration for Google OAuth
@@ -162,11 +163,12 @@ export const authOptions: NextAuthOptions = {
 
   // Events for logging and monitoring
   events: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, isNewUser }) {
       console.log('User signed in:', {
         userId: user.id,
         email: user.email,
         provider: account?.provider,
+        isNewUser,
       })
 
       // Update lastUsedAt for the account (SR-009)
@@ -180,6 +182,54 @@ export const authOptions: NextAuthOptions = {
             lastUsedAt: new Date(),
           },
         })
+      }
+
+      // Auto-join workspace by email domain for new users
+      if (isNewUser && user.email) {
+        const domain = extractEmailDomain(user.email)
+        if (domain && !isPublicEmailDomain(domain)) {
+          // Find existing team with matching domain and auto-join enabled
+          // If multiple teams exist, join the first one (earliest created)
+          const team = await prisma.team.findFirst({
+            where: {
+              domain,
+              allowAutoJoin: true,
+            },
+            orderBy: {
+              createdAt: 'asc', // Join earliest created team with matching domain
+            },
+            include: {
+              workspace: true,
+            },
+          })
+
+          if (team) {
+            // Check if user already has team membership
+            const existingMembership = await prisma.teamMember.findFirst({
+              where: {
+                userId: user.id,
+                teamId: team.id,
+              },
+            })
+
+            if (!existingMembership) {
+              // Auto-join the user to the team
+              await prisma.teamMember.create({
+                data: {
+                  userId: user.id,
+                  teamId: team.id,
+                  role: 'member', // Default role for auto-joined users
+                },
+              })
+
+              console.log('Auto-joined user to team:', {
+                userId: user.id,
+                teamId: team.id,
+                domain,
+              })
+            }
+          }
+        }
       }
     },
 

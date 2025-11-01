@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import { prisma } from '@/lib/db/prisma'
 import { generateWorkspaceSlug, validateWorkspaceUrl } from '@/utils/team-utils'
+import { extractEmailDomain, isPublicEmailDomain } from '@/utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,6 +106,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Extract domain from user's email if not a public email provider
+    let domain: string | undefined
+    if (session.user.email) {
+      const emailDomain = extractEmailDomain(session.user.email)
+      if (emailDomain && !isPublicEmailDomain(emailDomain)) {
+        domain = emailDomain
+      }
+    }
+
     // Create team, workspace, and membership in a transaction
     const result = await prisma.$transaction(async tx => {
       // Create team
@@ -112,6 +122,8 @@ export async function POST(request: NextRequest) {
         data: {
           name: teamName.trim(),
           workspaceUrl,
+          domain,
+          allowAutoJoin: true, // Default to true, owner can change later
         },
       })
 

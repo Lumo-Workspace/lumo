@@ -21,6 +21,14 @@ enum TeamSize {
   TWO_HUNDRED_PLUS   // 200+
 }
 
+// Enum for team member roles
+enum TeamRole {
+  owner
+  admin
+  member
+  guest
+}
+
 // NextAuth.js required models
 model Account {
   id                String  @id @default(cuid())
@@ -94,6 +102,10 @@ model User {
   // Team relationships
   teamMemberships TeamMember[]
 
+  // Document relationships
+  authoredDocuments Document[]        @relation("UserToDocuments")
+  authoredUpdatedDocuments Document[] @relation("UserToUpdatedDocuments")
+
   @@index([email])  // For account matching queries
   @@index([displayName]) // For team member list queries
   @@map("users")
@@ -119,30 +131,33 @@ model UserProfile {
 
 // Team and Workspace models for onboarding
 model Team {
-  id          String   @id @default(cuid())
-  name        String
-  workspaceUrl String  @unique // e.g., "hello-world" for uselumo.ai/hello-world
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  workspaceUrl  String  @unique // e.g., "hello-world" for uselumo.ai/hello-world
+  domain        String? @unique // e.g., "acme.com" for auto-join
+  allowAutoJoin Boolean @default(true) // Allow auto-join for same domain emails
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
   // Relationships
   members     TeamMember[]
   workspace   Workspace?
   
   @@index([workspaceUrl])
+  @@index([domain])
   @@map("teams")
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   teamId    String
-  role      String   @default("owner") // owner, member, admin
-  joinedAt  DateTime @default(now())
+  role      TeamRole  @default(member)
+  joinedAt  DateTime  @default(now())
   
   // Relationships
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   
   @@unique([userId, teamId])
   @@index([userId])
@@ -161,5 +176,38 @@ model Workspace {
   // Relationships
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   
+  // Documents relationship
+  documents Document[]
+  
   @@map("workspaces")
+}
+
+enum DocumentStatus {
+  draft
+  published
+  archived
+}
+
+model Document {
+  id                 String            @id @default(cuid())
+  workspaceId        String
+  title              String
+  slug               String
+  path               String
+  status             DocumentStatus    @default(draft)
+  content            Json
+  authorId           String
+  updatedById        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author             User              @relation(fields: [authorId], references: [id], name: "UserToDocuments")
+  updatedBy          User?             @relation(fields: [updatedById], references: [id], name: "UserToUpdatedDocuments")
+
+  @@unique([workspaceId, path])
+  @@index([workspaceId])
+  @@map("documents")
 }
