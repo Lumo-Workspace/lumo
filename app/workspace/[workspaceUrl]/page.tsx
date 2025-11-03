@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import { prisma } from '@/lib/db/prisma'
-import MarkdownEditor from '@/components/core/editor/markdown/MarkdownEditor'
+import RichTextEditor from '@/components/core/editor/rich-text/RichTextEditor'
 
 // In Next.js 16 App Router, params is a Promise in server components
 export default async function WorkspaceAppPage({
@@ -45,7 +45,7 @@ export default async function WorkspaceAppPage({
 
   return (
     <div className='min-h-screen bg-white'>
-      <MarkdownEditor />
+      <RichTextEditor />
     </div>
   )
 }

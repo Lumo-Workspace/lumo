@@ -1,5 +1,20 @@
 'use client'
 
+/**
+ * DemoWorkspaceContainer - Demo 工作区容器组件
+ *
+ * 这个组件包含了完整的工作区界面，用于 demo 页面展示，包括：
+ * - 侧边栏（Sidebar）
+ * - AI 聊天（AIChat）
+ * - 收件箱视图（InboxView）
+ * - 共享视图（SharedView）
+ * - 团队视图（TeamView）
+ * - 富文本编辑器（RichTextEditor）
+ *
+ * 主要用于 demo 页面，展示完整的功能。
+ * 实际的 workspace 页面使用 layout + RichTextEditor 的分离结构。
+ */
+
 // 组件导入
 import ContextMenu from '@/components/core/ui/ContextMenu'
 import DeleteDialog from '@/components/core/ui/DeleteDialog'
@@ -17,9 +32,9 @@ import { useNotifications } from '../../../../hooks/use-notifications'
 import { useUIState } from '../../../../hooks/use-ui-state'
 import { useTeams } from '../../../../hooks/use-teams'
 
-interface MarkdownEditorProps {}
+interface DemoWorkspaceContainerProps {}
 
-export default function MarkdownEditor({}: MarkdownEditorProps) {
+export default function DemoWorkspaceContainer({}: DemoWorkspaceContainerProps) {
   // 页面管理
   const {
     pages,
