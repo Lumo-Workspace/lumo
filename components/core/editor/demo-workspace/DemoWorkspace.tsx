@@ -1,5 +1,13 @@
 'use client'
 
+/**
+ * DemoWorkspace - Demo 工作区组件
+ *
+ * 使用 dynamic import 加载 DemoWorkspaceContainer，
+ * 提供代码分割和加载状态。
+ * 主要用于 demo 页面展示完整的工作区功能。
+ */
+
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -19,6 +27,6 @@ const DemoWorkspaceContainer = dynamic(
   }
 )
 
-export default function MarkdownEditor() {
+export default function DemoWorkspace() {
   return <DemoWorkspaceContainer />
 }

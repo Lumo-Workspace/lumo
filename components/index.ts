@@ -1,7 +1,7 @@
 // Core Components
 export { default as RichTextEditor } from './core/editor/rich-text/RichTextEditor'
-export { default as MarkdownEditor } from './core/editor/markdown/MarkdownEditor'
-export { default as DemoWorkspaceContainer } from './core/editor/markdown/DemoWorkspaceContainer'
+export { default as DemoWorkspace } from './core/editor/demo-workspace/DemoWorkspace'
+export { default as DemoWorkspaceContainer } from './core/editor/demo-workspace/DemoWorkspaceContainer'
 export { TableOfContents } from './core/editor/table-of-contents/TableOfContents'
 export { BubbleMenuComponent } from './core/editor/floating-menu/BubbleMenuComponent'
 export { default as DocumentEditor } from './core/editor/DocumentEditor'
