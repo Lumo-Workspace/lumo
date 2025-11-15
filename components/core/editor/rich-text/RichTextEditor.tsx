@@ -1,7 +1,7 @@
 'use client'
 
 import './RichTextEditor.scss'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { CustomDocument } from '../tiptap/extensions/custom-document'
 import { CustomPlaceholder } from '../tiptap/extensions/custom-placeholder'
@@ -21,9 +21,14 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { useEffect, useRef } from 'react'
-import { BubbleMenuComponent } from '../floating-menu/BubbleMenuComponent'
-import { TableOfContents } from '../table-of-contents/TableOfContents'
 import { TableOfContents as TableOfContentsExtension } from '../../../../extensions/table-of-contents'
+import { RichTextEditorLayout } from './RichTextEditorLayout'
+import { RichTextEditorLoader } from './RichTextEditorLoader'
+import {
+  useEditorContentSync,
+  useEditorEditableSync,
+  useEnsureFirstLineH1,
+} from './RichTextEditorHooks'
 
 interface HeadlessTipTapEditorProps {
   content?: string
@@ -196,19 +201,10 @@ export default function HeadlessTipTapEditor({
     },
   })
 
-  // 当外部内容变化时更新编辑器
-  useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content)
-    }
-  }, [editor, content])
-
-  // 当可编辑状态变化时更新编辑器
-  useEffect(() => {
-    if (editor) {
-      editor.setEditable(editable)
-    }
-  }, [editor, editable])
+  // Custom hooks for editor state management
+  useEditorContentSync(editor, content)
+  useEditorEditableSync(editor, editable)
+  useEnsureFirstLineH1(editor)
 
   // 清理编辑器实例
   useEffect(() => {
@@ -218,37 +214,10 @@ export default function HeadlessTipTapEditor({
   }, [editor])
 
   if (!editor) {
-    return (
-      <div className='flex-1 flex items-center justify-center bg-gray-50'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4'></div>
-          <p className='text-gray-500'>加载编辑器中...</p>
-        </div>
-      </div>
-    )
+    return <RichTextEditorLoader />
   }
 
-  return (
-    <div className='bg-white relative h-full w-full flex'>
-      {/* 左侧目录 */}
-      <div className='w-64 p-4 overflow-y-auto'>
-        <TableOfContents />
-      </div>
-
-      {/* 右侧编辑器内容区域 */}
-      <div className='flex-1 p-4 h-full'>
-        <div ref={editorRef} className='w-full h-full relative'>
-          <EditorContent
-            editor={editor}
-            className='min-h-[200px] w-full h-full'
-          />
-
-          {/* BubbleMenu 浮动菜单 */}
-          {editor && <BubbleMenuComponent editor={editor} />}
-        </div>
-      </div>
-    </div>
-  )
+  return <RichTextEditorLayout editor={editor} editorRef={editorRef} />
 }
 
 // 导出编辑器方法类型，供父组件使用

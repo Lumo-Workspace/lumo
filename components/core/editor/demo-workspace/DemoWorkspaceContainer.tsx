@@ -18,9 +18,8 @@
 // 组件导入
 import ContextMenu from '@/components/core/ui/ContextMenu'
 import DeleteDialog from '@/components/core/ui/DeleteDialog'
-import Sidebar from '@/components/layouts/Sidebar'
+import EditorSidebar from '@/components/layouts/EditorSidebar'
 import InboxView from '@/components/features/document-management/InboxView'
-// import EditorView from './editor-view' // 暂时不使用
 import SharedView from '@/components/features/document-management/SharedView'
 import TeamView from '@/components/features/project-management/team/team-view'
 import AIChat from '@/components/features/ai/AIChat'
@@ -263,7 +262,7 @@ export default function DemoWorkspaceContainer({}: DemoWorkspaceContainerProps) 
               />
             </div>
           ) : (
-            <Sidebar
+            <EditorSidebar
               pages={pages}
               currentPageId={currentPageId}
               currentView={currentView}

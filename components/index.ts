@@ -91,7 +91,8 @@ export { default as AccountLinking } from './features/user-management/auth/accou
 export { AuthErrorAlert } from './features/user-management/auth/auth-error-alert'
 
 // Layouts
-export { default as Sidebar } from './layouts/Sidebar'
+export { default as EditorSidebar } from './layouts/EditorSidebar'
+export { default as WorkspaceSidebar } from './workspace/WorkspaceSidebar'
 export { default as Breadcrumb } from './layouts/Breadcrumb'
 export { default as UnifiedBreadcrumb } from './layouts/UnifiedBreadcrumb'
 export { default as LandingPage } from './layouts/LandingPage'

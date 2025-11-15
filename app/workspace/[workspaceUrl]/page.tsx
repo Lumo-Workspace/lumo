@@ -1,47 +1,22 @@
-import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/config'
-import { prisma } from '@/lib/db/prisma'
+import { getWorkspaceData } from '@/lib/workspace/get-workspace-data'
 import RichTextEditor from '@/components/core/editor/rich-text/RichTextEditor'
 
-// In Next.js 16 App Router, params is a Promise in server components
+/**
+ * WorkspaceAppPage - Server Component
+ * Follows Next.js 16 patterns:
+ * - params is a Promise (must await)
+ * - Server Component by default (no 'use client')
+ * - Data fetching at the component level
+ */
 export default async function WorkspaceAppPage({
   params,
 }: {
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
-  const session = await getServerSession(authOptions)
 
-  // Require auth
-  if (!session?.user) {
-    redirect('/login')
-  }
-
-  if (!workspaceUrl) {
-    redirect('/workspace')
-  }
-
-  // Verify workspace exists
-  const team = await prisma.team.findUnique({ where: { workspaceUrl } })
-  if (!team) {
-    // Unknown slug → 404-like behaviour
-    redirect('/workspace')
-  }
-
-  // Verify user membership
-  const membership = await prisma.teamMember.findFirst({
-    where: { teamId: team.id, userId: session.user.id },
-  })
-
-  if (!membership) {
-    // Not authorized for this workspace; if user has a default workspace, send them there
-    if (session.user.workspaceUrl) {
-      redirect(`/workspace/${session.user.workspaceUrl}`)
-    } else {
-      redirect('/onboarding')
-    }
-  }
+  // Server-side data fetching and auth checks
+  await getWorkspaceData(workspaceUrl)
 
   return (
     <div className='min-h-screen bg-white'>

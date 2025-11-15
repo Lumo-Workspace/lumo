@@ -39,7 +39,7 @@ interface Notification {
   type: 'comment' | 'task' | 'update' | 'mention'
 }
 
-interface SidebarProps {
+interface EditorSidebarProps {
   pages: Record<string, Page>
   currentPageId: string
   currentView: 'editor' | 'inbox' | 'shared' | 'teams'
@@ -112,7 +112,7 @@ interface SidebarProps {
   onAIToggle: () => void
 }
 
-export default function Sidebar({
+export default function EditorSidebar({
   pages,
   currentPageId,
   currentView,
@@ -150,7 +150,7 @@ export default function Sidebar({
   onTitleSubmit,
   onTitleCancel,
   onAIToggle,
-}: SidebarProps) {
+}: EditorSidebarProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   const handleCreatePage = (type: string, title?: string) => {
