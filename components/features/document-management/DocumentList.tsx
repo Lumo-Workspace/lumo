@@ -26,10 +26,10 @@ interface Document {
 interface DocumentListProps {
   workspaceId: string
   currentDocumentId?: string | null | undefined
-  onDocumentSelect?: ((_documentId: string) => void) | undefined
+  onDocumentSelect?: any | undefined
   refreshTrigger?: number // Trigger refresh when this changes
-  onRenameRequest?: (_documentId: string) => void
-  onDeleteRequest?: (_documentId: string) => void
+  onRenameRequest?: any
+  onDeleteRequest?: any
 }
 
 /**
