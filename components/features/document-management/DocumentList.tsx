@@ -8,6 +8,12 @@ import {
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { FilePenLine } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 
 interface Document {
   documentId: string
@@ -20,8 +26,10 @@ interface Document {
 interface DocumentListProps {
   workspaceId: string
   currentDocumentId?: string | null | undefined
-  onDocumentSelect?: ((documentId: string) => void) | undefined
+  onDocumentSelect?: ((_documentId: string) => void) | undefined
   refreshTrigger?: number // Trigger refresh when this changes
+  onRenameRequest?: (_documentId: string) => void
+  onDeleteRequest?: (_documentId: string) => void
 }
 
 /**
@@ -33,6 +41,8 @@ export function DocumentList({
   currentDocumentId,
   onDocumentSelect,
   refreshTrigger,
+  onRenameRequest,
+  onDeleteRequest,
 }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +88,6 @@ export function DocumentList({
         setError(
           err instanceof Error ? err.message : 'Failed to load documents'
         )
-        console.error('Failed to fetch documents:', err)
       } finally {
         setLoading(false)
       }
@@ -134,19 +143,36 @@ export function DocumentList({
 
         return (
           <SidebarMenuItem key={doc.documentId}>
-            <SidebarMenuButton
-              isActive={isActive}
-              onClick={() => handleDocumentClick(doc.documentId)}
-              className={cn(
-                'flex items-center gap-2 px-2 py-2 h-auto w-full',
-                isActive && 'bg-accent'
-              )}
-            >
-              <FilePenLine className='h-4 w-4 text-muted-foreground shrink-0' />
-              <span className='text-sm font-medium truncate flex-1'>
-                {doc.title}
-              </span>
-            </SidebarMenuButton>
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <SidebarMenuButton
+                  isActive={isActive}
+                  onClick={() => handleDocumentClick(doc.documentId)}
+                  className={cn(
+                    'flex items-center gap-2 px-2 py-2 h-auto w-full',
+                    isActive && 'bg-accent'
+                  )}
+                >
+                  <FilePenLine className='h-4 w-4 text-muted-foreground shrink-0' />
+                  <span className='text-sm font-medium truncate flex-1'>
+                    {doc.title}
+                  </span>
+                </SidebarMenuButton>
+              </ContextMenuTrigger>
+              <ContextMenuContent className='w-52'>
+                <ContextMenuItem
+                  onClick={() => onRenameRequest?.(doc.documentId)}
+                >
+                  Rename
+                </ContextMenuItem>
+                <ContextMenuItem
+                  className='text-destructive focus:text-destructive'
+                  onClick={() => onDeleteRequest?.(doc.documentId)}
+                >
+                  Delete
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </SidebarMenuItem>
         )
       })}
