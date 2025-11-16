@@ -17,10 +17,6 @@ function slugify(input: string): string {
   return slug.slice(0, 50)
 }
 
-function buildPath(slug: string): string {
-  return `/${slug}`
-}
-
 // Build a path using a random UUID to avoid collisions and decouple from title
 function buildUuidPath() {
   const uuid = crypto.randomUUID()

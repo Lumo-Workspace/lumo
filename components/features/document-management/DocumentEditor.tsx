@@ -92,7 +92,6 @@ export function DocumentEditor({
   const {
     saveState,
     error: saveError,
-    save,
     debouncedSave,
     lastSaved,
   } = useDocumentSave({
