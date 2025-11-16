@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import crypto from 'node:crypto'
 import { validateTipTapContent } from '@/utils/validation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
@@ -18,6 +19,13 @@ function slugify(input: string): string {
 
 function buildPath(slug: string): string {
   return `/${slug}`
+}
+
+// Build a path using a random UUID to avoid collisions and decouple from title
+function buildUuidPath() {
+  const uuid = crypto.randomUUID()
+  // prefix with /d/ to clearly indicate document path
+  return `/d/${uuid}`
 }
 
 export async function POST(req: NextRequest) {
@@ -51,8 +59,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: contentError }, { status: 400 })
     }
 
+    // Slug is derived from title for display only; path is UUID-based for stability
     const slug = slugify(title)
-    const path = buildPath(slug)
+    let path = buildUuidPath()
+    // Extremely unlikely, but guard against collisions
+    // (best-effort single retry)
+    const conflict = await prisma.document.findFirst({
+      where: { workspaceId, path, deletedAt: null },
+      select: { id: true },
+    })
+    if (conflict) {
+      path = buildUuidPath()
+    }
 
     const doc = await prisma.document.create({
       data: {

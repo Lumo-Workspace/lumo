@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -7,47 +8,87 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
 } from '@/components/ui/sidebar'
-import { WorkspaceSidebarNav } from './WorkspaceSidebarNav'
-
-type NavItem = { href: string; label: string }
-
-const draftItems: NavItem[] = [{ href: '#/draft', label: 'Draft' }]
-const workspaceItems: NavItem[] = [{ href: '#/documents', label: 'Documents' }]
+import { DocumentList } from '@/components/features/document-management/DocumentList'
+import { useDocumentCreator } from '@/components/features/document-management/DocumentCreator'
+import { FilePlus } from 'lucide-react'
 
 interface WorkspaceSidebarContentProps {
   workspaceUrl: string
+  workspaceId: string
+  currentDocumentId?: string | null | undefined
+  onDocumentSelect?: ((documentId: string) => void) | undefined
+  onDocumentCreate?: ((documentId: string) => void) | undefined
 }
 
 export function WorkspaceSidebarContent({
-  workspaceUrl,
+  workspaceId,
+  currentDocumentId,
+  onDocumentSelect,
+  onDocumentCreate,
 }: WorkspaceSidebarContentProps) {
+  const [isCreating, setIsCreating] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const { createDocument } = useDocumentCreator({
+    workspaceId,
+    onCreate: documentId => {
+      setIsCreating(false)
+      setRefreshTrigger(prev => prev + 1) // Trigger document list refresh
+      onDocumentCreate?.(documentId)
+      onDocumentSelect?.(documentId)
+    },
+  })
+
+  const handleCreateFile = async () => {
+    try {
+      setIsCreating(true)
+      await createDocument()
+    } catch (err) {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <ShadcnSidebar collapsible='icon'>
-      <SidebarHeader>
-        <div className='flex items-center px-2 text-sm font-semibold'>
-          Workspace
-        </div>
-      </SidebarHeader>
+      <SidebarHeader />
       <SidebarContent>
+        {/* Empty group for top-level actions */}
         <SidebarGroup>
-          <SidebarGroupLabel>Draft</SidebarGroupLabel>
           <SidebarGroupContent>
-            <WorkspaceSidebarNav
-              items={draftItems}
-              workspaceUrl={workspaceUrl}
-            />
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={handleCreateFile}
+                  className='flex items-center gap-2'
+                  title='Create a file'
+                  disabled={isCreating}
+                >
+                  <FilePlus className='h-4 w-4' />
+                  <span>Create a file</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>Draft</SidebarGroupLabel>
           <SidebarGroupContent>
-            <WorkspaceSidebarNav
-              items={workspaceItems}
-              workspaceUrl={workspaceUrl}
+            <DocumentList
+              workspaceId={workspaceId}
+              currentDocumentId={currentDocumentId}
+              onDocumentSelect={onDocumentSelect}
+              refreshTrigger={refreshTrigger}
             />
           </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupContent />
         </SidebarGroup>
       </SidebarContent>
     </ShadcnSidebar>

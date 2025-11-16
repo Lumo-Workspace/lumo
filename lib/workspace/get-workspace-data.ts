@@ -9,6 +9,9 @@ interface WorkspaceData {
     name: string
     workspaceUrl: string
   }
+  workspace: {
+    id: string
+  }
   membership: {
     id: string
     role: string
@@ -38,9 +41,17 @@ export async function getWorkspaceData(
   }
 
   // Verify workspace exists
-  const team = await prisma.team.findUnique({ where: { workspaceUrl } })
+  const team = await prisma.team.findUnique({
+    where: { workspaceUrl },
+    include: { workspace: true },
+  })
   if (!team) {
     // Unknown slug → 404-like behaviour
+    redirect('/workspace')
+  }
+
+  if (!team.workspace) {
+    // Workspace not found
     redirect('/workspace')
   }
 
@@ -63,6 +74,9 @@ export async function getWorkspaceData(
       id: team.id,
       name: team.name,
       workspaceUrl: team.workspaceUrl,
+    },
+    workspace: {
+      id: team.workspace.id,
     },
     membership: {
       id: membership.id,

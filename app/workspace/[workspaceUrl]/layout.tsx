@@ -1,5 +1,5 @@
 import { getWorkspaceData } from '@/lib/workspace/get-workspace-data'
-import WorkspaceSidebar from '@/components/workspace/WorkspaceSidebar'
+import { WorkspaceLayoutClient } from './layout-client'
 
 /**
  * WorkspaceLayout - Server Component Layout
@@ -18,12 +18,14 @@ export default async function WorkspaceLayout({
   const { workspaceUrl } = await params
 
   // Server-side auth and authorization check
-  await getWorkspaceData(workspaceUrl)
+  const workspaceData = await getWorkspaceData(workspaceUrl)
 
   return (
-    <div className='min-h-screen grid grid-cols-[16rem_1fr]'>
-      <WorkspaceSidebar workspaceUrl={workspaceUrl} />
-      <main className='min-h-screen bg-white'>{children}</main>
-    </div>
+    <WorkspaceLayoutClient
+      workspaceUrl={workspaceUrl}
+      workspaceId={workspaceData.workspace.id}
+    >
+      {children}
+    </WorkspaceLayoutClient>
   )
 }

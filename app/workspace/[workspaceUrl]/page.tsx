@@ -1,5 +1,5 @@
 import { getWorkspaceData } from '@/lib/workspace/get-workspace-data'
-import RichTextEditor from '@/components/core/editor/rich-text/RichTextEditor'
+import { WorkspacePageClient } from './page-client'
 
 /**
  * WorkspaceAppPage - Server Component
@@ -16,11 +16,7 @@ export default async function WorkspaceAppPage({
   const { workspaceUrl } = await params
 
   // Server-side data fetching and auth checks
-  await getWorkspaceData(workspaceUrl)
+  const workspaceData = await getWorkspaceData(workspaceUrl)
 
-  return (
-    <div className='min-h-screen bg-white'>
-      <RichTextEditor />
-    </div>
-  )
+  return <WorkspacePageClient workspaceId={workspaceData.workspace.id} />
 }

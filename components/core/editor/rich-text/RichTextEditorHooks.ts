@@ -4,10 +4,24 @@ import type { Editor } from '@tiptap/react'
 /**
  * Custom hook to sync external content with editor
  * Follows React 19 patterns for hooks
+ * Supports both HTML string and TipTap JSON
  */
-export function useEditorContentSync(editor: Editor | null, content: string) {
+export function useEditorContentSync(
+  editor: Editor | null,
+  content: string | any
+) {
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (!editor || !content) return
+
+    // Check if content is TipTap JSON (object with type property)
+    const isJSON = typeof content === 'object' && content.type === 'doc'
+    const currentContent = isJSON
+      ? JSON.stringify(editor.getJSON())
+      : editor.getHTML()
+
+    const newContent = isJSON ? JSON.stringify(content) : content
+
+    if (currentContent !== newContent) {
       editor.commands.setContent(content)
     }
   }, [editor, content])

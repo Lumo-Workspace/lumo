@@ -31,18 +31,22 @@ import {
 } from './RichTextEditorHooks'
 
 interface HeadlessTipTapEditorProps {
-  content?: string
-  onUpdate?: (_content: string) => void
+  content?: string | any // HTML string or TipTap JSON
+  onUpdate?: (_content: string) => void // Returns HTML
+  onUpdateJSON?: (_content: any) => void // Returns TipTap JSON
   placeholder?: string
   editable?: boolean
   className?: string
+  documentId?: string | null
 }
 
 export default function HeadlessTipTapEditor({
   content = '',
   onUpdate,
+  onUpdateJSON,
   editable = true,
   className = '',
+  documentId: _documentId,
 }: HeadlessTipTapEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const editor = useEditor({
@@ -191,7 +195,9 @@ export default function HeadlessTipTapEditor({
     editable,
     onUpdate: ({ editor }: { editor: any }) => {
       const html = editor.getHTML()
+      const json = editor.getJSON()
       onUpdate?.(html)
+      onUpdateJSON?.(json)
     },
     editorProps: {
       attributes: {
