@@ -1,5 +1,14 @@
 import Document from '@tiptap/extension-document'
 
+// Extend TipTap's Commands interface so addCommands() can declare `ensureTitle`
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    customDocument: {
+      ensureTitle: () => ReturnType
+    }
+  }
+}
+
 // 自定义文档扩展，确保文档始终以标题开始
 export const CustomDocument = Document.extend({
   content: 'heading block*', // 强制要求文档以 heading 开始，然后是其他块级元素
