@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 import {
   DndContext,
@@ -10,9 +10,9 @@ import {
   useDroppable,
   SensorDescriptor,
   SensorOptions,
-} from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { MoreHorizontal, Plus } from 'lucide-react';
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { Plus } from 'lucide-react'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -20,15 +20,15 @@ function DroppableColumn({
   id,
   children,
 }: {
-  id: string;
-  children: React.ReactNode;
+  id: string
+  children: React.ReactNode
 }) {
-  const { setNodeRef } = useDroppable({ id });
+  const { setNodeRef } = useDroppable({ id })
   return (
-    <div ref={setNodeRef} className="flex-1 space-y-3 min-h-[200px]">
+    <div ref={setNodeRef} className='flex-1 space-y-3 min-h-[200px]'>
       {children}
     </div>
-  );
+  )
 }
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -37,24 +37,28 @@ const COLUMNS = [
   { status: 'TODO' as const, label: 'Todo' },
   { status: 'IN_PROGRESS' as const, label: 'In Progress' },
   { status: 'DONE' as const, label: 'Done' },
-];
+]
 
 // ─── BoardView ────────────────────────────────────────────────────────────────
 
-interface BoardViewProps<T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' }> {
-  tasks: T[];
-  sensors: SensorDescriptor<SensorOptions>[];
-  activeId: string | null;
-  onDragStart: (event: { active: { id: string | number } }) => void;
-  onDragOver: (event: DragOverEvent) => void;
-  onDragEnd: (event: DragEndEvent) => void;
+interface BoardViewProps<
+  T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' },
+> {
+  tasks: T[]
+  sensors: SensorDescriptor<SensorOptions>[]
+  activeId: string | null
+  onDragStart: (event: { active: { id: string | number } }) => void
+  onDragOver: (event: DragOverEvent) => void
+  onDragEnd: (event: DragEndEvent) => void
   /** Render a task card. Pass isOverlay=true when rendering inside DragOverlay. */
-  renderCard: (task: T, isOverlay: boolean) => React.ReactNode;
+  renderCard: (task: T, isOverlay: boolean) => React.ReactNode
   /** If provided, shows "Add task" button at the bottom of each column. */
-  onAddTask?: () => void;
+  onAddTask?: () => void
 }
 
-export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' }>({
+export function BoardView<
+  T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' },
+>({
   tasks,
   sensors,
   activeId,
@@ -64,7 +68,7 @@ export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS'
   renderCard,
   onAddTask,
 }: BoardViewProps<T>) {
-  const activeTask = tasks.find(t => t.id === activeId) ?? null;
+  const activeTask = tasks.find(t => t.id === activeId) ?? null
 
   return (
     <DndContext
@@ -74,24 +78,21 @@ export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS'
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="p-8 flex gap-6 h-full bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start">
+      <div className='p-8 flex gap-6 h-full bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start'>
         {COLUMNS.map(({ status, label }) => {
-          const col = tasks.filter(t => t.status === status);
+          const col = tasks.filter(t => t.status === status)
           return (
-            <div key={status} className="w-80 min-w-[320px] flex flex-col">
+            <div key={status} className='w-80 min-w-[320px] flex flex-col'>
               {/* Column header */}
-              <div className="flex items-center justify-between px-1 mb-3 shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+              <div className='flex items-center justify-between px-1 mb-3 shrink-0'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs font-semibold text-zinc-500 uppercase tracking-wider'>
                     {label}
                   </span>
-                  <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                  <span className='bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold'>
                     {col.length}
                   </span>
                 </div>
-                <button className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
-                  <MoreHorizontal size={14} />
-                </button>
               </div>
 
               {/* Cards */}
@@ -105,7 +106,7 @@ export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS'
                   {onAddTask && (
                     <button
                       onClick={onAddTask}
-                      className="flex items-center gap-1.5 w-full text-left px-2 py-1.5 mt-1 rounded-md text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className='flex items-center gap-1.5 w-full text-left px-2 py-1.5 mt-1 rounded-md text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors'
                     >
                       <Plus size={16} />
                       Add task
@@ -114,7 +115,7 @@ export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS'
                 </DroppableColumn>
               </SortableContext>
             </div>
-          );
+          )
         })}
       </div>
 
@@ -129,5 +130,5 @@ export function BoardView<T extends { id: string; status: 'TODO' | 'IN_PROGRESS'
         {activeTask ? renderCard(activeTask, true) : null}
       </DragOverlay>
     </DndContext>
-  );
+  )
 }

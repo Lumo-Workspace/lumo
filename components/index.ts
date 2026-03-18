@@ -1,7 +1,5 @@
 // Core Components
 export { default as RichTextEditor } from './core/editor/rich-text/RichTextEditor'
-export { default as DemoWorkspace } from './core/editor/demo-workspace/DemoWorkspace'
-export { default as DemoWorkspaceContainer } from './core/editor/demo-workspace/DemoWorkspaceContainer'
 export { TableOfContents } from './core/editor/table-of-contents/TableOfContents'
 export { BubbleMenuComponent } from './core/editor/floating-menu/BubbleMenuComponent'
 export { default as DocumentEditor } from './core/editor/DocumentEditor'
@@ -13,7 +11,6 @@ export { default as ErrorBoundary } from './core/ui/ErrorBoundary'
 export { ErrorBoundary as ErrorBoundaryV2 } from './core/ui/ErrorBoundaryV2'
 export { default as ContextMenu } from './core/ui/ContextMenu'
 export { default as CreateDialog } from './core/ui/CreateDialog'
-export { default as DeleteDialog } from './core/ui/DeleteDialog'
 export { default as TaskModal } from './core/ui/TaskModal'
 export { default as BlockRenderer } from './core/ui/BlockRenderer'
 
@@ -72,7 +69,6 @@ export { default as DocumentOutline } from './features/document-management/Docum
 export { default as PageTree } from './features/document-management/PageTree'
 export { default as MetadataPanel } from './features/document-management/MetadataPanel'
 export { default as InboxView } from './features/document-management/InboxView'
-export { default as SharedView } from './features/document-management/SharedView'
 
 // User Management
 export { ProfileSettings } from './features/user-management/ProfileSettings'

@@ -44,7 +44,12 @@ export interface Project {
   updatedAt: Date
 }
 
-export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled'
+export type ProjectStatus =
+  | 'planning'
+  | 'active'
+  | 'on-hold'
+  | 'completed'
+  | 'cancelled'
 
 export interface PRD {
   id: string
@@ -94,7 +99,12 @@ export interface Story {
   updatedAt: Date
 }
 
-export type StoryStatus = 'backlog' | 'ready' | 'in-progress' | 'review' | 'done'
+export type StoryStatus =
+  | 'backlog'
+  | 'ready'
+  | 'in-progress'
+  | 'review'
+  | 'done'
 
 export interface Task {
   id: string
@@ -137,7 +147,14 @@ export interface Block {
   order: number
 }
 
-export type BlockType = 'text' | 'heading' | 'list' | 'code' | 'image' | 'quote' | 'divider'
+export type BlockType =
+  | 'text'
+  | 'heading'
+  | 'list'
+  | 'code'
+  | 'image'
+  | 'quote'
+  | 'divider'
 
 // AI 相关类型
 export interface Agent {
@@ -157,7 +174,12 @@ export interface Agent {
 }
 
 export type AgentRole = 'PM' | 'UX' | 'Dev' | 'QA' | 'BA'
-export type AgentStatus = 'active' | 'thinking' | 'reviewing' | 'idle' | 'offline'
+export type AgentStatus =
+  | 'active'
+  | 'thinking'
+  | 'reviewing'
+  | 'idle'
+  | 'offline'
 
 export interface AgentRecommendation {
   agentId: string
@@ -177,7 +199,11 @@ export interface QualityCheck {
   category: QualityCategory
 }
 
-export type QualityCategory = 'completeness' | 'clarity' | 'feasibility' | 'consistency'
+export type QualityCategory =
+  | 'completeness'
+  | 'clarity'
+  | 'feasibility'
+  | 'consistency'
 
 // API 响应类型
 export interface ApiResponse<T = any> {
@@ -223,7 +249,11 @@ export interface PageEvent extends BaseEvent {
 }
 
 export interface StoryEvent extends BaseEvent {
-  type: 'story.created' | 'story.updated' | 'story.deleted' | 'story.status-changed'
+  type:
+    | 'story.created'
+    | 'story.updated'
+    | 'story.deleted'
+    | 'story.status-changed'
   storyId: string
   epicId?: string
 }
@@ -280,12 +310,6 @@ export interface ContextMenuState {
   x: number
   y: number
   pageId: string
-}
-
-export interface DeleteDialogState {
-  show: boolean
-  pageId: string
-  pageTitle: string
 }
 
 // 导出所有类型的联合类型
