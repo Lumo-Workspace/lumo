@@ -17,9 +17,9 @@ const sourceCodePro = Source_Code_Pro({
 })
 
 export const metadata: Metadata = {
-  title: 'Lumo AI',
-  description: 'Document and Project Management Platform with Kanban View',
-  generator: 'v0.app',
+  title: 'Lumo — Execution OS for Builders',
+  description:
+    'Turn your app idea into a structured, actionable build plan in seconds.',
 }
 
 export default function RootLayout({

@@ -88,7 +88,7 @@ export { UserProfile } from './features/user-management/auth/user-profile'
 export { UserProfileClient } from './features/user-management/auth/user-profile-client'
 export { UserProfileContent } from './features/user-management/auth/user-profile-content'
 export { default as AccountLinking } from './features/user-management/auth/account-linking'
-export { AuthErrorAlert } from './features/user-management/auth/auth-error-alert'
+// AuthErrorAlert removed in Sprint 1 (Clerk handles auth errors)
 
 // Layouts
 export { default as EditorSidebar } from './layouts/EditorSidebar'

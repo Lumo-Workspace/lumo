@@ -1,27 +1,57 @@
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/(.*)',
+])
 
-  // Protect app routes - redirect to onboarding if no team
-  if (path.startsWith('/app')) {
-    // This will be checked server-side in the page component
-    // Middleware runs before the page, so we just let it through
-    // The app page will check team membership and redirect
+export default clerkMiddleware(async (auth, request) => {
+  const { userId } = await auth()
+  const { pathname } = request.nextUrl
+
+  // Redirect unauthenticated users from "/" to sign-in
+  if (!userId && pathname === '/') {
+    return NextResponse.redirect(new URL('/sign-in', request.url))
+  }
+
+  // Protect all non-public routes
+  if (!isPublicRoute(request)) {
+    await auth.protect()
+  }
+
+  // Redirect authenticated users away from sign-in/sign-up to dashboard
+  if (userId && (pathname === '/' || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Authenticated but no workspace → redirect to onboarding
+  // (except if already going to /onboarding or /settings or /dashboard)
+  if (userId) {
+    const isOnboarding = pathname.startsWith('/onboarding')
+    const isSettings = pathname.startsWith('/settings')
+    const isDashboard = pathname.startsWith('/dashboard')
+
+    // Workspace check will be implemented in Sprint 2
+    // For now, allow all authenticated users through
+    void isOnboarding
+    void isSettings
+    void isDashboard
   }
 
   return NextResponse.next()
-}
+})
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all paths except:
+     * - _next/static  (static files)
+     * - _next/image   (image optimization)
+     * - favicon.ico
+     * - public folder assets (svg, png, jpg, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)',
   ],
 }

@@ -1,12 +1,11 @@
-import { getWorkspaceData } from '@/lib/workspace/get-workspace-data'
+import { redirect } from 'next/navigation'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db/prisma'
 import { WorkspaceLayoutClient } from './layout-client'
 
 /**
- * WorkspaceLayout - Server Component Layout
- * Follows Next.js 16 patterns:
- * - Server Component by default
- * - params is a Promise (must await)
- * - Reuses server-side data fetching logic
+ * WorkspaceLayout — Server Component.
+ * Validates workspace access, then renders client layout.
  */
 export default async function WorkspaceLayout({
   children,
@@ -16,14 +15,30 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
+  const { userId } = await auth()
 
-  // Server-side auth and authorization check
-  const workspaceData = await getWorkspaceData(workspaceUrl)
+  if (!userId) redirect('/sign-in')
+
+  // Find workspace by slug
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug: workspaceUrl },
+  })
+
+  if (!workspace) redirect('/dashboard')
+
+  // Verify membership
+  const member = await prisma.workspaceMember.findUnique({
+    where: {
+      workspaceId_clerkId: { workspaceId: workspace.id, clerkId: userId },
+    },
+  })
+
+  if (!member) redirect('/dashboard')
 
   return (
     <WorkspaceLayoutClient
       workspaceUrl={workspaceUrl}
-      workspaceId={workspaceData.workspace.id}
+      workspaceId={workspace.id}
     >
       {children}
     </WorkspaceLayoutClient>

@@ -1,12 +1,11 @@
-import { getWorkspaceData } from '@/lib/workspace/get-workspace-data'
+import { redirect } from 'next/navigation'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db/prisma'
 import { WorkspacePageClient } from './page-client'
 
 /**
- * WorkspaceAppPage - Server Component
- * Follows Next.js 16 patterns:
- * - params is a Promise (must await)
- * - Server Component by default (no 'use client')
- * - Data fetching at the component level
+ * WorkspaceAppPage — Server Component.
+ * Sprint 4 will add full project routing.
  */
 export default async function WorkspaceAppPage({
   params,
@@ -14,9 +13,15 @@ export default async function WorkspaceAppPage({
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
+  const { userId } = await auth()
 
-  // Server-side data fetching and auth checks
-  const workspaceData = await getWorkspaceData(workspaceUrl)
+  if (!userId) redirect('/sign-in')
 
-  return <WorkspacePageClient workspaceId={workspaceData.workspace.id} />
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug: workspaceUrl },
+  })
+
+  if (!workspace) redirect('/dashboard')
+
+  return <WorkspacePageClient workspaceId={workspace.id} />
 }

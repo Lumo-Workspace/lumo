@@ -1,30 +1,24 @@
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/config'
-import DemoWorkspace from '@/components/core/editor/demo-workspace/DemoWorkspace'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db/prisma'
 
 export default async function AppPage() {
-  const session = await getServerSession(authOptions)
+  const { userId } = await auth()
 
-  // Check if user is authenticated
-  if (!session?.user) {
-    redirect('/login')
+  if (!userId) {
+    redirect('/sign-in')
   }
 
-  // Check if user has a team
-  if (!session.user.teamId) {
+  // Check if user has a workspace membership
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { clerkId: userId },
+    include: { workspace: true },
+  })
+
+  if (!membership) {
     redirect('/onboarding')
   }
 
-  // If workspace slug is available, redirect to workspace-specific URL
-  if (session.user.workspaceUrl) {
-    redirect(`/workspace/${session.user.workspaceUrl}`)
-  }
-
-  // Fallback: show demo workspace if no specific workspace URL
-  return (
-    <div className='min-h-screen bg-white'>
-      <DemoWorkspace />
-    </div>
-  )
+  // Redirect to dashboard (Sprint 4 will add project-level routing)
+  redirect('/dashboard')
 }
