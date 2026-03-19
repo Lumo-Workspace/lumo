@@ -21,7 +21,7 @@ export function GoogleLoginButton({
   const router = useRouter()
 
   const handleSignIn = () => {
-    router.push(`/sign-in?redirect_url=${encodeURIComponent(callbackUrl)}`)
+    router.push(`/signin?redirect_url=${encodeURIComponent(callbackUrl)}`)
   }
 
   return (

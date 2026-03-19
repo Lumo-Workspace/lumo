@@ -15,7 +15,7 @@ export default async function WorkspaceAppPage({
   const { workspaceUrl } = await params
   const { userId } = await auth()
 
-  if (!userId) redirect('/sign-in')
+  if (!userId) redirect('/signin')
 
   const workspace = await prisma.workspace.findUnique({
     where: { slug: workspaceUrl },

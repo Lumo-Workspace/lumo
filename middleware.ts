@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
 const isPublicRoute = createRouteMatcher([
-  '/sign-in(.*)',
+  '/signin(.*)',
   '/sign-up(.*)',
   '/api/(.*)',
 ])
@@ -13,7 +13,7 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Redirect unauthenticated users from "/" to sign-in
   if (!userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/sign-in', request.url))
+    return NextResponse.redirect(new URL('/signin', request.url))
   }
 
   // Protect all non-public routes
@@ -22,7 +22,12 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // Redirect authenticated users away from sign-in/sign-up to dashboard
-  if (userId && (pathname === '/' || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
+  if (
+    userId &&
+    (pathname === '/' ||
+      pathname.startsWith('/signin') ||
+      pathname.startsWith('/sign-up'))
+  ) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

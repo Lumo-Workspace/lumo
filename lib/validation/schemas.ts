@@ -12,7 +12,7 @@ const RESERVED_SLUGS = [
   'dashboard',
   'settings',
   'onboarding',
-  'sign-in',
+  'signin',
   'sign-up',
   'workspace',
 ]

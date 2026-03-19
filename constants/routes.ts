@@ -14,7 +14,7 @@ export const ROUTES = {
   shared: '/shared',
   settings: '/settings',
   profile: '/profile',
-  login: '/login',
+  login: '/signin',
   register: '/register',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
@@ -24,14 +24,28 @@ export const ROUTES = {
 
 export const DYNAMIC_ROUTES = {
   team: (teamId: string) => `/teams/${teamId}`,
-  project: (teamId: string, projectId: string) => `/teams/${teamId}/projects/${projectId}`,
-  prd: (teamId: string, projectId: string, prdId: string) => 
+  project: (teamId: string, projectId: string) =>
+    `/teams/${teamId}/projects/${projectId}`,
+  prd: (teamId: string, projectId: string, prdId: string) =>
     `/teams/${teamId}/projects/${projectId}/prds/${prdId}`,
-  epic: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+  epic: (teamId: string, projectId: string, prdId: string, epicId: string) =>
     `/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}`,
-  story: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+  story: (
+    teamId: string,
+    projectId: string,
+    prdId: string,
+    epicId: string,
+    storyId: string
+  ) =>
     `/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}`,
-  task: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string, taskId: string) => 
+  task: (
+    teamId: string,
+    projectId: string,
+    prdId: string,
+    epicId: string,
+    storyId: string,
+    taskId: string
+  ) =>
     `/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks/${taskId}`,
   page: (pageId: string) => `/pages/${pageId}`,
   kanban: (boardId: string) => `/kanban/${boardId}`,
@@ -67,54 +81,125 @@ export const API_ROUTES = {
   projects: {
     list: (teamId: string) => `/api/teams/${teamId}/projects`,
     create: (teamId: string) => `/api/teams/${teamId}/projects`,
-    get: (teamId: string, projectId: string) => `/api/teams/${teamId}/projects/${projectId}`,
-    update: (teamId: string, projectId: string) => `/api/teams/${teamId}/projects/${projectId}`,
-    delete: (teamId: string, projectId: string) => `/api/teams/${teamId}/projects/${projectId}`,
+    get: (teamId: string, projectId: string) =>
+      `/api/teams/${teamId}/projects/${projectId}`,
+    update: (teamId: string, projectId: string) =>
+      `/api/teams/${teamId}/projects/${projectId}`,
+    delete: (teamId: string, projectId: string) =>
+      `/api/teams/${teamId}/projects/${projectId}`,
   },
   prds: {
-    list: (teamId: string, projectId: string) => `/api/teams/${teamId}/projects/${projectId}/prds`,
-    create: (teamId: string, projectId: string) => `/api/teams/${teamId}/projects/${projectId}/prds`,
-    get: (teamId: string, projectId: string, prdId: string) => 
+    list: (teamId: string, projectId: string) =>
+      `/api/teams/${teamId}/projects/${projectId}/prds`,
+    create: (teamId: string, projectId: string) =>
+      `/api/teams/${teamId}/projects/${projectId}/prds`,
+    get: (teamId: string, projectId: string, prdId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}`,
-    update: (teamId: string, projectId: string, prdId: string) => 
+    update: (teamId: string, projectId: string, prdId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}`,
-    delete: (teamId: string, projectId: string, prdId: string) => 
+    delete: (teamId: string, projectId: string, prdId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}`,
   },
   epics: {
-    list: (teamId: string, projectId: string, prdId: string) => 
+    list: (teamId: string, projectId: string, prdId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics`,
-    create: (teamId: string, projectId: string, prdId: string) => 
+    create: (teamId: string, projectId: string, prdId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics`,
-    get: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+    get: (teamId: string, projectId: string, prdId: string, epicId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}`,
-    update: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+    update: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}`,
-    delete: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+    delete: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}`,
   },
   stories: {
-    list: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+    list: (teamId: string, projectId: string, prdId: string, epicId: string) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories`,
-    create: (teamId: string, projectId: string, prdId: string, epicId: string) => 
+    create: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories`,
-    get: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+    get: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}`,
-    update: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+    update: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}`,
-    delete: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+    delete: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}`,
   },
   tasks: {
-    list: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+    list: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks`,
-    create: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string) => 
+    create: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks`,
-    get: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string, taskId: string) => 
+    get: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string,
+      taskId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks/${taskId}`,
-    update: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string, taskId: string) => 
+    update: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string,
+      taskId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks/${taskId}`,
-    delete: (teamId: string, projectId: string, prdId: string, epicId: string, storyId: string, taskId: string) => 
+    delete: (
+      teamId: string,
+      projectId: string,
+      prdId: string,
+      epicId: string,
+      storyId: string,
+      taskId: string
+    ) =>
       `/api/teams/${teamId}/projects/${projectId}/prds/${prdId}/epics/${epicId}/stories/${storyId}/tasks/${taskId}`,
   },
   pages: {
@@ -129,7 +214,8 @@ export const API_ROUTES = {
     boards: '/api/kanban/boards',
     board: (id: string) => `/api/kanban/boards/${id}`,
     items: (boardId: string) => `/api/kanban/boards/${boardId}/items`,
-    item: (boardId: string, itemId: string) => `/api/kanban/boards/${boardId}/items/${itemId}`,
+    item: (boardId: string, itemId: string) =>
+      `/api/kanban/boards/${boardId}/items/${itemId}`,
     move: (boardId: string) => `/api/kanban/boards/${boardId}/move`,
   },
   upload: {
@@ -147,7 +233,12 @@ export const API_ROUTES = {
 // ==================== 路由守卫配置 ====================
 
 export const ROUTE_GUARDS = {
-  public: [ROUTES.login, ROUTES.register, ROUTES.forgotPassword, ROUTES.resetPassword],
+  public: [
+    ROUTES.login,
+    ROUTES.register,
+    ROUTES.forgotPassword,
+    ROUTES.resetPassword,
+  ],
   protected: [
     ROUTES.dashboard,
     ROUTES.editor,

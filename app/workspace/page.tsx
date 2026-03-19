@@ -6,7 +6,7 @@ export default async function AppPage() {
   const { userId } = await auth()
 
   if (!userId) {
-    redirect('/sign-in')
+    redirect('/signin')
   }
 
   // Check if user has a workspace membership

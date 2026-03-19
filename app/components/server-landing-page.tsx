@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-react'
 import {
@@ -80,7 +81,7 @@ export default function ServerLandingPage() {
               className='border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-700'
               asChild
             >
-              <a href='/login'>Sign In</a>
+              <Link href='/signin'>Sign In</Link>
             </Button>
             <ClientGetStartedButton />
           </div>
