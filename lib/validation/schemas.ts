@@ -68,8 +68,14 @@ export const createTaskSchema = z.object({
     .min(1, 'Title is required')
     .max(500, 'Title must be at most 500 characters'),
   description: z.string().max(10000).nullable().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional().default('TODO'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional().default('MEDIUM'),
+  status: z
+    .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+    .optional()
+    .default('TODO'),
+  priority: z
+    .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+    .optional()
+    .default('MEDIUM'),
   assigneeId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),
   order: z.number().optional(),
@@ -78,7 +84,7 @@ export const createTaskSchema = z.object({
 export const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   description: z.string().max(10000).nullable().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional(),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assigneeId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),

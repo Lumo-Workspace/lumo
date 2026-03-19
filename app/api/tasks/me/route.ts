@@ -4,8 +4,8 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 /**
  * GET /api/tasks/me
- * Returns all tasks assigned to the current workspace member,
- * ordered by updatedAt desc, with project info included.
+ * Returns all tasks assigned to the current workspace member with per-view ordering.
+ * Also lazy-creates the personal KANBAN view for the member on first access.
  */
 export async function GET() {
   try {
@@ -15,10 +15,7 @@ export async function GET() {
 
     const ws = await getUserWorkspace(userId)
     if (!ws) {
-      return NextResponse.json(
-        { error: 'No workspace found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
     const tasks = await prisma.task.findMany({
@@ -26,10 +23,35 @@ export async function GET() {
       include: {
         project: { select: { id: true, name: true } },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { order: 'asc' },
     })
 
-    return NextResponse.json({ tasks })
+    // Lazy-create personal KANBAN view for this member
+    let myView = await prisma.view.findFirst({
+      where: { memberId: ws.member.id, type: 'KANBAN' },
+    })
+    if (!myView) {
+      myView = await prisma.view.create({
+        data: {
+          workspaceId: ws.member.workspaceId,
+          memberId: ws.member.id,
+          name: 'My Tasks',
+          type: 'KANBAN',
+          isDefault: false,
+        },
+      })
+    }
+
+    // Build viewOrder map
+    const taskOrders = await prisma.viewTaskOrder.findMany({
+      where: { viewId: myView.id },
+    })
+    const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
+
+    return NextResponse.json({
+      tasks: tasks.map(t => ({ ...t, viewOrder: orderMap.get(t.id) ?? null })),
+      myTasksViewId: myView.id,
+    })
   } catch (error) {
     console.error('GET /api/tasks/me error:', error)
     return NextResponse.json(

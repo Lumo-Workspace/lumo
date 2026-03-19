@@ -36,13 +36,18 @@ function DroppableColumn({
 const COLUMNS = [
   { status: 'TODO' as const, label: 'Todo' },
   { status: 'IN_PROGRESS' as const, label: 'In Progress' },
+  { status: 'IN_REVIEW' as const, label: 'In Review' },
   { status: 'DONE' as const, label: 'Done' },
 ]
 
 // ─── BoardView ────────────────────────────────────────────────────────────────
 
 interface BoardViewProps<
-  T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' },
+  T extends {
+    id: string
+    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    viewOrder: number | null
+  },
 > {
   tasks: T[]
   sensors: SensorDescriptor<SensorOptions>[]
@@ -57,7 +62,11 @@ interface BoardViewProps<
 }
 
 export function BoardView<
-  T extends { id: string; status: 'TODO' | 'IN_PROGRESS' | 'DONE' },
+  T extends {
+    id: string
+    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    viewOrder: number | null
+  },
 >({
   tasks,
   sensors,
@@ -80,7 +89,9 @@ export function BoardView<
     >
       <div className='p-8 flex gap-6 h-full bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start'>
         {COLUMNS.map(({ status, label }) => {
-          const col = tasks.filter(t => t.status === status)
+          const col = tasks
+            .filter(t => t.status === status)
+            .sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
           return (
             <div key={status} className='w-80 min-w-[320px] flex flex-col'>
               {/* Column header */}

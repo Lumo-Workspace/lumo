@@ -1,22 +1,23 @@
-import { ApiTask } from './types';
+import { ApiTask } from './types'
 
 export function flattenTasks(
-  nodes: (ApiTask & { children?: ApiTask[] })[],
+  nodes: (ApiTask & { children?: ApiTask[] })[]
 ): ApiTask[] {
-  const result: ApiTask[] = [];
+  const result: ApiTask[] = []
   function walk(list: (ApiTask & { children?: ApiTask[] })[]) {
     for (const node of list) {
-      const { children, ...task } = node;
-      result.push(task);
-      if (children?.length) walk(children);
+      const { children, ...task } = node
+      result.push(task)
+      if (children?.length) walk(children)
     }
   }
-  walk(nodes);
-  return result;
+  walk(nodes)
+  return result
 }
 
 export const API_STATUS_LABEL: Record<string, string> = {
   TODO: 'Todo',
   IN_PROGRESS: 'In Progress',
+  IN_REVIEW: 'In Review',
   DONE: 'Done',
-};
+}

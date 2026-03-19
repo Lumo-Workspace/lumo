@@ -21,6 +21,7 @@ enum WorkspaceRole {
 enum TaskStatus {
   TODO
   IN_PROGRESS
+  IN_REVIEW
   DONE
 }
 
@@ -36,6 +37,12 @@ enum ViewType {
   KANBAN
 }
 
+enum ViewVisibility {
+  PRIVATE    // only the creator (memberId owner)
+  WORKSPACE  // all workspace members
+  SHARED     // only members listed in ViewMember
+}
+
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
@@ -47,6 +54,7 @@ model Workspace {
 
   members  WorkspaceMember[]
   projects Project[]
+  views    View[]
 
   @@map("workspaces")
 }
@@ -61,6 +69,9 @@ model WorkspaceMember {
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdProjects Project[]
   assignedTasks   Task[]
+  ownedViews      View[]       @relation("ViewOwner")
+  createdViews    View[]       @relation("ViewCreator")
+  sharedViews     ViewMember[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -120,20 +131,51 @@ model Task {
 // ─── View system (Document / Kanban / future) ───────────────────────────────
 
 model View {
-  id        String   @id @default(cuid())
-  projectId String
-  name      String
-  type      ViewType
-  config    Json     @default("{}")
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  workspaceId String   // security boundary — always required
+  projectId   String?  // set for project-level views
+  memberId    String?  // set for personal views (My Tasks); null = workspace-shared view
+  name        String
+  type        ViewType
+  config      Json     @default("{}")
+  // config shape: { filters?: { projectIds?: string[], statuses?: string[], assigneeIds?: string[] } }
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  visibility        ViewVisibility   @default(WORKSPACE)
+  createdByMemberId String?
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member     WorkspaceMember? @relation("ViewOwner", fields: [memberId], references: [id], onDelete: Cascade)
+  createdBy  WorkspaceMember? @relation("ViewCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
   taskOrders ViewTaskOrder[]
+  sharedWith ViewMember[]
 
+  @@index([workspaceId])
   @@index([projectId])
+  @@index([memberId])
   @@map("views")
+}
+
+enum ViewMemberRole {
+  VIEWER
+  EDITOR
+}
+
+model ViewMember {
+  id       String         @id @default(cuid())
+  viewId   String
+  memberId String
+  role     ViewMemberRole @default(VIEWER)
+  addedAt  DateTime       @default(now())
+
+  view   View            @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  member WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([viewId, memberId])
+  @@map("view_members")
 }
 
 model ViewTaskOrder {

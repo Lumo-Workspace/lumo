@@ -1,40 +1,56 @@
-'use client';
+'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { MyTask } from '../types';
-import { readCache, writeCache } from '../cache';
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { MyTask } from '../types'
+import { readCache, writeCache } from '../cache'
 
 export function useMyTasks() {
-  const [myTasks, setMyTasks] = useState<MyTask[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const seeded = useRef(false);
+  const [myTasks, setMyTasks] = useState<MyTask[]>([])
+  const [myTasksViewId, setMyTasksViewId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const seeded = useRef(false)
 
   // Hydrate from localStorage on mount so data shows immediately on refresh
   useEffect(() => {
-    const cached = readCache<MyTask[]>('lumo:myTasks');
+    const cached = readCache<
+      { tasks: MyTask[]; myTasksViewId: string | null } | MyTask[]
+    >('lumo:myTasks')
     if (cached) {
-      setMyTasks(cached);
-      seeded.current = true;
+      if (Array.isArray(cached)) {
+        // Legacy format — migrate silently
+        setMyTasks(cached)
+      } else {
+        setMyTasks(cached.tasks ?? [])
+        setMyTasksViewId(cached.myTasksViewId)
+      }
+      seeded.current = true
     }
-  }, []);
+  }, [])
 
   const fetchMyTasks = useCallback(async () => {
-    if (!seeded.current) setLoading(true);
-    setError(null);
+    if (!seeded.current) setLoading(true)
+    setError(null)
     try {
-      const res = await fetch('/api/tasks/me');
-      if (!res.ok) throw new Error('Failed to load tasks');
-      const data = (await res.json()) as { tasks: MyTask[] };
-      setMyTasks(data.tasks);
-      writeCache('lumo:myTasks', data.tasks);
-      seeded.current = true;
+      const res = await fetch('/api/tasks/me')
+      if (!res.ok) throw new Error('Failed to load tasks')
+      const data = (await res.json()) as {
+        tasks: MyTask[]
+        myTasksViewId: string
+      }
+      setMyTasks(data.tasks)
+      setMyTasksViewId(data.myTasksViewId)
+      writeCache('lumo:myTasks', {
+        tasks: data.tasks,
+        myTasksViewId: data.myTasksViewId,
+      })
+      seeded.current = true
     } catch {
-      if (!seeded.current) setError('Could not load your tasks.');
+      if (!seeded.current) setError('Could not load your tasks.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
-  return { myTasks, setMyTasks, loading, error, fetchMyTasks };
+  return { myTasks, setMyTasks, myTasksViewId, loading, error, fetchMyTasks }
 }

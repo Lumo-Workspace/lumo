@@ -16,10 +16,7 @@ export async function GET() {
 
     const ws = await getUserWorkspace(userId)
     if (!ws) {
-      return NextResponse.json(
-        { error: 'No workspace found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
     const projects = await prisma.project.findMany({
@@ -68,10 +65,7 @@ export async function POST(request: NextRequest) {
 
     const ws = await getUserWorkspace(userId)
     if (!ws) {
-      return NextResponse.json(
-        { error: 'No workspace found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -83,7 +77,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       const project = await tx.project.create({
         data: {
           workspaceId: ws.workspaceId,
@@ -97,6 +91,7 @@ export async function POST(request: NextRequest) {
       // Create default Document view for every new project
       await tx.view.create({
         data: {
+          workspaceId: ws.workspaceId,
           projectId: project.id,
           name: 'Document',
           type: 'DOCUMENT',

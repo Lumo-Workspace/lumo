@@ -8,9 +8,10 @@ type Params = { params: Promise<{ id: string }> }
 
 // ─── Tree builder ───────────────────────────────────────────────────────────
 
-type TaskWithChildren = Task & { children: TaskWithChildren[] }
+type TaskNode = Task & { viewOrder: number | null }
+type TaskWithChildren = TaskNode & { children: TaskWithChildren[] }
 
-function buildTaskTree(tasks: Task[]): TaskWithChildren[] {
+function buildTaskTree(tasks: TaskNode[]): TaskWithChildren[] {
   const map = new Map<string, TaskWithChildren>()
   const roots: TaskWithChildren[] = []
 
@@ -33,7 +34,8 @@ function buildTaskTree(tasks: Task[]): TaskWithChildren[] {
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
 /**
- * GET /api/projects/[id]/tasks — Get all tasks as a tree.
+ * GET /api/projects/[id]/tasks — Get all tasks as a tree, with per-view ordering.
+ * Also lazy-creates the KANBAN view for the project on first access.
  */
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
@@ -47,7 +49,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const memberResult = await requireWorkspaceMember(project.workspaceId, userId)
+    const memberResult = await requireWorkspaceMember(
+      project.workspaceId,
+      userId
+    )
     if (memberResult instanceof NextResponse) return memberResult
 
     const tasks = await prisma.task.findMany({
@@ -55,9 +60,37 @@ export async function GET(_request: NextRequest, { params }: Params) {
       orderBy: { order: 'asc' },
     })
 
-    const tree = buildTaskTree(tasks)
+    // Lazy-create KANBAN view for this project
+    let kanbanView = await prisma.view.findFirst({
+      where: { projectId: id, type: 'KANBAN' },
+    })
+    if (!kanbanView) {
+      kanbanView = await prisma.view.create({
+        data: {
+          workspaceId: project.workspaceId,
+          projectId: id,
+          name: 'Board',
+          type: 'KANBAN',
+          isDefault: false,
+        },
+      })
+    }
 
-    return NextResponse.json({ tasks: tree })
+    // Build viewOrder map
+    const taskOrders = await prisma.viewTaskOrder.findMany({
+      where: { viewId: kanbanView.id },
+    })
+    const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
+
+    // Merge viewOrder into tasks
+    const tasksWithOrder: TaskNode[] = tasks.map(t => ({
+      ...t,
+      viewOrder: orderMap.get(t.id) ?? null,
+    }))
+
+    const tree = buildTaskTree(tasksWithOrder)
+
+    return NextResponse.json({ tasks: tree, kanbanViewId: kanbanView.id })
   } catch (error) {
     console.error('GET /api/projects/[id]/tasks error:', error)
     return NextResponse.json(
@@ -82,7 +115,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const memberResult = await requireWorkspaceMember(project.workspaceId, userId)
+    const memberResult = await requireWorkspaceMember(
+      project.workspaceId,
+      userId
+    )
     if (memberResult instanceof NextResponse) return memberResult
 
     const body = await request.json()
@@ -94,7 +130,15 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
-    const { title, description, status, priority, assigneeId, parentTaskId, order } = parsed.data
+    const {
+      title,
+      description,
+      status,
+      priority,
+      assigneeId,
+      parentTaskId,
+      order,
+    } = parsed.data
 
     // Validate parentTaskId belongs to the same project
     if (parentTaskId) {

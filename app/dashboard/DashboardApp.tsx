@@ -1,86 +1,103 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { AnimatePresence } from 'motion/react';
-import { Page, ApiProject, ApiTask } from './types';
+import { useState, useEffect, useCallback } from 'react'
+import { AnimatePresence } from 'motion/react'
+import { Page, ApiProject, ApiTask } from './types'
 
 // Hooks
-import { useMyTasks } from './hooks/useMyTasks';
-import { useProjects } from './hooks/useProjects';
-import { useProjectTasks } from './hooks/useProjectTasks';
-import { useMembers } from './hooks/useMembers';
+import { useMyTasks } from './hooks/useMyTasks'
+import { useProjects } from './hooks/useProjects'
+import { useProjectTasks } from './hooks/useProjectTasks'
+import { useMembers } from './hooks/useMembers'
 
 // Components
-import { Sidebar } from './components/Sidebar';
-import { ProjectsPage } from './components/pages/ProjectsPage';
-import { ProjectDetailPage } from './components/pages/ProjectDetailPage';
-import { MyTasksPage } from './components/pages/MyTasksPage';
-import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal';
-import { NewProjectModal, NewProjectFormData } from './components/modals/NewProjectModal';
+import { Sidebar } from './components/Sidebar'
+import { ProjectsPage } from './components/pages/ProjectsPage'
+import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
+import { MyTasksPage } from './components/pages/MyTasksPage'
+import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal'
+import {
+  NewProjectModal,
+  NewProjectFormData,
+} from './components/modals/NewProjectModal'
 
 export default function DashboardApp() {
   // ─── Navigation ────────────────────────────────────────────────────────────
-  const [currentPage, setCurrentPage] = useState<Page>('projects');
-  const [selectedProject, setSelectedProject] = useState<ApiProject | null>(null);
+  const [currentPage, setCurrentPage] = useState<Page>('projects')
+  const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
+    null
+  )
 
   // ─── Data ──────────────────────────────────────────────────────────────────
-  const { myTasks, setMyTasks, loading: myTasksLoading, error: myTasksError, fetchMyTasks } =
-    useMyTasks();
+  const {
+    myTasks,
+    setMyTasks,
+    myTasksViewId,
+    loading: myTasksLoading,
+    error: myTasksError,
+    fetchMyTasks,
+  } = useMyTasks()
 
-  const { projects, setProjects, loading: projectsLoading, error: projectsError, fetchProjects } =
-    useProjects();
+  const {
+    projects,
+    setProjects,
+    loading: projectsLoading,
+    error: projectsError,
+    fetchProjects,
+  } = useProjects()
 
   const {
     tasks: projectTasks,
     setTasks: setProjectTasks,
+    kanbanViewId,
     loading: projectTasksLoading,
     error: projectTasksError,
     hydrateForProject,
     fetchProjectTasks,
-  } = useProjectTasks();
+  } = useProjectTasks()
 
-  const { members, fetchMembers } = useMembers();
+  const { members, fetchMembers } = useMembers()
 
   // ─── Modal state ───────────────────────────────────────────────────────────
-  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
 
   // ─── Dark mode ────────────────────────────────────────────────────────────
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDarkMode);
-  }, [isDarkMode]);
+    document.documentElement.classList.toggle('dark', isDarkMode)
+  }, [isDarkMode])
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
-    if (currentPage === 'my-tasks') fetchMyTasks();
-    if (currentPage === 'projects') fetchProjects();
-  }, [currentPage, fetchMyTasks, fetchProjects]);
+    if (currentPage === 'my-tasks') fetchMyTasks()
+    if (currentPage === 'projects') fetchProjects()
+  }, [currentPage, fetchMyTasks, fetchProjects])
 
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
-      hydrateForProject(selectedProject.id);
-      fetchProjectTasks(selectedProject.id);
+      hydrateForProject(selectedProject.id)
+      fetchProjectTasks(selectedProject.id)
     }
-  }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks]);
+  }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
   // Fetch members lazily when the task modal first opens
   useEffect(() => {
-    if (isNewTaskModalOpen) fetchMembers();
-  }, [isNewTaskModalOpen, fetchMembers]);
+    if (isNewTaskModalOpen) fetchMembers()
+  }, [isNewTaskModalOpen, fetchMembers])
 
   // ─── Navigation helpers ────────────────────────────────────────────────────
   const navigateTo = useCallback((page: Page, project?: ApiProject) => {
-    setCurrentPage(page);
-    if (project) setSelectedProject(project);
-  }, []);
+    setCurrentPage(page)
+    if (project) setSelectedProject(project)
+  }, [])
 
   // ─── Optimistic: create project ────────────────────────────────────────────
   const handleCreateProject = useCallback(
     async ({ name, description }: NewProjectFormData) => {
-      const tempId = `optimistic-${Date.now()}`;
-      const now = new Date().toISOString();
+      const tempId = `optimistic-${Date.now()}`
+      const now = new Date().toISOString()
       const optimistic: ApiProject = {
         id: tempId,
         name,
@@ -90,35 +107,48 @@ export default function DashboardApp() {
         updatedAt: now,
         _count: { tasks: 0 },
         inProgressCount: 0,
-      };
+      }
 
-      setProjects(prev => [optimistic, ...prev]);
-      navigateTo('project-detail', optimistic);
+      setProjects(prev => [optimistic, ...prev])
+      navigateTo('project-detail', optimistic)
 
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: description.trim() || undefined }),
-      });
+        body: JSON.stringify({
+          name,
+          description: description.trim() || undefined,
+        }),
+      })
       if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        setProjects(prev => prev.filter(p => p.id !== tempId));
-        navigateTo('projects');
-        throw new Error(err.error ?? 'Failed to create project');
+        const err = (await res.json()) as { error?: string }
+        setProjects(prev => prev.filter(p => p.id !== tempId))
+        navigateTo('projects')
+        throw new Error(err.error ?? 'Failed to create project')
       }
-      const { project } = (await res.json()) as { project: ApiProject };
-      const confirmed: ApiProject = { ...project, _count: { tasks: 0 }, inProgressCount: 0 };
-      setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)));
-      setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev));
+      const { project } = (await res.json()) as { project: ApiProject }
+      const confirmed: ApiProject = {
+        ...project,
+        _count: { tasks: 0 },
+        inProgressCount: 0,
+      }
+      setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
+      setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
     },
-    [setProjects, navigateTo],
-  );
+    [setProjects, navigateTo]
+  )
 
   // ─── Optimistic: create task ───────────────────────────────────────────────
   const handleCreateTask = useCallback(
-    async ({ title, description, status, projectId, assigneeId }: NewTaskFormData) => {
-      const tempId = `optimistic-task-${Date.now()}`;
-      const now = new Date().toISOString();
+    async ({
+      title,
+      description,
+      status,
+      projectId,
+      assigneeId,
+    }: NewTaskFormData) => {
+      const tempId = `optimistic-task-${Date.now()}`
+      const now = new Date().toISOString()
       const optimistic: ApiTask = {
         id: tempId,
         title,
@@ -127,10 +157,11 @@ export default function DashboardApp() {
         projectId,
         parentTaskId: null,
         updatedAt: now,
-      };
+        viewOrder: null,
+      }
 
       if (projectId === selectedProject?.id) {
-        setProjectTasks(prev => [...prev, optimistic]);
+        setProjectTasks(prev => [...prev, optimistic])
       }
 
       const res = await fetch(`/api/projects/${projectId}/tasks`, {
@@ -142,41 +173,67 @@ export default function DashboardApp() {
           status,
           assigneeId: assigneeId || undefined,
         }),
-      });
+      })
       if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        setProjectTasks(prev => prev.filter(t => t.id !== tempId));
-        throw new Error(err.error ?? 'Failed to create task');
+        const err = (await res.json()) as { error?: string }
+        setProjectTasks(prev => prev.filter(t => t.id !== tempId))
+        throw new Error(err.error ?? 'Failed to create task')
       }
-      const { task } = (await res.json()) as { task: ApiTask };
-      setProjectTasks(prev => prev.map(t => (t.id === tempId ? task : t)));
+      const { task } = (await res.json()) as { task: ApiTask }
+      setProjectTasks(prev => prev.map(t => (t.id === tempId ? task : t)))
       setProjects(prev =>
         prev.map(p =>
-          p.id === projectId ? { ...p, _count: { tasks: p._count.tasks + 1 } } : p,
-        ),
-      );
+          p.id === projectId
+            ? { ...p, _count: { tasks: p._count.tasks + 1 } }
+            : p
+        )
+      )
     },
-    [selectedProject?.id, setProjectTasks, setProjects],
-  );
+    [selectedProject?.id, setProjectTasks, setProjects]
+  )
+
+  // ─── Update project name / description ────────────────────────────────────
+  const handleUpdateProject = useCallback(
+    async (id: string, data: { name?: string; description?: string }) => {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error('Failed to update project')
+      const { project: updated } = await res.json()
+      setProjects(prev =>
+        prev.map(p => (p.id === id ? { ...p, ...updated } : p))
+      )
+      setSelectedProject(prev =>
+        prev?.id === id ? { ...prev, ...updated } : prev
+      )
+    },
+    [setProjects, setSelectedProject]
+  )
 
   // ─── Sync inProgressCount after drag-and-drop status change ───────────────
   const handleProjectTaskStatusChanged = useCallback(
     (_taskId: string, oldStatus: string, newStatus: string) => {
-      if (!selectedProject) return;
+      if (!selectedProject) return
       const delta =
-        (newStatus === 'IN_PROGRESS' ? 1 : 0) - (oldStatus === 'IN_PROGRESS' ? 1 : 0);
+        (newStatus === 'IN_PROGRESS' ? 1 : 0) -
+        (oldStatus === 'IN_PROGRESS' ? 1 : 0)
       if (delta !== 0) {
         setProjects(prev =>
           prev.map(p =>
             p.id === selectedProject.id
-              ? { ...p, inProgressCount: Math.max(0, p.inProgressCount + delta) }
-              : p,
-          ),
-        );
+              ? {
+                  ...p,
+                  inProgressCount: Math.max(0, p.inProgressCount + delta),
+                }
+              : p
+          )
+        )
       }
     },
-    [selectedProject, setProjects],
-  );
+    [selectedProject, setProjects]
+  )
 
   // ─── Render current page ───────────────────────────────────────────────────
   const renderPage = () => {
@@ -186,12 +243,12 @@ export default function DashboardApp() {
           <MyTasksPage
             tasks={myTasks}
             setTasks={setMyTasks}
+            viewId={myTasksViewId}
             loading={myTasksLoading}
             error={myTasksError}
             onRetry={fetchMyTasks}
-            onRefresh={fetchMyTasks}
           />
-        );
+        )
 
       case 'projects':
         return (
@@ -203,31 +260,33 @@ export default function DashboardApp() {
             onSelectProject={p => navigateTo('project-detail', p)}
             onNewProject={() => setIsNewProjectModalOpen(true)}
           />
-        );
+        )
 
       case 'project-detail':
-        if (!selectedProject) return null;
+        if (!selectedProject) return null
         return (
           <ProjectDetailPage
             project={selectedProject}
             tasks={projectTasks}
             setTasks={setProjectTasks}
+            viewId={kanbanViewId}
             loading={projectTasksLoading}
             error={projectTasksError}
             onRetry={() => fetchProjectTasks(selectedProject.id)}
             onBack={() => navigateTo('projects')}
             onNewTask={() => setIsNewTaskModalOpen(true)}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
+            onUpdateProject={handleUpdateProject}
           />
-        );
+        )
 
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-zinc-950 font-sans">
+    <div className='flex h-screen overflow-hidden bg-white dark:bg-zinc-950 font-sans'>
       <Sidebar
         currentPage={currentPage}
         onNavigate={navigateTo}
@@ -235,7 +294,9 @@ export default function DashboardApp() {
         onToggleDarkMode={() => setIsDarkMode(d => !d)}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden">{renderPage()}</main>
+      <main className='flex-1 flex flex-col overflow-hidden'>
+        {renderPage()}
+      </main>
 
       <AnimatePresence>
         {isNewTaskModalOpen && (
@@ -257,5 +318,5 @@ export default function DashboardApp() {
         )}
       </AnimatePresence>
     </div>
-  );
+  )
 }
