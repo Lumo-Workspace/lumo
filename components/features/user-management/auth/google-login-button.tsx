@@ -15,7 +15,7 @@ interface GoogleLoginButtonProps {
 }
 
 export function GoogleLoginButton({
-  callbackUrl = '/dashboard',
+  callbackUrl = '/workspace',
   className,
 }: GoogleLoginButtonProps) {
   const router = useRouter()

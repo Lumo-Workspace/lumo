@@ -21,28 +21,14 @@ export default clerkMiddleware(async (auth, request) => {
     await auth.protect()
   }
 
-  // Redirect authenticated users away from signin/signup to dashboard
+  // Redirect authenticated users away from signin/signup to workspace
   if (
     userId &&
     (pathname === '/' ||
       pathname.startsWith('/signin') ||
       pathname.startsWith('/signup'))
   ) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  // Authenticated but no workspace → redirect to onboarding
-  // (except if already going to /onboarding or /settings or /dashboard)
-  if (userId) {
-    const isOnboarding = pathname.startsWith('/onboarding')
-    const isSettings = pathname.startsWith('/settings')
-    const isDashboard = pathname.startsWith('/dashboard')
-
-    // Workspace check will be implemented in Sprint 2
-    // For now, allow all authenticated users through
-    void isOnboarding
-    void isSettings
-    void isDashboard
+    return NextResponse.redirect(new URL('/workspace', request.url))
   }
 
   return NextResponse.next()

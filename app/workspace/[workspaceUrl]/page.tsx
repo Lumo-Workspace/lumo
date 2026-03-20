@@ -1,12 +1,8 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
-import { WorkspacePageClient } from './page-client'
+import WorkspaceApp from './WorkspaceApp'
 
-/**
- * WorkspaceAppPage — Server Component.
- * Sprint 4 will add full project routing.
- */
 export default async function WorkspaceAppPage({
   params,
 }: {
@@ -17,11 +13,11 @@ export default async function WorkspaceAppPage({
 
   if (!userId) redirect('/signin')
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: workspaceUrl },
+  const workspace = await prisma.workspace.findFirst({
+    where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
   })
 
-  if (!workspace) redirect('/dashboard')
+  if (!workspace) redirect('/onboarding')
 
-  return <WorkspacePageClient workspaceId={workspace.id} />
+  return <WorkspaceApp />
 }

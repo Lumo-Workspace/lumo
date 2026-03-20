@@ -1,7 +1,10 @@
-import { cn } from '@/lib/utils';
-import { ApiPriority } from '../types';
+import { cn } from '@/lib/utils'
+import { ApiPriority } from '../types'
 
-const PRIORITY_CONFIG: Record<ApiPriority, { label: string; className: string }> = {
+const PRIORITY_CONFIG: Record<
+  ApiPriority,
+  { label: string; className: string }
+> = {
   URGENT: {
     label: 'Urgent',
     className:
@@ -22,13 +25,19 @@ const PRIORITY_CONFIG: Record<ApiPriority, { label: string; className: string }>
     className:
       'text-zinc-400 bg-zinc-50 border-zinc-100 dark:bg-zinc-800 dark:border-zinc-700',
   },
-};
+}
 
 export function PriorityBadge({ priority }: { priority: ApiPriority }) {
-  const { label, className } = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM;
+  const { label, className } =
+    PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
   return (
-    <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border', className)}>
+    <span
+      className={cn(
+        'px-1.5 py-0.5 rounded text-[10px] font-medium border',
+        className
+      )}
+    >
       {label}
     </span>
-  );
+  )
 }

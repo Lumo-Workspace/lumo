@@ -19,21 +19,11 @@ export default async function WorkspaceLayout({
 
   if (!userId) redirect('/signin')
 
-  // Find workspace by slug
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: workspaceUrl },
+  const workspace = await prisma.workspace.findFirst({
+    where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
   })
 
-  if (!workspace) redirect('/dashboard')
-
-  // Verify membership
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_clerkId: { workspaceId: workspace.id, clerkId: userId },
-    },
-  })
-
-  if (!member) redirect('/dashboard')
+  if (!workspace) redirect('/workspace')
 
   return (
     <WorkspaceLayoutClient
