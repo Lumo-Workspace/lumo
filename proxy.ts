@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 const isPublicRoute = createRouteMatcher([
   '/signin(.*)',
-  '/sign-up(.*)',
+  '/signup(.*)',
   '/api/(.*)',
 ])
 
@@ -21,12 +21,12 @@ export default clerkMiddleware(async (auth, request) => {
     await auth.protect()
   }
 
-  // Redirect authenticated users away from sign-in/sign-up to dashboard
+  // Redirect authenticated users away from signin/signup to dashboard
   if (
     userId &&
     (pathname === '/' ||
       pathname.startsWith('/signin') ||
-      pathname.startsWith('/sign-up'))
+      pathname.startsWith('/signup'))
   ) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
