@@ -11,10 +11,11 @@ import { PriorityBadge } from '../PriorityBadge'
 interface CardShellProps {
   taskId: string
   isOverlay: boolean
+  onClick?: () => void
   children: React.ReactNode
 }
 
-function CardShell({ taskId, isOverlay, children }: CardShellProps) {
+function CardShell({ taskId, isOverlay, onClick, children }: CardShellProps) {
   const {
     attributes,
     listeners,
@@ -36,6 +37,7 @@ function CardShell({ taskId, isOverlay, children }: CardShellProps) {
       style={style}
       {...attributes}
       {...listeners}
+      onClick={onClick}
       className={cn(
         'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none',
         isOverlay && 'shadow-xl border-blue-500/50 rotate-2 cursor-grabbing'
@@ -51,11 +53,16 @@ function CardShell({ taskId, isOverlay, children }: CardShellProps) {
 interface ProjectTaskCardProps {
   task: ApiTask
   isOverlay: boolean
+  onClick?: () => void
 }
 
-export function ProjectTaskCard({ task, isOverlay }: ProjectTaskCardProps) {
+export function ProjectTaskCard({
+  task,
+  isOverlay,
+  onClick,
+}: ProjectTaskCardProps) {
   return (
-    <CardShell taskId={task.id} isOverlay={isOverlay}>
+    <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
         <span className='text-[10px] font-mono text-zinc-400'>
           {task.id.slice(0, 8)}
@@ -79,11 +86,12 @@ export function ProjectTaskCard({ task, isOverlay }: ProjectTaskCardProps) {
 interface MyTaskCardProps {
   task: MyTask
   isOverlay: boolean
+  onClick?: () => void
 }
 
-export function MyTaskCard({ task, isOverlay }: MyTaskCardProps) {
+export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
   return (
-    <CardShell taskId={task.id} isOverlay={isOverlay}>
+    <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
           {task.project.name}

@@ -26,6 +26,43 @@ async function isDescendant(
 }
 
 /**
+ * GET /api/tasks/[id] — Fetch a single task with full details.
+ */
+export async function GET(_request: NextRequest, { params }: Params) {
+  try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const { userId } = authResult
+    const { id } = await params
+
+    const task = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        project: { select: { id: true, name: true, workspaceId: true } },
+        assignee: { select: { id: true, clerkId: true } },
+      },
+    })
+    if (!task) {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    }
+
+    const memberResult = await requireWorkspaceMember(
+      task.project.workspaceId,
+      userId
+    )
+    if (memberResult instanceof NextResponse) return memberResult
+
+    return NextResponse.json({ task })
+  } catch (error) {
+    console.error('GET /api/tasks/[id] error:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * PATCH /api/tasks/[id] — Update a task.
  */
 export async function PATCH(request: NextRequest, { params }: Params) {

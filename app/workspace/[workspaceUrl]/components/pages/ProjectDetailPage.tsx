@@ -47,6 +47,7 @@ interface ProjectDetailPageProps {
   onRetry: () => void
   onBack: () => void
   onNewTask: () => void
+  onTaskClick: (task: ApiTask) => void
   onTaskStatusChanged: (
     taskId: string,
     oldStatus: string,
@@ -68,6 +69,7 @@ export function ProjectDetailPage({
   onRetry,
   onBack,
   onNewTask,
+  onTaskClick,
   onTaskStatusChanged,
   onUpdateProject,
 }: ProjectDetailPageProps) {
@@ -240,7 +242,7 @@ export function ProjectDetailPage({
           emptyMessage='No tasks yet.'
         >
           {viewMode === 'list' ? (
-            <TaskListTable tasks={tasks} />
+            <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />
           ) : (
             <BoardView
               tasks={tasks}
@@ -254,6 +256,7 @@ export function ProjectDetailPage({
                   key={task.id}
                   task={task}
                   isOverlay={isOverlay}
+                  onClick={() => onTaskClick(task)}
                 />
               )}
               onAddTask={onNewTask}
@@ -267,7 +270,13 @@ export function ProjectDetailPage({
 
 // ─── TaskListTable ─────────────────────────────────────────────────────────────
 
-function TaskListTable({ tasks }: { tasks: ApiTask[] }) {
+function TaskListTable({
+  tasks,
+  onTaskClick,
+}: {
+  tasks: ApiTask[]
+  onTaskClick: (task: ApiTask) => void
+}) {
   const { sort, toggle } = useTableSort<TaskSortKey>()
 
   const sorted = useMemo(() => {
@@ -326,6 +335,7 @@ function TaskListTable({ tasks }: { tasks: ApiTask[] }) {
         {sorted.map(task => (
           <tr
             key={task.id}
+            onClick={() => onTaskClick(task)}
             className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer group'
           >
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>

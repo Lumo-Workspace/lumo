@@ -65,6 +65,8 @@ export interface MyTask {
   priority: ApiPriority
   projectId: string
   project: { id: string; name: string }
+  parentTaskId: string | null
+  assigneeId: string | null
   updatedAt: string
   viewOrder: number | null
 }
@@ -88,6 +90,21 @@ export interface ApiTask {
   priority: ApiPriority
   projectId: string
   parentTaskId: string | null
+  assigneeId: string | null
   updatedAt: string
   viewOrder: number | null
+}
+
+export interface TaskDetail {
+  id: string
+  title: string
+  status: ApiStatus
+  priority: ApiPriority
+  projectId: string
+  project: { id: string; name: string }
+  parentTaskId: string | null
+  assigneeId: string | null
+  assignee: { id: string; clerkId: string } | null
+  description: string | null
+  updatedAt: string
 }

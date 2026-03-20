@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence } from 'motion/react'
-import { Page, ApiProject, ApiTask } from './types'
+import { Page, ApiProject, ApiTask, MyTask, ApiStatus } from './types'
 
 // Hooks
 import { useMyTasks } from './hooks/useMyTasks'
@@ -20,6 +20,7 @@ import {
   NewProjectModal,
   NewProjectFormData,
 } from './components/modals/NewProjectModal'
+import { TaskDrawer } from './components/TaskDrawer'
 
 export default function DashboardApp() {
   // ─── Navigation ────────────────────────────────────────────────────────────
@@ -61,6 +62,60 @@ export default function DashboardApp() {
   // ─── Modal state ───────────────────────────────────────────────────────────
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
+
+  // ─── Task drawer ───────────────────────────────────────────────────────────
+  const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
+    null
+  )
+
+  const handleOpenTask = useCallback(
+    (task: ApiTask | MyTask) => {
+      fetchMembers()
+      setSelectedTask(task)
+    },
+    [fetchMembers]
+  )
+
+  const handleCloseTask = useCallback(() => setSelectedTask(null), [])
+
+  const handleUpdateTask = useCallback(
+    async (
+      taskId: string,
+      data: Partial<{
+        title: string
+        status: ApiStatus
+        assigneeId: string | null
+        description: string | null
+      }>
+    ) => {
+      // Optimistic update — apply immediately to both lists
+      const patch = (t: ApiTask) => (t.id === taskId ? { ...t, ...data } : t)
+      const patchMy = (t: MyTask) => (t.id === taskId ? { ...t, ...data } : t)
+      setProjectTasks(prev => prev.map(patch))
+      setMyTasks(prev => prev.map(patchMy))
+
+      try {
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) throw new Error('Failed to update task')
+        const { task: updated } = (await res.json()) as { task: ApiTask }
+        // Reconcile with server response
+        setProjectTasks(prev =>
+          prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
+        )
+        setMyTasks(prev =>
+          prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
+        )
+      } catch (err) {
+        // Rollback: refetch would be ideal, but for now re-throw so drawer can revert
+        throw err
+      }
+    },
+    [setProjectTasks, setMyTasks]
+  )
 
   const openNewTaskModal = useCallback(() => {
     fetchMembers()
@@ -163,6 +218,7 @@ export default function DashboardApp() {
         priority: 'MEDIUM',
         projectId,
         parentTaskId: null,
+        assigneeId: assigneeId ?? null,
         updatedAt: now,
         viewOrder: null,
       }
@@ -254,6 +310,7 @@ export default function DashboardApp() {
             loading={myTasksLoading}
             error={myTasksError}
             onRetry={fetchMyTasks}
+            onTaskClick={handleOpenTask}
           />
         )
 
@@ -282,6 +339,7 @@ export default function DashboardApp() {
             onRetry={() => fetchProjectTasks(selectedProject.id)}
             onBack={handleBack}
             onNewTask={openNewTaskModal}
+            onTaskClick={handleOpenTask}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
             onUpdateProject={handleUpdateProject}
           />
@@ -304,6 +362,18 @@ export default function DashboardApp() {
       <main className='flex-1 flex flex-col overflow-hidden'>
         {renderPage()}
       </main>
+
+      <AnimatePresence>
+        {selectedTask && (
+          <TaskDrawer
+            initialTask={selectedTask}
+            onClose={handleCloseTask}
+            members={members}
+            projects={projects}
+            onUpdate={handleUpdateTask}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isNewTaskModalOpen && (

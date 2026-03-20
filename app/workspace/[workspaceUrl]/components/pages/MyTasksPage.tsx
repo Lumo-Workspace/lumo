@@ -37,6 +37,7 @@ interface MyTasksPageProps {
   loading: boolean
   error: string | null
   onRetry: () => void
+  onTaskClick: (task: MyTask) => void
 }
 
 export function MyTasksPage({
@@ -46,6 +47,7 @@ export function MyTasksPage({
   loading,
   error,
   onRetry,
+  onTaskClick,
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
 
@@ -107,7 +109,7 @@ export function MyTasksPage({
           emptyMessage='No tasks assigned to you.'
         >
           {viewMode === 'list' ? (
-            <TaskListTable tasks={tasks} />
+            <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />
           ) : (
             <BoardView
               tasks={tasks}
@@ -117,7 +119,12 @@ export function MyTasksPage({
               onDragOver={onDragOver}
               onDragEnd={onDragEnd}
               renderCard={(task, isOverlay) => (
-                <MyTaskCard key={task.id} task={task} isOverlay={isOverlay} />
+                <MyTaskCard
+                  key={task.id}
+                  task={task}
+                  isOverlay={isOverlay}
+                  onClick={() => onTaskClick(task)}
+                />
               )}
             />
           )}
@@ -129,7 +136,13 @@ export function MyTasksPage({
 
 // ─── TaskListTable ─────────────────────────────────────────────────────────────
 
-function TaskListTable({ tasks }: { tasks: MyTask[] }) {
+function TaskListTable({
+  tasks,
+  onTaskClick,
+}: {
+  tasks: MyTask[]
+  onTaskClick: (task: MyTask) => void
+}) {
   const { sort, toggle } = useTableSort<MyTaskSortKey>()
 
   const sorted = useMemo(() => {
@@ -197,6 +210,7 @@ function TaskListTable({ tasks }: { tasks: MyTask[] }) {
         {sorted.map(task => (
           <tr
             key={task.id}
+            onClick={() => onTaskClick(task)}
             className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer group'
           >
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
