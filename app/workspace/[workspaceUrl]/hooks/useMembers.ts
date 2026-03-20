@@ -6,28 +6,28 @@ import { readCache, writeCache } from '../cache'
 
 export function useMembers() {
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
-  const seeded = useRef(false)
+  const fetching = useRef(false)
 
   useEffect(() => {
+    // Seed from cache immediately for instant display
     const cached = readCache<WorkspaceMemberInfo[]>('lumo:members')
-    if (cached) {
-      setMembers(cached)
-      seeded.current = true
-    }
+    if (cached) setMembers(cached)
   }, [])
 
-  // Fetch once per session; subsequent calls are no-ops
+  // Always re-fetches (stale-while-revalidate) so cache never goes stale
   const fetchMembers = useCallback(async () => {
-    if (seeded.current) return
+    if (fetching.current) return
+    fetching.current = true
     try {
       const res = await fetch('/api/workspaces/members')
       if (!res.ok) return
       const data = (await res.json()) as { members: WorkspaceMemberInfo[] }
       setMembers(data.members)
       writeCache('lumo:members', data.members)
-      seeded.current = true
     } catch {
-      // Non-critical — assignee picker stays empty
+      // Non-critical — assignee picker keeps current list
+    } finally {
+      fetching.current = false
     }
   }, [])
 

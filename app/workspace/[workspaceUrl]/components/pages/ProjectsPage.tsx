@@ -2,6 +2,12 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Search, Plus } from 'lucide-react'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
@@ -75,6 +81,17 @@ export function ProjectsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
+      {/* Breadcrumb */}
+      <div className='px-8 pt-6 mb-3'>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Projects</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
       {/* Header */}
       <header className='h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0'>
         <h2 className='text-sm font-semibold'>Projects</h2>

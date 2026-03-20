@@ -9,6 +9,14 @@ import {
   ArrowRightLeft,
 } from 'lucide-react'
 import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import {
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -18,7 +26,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
 import { ApiProject, ApiTask } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
-import { StatusDot } from '../StatusDot'
+import { StatusIcon } from '../StatusIcon'
 import { PriorityBadge } from '../PriorityBadge'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
@@ -122,22 +130,25 @@ export function ProjectDetailPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <div className='px-8 pt-6'>
-        <nav className='flex items-center gap-2 text-[12px] text-zinc-400 dark:text-zinc-500 font-medium mb-3'>
-          <span
-            className='hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer'
-            onClick={onBack}
-          >
-            Projects
-          </span>
-          <span className='text-zinc-300 dark:text-zinc-700'>/</span>
-          <span className='text-zinc-900 dark:text-zinc-100'>
-            {project.name}
-          </span>
-          <button className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-0.5 rounded'>
-            <MoreHorizontal size={14} />
-          </button>
-        </nav>
+      <div className='px-8 pt-6 mb-3'>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <button onClick={onBack}>Projects</button>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{project.name}</BreadcrumbPage>
+            </BreadcrumbItem>
+            <BreadcrumbItem>
+              <button className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-0.5 rounded'>
+                <MoreHorizontal size={14} />
+              </button>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
 
       {/* Page header */}
@@ -350,7 +361,7 @@ function TaskListTable({
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
               <div className='flex items-center gap-2'>
-                <StatusDot status={task.status} />
+                <StatusIcon status={task.status} />
                 <span className='text-xs text-zinc-600 dark:text-zinc-400'>
                   {API_STATUS_LABEL[task.status] ?? task.status}
                 </span>

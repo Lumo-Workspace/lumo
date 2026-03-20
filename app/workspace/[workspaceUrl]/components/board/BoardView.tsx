@@ -13,6 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
+import { StatusIcon } from '../StatusIcon'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -97,6 +98,7 @@ export function BoardView<
               {/* Column header */}
               <div className='flex items-center justify-between px-1 mb-3 shrink-0'>
                 <div className='flex items-center gap-2'>
+                  <StatusIcon status={status} size={13} />
                   <span className='text-xs font-semibold text-zinc-500 uppercase tracking-wider'>
                     {label}
                   </span>

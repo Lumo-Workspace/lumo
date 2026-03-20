@@ -1,6 +1,46 @@
 {
   "version": 1,
   "skills": {
+    "clerk": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "912205692b6c1db07d6933f0584af27c6582484e5d6fac1c13fec4b6a963a528"
+    },
+    "clerk-backend-api": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "4f51a8aac3bb33c5dd6ec06740e13db9c45ad40bb372c918155ea8076f80367b"
+    },
+    "clerk-custom-ui": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "bf28bf1908604c50876a302c8bebd90cf31b04fcf0482ccfc542b22778677bcb"
+    },
+    "clerk-nextjs-patterns": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "c55aeca9c8ca0602af4a2bdc0370e3c349e53752177cb1187edf213f51d34636"
+    },
+    "clerk-orgs": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "9152a999b84ee07ffd5fdbc6e314a8e2504c5506beb5b69fdd4aebe098e9c8f4"
+    },
+    "clerk-setup": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "375d41a8b8e7c5a51e748cd1042379bd01cd1369ce774804d62527e3a9a7e2d8"
+    },
+    "clerk-testing": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "433b71e22d840af4995a17861f9467460979d61c27f4c5417ee657f85dc83186"
+    },
+    "clerk-webhooks": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "6a13eea450dda0b57edc358970f53c55ad7a2eb237d31decbc38e312555ddac5"
+    },
     "deploy-to-vercel": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

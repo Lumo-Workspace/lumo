@@ -3,6 +3,12 @@
 import { useState, useMemo } from 'react'
 import { Home, LayoutGrid, ArrowRightLeft } from 'lucide-react'
 import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
+import {
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -11,7 +17,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { MyTask } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
-import { StatusDot } from '../StatusDot'
+import { StatusIcon } from '../StatusIcon'
 import { PriorityBadge } from '../PriorityBadge'
 import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
@@ -64,11 +70,15 @@ export function MyTasksPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Page header */}
-      <div className='px-8 pt-6'>
-        <nav className='flex items-center gap-2 text-[12px] text-zinc-400 dark:text-zinc-500 font-medium mb-3'>
-          <span className='text-zinc-900 dark:text-zinc-100'>My Tasks</span>
-        </nav>
+      {/* Breadcrumb */}
+      <div className='px-8 pt-6 mb-3'>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>My Tasks</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
       <header className='pb-4 px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
@@ -223,7 +233,7 @@ function TaskListTable({
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
               <div className='flex items-center gap-2'>
-                <StatusDot status={task.status} />
+                <StatusIcon status={task.status} />
                 <span className='text-xs text-zinc-600 dark:text-zinc-400'>
                   {API_STATUS_LABEL[task.status] ?? task.status}
                 </span>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
-import { X } from 'lucide-react'
+import { X, ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -19,7 +19,7 @@ import {
   ApiProject,
 } from '../types'
 import { API_STATUS_LABEL } from '../utils'
-import { StatusDot } from './StatusDot'
+import { StatusIcon } from './StatusIcon'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -79,6 +79,7 @@ export function TaskDrawer({
     updatedAt: initialTask.updatedAt,
   }))
   const [title, setTitle] = useState(initialTask.title)
+  const [expanded, setExpanded] = useState(false)
   const [description, setDescription] = useState('')
   const [descriptionLoading, setDescriptionLoading] = useState(true)
 
@@ -164,7 +165,11 @@ export function TaskDrawer({
           onClick={onClose}
         />
         <DrawerPrimitive.Content
-          className='fixed right-0 top-0 bottom-0 z-50 w-[380px] bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none'
+          className='fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none'
+          style={{
+            width: expanded ? '100vw' : '380px',
+            transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
+          }}
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}
@@ -173,7 +178,18 @@ export function TaskDrawer({
           <DrawerPrimitive.Title className='sr-only'>
             Task detail
           </DrawerPrimitive.Title>
-          <div className='flex items-center justify-end px-5 pt-4 shrink-0'>
+          <div className='flex items-center justify-between px-5 pt-4 shrink-0'>
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900'
+              title={expanded ? 'Collapse' : 'Expand'}
+            >
+              {expanded ? (
+                <ArrowRightToLine size={14} />
+              ) : (
+                <ArrowLeftToLine size={14} />
+              )}
+            </button>
             <button
               onClick={onClose}
               className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900'
@@ -220,10 +236,7 @@ export function TaskDrawer({
                     onValueChange={v => handlePatch({ status: v as ApiStatus })}
                   >
                     <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900 px-2 -ml-2 w-auto gap-2 focus:ring-0'>
-                      <div className='flex items-center gap-2'>
-                        <StatusDot status={task.status} />
-                        <SelectValue />
-                      </div>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {(
@@ -234,7 +247,7 @@ export function TaskDrawer({
                       ).map(([val, label]) => (
                         <SelectItem key={val} value={val}>
                           <div className='flex items-center gap-2'>
-                            <StatusDot status={val} />
+                            <StatusIcon status={val} />
                             {label}
                           </div>
                         </SelectItem>
