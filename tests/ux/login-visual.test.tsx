@@ -9,7 +9,6 @@
  * - UX-005: Consistent styling with shadcn/ui
  */
 
-import { render } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 describe('Login Page Visual Regression (Placeholder)', () => {

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Search, Plus } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
+import { AsyncContent } from '../AsyncContent'
 import {
   useTableSort,
   applyDir,
@@ -135,25 +136,13 @@ export function ProjectsPage({
 
       {/* Body */}
       <div className='flex-1 overflow-auto'>
-        {loading ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            Loading…
-          </div>
-        ) : error ? (
-          <div className='flex flex-col items-center justify-center h-40 gap-2'>
-            <p className='text-sm text-red-500'>{error}</p>
-            <button
-              onClick={onRetry}
-              className='text-xs text-zinc-500 underline'
-            >
-              Retry
-            </button>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            No projects yet. Create one to get started.
-          </div>
-        ) : (
+        <AsyncContent
+          loading={loading}
+          error={error}
+          empty={projects.length === 0}
+          onRetry={onRetry}
+          emptyMessage='No projects yet. Create one to get started.'
+        >
           <table className='w-full border-collapse'>
             <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-10'>
               <tr>
@@ -231,7 +220,7 @@ export function ProjectsPage({
               ))}
             </tbody>
           </table>
-        )}
+        </AsyncContent>
       </div>
     </div>
   )

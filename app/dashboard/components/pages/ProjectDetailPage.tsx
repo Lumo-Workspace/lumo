@@ -24,6 +24,8 @@ import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { SortableHeader } from '../SortableHeader'
+import { ViewToggle } from '../ViewToggle'
+import { AsyncContent } from '../AsyncContent'
 import {
   useTableSort,
   applyDir,
@@ -82,10 +84,8 @@ export function ProjectDetailPage({
   // Keep local values in sync when project prop changes (e.g. after save)
   useEffect(() => {
     setNameValue(project.name)
-  }, [project.name])
-  useEffect(() => {
     setDescValue(project.description ?? '')
-  }, [project.description])
+  }, [project.name, project.description])
 
   const commitName = async () => {
     setEditingName(false)
@@ -232,44 +232,34 @@ export function ProjectDetailPage({
 
       {/* Content */}
       <div className='flex-1 overflow-auto'>
-        {loading ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            Loading…
-          </div>
-        ) : error ? (
-          <div className='flex flex-col items-center justify-center h-40 gap-2'>
-            <p className='text-sm text-red-500'>{error}</p>
-            <button
-              onClick={onRetry}
-              className='text-xs text-zinc-500 underline'
-            >
-              Retry
-            </button>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            No tasks yet.
-          </div>
-        ) : viewMode === 'list' ? (
-          <TaskListTable tasks={tasks} />
-        ) : (
-          <BoardView
-            tasks={tasks}
-            sensors={sensors}
-            activeId={activeId}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragEnd={onDragEnd}
-            renderCard={(task, isOverlay) => (
-              <ProjectTaskCard
-                key={task.id}
-                task={task}
-                isOverlay={isOverlay}
-              />
-            )}
-            onAddTask={onNewTask}
-          />
-        )}
+        <AsyncContent
+          loading={loading}
+          error={error}
+          empty={tasks.length === 0}
+          onRetry={onRetry}
+          emptyMessage='No tasks yet.'
+        >
+          {viewMode === 'list' ? (
+            <TaskListTable tasks={tasks} />
+          ) : (
+            <BoardView
+              tasks={tasks}
+              sensors={sensors}
+              activeId={activeId}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+              renderCard={(task, isOverlay) => (
+                <ProjectTaskCard
+                  key={task.id}
+                  task={task}
+                  isOverlay={isOverlay}
+                />
+              )}
+              onAddTask={onNewTask}
+            />
+          )}
+        </AsyncContent>
       </div>
     </div>
   )
@@ -340,7 +330,7 @@ function TaskListTable({ tasks }: { tasks: ApiTask[] }) {
           >
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
               <div className='flex items-center gap-2'>
-                {task.parentTaskId && (
+                {task.parentTaskId != null && (
                   <span className='w-3 h-px bg-zinc-300 dark:bg-zinc-700 inline-block' />
                 )}
                 <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 transition-colors'>
@@ -366,35 +356,5 @@ function TaskListTable({ tasks }: { tasks: ApiTask[] }) {
         ))}
       </tbody>
     </table>
-  )
-}
-
-// ─── ViewToggle ────────────────────────────────────────────────────────────────
-
-function ViewToggle({
-  value,
-  onChange,
-}: {
-  value: 'list' | 'board'
-  onChange: (v: 'list' | 'board') => void
-}) {
-  return (
-    <div className='flex items-center p-1 bg-zinc-100 dark:bg-zinc-900 rounded-md'>
-      {(['list', 'board'] as const).map(mode => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          className={cn(
-            'flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded transition-all capitalize',
-            value === mode
-              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
-          )}
-        >
-          {mode === 'list' ? <Layers size={16} /> : <LayoutGrid size={16} />}
-          {mode.charAt(0).toUpperCase() + mode.slice(1)}
-        </button>
-      ))}
-    </div>
   )
 }

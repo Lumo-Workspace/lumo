@@ -9,7 +9,6 @@
  * - UX-003: Screen reader compatibility
  */
 
-import { render } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 describe('Login Page Accessibility (Placeholder)', () => {

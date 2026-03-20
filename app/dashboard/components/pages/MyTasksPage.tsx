@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Home, LayoutGrid, Layers, ArrowRightLeft } from 'lucide-react'
+import { Home, LayoutGrid, ArrowRightLeft } from 'lucide-react'
 import {
   PointerSensor,
   KeyboardSensor,
@@ -9,7 +9,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { cn } from '@/lib/utils'
 import { MyTask } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
 import { StatusDot } from '../StatusDot'
@@ -18,6 +17,8 @@ import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { SortableHeader } from '../SortableHeader'
+import { ViewToggle } from '../ViewToggle'
+import { AsyncContent } from '../AsyncContent'
 import {
   useTableSort,
   applyDir,
@@ -98,39 +99,29 @@ export function MyTasksPage({
 
       {/* Content */}
       <div className='flex-1 overflow-auto'>
-        {loading ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            Loading…
-          </div>
-        ) : error ? (
-          <div className='flex flex-col items-center justify-center h-40 gap-2'>
-            <p className='text-sm text-red-500'>{error}</p>
-            <button
-              onClick={onRetry}
-              className='text-xs text-zinc-500 underline'
-            >
-              Retry
-            </button>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-            No tasks assigned to you.
-          </div>
-        ) : viewMode === 'list' ? (
-          <TaskListTable tasks={tasks} />
-        ) : (
-          <BoardView
-            tasks={tasks}
-            sensors={sensors}
-            activeId={activeId}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragEnd={onDragEnd}
-            renderCard={(task, isOverlay) => (
-              <MyTaskCard key={task.id} task={task} isOverlay={isOverlay} />
-            )}
-          />
-        )}
+        <AsyncContent
+          loading={loading}
+          error={error}
+          empty={tasks.length === 0}
+          onRetry={onRetry}
+          emptyMessage='No tasks assigned to you.'
+        >
+          {viewMode === 'list' ? (
+            <TaskListTable tasks={tasks} />
+          ) : (
+            <BoardView
+              tasks={tasks}
+              sensors={sensors}
+              activeId={activeId}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+              renderCard={(task, isOverlay) => (
+                <MyTaskCard key={task.id} task={task} isOverlay={isOverlay} />
+              )}
+            />
+          )}
+        </AsyncContent>
       </div>
     </div>
   )
@@ -234,35 +225,5 @@ function TaskListTable({ tasks }: { tasks: MyTask[] }) {
         ))}
       </tbody>
     </table>
-  )
-}
-
-// ─── ViewToggle ────────────────────────────────────────────────────────────────
-
-function ViewToggle({
-  value,
-  onChange,
-}: {
-  value: 'list' | 'board'
-  onChange: (v: 'list' | 'board') => void
-}) {
-  return (
-    <div className='flex items-center p-1 bg-zinc-100 dark:bg-zinc-900 rounded-md'>
-      {(['list', 'board'] as const).map(mode => (
-        <button
-          key={mode}
-          onClick={() => onChange(mode)}
-          className={cn(
-            'flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded transition-all',
-            value === mode
-              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
-          )}
-        >
-          {mode === 'list' ? <Layers size={16} /> : <LayoutGrid size={16} />}
-          {mode.charAt(0).toUpperCase() + mode.slice(1)}
-        </button>
-      ))}
-    </div>
   )
 }

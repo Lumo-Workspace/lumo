@@ -62,6 +62,11 @@ export default function DashboardApp() {
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
 
+  const openNewTaskModal = useCallback(() => {
+    fetchMembers()
+    setIsNewTaskModalOpen(true)
+  }, [fetchMembers])
+
   // ─── Dark mode ────────────────────────────────────────────────────────────
   const [isDarkMode, setIsDarkMode] = useState(false)
 
@@ -82,16 +87,18 @@ export default function DashboardApp() {
     }
   }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
-  // Fetch members lazily when the task modal first opens
-  useEffect(() => {
-    if (isNewTaskModalOpen) fetchMembers()
-  }, [isNewTaskModalOpen, fetchMembers])
-
   // ─── Navigation helpers ────────────────────────────────────────────────────
   const navigateTo = useCallback((page: Page, project?: ApiProject) => {
     setCurrentPage(page)
     if (project) setSelectedProject(project)
   }, [])
+
+  const handleSelectProject = useCallback(
+    (p: ApiProject) => navigateTo('project-detail', p),
+    [navigateTo]
+  )
+  const handleBack = useCallback(() => navigateTo('projects'), [navigateTo])
+  const openNewProject = useCallback(() => setIsNewProjectModalOpen(true), [])
 
   // ─── Optimistic: create project ────────────────────────────────────────────
   const handleCreateProject = useCallback(
@@ -257,8 +264,8 @@ export default function DashboardApp() {
             loading={projectsLoading}
             error={projectsError}
             onRetry={fetchProjects}
-            onSelectProject={p => navigateTo('project-detail', p)}
-            onNewProject={() => setIsNewProjectModalOpen(true)}
+            onSelectProject={handleSelectProject}
+            onNewProject={openNewProject}
           />
         )
 
@@ -273,8 +280,8 @@ export default function DashboardApp() {
             loading={projectTasksLoading}
             error={projectTasksError}
             onRetry={() => fetchProjectTasks(selectedProject.id)}
-            onBack={() => navigateTo('projects')}
-            onNewTask={() => setIsNewTaskModalOpen(true)}
+            onBack={handleBack}
+            onNewTask={openNewTaskModal}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
             onUpdateProject={handleUpdateProject}
           />
