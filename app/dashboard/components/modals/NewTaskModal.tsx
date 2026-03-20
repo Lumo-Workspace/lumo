@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
 import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../../types'
+import { isSubmitShortcut, submitModLabel } from '../../utils'
 import {
   Select,
   SelectContent,
@@ -55,8 +56,6 @@ export function NewTaskModal({
     setStatus('TODO')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId('')
-    setError(null)
-    setLoading(false)
   }
 
   const handleClose = () => {
@@ -105,7 +104,7 @@ export function NewTaskModal({
               disabled={!canSubmit}
               className='px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              Create task ⏎
+              Create task {submitModLabel}↵
             </button>
           </div>
         }
@@ -120,7 +119,7 @@ export function NewTaskModal({
               value={title}
               onChange={e => setTitle(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) handleSubmit()
+                if (isSubmitShortcut(e)) handleSubmit()
               }}
             />
             <textarea
