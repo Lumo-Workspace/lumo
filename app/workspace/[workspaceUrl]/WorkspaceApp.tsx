@@ -123,11 +123,15 @@ export default function DashboardApp() {
     setIsNewTaskModalOpen(true)
   }, [fetchMembers])
 
-  // ─── Dark mode ────────────────────────────────────────────────────────────
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  // ─── Dark mode (persisted to localStorage) ────────────────────────────────
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('lumo:darkMode') === 'true'
+  })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode)
+    localStorage.setItem('lumo:darkMode', String(isDarkMode))
   }, [isDarkMode])
 
   // ─── Page-change side effects ──────────────────────────────────────────────

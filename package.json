@@ -46,6 +46,7 @@
     "@radix-ui/react-toast": "1.2.15",
     "@radix-ui/react-toggle": "1.1.10",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@tailwindcss/typography": "^0.5.19",
     "@tiptap/core": "^3.20.4",
     "@tiptap/extension-color": "^3.20.4",
     "@tiptap/extension-document": "^3.20.4",

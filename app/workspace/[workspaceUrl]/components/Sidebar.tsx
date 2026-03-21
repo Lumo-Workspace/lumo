@@ -1,14 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  Home,
-  Layers,
-  Settings,
-  Sparkles,
-  LogOut,
-  ChevronsUpDown,
-} from 'lucide-react'
+import { Home, Layers, Sun, Moon, LogOut, ChevronsUpDown } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { Page } from '../types'
 import {
@@ -166,10 +159,10 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={onToggleDarkMode}
-              tooltip={isDarkMode ? 'Dark Mode' : 'Settings'}
+              tooltip={isDarkMode ? 'Dark Mode' : 'Light Mode'}
             >
-              {isDarkMode ? <Sparkles /> : <Settings />}
-              <span>{isDarkMode ? 'Dark Mode' : 'Settings'}</span>
+              {isDarkMode ? <Moon /> : <Sun />}
+              <span>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

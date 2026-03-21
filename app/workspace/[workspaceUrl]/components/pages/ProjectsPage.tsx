@@ -102,7 +102,7 @@ export function ProjectsPage({
               className='absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400'
             />
             <input
-              className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
+              className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
               placeholder='Search projects...'
               type='text'
               value={query}
@@ -122,7 +122,7 @@ export function ProjectsPage({
                   filtered.map(p => (
                     <button
                       key={p.id}
-                      className='w-full text-left px-3 py-2.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-2'
+                      className='w-full text-left px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-2'
                       onMouseDown={() => {
                         setQuery('')
                         setOpen(false)
@@ -202,7 +202,7 @@ export function ProjectsPage({
                 >
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center gap-3'>
-                      <span className='font-medium group-hover:text-blue-500 transition-colors'>
+                      <span className='font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                         {project.name}
                       </span>
                       {project.isIdea && (
@@ -225,12 +225,12 @@ export function ProjectsPage({
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center gap-2'>
                       <div className='size-2 rounded-full bg-blue-500' />
-                      <span className='text-xs'>
+                      <span className='text-xs text-zinc-700 dark:text-zinc-300'>
                         {project.inProgressCount} in progress
                       </span>
                     </div>
                   </td>
-                  <td className='py-4 px-6 text-right text-zinc-500 text-xs border-b border-zinc-200 dark:border-zinc-800'>
+                  <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
                     {new Date(project.updatedAt).toLocaleDateString()}
                   </td>
                 </tr>

@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
-/* TipTap Editor Styles */
+/* ── TipTap / ProseMirror base ───────────────────────────────────────────── */
 .ProseMirror {
   outline: none;
   cursor: text;
@@ -11,106 +12,47 @@
   outline: none;
 }
 
+/* Placeholder */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: #9ca3af;
   pointer-events: none;
   height: 0;
 }
 
-/* Basic editor styles - Enhanced TipTap Typography */
-.ProseMirror {
-  /* First child margin reset */
-}
-
+/* Remove top margin on first child so it sits flush */
 .ProseMirror > :first-child {
-  margin-top: 0;
+  margin-top: 0 !important;
 }
 
-/* List styles */
-.ProseMirror ul,
-.ProseMirror ol {
-  padding: 0 1rem;
-  margin: 1.25rem 1rem 1.25rem 0.4rem;
-  list-style-position: outside;
-}
-
-.ProseMirror ul {
-  list-style-type: disc;
-}
-
-.ProseMirror ol {
-  list-style-type: decimal;
-}
-
-.ProseMirror ul li,
-.ProseMirror ol li {
-  display: list-item;
-  margin: 0.5rem 0;
-}
-
-.ProseMirror ul li p,
-.ProseMirror ol li p {
-  margin-top: 0.25em;
-  margin-bottom: 0.25em;
-  display: inline;
-}
-
-/* Nested lists */
-.ProseMirror ul ul {
-  list-style-type: circle;
-  margin: 0.25rem 0;
-}
-
-.ProseMirror ul ul ul {
-  list-style-type: square;
-}
-
-.ProseMirror ol ol {
-  list-style-type: lower-alpha;
-}
-
-.ProseMirror ol ol ol {
-  list-style-type: lower-roman;
-}
-
-/* Task list styles */
-.ProseMirror ul[data-type="taskList"],
-.ProseMirror ul.task-list {
+/* ── Task list — override prose's default list styling ───────────────────── */
+.ProseMirror ul[data-type="taskList"] {
   list-style: none !important;
   padding: 0 !important;
-  margin: 1.25rem 0 !important;
+  margin: 0.75rem 0 !important;
 }
 
-.ProseMirror ul[data-type="taskList"] li,
-.ProseMirror ul.task-list li {
+.ProseMirror ul[data-type="taskList"] li {
   display: flex !important;
   align-items: flex-start;
-  margin: 0.5rem 0;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
   list-style: none !important;
-  list-style-type: none !important;
-  position: relative;
 }
 
 .ProseMirror ul[data-type="taskList"] li::before,
-.ProseMirror ul.task-list li::before,
-.ProseMirror ul[data-type="taskList"] li::marker,
-.ProseMirror ul.task-list li::marker {
+.ProseMirror ul[data-type="taskList"] li::marker {
   display: none !important;
   content: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
 }
 
 .ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
-  margin-right: 0.5rem;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
   flex-shrink: 0;
   cursor: pointer;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   accent-color: #3b82f6;
 }
 
@@ -121,207 +63,13 @@
 
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
   text-decoration: line-through;
-  color: #6b7280;
+  opacity: 0.5;
 }
 
-.ProseMirror ul[data-type="taskList"] li[data-checked="true"] input[type="checkbox"] {
-  text-decoration: line-through;
-}
-
-/* Disable spell check for task items */
-.ProseMirror ul[data-type="taskList"] li > div,
-.ProseMirror ul.task-list li > div {
-  -webkit-user-modify: read-write-plaintext-only;
-  -moz-user-modify: read-write;
-  user-modify: read-write;
-}
-
-.ProseMirror ul[data-type="taskList"] li > div *,
-.ProseMirror ul.task-list li > div * {
-  -webkit-user-modify: read-write-plaintext-only;
-  -moz-user-modify: read-write;
-  user-modify: read-write;
-}
-
-/* General spell check disable for editor */
-.ProseMirror {
-  -webkit-user-modify: read-write-plaintext-only;
-  -moz-user-modify: read-write;
-  user-modify: read-write;
-}
-
-/* Heading styles */
-.ProseMirror h1,
-.ProseMirror h2,
-.ProseMirror h3,
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
-  line-height: 1.1;
-  margin-top: 2.5rem;
-  text-wrap: pretty;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.ProseMirror h1 {
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  font-size: 1.4rem;
-}
-
-.ProseMirror h2 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 1.2rem;
-}
-
-.ProseMirror h3,
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.ProseMirror h3 {
-  font-size: 1.1rem;
-}
-
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
-  font-size: 1rem;
-}
-
-/* Paragraph styles */
-.ProseMirror p {
-  margin: 0.75rem 0;
-  line-height: 1.6;
-  color: #1a1a1a;
-}
-
-/* Text alignment styles */
-.ProseMirror p[style*="text-align: left"],
-.ProseMirror h1[style*="text-align: left"],
-.ProseMirror h2[style*="text-align: left"],
-.ProseMirror h3[style*="text-align: left"],
-.ProseMirror h4[style*="text-align: left"],
-.ProseMirror h5[style*="text-align: left"],
-.ProseMirror h6[style*="text-align: left"] {
-  text-align: left;
-}
-
-.ProseMirror p[style*="text-align: center"],
-.ProseMirror h1[style*="text-align: center"],
-.ProseMirror h2[style*="text-align: center"],
-.ProseMirror h3[style*="text-align: center"],
-.ProseMirror h4[style*="text-align: center"],
-.ProseMirror h5[style*="text-align: center"],
-.ProseMirror h6[style*="text-align: center"] {
-  text-align: center;
-}
-
-.ProseMirror p[style*="text-align: right"],
-.ProseMirror h1[style*="text-align: right"],
-.ProseMirror h2[style*="text-align: right"],
-.ProseMirror h3[style*="text-align: right"],
-.ProseMirror h4[style*="text-align: right"],
-.ProseMirror h5[style*="text-align: right"],
-.ProseMirror h6[style*="text-align: right"] {
-  text-align: right;
-}
-
-.ProseMirror p[style*="text-align: justify"],
-.ProseMirror h1[style*="text-align: justify"],
-.ProseMirror h2[style*="text-align: justify"],
-.ProseMirror h3[style*="text-align: justify"],
-.ProseMirror h4[style*="text-align: justify"],
-.ProseMirror h5[style*="text-align: justify"],
-.ProseMirror h6[style*="text-align: justify"] {
-  text-align: justify;
-}
-
-/* Code and preformatted text styles */
-.ProseMirror code {
-  background-color: #f3f4f6;
-  border-radius: 0.4rem;
-  color: #1a1a1a;
-  font-size: 0.85rem;
-  padding: 0.25em 0.3em;
-  font-family: 'JetBrainsMono', monospace;
-}
-
-.ProseMirror pre {
-  background: #1a1a1a;
-  border-radius: 0.5rem;
-  color: #ffffff;
-  font-family: 'JetBrainsMono', monospace;
-  margin: 1.5rem 0;
-  padding: 0.75rem 1rem;
-  overflow-x: auto;
-}
-
-.ProseMirror pre code {
-  background: none;
-  color: inherit;
-  font-size: 0.8rem;
-  padding: 0;
-  border-radius: 0;
-}
-
-/* Blockquote styles */
-.ProseMirror blockquote {
-  border-left: 3px solid #d1d5db;
-  margin: 1.5rem 0;
-  padding-left: 1rem;
-  color: #6b7280;
-  font-style: italic;
-}
-
-/* Image styles */
-.ProseMirror img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-  display: block;
-}
-
-.ProseMirror img:hover {
-  opacity: 0.9;
-  transition: opacity 0.2s ease;
-}
-
-/* Horizontal rule */
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 2rem 0;
-}
-
-/* Text formatting */
-.ProseMirror strong {
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.ProseMirror em {
-  font-style: italic;
-}
-
-.ProseMirror u {
-  text-decoration: underline;
-}
-
-.ProseMirror s {
-  text-decoration: line-through;
-}
-
+/* ── Design tokens ───────────────────────────────────────────────────────── */
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Light theme colors instead of dark */
   --background: #ffffff;
   --foreground: #1a1a1a;
   --card: #ffffff;
@@ -343,20 +91,6 @@
   --ring: #6366f1;
   --radius: 0.75rem;
 
-  /* Enhanced inbox-specific colors */
-  --inbox-background: #fafbfc;
-  --inbox-card: #ffffff;
-  --inbox-card-hover: #f8fafc;
-  --inbox-unread: #f0f4ff;
-  --inbox-unread-border: #c7d2fe;
-  --inbox-selected: #eef2ff;
-  --inbox-accent: #6366f1;
-  --inbox-accent-light: #a5b4fc;
-  --inbox-text-primary: #1e293b;
-  --inbox-text-secondary: #64748b;
-  --inbox-text-muted: #94a3b8;
-
-  /* Light sidebar colors */
   --sidebar: #f9fafb;
   --sidebar-foreground: #1a1a1a;
   --sidebar-primary: #1a1a1a;
@@ -366,7 +100,6 @@
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #2563eb;
 
-  /* Updated font variables */
   --font-inter: "Inter", sans-serif;
   --font-source-code-pro: "Source Code Pro", monospace;
 }
@@ -402,7 +135,6 @@
 }
 
 @theme inline {
-  /* Update font variables to use Inter and Source Code Pro */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-source-code-pro);
   --color-background: var(--background);
@@ -429,19 +161,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Added inbox-specific design tokens */
-  --color-inbox-background: var(--inbox-background);
-  --color-inbox-card: var(--inbox-card);
-  --color-inbox-card-hover: var(--inbox-card-hover);
-  --color-inbox-unread: var(--inbox-unread);
-  --color-inbox-unread-border: var(--inbox-unread-border);
-  --color-inbox-selected: var(--inbox-selected);
-  --color-inbox-accent: var(--inbox-accent);
-  --color-inbox-accent-light: var(--inbox-accent-light);
-  --color-inbox-text-primary: var(--inbox-text-primary);
-  --color-inbox-text-secondary: var(--inbox-text-secondary);
-  --color-inbox-text-muted: var(--inbox-text-muted);
-
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -450,26 +169,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --animate-aurora: aurora 60s linear infinite;
-  @keyframes aurora {
-  from {
-    backgroundPosition: 50% 50%, 50% 50%;
-    }
-  to {
-    backgroundPosition: 350% 50%, 350% 50%;
-    }
-  }
-  @keyframes aurora {
-  from {
-    backgroundPosition: 50% 50%, 50% 50%;
-    }
-  to {
-    backgroundPosition: 350% 50%, 350% 50%;
-    }
-  }
 }
 
-/* Removed @layer base and replaced with direct CSS rules for Tailwind v4 compatibility */
+/* ── Base styles ─────────────────────────────────────────────────────────── */
 * {
   border-color: var(--color-border);
   outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent);
@@ -480,198 +182,84 @@ body {
   color: var(--color-foreground);
 }
 
-/* Light theme scrollbar */
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f5f5f5;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #d1d5db;
-  border-radius: 4px;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
 
-/* Force team tree text to be visible */
-.team-tree-text,
-.team-tree-text *,
-span.team-tree-text {
-  color: #1a1a1a !important;
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
 }
 
-/* Additional override for any dark theme */
-.dark .team-tree-text,
-.dark .team-tree-text *,
-.dark span.team-tree-text {
-  color: #1a1a1a !important;
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
-/* Even more specific selectors */
-div span.team-tree-text,
-div span.team-tree-text * {
-  color: #1a1a1a !important;
-}
-
-/* Target top-level team names specifically */
-.group span,
-.group span *,
-div.group span,
-div.group span *,
-.group div span,
-.group div span *,
-.space-y-0 span,
-.space-y-0 span *,
-div.space-y-0 span,
-div.space-y-0 span * {
-  color: #1a1a1a !important;
-}
-
-/* Nuclear option - target everything in the team tree */
-[class*="team"] span,
-[class*="Team"] span,
-div[class*="team"] span,
-div[class*="Team"] span {
-  color: #1a1a1a !important;
-}
-
-/* Landing Page Animations */
+/* ── Landing page animations ─────────────────────────────────────────────── */
 @keyframes fade-in-up {
-  0% {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes wave-left {
-  0%, 100% {
-    transform: translateX(0) translateY(0);
-    opacity: 0.4;
-  }
-  25% {
-    transform: translateX(-8px) translateY(-3px);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateX(-15px) translateY(-6px);
-    opacity: 0.45;
-  }
-  75% {
-    transform: translateX(-8px) translateY(-3px);
-    opacity: 0.5;
-  }
+  0%, 100% { transform: translateX(0)   translateY(0);   opacity: 0.40; }
+  25%       { transform: translateX(-8px) translateY(-3px); opacity: 0.50; }
+  50%       { transform: translateX(-15px) translateY(-6px); opacity: 0.45; }
+  75%       { transform: translateX(-8px) translateY(-3px); opacity: 0.50; }
 }
 
 @keyframes wave-right {
-  0%, 100% {
-    transform: translateX(0) translateY(0);
-    opacity: 0.35;
-  }
-  25% {
-    transform: translateX(6px) translateY(-2px);
-    opacity: 0.4;
-  }
-  50% {
-    transform: translateX(12px) translateY(-4px);
-    opacity: 0.38;
-  }
-  75% {
-    transform: translateX(6px) translateY(-2px);
-    opacity: 0.4;
-  }
+  0%, 100% { transform: translateX(0)  translateY(0);   opacity: 0.35; }
+  25%       { transform: translateX(6px) translateY(-2px); opacity: 0.40; }
+  50%       { transform: translateX(12px) translateY(-4px); opacity: 0.38; }
+  75%       { transform: translateX(6px) translateY(-2px); opacity: 0.40; }
 }
 
 @keyframes float-slow {
-  0%, 100% {
-    transform: translateY(0) translateX(0);
-    opacity: 0.2;
-  }
-  50% {
-    transform: translateY(-10px) translateX(5px);
-    opacity: 0.15;
-  }
+  0%, 100% { transform: translateY(0)    translateX(0);  opacity: 0.20; }
+  50%       { transform: translateY(-10px) translateX(5px); opacity: 0.15; }
 }
 
 @keyframes float-medium {
-  0%, 100% {
-    transform: translateY(0) translateX(0);
-    opacity: 0.15;
-  }
-  50% {
-    transform: translateY(-8px) translateX(-3px);
-    opacity: 0.1;
-  }
+  0%, 100% { transform: translateY(0)   translateX(0);   opacity: 0.15; }
+  50%       { transform: translateY(-8px) translateX(-3px); opacity: 0.10; }
 }
 
-.animate-fade-in-up {
-  animation: fade-in-up 0.8s ease-out forwards;
-  opacity: 0;
+@keyframes blob {
+  0%   { transform: translate(0px, 0px)   scale(1);   }
+  33%  { transform: translate(30px, -50px) scale(1.1); }
+  66%  { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px)   scale(1);   }
 }
 
-.animate-wave-left {
-  animation: wave-left 12s ease-in-out infinite;
-}
+.animate-fade-in-up   { animation: fade-in-up 0.8s ease-out forwards; opacity: 0; }
+.animate-wave-left    { animation: wave-left 12s ease-in-out infinite; }
+.animate-wave-right   { animation: wave-right 10s ease-in-out infinite; }
+.animate-float-slow   { animation: float-slow 12s ease-in-out infinite; }
+.animate-float-medium { animation: float-medium 10s ease-in-out infinite; }
+.animate-blob         { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 
-.animate-wave-right {
-  animation: wave-right 10s ease-in-out infinite;
-}
-
-.animate-float-slow {
-  animation: float-slow 12s ease-in-out infinite;
-}
-
-.animate-float-medium {
-  animation: float-medium 10s ease-in-out infinite;
-}
-
-/* Enhanced hover effects */
 .hover\:shadow-purple-500\/25:hover {
   box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.25);
 }
 
-/* Aurora Background Animations */
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
 }

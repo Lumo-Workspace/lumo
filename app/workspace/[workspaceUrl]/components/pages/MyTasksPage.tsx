@@ -87,7 +87,7 @@ export function MyTasksPage({
           </div>
           <div>
             <h2 className='text-xl font-semibold tracking-tight'>My Tasks</h2>
-            <p className='text-sm text-zinc-500 mt-0.5'>
+            <p className='text-sm text-zinc-500 dark:text-zinc-400 mt-0.5'>
               Tasks assigned to you across all projects.
             </p>
           </div>
@@ -229,7 +229,9 @@ function TaskListTable({
               </span>
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <span className='text-xs text-zinc-500'>{task.project.name}</span>
+              <span className='text-xs text-zinc-500 dark:text-zinc-400'>
+                {task.project.name}
+              </span>
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
               <div className='flex items-center gap-2'>

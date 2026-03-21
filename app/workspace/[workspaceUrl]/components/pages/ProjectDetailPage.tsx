@@ -354,7 +354,7 @@ function TaskListTable({
                 {task.parentTaskId != null && (
                   <span className='w-3 h-px bg-zinc-300 dark:bg-zinc-700 inline-block' />
                 )}
-                <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 transition-colors'>
+                <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                   {task.title}
                 </span>
               </div>

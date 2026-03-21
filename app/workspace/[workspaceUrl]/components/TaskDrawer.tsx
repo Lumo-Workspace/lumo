@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
 import { X, ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
 import {
@@ -20,6 +20,7 @@ import {
 } from '../types'
 import { API_STATUS_LABEL } from '../utils'
 import { StatusIcon } from './StatusIcon'
+import { DescriptionEditor } from './DescriptionEditor'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -80,7 +81,7 @@ export function TaskDrawer({
   }))
   const [title, setTitle] = useState(initialTask.title)
   const [expanded, setExpanded] = useState(false)
-  const [description, setDescription] = useState('')
+  const [descriptionValue, setDescriptionValue] = useState<string | null>(null)
   const [descriptionLoading, setDescriptionLoading] = useState(true)
 
   // Fetch full detail in background — only updates description + project name
@@ -102,7 +103,7 @@ export function TaskDrawer({
           description: t.description,
           project: t.project,
         }))
-        setDescription(t.description ?? '')
+        setDescriptionValue(t.description ?? null)
       })
       .catch(console.error)
       .finally(() => setDescriptionLoading(false))
@@ -134,19 +135,14 @@ export function TaskDrawer({
     handlePatch({ title: trimmed })
   }
 
-  const descRef = useRef<HTMLTextAreaElement>(null)
-  const commitDescription = () => {
-    const trimmed = description.trim() || null
-    if (trimmed === (task.description ?? null)) return
-    handlePatch({ description: trimmed })
-  }
-
-  useEffect(() => {
-    const el = descRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [description])
+  const commitDescription = useCallback(
+    (html: string | null) => {
+      const next = html?.trim() || null
+      if (next === (task.description ?? null)) return
+      handlePatch({ description: next })
+    },
+    [task.description, handlePatch]
+  )
 
   const project = projects.find(p => p.id === task.projectId) ?? task.project
 
@@ -300,19 +296,9 @@ export function TaskDrawer({
                     Loading…
                   </span>
                 ) : (
-                  <textarea
-                    ref={descRef}
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    onBlur={commitDescription}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') {
-                        setDescription(task.description ?? '')
-                        ;(e.target as HTMLTextAreaElement).blur()
-                      }
-                    }}
-                    placeholder='Add a description…'
-                    className='w-full text-sm text-zinc-700 dark:text-zinc-300 bg-transparent border-none outline-none resize-none leading-relaxed placeholder:text-zinc-300 dark:placeholder:text-zinc-600 min-h-[80px]'
+                  <DescriptionEditor
+                    value={descriptionValue}
+                    onCommit={commitDescription}
                   />
                 )}
               </div>

@@ -20,7 +20,7 @@ export function ViewToggle({
             'flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded transition-all capitalize',
             value === mode
               ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
           )}
         >
           {mode === 'list' ? <List size={16} /> : <LayoutGrid size={16} />}
