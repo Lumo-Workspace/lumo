@@ -11,12 +11,14 @@ import Placeholder from '@tiptap/extension-placeholder'
 interface DescriptionEditorProps {
   value: string | null
   onCommit: (html: string | null) => void
+  onChange?: (html: string | null) => void
   placeholder?: string
 }
 
 export function DescriptionEditor({
   value,
   onCommit,
+  onChange,
   placeholder = 'Add a description…',
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
@@ -44,6 +46,9 @@ export function DescriptionEditor({
       isFocusedRef.current = false
       const html = editor.isEmpty ? null : editor.getHTML()
       onCommit(html)
+    },
+    onUpdate: ({ editor }) => {
+      onChange?.(editor.isEmpty ? null : editor.getHTML())
     },
   })
 

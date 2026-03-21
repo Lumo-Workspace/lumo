@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
 import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../../types'
@@ -11,6 +11,7 @@ import {
   AssigneeSelect,
   ProjectSelect,
 } from '../TaskFieldSelects'
+import { DescriptionEditor } from '../DescriptionEditor'
 
 export interface NewTaskFormData {
   title: string
@@ -43,7 +44,7 @@ export function NewTaskModal({
   onSubmit,
 }: NewTaskModalProps) {
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const descriptionRef = useRef<string | null>(null)
   const [status, setStatus] = useState<ApiStatus>(defaultStatus ?? 'TODO')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
@@ -63,7 +64,7 @@ export function NewTaskModal({
 
   const reset = () => {
     setTitle('')
-    setDescription('')
+    descriptionRef.current = null
     setStatus(defaultStatus ?? 'TODO')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
@@ -81,7 +82,7 @@ export function NewTaskModal({
 
     const data = {
       title: trimmedTitle,
-      description,
+      description: descriptionRef.current ?? '',
       status,
       projectId: effectiveProjectId,
       assigneeId,
@@ -126,12 +127,18 @@ export function NewTaskModal({
                 if (isSubmitShortcut(e)) handleSubmit()
               }}
             />
-            <textarea
-              className={`w-full bg-transparent border-none p-0 text-sm text-zinc-600 dark:text-zinc-400 placeholder:text-zinc-400 focus:ring-0 outline-none resize-none leading-relaxed font-sans ${expanded ? 'flex-1 min-h-0' : 'min-h-[80px]'}`}
-              placeholder='Add description...'
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
+            <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
+              <DescriptionEditor
+                value={null}
+                onCommit={html => {
+                  descriptionRef.current = html
+                }}
+                onChange={html => {
+                  descriptionRef.current = html
+                }}
+                placeholder='Add description…'
+              />
+            </div>
             <div className='flex flex-wrap items-center gap-2 pt-1'>
               <StatusSelect
                 value={status}
