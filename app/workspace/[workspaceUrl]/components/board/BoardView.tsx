@@ -15,6 +15,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
 import { StatusIcon } from '../StatusIcon'
 import { Button } from '@/components/ui/button'
+import { ApiStatus } from '../../types'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ interface BoardViewProps<
   /** Render a task card. Pass isOverlay=true when rendering inside DragOverlay. */
   renderCard: (task: T, isOverlay: boolean) => React.ReactNode
   /** If provided, shows "Add task" button at the bottom of each column. */
-  onAddTask?: () => void
+  onAddTask?: (status: ApiStatus) => void
 }
 
 export function BoardView<
@@ -121,7 +122,7 @@ export function BoardView<
                     <Button
                       variant='ghost'
                       size='sm'
-                      onClick={onAddTask}
+                      onClick={() => onAddTask(status)}
                       className='w-full justify-start gap-1.5 mt-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
                     >
                       <Plus size={16} />

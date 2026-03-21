@@ -74,6 +74,9 @@ export default function DashboardApp() {
   const [newTaskDefaultAssigneeId, setNewTaskDefaultAssigneeId] = useState<
     string | undefined
   >(undefined)
+  const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<
+    ApiStatus | undefined
+  >(undefined)
 
   // ─── Task drawer ───────────────────────────────────────────────────────────
   const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
@@ -164,21 +167,25 @@ export default function DashboardApp() {
   )
 
   const openNewTaskModal = useCallback(
-    (assigneeId?: string) => {
+    (assigneeId?: string, status?: ApiStatus) => {
       fetchMembers()
       // Guard: ignore anything that isn't a plain string (e.g. a stray MouseEvent
       // from being used directly as an onClick handler)
       setNewTaskDefaultAssigneeId(
         typeof assigneeId === 'string' ? assigneeId : undefined
       )
+      setNewTaskDefaultStatus(status)
       setIsNewTaskModalOpen(true)
     },
     [fetchMembers]
   )
 
-  const openNewTaskModalForMe = useCallback(() => {
-    openNewTaskModal(currentMemberId)
-  }, [openNewTaskModal, currentMemberId])
+  const openNewTaskModalForMe = useCallback(
+    (status?: ApiStatus) => {
+      openNewTaskModal(currentMemberId, status)
+    },
+    [openNewTaskModal, currentMemberId]
+  )
 
   // ─── Dark mode (persisted to localStorage) ────────────────────────────────
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -441,7 +448,7 @@ export default function DashboardApp() {
             error={projectTasksError}
             onRetry={() => fetchProjectTasks(selectedProject.id)}
             onBack={handleBack}
-            onNewTask={() => openNewTaskModal()}
+            onNewTask={status => openNewTaskModal(undefined, status)}
             onTaskClick={handleOpenTask}
             onDeleteTask={handleDeleteTask}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
@@ -493,11 +500,13 @@ export default function DashboardApp() {
             onClose={() => {
               setIsNewTaskModalOpen(false)
               setNewTaskDefaultAssigneeId(undefined)
+              setNewTaskDefaultStatus(undefined)
             }}
             projects={projects}
             members={members}
             defaultProjectId={selectedProject?.id}
             defaultAssigneeId={newTaskDefaultAssigneeId}
+            defaultStatus={newTaskDefaultStatus}
             onSubmit={handleCreateTask}
           />
         )}

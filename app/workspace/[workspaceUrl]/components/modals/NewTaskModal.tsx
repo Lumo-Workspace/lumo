@@ -29,6 +29,7 @@ interface NewTaskModalProps {
   members: WorkspaceMemberInfo[]
   defaultProjectId?: string | undefined
   defaultAssigneeId?: string | undefined
+  defaultStatus?: ApiStatus | undefined
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
   onSubmit: (data: NewTaskFormData) => Promise<void>
 }
@@ -40,15 +41,16 @@ export function NewTaskModal({
   members,
   defaultProjectId,
   defaultAssigneeId,
+  defaultStatus,
   onSubmit,
 }: NewTaskModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<ApiStatus>('TODO')
+  const [status, setStatus] = useState<ApiStatus>(defaultStatus ?? 'TODO')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
 
-  // Sync defaults when they change
+  // Sync defaults when they change (modal may stay mounted between opens)
   useEffect(() => {
     setProjectId(defaultProjectId ?? '')
   }, [defaultProjectId])
@@ -57,10 +59,14 @@ export function NewTaskModal({
     setAssigneeId(defaultAssigneeId ?? '')
   }, [defaultAssigneeId])
 
+  useEffect(() => {
+    if (isOpen) setStatus(defaultStatus ?? 'TODO')
+  }, [isOpen, defaultStatus])
+
   const reset = () => {
     setTitle('')
     setDescription('')
-    setStatus('TODO')
+    setStatus(defaultStatus ?? 'TODO')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
   }

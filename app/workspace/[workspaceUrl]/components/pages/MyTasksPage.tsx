@@ -15,7 +15,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { MyTask } from '../../types'
+import { MyTask, ApiStatus } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
 import { StatusIcon } from '../StatusIcon'
 import { PriorityBadge } from '../PriorityBadge'
@@ -53,7 +53,7 @@ interface MyTasksPageProps {
   error: string | null
   onRetry: () => void
   onTaskClick: (task: MyTask) => void
-  onNewTask: () => void
+  onNewTask: (status?: ApiStatus) => void
 }
 
 export function MyTasksPage({
@@ -103,7 +103,7 @@ export function MyTasksPage({
             </p>
           </div>
         </div>
-        <Button onClick={onNewTask} size='sm' className='gap-1.5'>
+        <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />
           Create Task
         </Button>
@@ -133,7 +133,7 @@ export function MyTasksPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={onNewTask}>
+                <Button onClick={() => onNewTask()}>
                   <Plus size={16} />
                   Create Task
                 </Button>
@@ -159,6 +159,7 @@ export function MyTasksPage({
                   onClick={() => onTaskClick(task)}
                 />
               )}
+              onAddTask={status => onNewTask(status)}
             />
           )}
         </AsyncContent>

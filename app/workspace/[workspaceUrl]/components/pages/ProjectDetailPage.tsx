@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
-import { ApiProject, ApiTask } from '../../types'
+import { ApiProject, ApiTask, ApiStatus } from '../../types'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -63,7 +63,7 @@ interface ProjectDetailPageProps {
   error: string | null
   onRetry: () => void
   onBack: () => void
-  onNewTask: () => void
+  onNewTask: (status?: ApiStatus) => void
   onTaskClick: (task: ApiTask) => void
   onDeleteTask: (taskId: string) => Promise<void>
   onTaskStatusChanged: (
@@ -267,7 +267,7 @@ export function ProjectDetailPage({
             />
           </div>
         </div>
-        <Button onClick={onNewTask} size='sm' className='gap-1.5'>
+        <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />
           Create Task
         </Button>
@@ -297,7 +297,7 @@ export function ProjectDetailPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={onNewTask}>
+                <Button onClick={() => onNewTask()}>
                   <Plus size={16} />
                   Create Task
                 </Button>
