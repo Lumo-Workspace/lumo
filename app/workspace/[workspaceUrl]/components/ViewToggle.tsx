@@ -1,6 +1,6 @@
 'use client'
 
-import { Layers, LayoutGrid } from 'lucide-react'
+import { List, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ViewToggle({
@@ -23,7 +23,7 @@ export function ViewToggle({
               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
           )}
         >
-          {mode === 'list' ? <Layers size={16} /> : <LayoutGrid size={16} />}
+          {mode === 'list' ? <List size={16} /> : <LayoutGrid size={16} />}
           {mode.charAt(0).toUpperCase() + mode.slice(1)}
         </button>
       ))}

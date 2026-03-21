@@ -11,7 +11,8 @@ import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 
 // Components
-import { Sidebar } from './components/Sidebar'
+import { AppSidebar } from './components/Sidebar'
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { ProjectsPage } from './components/pages/ProjectsPage'
 import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
@@ -351,17 +352,15 @@ export default function DashboardApp() {
   }
 
   return (
-    <div className='flex h-screen overflow-hidden bg-white dark:bg-zinc-950 font-sans'>
-      <Sidebar
+    <SidebarProvider className='h-screen overflow-hidden font-sans'>
+      <AppSidebar
         currentPage={currentPage}
         onNavigate={navigateTo}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(d => !d)}
       />
 
-      <main className='flex-1 flex flex-col overflow-hidden'>
-        {renderPage()}
-      </main>
+      <SidebarInset className='overflow-hidden'>{renderPage()}</SidebarInset>
 
       <AnimatePresence>
         {selectedTask && (
@@ -394,6 +393,6 @@ export default function DashboardApp() {
           />
         )}
       </AnimatePresence>
-    </div>
+    </SidebarProvider>
   )
 }
