@@ -11,7 +11,7 @@ import { PriorityBadge } from '../PriorityBadge'
 interface CardShellProps {
   taskId: string
   isOverlay: boolean
-  onClick?: () => void
+  onClick?: (() => void) | undefined
   children: React.ReactNode
 }
 
