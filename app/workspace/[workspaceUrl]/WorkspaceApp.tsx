@@ -166,7 +166,11 @@ export default function DashboardApp() {
   const openNewTaskModal = useCallback(
     (assigneeId?: string) => {
       fetchMembers()
-      setNewTaskDefaultAssigneeId(assigneeId)
+      // Guard: ignore anything that isn't a plain string (e.g. a stray MouseEvent
+      // from being used directly as an onClick handler)
+      setNewTaskDefaultAssigneeId(
+        typeof assigneeId === 'string' ? assigneeId : undefined
+      )
       setIsNewTaskModalOpen(true)
     },
     [fetchMembers]
@@ -397,7 +401,7 @@ export default function DashboardApp() {
             error={projectTasksError}
             onRetry={() => fetchProjectTasks(selectedProject.id)}
             onBack={handleBack}
-            onNewTask={openNewTaskModal}
+            onNewTask={() => openNewTaskModal()}
             onTaskClick={handleOpenTask}
             onDeleteTask={handleDeleteTask}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
