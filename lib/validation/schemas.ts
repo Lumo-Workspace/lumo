@@ -24,7 +24,11 @@ export const createWorkspaceSchema = z.object({
     .string()
     .trim()
     .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be at most 100 characters'),
+    .max(100, 'Name must be at most 100 characters')
+    .regex(
+      /^[A-Za-z0-9 _-]+$/,
+      'Name can only contain English letters, numbers, spaces, hyphens, and underscores'
+    ),
   slug: z
     .string()
     .min(2, 'Slug must be at least 2 characters')
