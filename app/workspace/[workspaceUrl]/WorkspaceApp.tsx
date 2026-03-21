@@ -200,7 +200,10 @@ export default function DashboardApp() {
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
       hydrateForProject(selectedProject.id)
-      fetchProjectTasks(selectedProject.id)
+      // Skip fetch for optimistic IDs — the real ID arrives shortly after creation
+      if (!selectedProject.id.startsWith('optimistic-')) {
+        fetchProjectTasks(selectedProject.id)
+      }
     }
   }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
@@ -318,6 +321,43 @@ export default function DashboardApp() {
   )
 
   // ─── Update project name / description ────────────────────────────────────
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
+      // Evict description cache entries for all tasks under this project
+      const deletedTaskIds = projectTasks
+        .filter(t => t.projectId === projectId)
+        .map(t => t.id)
+      deletedTaskIds.forEach(id => descriptionCache.current.delete(id))
+
+      // Clear all related state before navigating away
+      setSelectedProject(null)
+      setSelectedTask(prev =>
+        prev && 'projectId' in prev && prev.projectId === projectId
+          ? null
+          : prev
+      )
+      setProjectTasks([])
+      setMyTasks(prev => prev.filter(t => t.projectId !== projectId))
+      setProjects(prev => prev.filter(p => p.id !== projectId))
+      navigateTo('projects')
+
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Failed to delete project')
+    },
+    [
+      navigateTo,
+      projectTasks,
+      descriptionCache,
+      setSelectedProject,
+      setSelectedTask,
+      setProjectTasks,
+      setMyTasks,
+      setProjects,
+    ]
+  )
+
   const handleUpdateProject = useCallback(
     async (id: string, data: { name?: string; description?: string }) => {
       const res = await fetch(`/api/projects/${id}`, {
@@ -406,6 +446,7 @@ export default function DashboardApp() {
             onDeleteTask={handleDeleteTask}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
             onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
           />
         )
 

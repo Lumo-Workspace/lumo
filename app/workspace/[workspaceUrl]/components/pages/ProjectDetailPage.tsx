@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Layers, Plus, MoreHorizontal } from 'lucide-react'
+import { Layers, Plus, MoreHorizontal, Trash2 } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -36,6 +36,23 @@ import {
 import { DataTable } from '../data-table/data-table'
 import { createTaskColumns } from '../data-table/task-columns'
 import { TypographyH3 } from '@/components/ui/typography'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -58,6 +75,7 @@ interface ProjectDetailPageProps {
     id: string,
     data: { name?: string; description?: string }
   ) => Promise<void>
+  onDeleteProject: (projectId: string) => Promise<void>
 }
 
 export function ProjectDetailPage({
@@ -74,8 +92,10 @@ export function ProjectDetailPage({
   onDeleteTask,
   onTaskStatusChanged,
   onUpdateProject,
+  onDeleteProject,
 }: ProjectDetailPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   // Memoised columns — stable reference so TanStack Table doesn't re-create on every render
   const taskColumns = useMemo(
@@ -129,17 +149,54 @@ export function ProjectDetailPage({
               <BreadcrumbPage>{project.name}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbItem>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              >
-                <MoreHorizontal size={14} />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  >
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end'>
+                  <DropdownMenuItem
+                    className='text-destructive focus:text-destructive'
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 className='mr-2 size-4' />
+                    Delete project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent size='sm'>
+          <AlertDialogHeader>
+            <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
+              <Trash2 />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{project.name}&rdquo; and all its tasks will be permanently
+              deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant='destructive'
+              onClick={() => onDeleteProject(project.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Page header */}
       <header className='pb-4 px-8 flex items-start justify-between shrink-0'>

@@ -42,23 +42,6 @@ interface TaskDrawerProps {
   onDescriptionLoaded?: (taskId: string, description: string | null) => void
 }
 
-function FieldRow({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex items-start gap-4 py-2'>
-      <span className='w-24 shrink-0 text-xs text-zinc-400 dark:text-zinc-500 pt-1.5 font-medium'>
-        {label}
-      </span>
-      <div className='flex-1 min-w-0'>{children}</div>
-    </div>
-  )
-}
-
 export function TaskDrawer({
   initialTask,
   cachedDescription,
@@ -234,73 +217,70 @@ export function TaskDrawer({
                 {task.title}
               </TypographyH3>
 
-              <div className='divide-y divide-zinc-100 dark:divide-zinc-900'>
+              {/* Status · Assignee · Project — single inline row, no labels */}
+              <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
                 {/* Status */}
-                <FieldRow label='Status'>
-                  <Select
-                    value={task.status}
-                    onValueChange={v => handlePatch({ status: v as ApiStatus })}
-                  >
-                    <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900 px-2 -ml-2 w-auto gap-2 focus:ring-0'>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(
-                        Object.entries(API_STATUS_LABEL) as [
-                          ApiStatus,
-                          string,
-                        ][]
-                      ).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>
-                          <div className='flex items-center gap-2'>
-                            <StatusIcon status={val} />
-                            {label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FieldRow>
+                <Select
+                  value={task.status}
+                  onValueChange={v => handlePatch({ status: v as ApiStatus })}
+                >
+                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]
+                    ).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        <div className='flex items-center gap-2'>
+                          <StatusIcon status={val} />
+                          {label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
+                  ·
+                </span>
 
                 {/* Assignee */}
-                <FieldRow label='Assignee'>
-                  <Select
-                    value={task.assigneeId ?? '__unassigned__'}
-                    onValueChange={v =>
-                      handlePatch({
-                        assigneeId: v === '__unassigned__' ? null : v,
-                      })
-                    }
-                  >
-                    <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900 px-2 -ml-2 w-auto gap-2 focus:ring-0'>
-                      <SelectValue placeholder='Unassigned' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='__unassigned__'>
-                        <span className='text-zinc-400'>Unassigned</span>
+                <Select
+                  value={task.assigneeId ?? '__unassigned__'}
+                  onValueChange={v =>
+                    handlePatch({
+                      assigneeId: v === '__unassigned__' ? null : v,
+                    })
+                  }
+                >
+                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
+                    <SelectValue placeholder='Unassigned' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='__unassigned__'>
+                      <span className='text-zinc-400'>Unassigned</span>
+                    </SelectItem>
+                    {members.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name}
                       </SelectItem>
-                      {members.map(m => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FieldRow>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
+                  ·
+                </span>
 
                 {/* Project */}
-                <FieldRow label='Project'>
-                  <span className='text-xs text-zinc-700 dark:text-zinc-300 py-1.5 block'>
-                    {project?.name || task.project.name || '—'}
-                  </span>
-                </FieldRow>
+                <span className='px-2 text-xs text-zinc-500 dark:text-zinc-400'>
+                  {project?.name || task.project.name || '—'}
+                </span>
               </div>
 
               {/* Description */}
               <div className='pt-4'>
-                <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 mb-2'>
-                  Description
-                </p>
                 {descriptionLoading ? (
                   <span className='text-xs text-zinc-300 dark:text-zinc-600 animate-pulse'>
                     Loading…

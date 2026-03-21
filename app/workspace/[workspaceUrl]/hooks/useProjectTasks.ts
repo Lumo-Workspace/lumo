@@ -17,6 +17,7 @@ export function useProjectTasks() {
    * Call this before `fetchProjectTasks` when switching projects.
    */
   const hydrateForProject = useCallback((projectId: string) => {
+    setError(null)
     const cached = readCache<
       { tasks: ApiTask[]; kanbanViewId: string | null } | ApiTask[]
     >(`lumo:projectTasks:${projectId}`)
@@ -38,7 +39,6 @@ export function useProjectTasks() {
   }, [])
 
   const fetchProjectTasks = useCallback(async (projectId: string) => {
-    if (!seeded.current) setLoading(true)
     setError(null)
     try {
       const res = await fetch(`/api/projects/${projectId}/tasks`)
