@@ -2,12 +2,6 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Search, Plus, Layers } from 'lucide-react'
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
@@ -90,26 +84,15 @@ export function ProjectsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Breadcrumb */}
-      <div className='px-8 pt-6 mb-3'>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Projects</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
-
       {/* Page header */}
-      <header className='pb-4 px-8 flex items-start justify-between shrink-0'>
+      <header className='pt-6 pb-4 px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
           <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
             <Layers size={20} />
           </div>
           <div>
             <h2 className='text-xl font-semibold tracking-tight'>Projects</h2>
-            <p className='text-sm text-zinc-500 dark:text-zinc-400 mt-0.5'>
+            <p className='text-sm text-muted-foreground mt-0.5'>
               All your projects in one place.
             </p>
           </div>

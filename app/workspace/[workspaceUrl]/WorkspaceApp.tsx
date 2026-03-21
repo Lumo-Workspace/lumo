@@ -142,6 +142,25 @@ export default function DashboardApp() {
     [setProjectTasks, setMyTasks, currentMemberId]
   )
 
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      // Optimistic removal from both lists
+      setProjectTasks(prev => prev.filter(t => t.id !== taskId))
+      setMyTasks(prev => prev.filter(t => t.id !== taskId))
+      // Close drawer if this task is open
+      setSelectedTask(prev => (prev?.id === taskId ? null : prev))
+
+      try {
+        const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error('Failed to delete task')
+      } catch (err) {
+        // Roll-back is complex without a snapshot; just re-fetch
+        console.error(err)
+      }
+    },
+    [setProjectTasks, setMyTasks]
+  )
+
   const openNewTaskModal = useCallback(
     (assigneeId?: string) => {
       fetchMembers()
@@ -378,6 +397,7 @@ export default function DashboardApp() {
             onBack={handleBack}
             onNewTask={openNewTaskModal}
             onTaskClick={handleOpenTask}
+            onDeleteTask={handleDeleteTask}
             onTaskStatusChanged={handleProjectTaskStatusChanged}
             onUpdateProject={handleUpdateProject}
           />

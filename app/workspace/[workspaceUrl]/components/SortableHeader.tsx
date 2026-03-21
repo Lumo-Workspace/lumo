@@ -23,26 +23,24 @@ export function SortableHeader<K extends string>({
   const active = sort.key === col
 
   return (
-    <th
-      className={cn('border-b border-zinc-200 dark:border-zinc-800', className)}
-    >
+    <th className={cn('border-b border-border', className)}>
       <Button
         variant='ghost'
         onClick={() => onToggle(col)}
         className={cn(
           'h-auto px-0 gap-1 text-[11px] font-medium uppercase tracking-wider select-none hover:bg-transparent',
           active
-            ? 'text-zinc-900 dark:text-zinc-100'
-            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+            ? 'text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
         )}
       >
         {label}
         {active && sort.dir === 'asc' ? (
-          <ChevronUp size={12} className='text-zinc-900 dark:text-zinc-100' />
+          <ChevronUp size={12} />
         ) : active && sort.dir === 'desc' ? (
-          <ChevronDown size={12} className='text-zinc-900 dark:text-zinc-100' />
+          <ChevronDown size={12} />
         ) : (
-          <ChevronsUpDown size={12} className='text-zinc-400 opacity-40' />
+          <ChevronsUpDown size={12} className='opacity-40' />
         )}
       </Button>
     </th>
