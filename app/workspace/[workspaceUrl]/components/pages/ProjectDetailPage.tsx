@@ -159,7 +159,7 @@ export function ProjectDetailPage({
                     <MoreHorizontal size={14} />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align='end'>
+                <DropdownMenuContent align='start'>
                   <DropdownMenuItem
                     className='text-destructive focus:text-destructive'
                     onClick={() => setDeleteOpen(true)}
