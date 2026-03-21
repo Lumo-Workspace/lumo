@@ -65,7 +65,7 @@ export function ProjectTaskCard({
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
         <span className='text-[10px] font-mono text-zinc-400'>
-          {task.id.slice(0, 8)}
+          {task.teamIdentifier}-{task.number}
         </span>
         <PriorityBadge priority={task.priority} />
       </div>
@@ -96,7 +96,12 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
           {task.project.name}
         </span>
-        <PriorityBadge priority={task.priority} />
+        <div className='flex items-center gap-1.5'>
+          <span className='text-[10px] font-mono text-zinc-400'>
+            {task.teamIdentifier}-{task.number}
+          </span>
+          <PriorityBadge priority={task.priority} />
+        </div>
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}

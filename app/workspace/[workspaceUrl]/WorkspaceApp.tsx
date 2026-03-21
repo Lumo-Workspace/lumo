@@ -300,6 +300,8 @@ export default function DashboardApp() {
         assigneeId: assigneeId ?? null,
         updatedAt: now,
         viewOrder: null,
+        number: 0,
+        teamIdentifier: '',
       }
 
       if (projectId === selectedProject?.id) {

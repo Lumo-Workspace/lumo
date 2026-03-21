@@ -66,14 +66,16 @@ model Team {
   id          String   @id @default(cuid())
   workspaceId String
   name        String
-  identifier  String   // task ID prefix e.g. "ENG" — reserved for future use
+  identifier  String   // task ID prefix e.g. "ENG"
   isDefault   Boolean  @default(false)
+  taskSeq     Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]
   members   TeamMember[]
+  tasks     Task[]
 
   @@unique([workspaceId, identifier])
   @@index([workspaceId])
@@ -144,6 +146,8 @@ model Project {
 model Task {
   id             String       @id @default(cuid())
   projectId      String
+  teamId         String
+  number         Int
   parentTaskId   String?
   assigneeId     String?
   title          String
@@ -155,13 +159,16 @@ model Task {
   updatedAt      DateTime     @updatedAt
 
   project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team     Team             @relation(fields: [teamId], references: [id])
   parent   Task?            @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
   children Task[]           @relation("TaskChildren")
   assignee WorkspaceMember? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
 
   viewTaskOrders ViewTaskOrder[]
 
+  @@unique([teamId, number])
   @@index([projectId])
+  @@index([teamId])
   @@index([parentTaskId])
   @@index([assigneeId])
   @@map("tasks")

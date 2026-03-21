@@ -58,8 +58,10 @@ export function TaskDrawer({
     parentTaskId: initialTask.parentTaskId,
     assigneeId: initialTask.assigneeId,
     assignee: null,
-    description: null,
+    description: cachedDescription ?? null,
     updatedAt: initialTask.updatedAt,
+    number: initialTask.number,
+    teamIdentifier: initialTask.teamIdentifier,
   }))
   const [expanded, setExpanded] = useState(false)
   // Seed from cache so returning to a task shows description instantly
@@ -211,10 +213,13 @@ export function TaskDrawer({
                     e.currentTarget.blur()
                   }
                 }}
-                className='mb-4 cursor-text outline-none focus:outline-none'
+                className='mb-0 cursor-text outline-none focus:outline-none'
               >
                 {task.title}
               </TypographyH3>
+              <p className='text-xs font-mono text-muted-foreground mt-0.5 mb-3'>
+                {task.teamIdentifier}-{task.number}
+              </p>
 
               {/* Status · Assignee · Project — single inline row, no labels */}
               <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>

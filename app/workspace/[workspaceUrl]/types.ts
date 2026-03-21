@@ -69,6 +69,8 @@ export interface MyTask {
   assigneeId: string | null
   updatedAt: string
   viewOrder: number | null
+  number: number
+  teamIdentifier: string
 }
 
 export interface ApiProject {
@@ -93,6 +95,8 @@ export interface ApiTask {
   assigneeId: string | null
   updatedAt: string
   viewOrder: number | null
+  number: number
+  teamIdentifier: string
 }
 
 export interface TaskDetail {
@@ -107,4 +111,6 @@ export interface TaskDetail {
   assignee: { id: string; clerkId: string } | null
   description: string | null
   updatedAt: string
+  number: number
+  teamIdentifier: string
 }

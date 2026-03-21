@@ -39,6 +39,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       where: { id },
       include: {
         project: { select: { id: true, name: true, workspaceId: true } },
+        team: { select: { identifier: true } },
         assignee: { select: { id: true, clerkId: true } },
       },
     })
@@ -52,7 +53,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    return NextResponse.json({ task })
+    return NextResponse.json({
+      task: { ...task, teamIdentifier: task.team.identifier },
+    })
   } catch (error) {
     console.error('GET /api/tasks/[id] error:', error)
     return NextResponse.json(
@@ -74,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { project: true },
+      include: { project: true, team: { select: { identifier: true } } },
     })
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -169,10 +172,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const updated = await prisma.task.update({
       where: { id },
       data,
-      include: { project: { select: { id: true, name: true } } },
+      include: {
+        project: { select: { id: true, name: true } },
+        team: { select: { identifier: true } },
+      },
     })
 
-    return NextResponse.json({ task: updated })
+    return NextResponse.json({
+      task: { ...updated, teamIdentifier: updated.team.identifier },
+    })
   } catch (error) {
     console.error('PATCH /api/tasks/[id] error:', error)
     return NextResponse.json(

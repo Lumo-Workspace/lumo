@@ -141,6 +141,26 @@ export function createTaskColumns(
   onDeleteTask: (taskId: string) => Promise<void>
 ): ColumnDef<ApiTask>[] {
   return [
+    // ── ID ─────────────────────────────────────────────────────────────────
+    {
+      id: 'identifier',
+      accessorFn: row => `${row.teamIdentifier}-${row.number}`,
+      meta: {
+        headerClassName: 'w-24 px-8',
+        cellClassName: 'px-8',
+      },
+      header: () => (
+        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
+          ID
+        </span>
+      ),
+      cell: ({ row }) => (
+        <span className='text-xs font-mono text-muted-foreground'>
+          {row.original.teamIdentifier}-{row.original.number}
+        </span>
+      ),
+    },
+
     // ── Title ──────────────────────────────────────────────────────────────
     {
       accessorKey: 'title',

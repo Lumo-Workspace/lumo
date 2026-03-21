@@ -22,6 +22,7 @@ export async function GET() {
       where: { assigneeId: ws.member.id },
       include: {
         project: { select: { id: true, name: true } },
+        team: { select: { identifier: true } },
       },
       orderBy: { order: 'asc' },
     })
@@ -49,7 +50,11 @@ export async function GET() {
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     return NextResponse.json({
-      tasks: tasks.map(t => ({ ...t, viewOrder: orderMap.get(t.id) ?? null })),
+      tasks: tasks.map(t => ({
+        ...t,
+        teamIdentifier: t.team.identifier,
+        viewOrder: orderMap.get(t.id) ?? null,
+      })),
       myTasksViewId: myView.id,
     })
   } catch (error) {

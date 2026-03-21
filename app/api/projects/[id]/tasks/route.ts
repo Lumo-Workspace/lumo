@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
-import type { Task } from '@prisma/client'
 
 type Params = { params: Promise<{ id: string }> }
 
 // ─── Tree builder ───────────────────────────────────────────────────────────
 
-type TaskNode = Task & { viewOrder: number | null }
+type TaskNode = Omit<
+  Awaited<ReturnType<typeof prisma.task.findMany>>[number],
+  'team'
+> & { viewOrder: number | null; teamIdentifier: string }
 type TaskWithChildren = TaskNode & { children: TaskWithChildren[] }
 
 function buildTaskTree(tasks: TaskNode[]): TaskWithChildren[] {
@@ -57,6 +59,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     const tasks = await prisma.task.findMany({
       where: { projectId: id },
+      include: { team: { select: { identifier: true } } },
       orderBy: { order: 'asc' },
     })
 
@@ -85,6 +88,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // Merge viewOrder into tasks
     const tasksWithOrder: TaskNode[] = tasks.map(t => ({
       ...t,
+      teamIdentifier: t.team.identifier,
       viewOrder: orderMap.get(t.id) ?? null,
     }))
 
@@ -180,20 +184,32 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
     }
 
-    const task = await prisma.task.create({
-      data: {
-        projectId: id,
-        title,
-        description: description ?? null,
-        status,
-        priority,
-        assigneeId: assigneeId ?? null,
-        parentTaskId: parentTaskId ?? null,
-        order: taskOrder,
-      },
+    const task = await prisma.$transaction(async tx => {
+      const { taskSeq } = await tx.team.update({
+        where: { id: project.teamId },
+        data: { taskSeq: { increment: 1 } },
+        select: { taskSeq: true },
+      })
+
+      return tx.task.create({
+        data: {
+          projectId: id,
+          teamId: project.teamId,
+          number: taskSeq,
+          title,
+          description: description ?? null,
+          status,
+          priority,
+          assigneeId: assigneeId ?? null,
+          parentTaskId: parentTaskId ?? null,
+          order: taskOrder,
+        },
+        include: { team: { select: { identifier: true } } },
+      })
     })
 
-    return NextResponse.json({ task }, { status: 201 })
+    const taskWithId = { ...task, teamIdentifier: task.team.identifier }
+    return NextResponse.json({ task: taskWithId }, { status: 201 })
   } catch (error) {
     console.error('POST /api/projects/[id]/tasks error:', error)
     return NextResponse.json(
