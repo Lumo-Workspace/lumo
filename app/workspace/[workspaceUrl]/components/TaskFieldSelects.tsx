@@ -1,0 +1,188 @@
+'use client'
+
+import { UserCircle2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import { StatusIcon } from './StatusIcon'
+import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../types'
+import { API_STATUS_LABEL } from '../utils'
+
+// ─── MemberAvatar ─────────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+]
+
+function memberColor(name: string) {
+  const code = name.charCodeAt(0) + (name.charCodeAt(1) ?? 0)
+  return AVATAR_COLORS[code % AVATAR_COLORS.length]
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+export function MemberAvatar({
+  member,
+  size = 'sm',
+}: {
+  member: WorkspaceMemberInfo
+  size?: 'sm' | 'xs'
+}) {
+  const dim = size === 'xs' ? 'size-4' : 'size-5'
+  const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
+  return (
+    <Avatar className={`${dim} shrink-0`}>
+      <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
+      <AvatarFallback
+        className={`${memberColor(member.name)} ${textSize} font-semibold`}
+      >
+        {getInitials(member.name)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+// ─── StatusSelect ─────────────────────────────────────────────────────────────
+
+export function StatusSelect({
+  value,
+  onChange,
+  triggerClassName,
+}: {
+  value: ApiStatus
+  onChange: (v: ApiStatus) => void
+  triggerClassName?: string
+}) {
+  return (
+    <Select value={value} onValueChange={v => onChange(v as ApiStatus)}>
+      <SelectTrigger className={triggerClassName}>
+        <div className='flex items-center gap-1.5'>
+          <StatusIcon status={value} />
+          <span>{API_STATUS_LABEL[value]}</span>
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        {(Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]).map(
+          ([val, label]) => (
+            <SelectItem key={val} value={val}>
+              <div className='flex items-center gap-2'>
+                <StatusIcon status={val} />
+                {label}
+              </div>
+            </SelectItem>
+          )
+        )}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ─── AssigneeSelect ───────────────────────────────────────────────────────────
+
+export function AssigneeSelect({
+  value,
+  onChange,
+  members,
+  triggerClassName,
+}: {
+  value: string | null
+  onChange: (v: string | null) => void
+  members: WorkspaceMemberInfo[]
+  triggerClassName?: string
+}) {
+  const assignee = members.find(m => m.id === value)
+  return (
+    <Select
+      value={value ?? '__unassigned__'}
+      onValueChange={v => onChange(v === '__unassigned__' ? null : v)}
+    >
+      <SelectTrigger className={triggerClassName}>
+        {assignee ? (
+          <div className='flex items-center gap-1.5'>
+            <MemberAvatar member={assignee} size='xs' />
+            <span>{assignee.name}</span>
+          </div>
+        ) : (
+          <div className='flex items-center gap-1.5 text-zinc-400'>
+            <UserCircle2 size={14} />
+            <span>No assignee</span>
+          </div>
+        )}
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value='__unassigned__'>
+          <div className='flex items-center gap-2'>
+            <UserCircle2 size={20} className='text-zinc-400 shrink-0' />
+            <span className='text-zinc-400'>No assignee</span>
+          </div>
+        </SelectItem>
+        {members.map(m => (
+          <SelectItem key={m.id} value={m.id}>
+            <div className='flex items-center gap-2'>
+              <MemberAvatar member={m} size='sm' />
+              {m.name}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ─── ProjectSelect ────────────────────────────────────────────────────────────
+
+export function ProjectSelect({
+  value,
+  onChange,
+  projects,
+  placeholder = 'Select project',
+  triggerClassName,
+}: {
+  value: string
+  onChange: (v: string) => void
+  projects: ApiProject[]
+  placeholder?: string
+  triggerClassName?: string
+}) {
+  const project = projects.find(p => p.id === value)
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className={triggerClassName}>
+        {project ? (
+          <span>{project.name}</span>
+        ) : (
+          <span className='text-zinc-400'>{placeholder}</span>
+        )}
+      </SelectTrigger>
+      <SelectContent>
+        {projects.length === 0 ? (
+          <SelectItem value='' disabled>
+            No projects
+          </SelectItem>
+        ) : (
+          projects.map(p => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.name}
+            </SelectItem>
+          ))
+        )}
+      </SelectContent>
+    </Select>
+  )
+}

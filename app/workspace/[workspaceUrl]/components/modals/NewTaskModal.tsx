@@ -7,12 +7,10 @@ import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../../types'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import { Button } from '@/components/ui/button'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  StatusSelect,
+  AssigneeSelect,
+  ProjectSelect,
+} from '../TaskFieldSelects'
 
 export interface NewTaskFormData {
   title: string
@@ -96,7 +94,7 @@ export function NewTaskModal({
   const canSubmit = title.trim().length > 0 && !!(projectId || defaultProjectId)
 
   const triggerClass =
-    'h-auto px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors focus:ring-1 focus:ring-zinc-300 focus:outline-none max-w-[180px]'
+    'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
 
   return (
     <AnimatePresence>
@@ -135,64 +133,23 @@ export function NewTaskModal({
               onChange={e => setDescription(e.target.value)}
             />
             <div className='flex flex-wrap items-center gap-2 pt-1'>
-              {/* Status */}
-              <Select
+              <StatusSelect
                 value={status}
-                onValueChange={v => setStatus(v as ApiStatus)}
-              >
-                <SelectTrigger className={triggerClass}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='TODO'>Todo</SelectItem>
-                  <SelectItem value='IN_PROGRESS'>In Progress</SelectItem>
-                  <SelectItem value='IN_REVIEW'>In Review</SelectItem>
-                  <SelectItem value='DONE'>Done</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Project */}
-              <Select
+                onChange={setStatus}
+                triggerClassName={triggerClass}
+              />
+              <ProjectSelect
                 value={projectId || defaultProjectId || ''}
-                onValueChange={v => setProjectId(v)}
-              >
-                <SelectTrigger className={triggerClass}>
-                  <SelectValue placeholder='Select project' />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.length === 0 ? (
-                    <SelectItem value='' disabled>
-                      No projects
-                    </SelectItem>
-                  ) : (
-                    projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-
-              {/* Assignee */}
-              <Select
-                value={assigneeId || '__unassigned__'}
-                onValueChange={v =>
-                  setAssigneeId(v === '__unassigned__' ? '' : v)
-                }
-              >
-                <SelectTrigger className={triggerClass}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='__unassigned__'>Unassigned</SelectItem>
-                  {members.map(m => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={setProjectId}
+                projects={projects}
+                triggerClassName={triggerClass}
+              />
+              <AssigneeSelect
+                value={assigneeId || null}
+                onChange={v => setAssigneeId(v ?? '')}
+                members={members}
+                triggerClassName={triggerClass}
+              />
             </div>
           </div>
         )}

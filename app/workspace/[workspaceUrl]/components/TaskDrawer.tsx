@@ -2,16 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
-import { X, ArrowLeftToLine, ArrowRightToLine, UserCircle2 } from 'lucide-react'
+import { X, ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   TaskDetail,
   ApiTask,
@@ -20,55 +12,9 @@ import {
   WorkspaceMemberInfo,
   ApiProject,
 } from '../types'
-import { API_STATUS_LABEL } from '../utils'
-import { StatusIcon } from './StatusIcon'
 import { DescriptionEditor } from './DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'
-
-// Palette for initials fallback — cycles by name char code
-const AVATAR_COLORS = [
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
-]
-
-function memberColor(name: string) {
-  const code = name.charCodeAt(0) + (name.charCodeAt(1) ?? 0)
-  return AVATAR_COLORS[code % AVATAR_COLORS.length]
-}
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
-
-function MemberAvatar({
-  member,
-  size = 'sm',
-}: {
-  member: WorkspaceMemberInfo
-  size?: 'sm' | 'xs'
-}) {
-  const dim = size === 'xs' ? 'size-4' : 'size-5'
-  const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]'
-  return (
-    <Avatar className={`${dim} shrink-0`}>
-      <AvatarImage src={member.imageUrl ?? undefined} alt={member.name} />
-      <AvatarFallback
-        className={`${memberColor(member.name)} ${textSize} font-semibold`}
-      >
-        {getInitials(member.name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
+import { StatusSelect, AssigneeSelect, ProjectSelect } from './TaskFieldSelects'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -272,100 +218,29 @@ export function TaskDrawer({
 
               {/* Status · Assignee · Project — single inline row, no labels */}
               <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
-                {/* Status */}
-                <Select
+                <StatusSelect
                   value={task.status}
-                  onValueChange={v => handlePatch({ status: v as ApiStatus })}
-                >
-                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]
-                    ).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>
-                        <div className='flex items-center gap-2'>
-                          <StatusIcon status={val} />
-                          {label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
+                  onChange={v => handlePatch({ status: v })}
+                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                />
                 <span className='text-zinc-200 dark:text-zinc-700 select-none'>
                   ·
                 </span>
-
-                {/* Assignee */}
-                <Select
-                  value={task.assigneeId ?? '__unassigned__'}
-                  onValueChange={v =>
-                    handlePatch({
-                      assigneeId: v === '__unassigned__' ? null : v,
-                    })
-                  }
-                >
-                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
-                    {(() => {
-                      const assignee = members.find(
-                        m => m.id === task.assigneeId
-                      )
-                      return assignee ? (
-                        <div className='flex items-center gap-1.5'>
-                          <MemberAvatar member={assignee} size='xs' />
-                          <span>{assignee.name}</span>
-                        </div>
-                      ) : (
-                        <div className='flex items-center gap-1.5 text-zinc-400'>
-                          <UserCircle2 size={14} />
-                          <span>No assignee</span>
-                        </div>
-                      )
-                    })()}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='__unassigned__'>
-                      <div className='flex items-center gap-2'>
-                        <UserCircle2
-                          size={20}
-                          className='text-zinc-400 shrink-0'
-                        />
-                        <span className='text-zinc-400'>No assignee</span>
-                      </div>
-                    </SelectItem>
-                    {members.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <div className='flex items-center gap-2'>
-                          <MemberAvatar member={m} size='sm' />
-                          {m.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
+                <AssigneeSelect
+                  value={task.assigneeId ?? null}
+                  onChange={v => handlePatch({ assigneeId: v })}
+                  members={members}
+                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                />
                 <span className='text-zinc-200 dark:text-zinc-700 select-none'>
                   ·
                 </span>
-
-                {/* Project */}
-                <Select
+                <ProjectSelect
                   value={task.projectId}
-                  onValueChange={v => handlePatch({ projectId: v })}
-                >
-                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={v => handlePatch({ projectId: v })}
+                  projects={projects}
+                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                />
               </div>
 
               {/* Description */}
