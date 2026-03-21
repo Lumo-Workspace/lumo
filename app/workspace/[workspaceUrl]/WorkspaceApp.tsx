@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { useUser } from '@clerk/nextjs'
 import { Page, ApiProject, ApiTask, MyTask, ApiStatus } from './types'
@@ -79,6 +79,8 @@ export default function DashboardApp() {
   const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
     null
   )
+  // description cache: taskId → description html (populated after first fetch)
+  const descriptionCache = useRef<Map<string, string | null>>(new Map())
 
   const handleOpenTask = useCallback(
     (task: ApiTask | MyTask) => {
@@ -423,10 +425,18 @@ export default function DashboardApp() {
         {selectedTask && (
           <TaskDrawer
             initialTask={selectedTask}
+            cachedDescription={
+              descriptionCache.current.has(selectedTask.id)
+                ? descriptionCache.current.get(selectedTask.id)
+                : undefined
+            }
             onClose={handleCloseTask}
             members={members}
             projects={projects}
             onUpdate={handleUpdateTask}
+            onDescriptionLoaded={(taskId, description) => {
+              descriptionCache.current.set(taskId, description)
+            }}
           />
         )}
       </AnimatePresence>

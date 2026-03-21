@@ -22,9 +22,11 @@ import {
 import { API_STATUS_LABEL } from '../utils'
 import { StatusIcon } from './StatusIcon'
 import { DescriptionEditor } from './DescriptionEditor'
+import { TypographyH3 } from '@/components/ui/typography'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
+  cachedDescription?: string | null | undefined
   onClose: () => void
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
@@ -37,6 +39,7 @@ interface TaskDrawerProps {
       description: string | null
     }>
   ) => Promise<void>
+  onDescriptionLoaded?: (taskId: string, description: string | null) => void
 }
 
 function FieldRow({
@@ -58,10 +61,12 @@ function FieldRow({
 
 export function TaskDrawer({
   initialTask,
+  cachedDescription,
   onClose,
   members,
   projects,
   onUpdate,
+  onDescriptionLoaded,
 }: TaskDrawerProps) {
   // Seed visible fields instantly from cached list data
   const [task, setTask] = useState<TaskDetail>(() => ({
@@ -80,14 +85,18 @@ export function TaskDrawer({
     description: null,
     updatedAt: initialTask.updatedAt,
   }))
-  const [title, setTitle] = useState(initialTask.title)
   const [expanded, setExpanded] = useState(false)
-  const [descriptionValue, setDescriptionValue] = useState<string | null>(null)
-  const [descriptionLoading, setDescriptionLoading] = useState(true)
+  // Seed from cache so returning to a task shows description instantly
+  const hasCached = cachedDescription !== undefined
+  const [descriptionValue, setDescriptionValue] = useState<string | null>(
+    hasCached ? cachedDescription : null
+  )
+  const [descriptionLoading, setDescriptionLoading] = useState(!hasCached)
 
   // Fetch full detail in background — only updates description + project name
   useEffect(() => {
-    setDescriptionLoading(true)
+    // Only show loading spinner when there's no cached content to show
+    if (!hasCached) setDescriptionLoading(true)
     fetch(`/api/tasks/${initialTask.id}`)
       .then(async r => {
         const data = await r.json()
@@ -105,6 +114,7 @@ export function TaskDrawer({
           project: t.project,
         }))
         setDescriptionValue(t.description ?? null)
+        onDescriptionLoaded?.(t.id, t.description ?? null)
       })
       .catch(console.error)
       .finally(() => setDescriptionLoading(false))
@@ -129,12 +139,6 @@ export function TaskDrawer({
     },
     [task, onUpdate]
   )
-
-  const commitTitle = () => {
-    const trimmed = title.trim()
-    if (!trimmed || trimmed === task.title) return
-    handlePatch({ title: trimmed })
-  }
 
   const commitDescription = useCallback(
     (html: string | null) => {
@@ -203,31 +207,32 @@ export function TaskDrawer({
           <div className='flex-1 overflow-y-auto px-5 py-4'>
             <div className='space-y-1'>
               {/* Title */}
-              <textarea
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                onBlur={commitTitle}
+              <TypographyH3
+                key={task.id}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={e => {
+                  const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                  if (!trimmed || trimmed === task.title) {
+                    e.currentTarget.textContent = task.title
+                    return
+                  }
+                  handlePatch({ title: trimmed })
+                }}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    commitTitle()
-                    ;(e.target as HTMLTextAreaElement).blur()
+                    e.currentTarget.blur()
                   }
                   if (e.key === 'Escape') {
-                    setTitle(task.title)
-                    ;(e.target as HTMLTextAreaElement).blur()
+                    e.currentTarget.textContent = task.title
+                    e.currentTarget.blur()
                   }
                 }}
-                rows={1}
-                className='w-full text-base font-semibold text-zinc-900 dark:text-zinc-100 bg-transparent border-none outline-none resize-none leading-snug mb-4 placeholder:text-zinc-300'
-                style={{ overflow: 'hidden', height: 'auto' }}
-                placeholder='Task title'
-                ref={el => {
-                  if (!el) return
-                  el.style.height = 'auto'
-                  el.style.height = `${el.scrollHeight}px`
-                }}
-              />
+                className='mb-4 cursor-text outline-none focus:outline-none'
+              >
+                {task.title}
+              </TypographyH3>
 
               <div className='divide-y divide-zinc-100 dark:divide-zinc-900'>
                 {/* Status */}
