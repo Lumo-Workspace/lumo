@@ -27,6 +27,7 @@ interface NewTaskModalProps {
   projects: ApiProject[]
   members: WorkspaceMemberInfo[]
   defaultProjectId?: string | undefined
+  defaultAssigneeId?: string | undefined
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
   onSubmit: (data: NewTaskFormData) => Promise<void>
 }
@@ -37,25 +38,30 @@ export function NewTaskModal({
   projects,
   members,
   defaultProjectId,
+  defaultAssigneeId,
   onSubmit,
 }: NewTaskModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<ApiStatus>('TODO')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
-  const [assigneeId, setAssigneeId] = useState('')
+  const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
 
-  // Sync default project when it changes (e.g. user opens modal on a different project page)
+  // Sync defaults when they change
   useEffect(() => {
     setProjectId(defaultProjectId ?? '')
   }, [defaultProjectId])
+
+  useEffect(() => {
+    setAssigneeId(defaultAssigneeId ?? '')
+  }, [defaultAssigneeId])
 
   const reset = () => {
     setTitle('')
     setDescription('')
     setStatus('TODO')
     setProjectId(defaultProjectId ?? '')
-    setAssigneeId('')
+    setAssigneeId(defaultAssigneeId ?? '')
   }
 
   const handleClose = () => {

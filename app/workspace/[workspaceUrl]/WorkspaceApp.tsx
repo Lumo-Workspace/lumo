@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { AnimatePresence } from 'motion/react'
+import { useUser } from '@clerk/nextjs'
 import { Page, ApiProject, ApiTask, MyTask, ApiStatus } from './types'
 
 // Hooks
@@ -59,10 +60,20 @@ export default function DashboardApp() {
   } = useProjectTasks()
 
   const { members, fetchMembers } = useMembers()
+  const { user } = useUser()
+
+  // Current user's workspace member ID (for defaulting assignee to self)
+  const currentMemberId = useMemo(
+    () => members.find(m => m.clerkId === user?.id)?.id,
+    [members, user?.id]
+  )
 
   // ─── Modal state ───────────────────────────────────────────────────────────
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
+  const [newTaskDefaultAssigneeId, setNewTaskDefaultAssigneeId] = useState<
+    string | undefined
+  >(undefined)
 
   // ─── Task drawer ───────────────────────────────────────────────────────────
   const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
@@ -91,9 +102,21 @@ export default function DashboardApp() {
     ) => {
       // Optimistic update — apply immediately to both lists
       const patch = (t: ApiTask) => (t.id === taskId ? { ...t, ...data } : t)
-      const patchMy = (t: MyTask) => (t.id === taskId ? { ...t, ...data } : t)
       setProjectTasks(prev => prev.map(patch))
-      setMyTasks(prev => prev.map(patchMy))
+
+      // If assignee changed, check whether this task still belongs in My Tasks
+      if ('assigneeId' in data) {
+        const stillMine = data.assigneeId === currentMemberId
+        setMyTasks(prev =>
+          stillMine
+            ? prev.map(t => (t.id === taskId ? { ...t, ...data } : t))
+            : prev.filter(t => t.id !== taskId)
+        )
+      } else {
+        setMyTasks(prev =>
+          prev.map(t => (t.id === taskId ? { ...t, ...data } : t))
+        )
+      }
 
       try {
         const res = await fetch(`/api/tasks/${taskId}`, {
@@ -108,20 +131,29 @@ export default function DashboardApp() {
           prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
         )
         setMyTasks(prev =>
-          prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
+          updated.assigneeId === currentMemberId
+            ? prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
+            : prev.filter(t => t.id !== taskId)
         )
       } catch (err) {
-        // Rollback: refetch would be ideal, but for now re-throw so drawer can revert
         throw err
       }
     },
-    [setProjectTasks, setMyTasks]
+    [setProjectTasks, setMyTasks, currentMemberId]
   )
 
-  const openNewTaskModal = useCallback(() => {
-    fetchMembers()
-    setIsNewTaskModalOpen(true)
-  }, [fetchMembers])
+  const openNewTaskModal = useCallback(
+    (assigneeId?: string) => {
+      fetchMembers()
+      setNewTaskDefaultAssigneeId(assigneeId)
+      setIsNewTaskModalOpen(true)
+    },
+    [fetchMembers]
+  )
+
+  const openNewTaskModalForMe = useCallback(() => {
+    openNewTaskModal(currentMemberId)
+  }, [openNewTaskModal, currentMemberId])
 
   // ─── Dark mode (persisted to localStorage) ────────────────────────────────
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -316,6 +348,7 @@ export default function DashboardApp() {
             error={myTasksError}
             onRetry={fetchMyTasks}
             onTaskClick={handleOpenTask}
+            onNewTask={openNewTaskModalForMe}
           />
         )
 
@@ -382,10 +415,14 @@ export default function DashboardApp() {
         {isNewTaskModalOpen && (
           <NewTaskModal
             isOpen={isNewTaskModalOpen}
-            onClose={() => setIsNewTaskModalOpen(false)}
+            onClose={() => {
+              setIsNewTaskModalOpen(false)
+              setNewTaskDefaultAssigneeId(undefined)
+            }}
             projects={projects}
             members={members}
             defaultProjectId={selectedProject?.id}
+            defaultAssigneeId={newTaskDefaultAssigneeId}
             onSubmit={handleCreateTask}
           />
         )}

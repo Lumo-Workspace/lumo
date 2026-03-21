@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Home, LayoutGrid, ArrowRightLeft } from 'lucide-react'
+import { Home, Plus, CheckSquare } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -25,6 +25,15 @@ import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { SortableHeader } from '../SortableHeader'
 import { ViewToggle } from '../ViewToggle'
 import { AsyncContent } from '../AsyncContent'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   useTableSort,
   applyDir,
@@ -44,6 +53,7 @@ interface MyTasksPageProps {
   error: string | null
   onRetry: () => void
   onTaskClick: (task: MyTask) => void
+  onNewTask: () => void
 }
 
 export function MyTasksPage({
@@ -54,6 +64,7 @@ export function MyTasksPage({
   error,
   onRetry,
   onTaskClick,
+  onNewTask,
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
 
@@ -92,20 +103,17 @@ export function MyTasksPage({
             </p>
           </div>
         </div>
+        <button
+          onClick={onNewTask}
+          className='bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold px-4 py-2 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-1.5 shadow-sm'
+        >
+          <Plus size={18} />
+          Create Task
+        </button>
       </header>
 
       {/* Toolbar */}
-      <div className='h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 shrink-0 bg-white dark:bg-zinc-950'>
-        <div className='flex items-center gap-1'>
-          <button className='flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1.5 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors'>
-            <LayoutGrid size={16} />
-            Filter
-          </button>
-          <button className='flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 px-2 py-1.5 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors'>
-            <ArrowRightLeft size={16} className='rotate-90' />
-            Sort
-          </button>
-        </div>
+      <div className='h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-end px-8 shrink-0 bg-white dark:bg-zinc-950'>
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
@@ -116,7 +124,25 @@ export function MyTasksPage({
           error={error}
           empty={tasks.length === 0}
           onRetry={onRetry}
-          emptyMessage='No tasks assigned to you.'
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <CheckSquare />
+                </EmptyMedia>
+                <EmptyTitle>No tasks yet</EmptyTitle>
+                <EmptyDescription>
+                  You have no tasks assigned to you. Create one to get started.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button onClick={onNewTask}>
+                  <Plus size={16} />
+                  Create Task
+                </Button>
+              </EmptyContent>
+            </Empty>
+          }
         >
           {viewMode === 'list' ? (
             <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />

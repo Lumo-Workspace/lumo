@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, Layers } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -11,6 +11,15 @@ import {
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   useTableSort,
   applyDir,
@@ -158,7 +167,25 @@ export function ProjectsPage({
           error={error}
           empty={projects.length === 0}
           onRetry={onRetry}
-          emptyMessage='No projects yet. Create one to get started.'
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <Layers />
+                </EmptyMedia>
+                <EmptyTitle>No projects yet</EmptyTitle>
+                <EmptyDescription>
+                  Create your first project to start organizing tasks.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button onClick={onNewProject}>
+                  <Plus size={16} />
+                  New Project
+                </Button>
+              </EmptyContent>
+            </Empty>
+          }
         >
           <table className='w-full border-collapse'>
             <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-10'>

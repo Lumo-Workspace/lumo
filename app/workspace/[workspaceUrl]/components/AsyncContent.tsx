@@ -5,7 +5,7 @@ interface AsyncContentProps {
   error: string | null
   empty: boolean
   onRetry: () => void
-  emptyMessage?: string
+  emptyState?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -14,7 +14,7 @@ export function AsyncContent({
   error,
   empty,
   onRetry,
-  emptyMessage = 'Nothing here yet.',
+  emptyState,
   children,
 }: AsyncContentProps) {
   if (loading) {
@@ -36,8 +36,10 @@ export function AsyncContent({
   }
   if (empty) {
     return (
-      <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-        {emptyMessage}
+      <div className='flex flex-1 items-center justify-center p-8'>
+        {emptyState ?? (
+          <p className='text-sm text-zinc-400'>Nothing here yet.</p>
+        )}
       </div>
     )
   }
