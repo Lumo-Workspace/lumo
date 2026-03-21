@@ -87,6 +87,7 @@ export const updateTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assigneeId: z.string().nullable().optional(),
+  projectId: z.string().optional(),
   parentTaskId: z.string().nullable().optional(),
   order: z.number().optional(),
 })

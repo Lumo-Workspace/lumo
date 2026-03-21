@@ -103,11 +103,18 @@ export default function DashboardApp() {
         status: ApiStatus
         assigneeId: string | null
         description: string | null
+        projectId: string
       }>
     ) => {
       // Optimistic update — apply immediately to both lists
       const patch = (t: ApiTask) => (t.id === taskId ? { ...t, ...data } : t)
-      setProjectTasks(prev => prev.map(patch))
+
+      // If project changed, remove from current project's task list
+      if ('projectId' in data && data.projectId !== selectedProject?.id) {
+        setProjectTasks(prev => prev.filter(t => t.id !== taskId))
+      } else {
+        setProjectTasks(prev => prev.map(patch))
+      }
 
       // If assignee changed, check whether this task still belongs in My Tasks
       if ('assigneeId' in data) {

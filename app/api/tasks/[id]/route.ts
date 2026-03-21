@@ -95,7 +95,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       )
     }
 
-    const { parentTaskId, assigneeId, ...rest } = parsed.data
+    const { parentTaskId, assigneeId, projectId, ...rest } = parsed.data
 
     // Validate parentTaskId change
     if (parentTaskId !== undefined) {
@@ -129,6 +129,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
+    // Validate projectId belongs to the same workspace
+    if (projectId !== undefined) {
+      const newProject = await prisma.project.findUnique({
+        where: { id: projectId },
+      })
+      if (!newProject || newProject.workspaceId !== task.project.workspaceId) {
+        return NextResponse.json(
+          { error: 'Project not found in this workspace' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Validate assigneeId belongs to the same workspace
     if (assigneeId !== undefined && assigneeId !== null) {
       const assignee = await prisma.workspaceMember.findUnique({
@@ -151,10 +164,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.order !== undefined) data.order = rest.order
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
     if (assigneeId !== undefined) data.assigneeId = assigneeId
+    if (projectId !== undefined) data.projectId = projectId
 
     const updated = await prisma.task.update({
       where: { id },
       data,
+      include: { project: { select: { id: true, name: true } } },
     })
 
     return NextResponse.json({ task: updated })

@@ -37,6 +37,7 @@ interface TaskDrawerProps {
       status: ApiStatus
       assigneeId: string | null
       description: string | null
+      projectId: string
     }>
   ) => Promise<void>
   onDescriptionLoaded?: (taskId: string, description: string | null) => void
@@ -110,17 +111,25 @@ export function TaskDrawer({
         status: ApiStatus
         assigneeId: string | null
         description: string | null
+        projectId: string
       }>
     ) => {
       const snapshot = task
-      setTask(prev => ({ ...prev, ...data }))
+      // Enrich local state: if projectId changed, also update embedded project name
+      const localUpdate = { ...task, ...data }
+      if (data.projectId) {
+        const newProject = projects.find(p => p.id === data.projectId)
+        if (newProject)
+          localUpdate.project = { id: newProject.id, name: newProject.name }
+      }
+      setTask(localUpdate)
       try {
         await onUpdate(task.id, data)
       } catch {
         setTask(snapshot)
       }
     },
-    [task, onUpdate]
+    [task, onUpdate, projects]
   )
 
   const commitDescription = useCallback(
@@ -131,8 +140,6 @@ export function TaskDrawer({
     },
     [task.description, handlePatch]
   )
-
-  const project = projects.find(p => p.id === task.projectId) ?? task.project
 
   return (
     <DrawerPrimitive.Root
@@ -274,9 +281,21 @@ export function TaskDrawer({
                 </span>
 
                 {/* Project */}
-                <span className='px-2 text-xs text-zinc-500 dark:text-zinc-400'>
-                  {project?.name || task.project.name || '—'}
-                </span>
+                <Select
+                  value={task.projectId}
+                  onValueChange={v => handlePatch({ projectId: v })}
+                >
+                  <SelectTrigger className='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Description */}
