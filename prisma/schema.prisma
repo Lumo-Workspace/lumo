@@ -53,10 +53,45 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   members  WorkspaceMember[]
+  teams    Team[]
   projects Project[]
   views    View[]
 
   @@map("workspaces")
+}
+
+// ─── Team ───────────────────────────────────────────────────────────────────
+
+model Team {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  identifier  String   // task ID prefix e.g. "ENG" — reserved for future use
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  members   TeamMember[]
+
+  @@unique([workspaceId, identifier])
+  @@index([workspaceId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  memberId String
+  joinedAt DateTime @default(now())
+
+  team   Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, memberId])
+  @@index([memberId])
+  @@map("team_members")
 }
 
 model WorkspaceMember {
@@ -66,7 +101,8 @@ model WorkspaceMember {
   role        WorkspaceRole @default(MEMBER)
   joinedAt    DateTime      @default(now())
 
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teams           TeamMember[]
   createdProjects Project[]
   assignedTasks   Task[]
   ownedViews      View[]       @relation("ViewOwner")
@@ -83,6 +119,7 @@ model WorkspaceMember {
 model Project {
   id                String   @id @default(cuid())
   workspaceId       String
+  teamId            String
   createdByMemberId String
   name              String
   description       String?
@@ -91,11 +128,13 @@ model Project {
   updatedAt         DateTime @updatedAt
 
   workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team       Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy  WorkspaceMember @relation(fields: [createdByMemberId], references: [id])
   tasks      Task[]
   views      View[]
 
   @@index([workspaceId])
+  @@index([teamId])
   @@index([createdByMemberId])
   @@map("projects")
 }

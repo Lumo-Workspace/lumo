@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { createProjectSchema } from '@/lib/validation/schemas'
+import { getDefaultTeam } from '@/lib/team'
 
 /**
  * GET /api/projects
@@ -77,10 +78,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const defaultTeam = await getDefaultTeam(ws.workspaceId)
+
     const result = await prisma.$transaction(async tx => {
       const project = await tx.project.create({
         data: {
           workspaceId: ws.workspaceId,
+          teamId: defaultTeam!.id,
           createdByMemberId: ws.member.id,
           name: parsed.data.name,
           description: parsed.data.description ?? null,

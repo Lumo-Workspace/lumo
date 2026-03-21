@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { createWorkspaceSchema } from '@/lib/validation/schemas'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
+import { generateIdentifier } from '@/lib/team'
 
 /**
  * POST /api/workspaces — Create a workspace and become owner.
@@ -25,10 +26,19 @@ export async function POST(request: NextRequest) {
     const { name } = parsed.data
     const slug = parsed.data.slug ?? generateWorkspaceSlug(name)
 
-    // Create workspace + membership in a transaction
+    // Create workspace + default team + owner membership in a transaction
     const result = await prisma.$transaction(async tx => {
       const workspace = await tx.workspace.create({
         data: { name, slug },
+      })
+
+      const team = await tx.team.create({
+        data: {
+          workspaceId: workspace.id,
+          name,
+          identifier: generateIdentifier(name),
+          isDefault: true,
+        },
       })
 
       const member = await tx.workspaceMember.create({
@@ -37,6 +47,11 @@ export async function POST(request: NextRequest) {
           clerkId: userId,
           role: 'OWNER',
         },
+      })
+
+      // Add owner to the default team
+      await tx.teamMember.create({
+        data: { teamId: team.id, memberId: member.id },
       })
 
       return { workspace, member }
