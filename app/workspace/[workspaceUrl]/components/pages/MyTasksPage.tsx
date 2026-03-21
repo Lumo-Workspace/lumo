@@ -103,13 +103,10 @@ export function MyTasksPage({
             </p>
           </div>
         </div>
-        <button
-          onClick={onNewTask}
-          className='bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold px-4 py-2 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-1.5 shadow-sm'
-        >
+        <Button onClick={onNewTask} size='sm' className='gap-1.5'>
           <Plus size={18} />
           Create Task
-        </button>
+        </Button>
       </header>
 
       {/* Toolbar */}

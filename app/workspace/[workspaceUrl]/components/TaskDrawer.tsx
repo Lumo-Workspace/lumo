@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
 import { X, ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -175,9 +176,11 @@ export function TaskDrawer({
             Task detail
           </DrawerPrimitive.Title>
           <div className='flex items-center justify-between px-5 pt-4 shrink-0'>
-            <button
+            <Button
+              variant='ghost'
+              size='icon'
               onClick={() => setExpanded(e => !e)}
-              className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900'
+              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               title={expanded ? 'Collapse' : 'Expand'}
             >
               {expanded ? (
@@ -185,13 +188,15 @@ export function TaskDrawer({
               ) : (
                 <ArrowLeftToLine size={14} />
               )}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant='ghost'
+              size='icon'
               onClick={onClose}
-              className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900'
+              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
             >
               <X size={14} />
-            </button>
+            </Button>
           </div>
 
           {/* Body */}

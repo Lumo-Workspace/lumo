@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
+import { Button } from '@/components/ui/button'
 
 export interface NewProjectFormData {
   name: string
@@ -52,19 +53,12 @@ export function NewProjectModal({
         title='New project'
         footer={
           <div className='flex items-center gap-3 ml-auto'>
-            <button
-              onClick={handleClose}
-              className='px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 rounded-lg transition-colors'
-            >
+            <Button variant='ghost' onClick={handleClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!name.trim()}
-              className='px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed'
-            >
+            </Button>
+            <Button onClick={handleSubmit} disabled={!name.trim()}>
               Create Project {submitModLabel}↵
-            </button>
+            </Button>
           </div>
         }
       >
@@ -88,10 +82,14 @@ export function NewProjectModal({
               onChange={e => setDescription(e.target.value)}
             />
             <div className='flex items-center gap-2 pt-1'>
-              <button className='flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors'>
+              <Button
+                variant='outline'
+                size='sm'
+                className='gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400'
+              >
                 <Sparkles size={13} className='text-violet-500' />
                 Refine with AI
-              </button>
+              </Button>
             </div>
           </div>
         )}

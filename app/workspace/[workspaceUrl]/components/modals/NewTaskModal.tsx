@@ -5,6 +5,7 @@ import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
 import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../../types'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -99,19 +100,12 @@ export function NewTaskModal({
         title='New task'
         footer={
           <div className='flex items-center gap-3 ml-auto'>
-            <button
-              onClick={handleClose}
-              className='px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 rounded-lg transition-colors'
-            >
+            <Button variant='ghost' onClick={handleClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className='px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed'
-            >
+            </Button>
+            <Button onClick={handleSubmit} disabled={!canSubmit}>
               Create task {submitModLabel}↵
-            </button>
+            </Button>
           </div>
         }
       >

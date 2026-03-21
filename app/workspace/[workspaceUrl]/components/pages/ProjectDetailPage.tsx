@@ -146,9 +146,13 @@ export function ProjectDetailPage({
               <BreadcrumbPage>{project.name}</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbItem>
-              <button className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors p-0.5 rounded'>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              >
                 <MoreHorizontal size={14} />
-              </button>
+              </Button>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -222,13 +226,10 @@ export function ProjectDetailPage({
             />
           </div>
         </div>
-        <button
-          onClick={onNewTask}
-          className='bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold px-4 py-2 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-1.5 shadow-sm'
-        >
+        <Button onClick={onNewTask} size='sm' className='gap-1.5'>
           <Plus size={18} />
           Create Task
-        </button>
+        </Button>
       </header>
 
       {/* Toolbar */}

@@ -1,5 +1,7 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
+
 interface AsyncContentProps {
   loading: boolean
   error: string | null
@@ -28,9 +30,14 @@ export function AsyncContent({
     return (
       <div className='flex flex-col items-center justify-center h-40 gap-2'>
         <p className='text-sm text-red-500'>{error}</p>
-        <button onClick={onRetry} className='text-xs text-zinc-500 underline'>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={onRetry}
+          className='text-xs text-zinc-500 underline h-auto p-0 hover:bg-transparent hover:underline'
+        >
           Retry
-        </button>
+        </Button>
       </div>
     )
   }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Maximize2, Minimize2 } from 'lucide-react'
 import { motion } from 'motion/react'
+import { Button } from '@/components/ui/button'
 
 interface ModalProps {
   isOpen: boolean
@@ -50,20 +51,24 @@ export function Modal({
           </h3>
           <div className='flex items-center gap-1'>
             {expandable && (
-              <button
+              <Button
+                variant='ghost'
+                size='icon'
                 onClick={() => setExpanded(e => !e)}
-                className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors p-1 rounded'
+                className='h-7 w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 title={expanded ? 'Collapse' : 'Expand'}
               >
                 {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant='ghost'
+              size='icon'
               onClick={onClose}
-              className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors p-1 rounded'
+              className='h-7 w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             >
               <X size={18} />
-            </button>
+            </Button>
           </div>
         </div>
 

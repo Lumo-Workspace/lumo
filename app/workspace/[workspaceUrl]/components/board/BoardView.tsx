@@ -14,6 +14,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
 import { StatusIcon } from '../StatusIcon'
+import { Button } from '@/components/ui/button'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -117,13 +118,15 @@ export function BoardView<
                 <DroppableColumn id={status}>
                   {col.map(task => renderCard(task, false))}
                   {onAddTask && (
-                    <button
+                    <Button
+                      variant='ghost'
+                      size='sm'
                       onClick={onAddTask}
-                      className='flex items-center gap-1.5 w-full text-left px-2 py-1.5 mt-1 rounded-md text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                      className='w-full justify-start gap-1.5 mt-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
                     >
                       <Plus size={16} />
                       Add task
-                    </button>
+                    </Button>
                   )}
                 </DroppableColumn>
               </SortableContext>

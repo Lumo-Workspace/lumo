@@ -129,9 +129,10 @@ export function ProjectsPage({
                   </p>
                 ) : (
                   filtered.map(p => (
-                    <button
+                    <Button
                       key={p.id}
-                      className='w-full text-left px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-2'
+                      variant='ghost'
+                      className='w-full justify-between h-auto px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 rounded-none font-normal gap-2'
                       onMouseDown={() => {
                         setQuery('')
                         setOpen(false)
@@ -144,19 +145,16 @@ export function ProjectsPage({
                           Draft
                         </span>
                       )}
-                    </button>
+                    </Button>
                   ))
                 )}
               </div>
             )}
           </div>
-          <button
-            onClick={onNewProject}
-            className='bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium px-3 py-1.5 rounded-md hover:opacity-90 transition-opacity flex items-center gap-1.5'
-          >
+          <Button onClick={onNewProject} size='sm' className='gap-1.5'>
             <Plus size={14} />
             New Project
-          </button>
+          </Button>
         </div>
       </header>
 
