@@ -101,11 +101,21 @@ export function ProjectsPage({
         </Breadcrumb>
       </div>
 
-      {/* Header */}
-      <header className='h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0'>
-        <h2 className='text-sm font-semibold'>Projects</h2>
-        <div className='flex items-center gap-4'>
-          <div className='relative w-64' ref={searchRef}>
+      {/* Page header */}
+      <header className='pb-4 px-8 flex items-start justify-between shrink-0'>
+        <div className='flex items-start gap-4'>
+          <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
+            <Layers size={20} />
+          </div>
+          <div>
+            <h2 className='text-xl font-semibold tracking-tight'>Projects</h2>
+            <p className='text-sm text-zinc-500 dark:text-zinc-400 mt-0.5'>
+              All your projects in one place.
+            </p>
+          </div>
+        </div>
+        <div className='flex items-center gap-2'>
+          <div className='relative w-56' ref={searchRef}>
             <Search
               size={16}
               className='absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400'
