@@ -27,6 +27,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
+import { TypographyH3 } from '@/components/ui/typography'
 
 type ProjectSortKey = 'name' | 'tasks' | 'inProgress' | 'updatedAt'
 
@@ -108,7 +109,7 @@ export function ProjectsPage({
             <Layers size={20} />
           </div>
           <div>
-            <h2 className='text-xl font-semibold tracking-tight'>Projects</h2>
+            <TypographyH3>Projects</TypographyH3>
             <p className='text-sm text-muted-foreground mt-0.5'>
               All your projects in one place.
             </p>

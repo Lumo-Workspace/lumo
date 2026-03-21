@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/empty'
 import { DataTable } from '../data-table/data-table'
 import { createTaskColumns } from '../data-table/task-columns'
+import { TypographyH3 } from '@/components/ui/typography'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -83,28 +84,14 @@ export function ProjectDetailPage({
   )
 
   // ─── Inline editing state ────────────────────────────────────────────────────
-  const [editingName, setEditingName] = useState(false)
-  const [nameValue, setNameValue] = useState(project.name)
   const [editingDesc, setEditingDesc] = useState(false)
   const [descValue, setDescValue] = useState(project.description ?? '')
-  const nameRef = useRef<HTMLInputElement>(null)
   const descRef = useRef<HTMLTextAreaElement>(null)
 
-  // Keep local values in sync when project prop changes (e.g. after save)
+  // Keep description in sync when project prop changes
   useEffect(() => {
-    setNameValue(project.name)
     setDescValue(project.description ?? '')
-  }, [project.name, project.description])
-
-  const commitName = async () => {
-    setEditingName(false)
-    const trimmed = nameValue.trim()
-    if (!trimmed || trimmed === project.name) {
-      setNameValue(project.name)
-      return
-    }
-    await onUpdateProject(project.id, { name: trimmed })
-  }
+  }, [project.description])
 
   const commitDesc = async () => {
     setEditingDesc(false)
@@ -162,32 +149,33 @@ export function ProjectDetailPage({
           </div>
           <div>
             <div className='flex items-center gap-1'>
-              {/* Inline name editor — always an input to avoid layout shift */}
-              <input
-                ref={nameRef}
-                value={nameValue}
-                onChange={e => setNameValue(e.target.value)}
-                onFocus={() => setEditingName(true)}
-                onBlur={commitName}
+              {/* Inline name editor */}
+              <TypographyH3
+                key={project.id}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={e => {
+                  const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                  if (!trimmed || trimmed === project.name) {
+                    e.currentTarget.textContent = project.name
+                    return
+                  }
+                  onUpdateProject(project.id, { name: trimmed })
+                }}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    commitName()
+                    e.currentTarget.blur()
                   }
                   if (e.key === 'Escape') {
-                    setNameValue(project.name)
-                    setEditingName(false)
-                    nameRef.current?.blur()
+                    e.currentTarget.textContent = project.name
+                    e.currentTarget.blur()
                   }
                 }}
-                className={cn(
-                  'text-xl font-semibold tracking-tight bg-transparent border-none outline-none min-w-[120px] transition-colors',
-                  editingName
-                    ? ''
-                    : 'cursor-text hover:text-zinc-600 dark:hover:text-zinc-300'
-                )}
-                style={{ width: `${Math.max(nameValue.length, 8)}ch` }}
-              />
+                className='outline-none cursor-text focus:outline-none'
+              >
+                {project.name}
+              </TypographyH3>
               {project.isIdea && (
                 <span className='text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium border border-amber-200 dark:border-amber-800'>
                   Draft
