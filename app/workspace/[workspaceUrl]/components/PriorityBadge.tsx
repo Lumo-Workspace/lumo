@@ -32,7 +32,7 @@ export function PriorityBadge({ priority }: { priority: ApiPriority }) {
   const { label, className } =
     PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
   return (
-    <Badge variant='outline' className={cn('font-medium', className)}>
+    <Badge variant='outline' className={cn('font-medium border-0', className)}>
       {label}
     </Badge>
   )
