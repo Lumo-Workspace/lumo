@@ -1,39 +1,45 @@
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import {
+  BatteryWarning,
+  BatteryFull,
+  BatteryMedium,
+  BatteryLow,
+} from 'lucide-react'
 import { ApiPriority } from '../types'
 
 const PRIORITY_CONFIG: Record<
   ApiPriority,
-  { label: string; className: string }
+  { label: string; icon: React.ReactNode; color: string }
 > = {
   URGENT: {
     label: 'Urgent',
-    className:
-      'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-900/50',
+    icon: <BatteryWarning size={13} />,
+    color: 'text-red-500',
   },
   HIGH: {
     label: 'High',
-    className:
-      'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950/30 dark:border-orange-900/50',
+    icon: <BatteryLow size={13} />,
+    color: 'text-orange-500',
   },
   MEDIUM: {
     label: 'Medium',
-    className:
-      'text-zinc-600 bg-zinc-100 border-zinc-200 dark:text-zinc-300 dark:bg-zinc-800 dark:border-zinc-700',
+    icon: <BatteryMedium size={13} />,
+    color: 'text-yellow-500',
   },
   LOW: {
     label: 'Low',
-    className:
-      'text-zinc-400 bg-zinc-50 border-zinc-200 dark:text-zinc-500 dark:bg-zinc-800/50 dark:border-zinc-700',
+    icon: <BatteryFull size={13} />,
+    color: 'text-green-500',
   },
 }
 
 export function PriorityBadge({ priority }: { priority: ApiPriority }) {
-  const { label, className } =
+  const { label, icon, color } =
     PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
   return (
-    <Badge variant='outline' className={cn('font-medium border-0', className)}>
+    <span className={cn('flex items-center gap-1 text-xs font-medium', color)}>
+      {icon}
       {label}
-    </Badge>
+    </span>
   )
 }

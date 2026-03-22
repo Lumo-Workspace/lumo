@@ -2,10 +2,10 @@
 
 import {
   UserCircle2,
-  AlertCircle,
-  ArrowUp,
-  ArrowRight,
-  ArrowDown,
+  BatteryWarning,
+  BatteryFull,
+  BatteryMedium,
+  BatteryLow,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -31,23 +31,23 @@ const PRIORITY_CONFIG: Record<
 > = {
   URGENT: {
     label: 'Urgent',
-    icon: <AlertCircle size={14} />,
+    icon: <BatteryWarning size={14} />,
     iconColor: 'text-red-500',
   },
   HIGH: {
     label: 'High',
-    icon: <ArrowUp size={14} />,
+    icon: <BatteryLow size={14} />,
     iconColor: 'text-orange-500',
   },
   MEDIUM: {
     label: 'Medium',
-    icon: <ArrowRight size={14} />,
-    iconColor: 'text-zinc-400',
+    icon: <BatteryMedium size={14} />,
+    iconColor: 'text-yellow-500',
   },
   LOW: {
     label: 'Low',
-    icon: <ArrowDown size={14} />,
-    iconColor: 'text-zinc-300 dark:text-zinc-600',
+    icon: <BatteryFull size={14} />,
+    iconColor: 'text-green-500',
   },
 }
 
