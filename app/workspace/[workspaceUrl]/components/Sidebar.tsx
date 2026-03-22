@@ -58,7 +58,7 @@ export function AppSidebar({
     : (user?.emailAddresses?.[0]?.emailAddress ?? '')
 
   return (
-    <Sidebar collapsible='none'>
+    <Sidebar collapsible='none' className='hidden md:flex'>
       {/* Workspace / user header */}
       <SidebarHeader>
         <SidebarMenu>

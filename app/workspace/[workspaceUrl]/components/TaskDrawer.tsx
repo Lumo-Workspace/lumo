@@ -163,11 +163,15 @@ export function TaskDrawer({
           onClick={onClose}
         />
         <DrawerPrimitive.Content
-          className='fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none'
-          style={{
-            width: expanded ? '100vw' : '380px',
-            transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
-          }}
+          className='fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none w-full md:w-[380px]'
+          style={
+            expanded
+              ? {
+                  width: '100vw',
+                  transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
+                }
+              : { transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)' }
+          }
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}
@@ -181,7 +185,7 @@ export function TaskDrawer({
               variant='ghost'
               size='icon'
               onClick={() => setExpanded(e => !e)}
-              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              className='hidden md:flex h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               title={expanded ? 'Collapse' : 'Expand'}
             >
               {expanded ? (

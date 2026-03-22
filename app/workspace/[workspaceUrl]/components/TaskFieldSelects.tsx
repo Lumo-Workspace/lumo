@@ -173,7 +173,7 @@ export function AssigneeSelect({
           </div>
         ) : (
           <div className='flex items-center gap-1.5 text-zinc-400'>
-            <UserCircle2 size={24} />
+            <UserCircle2 size={16} />
             <span>No assignee</span>
           </div>
         )}
@@ -181,7 +181,7 @@ export function AssigneeSelect({
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
-            <UserCircle2 size={24} className='text-zinc-400 shrink-0' />
+            <UserCircle2 size={20} className='text-zinc-400 shrink-0' />
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>

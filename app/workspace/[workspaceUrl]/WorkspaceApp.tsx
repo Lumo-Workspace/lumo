@@ -22,6 +22,7 @@ import { useMembers } from './hooks/useMembers'
 // Components
 import { AppSidebar } from './components/Sidebar'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { MobileSidebar } from './components/MobileSidebar'
 import { ProjectsPage } from './components/pages/ProjectsPage'
 import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
@@ -500,7 +501,18 @@ export default function DashboardApp() {
         onToggleDarkMode={() => setIsDarkMode(d => !d)}
       />
 
-      <SidebarInset className='overflow-hidden'>{renderPage()}</SidebarInset>
+      <SidebarInset className='overflow-hidden flex flex-col'>
+        {/* Mobile-only top bar */}
+        <div className='md:hidden flex items-center h-12 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0'>
+          <MobileSidebar
+            currentPage={currentPage}
+            onNavigate={navigateTo}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={() => setIsDarkMode(d => !d)}
+          />
+        </div>
+        <div className='flex-1 overflow-hidden'>{renderPage()}</div>
+      </SidebarInset>
 
       <AnimatePresence>
         {selectedTask && (

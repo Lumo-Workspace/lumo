@@ -27,7 +27,7 @@ export function Modal({
   if (!isOpen) return null
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+    <div className='fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4'>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -42,7 +42,7 @@ export function Modal({
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ duration: 0.2 }}
         style={{ width: '100%', maxWidth: 860 }}
-        className='relative bg-white dark:bg-zinc-950 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col'
+        className='relative bg-white dark:bg-zinc-950 rounded-t-xl sm:rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col w-full'
       >
         {/* Header */}
         <div className='px-6 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-900 shrink-0'>
