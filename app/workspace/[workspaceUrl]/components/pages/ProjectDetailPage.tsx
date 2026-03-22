@@ -59,6 +59,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { DND_ACTIVATION_DISTANCE, IDEA_BADGE_CLS } from '../../constants'
+import { PageBreadcrumb } from '../PageBreadcrumb'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -146,7 +147,7 @@ export function ProjectDetailPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <div className='px-4 md:px-8 pt-4 md:pt-6 mb-3'>
+      <PageBreadcrumb>
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -158,31 +159,9 @@ export function ProjectDetailPage({
             <BreadcrumbItem>
               <BreadcrumbPage>{project.name}</BreadcrumbPage>
             </BreadcrumbItem>
-            <BreadcrumbItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                  >
-                    <MoreHorizontal size={14} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='start'>
-                  <DropdownMenuItem
-                    className='text-destructive focus:text-destructive'
-                    onClick={() => setDeleteOpen(true)}
-                  >
-                    <Trash2 className='mr-2 size-4' />
-                    Delete project
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </div>
+      </PageBreadcrumb>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent size='sm'>
@@ -209,7 +188,7 @@ export function ProjectDetailPage({
       </AlertDialog>
 
       {/* Page header */}
-      <header className='pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
           <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
             <Layers size={18} className='text-zinc-500' />
@@ -244,6 +223,26 @@ export function ProjectDetailPage({
                 {project.name}
               </TypographyH3>
               {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  >
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='start'>
+                  <DropdownMenuItem
+                    className='text-destructive focus:text-destructive'
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 className='mr-2 size-4' />
+                    Delete project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Inline description editor — always a textarea to avoid layout shift */}
@@ -273,7 +272,11 @@ export function ProjectDetailPage({
             />
           </div>
         </div>
-        <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
+        <Button
+          onClick={() => onNewTask()}
+          size='sm'
+          className='gap-1.5 shrink-0'
+        >
           <Plus size={18} />
           Create Task
         </Button>

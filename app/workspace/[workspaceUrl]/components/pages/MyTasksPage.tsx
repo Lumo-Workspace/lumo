@@ -43,6 +43,7 @@ import {
   cmpDate,
 } from '../../hooks/useTableSort'
 import { DND_ACTIVATION_DISTANCE } from '../../constants'
+import { PageBreadcrumb } from '../PageBreadcrumb'
 
 type MyTaskSortKey = 'title' | 'project' | 'status' | 'priority' | 'updatedAt'
 
@@ -85,7 +86,7 @@ export function MyTasksPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <div className='px-4 md:px-8 pt-4 md:pt-6 mb-3'>
+      <PageBreadcrumb>
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -93,8 +94,8 @@ export function MyTasksPage({
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </div>
-      <header className='pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
+      </PageBreadcrumb>
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
           <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
             <Home size={20} />

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { TypographyH3 } from '@/components/ui/typography'
 import { IDEA_BADGE_CLS } from '../../constants'
+import { PageBreadcrumb } from '../PageBreadcrumb'
 
 type ProjectSortKey = 'name' | 'tasks' | 'inProgress' | 'updatedAt'
 
@@ -93,7 +94,7 @@ export function ProjectsPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <div className='px-4 md:px-8 pt-4 md:pt-6 mb-3'>
+      <PageBreadcrumb>
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -101,10 +102,10 @@ export function ProjectsPage({
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </div>
+      </PageBreadcrumb>
 
       {/* Page header */}
-      <header className='pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
           <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
             <Layers size={20} />
