@@ -41,8 +41,8 @@ export function StatusIcon({
   }
 
   if (status === 'IN_REVIEW') {
-    // Circle outline + clockwise arrow inside
-    const ar = r * 0.55 // inner arrow radius
+    // Outer ring + 3/4 filled sector inside (gap at top-left)
+    // From top (cx, cy-r) clockwise 270° to left (cx-r, cy), then back to center
     return (
       <svg
         width={s}
@@ -60,22 +60,10 @@ export function StatusIcon({
           strokeWidth='1.5'
           fill='none'
         />
-        {/* 3/4 arc clockwise starting from top-right */}
+        {/* 3/4 filled sector */}
         <path
-          d={`M ${cx + ar * 0.707},${cy - ar * 0.707} A ${ar} ${ar} 0 1 1 ${cx - ar},${cy}`}
-          stroke='#8b5cf6'
-          strokeWidth='1.5'
-          strokeLinecap='round'
-          fill='none'
-        />
-        {/* Arrowhead at end of arc (pointing roughly down-left) */}
-        <polyline
-          points={`${cx - ar + ar * 0.55},${cy - ar * 0.4} ${cx - ar},${cy} ${cx - ar * 0.4},${cy + ar * 0.55}`}
-          stroke='#8b5cf6'
-          strokeWidth='1.5'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          fill='none'
+          d={`M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 1,1 ${cx - r},${cy} Z`}
+          fill='#8b5cf6'
         />
       </svg>
     )
