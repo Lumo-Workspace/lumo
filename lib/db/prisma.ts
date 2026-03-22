@@ -5,9 +5,17 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
+/** Replace deprecated sslmode values to suppress pg-connection-string warning. */
+function sanitizeDbUrl(url: string): string {
+  return url.replace(
+    /sslmode=(prefer|require|verify-ca)/gi,
+    'sslmode=verify-full'
+  )
+}
+
 function createPrismaClient() {
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: sanitizeDbUrl(process.env.DATABASE_URL!),
     ssl: { rejectUnauthorized: true },
   })
   return new PrismaClient({
