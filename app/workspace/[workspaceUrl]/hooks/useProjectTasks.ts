@@ -40,6 +40,7 @@ export function useProjectTasks() {
 
   const fetchProjectTasks = useCallback(async (projectId: string) => {
     setError(null)
+    if (!seeded.current) setLoading(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/tasks`)
       if (!res.ok) throw new Error('Failed to load tasks')

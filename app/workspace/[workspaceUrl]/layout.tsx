@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
-import { WorkspaceLayoutClient } from './layout-client'
 
 /**
  * WorkspaceLayout — Server Component.
@@ -25,12 +24,5 @@ export default async function WorkspaceLayout({
 
   if (!workspace) redirect('/workspace')
 
-  return (
-    <WorkspaceLayoutClient
-      workspaceUrl={workspaceUrl}
-      workspaceId={workspace.id}
-    >
-      {children}
-    </WorkspaceLayoutClient>
-  )
+  return <>{children}</>
 }

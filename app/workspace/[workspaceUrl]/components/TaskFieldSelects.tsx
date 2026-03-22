@@ -25,7 +25,7 @@ import { API_STATUS_LABEL } from '../utils'
 
 // ─── Priority config ───────────────────────────────────────────────────────────
 
-const PRIORITY_CONFIG: Record<
+export const PRIORITY_CONFIG: Record<
   ApiPriority,
   { label: string; icon: React.ReactNode; iconColor: string }
 > = {
