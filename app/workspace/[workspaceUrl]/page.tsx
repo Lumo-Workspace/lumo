@@ -19,5 +19,5 @@ export default async function WorkspaceAppPage({
 
   if (!workspace) redirect('/onboarding')
 
-  return <WorkspaceApp />
+  return <WorkspaceApp key={userId} />
 }
