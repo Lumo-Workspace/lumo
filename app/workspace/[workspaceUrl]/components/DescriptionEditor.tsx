@@ -1,12 +1,321 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
+import { BubbleMenu } from '@tiptap/extension-bubble-menu'
+import type { Editor } from '@tiptap/core'
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
+  Code,
+  Code2,
+  Quote,
+  List,
+  ListOrdered,
+  ListTodo,
+  ChevronDown,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+// ─── Bubble menu toolbar ───────────────────────────────────────────────────────
+
+function ToolbarButton({
+  onClick,
+  active,
+  title,
+  children,
+}: {
+  onClick: () => void
+  active?: boolean
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type='button'
+      onMouseDown={e => {
+        e.preventDefault() // prevent editor blur
+        onClick()
+      }}
+      title={title}
+      className={cn(
+        'flex items-center justify-center size-7 rounded transition-colors',
+        active
+          ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Divider() {
+  return (
+    <div className='w-px h-4 bg-zinc-200 dark:bg-zinc-700 mx-0.5 shrink-0' />
+  )
+}
+
+const TEXT_STYLES = [
+  {
+    label: 'Regular text',
+    action: (e: Editor) => e.chain().focus().setParagraph().run(),
+    isActive: (e: Editor) => e.isActive('paragraph'),
+  },
+  {
+    label: 'Heading 1',
+    action: (e: Editor) => e.chain().focus().toggleHeading({ level: 1 }).run(),
+    isActive: (e: Editor) => e.isActive('heading', { level: 1 }),
+  },
+  {
+    label: 'Heading 2',
+    action: (e: Editor) => e.chain().focus().toggleHeading({ level: 2 }).run(),
+    isActive: (e: Editor) => e.isActive('heading', { level: 2 }),
+  },
+  {
+    label: 'Heading 3',
+    action: (e: Editor) => e.chain().focus().toggleHeading({ level: 3 }).run(),
+    isActive: (e: Editor) => e.isActive('heading', { level: 3 }),
+  },
+  {
+    label: 'Heading 4',
+    action: (e: Editor) => e.chain().focus().toggleHeading({ level: 4 }).run(),
+    isActive: (e: Editor) => e.isActive('heading', { level: 4 }),
+  },
+]
+
+const LIST_STYLES = [
+  {
+    label: 'List',
+    icon: <List size={14} />,
+    action: (e: Editor) => e.chain().focus().toggleBulletList().run(),
+    isActive: (e: Editor) => e.isActive('bulletList'),
+  },
+  {
+    label: 'Numbered list',
+    icon: <ListOrdered size={14} />,
+    action: (e: Editor) => e.chain().focus().toggleOrderedList().run(),
+    isActive: (e: Editor) => e.isActive('orderedList'),
+  },
+  {
+    label: 'Checklist',
+    icon: <ListTodo size={14} />,
+    action: (e: Editor) => e.chain().focus().toggleTaskList().run(),
+    isActive: (e: Editor) => e.isActive('taskList'),
+  },
+]
+
+function BubbleMenuBar({ editor }: { editor: Editor }) {
+  const [styleOpen, setStyleOpen] = useState(false)
+  const [listOpen, setListOpen] = useState(false)
+  const styleRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    if (!styleOpen && !listOpen) return
+    const handler = (e: MouseEvent) => {
+      if (!styleRef.current?.contains(e.target as Node)) setStyleOpen(false)
+      if (!listRef.current?.contains(e.target as Node)) setListOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [styleOpen, listOpen])
+
+  // Subscribe to editor state so buttons re-render on every transaction
+  const state = useEditorState({
+    editor,
+    selector: ctx => ({
+      isBold: ctx.editor.isActive('bold'),
+      isItalic: ctx.editor.isActive('italic'),
+      isUnderline: ctx.editor.isActive('underline'),
+      isStrike: ctx.editor.isActive('strike'),
+      isCode: ctx.editor.isActive('code'),
+      isCodeBlock: ctx.editor.isActive('codeBlock'),
+      isBlockquote: ctx.editor.isActive('blockquote'),
+      isBulletList: ctx.editor.isActive('bulletList'),
+      isOrderedList: ctx.editor.isActive('orderedList'),
+      isTaskList: ctx.editor.isActive('taskList'),
+      isParagraph: ctx.editor.isActive('paragraph'),
+      isH1: ctx.editor.isActive('heading', { level: 1 }),
+      isH2: ctx.editor.isActive('heading', { level: 2 }),
+      isH3: ctx.editor.isActive('heading', { level: 3 }),
+      isH4: ctx.editor.isActive('heading', { level: 4 }),
+    }),
+  })
+
+  const activeFlags = [
+    state.isParagraph,
+    state.isH1,
+    state.isH2,
+    state.isH3,
+    state.isH4,
+  ]
+  const activeStyle =
+    TEXT_STYLES.find((_, i) => activeFlags[i]) ?? TEXT_STYLES[0]!
+
+  return (
+    <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+      {/* Text style dropdown — custom, no portal to avoid first-render position bug */}
+      <div ref={styleRef} className='relative'>
+        <button
+          type='button'
+          onMouseDown={e => {
+            e.preventDefault()
+            setStyleOpen(o => !o)
+          }}
+          className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+        >
+          {activeStyle.label}
+          <ChevronDown size={12} />
+        </button>
+        {styleOpen && (
+          <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+            {TEXT_STYLES.map((style, i) => (
+              <button
+                key={style.label}
+                type='button'
+                onMouseDown={e => {
+                  e.preventDefault()
+                  style.action(editor)
+                  setStyleOpen(false)
+                }}
+                className={cn(
+                  'w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                  activeFlags[i]
+                    ? 'font-semibold text-zinc-900 dark:text-zinc-100'
+                    : 'text-zinc-600 dark:text-zinc-400'
+                )}
+              >
+                {style.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Inline formatting */}
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        active={state.isBold}
+        title='Bold'
+      >
+        <Bold size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        active={state.isItalic}
+        title='Italic'
+      >
+        <Italic size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={state.isUnderline}
+        title='Underline'
+      >
+        <UnderlineIcon size={14} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        active={state.isStrike}
+        title='Strikethrough'
+      >
+        <Strikethrough size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* Inline code */}
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        active={state.isCode}
+        title='Inline code'
+      >
+        <Code size={14} />
+      </ToolbarButton>
+
+      {/* Code block */}
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        active={state.isCodeBlock}
+        title='Code block'
+      >
+        <Code2 size={14} />
+      </ToolbarButton>
+
+      {/* Blockquote */}
+      <ToolbarButton
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        active={state.isBlockquote}
+        title='Quote'
+      >
+        <Quote size={14} />
+      </ToolbarButton>
+
+      <Divider />
+
+      {/* List dropdown */}
+      <div ref={listRef} className='relative'>
+        <button
+          type='button'
+          onMouseDown={e => {
+            e.preventDefault()
+            setListOpen(o => !o)
+          }}
+          className={cn(
+            'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
+            state.isBulletList || state.isOrderedList || state.isTaskList
+              ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+          )}
+        >
+          <List size={14} />
+          <ChevronDown size={12} />
+        </button>
+        {listOpen && (
+          <div className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+            {LIST_STYLES.map(style => {
+              const active = style.isActive(editor)
+              return (
+                <button
+                  key={style.label}
+                  type='button'
+                  onMouseDown={e => {
+                    e.preventDefault()
+                    style.action(editor)
+                    setListOpen(false)
+                  }}
+                  className={cn(
+                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                    active
+                      ? 'font-semibold text-zinc-900 dark:text-zinc-100'
+                      : 'text-zinc-600 dark:text-zinc-400'
+                  )}
+                >
+                  {style.icon}
+                  {style.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main editor ───────────────────────────────────────────────────────────────
 
 interface DescriptionEditorProps {
   value: string | null
@@ -23,6 +332,11 @@ export function DescriptionEditor({
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
 
+  // Stable DOM element for the bubble menu (created once, never changes)
+  const [menuElement] = useState<HTMLDivElement | null>(() =>
+    typeof document !== 'undefined' ? document.createElement('div') : null
+  )
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -31,6 +345,20 @@ export function DescriptionEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
+      ...(menuElement
+        ? [
+            BubbleMenu.configure({
+              element: menuElement,
+              // Only show for non-empty text selections
+              shouldShow: ({ editor, state }) => {
+                const { selection } = state
+                const { empty } = selection
+                if (empty) return false
+                return editor.isEditable
+              },
+            }),
+          ]
+        : []),
     ],
     content: value || '',
     editorProps: {
@@ -52,8 +380,7 @@ export function DescriptionEditor({
     },
   })
 
-  // Sync external value changes (e.g. background fetch) without overwriting
-  // what the user is actively typing
+  // Sync external value changes without overwriting active edits
   useEffect(() => {
     if (!editor || isFocusedRef.current) return
     const incoming = value || ''
@@ -70,5 +397,12 @@ export function DescriptionEditor({
     [editor]
   )
 
-  return <EditorContent editor={editor} />
+  return (
+    <>
+      <EditorContent editor={editor} />
+      {menuElement &&
+        editor &&
+        createPortal(<BubbleMenuBar editor={editor} />, menuElement)}
+    </>
+  )
 }
