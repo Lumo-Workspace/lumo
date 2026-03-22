@@ -9,12 +9,18 @@ import {
   ApiTask,
   MyTask,
   ApiStatus,
+  ApiPriority,
   WorkspaceMemberInfo,
   ApiProject,
 } from '../types'
 import { DescriptionEditor } from './DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'
-import { StatusSelect, AssigneeSelect, ProjectSelect } from './TaskFieldSelects'
+import {
+  StatusSelect,
+  AssigneeSelect,
+  ProjectSelect,
+  PrioritySelect,
+} from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
 
 interface TaskDrawerProps {
@@ -31,6 +37,7 @@ interface TaskDrawerProps {
       assigneeId: string | null
       description: string | null
       projectId: string
+      priority: ApiPriority
     }>
   ) => Promise<void>
   onDescriptionLoaded?: (taskId: string, description: string | null) => void
@@ -91,6 +98,8 @@ export function TaskDrawer({
           ...prev,
           description: t.description,
           project: t.project,
+          number: t.number,
+          teamIdentifier: t.teamIdentifier,
         }))
         setDescriptionValue(t.description ?? null)
         onDescriptionLoaded?.(t.id, t.description ?? null)
@@ -107,6 +116,7 @@ export function TaskDrawer({
         assigneeId: string | null
         description: string | null
         projectId: string
+        priority: ApiPriority
       }>
     ) => {
       const snapshot = task
@@ -218,16 +228,7 @@ export function TaskDrawer({
               >
                 {task.title}
               </TypographyH3>
-              <p className='text-xs font-mono text-muted-foreground mt-0.5 mb-3'>
-                {task.number ? (
-                  <>
-                    {task.teamIdentifier}-{task.number}
-                  </>
-                ) : (
-                  <Spinner className='size-3' />
-                )}
-              </p>
-
+              <p className='text-xs font-mono text-muted-foreground mt-0.5 mb-3'></p>
               {/* Status · Assignee · Project — single inline row, no labels */}
               <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
                 <StatusSelect
@@ -253,14 +254,20 @@ export function TaskDrawer({
                   projects={projects}
                   triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
                 />
+                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
+                  ·
+                </span>
+                <PrioritySelect
+                  value={task.priority}
+                  onChange={v => handlePatch({ priority: v })}
+                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                />
               </div>
 
               {/* Description */}
               <div className='pt-4'>
                 {descriptionLoading ? (
-                  <span className='text-xs text-zinc-300 dark:text-zinc-600 animate-pulse'>
-                    Loading…
-                  </span>
+                  <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
                 ) : (
                   <DescriptionEditor
                     value={descriptionValue}

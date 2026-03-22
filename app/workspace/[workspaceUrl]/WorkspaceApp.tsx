@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
-import { Page, ApiProject, ApiTask, MyTask, ApiStatus } from './types'
+import {
+  Page,
+  ApiProject,
+  ApiTask,
+  MyTask,
+  ApiStatus,
+  ApiPriority,
+} from './types'
 
 // Hooks
 import { useMyTasks } from './hooks/useMyTasks'
@@ -105,6 +112,7 @@ export default function DashboardApp() {
         assigneeId: string | null
         description: string | null
         projectId: string
+        priority: ApiPriority
       }>
     ) => {
       // Optimistic update — apply immediately to both lists
@@ -290,6 +298,7 @@ export default function DashboardApp() {
       title,
       description,
       status,
+      priority,
       projectId,
       assigneeId,
     }: NewTaskFormData) => {
@@ -299,7 +308,7 @@ export default function DashboardApp() {
         id: tempId,
         title,
         status,
-        priority: 'MEDIUM',
+        priority,
         projectId,
         parentTaskId: null,
         assigneeId: assigneeId ?? null,
@@ -320,6 +329,7 @@ export default function DashboardApp() {
           title,
           description: description.trim() || undefined,
           status,
+          priority,
           assigneeId: assigneeId || undefined,
         }),
       })

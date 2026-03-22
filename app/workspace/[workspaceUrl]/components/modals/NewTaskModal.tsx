@@ -3,13 +3,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
-import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../../types'
+import {
+  ApiProject,
+  ApiPriority,
+  ApiStatus,
+  WorkspaceMemberInfo,
+} from '../../types'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
 import { Button } from '@/components/ui/button'
 import {
   StatusSelect,
   AssigneeSelect,
   ProjectSelect,
+  PrioritySelect,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
 
@@ -17,6 +23,7 @@ export interface NewTaskFormData {
   title: string
   description: string
   status: ApiStatus
+  priority: ApiPriority
   projectId: string
   assigneeId: string
 }
@@ -46,6 +53,7 @@ export function NewTaskModal({
   const [title, setTitle] = useState('')
   const descriptionRef = useRef<string | null>(null)
   const [status, setStatus] = useState<ApiStatus>(defaultStatus ?? 'TODO')
+  const [priority, setPriority] = useState<ApiPriority>('MEDIUM')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
 
@@ -66,6 +74,7 @@ export function NewTaskModal({
     setTitle('')
     descriptionRef.current = null
     setStatus(defaultStatus ?? 'TODO')
+    setPriority('MEDIUM')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
   }
@@ -84,6 +93,7 @@ export function NewTaskModal({
       title: trimmedTitle,
       description: descriptionRef.current ?? '',
       status,
+      priority,
       projectId: effectiveProjectId,
       assigneeId,
     }
@@ -155,6 +165,11 @@ export function NewTaskModal({
                 value={assigneeId || null}
                 onChange={v => setAssigneeId(v ?? '')}
                 members={members}
+                triggerClassName={triggerClass}
+              />
+              <PrioritySelect
+                value={priority}
+                onChange={setPriority}
                 triggerClassName={triggerClass}
               />
             </div>

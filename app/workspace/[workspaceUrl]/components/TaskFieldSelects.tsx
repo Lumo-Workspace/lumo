@@ -1,6 +1,12 @@
 'use client'
 
-import { UserCircle2 } from 'lucide-react'
+import {
+  UserCircle2,
+  AlertCircle,
+  ArrowUp,
+  ArrowRight,
+  ArrowDown,
+} from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select,
@@ -9,8 +15,47 @@ import {
   SelectTrigger,
 } from '@/components/ui/select'
 import { StatusIcon } from './StatusIcon'
-import { ApiProject, ApiStatus, WorkspaceMemberInfo } from '../types'
+import {
+  ApiProject,
+  ApiPriority,
+  ApiStatus,
+  WorkspaceMemberInfo,
+} from '../types'
 import { API_STATUS_LABEL } from '../utils'
+
+// ─── Priority config ───────────────────────────────────────────────────────────
+
+const PRIORITY_CONFIG: Record<
+  ApiPriority,
+  { label: string; icon: React.ReactNode; iconColor: string }
+> = {
+  URGENT: {
+    label: 'Urgent',
+    icon: <AlertCircle size={14} />,
+    iconColor: 'text-red-500',
+  },
+  HIGH: {
+    label: 'High',
+    icon: <ArrowUp size={14} />,
+    iconColor: 'text-orange-500',
+  },
+  MEDIUM: {
+    label: 'Medium',
+    icon: <ArrowRight size={14} />,
+    iconColor: 'text-zinc-400',
+  },
+  LOW: {
+    label: 'Low',
+    icon: <ArrowDown size={14} />,
+    iconColor: 'text-zinc-300 dark:text-zinc-600',
+  },
+}
+
+export function PriorityIcon({ priority }: { priority: ApiPriority }) {
+  const { icon, iconColor } =
+    PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
+  return <span className={iconColor}>{icon}</span>
+}
 
 // ─── MemberAvatar ─────────────────────────────────────────────────────────────
 
@@ -137,6 +182,45 @@ export function AssigneeSelect({
             <div className='flex items-center gap-2'>
               <MemberAvatar member={m} size='sm' />
               {m.name}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ─── PrioritySelect ───────────────────────────────────────────────────────────
+
+export function PrioritySelect({
+  value,
+  onChange,
+  triggerClassName,
+}: {
+  value: ApiPriority
+  onChange: (v: ApiPriority) => void
+  triggerClassName?: string
+}) {
+  const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
+  return (
+    <Select value={value} onValueChange={v => onChange(v as ApiPriority)}>
+      <SelectTrigger className={triggerClassName}>
+        <div className='flex items-center gap-1.5'>
+          <PriorityIcon priority={value} />
+          <span>{label}</span>
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        {(
+          Object.entries(PRIORITY_CONFIG) as [
+            ApiPriority,
+            (typeof PRIORITY_CONFIG)[ApiPriority],
+          ][]
+        ).map(([val, { label: lbl, icon, iconColor }]) => (
+          <SelectItem key={val} value={val}>
+            <div className='flex items-center gap-2'>
+              <span className={iconColor}>{icon}</span>
+              {lbl}
             </div>
           </SelectItem>
         ))}
