@@ -31,23 +31,23 @@ export const PRIORITY_CONFIG: Record<
 > = {
   URGENT: {
     label: 'Urgent',
-    icon: <BatteryWarning size={14} />,
+    icon: <BatteryWarning size={24} />,
     iconColor: 'text-red-500',
   },
   HIGH: {
     label: 'High',
-    icon: <BatteryLow size={14} />,
+    icon: <BatteryLow size={24} />,
     iconColor: 'text-orange-500',
   },
   MEDIUM: {
     label: 'Medium',
-    icon: <BatteryMedium size={14} />,
+    icon: <BatteryMedium size={24} />,
     iconColor: 'text-yellow-500',
   },
   LOW: {
     label: 'Low',
-    icon: <BatteryFull size={14} />,
-    iconColor: 'text-green-500',
+    icon: <BatteryFull size={24} />,
+    iconColor: 'text-zinc-400',
   },
 }
 
@@ -173,7 +173,7 @@ export function AssigneeSelect({
           </div>
         ) : (
           <div className='flex items-center gap-1.5 text-zinc-400'>
-            <UserCircle2 size={14} />
+            <UserCircle2 size={24} />
             <span>No assignee</span>
           </div>
         )}
@@ -181,7 +181,7 @@ export function AssigneeSelect({
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
-            <UserCircle2 size={20} className='text-zinc-400 shrink-0' />
+            <UserCircle2 size={24} className='text-zinc-400 shrink-0' />
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>
