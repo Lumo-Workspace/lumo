@@ -2,8 +2,9 @@
 
 import { useState, useRef, useCallback, Dispatch, SetStateAction } from 'react'
 import { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
+import { API_STATUS_LABEL } from '../utils'
 
-const API_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']
+const API_STATUSES = Object.keys(API_STATUS_LABEL)
 
 interface UseBoardDragOptions<
   T extends { id: string; status: string; viewOrder: number | null },

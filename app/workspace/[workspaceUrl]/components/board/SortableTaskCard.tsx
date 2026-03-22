@@ -5,8 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
-import { Spinner } from '@/components/ui/spinner'
-import { MemberAvatar } from '../TaskFieldSelects'
+import { MemberAvatar, getInitials } from '../TaskFieldSelects'
 import { UserCircle2 } from 'lucide-react'
 import {
   HoverCard,
@@ -76,14 +75,7 @@ export function ProjectTaskCard({
 
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
-      <div className='flex justify-between items-start mb-2'>
-        {task.number ? (
-          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
-            {task.teamIdentifier}-{task.number}
-          </span>
-        ) : (
-          <Spinner className='size-3 text-zinc-400' />
-        )}
+      <div className='flex justify-end mb-2'>
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
@@ -112,12 +104,7 @@ export function ProjectTaskCard({
                     alt={assignee.name}
                   />
                   <AvatarFallback className='text-xs font-semibold'>
-                    {assignee.name
-                      .split(' ')
-                      .map(n => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
+                    {getInitials(assignee.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className='flex flex-col min-w-0'>
@@ -157,16 +144,7 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
           {task.project.name}
         </span>
-        <div className='flex items-center gap-1.5'>
-          {task.number ? (
-            <span className='text-[10px] font-mono text-zinc-400'>
-              {task.teamIdentifier}-{task.number}
-            </span>
-          ) : (
-            <Spinner className='size-3 text-zinc-400' />
-          )}
-          <PriorityBadge priority={task.priority} />
-        </div>
+        <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}

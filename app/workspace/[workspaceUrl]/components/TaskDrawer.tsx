@@ -20,6 +20,8 @@ import {
   AssigneeSelect,
   ProjectSelect,
   PrioritySelect,
+  SeparatorDot,
+  FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -228,39 +230,32 @@ export function TaskDrawer({
               >
                 {task.title}
               </TypographyH3>
-              <p className='text-xs font-mono text-muted-foreground mt-0.5 mb-3'></p>
               {/* Status · Assignee · Project — single inline row, no labels */}
               <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
                 <StatusSelect
                   value={task.status}
                   onChange={v => handlePatch({ status: v })}
-                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                  triggerClassName={FIELD_TRIGGER_CLS}
                 />
-                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
-                  ·
-                </span>
+                <SeparatorDot />
                 <AssigneeSelect
                   value={task.assigneeId ?? null}
                   onChange={v => handlePatch({ assigneeId: v })}
                   members={members}
-                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                  triggerClassName={FIELD_TRIGGER_CLS}
                 />
-                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
-                  ·
-                </span>
+                <SeparatorDot />
                 <ProjectSelect
                   value={task.projectId}
                   onChange={v => handlePatch({ projectId: v })}
                   projects={projects}
-                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                  triggerClassName={FIELD_TRIGGER_CLS}
                 />
-                <span className='text-zinc-200 dark:text-zinc-700 select-none'>
-                  ·
-                </span>
+                <SeparatorDot />
                 <PrioritySelect
                   value={task.priority}
                   onChange={v => handlePatch({ priority: v })}
-                  triggerClassName='h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+                  triggerClassName={FIELD_TRIGGER_CLS}
                 />
               </div>
 

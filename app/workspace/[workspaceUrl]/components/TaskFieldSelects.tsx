@@ -51,6 +51,23 @@ export const PRIORITY_CONFIG: Record<
   },
 }
 
+export function SeparatorDot() {
+  return <span className='text-zinc-200 dark:text-zinc-700 select-none'>·</span>
+}
+
+/** Shared trigger class for all inline task-field selects */
+export const FIELD_TRIGGER_CLS =
+  'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+
+export function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
 export function PriorityIcon({ priority }: { priority: ApiPriority }) {
   const { icon, iconColor } =
     PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
@@ -71,15 +88,6 @@ const AVATAR_COLORS = [
 function memberColor(name: string) {
   const code = name.charCodeAt(0) + (name.charCodeAt(1) ?? 0)
   return AVATAR_COLORS[code % AVATAR_COLORS.length]
-}
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
 }
 
 export function MemberAvatar({

@@ -16,6 +16,7 @@ import {
   AssigneeSelect,
   ProjectSelect,
   PrioritySelect,
+  FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
 
@@ -104,8 +105,7 @@ export function NewTaskModal({
 
   const canSubmit = title.trim().length > 0 && !!(projectId || defaultProjectId)
 
-  const triggerClass =
-    'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+  const triggerClass = FIELD_TRIGGER_CLS
 
   return (
     <AnimatePresence>
