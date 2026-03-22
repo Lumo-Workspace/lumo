@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { PROFILE_CONSTANTS } from '@/types/profile'
 
 /**
@@ -44,7 +44,6 @@ export function DisplayNameForm({
   className,
 }: DisplayNameFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -69,24 +68,19 @@ export function DisplayNameForm({
 
       if (response.ok) {
         const updatedProfile = await response.json()
-        toast({
-          title: 'Profile updated',
+        toast.success('Profile updated', {
           description: 'Your display name has been updated successfully.',
         })
         onSuccess?.(updatedProfile.displayName)
       } else {
         const errorData = await response.json()
-        toast({
-          title: 'Update failed',
+        toast.error('Update failed', {
           description: errorData.error || 'Failed to update display name',
-          variant: 'destructive',
         })
       }
     } catch (error) {
-      toast({
-        title: 'Network error',
+      toast.error('Network error', {
         description: 'Please check your connection and try again.',
-        variant: 'destructive',
       })
     } finally {
       setIsSubmitting(false)

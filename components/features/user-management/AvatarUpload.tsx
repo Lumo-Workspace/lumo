@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Upload, X } from 'lucide-react'
 import { PROFILE_CONSTANTS } from '@/types/profile'
 
@@ -25,17 +25,13 @@ export function AvatarUpload({
   const [isRemoving, setIsRemoving] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { toast } = useToast()
-
   const handleFileSelect = async (file: File) => {
     if (disabled || isUploading) return
 
     // Validate file
     if (file.size > PROFILE_CONSTANTS.AVATAR.MAX_FILE_SIZE) {
-      toast({
-        title: 'File too large',
+      toast.error('File too large', {
         description: `Please select a file smaller than ${PROFILE_CONSTANTS.AVATAR.MAX_FILE_SIZE / (1024 * 1024)}MB`,
-        variant: 'destructive',
       })
       return
     }
@@ -43,10 +39,8 @@ export function AvatarUpload({
     if (
       !PROFILE_CONSTANTS.AVATAR.SUPPORTED_FORMATS.includes(file.type as any)
     ) {
-      toast({
-        title: 'Unsupported file type',
+      toast.error('Unsupported file type', {
         description: `Supported formats: ${PROFILE_CONSTANTS.AVATAR.SUPPORTED_FORMATS.join(', ')}`,
-        variant: 'destructive',
       })
       return
     }
@@ -64,24 +58,19 @@ export function AvatarUpload({
 
       if (response.ok) {
         const result = await response.json()
-        toast({
-          title: 'Avatar updated',
+        toast.success('Avatar updated', {
           description: 'Your profile picture has been updated successfully.',
         })
         onUploadSuccess?.(result.avatarUrl)
       } else {
         const errorData = await response.json()
-        toast({
-          title: 'Upload failed',
+        toast.error('Upload failed', {
           description: errorData.error || 'Failed to upload avatar',
-          variant: 'destructive',
         })
       }
     } catch (error) {
-      toast({
-        title: 'Upload error',
+      toast.error('Upload error', {
         description: 'Please check your connection and try again.',
-        variant: 'destructive',
       })
     } finally {
       setIsUploading(false)
@@ -134,24 +123,19 @@ export function AvatarUpload({
       })
 
       if (response.ok) {
-        toast({
-          title: 'Avatar removed',
+        toast.success('Avatar removed', {
           description: 'Your profile picture has been removed.',
         })
         onRemoveSuccess?.()
       } else {
         const errorData = await response.json()
-        toast({
-          title: 'Remove failed',
+        toast.error('Remove failed', {
           description: errorData.error || 'Failed to remove avatar',
-          variant: 'destructive',
         })
       }
     } catch (error) {
-      toast({
-        title: 'Network error',
+      toast.error('Network error', {
         description: 'Please check your connection and try again.',
-        variant: 'destructive',
       })
     } finally {
       setIsRemoving(false)

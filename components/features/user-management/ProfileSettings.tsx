@@ -12,7 +12,7 @@ import {
 import { AvatarDisplay } from '@/components/features/user-management/AvatarDisplay'
 import { AvatarUpload } from '@/components/features/user-management/AvatarUpload'
 import { DisplayNameForm } from '@/components/features/user-management/DisplayNameForm'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { UserProfile } from '@/types/profile'
 
 interface ProfileSettingsProps {
@@ -23,8 +23,6 @@ export function ProfileSettings({ className }: ProfileSettingsProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading] = useState(false)
-  const { toast } = useToast()
-
   // Load user profile
   useEffect(() => {
     loadProfile()
@@ -37,17 +35,13 @@ export function ProfileSettings({ className }: ProfileSettingsProps) {
         const profileData = await response.json()
         setProfile(profileData)
       } else {
-        toast({
-          title: 'Failed to load profile',
+        toast.error('Failed to load profile', {
           description: 'Please refresh the page and try again.',
-          variant: 'destructive',
         })
       }
     } catch (error) {
-      toast({
-        title: 'Network error',
+      toast.error('Network error', {
         description: 'Please check your connection and try again.',
-        variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
