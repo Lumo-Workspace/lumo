@@ -75,7 +75,10 @@ export function ProjectTaskCard({
 
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
-      <div className='flex justify-end mb-2'>
+      <div className='flex justify-between items-start mb-2'>
+        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+          {task.teamIdentifier}-{task.number}
+        </span>
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
@@ -141,15 +144,18 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
-        <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
-          {task.project.name}
+        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+          {task.teamIdentifier}-{task.number}
         </span>
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}
       </h4>
-      <div className='flex justify-end'>
+      <div className='flex justify-between items-center'>
+        <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
+          {task.project.name}
+        </span>
         <span className='text-[10px] text-zinc-400'>
           {new Date(task.updatedAt).toLocaleDateString()}
         </span>
