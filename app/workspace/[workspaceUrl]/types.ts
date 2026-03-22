@@ -55,6 +55,7 @@ export interface WorkspaceMemberInfo {
   clerkId: string
   role: string
   name: string
+  email: string | null
   imageUrl: string | null
 }
 

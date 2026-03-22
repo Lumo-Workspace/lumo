@@ -3,9 +3,17 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
-import { ApiTask, MyTask } from '../../types'
+import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
 import { Spinner } from '@/components/ui/spinner'
+import { MemberAvatar } from '../TaskFieldSelects'
+import { UserCircle2 } from 'lucide-react'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -54,19 +62,23 @@ function CardShell({ taskId, isOverlay, onClick, children }: CardShellProps) {
 interface ProjectTaskCardProps {
   task: ApiTask
   isOverlay: boolean
+  members?: WorkspaceMemberInfo[]
   onClick?: () => void
 }
 
 export function ProjectTaskCard({
   task,
   isOverlay,
+  members,
   onClick,
 }: ProjectTaskCardProps) {
+  const assignee = members?.find(m => m.id === task.assigneeId) ?? null
+
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
         {task.number ? (
-          <span className='text-[10px] font-mono text-zinc-400'>
+          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
             {task.teamIdentifier}-{task.number}
           </span>
         ) : (
@@ -77,9 +89,53 @@ export function ProjectTaskCard({
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}
       </h4>
-      <div className='flex justify-end'>
+      <div className='flex justify-between items-center'>
+        {assignee ? (
+          <HoverCard openDelay={200}>
+            <HoverCardTrigger asChild>
+              <span
+                className='cursor-default'
+                onClick={e => e.stopPropagation()}
+              >
+                <MemberAvatar member={assignee} size='xs' />
+              </span>
+            </HoverCardTrigger>
+            <HoverCardContent
+              side='bottom'
+              align='start'
+              className='w-auto p-3'
+            >
+              <div className='flex items-center gap-3'>
+                <Avatar className='size-8 shrink-0'>
+                  <AvatarImage
+                    src={assignee.imageUrl ?? undefined}
+                    alt={assignee.name}
+                  />
+                  <AvatarFallback className='text-xs font-semibold'>
+                    {assignee.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className='flex flex-col min-w-0'>
+                  <span className='text-xs font-semibold'>{assignee.name}</span>
+                  {assignee.email && (
+                    <span className='text-[11px] text-muted-foreground'>
+                      {assignee.email}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        ) : (
+          <UserCircle2 size={16} className='text-zinc-300 dark:text-zinc-600' />
+        )}
         <span className='text-[10px] text-zinc-400'>
-          {new Date(task.updatedAt).toLocaleDateString()}
+          Created {new Date(task.updatedAt).toLocaleDateString()}
         </span>
       </div>
     </CardShell>

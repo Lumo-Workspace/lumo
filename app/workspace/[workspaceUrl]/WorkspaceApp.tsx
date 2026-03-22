@@ -482,6 +482,7 @@ export default function DashboardApp() {
             onTaskStatusChanged={handleProjectTaskStatusChanged}
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
+            members={members}
           />
         )
 

@@ -36,10 +36,14 @@ export async function GET() {
     const shaped = members.map(m => {
       const u = userMap.get(m.clerkId)
       return {
-        id: m.id,          // WorkspaceMember.id — use as assigneeId
+        id: m.id, // WorkspaceMember.id — use as assigneeId
         clerkId: m.clerkId,
         role: m.role,
-        name: u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.emailAddresses[0]?.emailAddress : m.clerkId,
+        name: u
+          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+            u.emailAddresses[0]?.emailAddress
+          : m.clerkId,
+        email: u?.emailAddresses[0]?.emailAddress ?? null,
         imageUrl: u?.imageUrl ?? null,
       }
     })
@@ -47,6 +51,9 @@ export async function GET() {
     return NextResponse.json({ members: shaped })
   } catch (error) {
     console.error('GET /api/workspaces/members error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }

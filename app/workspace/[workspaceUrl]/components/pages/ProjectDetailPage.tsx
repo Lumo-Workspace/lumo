@@ -18,7 +18,12 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
-import { ApiProject, ApiTask, ApiStatus } from '../../types'
+import {
+  ApiProject,
+  ApiTask,
+  ApiStatus,
+  WorkspaceMemberInfo,
+} from '../../types'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -76,6 +81,7 @@ interface ProjectDetailPageProps {
     data: { name?: string; description?: string }
   ) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>
+  members: WorkspaceMemberInfo[]
 }
 
 export function ProjectDetailPage({
@@ -93,6 +99,7 @@ export function ProjectDetailPage({
   onTaskStatusChanged,
   onUpdateProject,
   onDeleteProject,
+  members,
 }: ProjectDetailPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -324,6 +331,7 @@ export function ProjectDetailPage({
                   key={task.id}
                   task={task}
                   isOverlay={isOverlay}
+                  members={members}
                   onClick={() => onTaskClick(task)}
                 />
               )}
