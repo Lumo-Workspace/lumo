@@ -12,6 +12,7 @@ import {
   ApiStatus,
   ApiPriority,
 } from './types'
+import { API, CACHE_KEY } from './constants'
 
 // Hooks
 import { useMyTasks } from './hooks/useMyTasks'
@@ -141,7 +142,7 @@ export default function DashboardApp() {
       }
 
       try {
-        const res = await fetch(`/api/tasks/${taskId}`, {
+        const res = await fetch(API.tasks.byId(taskId), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
@@ -173,7 +174,7 @@ export default function DashboardApp() {
       setSelectedTask(prev => (prev?.id === taskId ? null : prev))
 
       try {
-        const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+        const res = await fetch(API.tasks.byId(taskId), { method: 'DELETE' })
         if (!res.ok) throw new Error('Failed to delete task')
       } catch (err) {
         // Roll-back is complex without a snapshot; just re-fetch
@@ -207,12 +208,12 @@ export default function DashboardApp() {
   // ─── Dark mode (persisted to localStorage) ────────────────────────────────
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false
-    return localStorage.getItem('lumo:darkMode') === 'true'
+    return localStorage.getItem(CACHE_KEY.darkMode) === 'true'
   })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode)
-    localStorage.setItem('lumo:darkMode', String(isDarkMode))
+    localStorage.setItem(CACHE_KEY.darkMode, String(isDarkMode))
   }, [isDarkMode])
 
   // ─── Page-change side effects ──────────────────────────────────────────────
@@ -263,7 +264,7 @@ export default function DashboardApp() {
       setProjects(prev => [optimistic, ...prev])
       navigateTo('project-detail', optimistic)
 
-      const res = await fetch('/api/projects', {
+      const res = await fetch(API.projects.list, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -323,7 +324,7 @@ export default function DashboardApp() {
         setProjectTasks(prev => [...prev, optimistic])
       }
 
-      const res = await fetch(`/api/projects/${projectId}/tasks`, {
+      const res = await fetch(API.projects.tasks(projectId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,7 +378,7 @@ export default function DashboardApp() {
       setProjects(prev => prev.filter(p => p.id !== projectId))
       navigateTo('projects')
 
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const res = await fetch(API.projects.byId(projectId), {
         method: 'DELETE',
       })
       if (!res.ok) throw new Error('Failed to delete project')
@@ -396,7 +397,7 @@ export default function DashboardApp() {
 
   const handleUpdateProject = useCallback(
     async (id: string, data: { name?: string; description?: string }) => {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await fetch(API.projects.byId(id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

@@ -5,6 +5,7 @@ import { Home, Layers, Sun, Moon, LogOut, Menu } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { Drawer } from 'vaul'
 import { Page } from '../types'
+import { API } from '../constants'
 import { Button } from '@/components/ui/button'
 
 interface MobileSidebarProps {
@@ -26,7 +27,7 @@ export function MobileSidebar({
   const [workspaceName, setWorkspaceName] = useState('')
 
   useEffect(() => {
-    fetch('/api/workspaces/me')
+    fetch(API.workspaces.me)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.workspace?.name) setWorkspaceName(data.workspace.name)

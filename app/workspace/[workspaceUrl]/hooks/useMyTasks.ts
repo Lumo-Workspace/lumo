@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { MyTask } from '../types'
 import { readCache, writeCache } from '../cache'
+import { API, CACHE_KEY } from '../constants'
 
 export function useMyTasks() {
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
@@ -15,7 +16,7 @@ export function useMyTasks() {
   useEffect(() => {
     const cached = readCache<
       { tasks: MyTask[]; myTasksViewId: string | null } | MyTask[]
-    >('lumo:myTasks')
+    >(CACHE_KEY.myTasks)
     if (cached) {
       if (Array.isArray(cached)) {
         // Legacy format — migrate silently
@@ -32,7 +33,7 @@ export function useMyTasks() {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/tasks/me')
+      const res = await fetch(API.tasks.me)
       if (!res.ok) throw new Error('Failed to load tasks')
       const data = (await res.json()) as {
         tasks: MyTask[]
@@ -40,7 +41,7 @@ export function useMyTasks() {
       }
       setMyTasks(data.tasks)
       setMyTasksViewId(data.myTasksViewId)
-      writeCache('lumo:myTasks', {
+      writeCache(CACHE_KEY.myTasks, {
         tasks: data.tasks,
         myTasksViewId: data.myTasksViewId,
       })

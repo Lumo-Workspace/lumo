@@ -28,6 +28,7 @@ import {
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
 import { TypographyH3 } from '@/components/ui/typography'
+import { IDEA_BADGE_CLS } from '../../constants'
 
 type ProjectSortKey = 'name' | 'tasks' | 'inProgress' | 'updatedAt'
 
@@ -152,7 +153,7 @@ export function ProjectsPage({
                     >
                       <span className='font-medium truncate'>{p.name}</span>
                       {p.isIdea && (
-                        <span className='shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'>
+                        <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
                           Draft
                         </span>
                       )}
@@ -242,9 +243,7 @@ export function ProjectsPage({
                         {project.name}
                       </span>
                       {project.isIdea && (
-                        <span className='text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium border border-amber-200 dark:border-amber-800'>
-                          Draft
-                        </span>
+                        <span className={IDEA_BADGE_CLS}>Draft</span>
                       )}
                     </div>
                     {project.description && (

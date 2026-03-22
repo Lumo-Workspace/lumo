@@ -42,6 +42,7 @@ import {
   cmpPriority,
   cmpDate,
 } from '../../hooks/useTableSort'
+import { DND_ACTIVATION_DISTANCE } from '../../constants'
 
 type MyTaskSortKey = 'title' | 'project' | 'status' | 'priority' | 'updatedAt'
 
@@ -69,7 +70,9 @@ export function MyTasksPage({
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: DND_ACTIVATION_DISTANCE },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 

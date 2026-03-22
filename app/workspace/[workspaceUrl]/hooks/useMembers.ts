@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { WorkspaceMemberInfo } from '../types'
 import { readCache, writeCache } from '../cache'
+import { API, CACHE_KEY } from '../constants'
 
 export function useMembers() {
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
@@ -10,7 +11,7 @@ export function useMembers() {
 
   useEffect(() => {
     // Seed from cache immediately for instant display
-    const cached = readCache<WorkspaceMemberInfo[]>('lumo:members')
+    const cached = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
     if (cached) setMembers(cached)
   }, [])
 
@@ -19,11 +20,11 @@ export function useMembers() {
     if (fetching.current) return
     fetching.current = true
     try {
-      const res = await fetch('/api/workspaces/members')
+      const res = await fetch(API.workspaces.members)
       if (!res.ok) return
       const data = (await res.json()) as { members: WorkspaceMemberInfo[] }
       setMembers(data.members)
-      writeCache('lumo:members', data.members)
+      writeCache(CACHE_KEY.members, data.members)
     } catch {
       // Non-critical — assignee picker keeps current list
     } finally {

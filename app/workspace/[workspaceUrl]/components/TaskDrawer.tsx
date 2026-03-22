@@ -24,6 +24,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
+import { API } from '../constants'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -85,7 +86,7 @@ export function TaskDrawer({
   useEffect(() => {
     // Only show loading spinner when there's no cached content to show
     if (!hasCached) setDescriptionLoading(true)
-    fetch(`/api/tasks/${initialTask.id}`)
+    fetch(API.tasks.byId(initialTask.id))
       .then(async r => {
         const data = await r.json()
         if (!r.ok || !data.task)

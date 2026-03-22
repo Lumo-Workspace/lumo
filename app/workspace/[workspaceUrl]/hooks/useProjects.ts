@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiProject } from '../types'
 import { readCache, writeCache } from '../cache'
+import { API, CACHE_KEY } from '../constants'
 
 export function useProjects() {
   const [projects, setProjects] = useState<ApiProject[]>([])
@@ -11,7 +12,7 @@ export function useProjects() {
   const seeded = useRef(false)
 
   useEffect(() => {
-    const cached = readCache<ApiProject[]>('lumo:projects')
+    const cached = readCache<ApiProject[]>(CACHE_KEY.projects)
     if (cached) {
       setProjects(cached)
       seeded.current = true
@@ -22,11 +23,11 @@ export function useProjects() {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/projects')
+      const res = await fetch(API.projects.list)
       if (!res.ok) throw new Error('Failed to load projects')
       const data = (await res.json()) as { projects: ApiProject[] }
       setProjects(data.projects)
-      writeCache('lumo:projects', data.projects)
+      writeCache(CACHE_KEY.projects, data.projects)
       seeded.current = true
     } catch {
       if (!seeded.current) setError('Could not load projects.')

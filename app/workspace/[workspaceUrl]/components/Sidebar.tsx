@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Home, Layers, Sun, Moon, LogOut, ChevronsUpDown } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { Page } from '../types'
+import { API } from '../constants'
 import {
   Sidebar,
   SidebarContent,
@@ -41,7 +42,7 @@ export function AppSidebar({
   const [workspaceName, setWorkspaceName] = useState<string>('')
 
   useEffect(() => {
-    fetch('/api/workspaces/me')
+    fetch(API.workspaces.me)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.workspace?.name) setWorkspaceName(data.workspace.name)

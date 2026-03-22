@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, Dispatch, SetStateAction } from 'react'
 import { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { API_STATUS_LABEL } from '../utils'
+import { API } from '../constants'
 
 const API_STATUSES = Object.keys(API_STATUS_LABEL)
 
@@ -119,7 +120,7 @@ export function useBoardDrag<
         )
 
         try {
-          const res = await fetch(`/api/views/${viewId}/task-orders`, {
+          const res = await fetch(API.views.taskOrders(viewId), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -147,7 +148,7 @@ export function useBoardDrag<
 
         try {
           const requests: Promise<Response>[] = [
-            fetch(`/api/tasks/${id}`, {
+            fetch(API.tasks.byId(id), {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ status: newStatus }),
@@ -156,7 +157,7 @@ export function useBoardDrag<
 
           if (viewId) {
             requests.push(
-              fetch(`/api/views/${viewId}/task-orders`, {
+              fetch(API.views.taskOrders(viewId), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

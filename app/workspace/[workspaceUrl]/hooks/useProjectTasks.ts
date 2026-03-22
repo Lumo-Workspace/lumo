@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { ApiTask } from '../types'
 import { readCache, writeCache } from '../cache'
 import { flattenTasks } from '../utils'
+import { API, CACHE_KEY } from '../constants'
 
 export function useProjectTasks() {
   const [tasks, setTasks] = useState<ApiTask[]>([])
@@ -20,7 +21,7 @@ export function useProjectTasks() {
     setError(null)
     const cached = readCache<
       { tasks: ApiTask[]; kanbanViewId: string | null } | ApiTask[]
-    >(`lumo:projectTasks:${projectId}`)
+    >(CACHE_KEY.projectTasks(projectId))
     if (cached) {
       if (Array.isArray(cached)) {
         // Legacy format — migrate silently
@@ -42,7 +43,7 @@ export function useProjectTasks() {
     setError(null)
     if (!seeded.current) setLoading(true)
     try {
-      const res = await fetch(`/api/projects/${projectId}/tasks`)
+      const res = await fetch(API.projects.tasks(projectId))
       if (!res.ok) throw new Error('Failed to load tasks')
       const data = (await res.json()) as {
         tasks: (ApiTask & { children?: ApiTask[] })[]
@@ -51,7 +52,7 @@ export function useProjectTasks() {
       const flat = flattenTasks(data.tasks)
       setTasks(flat)
       setKanbanViewId(data.kanbanViewId)
-      writeCache(`lumo:projectTasks:${projectId}`, {
+      writeCache(CACHE_KEY.projectTasks(projectId), {
         tasks: flat,
         kanbanViewId: data.kanbanViewId,
       })

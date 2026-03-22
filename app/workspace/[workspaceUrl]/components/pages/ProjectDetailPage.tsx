@@ -58,6 +58,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { DND_ACTIVATION_DISTANCE, IDEA_BADGE_CLS } from '../../constants'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -129,7 +130,9 @@ export function ProjectDetailPage({
 
   // ─── DnD ────────────────────────────────────────────────────────────────────
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: DND_ACTIVATION_DISTANCE },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
@@ -240,11 +243,7 @@ export function ProjectDetailPage({
               >
                 {project.name}
               </TypographyH3>
-              {project.isIdea && (
-                <span className='text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-medium border border-amber-200 dark:border-amber-800'>
-                  Draft
-                </span>
-              )}
+              {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
             </div>
 
             {/* Inline description editor — always a textarea to avoid layout shift */}
