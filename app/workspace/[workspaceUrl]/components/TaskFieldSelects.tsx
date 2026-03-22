@@ -27,26 +27,30 @@ import { API_STATUS_LABEL } from '../utils'
 
 export const PRIORITY_CONFIG: Record<
   ApiPriority,
-  { label: string; icon: React.ReactNode; iconColor: string }
+  {
+    label: string
+    Icon: React.ComponentType<{ className?: string }>
+    iconColor: string
+  }
 > = {
   URGENT: {
     label: 'Urgent',
-    icon: <BatteryWarning size={24} />,
+    Icon: BatteryWarning,
     iconColor: 'text-red-500',
   },
   HIGH: {
     label: 'High',
-    icon: <BatteryLow size={24} />,
+    Icon: BatteryLow,
     iconColor: 'text-orange-500',
   },
   MEDIUM: {
     label: 'Medium',
-    icon: <BatteryMedium size={24} />,
+    Icon: BatteryMedium,
     iconColor: 'text-yellow-500',
   },
   LOW: {
     label: 'Low',
-    icon: <BatteryFull size={24} />,
+    Icon: BatteryFull,
     iconColor: 'text-zinc-400',
   },
 }
@@ -69,9 +73,13 @@ export function getInitials(name: string) {
 }
 
 export function PriorityIcon({ priority }: { priority: ApiPriority }) {
-  const { icon, iconColor } =
+  const { Icon, iconColor } =
     PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG.MEDIUM
-  return <span className={iconColor}>{icon}</span>
+  return (
+    <span className={iconColor}>
+      <Icon className='size-4' />
+    </span>
+  )
 }
 
 // ─── MemberAvatar ─────────────────────────────────────────────────────────────
@@ -181,14 +189,14 @@ export function AssigneeSelect({
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
-            <UserCircle2 size={20} className='text-zinc-400 shrink-0' />
+            <UserCircle2 size={16} className='text-zinc-400 shrink-0' />
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>
         {members.map(m => (
           <SelectItem key={m.id} value={m.id}>
             <div className='flex items-center gap-2'>
-              <MemberAvatar member={m} size='sm' />
+              <MemberAvatar member={m} size='xs' />
               {m.name}
             </div>
           </SelectItem>
@@ -224,10 +232,12 @@ export function PrioritySelect({
             ApiPriority,
             (typeof PRIORITY_CONFIG)[ApiPriority],
           ][]
-        ).map(([val, { label: lbl, icon, iconColor }]) => (
+        ).map(([val, { label: lbl, Icon, iconColor }]) => (
           <SelectItem key={val} value={val}>
             <div className='flex items-center gap-2'>
-              <span className={iconColor}>{icon}</span>
+              <span className={iconColor}>
+                <Icon className='size-4' />
+              </span>
               {lbl}
             </div>
           </SelectItem>
