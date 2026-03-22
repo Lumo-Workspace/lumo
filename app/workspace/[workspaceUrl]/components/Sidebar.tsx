@@ -96,7 +96,7 @@ export function AppSidebar({
                   />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className='w-48' align='start'>
+              <DropdownMenuContent className='w-48' align='end'>
                 <DropdownMenuItem
                   className='text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer'
                   onClick={() => signOut({ redirectUrl: '/signin' })}
