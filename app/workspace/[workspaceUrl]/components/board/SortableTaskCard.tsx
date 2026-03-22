@@ -7,6 +7,7 @@ import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar, getInitials } from '../TaskFieldSelects'
 import { UserCircle2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import {
   HoverCard,
   HoverCardContent,
@@ -76,9 +77,13 @@ export function ProjectTaskCard({
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
-        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
-          {task.teamIdentifier}-{task.number}
-        </span>
+        {task.number === 0 ? (
+          <Spinner className='size-3 text-zinc-400' />
+        ) : (
+          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+            {task.teamIdentifier}-{task.number}
+          </span>
+        )}
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
@@ -144,9 +149,13 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
-        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
-          {task.teamIdentifier}-{task.number}
-        </span>
+        {task.number === 0 ? (
+          <Spinner className='size-3 text-zinc-400' />
+        ) : (
+          <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+            {task.teamIdentifier}-{task.number}
+          </span>
+        )}
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>

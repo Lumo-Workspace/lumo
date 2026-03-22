@@ -119,7 +119,7 @@ export function MyTasksPage({
         <AsyncContent
           loading={loading}
           error={error}
-          empty={tasks.length === 0}
+          empty={tasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
           emptyState={
             <Empty>
