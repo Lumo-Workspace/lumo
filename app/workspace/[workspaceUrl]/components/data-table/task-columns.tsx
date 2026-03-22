@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
 import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
+import { Spinner } from '@/components/ui/spinner'
 
 // ─── Sortable column header ───────────────────────────────────────────────────
 function SortableColHeader({
@@ -154,11 +155,14 @@ export function createTaskColumns(
           ID
         </span>
       ),
-      cell: ({ row }) => (
-        <span className='text-xs font-mono text-muted-foreground'>
-          {row.original.teamIdentifier}-{row.original.number}
-        </span>
-      ),
+      cell: ({ row }) =>
+        row.original.number ? (
+          <span className='text-xs font-mono text-muted-foreground'>
+            {row.original.teamIdentifier}-{row.original.number}
+          </span>
+        ) : (
+          <Spinner className='size-3 text-muted-foreground' />
+        ),
     },
 
     // ── Title ──────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import {
 import { DescriptionEditor } from './DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'
 import { StatusSelect, AssigneeSelect, ProjectSelect } from './TaskFieldSelects'
+import { Spinner } from '@/components/ui/spinner'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -218,7 +219,13 @@ export function TaskDrawer({
                 {task.title}
               </TypographyH3>
               <p className='text-xs font-mono text-muted-foreground mt-0.5 mb-3'>
-                {task.teamIdentifier}-{task.number}
+                {task.number ? (
+                  <>
+                    {task.teamIdentifier}-{task.number}
+                  </>
+                ) : (
+                  <Spinner className='size-3' />
+                )}
               </p>
 
               {/* Status · Assignee · Project — single inline row, no labels */}

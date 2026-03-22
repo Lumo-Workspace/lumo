@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
+import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
 import { Page, ApiProject, ApiTask, MyTask, ApiStatus } from './types'
 
@@ -265,6 +266,7 @@ export default function DashboardApp() {
         const err = (await res.json()) as { error?: string }
         setProjects(prev => prev.filter(p => p.id !== tempId))
         navigateTo('projects')
+        toast.error(err.error ?? 'Failed to create project')
         throw new Error(err.error ?? 'Failed to create project')
       }
       const { project } = (await res.json()) as { project: ApiProject }
@@ -275,6 +277,9 @@ export default function DashboardApp() {
       }
       setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
       setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
+      toast.success('Project created', {
+        description: `${project.name}`,
+      })
     },
     [setProjects, navigateTo]
   )
@@ -321,6 +326,7 @@ export default function DashboardApp() {
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
         setProjectTasks(prev => prev.filter(t => t.id !== tempId))
+        toast.error(err.error ?? 'Failed to create task')
         throw new Error(err.error ?? 'Failed to create task')
       }
       const { task } = (await res.json()) as { task: ApiTask }
@@ -332,6 +338,9 @@ export default function DashboardApp() {
             : p
         )
       )
+      toast.success('Task created', {
+        description: `${task.teamIdentifier}-${task.number} - ${task.title}`,
+      })
     },
     [selectedProject?.id, setProjectTasks, setProjects]
   )

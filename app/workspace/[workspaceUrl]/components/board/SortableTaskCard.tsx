@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import { ApiTask, MyTask } from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
+import { Spinner } from '@/components/ui/spinner'
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -64,9 +65,13 @@ export function ProjectTaskCard({
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
-        <span className='text-[10px] font-mono text-zinc-400'>
-          {task.teamIdentifier}-{task.number}
-        </span>
+        {task.number ? (
+          <span className='text-[10px] font-mono text-zinc-400'>
+            {task.teamIdentifier}-{task.number}
+          </span>
+        ) : (
+          <Spinner className='size-3 text-zinc-400' />
+        )}
         <PriorityBadge priority={task.priority} />
       </div>
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
@@ -97,9 +102,13 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
           {task.project.name}
         </span>
         <div className='flex items-center gap-1.5'>
-          <span className='text-[10px] font-mono text-zinc-400'>
-            {task.teamIdentifier}-{task.number}
-          </span>
+          {task.number ? (
+            <span className='text-[10px] font-mono text-zinc-400'>
+              {task.teamIdentifier}-{task.number}
+            </span>
+          ) : (
+            <Spinner className='size-3 text-zinc-400' />
+          )}
           <PriorityBadge priority={task.priority} />
         </div>
       </div>
