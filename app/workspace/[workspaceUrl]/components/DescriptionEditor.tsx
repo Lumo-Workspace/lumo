@@ -130,6 +130,10 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /Mac|iPhone|iPad/i.test(navigator.platform)
+  const mod = isMac ? '⌘' : 'Ctrl+'
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
@@ -308,25 +312,29 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={state.isBold}
-        title='Bold'
+        title={`Bold ${mod}B`}
       >
         <Bold size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={state.isItalic}
-        title='Italic'
+        title={`Italic ${mod}I`}
       >
         <Italic size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={state.isUnderline}
-        title='Underline'
+        title={`Underline ${mod}U`}
       >
         <UnderlineIcon size={14} />
       </ToolbarButton>
-      <ToolbarButton onClick={openLinkInput} active={state.isLink} title='Link'>
+      <ToolbarButton
+        onClick={openLinkInput}
+        active={state.isLink}
+        title={`Link ${mod}K`}
+      >
         <Link2 size={14} />
       </ToolbarButton>
       <ToolbarButton
@@ -361,7 +369,7 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         active={state.isBlockquote}
-        title='Quote'
+        title={`Quote ${isMac ? '⌘⇧B' : 'Ctrl+Shift+B'}`}
       >
         <Quote size={14} />
       </ToolbarButton>
