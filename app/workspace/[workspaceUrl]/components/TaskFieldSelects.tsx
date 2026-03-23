@@ -274,7 +274,7 @@ export function ProjectSelect({
       </SelectTrigger>
       <SelectContent>
         {projects.length === 0 ? (
-          <SelectItem value='' disabled>
+          <SelectItem value='__empty__' disabled>
             No projects
           </SelectItem>
         ) : (
