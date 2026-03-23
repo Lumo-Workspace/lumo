@@ -178,6 +178,84 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     })
 
+    const workspaceId = task.project.workspaceId
+
+    // ── Fire-and-forget notification side-effects ────────────────────────────
+    if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
+      // Notify all OWNERs (except the actor) that a task needs review
+      prisma.workspaceMember
+        .findMany({
+          where: { workspaceId, role: 'OWNER' },
+          select: { clerkId: true },
+        })
+        .then(owners => {
+          const recipients = owners
+            .map(o => o.clerkId)
+            .filter(c => c !== userId)
+          if (recipients.length === 0) return
+          return prisma.notification.createMany({
+            data: recipients.map(recipientId => ({
+              workspaceId,
+              recipientId,
+              type: 'TASK_IN_REVIEW' as const,
+              taskId: id,
+              actorId: userId,
+            })),
+          })
+        })
+        .catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+    }
+
+    if (
+      parsed.data.assigneeId !== undefined &&
+      parsed.data.assigneeId !== null &&
+      parsed.data.assigneeId !== task.assigneeId
+    ) {
+      // Notify the new assignee (skip if they assigned it to themselves)
+      prisma.workspaceMember
+        .findUnique({
+          where: { id: parsed.data.assigneeId },
+          select: { clerkId: true },
+        })
+        .then(assignee => {
+          if (!assignee || assignee.clerkId === userId) return
+          return prisma.notification.create({
+            data: {
+              workspaceId,
+              recipientId: assignee.clerkId,
+              type: 'TASK_ASSIGNED' as const,
+              taskId: id,
+              actorId: userId,
+            },
+          })
+        })
+        .catch(err => console.error('[notify] TASK_ASSIGNED failed:', err))
+    }
+
+    if (parsed.data.status === 'IN_PROGRESS' && task.status === 'IN_REVIEW') {
+      // Notify the assignee that the task was sent back
+      if (task.assigneeId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.assigneeId },
+            select: { clerkId: true },
+          })
+          .then(assignee => {
+            if (!assignee || assignee.clerkId === userId) return
+            return prisma.notification.create({
+              data: {
+                workspaceId,
+                recipientId: assignee.clerkId,
+                type: 'TASK_SENT_BACK' as const,
+                taskId: id,
+                actorId: userId,
+              },
+            })
+          })
+          .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
+      }
+    }
+
     return NextResponse.json({
       task: { ...updated, teamIdentifier: updated.team.identifier },
     })

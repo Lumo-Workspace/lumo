@@ -48,7 +48,7 @@ export interface Notification {
 export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 
-export type Page = 'my-tasks' | 'projects' | 'project-detail'
+export type Page = 'my-tasks' | 'projects' | 'project-detail' | 'inbox'
 
 export interface WorkspaceMemberInfo {
   id: string
@@ -99,6 +99,33 @@ export interface ApiTask {
   viewOrder: number | null
   number: number
   teamIdentifier: string
+}
+
+export interface ApiComment {
+  id: string
+  taskId: string
+  authorId: string // Clerk userId
+  body: string // HTML
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiNotification {
+  id: string
+  type: 'TASK_IN_REVIEW' | 'TASK_MENTIONED' | 'TASK_SENT_BACK' | 'TASK_ASSIGNED'
+  read: boolean
+  createdAt: string
+  taskId: string | null
+  commentId: string | null
+  actorId: string | null
+  actor: { name: string; imageUrl: string | null } | null
+  task: {
+    id: string
+    title: string
+    number: number
+    teamIdentifier: string
+  } | null
+  commentPreview: string | null
 }
 
 export interface TaskDetail {

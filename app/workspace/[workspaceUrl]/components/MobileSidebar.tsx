@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   Home,
   Layers,
+  Inbox,
   Sun,
   Moon,
   LogOut,
@@ -24,6 +25,7 @@ interface MobileSidebarProps {
   onNavigate: (page: Page) => void
   isDarkMode: boolean
   onToggleDarkMode: () => void
+  unreadCount: number
 }
 
 export function MobileSidebar({
@@ -31,6 +33,7 @@ export function MobileSidebar({
   onNavigate,
   isDarkMode,
   onToggleDarkMode,
+  unreadCount,
 }: MobileSidebarProps) {
   const { user } = useUser()
   const { signOut } = useClerk()
@@ -126,6 +129,22 @@ export function MobileSidebar({
               >
                 <Layers size={16} />
                 Projects
+              </button>
+              <button
+                onClick={() => navigate('inbox')}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentPage === 'inbox'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'hover:bg-sidebar-accent/50'
+                }`}
+              >
+                <Inbox size={16} />
+                <span className='flex-1 text-left'>Inbox</span>
+                {unreadCount > 0 && (
+                  <span className='text-[10px] font-bold bg-blue-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1'>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
             </nav>
 

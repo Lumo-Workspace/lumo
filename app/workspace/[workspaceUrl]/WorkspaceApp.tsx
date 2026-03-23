@@ -19,6 +19,7 @@ import { useMyTasks } from './hooks/useMyTasks'
 import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
+import { useNotifications } from './hooks/useNotifications'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -27,6 +28,7 @@ import { MobileSidebar } from './components/MobileSidebar'
 import { ProjectsPage } from './components/pages/ProjectsPage'
 import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
+import { InboxPage } from './components/pages/InboxPage'
 import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal'
 import {
   NewProjectModal,
@@ -70,6 +72,15 @@ export default function DashboardApp() {
   } = useProjectTasks()
 
   const { members, fetchMembers } = useMembers()
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    error: notificationsError,
+    fetchNotifications,
+    markOneRead,
+    markAllRead,
+  } = useNotifications()
   const { user } = useUser()
 
   // Current user's workspace member ID (for defaulting assignee to self)
@@ -104,6 +115,25 @@ export default function DashboardApp() {
   )
 
   const handleCloseTask = useCallback(() => setSelectedTask(null), [])
+
+  /** Open a task by its ID — used from Inbox where we only have a task ID. */
+  const handleOpenTaskById = useCallback(
+    async (taskId: string) => {
+      fetchMembers()
+      try {
+        const res = await fetch(API.tasks.byId(taskId))
+        if (!res.ok) {
+          toast.error('Task not found')
+          return
+        }
+        const { task } = (await res.json()) as { task: ApiTask }
+        setSelectedTask(task)
+      } catch {
+        toast.error('Failed to open task')
+      }
+    },
+    [fetchMembers]
+  )
 
   const handleUpdateTask = useCallback(
     async (
@@ -215,6 +245,12 @@ export default function DashboardApp() {
     document.documentElement.classList.toggle('dark', isDarkMode)
     localStorage.setItem(CACHE_KEY.darkMode, String(isDarkMode))
   }, [isDarkMode])
+
+  // ─── Fetch notifications on mount (populates badge regardless of current page)
+  useEffect(() => {
+    fetchNotifications()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
@@ -488,6 +524,24 @@ export default function DashboardApp() {
           />
         )
 
+      case 'inbox':
+        return (
+          <InboxPage
+            notifications={notifications}
+            unreadCount={unreadCount}
+            loading={notificationsLoading}
+            error={notificationsError}
+            onRetry={fetchNotifications}
+            onMount={fetchNotifications}
+            onMarkOneRead={markOneRead}
+            onMarkAllRead={markAllRead}
+            onOpenTask={handleOpenTaskById}
+            onUpdateTaskStatus={async (taskId, status) => {
+              await handleUpdateTask(taskId, { status })
+            }}
+          />
+        )
+
       default:
         return null
     }
@@ -500,6 +554,7 @@ export default function DashboardApp() {
         onNavigate={navigateTo}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(d => !d)}
+        unreadCount={unreadCount}
       />
 
       <SidebarInset className='overflow-hidden flex flex-col'>
@@ -510,6 +565,7 @@ export default function DashboardApp() {
             onNavigate={navigateTo}
             isDarkMode={isDarkMode}
             onToggleDarkMode={() => setIsDarkMode(d => !d)}
+            unreadCount={unreadCount}
           />
         </div>
         <div className='flex-1 overflow-hidden'>{renderPage()}</div>

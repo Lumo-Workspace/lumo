@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
-import { X, ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
+import { X, ArrowLeftToLine, ArrowRightToLine, Send } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   TaskDetail,
   ApiTask,
+  ApiComment,
   MyTask,
   ApiStatus,
   ApiPriority,
@@ -25,6 +28,47 @@ import {
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
 import { API } from '../constants'
+import { useUser } from '@clerk/nextjs'
+
+// ─── Thin wrapper that lets parent clear the editor and submit on Cmd+Enter ──
+
+function CommentEditor({
+  onCommit,
+  onSubmit,
+  clearRef,
+}: {
+  onCommit: (html: string | null) => void
+  onSubmit: () => void
+  clearRef: React.MutableRefObject<(() => void) | null>
+}) {
+  const [key, setKey] = useState(0)
+
+  // Expose a "clear" function to the parent via ref
+  useEffect(() => {
+    clearRef.current = () => setKey(k => k + 1)
+  })
+
+  return (
+    <div
+      className='px-3 pt-2 pb-1 text-sm'
+      onKeyDown={e => {
+        const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
+        if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault()
+          onSubmit()
+        }
+      }}
+    >
+      <DescriptionEditor
+        key={key}
+        value={null}
+        onCommit={onCommit}
+        onChange={onCommit}
+        placeholder='Add a comment…'
+      />
+    </div>
+  )
+}
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -75,6 +119,16 @@ export function TaskDrawer({
     teamIdentifier: initialTask.teamIdentifier,
   }))
   const [expanded, setExpanded] = useState(false)
+  const { user } = useUser()
+
+  // ─── Comments ─────────────────────────────────────────────────────────────
+  const [comments, setComments] = useState<ApiComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentBody, setCommentBody] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const clearCommentRef = useRef<(() => void) | null>(null)
+
+  // ─── Description ──────────────────────────────────────────────────────────
   // Seed from cache so returning to a task shows description instantly
   const hasCached = cachedDescription !== undefined
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
@@ -82,33 +136,37 @@ export function TaskDrawer({
   )
   const [descriptionLoading, setDescriptionLoading] = useState(!hasCached)
 
-  // Fetch full detail in background — only updates description + project name
+  // Fetch full detail + comments in background
   useEffect(() => {
-    // Only show loading spinner when there's no cached content to show
     if (!hasCached) setDescriptionLoading(true)
-    fetch(API.tasks.byId(initialTask.id))
-      .then(async r => {
-        const data = await r.json()
-        if (!r.ok || !data.task)
-          throw new Error(data.error ?? 'Failed to load task')
-        return data as { task: TaskDetail }
-      })
-      .then(({ task: t }) => {
-        // Only take fields that aren't user-editable in the drawer
-        // (description + project name). Never overwrite status/assigneeId/title
-        // which may have already been changed optimistically.
-        setTask(prev => ({
-          ...prev,
-          description: t.description,
-          project: t.project,
-          number: t.number,
-          teamIdentifier: t.teamIdentifier,
-        }))
-        setDescriptionValue(t.description ?? null)
-        onDescriptionLoaded?.(t.id, t.description ?? null)
+    setCommentsLoading(true)
+
+    Promise.all([
+      fetch(API.tasks.byId(initialTask.id)).then(r => r.json()),
+      fetch(API.tasks.comments(initialTask.id)).then(r =>
+        r.ok ? r.json() : { comments: [] }
+      ),
+    ])
+      .then(([taskData, commentsData]) => {
+        if (taskData.task) {
+          const t = taskData.task as TaskDetail
+          setTask(prev => ({
+            ...prev,
+            description: t.description,
+            project: t.project,
+            number: t.number,
+            teamIdentifier: t.teamIdentifier,
+          }))
+          setDescriptionValue(t.description ?? null)
+          onDescriptionLoaded?.(t.id, t.description ?? null)
+        }
+        setComments((commentsData as { comments: ApiComment[] }).comments ?? [])
       })
       .catch(console.error)
-      .finally(() => setDescriptionLoading(false))
+      .finally(() => {
+        setDescriptionLoading(false)
+        setCommentsLoading(false)
+      })
   }, [initialTask.id])
 
   const handlePatch = useCallback(
@@ -148,6 +206,41 @@ export function TaskDrawer({
     },
     [task.description, handlePatch]
   )
+
+  const submitComment = useCallback(async () => {
+    const body = commentBody?.trim()
+    if (!body || submitting) return
+    setSubmitting(true)
+
+    // Optimistic — add a temp comment immediately
+    const tempId = `optimistic-${Date.now()}`
+    const optimistic: ApiComment = {
+      id: tempId,
+      taskId: task.id,
+      authorId: user?.id ?? '',
+      body,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setComments(prev => [...prev, optimistic])
+    setCommentBody(null)
+    clearCommentRef.current?.()
+
+    try {
+      const res = await fetch(API.tasks.comments(task.id), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      })
+      if (!res.ok) throw new Error()
+      const { comment } = (await res.json()) as { comment: ApiComment }
+      setComments(prev => prev.map(c => (c.id === tempId ? comment : c)))
+    } catch {
+      setComments(prev => prev.filter(c => c.id !== tempId))
+    } finally {
+      setSubmitting(false)
+    }
+  }, [commentBody, submitting, task.id, user?.id])
 
   return (
     <DrawerPrimitive.Root
@@ -235,6 +328,7 @@ export function TaskDrawer({
               >
                 {task.title}
               </TypographyH3>
+
               {/* Status · Assignee · Project — single inline row, no labels */}
               <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
                 <StatusSelect
@@ -274,6 +368,102 @@ export function TaskDrawer({
                     onCommit={commitDescription}
                   />
                 )}
+              </div>
+            </div>
+
+            {/* ── Comments ──────────────────────────────────────────────── */}
+            <div className='mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-900'>
+              <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
+                Comments
+              </p>
+
+              {/* Comment list */}
+              {commentsLoading && comments.length === 0 ? (
+                <div className='space-y-3'>
+                  {[1, 2].map(i => (
+                    <div key={i} className='flex gap-2.5'>
+                      <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+                      <div className='flex-1 space-y-1.5 pt-0.5'>
+                        <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/3' />
+                        <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-2/3' />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className='space-y-5'>
+                  {comments.map(comment => {
+                    const author = members.find(
+                      m => m.clerkId === comment.authorId
+                    )
+                    const name = author?.name ?? 'Unknown'
+                    const initials = name
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()
+                    return (
+                      <div key={comment.id} className='flex gap-2.5'>
+                        <Avatar className='size-7 shrink-0 mt-0.5'>
+                          <AvatarImage src={author?.imageUrl ?? undefined} />
+                          <AvatarFallback className='text-[10px]'>
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className='flex-1 min-w-0'>
+                          <div className='flex items-baseline gap-2 mb-1'>
+                            <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                              {name}
+                            </span>
+                            <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                              {formatDistanceToNow(
+                                new Date(comment.createdAt),
+                                { addSuffix: true }
+                              )}
+                            </span>
+                          </div>
+                          <div
+                            className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                            dangerouslySetInnerHTML={{ __html: comment.body }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* New comment input */}
+              <div className='mt-5 flex gap-2.5'>
+                <Avatar className='size-7 shrink-0 mt-0.5'>
+                  <AvatarImage src={user?.imageUrl} />
+                  <AvatarFallback className='text-[10px]'>
+                    {(
+                      user?.firstName?.[0] ??
+                      user?.emailAddresses?.[0]?.emailAddress?.[0] ??
+                      '?'
+                    ).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                  <CommentEditor
+                    onCommit={html => setCommentBody(html)}
+                    onSubmit={submitComment}
+                    clearRef={clearCommentRef}
+                  />
+                  <div className='flex justify-end px-2 pb-2'>
+                    <Button
+                      size='sm'
+                      className='h-7 text-xs gap-1.5'
+                      disabled={!commentBody?.trim() || submitting}
+                      onClick={submitComment}
+                    >
+                      <Send size={12} />
+                      Comment
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

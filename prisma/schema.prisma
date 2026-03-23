@@ -47,6 +47,13 @@ enum InviteStatus {
   REVOKED
 }
 
+enum NotificationType {
+  TASK_IN_REVIEW   // task moved to IN_REVIEW — sent to all OWNERs
+  TASK_MENTIONED   // someone @mentioned you in a comment
+  TASK_SENT_BACK   // owner sent a task back to IN_PROGRESS — sent to assignee
+  TASK_ASSIGNED    // task assigned to you
+}
+
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
@@ -171,6 +178,7 @@ model Task {
   assignee WorkspaceMember? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
 
   viewTaskOrders ViewTaskOrder[]
+  comments       Comment[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -243,6 +251,39 @@ model ViewTaskOrder {
   @@unique([viewId, taskId])
   @@index([viewId, groupKey, order])
   @@map("view_task_orders")
+}
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String   // Clerk userId
+  body      String   // plain text; @mentions encoded as @[clerkId]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("comments")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model Notification {
+  id          String           @id @default(cuid())
+  workspaceId String
+  recipientId String           // Clerk userId
+  type        NotificationType
+  taskId      String?
+  commentId   String?          // set for TASK_MENTIONED — used to scroll to comment
+  actorId     String?          // Clerk userId of who triggered it
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, read])
+  @@map("notifications")
 }
 
 model WorkspaceInvite {

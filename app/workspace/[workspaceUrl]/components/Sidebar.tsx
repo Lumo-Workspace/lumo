@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   Home,
   Layers,
+  Inbox,
   Sun,
   Moon,
   LogOut,
@@ -41,6 +42,7 @@ interface AppSidebarProps {
   onNavigate: (page: Page) => void
   isDarkMode: boolean
   onToggleDarkMode: () => void
+  unreadCount: number
 }
 
 export function AppSidebar({
@@ -48,6 +50,7 @@ export function AppSidebar({
   onNavigate,
   isDarkMode,
   onToggleDarkMode,
+  unreadCount,
 }: AppSidebarProps) {
   const { user } = useUser()
   const { signOut } = useClerk()
@@ -151,6 +154,21 @@ export function AppSidebar({
                 >
                   <Home />
                   <span>My Tasks</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentPage === 'inbox'}
+                  onClick={() => onNavigate('inbox')}
+                  tooltip='Inbox'
+                >
+                  <Inbox />
+                  <span className='flex-1'>Inbox</span>
+                  {unreadCount > 0 && (
+                    <span className='ml-auto text-[10px] font-bold bg-blue-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1'>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

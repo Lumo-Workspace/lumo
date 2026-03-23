@@ -4,6 +4,7 @@ export const API = {
   tasks: {
     me: '/api/tasks/me',
     byId: (id: string) => `/api/tasks/${id}`,
+    comments: (taskId: string) => `/api/tasks/${taskId}/comments`,
   },
   projects: {
     list: '/api/projects',
@@ -25,6 +26,11 @@ export const API = {
     byToken: (token: string) => `/api/invites/${token}`,
     resend: (token: string) => `/api/invites/${token}/resend`,
   },
+  notifications: {
+    list: '/api/notifications',
+    markAllRead: '/api/notifications',
+    markOne: (id: string) => `/api/notifications/${id}`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
@@ -36,6 +42,8 @@ export const CACHE_KEY = {
   members: 'lumo:members',
   invites: 'lumo:invites',
   projectTasks: (projectId: string) => `lumo:projectTasks:${projectId}`,
+  workspace: 'lumo:workspace',
+  notifications: 'lumo:notifications',
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────

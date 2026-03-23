@@ -102,6 +102,12 @@ export const updateMemberRoleSchema = z.object({
   role: z.enum(['OWNER', 'MEMBER']),
 })
 
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+export const createCommentSchema = z.object({
+  body: z.string().min(1, 'Comment cannot be empty').max(5000),
+})
+
 // ─── Invites ─────────────────────────────────────────────────────────────────
 
 export const sendInvitesSchema = z.object({
