@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         : (clerkUser?.firstName ??
           clerkUser?.emailAddresses[0]?.emailAddress ??
           'Someone')
+    const inviterEmail = clerkUser?.emailAddresses[0]?.emailAddress ?? ''
 
     // Get workspace name and slug
     const workspace = await prisma.workspace.findUnique({
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
       const { subject, html } = buildInviteEmail({
         workspaceName: workspace.name,
         inviterName,
+        inviterEmail,
         inviteUrl,
       })
 
