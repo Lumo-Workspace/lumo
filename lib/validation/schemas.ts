@@ -96,6 +96,12 @@ export const updateTaskSchema = z.object({
   order: z.number().optional(),
 })
 
+// ─── Members ─────────────────────────────────────────────────────────────────
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['OWNER', 'MEMBER']),
+})
+
 // ─── Invites ─────────────────────────────────────────────────────────────────
 
 export const sendInvitesSchema = z.object({

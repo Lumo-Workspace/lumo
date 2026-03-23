@@ -57,6 +57,7 @@ export interface WorkspaceMemberInfo {
   name: string
   email: string | null
   imageUrl: string | null
+  joinedAt: string
 }
 
 export interface MyTask {

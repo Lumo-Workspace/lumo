@@ -1,8 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Home, Layers, Sun, Moon, LogOut, ChevronsUpDown } from 'lucide-react'
+import {
+  Home,
+  Layers,
+  Sun,
+  Moon,
+  LogOut,
+  ChevronsUpDown,
+  Users,
+} from 'lucide-react'
+import Link from 'next/link'
 import { useUser, useClerk } from '@clerk/nextjs'
+import { useParams } from 'next/navigation'
 import { Page } from '../types'
 import { API } from '../constants'
 import {
@@ -21,6 +31,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -39,6 +50,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { user } = useUser()
   const { signOut } = useClerk()
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [workspaceName, setWorkspaceName] = useState<string>('')
 
   useEffect(() => {
@@ -97,7 +109,14 @@ export function AppSidebar({
                   />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className='w-48' side='bottom' align='end'>
+              <DropdownMenuContent className='w-56' side='bottom' align='end'>
+                <DropdownMenuItem asChild className='cursor-pointer'>
+                  <Link href={`/workspace/${workspaceUrl}/settings/members`}>
+                    <Users size={13} />
+                    Manage members
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className='text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer'
                   onClick={() => signOut({ redirectUrl: '/signin' })}

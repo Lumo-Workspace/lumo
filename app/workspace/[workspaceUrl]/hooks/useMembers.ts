@@ -32,5 +32,5 @@ export function useMembers() {
     }
   }, [])
 
-  return { members, fetchMembers }
+  return { members, setMembers, fetchMembers }
 }

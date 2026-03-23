@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { currentUser } from '@clerk/nextjs/server'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import {
+  requireAuth,
+  requireWorkspaceMember,
+  getUserWorkspace,
+} from '@/lib/auth'
 import { sendInvitesSchema } from '@/lib/validation/schemas'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
@@ -105,6 +109,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ sent, failed }, { status: 200 })
   } catch (error) {
     console.error('POST /api/invites error:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET() {
+  try {
+    const authResult = await requireAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const { userId } = authResult
+
+    const ws = await getUserWorkspace(userId)
+    if (!ws) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
+    }
+
+    const invites = await prisma.workspaceInvite.findMany({
+      where: { workspaceId: ws.workspaceId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        token: true,
+        email: true,
+        inviterName: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    })
+
+    return NextResponse.json({ invites })
+  } catch (error) {
+    console.error('GET /api/invites error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

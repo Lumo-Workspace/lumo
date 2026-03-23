@@ -26,11 +26,11 @@ export function buildInviteEmail({
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
 
           <!-- Header -->
           <tr>
-            <td align="center" style="padding:32px 40px 24px;">
+            <td align="left" style="padding:32px 40px 24px;">
               <table cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-right:10px;vertical-align:middle;">${lumoLogo}</td>
@@ -60,18 +60,8 @@ export function buildInviteEmail({
 
           <!-- CTA Button -->
           <tr>
-            <td align="center" style="padding:0 40px 20px;">
-              <a href="${inviteUrl}" style="display:inline-block;background:#111111;color:#ffffff;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:-0.1px;">Join the workspace</a>
-            </td>
-          </tr>
-
-          <!-- Copy URL -->
-          <tr>
             <td align="center" style="padding:0 40px 40px;">
-              <p style="margin:0;font-size:13px;color:#888;">
-                Or copy this URL:
-                <a href="${inviteUrl}" style="color:#111;word-break:break-all;">${inviteUrl}</a>
-              </p>
+              <a href="${inviteUrl}" style="display:inline-block;background:#111111;color:#ffffff;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:-0.1px;">Join the workspace</a>
             </td>
           </tr>
 

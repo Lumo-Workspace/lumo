@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Layers, Sun, Moon, LogOut, Menu } from 'lucide-react'
+import { Home, Layers, Sun, Moon, LogOut, Menu, Users } from 'lucide-react'
+import Link from 'next/link'
 import { useUser, useClerk } from '@clerk/nextjs'
+import { useParams } from 'next/navigation'
 import { Drawer } from 'vaul'
 import { Page } from '../types'
 import { API } from '../constants'
@@ -23,6 +25,7 @@ export function MobileSidebar({
 }: MobileSidebarProps) {
   const { user } = useUser()
   const { signOut } = useClerk()
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [open, setOpen] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
 
@@ -129,6 +132,15 @@ export function MobileSidebar({
                 {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
                 {isDarkMode ? 'Dark Mode' : 'Light Mode'}
               </button>
+              <Link
+                href={`/workspace/${workspaceUrl}/settings/members`}
+                onClick={() => setOpen(false)}
+                className='w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:bg-sidebar-accent/50 transition-colors'
+              >
+                <Users size={16} />
+                Manage members
+              </Link>
+              <div className='my-1 border-t border-sidebar-border' />
               <button
                 onClick={() => signOut({ redirectUrl: '/signin' })}
                 className='w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors'

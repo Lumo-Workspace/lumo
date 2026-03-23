@@ -16,11 +16,14 @@ export const API = {
   workspaces: {
     me: '/api/workspaces/me',
     members: '/api/workspaces/members',
+    memberById: (id: string) => `/api/workspaces/members/${id}`,
+    leaveWorkspace: '/api/workspaces/members/me',
   },
   invites: {
     list: '/api/invites',
     accept: (token: string) => `/api/invites/${token}/accept`,
     byToken: (token: string) => `/api/invites/${token}`,
+    resend: (token: string) => `/api/invites/${token}/resend`,
   },
 }
 
@@ -31,6 +34,7 @@ export const CACHE_KEY = {
   myTasks: 'lumo:myTasks',
   projects: 'lumo:projects',
   members: 'lumo:members',
+  invites: 'lumo:invites',
   projectTasks: (projectId: string) => `lumo:projectTasks:${projectId}`,
 }
 

@@ -45,6 +45,7 @@ export async function GET() {
           : m.clerkId,
         email: u?.emailAddresses[0]?.emailAddress ?? null,
         imageUrl: u?.imageUrl ?? null,
+        joinedAt: m.joinedAt.toISOString(),
       }
     })
 
