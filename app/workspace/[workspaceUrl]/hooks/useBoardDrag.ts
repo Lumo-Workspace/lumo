@@ -137,14 +137,27 @@ export function useBoardDrag<
         }
       } else {
         // ── Cross-column status change ───────────────────────────────────────
-        const targetCol = tasks.filter(
-          t => t.status === newStatus && t.id !== id
-        )
-        const maxOrder = targetCol.reduce(
-          (m, t) => Math.max(m, t.viewOrder ?? 0),
-          0
-        )
-        const newOrder = maxOrder + 1
+        // tasks already has the moved task's status set to newStatus (from onDragOver)
+        const targetCol = [...tasks]
+          .filter(t => t.status === newStatus)
+          .sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
+
+        let newOrder: number
+        if (!overId || API_STATUSES.includes(overId) || overId === id) {
+          // Dropped on column container → append to end
+          const maxOrder = targetCol
+            .filter(t => t.id !== id)
+            .reduce((m, t) => Math.max(m, t.viewOrder ?? 0), 0)
+          newOrder = maxOrder + 1
+        } else {
+          // Dropped on a specific card → insert at that position
+          const newIdx = targetCol.findIndex(t => t.id === overId)
+          newOrder = calcOrder(
+            targetCol,
+            newIdx === -1 ? targetCol.length - 1 : newIdx,
+            id
+          )
+        }
 
         const prevTasks = tasks
 
