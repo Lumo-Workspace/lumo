@@ -1,6 +1,7 @@
 interface InviteEmailOptions {
   workspaceName: string
   inviterName: string
+  inviterFirstName: string
   inviterEmail: string
   inviteUrl: string
 }
@@ -8,13 +9,14 @@ interface InviteEmailOptions {
 export function buildInviteEmail({
   workspaceName,
   inviterName,
+  inviterFirstName,
   inviterEmail,
   inviteUrl,
 }: InviteEmailOptions): { subject: string; html: string } {
   const lumoLogo = `<img src="https://www.uselumo.ai/logo-dark.svg" width="32" height="32" alt="Lumo" style="display:block;"/>`
 
   return {
-    subject: `${inviterName} invited you to join ${workspaceName} on Lumo`,
+    subject: `${inviterFirstName} invited you to join ${workspaceName} on Lumo`,
     html: `
 <!DOCTYPE html>
 <html>

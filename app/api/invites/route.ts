@@ -36,12 +36,14 @@ export async function POST(request: NextRequest) {
 
     // Get inviter name from Clerk
     const clerkUser = await currentUser()
+    const inviterFirstName =
+      clerkUser?.firstName ??
+      clerkUser?.emailAddresses[0]?.emailAddress ??
+      'Someone'
     const inviterName =
       clerkUser?.firstName && clerkUser?.lastName
         ? `${clerkUser.firstName} ${clerkUser.lastName}`
-        : (clerkUser?.firstName ??
-          clerkUser?.emailAddresses[0]?.emailAddress ??
-          'Someone')
+        : inviterFirstName
     const inviterEmail = clerkUser?.emailAddresses[0]?.emailAddress ?? ''
 
     // Get workspace name and slug
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
       const { subject, html } = buildInviteEmail({
         workspaceName: workspace.name,
         inviterName,
+        inviterFirstName,
         inviterEmail,
         inviteUrl,
       })

@@ -56,9 +56,12 @@ export async function POST(
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
     const inviteUrl = `${appUrl}/invite/${token}`
+    const inviterFullName = invite.inviterName
+    const inviterFirstName = inviterFullName.split(' ')[0] || inviterFullName
     const { subject, html } = buildInviteEmail({
       workspaceName: invite.workspace.name,
-      inviterName: invite.inviterName,
+      inviterName: inviterFullName,
+      inviterFirstName,
       inviterEmail: ws.workspace.slug + '@uselumo.ai',
       inviteUrl,
     })
