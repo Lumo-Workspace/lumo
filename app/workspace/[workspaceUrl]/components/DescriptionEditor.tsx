@@ -27,6 +27,11 @@ import {
   Link2Off,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // ─── Bubble menu toolbar ───────────────────────────────────────────────────────
 
@@ -42,22 +47,26 @@ function ToolbarButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type='button'
-      onMouseDown={e => {
-        e.preventDefault() // prevent editor blur
-        onClick()
-      }}
-      title={title}
-      className={cn(
-        'flex items-center justify-center size-7 rounded transition-colors',
-        active
-          ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
-      )}
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type='button'
+          onMouseDown={e => {
+            e.preventDefault() // prevent editor blur
+            onClick()
+          }}
+          className={cn(
+            'flex items-center justify-center size-7 rounded transition-colors',
+            active
+              ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -227,18 +236,22 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
           Apply
         </button>
         {state.isLink && (
-          <button
-            type='button'
-            onMouseDown={e => {
-              e.preventDefault()
-              editor.chain().focus().unsetLink().run()
-              setLinkOpen(false)
-            }}
-            className='text-zinc-400 hover:text-destructive transition-colors'
-            title='Remove link'
-          >
-            <Link2Off size={13} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type='button'
+                onMouseDown={e => {
+                  e.preventDefault()
+                  editor.chain().focus().unsetLink().run()
+                  setLinkOpen(false)
+                }}
+                className='text-zinc-400 hover:text-destructive transition-colors'
+              >
+                <Link2Off size={13} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Remove link</TooltipContent>
+          </Tooltip>
         )}
       </div>
     )
@@ -248,17 +261,22 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
     <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
       {/* Text style dropdown — custom, no portal to avoid first-render position bug */}
       <div ref={styleRef} className='relative'>
-        <button
-          type='button'
-          onMouseDown={e => {
-            e.preventDefault()
-            setStyleOpen(o => !o)
-          }}
-          className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
-        >
-          {activeStyle.label}
-          <ChevronDown size={12} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onMouseDown={e => {
+                e.preventDefault()
+                setStyleOpen(o => !o)
+              }}
+              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+            >
+              {activeStyle.label}
+              <ChevronDown size={12} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{activeStyle.label}</TooltipContent>
+        </Tooltip>
         {styleOpen && (
           <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
             {TEXT_STYLES.map((style, i) => (
@@ -352,22 +370,33 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
 
       {/* List dropdown */}
       <div ref={listRef} className='relative'>
-        <button
-          type='button'
-          onMouseDown={e => {
-            e.preventDefault()
-            setListOpen(o => !o)
-          }}
-          className={cn(
-            'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
-            state.isBulletList || state.isOrderedList || state.isTaskList
-              ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
-          )}
-        >
-          <List size={14} />
-          <ChevronDown size={12} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type='button'
+              onMouseDown={e => {
+                e.preventDefault()
+                setListOpen(o => !o)
+              }}
+              className={cn(
+                'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
+                state.isBulletList || state.isOrderedList || state.isTaskList
+                  ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+              )}
+            >
+              <List size={14} />
+              <ChevronDown size={12} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {state.isOrderedList
+              ? 'Numbered list'
+              : state.isTaskList
+                ? 'Checklist'
+                : 'List'}
+          </TooltipContent>
+        </Tooltip>
         {listOpen && (
           <div className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
             {LIST_STYLES.map(style => {
