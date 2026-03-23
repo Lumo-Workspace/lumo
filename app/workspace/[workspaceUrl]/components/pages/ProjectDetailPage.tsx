@@ -148,19 +148,41 @@ export function ProjectDetailPage({
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
       <PageBreadcrumb>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <button onClick={onBack}>Projects</button>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{project.name}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div className='flex items-center gap-1.5'>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <button onClick={onBack}>Projects</button>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{project.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              >
+                <MoreHorizontal size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='start'>
+              <DropdownMenuItem
+                className='text-destructive focus:text-destructive'
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className='mr-2 size-4' />
+                Delete project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </PageBreadcrumb>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -220,26 +242,6 @@ export function ProjectDetailPage({
                 {project.name}
               </TypographyH3>
               {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                  >
-                    <MoreHorizontal size={14} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='start'>
-                  <DropdownMenuItem
-                    className='text-destructive focus:text-destructive'
-                    onClick={() => setDeleteOpen(true)}
-                  >
-                    <Trash2 className='mr-2 size-4' />
-                    Delete project
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
 
             {/* Inline description editor — always a textarea to avoid layout shift */}
