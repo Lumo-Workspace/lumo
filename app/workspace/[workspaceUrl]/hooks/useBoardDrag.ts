@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, Dispatch, SetStateAction } from 'react'
 import { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
+import { toast } from 'sonner'
 import { API_STATUS_LABEL } from '../utils'
 import { API } from '../constants'
 
@@ -132,6 +133,7 @@ export function useBoardDrag<
           if (!res.ok) throw new Error('Failed to update order')
         } catch {
           setTasks(prevTasks)
+          toast.error('Failed to reorder task')
         }
       } else {
         // ── Cross-column status change ───────────────────────────────────────
@@ -145,6 +147,11 @@ export function useBoardDrag<
         const newOrder = maxOrder + 1
 
         const prevTasks = tasks
+
+        // Optimistic: apply viewOrder immediately (status was already applied in onDragOver)
+        setTasks(prev =>
+          prev.map(t => (t.id === id ? { ...t, viewOrder: newOrder } : t))
+        )
 
         try {
           const requests: Promise<Response>[] = [
@@ -180,18 +187,16 @@ export function useBoardDrag<
             throw new Error('Failed to update task')
           }
 
-          setTasks(prev =>
-            prev.map(t => (t.id === id ? { ...t, viewOrder: newOrder } : t))
-          )
           onStatusChanged?.(id, originalStatus, newStatus)
         } catch (err) {
           console.error('[useBoardDrag] cross-column error, rolling back:', err)
-          // Rollback optimistic status move
+          // Rollback both status and viewOrder
           setTasks(
             prevTasks.map(t =>
               t.id === id ? { ...t, status: originalStatus } : t
             )
           )
+          toast.error('Failed to move task')
         }
       }
     },
