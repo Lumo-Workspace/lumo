@@ -17,6 +17,11 @@ export const API = {
     me: '/api/workspaces/me',
     members: '/api/workspaces/members',
   },
+  invites: {
+    list: '/api/invites',
+    accept: (token: string) => `/api/invites/${token}/accept`,
+    byToken: (token: string) => `/api/invites/${token}`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────

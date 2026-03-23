@@ -8,9 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import Image from 'next/image'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
+import { Plus, X } from 'lucide-react'
 
-export default function OnboardingPage() {
-  const router = useRouter()
+// ─── Step 1: Workspace creation ───────────────────────────────────────────────
+
+function WorkspaceStep({
+  onCreated,
+}: {
+  onCreated: (workspaceId: string, slug: string) => void
+}) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -19,17 +25,16 @@ export default function OnboardingPage() {
 
   const handleNameChange = (value: string) => {
     setName(value)
-    if (!slugEdited) {
-      setSlug(generateWorkspaceSlug(value))
-    }
+    if (!slugEdited) setSlug(generateWorkspaceSlug(value))
   }
 
   const handleSlugChange = (value: string) => {
-    const clean = value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '')
-      .replace(/^-+/, '')
-    setSlug(clean)
+    setSlug(
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/^-+/, '')
+    )
     setSlugEdited(true)
   }
 
@@ -37,22 +42,18 @@ export default function OnboardingPage() {
     if (!name.trim() || !slug.trim()) return
     setIsSubmitting(true)
     setError('')
-
     try {
-      const response = await fetch('/api/workspaces', {
+      const res = await fetch('/api/workspaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), slug }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
+      const data = await res.json()
+      if (!res.ok) {
         setError(data.error || 'Failed to create workspace')
         return
       }
-
-      router.push(`/workspace/${data.workspace.slug}`)
+      onCreated(data.workspace.id, data.workspace.slug)
     } catch {
       setError('Something went wrong')
     } finally {
@@ -63,75 +64,235 @@ export default function OnboardingPage() {
   const isValid = name.trim().length >= 2 && slug.length >= 2
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4'>
-      <Card className='w-full max-w-md shadow-xl'>
-        <CardHeader className='text-center space-y-6'>
-          <div className='flex justify-center'>
-            <Image
-              src='/logo-dark.svg'
-              alt='Lumo Logo'
-              width={62}
-              height={62}
-              className='h-[62px] w-[62px]'
-              priority
+    <Card className='w-full max-w-md shadow-xl'>
+      <CardHeader className='text-center space-y-6'>
+        <div className='flex justify-center'>
+          <Image
+            src='/logo-dark.svg'
+            alt='Lumo Logo'
+            width={62}
+            height={62}
+            className='h-[62px] w-[62px]'
+            priority
+          />
+        </div>
+        <CardTitle className='text-sm font-normal text-slate-900'>
+          Create your workspace
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className='space-y-4'>
+          <div className='space-y-1.5'>
+            <Label htmlFor='ws-name' className='text-xs text-slate-500'>
+              Workspace name
+            </Label>
+            <Input
+              id='ws-name'
+              type='text'
+              value={name}
+              onChange={e => handleNameChange(e.target.value)}
+              placeholder='Acme Inc.'
+              disabled={isSubmitting}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
           </div>
-          <CardTitle className='text-sm font-normal text-slate-900'>
-            Create your workspace
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <div className='space-y-4'>
-            <div className='space-y-1.5'>
-              <Label htmlFor='ws-name' className='text-xs text-slate-500'>
-                Workspace name
-              </Label>
-              <Input
-                id='ws-name'
+          <div className='space-y-1.5'>
+            <Label htmlFor='ws-url' className='text-xs text-slate-500'>
+              Workspace URL
+            </Label>
+            <div className='flex items-center border border-input rounded-md focus-within:ring-2 focus-within:ring-ring overflow-hidden bg-white'>
+              <span className='px-3 text-sm text-slate-400 bg-slate-50 border-r border-input h-9 flex items-center shrink-0 select-none'>
+                lumo.app/
+              </span>
+              <input
+                id='ws-url'
                 type='text'
-                value={name}
-                onChange={e => handleNameChange(e.target.value)}
-                placeholder='Acme Inc.'
+                value={slug}
+                onChange={e => handleSlugChange(e.target.value)}
+                placeholder='acme-inc'
                 disabled={isSubmitting}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                className='flex-1 h-9 px-3 text-sm outline-none bg-transparent'
               />
             </div>
-
-            <div className='space-y-1.5'>
-              <Label htmlFor='ws-url' className='text-xs text-slate-500'>
-                Workspace URL
-              </Label>
-              <div className='flex items-center border border-input rounded-md focus-within:ring-2 focus-within:ring-ring overflow-hidden bg-white'>
-                <span className='px-3 text-sm text-slate-400 bg-slate-50 border-r border-input h-9 flex items-center shrink-0 select-none'>
-                  lumo.app/
-                </span>
-                <input
-                  id='ws-url'
-                  type='text'
-                  value={slug}
-                  onChange={e => handleSlugChange(e.target.value)}
-                  placeholder='acme-inc'
-                  disabled={isSubmitting}
-                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                  className='flex-1 h-9 px-3 text-sm outline-none bg-transparent'
-                />
-              </div>
-            </div>
-
-            {error && <p className='text-xs text-red-600'>{error}</p>}
-
-            <Button
-              type='button'
-              disabled={isSubmitting || !isValid}
-              onClick={handleSubmit}
-              className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
-            >
-              {isSubmitting ? 'Creating...' : 'Continue'}
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+          {error && <p className='text-xs text-red-600'>{error}</p>}
+          <Button
+            type='button'
+            disabled={isSubmitting || !isValid}
+            onClick={handleSubmit}
+            className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
+          >
+            {isSubmitting ? 'Creating…' : 'Continue'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Step 2: Invite teammates ─────────────────────────────────────────────────
+
+function InviteStep({
+  workspaceId,
+  workspaceSlug,
+}: {
+  workspaceId: string
+  workspaceSlug: string
+}) {
+  const router = useRouter()
+  const [emails, setEmails] = useState<string[]>([''])
+  const [isSending, setIsSending] = useState(false)
+  const [error, setError] = useState('')
+
+  const updateEmail = (index: number, value: string) => {
+    setEmails(prev => prev.map((e, i) => (i === index ? value : e)))
+  }
+
+  const addEmail = () => setEmails(prev => [...prev, ''])
+
+  const removeEmail = (index: number) =>
+    setEmails(prev => prev.filter((_, i) => i !== index))
+
+  const validEmails = emails.map(e => e.trim()).filter(e => e.length > 0)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const allValid =
+    validEmails.length > 0 && validEmails.every(e => emailRegex.test(e))
+
+  const handleSend = async () => {
+    if (!allValid) return
+    setIsSending(true)
+    setError('')
+    try {
+      const res = await fetch('/api/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: validEmails, workspaceId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Failed to send invites')
+        setIsSending(false)
+        return
+      }
+      router.push(`/workspace/${workspaceSlug}`)
+    } catch {
+      setError('Something went wrong')
+      setIsSending(false)
+    }
+  }
+
+  const handleSkip = () => router.push(`/workspace/${workspaceSlug}`)
+
+  return (
+    <Card className='w-full max-w-md shadow-xl'>
+      <CardHeader className='text-center space-y-6'>
+        <div className='flex justify-center'>
+          <Image
+            src='/logo-dark.svg'
+            alt='Lumo Logo'
+            width={62}
+            height={62}
+            className='h-[62px] w-[62px]'
+            priority
+          />
+        </div>
+        <div>
+          <CardTitle className='text-sm font-normal text-slate-900'>
+            Invite your team
+          </CardTitle>
+          <p className='text-xs text-slate-400 mt-1'>
+            Get your team up and running faster
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className='space-y-4'>
+          <div className='space-y-2'>
+            {emails.map((email, i) => (
+              <div key={i} className='flex items-center gap-2'>
+                <Input
+                  type='email'
+                  value={email}
+                  onChange={e => updateEmail(i, e.target.value)}
+                  placeholder='teammate@company.com'
+                  disabled={isSending}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (i === emails.length - 1) addEmail()
+                    }
+                  }}
+                />
+                {emails.length > 1 && (
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-9 w-9 shrink-0 text-slate-400'
+                    onClick={() => removeEmail(i)}
+                    disabled={isSending}
+                  >
+                    <X size={14} />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {emails.length < 5 && (
+            <button
+              onClick={addEmail}
+              disabled={isSending}
+              className='flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors'
+            >
+              <Plus size={12} />
+              Add another
+            </button>
+          )}
+
+          {error && <p className='text-xs text-red-600'>{error}</p>}
+
+          <Button
+            disabled={isSending || !allValid}
+            onClick={handleSend}
+            className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
+          >
+            {isSending ? 'Sending…' : 'Send invites'}
+          </Button>
+
+          <button
+            onClick={handleSkip}
+            disabled={isSending}
+            className='w-full text-center text-xs text-slate-400 hover:text-slate-600 transition-colors py-1'
+          >
+            Skip for now
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function OnboardingPage() {
+  const [step, setStep] = useState<'workspace' | 'invite'>('workspace')
+  const [workspaceId, setWorkspaceId] = useState('')
+  const [workspaceSlug, setWorkspaceSlug] = useState('')
+
+  const handleWorkspaceCreated = (id: string, slug: string) => {
+    setWorkspaceId(id)
+    setWorkspaceSlug(slug)
+    setStep('invite')
+  }
+
+  return (
+    <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4'>
+      {step === 'workspace' ? (
+        <WorkspaceStep onCreated={handleWorkspaceCreated} />
+      ) : (
+        <InviteStep workspaceId={workspaceId} workspaceSlug={workspaceSlug} />
+      )}
     </div>
   )
 }

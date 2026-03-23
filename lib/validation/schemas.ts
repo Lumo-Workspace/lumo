@@ -95,3 +95,13 @@ export const updateTaskSchema = z.object({
   parentTaskId: z.string().nullable().optional(),
   order: z.number().optional(),
 })
+
+// ─── Invites ─────────────────────────────────────────────────────────────────
+
+export const sendInvitesSchema = z.object({
+  emails: z
+    .array(z.string().trim().email('Invalid email address'))
+    .min(1, 'At least one email is required')
+    .max(10, 'Cannot send more than 10 invites at once'),
+  workspaceId: z.string().min(1),
+})

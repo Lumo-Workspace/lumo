@@ -41,6 +41,12 @@ enum ViewVisibility {
   SHARED     // only members listed in ViewMember
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
@@ -54,6 +60,7 @@ model Workspace {
   teams    Team[]
   projects Project[]
   views    View[]
+  invites  WorkspaceInvite[]
 
   @@map("workspaces")
 }
@@ -108,6 +115,7 @@ model WorkspaceMember {
   ownedViews      View[]       @relation("ViewOwner")
   createdViews    View[]       @relation("ViewCreator")
   sharedViews     ViewMember[]
+  sentInvites     WorkspaceInvite[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -235,4 +243,23 @@ model ViewTaskOrder {
   @@unique([viewId, taskId])
   @@index([viewId, groupKey, order])
   @@map("view_task_orders")
+}
+
+model WorkspaceInvite {
+  id          String       @id @default(cuid())
+  token       String       @unique @default(cuid())
+  workspaceId String
+  email       String       // always stored lowercase
+  inviterName String       // denormalized from Clerk at invite time
+  invitedById String       // WorkspaceMember.id
+  status      InviteStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy WorkspaceMember @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@map("workspace_invites")
 }
