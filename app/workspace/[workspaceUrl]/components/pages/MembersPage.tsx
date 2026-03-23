@@ -74,6 +74,8 @@ export function MembersPage() {
   // Current user's role
   const currentMember = members.find(m => m.clerkId === user?.id)
   const isOwner = currentMember?.role === 'OWNER'
+  const ownerCount = members.filter(m => m.role === 'OWNER').length
+  const canLeave = !(isOwner && ownerCount <= 1)
 
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -364,8 +366,8 @@ export function MembersPage() {
                     {formatDate(m.joinedAt)}
                   </span>
 
-                  {/* Actions — only show for self */}
-                  {m.id === currentMember?.id ? (
+                  {/* Actions — only show for self if they can leave */}
+                  {m.id === currentMember?.id && canLeave ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
