@@ -125,7 +125,13 @@ const LIST_STYLES = [
   },
 ]
 
-function BubbleMenuBar({ editor }: { editor: Editor }) {
+function BubbleMenuBar({
+  editor,
+  openLinkInputRef,
+}: {
+  editor: Editor
+  openLinkInputRef: React.MutableRefObject<(() => void) | null>
+}) {
   const [styleOpen, setStyleOpen] = useState(false)
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
@@ -178,6 +184,11 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
     setLinkOpen(true)
     setTimeout(() => linkInputRef.current?.focus(), 0)
   }
+
+  // Keep the ref in sync so the editor's handleKeyDown can call this
+  useEffect(() => {
+    openLinkInputRef.current = openLinkInput
+  })
 
   function applyLink() {
     const href = linkUrl.trim()
@@ -453,6 +464,7 @@ export function DescriptionEditor({
   placeholder = 'Add a description…',
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
+  const openLinkInputRef = useRef<(() => void) | null>(null)
 
   // Stable DOM element for the bubble menu (created once, never changes)
   const [menuElement] = useState<HTMLDivElement | null>(() =>
@@ -488,6 +500,17 @@ export function DescriptionEditor({
       attributes: {
         class:
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[80px]',
+      },
+      handleKeyDown: (_, event) => {
+        const isMac =
+          typeof navigator !== 'undefined' &&
+          /Mac|iPhone|iPad/i.test(navigator.platform)
+        if ((isMac ? event.metaKey : event.ctrlKey) && event.key === 'k') {
+          event.preventDefault()
+          openLinkInputRef.current?.()
+          return true
+        }
+        return false
       },
     },
     onFocus: () => {
@@ -525,7 +548,10 @@ export function DescriptionEditor({
       <EditorContent editor={editor} />
       {menuElement &&
         editor &&
-        createPortal(<BubbleMenuBar editor={editor} />, menuElement)}
+        createPortal(
+          <BubbleMenuBar editor={editor} openLinkInputRef={openLinkInputRef} />,
+          menuElement
+        )}
     </>
   )
 }
