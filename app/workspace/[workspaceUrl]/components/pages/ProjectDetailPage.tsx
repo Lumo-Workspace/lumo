@@ -190,9 +190,6 @@ export function ProjectDetailPage({
       {/* Page header */}
       <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
         <div className='flex items-start gap-4'>
-          <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
-            <Layers size={18} className='text-zinc-500' />
-          </div>
           <div>
             <div className='flex items-center gap-1'>
               {/* Inline name editor */}

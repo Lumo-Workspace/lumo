@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Home, Plus, CheckSquare } from 'lucide-react'
+import { Plus, CheckSquare } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -95,18 +95,7 @@ export function MyTasksPage({
           </BreadcrumbList>
         </Breadcrumb>
       </PageBreadcrumb>
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
-        <div className='flex items-start gap-4'>
-          <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
-            <Home size={20} />
-          </div>
-          <div>
-            <h2 className='text-xl font-semibold tracking-tight'>My Tasks</h2>
-            <p className='text-sm text-zinc-500 dark:text-zinc-400 mt-0.5'>
-              Tasks assigned to you across all projects.
-            </p>
-          </div>
-        </div>
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
         <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />
           Create Task
@@ -133,7 +122,7 @@ export function MyTasksPage({
                 </EmptyMedia>
                 <EmptyTitle>No tasks yet</EmptyTitle>
                 <EmptyDescription>
-                  You have no tasks assigned to you. Create one to get started.
+                  Tasks assigned to you will appear here.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>

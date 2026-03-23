@@ -27,7 +27,6 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { TypographyH3 } from '@/components/ui/typography'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 
@@ -105,18 +104,7 @@ export function ProjectsPage({
       </PageBreadcrumb>
 
       {/* Page header */}
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
-        <div className='flex items-start gap-4'>
-          <div className='size-10 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800'>
-            <Layers size={20} />
-          </div>
-          <div>
-            <TypographyH3>Projects</TypographyH3>
-            <p className='text-sm text-muted-foreground mt-0.5'>
-              All your projects in one place.
-            </p>
-          </div>
-        </div>
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
         <div className='flex items-center gap-2'>
           <div className='relative w-56' ref={searchRef}>
             <Search
@@ -171,6 +159,9 @@ export function ProjectsPage({
         </div>
       </header>
 
+      {/* Spacer — matches the h-12 toolbar in MyTasksPage so empty state aligns */}
+      <div className='h-12 shrink-0' />
+
       {/* Body */}
       <div className='flex-1 overflow-auto'>
         <AsyncContent
@@ -186,7 +177,7 @@ export function ProjectsPage({
                 </EmptyMedia>
                 <EmptyTitle>No projects yet</EmptyTitle>
                 <EmptyDescription>
-                  Create your first project to start organizing tasks.
+                  Projects you create will appear here.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
