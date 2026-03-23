@@ -311,7 +311,7 @@ export function TaskDetailPanel({
       </div>
 
       {/* ── Comments ─────────────────────────────────────────────────────────── */}
-      <div className='mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-900'>
+      <div className='mt-8 pt-6'>
         <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
           Comments
         </p>

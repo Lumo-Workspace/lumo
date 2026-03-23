@@ -68,6 +68,46 @@ export function useNotifications() {
     [fetchNotifications]
   )
 
+  const markOneUnread = useCallback(
+    async (id: string) => {
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: false } : n))
+      )
+      setUnreadCount(prev => prev + 1)
+      try {
+        const res = await fetch(API.notifications.markOne(id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ read: false }),
+        })
+        if (!res.ok) throw new Error()
+      } catch {
+        fetchNotifications()
+      }
+    },
+    [fetchNotifications]
+  )
+
+  const deleteOne = useCallback(
+    async (id: string) => {
+      const snapshot = notifications
+      const snapshotCount = unreadCount
+      const wasUnread = notifications.find(n => n.id === id)?.read === false
+      setNotifications(prev => prev.filter(n => n.id !== id))
+      if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
+      try {
+        const res = await fetch(API.notifications.markOne(id), {
+          method: 'DELETE',
+        })
+        if (!res.ok) throw new Error()
+      } catch {
+        setNotifications(snapshot)
+        setUnreadCount(snapshotCount)
+      }
+    },
+    [notifications, unreadCount]
+  )
+
   const markAllRead = useCallback(async () => {
     const snapshot = notifications
     const snapshotCount = unreadCount
@@ -91,6 +131,8 @@ export function useNotifications() {
     error,
     fetchNotifications,
     markOneRead,
+    markOneUnread,
+    deleteOne,
     markAllRead,
   }
 }

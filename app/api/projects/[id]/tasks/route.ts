@@ -209,6 +209,28 @@ export async function POST(request: NextRequest, { params }: Params) {
     })
 
     const taskWithId = { ...task, teamIdentifier: task.team.identifier }
+
+    // ── Fire-and-forget: notify assignee if task was created with one ─────────
+    if (assigneeId) {
+      prisma.workspaceMember
+        .findUnique({ where: { id: assigneeId }, select: { clerkId: true } })
+        .then(assignee => {
+          if (!assignee || assignee.clerkId === userId) return
+          return prisma.notification.create({
+            data: {
+              workspaceId: project.workspaceId,
+              recipientId: assignee.clerkId,
+              type: 'TASK_ASSIGNED' as const,
+              taskId: task.id,
+              actorId: userId,
+            },
+          })
+        })
+        .catch(err =>
+          console.error('[notify] TASK_ASSIGNED (create) failed:', err)
+        )
+    }
+
     return NextResponse.json({ task: taskWithId }, { status: 201 })
   } catch (error) {
     console.error('POST /api/projects/[id]/tasks error:', error)

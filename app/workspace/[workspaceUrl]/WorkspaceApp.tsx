@@ -79,6 +79,8 @@ export default function DashboardApp() {
     error: notificationsError,
     fetchNotifications,
     markOneRead,
+    markOneUnread,
+    deleteOne: deleteNotification,
     markAllRead,
   } = useNotifications()
   const { user } = useUser()
@@ -515,6 +517,8 @@ export default function DashboardApp() {
             onRetry={fetchNotifications}
             onMount={fetchNotifications}
             onMarkOneRead={markOneRead}
+            onMarkOneUnread={markOneUnread}
+            onDeleteOne={deleteNotification}
             onMarkAllRead={markAllRead}
             onUpdateTaskStatus={async (taskId, status) => {
               await handleUpdateTask(taskId, { status })

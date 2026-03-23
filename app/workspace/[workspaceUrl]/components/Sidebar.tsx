@@ -17,6 +17,7 @@ import { useUser, useClerk } from '@clerk/nextjs'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
 import { API } from '../constants'
+import { Badge } from '@/components/ui/badge'
 import {
   Sidebar,
   SidebarContent,
@@ -165,9 +166,9 @@ export function AppSidebar({
                   <Inbox />
                   <span className='flex-1'>Inbox</span>
                   {unreadCount > 0 && (
-                    <span className='ml-auto text-[10px] font-bold bg-blue-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1'>
+                    <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
                       {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
+                    </Badge>
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -19,6 +19,7 @@ import { Drawer } from 'vaul'
 import { Page } from '../types'
 import { API } from '../constants'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 interface MobileSidebarProps {
   currentPage: Page
@@ -141,9 +142,9 @@ export function MobileSidebar({
                 <Inbox size={16} />
                 <span className='flex-1 text-left'>Inbox</span>
                 {unreadCount > 0 && (
-                  <span className='text-[10px] font-bold bg-blue-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1'>
+                  <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
                     {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
+                  </Badge>
                 )}
               </button>
             </nav>

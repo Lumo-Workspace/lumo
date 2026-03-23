@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Inbox, CheckCheck, ArrowRight, RotateCcw, Loader2 } from 'lucide-react'
+import { Inbox, CheckCheck, RotateCcw, Loader2 } from 'lucide-react'
 import {
   ApiNotification,
   ApiStatus,
@@ -12,8 +12,23 @@ import {
   ApiPriority,
 } from '../../types'
 import { API } from '../../constants'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  Item,
+  ItemGroup,
+  ItemMedia,
+  ItemContent,
+  ItemActions,
+} from '@/components/ui/item'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -38,7 +53,7 @@ function getInitials(name: string) {
 function CommentPreview({ body }: { body: string }) {
   const parts = body.split(/(@\[[^\]]+\])/)
   return (
-    <span className='text-zinc-500 dark:text-zinc-400 text-xs line-clamp-2'>
+    <>
       {parts.map((part, i) => {
         if (part.startsWith('@[') && part.endsWith(']')) {
           return (
@@ -52,7 +67,7 @@ function CommentPreview({ body }: { body: string }) {
         }
         return part
       })}
-    </span>
+    </>
   )
 }
 
@@ -63,129 +78,141 @@ function NotificationItem({
   isSelected,
   onSelect,
   onMarkRead,
+  onMarkUnread,
+  onDelete,
   onTaskAction,
 }: {
   notification: ApiNotification
   isSelected: boolean
   onSelect: () => void
   onMarkRead: () => void
+  onMarkUnread: () => void
+  onDelete: () => void
   onTaskAction: (status: ApiStatus) => void
 }) {
-  const { actor, task, type, commentPreview, createdAt } = notification
+  const { actor, task, type, commentPreview, createdAt, read } = notification
 
-  const headline =
+  const verb =
     type === 'TASK_IN_REVIEW'
-      ? { verb: 'submitted', connector: 'for review —' }
+      ? 'submitted for review'
       : type === 'TASK_SENT_BACK'
-        ? { verb: 'sent back', connector: 'to In Progress —' }
+        ? 'sent back to In Progress'
         : type === 'TASK_ASSIGNED'
-          ? { verb: 'assigned you to', connector: '—' }
-          : { verb: 'mentioned you in', connector: '—' }
+          ? 'assigned you to'
+          : 'mentioned you in'
 
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 
-  const { read } = notification
-
   return (
-    <div
-      className={`group relative flex gap-3 px-4 py-3 cursor-pointer border-b border-zinc-100 dark:border-zinc-900 transition-colors ${
-        isSelected
-          ? 'bg-zinc-100 dark:bg-zinc-800/60'
-          : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'
-      } ${read ? 'opacity-60' : ''}`}
-      onClick={() => {
-        onSelect()
-        if (!read) onMarkRead()
-      }}
-    >
-      {/* Unread dot */}
-      {!read && (
-        <div className='absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0' />
-      )}
-
-      {/* Actor avatar */}
-      <Avatar className='size-7 shrink-0 mt-0.5'>
-        <AvatarImage src={actor?.imageUrl ?? undefined} />
-        <AvatarFallback className='text-[10px]'>
-          {actor ? getInitials(actor.name) : '?'}
-        </AvatarFallback>
-      </Avatar>
-
-      {/* Content */}
-      <div className='flex-1 min-w-0'>
-        <p className='text-xs text-zinc-700 dark:text-zinc-300 leading-snug'>
-          <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-            {actor?.name ?? 'Someone'}
-          </span>{' '}
-          {headline.verb}{' '}
-          <span className='font-medium text-zinc-900 dark:text-zinc-100'>
-            {task ? `${task.teamIdentifier}-${task.number}` : 'a task'}
-          </span>
-          {task && (
-            <span className='text-zinc-500 dark:text-zinc-400'>{` ${task.title}`}</span>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <Item
+          size='sm'
+          variant='default'
+          className={cn(
+            'relative cursor-pointer rounded-md hover:bg-accent/50',
+            isSelected && 'bg-accent',
+            read && 'opacity-60'
           )}
-        </p>
+          onClick={e => {
+            e.stopPropagation()
+            onSelect()
+            if (!read) onMarkRead()
+          }}
+        >
+          {/* Unread dot */}
+          {!read && (
+            <div className='absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-blue-500' />
+          )}
 
-        {commentPreview && type === 'TASK_MENTIONED' && (
-          <div className='mt-0.5'>
-            <CommentPreview body={commentPreview} />
-          </div>
-        )}
+          <ItemMedia className='self-start'>
+            <Avatar className='size-9'>
+              <AvatarImage src={actor?.imageUrl ?? undefined} />
+              <AvatarFallback className='text-[10px]'>
+                {actor ? getInitials(actor.name) : '?'}
+              </AvatarFallback>
+            </Avatar>
+          </ItemMedia>
 
-        <p className='mt-1 text-[10px] text-zinc-400 dark:text-zinc-500'>
-          {timeAgo}
-        </p>
+          <ItemContent>
+            <p className='text-xs leading-snug text-foreground'>
+              <span className='font-semibold'>{actor?.name ?? 'Someone'}</span>{' '}
+              {verb}{' '}
+              <span className='font-medium'>
+                {task ? `${task.teamIdentifier}-${task.number}` : 'a task'}
+              </span>
+              {task && (
+                <span className='text-muted-foreground'>{` ${task.title}`}</span>
+              )}
+            </p>
 
-        {/* Action buttons — only on unread notifications */}
-        {!read && (
-          <div
-            className='flex items-center gap-1.5 mt-1.5'
-            onClick={e => e.stopPropagation()}
-          >
-            {type === 'TASK_IN_REVIEW' && (
-              <>
-                <Button
-                  size='sm'
-                  variant='default'
-                  className='h-6 text-[11px] gap-1 px-2'
-                  onClick={() => {
-                    onTaskAction('DONE')
-                    onMarkRead()
-                  }}
-                >
-                  <CheckCheck size={11} />
-                  Done
-                </Button>
-                <Button
-                  size='sm'
-                  variant='outline'
-                  className='h-6 text-[11px] gap-1 px-2'
-                  onClick={() => {
-                    onTaskAction('IN_PROGRESS')
-                    onMarkRead()
-                  }}
-                >
-                  <RotateCcw size={11} />
-                  Send back
-                </Button>
-              </>
+            {commentPreview && type === 'TASK_MENTIONED' && (
+              <p className='text-xs text-muted-foreground line-clamp-2'>
+                <CommentPreview body={commentPreview} />
+              </p>
             )}
-            <Button
-              size='sm'
-              variant='ghost'
-              className='h-6 text-[11px] gap-0.5 px-1.5 text-zinc-500'
-              onClick={() => {
-                onSelect()
-                onMarkRead()
-              }}
-            >
-              View
-              <ArrowRight size={10} />
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
+
+            <p className='text-[10px] text-muted-foreground'>{timeAgo}</p>
+
+            {!read && (
+              <ItemActions
+                className='mt-0.5'
+                onClick={e => e.stopPropagation()}
+              >
+                {type === 'TASK_IN_REVIEW' && (
+                  <>
+                    <Button
+                      size='sm'
+                      className='h-6 text-[11px] px-2'
+                      onClick={() => {
+                        onTaskAction('DONE')
+                        onMarkRead()
+                      }}
+                    >
+                      <CheckCheck data-icon='inline-start' />
+                      Done
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      className='h-6 text-[11px] px-2'
+                      onClick={() => {
+                        onTaskAction('IN_PROGRESS')
+                        onMarkRead()
+                      }}
+                    >
+                      <RotateCcw data-icon='inline-start' />
+                      Send back
+                    </Button>
+                  </>
+                )}
+              </ItemActions>
+            )}
+          </ItemContent>
+        </Item>
+      </ContextMenuTrigger>
+      <ContextMenuContent className='w-52'>
+        <ContextMenuItem
+          onClick={e => {
+            e.stopPropagation()
+            read ? onMarkUnread() : onMarkRead()
+          }}
+        >
+          Mark as {read ? 'unread' : 'read'}
+          <ContextMenuShortcut>U</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem
+          className='text-destructive focus:text-destructive'
+          onClick={e => {
+            e.stopPropagation()
+            onDelete()
+          }}
+        >
+          Delete notification
+          <ContextMenuShortcut>⌫</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -199,6 +226,8 @@ interface InboxPageProps {
   onRetry: () => void
   onMount: () => void
   onMarkOneRead: (id: string) => void
+  onMarkOneUnread: (id: string) => void
+  onDeleteOne: (id: string) => void
   onMarkAllRead: () => void
   onUpdateTaskStatus: (taskId: string, status: ApiStatus) => Promise<void>
   members: WorkspaceMemberInfo[]
@@ -224,6 +253,8 @@ export function InboxPage({
   onRetry,
   onMount,
   onMarkOneRead,
+  onMarkOneUnread,
+  onDeleteOne,
   onMarkAllRead,
   onUpdateTaskStatus,
   members,
@@ -276,6 +307,34 @@ export function InboxPage({
     onMount()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keyboard shortcuts for selected notification
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!selectedId) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        (e.target as HTMLElement)?.isContentEditable
+      )
+        return
+      const n = notifications.find(n => n.id === selectedId)
+      if (!n) return
+      if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault()
+        n.read ? onMarkOneUnread(selectedId) : onMarkOneRead(selectedId)
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault()
+        onDeleteOne(selectedId)
+        setSelectedId(null)
+        setPanelTask(null)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [selectedId, notifications, onMarkOneRead, onMarkOneUnread, onDeleteOne])
 
   // Auto-select first notification when list loads
   useEffect(() => {
@@ -333,7 +392,13 @@ export function InboxPage({
           )}
         </PageBreadcrumb>
 
-        <div className='flex-1 overflow-y-auto'>
+        <div
+          className='flex-1 overflow-y-auto'
+          onClick={() => {
+            setSelectedId(null)
+            setPanelTask(null)
+          }}
+        >
           {loading && notifications.length === 0 ? (
             <div className='space-y-0'>
               {[...Array(5)].map((_, i) => (
@@ -366,21 +431,31 @@ export function InboxPage({
               </p>
             </div>
           ) : (
-            notifications.map(n => (
-              <NotificationItem
-                key={n.id}
-                notification={n}
-                isSelected={n.id === selectedId}
-                onSelect={() => {
-                  selectNotification(n)
-                  if (!n.read) onMarkOneRead(n.id)
-                }}
-                onMarkRead={() => onMarkOneRead(n.id)}
-                onTaskAction={(status: ApiStatus) => {
-                  if (n.taskId) onUpdateTaskStatus(n.taskId, status)
-                }}
-              />
-            ))
+            <ItemGroup className='flex flex-col gap-1.5 px-2 py-1.5'>
+              {notifications.map(n => (
+                <NotificationItem
+                  key={n.id}
+                  notification={n}
+                  isSelected={n.id === selectedId}
+                  onSelect={() => {
+                    selectNotification(n)
+                    if (!n.read) onMarkOneRead(n.id)
+                  }}
+                  onMarkRead={() => onMarkOneRead(n.id)}
+                  onMarkUnread={() => onMarkOneUnread(n.id)}
+                  onDelete={() => {
+                    onDeleteOne(n.id)
+                    if (selectedId === n.id) {
+                      setSelectedId(null)
+                      setPanelTask(null)
+                    }
+                  }}
+                  onTaskAction={(status: ApiStatus) => {
+                    if (n.taskId) onUpdateTaskStatus(n.taskId, status)
+                  }}
+                />
+              ))}
+            </ItemGroup>
           )}
         </div>
       </div>
@@ -416,12 +491,12 @@ export function InboxPage({
             <p className='text-sm'>No task linked to this notification.</p>
           </div>
         ) : (
-          <div className='flex-1 flex flex-col items-center justify-center gap-3 text-zinc-300 dark:text-zinc-700 pb-16'>
-            <div className='size-12 rounded-xl bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center'>
-              <Inbox size={22} className='text-zinc-300 dark:text-zinc-700' />
-            </div>
-            <p className='text-sm text-zinc-400 dark:text-zinc-500'>
-              Select a notification to view details
+          <div className='flex-1 flex flex-col items-center justify-center gap-3 pb-16'>
+            <Inbox size={32} className='text-muted-foreground/30' />
+            <p className='text-sm text-muted-foreground'>
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+                : "You're all caught up"}
             </p>
           </div>
         )}
