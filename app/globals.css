@@ -326,3 +326,13 @@ body {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
 }
+
+/* ── Board column scrollbar — hidden until hover ─────────────────────────── */
+.board-col-scroll::-webkit-scrollbar { width: 5px; }
+.board-col-scroll::-webkit-scrollbar-track { background: transparent; }
+.board-col-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(212 212 216); }
+.dark .board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(82 82 91); }

@@ -28,7 +28,10 @@ function DroppableColumn({
 }) {
   const { setNodeRef } = useDroppable({ id })
   return (
-    <div ref={setNodeRef} className='flex-1 space-y-3 min-h-[200px]'>
+    <div
+      ref={setNodeRef}
+      className='board-col-scroll flex-1 overflow-y-auto space-y-3 min-h-[100px] pb-2'
+    >
       {children}
     </div>
   )
@@ -90,13 +93,16 @@ export function BoardView<
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className='border-t border-zinc-200 dark:border-zinc-800 p-8 flex gap-3 flex-1 bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start'>
+      <div className='border-t border-zinc-200 dark:border-zinc-800 p-8 flex gap-3 flex-1 bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto'>
         {COLUMNS.map(({ status, label }) => {
           const col = tasks
             .filter(t => t.status === status)
             .sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
           return (
-            <div key={status} className='w-80 min-w-[320px] flex flex-col'>
+            <div
+              key={status}
+              className='w-80 min-w-[320px] flex flex-col overflow-hidden'
+            >
               {/* Column header */}
               <div className='flex items-center justify-between px-1 mb-3 shrink-0'>
                 <div className='flex items-center gap-2'>
@@ -110,7 +116,7 @@ export function BoardView<
                 </div>
               </div>
 
-              {/* Cards */}
+              {/* Cards — scrollable */}
               <SortableContext
                 id={status}
                 items={col.map(t => t.id)}
@@ -118,19 +124,21 @@ export function BoardView<
               >
                 <DroppableColumn id={status}>
                   {col.map(task => renderCard(task, false))}
-                  {onAddTask && (
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => onAddTask(status)}
-                      className='w-full justify-start gap-1.5 mt-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
-                    >
-                      <Plus size={16} />
-                      Add task
-                    </Button>
-                  )}
                 </DroppableColumn>
               </SortableContext>
+
+              {/* Add task — pinned at bottom */}
+              {onAddTask && (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => onAddTask(status)}
+                  className='w-full justify-start gap-1.5 shrink-0 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
+                >
+                  <Plus size={16} />
+                  Add task
+                </Button>
+              )}
             </div>
           )
         })}
