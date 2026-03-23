@@ -200,6 +200,7 @@ export default function DashboardApp() {
   const openNewTaskModal = useCallback(
     (assigneeId?: string, status?: ApiStatus) => {
       fetchMembers()
+      fetchProjects()
       // Guard: ignore anything that isn't a plain string (e.g. a stray MouseEvent
       // from being used directly as an onClick handler)
       setNewTaskDefaultAssigneeId(
@@ -208,7 +209,7 @@ export default function DashboardApp() {
       setNewTaskDefaultStatus(status)
       setIsNewTaskModalOpen(true)
     },
-    [fetchMembers]
+    [fetchMembers, fetchProjects]
   )
 
   const openNewTaskModalForMe = useCallback(
@@ -237,7 +238,10 @@ export default function DashboardApp() {
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
-    if (currentPage === 'my-tasks') fetchMyTasks()
+    if (currentPage === 'my-tasks') {
+      fetchMyTasks()
+      fetchProjects()
+    }
     if (currentPage === 'projects') fetchProjects()
   }, [currentPage, fetchMyTasks, fetchProjects])
 
@@ -343,6 +347,18 @@ export default function DashboardApp() {
         setProjectTasks(prev => [...prev, optimistic])
       }
 
+      // Optimistic add to My Tasks if assigned to current user
+      const project = projects.find(p => p.id === projectId)
+      if (assigneeId && assigneeId === currentMemberId && project) {
+        setMyTasks(prev => [
+          ...prev,
+          {
+            ...optimistic,
+            project: { id: projectId, name: project.name },
+          },
+        ])
+      }
+
       const res = await fetch(API.projects.tasks(projectId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -357,11 +373,22 @@ export default function DashboardApp() {
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
         setProjectTasks(prev => prev.filter(t => t.id !== tempId))
+        setMyTasks(prev => prev.filter(t => t.id !== tempId))
         toast.error(err.error ?? 'Failed to create task')
         throw new Error(err.error ?? 'Failed to create task')
       }
       const { task } = (await res.json()) as { task: ApiTask }
       setProjectTasks(prev => prev.map(t => (t.id === tempId ? task : t)))
+      // Reconcile My Tasks with real task data
+      if (task.assigneeId === currentMemberId && project) {
+        setMyTasks(prev =>
+          prev.map(t =>
+            t.id === tempId
+              ? { ...task, project: { id: projectId, name: project.name } }
+              : t
+          )
+        )
+      }
       setProjects(prev =>
         prev.map(p =>
           p.id === projectId
@@ -373,7 +400,14 @@ export default function DashboardApp() {
         description: `${task.teamIdentifier}-${task.number} - ${task.title}`,
       })
     },
-    [selectedProject?.id, setProjectTasks, setProjects]
+    [
+      selectedProject?.id,
+      setProjectTasks,
+      setMyTasks,
+      setProjects,
+      projects,
+      currentMemberId,
+    ]
   )
 
   // ─── Update project name / description ────────────────────────────────────
@@ -555,7 +589,9 @@ export default function DashboardApp() {
             unreadCount={unreadCount}
           />
         </div>
-        <div className='flex-1 overflow-hidden'>{renderPage()}</div>
+        <div className='flex-1 overflow-hidden flex flex-col'>
+          {renderPage()}
+        </div>
       </SidebarInset>
 
       <AnimatePresence>

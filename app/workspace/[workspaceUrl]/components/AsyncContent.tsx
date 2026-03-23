@@ -9,6 +9,7 @@ interface AsyncContentProps {
   onRetry: () => void
   emptyState?: React.ReactNode
   children: React.ReactNode
+  className?: string
 }
 
 export function AsyncContent({
@@ -18,6 +19,7 @@ export function AsyncContent({
   onRetry,
   emptyState,
   children,
+  className,
 }: AsyncContentProps) {
   if (loading) {
     return (
@@ -49,6 +51,9 @@ export function AsyncContent({
         )}
       </div>
     )
+  }
+  if (className) {
+    return <div className={className}>{children}</div>
   }
   return <>{children}</>
 }

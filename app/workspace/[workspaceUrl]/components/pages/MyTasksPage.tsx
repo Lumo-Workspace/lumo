@@ -108,12 +108,13 @@ export function MyTasksPage({
       </div>
 
       {/* Content */}
-      <div className='flex-1 overflow-auto'>
+      <div className='flex-1 flex flex-col overflow-hidden'>
         <AsyncContent
           loading={loading}
           error={error}
           empty={tasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
+          className='flex-1 flex flex-col overflow-hidden'
           emptyState={
             <Empty>
               <EmptyHeader>
@@ -135,7 +136,9 @@ export function MyTasksPage({
           }
         >
           {viewMode === 'list' ? (
-            <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />
+            <div className='flex-1 overflow-auto'>
+              <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />
+            </div>
           ) : (
             <BoardView
               tasks={tasks}
