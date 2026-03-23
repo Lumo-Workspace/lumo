@@ -421,15 +421,6 @@ export function InboxPage({
                 Retry
               </Button>
             </div>
-          ) : notifications.length === 0 && !loading ? (
-            <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 pb-16'>
-              <div className='size-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center'>
-                <Inbox size={18} className='text-zinc-400' />
-              </div>
-              <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
-                You&apos;re all caught up
-              </p>
-            </div>
           ) : (
             <ItemGroup className='flex flex-col gap-1.5 px-2 py-1.5'>
               {notifications.map(n => (

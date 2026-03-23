@@ -137,26 +137,37 @@ export function useBoardDrag<
         }
       } else {
         // ── Cross-column status change ───────────────────────────────────────
-        // tasks already has the moved task's status set to newStatus (from onDragOver)
-        const targetCol = [...tasks]
-          .filter(t => t.status === newStatus)
+        // tasks already has the moved task's status set to newStatus (from onDragOver).
+        // Find newIdx relative to the column *without* the active task — calcOrder filters
+        // it out internally anyway, so using the full col causes an off-by-one when the
+        // active task's viewOrder places it before the drop target.
+        const targetColOthers = [...tasks]
+          .filter(t => t.status === newStatus && t.id !== id)
           .sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
 
         let newOrder: number
         if (!overId || API_STATUSES.includes(overId) || overId === id) {
           // Dropped on column container → append to end
-          const maxOrder = targetCol
-            .filter(t => t.id !== id)
-            .reduce((m, t) => Math.max(m, t.viewOrder ?? 0), 0)
+          const maxOrder = targetColOthers.reduce(
+            (m, t) => Math.max(m, t.viewOrder ?? 0),
+            0
+          )
           newOrder = maxOrder + 1
         } else {
-          // Dropped on a specific card → insert at that position
-          const newIdx = targetCol.findIndex(t => t.id === overId)
-          newOrder = calcOrder(
-            targetCol,
-            newIdx === -1 ? targetCol.length - 1 : newIdx,
-            id
-          )
+          // Dropped on a specific card → insert at that position.
+          // Normalize null viewOrders to index*1000 so calcOrder doesn't return 0
+          // when both neighbours are null (causing unstable sort).
+          const normOthers = targetColOthers.map((t, i) => ({
+            viewOrder: t.viewOrder ?? i * 1000,
+          }))
+          const insertAt = targetColOthers.findIndex(t => t.id === overId)
+          const safeIdx = insertAt === -1 ? normOthers.length : insertAt
+          const prev = normOthers[safeIdx - 1]?.viewOrder ?? null
+          const next = normOthers[safeIdx]?.viewOrder ?? null
+          if (prev === null && next === null) newOrder = 0
+          else if (prev === null) newOrder = (next as number) - 1
+          else if (next === null) newOrder = (prev as number) + 1
+          else newOrder = ((prev as number) + (next as number)) / 2
         }
 
         const prevTasks = tasks
