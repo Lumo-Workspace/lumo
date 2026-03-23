@@ -90,7 +90,7 @@ export function BoardView<
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className='p-8 flex gap-6 h-full bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start'>
+      <div className='border-t border-zinc-200 dark:border-zinc-800 p-8 flex gap-3 h-full bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto items-start'>
         {COLUMNS.map(({ status, label }) => {
           const col = tasks
             .filter(t => t.status === status)

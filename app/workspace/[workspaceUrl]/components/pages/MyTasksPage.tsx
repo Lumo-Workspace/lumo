@@ -114,7 +114,7 @@ export function MyTasksPage({
       </header>
 
       {/* Toolbar */}
-      <div className='h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-end px-4 md:px-8 shrink-0 bg-white dark:bg-zinc-950'>
+      <div className='h-12 flex items-center justify-end px-4 md:px-8 shrink-0 bg-white dark:bg-zinc-950'>
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
