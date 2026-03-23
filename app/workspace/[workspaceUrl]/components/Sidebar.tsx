@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronsUpDown,
   Users,
+  Settings,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useUser, useClerk } from '@clerk/nextjs'
@@ -114,6 +115,12 @@ export function AppSidebar({
                   <Link href={`/workspace/${workspaceUrl}/settings/members`}>
                     <Users size={13} />
                     Manage members
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className='cursor-pointer'>
+                  <Link href={`/workspace/${workspaceUrl}/settings/workspace`}>
+                    <Settings size={13} />
+                    Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

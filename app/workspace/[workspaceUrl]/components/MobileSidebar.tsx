@@ -1,7 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Layers, Sun, Moon, LogOut, Menu, Users } from 'lucide-react'
+import {
+  Home,
+  Layers,
+  Sun,
+  Moon,
+  LogOut,
+  Menu,
+  Users,
+  Settings,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { useParams } from 'next/navigation'
@@ -139,6 +148,14 @@ export function MobileSidebar({
               >
                 <Users size={16} />
                 Manage members
+              </Link>
+              <Link
+                href={`/workspace/${workspaceUrl}/settings/workspace`}
+                onClick={() => setOpen(false)}
+                className='w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:bg-sidebar-accent/50 transition-colors'
+              >
+                <Settings size={16} />
+                Settings
               </Link>
               <div className='my-1 border-t border-sidebar-border' />
               <button

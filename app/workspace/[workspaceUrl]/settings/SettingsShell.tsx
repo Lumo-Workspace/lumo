@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, Users } from 'lucide-react'
-import { CACHE_KEY } from '../constants'
+import { ArrowLeft, Building2, Users } from 'lucide-react'
+import { API, CACHE_KEY } from '../constants'
 
 interface SettingsShellProps {
   workspaceUrl: string
@@ -13,23 +13,47 @@ interface SettingsShellProps {
 
 export function SettingsShell({ workspaceUrl, children }: SettingsShellProps) {
   const pathname = usePathname()
+  const [isOwner, setIsOwner] = useState(false)
 
-  // Restore dark mode on direct navigation to settings URL
   useEffect(() => {
+    // Restore dark mode on direct navigation to settings URL
     const dark = localStorage.getItem(CACHE_KEY.darkMode) === 'true'
     document.documentElement.classList.toggle('dark', dark)
+
+    // Fetch role to control nav visibility
+    fetch(API.workspaces.me)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (data?.role === 'OWNER') setIsOwner(true)
+      })
+      .catch(() => {})
   }, [])
+
+  const adminItems = [
+    {
+      label: 'Workspace',
+      href: `/workspace/${workspaceUrl}/settings/workspace`,
+      icon: Building2,
+    },
+    {
+      label: 'Members',
+      href: `/workspace/${workspaceUrl}/settings/members`,
+      icon: Users,
+    },
+  ]
+
+  const memberItems = [
+    {
+      label: 'Members',
+      href: `/workspace/${workspaceUrl}/settings/members`,
+      icon: Users,
+    },
+  ]
 
   const navItems = [
     {
       section: 'Administration',
-      items: [
-        {
-          label: 'Members',
-          href: `/workspace/${workspaceUrl}/settings/members`,
-          icon: Users,
-        },
-      ],
+      items: isOwner ? adminItems : memberItems,
     },
   ]
 
