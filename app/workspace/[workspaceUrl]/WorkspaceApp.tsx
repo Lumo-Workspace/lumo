@@ -116,25 +116,6 @@ export default function DashboardApp() {
 
   const handleCloseTask = useCallback(() => setSelectedTask(null), [])
 
-  /** Open a task by its ID — used from Inbox where we only have a task ID. */
-  const handleOpenTaskById = useCallback(
-    async (taskId: string) => {
-      fetchMembers()
-      try {
-        const res = await fetch(API.tasks.byId(taskId))
-        if (!res.ok) {
-          toast.error('Task not found')
-          return
-        }
-        const { task } = (await res.json()) as { task: ApiTask }
-        setSelectedTask(task)
-      } catch {
-        toast.error('Failed to open task')
-      }
-    },
-    [fetchMembers]
-  )
-
   const handleUpdateTask = useCallback(
     async (
       taskId: string,
@@ -535,10 +516,12 @@ export default function DashboardApp() {
             onMount={fetchNotifications}
             onMarkOneRead={markOneRead}
             onMarkAllRead={markAllRead}
-            onOpenTask={handleOpenTaskById}
             onUpdateTaskStatus={async (taskId, status) => {
               await handleUpdateTask(taskId, { status })
             }}
+            members={members}
+            projects={projects}
+            onUpdate={handleUpdateTask}
           />
         )
 

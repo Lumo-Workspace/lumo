@@ -1,13 +1,29 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Inbox, CheckCheck, ArrowRight, RotateCcw } from 'lucide-react'
-import { ApiNotification, ApiStatus } from '../../types'
+import { Inbox, CheckCheck, ArrowRight, RotateCcw, Loader2 } from 'lucide-react'
+import {
+  ApiNotification,
+  ApiStatus,
+  ApiTask,
+  WorkspaceMemberInfo,
+  ApiProject,
+  ApiPriority,
+} from '../../types'
+import { API } from '../../constants'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
+import { PageBreadcrumb } from '../PageBreadcrumb'
+import { TaskDetailPanel } from '../TaskDetailPanel'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getInitials(name: string) {
   return name
@@ -44,12 +60,14 @@ function CommentPreview({ body }: { body: string }) {
 
 function NotificationItem({
   notification,
-  onOpen,
+  isSelected,
+  onSelect,
   onMarkRead,
   onTaskAction,
 }: {
   notification: ApiNotification
-  onOpen: () => void
+  isSelected: boolean
+  onSelect: () => void
   onMarkRead: () => void
   onTaskAction: (status: ApiStatus) => void
 }) {
@@ -70,19 +88,23 @@ function NotificationItem({
 
   return (
     <div
-      className={`group relative flex gap-3 px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer border-b border-zinc-100 dark:border-zinc-900 transition-colors ${read ? 'opacity-60' : ''}`}
+      className={`group relative flex gap-3 px-4 py-3 cursor-pointer border-b border-zinc-100 dark:border-zinc-900 transition-colors ${
+        isSelected
+          ? 'bg-zinc-100 dark:bg-zinc-800/60'
+          : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'
+      } ${read ? 'opacity-60' : ''}`}
       onClick={() => {
-        onOpen()
+        onSelect()
         if (!read) onMarkRead()
       }}
     >
-      {/* Unread dot — only shown when unread */}
+      {/* Unread dot */}
       {!read && (
-        <div className='absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0' />
+        <div className='absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0' />
       )}
 
       {/* Actor avatar */}
-      <Avatar className='size-8 shrink-0 mt-0.5'>
+      <Avatar className='size-7 shrink-0 mt-0.5'>
         <AvatarImage src={actor?.imageUrl ?? undefined} />
         <AvatarFallback className='text-[10px]'>
           {actor ? getInitials(actor.name) : '?'}
@@ -91,7 +113,7 @@ function NotificationItem({
 
       {/* Content */}
       <div className='flex-1 min-w-0'>
-        <p className='text-sm text-zinc-700 dark:text-zinc-300'>
+        <p className='text-xs text-zinc-700 dark:text-zinc-300 leading-snug'>
           <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
             {actor?.name ?? 'Someone'}
           </span>{' '}
@@ -105,19 +127,19 @@ function NotificationItem({
         </p>
 
         {commentPreview && type === 'TASK_MENTIONED' && (
-          <div className='mt-1'>
+          <div className='mt-0.5'>
             <CommentPreview body={commentPreview} />
           </div>
         )}
 
-        <p className='mt-1 text-[11px] text-zinc-400 dark:text-zinc-500'>
+        <p className='mt-1 text-[10px] text-zinc-400 dark:text-zinc-500'>
           {timeAgo}
         </p>
 
         {/* Action buttons — only on unread notifications */}
         {!read && (
           <div
-            className='flex items-center gap-2 mt-2'
+            className='flex items-center gap-1.5 mt-1.5'
             onClick={e => e.stopPropagation()}
           >
             {type === 'TASK_IN_REVIEW' && (
@@ -125,25 +147,25 @@ function NotificationItem({
                 <Button
                   size='sm'
                   variant='default'
-                  className='h-7 text-xs gap-1.5'
+                  className='h-6 text-[11px] gap-1 px-2'
                   onClick={() => {
                     onTaskAction('DONE')
                     onMarkRead()
                   }}
                 >
-                  <CheckCheck size={13} />
-                  Mark done
+                  <CheckCheck size={11} />
+                  Done
                 </Button>
                 <Button
                   size='sm'
                   variant='outline'
-                  className='h-7 text-xs gap-1.5'
+                  className='h-6 text-[11px] gap-1 px-2'
                   onClick={() => {
                     onTaskAction('IN_PROGRESS')
                     onMarkRead()
                   }}
                 >
-                  <RotateCcw size={13} />
+                  <RotateCcw size={11} />
                   Send back
                 </Button>
               </>
@@ -151,14 +173,14 @@ function NotificationItem({
             <Button
               size='sm'
               variant='ghost'
-              className='h-7 text-xs gap-1 text-zinc-500'
+              className='h-6 text-[11px] gap-0.5 px-1.5 text-zinc-500'
               onClick={() => {
-                onOpen()
+                onSelect()
                 onMarkRead()
               }}
             >
-              View task
-              <ArrowRight size={12} />
+              View
+              <ArrowRight size={10} />
             </Button>
           </div>
         )}
@@ -178,8 +200,20 @@ interface InboxPageProps {
   onMount: () => void
   onMarkOneRead: (id: string) => void
   onMarkAllRead: () => void
-  onOpenTask: (taskId: string, commentId?: string | null) => void
   onUpdateTaskStatus: (taskId: string, status: ApiStatus) => Promise<void>
+  members: WorkspaceMemberInfo[]
+  projects: ApiProject[]
+  onUpdate: (
+    taskId: string,
+    data: Partial<{
+      title: string
+      status: ApiStatus
+      assigneeId: string | null
+      description: string | null
+      projectId: string
+      priority: ApiPriority
+    }>
+  ) => Promise<void>
 }
 
 export function InboxPage({
@@ -191,86 +225,205 @@ export function InboxPage({
   onMount,
   onMarkOneRead,
   onMarkAllRead,
-  onOpenTask,
   onUpdateTaskStatus,
+  members,
+  projects,
+  onUpdate,
 }: InboxPageProps) {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [panelTask, setPanelTask] = useState<ApiTask | null>(null)
+  const [panelLoading, setPanelLoading] = useState(false)
+
+  // ─── Resizable divider ────────────────────────────────────────────────────
+  const [leftWidth, setLeftWidth] = useState(384) // default w-96
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+
+  const handleDividerMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      isDragging.current = true
+      dragStartX.current = e.clientX
+      dragStartWidth.current = leftWidth
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    },
+    [leftWidth]
+  )
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return
+      const delta = e.clientX - dragStartX.current
+      const next = Math.max(220, Math.min(600, dragStartWidth.current + delta))
+      setLeftWidth(next)
+    }
+    const onMouseUp = () => {
+      if (!isDragging.current) return
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
   useEffect(() => {
     onMount()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Auto-select first notification when list loads
+  useEffect(() => {
+    if (notifications.length > 0 && selectedId === null) {
+      const first = notifications[0]
+      if (first) selectNotification(first)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications.length])
+
+  const selectNotification = useCallback(async (n: ApiNotification) => {
+    setSelectedId(n.id)
+    if (!n.taskId) {
+      setPanelTask(null)
+      return
+    }
+    setPanelLoading(true)
+    try {
+      const res = await fetch(API.tasks.byId(n.taskId))
+      if (!res.ok) return
+      const { task } = (await res.json()) as { task: ApiTask }
+      setPanelTask(task)
+    } finally {
+      setPanelLoading(false)
+    }
+  }, [])
+
+  const selectedNotification = notifications.find(n => n.id === selectedId)
+
   return (
-    <div className='h-full flex flex-col overflow-hidden'>
-      {/* Header */}
-      <div className='px-6 pt-4 pb-3 flex items-center justify-between shrink-0'>
-        <h2 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-          Inbox
+    <div className='h-full flex overflow-hidden'>
+      {/* ── Left column: breadcrumb + notification list ── */}
+      <div
+        className='shrink-0 flex flex-col overflow-hidden'
+        style={{ width: leftWidth }}
+      >
+        <PageBreadcrumb>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage>Inbox</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           {unreadCount > 0 && (
-            <span className='ml-2 text-[11px] bg-blue-500 text-white rounded-full px-1.5 py-0.5 font-bold'>
-              {unreadCount}
-            </span>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={onMarkAllRead}
+              className='h-7 text-xs gap-1.5 text-zinc-500'
+            >
+              <CheckCheck size={13} />
+              Mark all as read
+            </Button>
           )}
-        </h2>
-        {unreadCount > 0 && (
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={onMarkAllRead}
-            className='h-7 text-xs gap-1.5 text-zinc-500'
-          >
-            <CheckCheck size={13} />
-            Mark all as read
-          </Button>
-        )}
+        </PageBreadcrumb>
+
+        <div className='flex-1 overflow-y-auto'>
+          {loading && notifications.length === 0 ? (
+            <div className='space-y-0'>
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className='flex gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-900'
+                >
+                  <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+                  <div className='flex-1 space-y-1.5'>
+                    <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-3/4' />
+                    <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/2' />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 p-4'>
+              <p className='text-sm text-center'>{error}</p>
+              <Button variant='outline' size='sm' onClick={onRetry}>
+                Retry
+              </Button>
+            </div>
+          ) : notifications.length === 0 && !loading ? (
+            <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 pb-16'>
+              <div className='size-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center'>
+                <Inbox size={18} className='text-zinc-400' />
+              </div>
+              <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+                You&apos;re all caught up
+              </p>
+            </div>
+          ) : (
+            notifications.map(n => (
+              <NotificationItem
+                key={n.id}
+                notification={n}
+                isSelected={n.id === selectedId}
+                onSelect={() => {
+                  selectNotification(n)
+                  if (!n.read) onMarkOneRead(n.id)
+                }}
+                onMarkRead={() => onMarkOneRead(n.id)}
+                onTaskAction={(status: ApiStatus) => {
+                  if (n.taskId) onUpdateTaskStatus(n.taskId, status)
+                }}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Body */}
-      <div className='flex-1 overflow-y-auto'>
-        {loading && notifications.length === 0 ? (
-          <div className='space-y-0'>
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className='flex gap-3 px-6 py-4 border-b border-zinc-100 dark:border-zinc-900'
-              >
-                <div className='size-8 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
-                <div className='flex-1 space-y-2'>
-                  <div className='h-3 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-3/4' />
-                  <div className='h-3 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/2' />
-                </div>
-              </div>
-            ))}
+      {/* ── Drag handle ── */}
+      <div
+        className='w-px shrink-0 relative cursor-col-resize group'
+        onMouseDown={handleDividerMouseDown}
+      >
+        <div className='absolute inset-y-0 -left-1 -right-1 z-10' />
+        <div className='h-full w-px bg-zinc-100 dark:bg-zinc-900 group-hover:bg-zinc-300 dark:group-hover:bg-zinc-700 transition-colors' />
+      </div>
+
+      {/* ── Right column: task detail panel ── */}
+      <div className='flex-1 flex flex-col overflow-hidden'>
+        {panelLoading ? (
+          <div className='flex-1 flex items-center justify-center'>
+            <Loader2
+              size={20}
+              className='animate-spin text-zinc-300 dark:text-zinc-600'
+            />
           </div>
-        ) : error ? (
-          <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400'>
-            <p className='text-sm'>{error}</p>
-            <Button variant='outline' size='sm' onClick={onRetry}>
-              Retry
-            </Button>
-          </div>
-        ) : notifications.length === 0 && !loading ? (
-          <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 pb-16'>
-            <div className='size-12 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center'>
-              <Inbox size={22} className='text-zinc-400' />
-            </div>
-            <p className='text-sm font-medium text-zinc-500 dark:text-zinc-400'>
-              You're all caught up
-            </p>
+        ) : panelTask ? (
+          <TaskDetailPanel
+            key={panelTask.id}
+            initialTask={panelTask}
+            members={members}
+            projects={projects}
+            onUpdate={onUpdate}
+          />
+        ) : selectedNotification && !selectedNotification.taskId ? (
+          <div className='flex-1 flex items-center justify-center text-zinc-400'>
+            <p className='text-sm'>No task linked to this notification.</p>
           </div>
         ) : (
-          notifications.map(n => (
-            <NotificationItem
-              key={n.id}
-              notification={n}
-              onOpen={() => {
-                if (n.taskId) onOpenTask(n.taskId, n.commentId)
-              }}
-              onMarkRead={() => onMarkOneRead(n.id)}
-              onTaskAction={(status: ApiStatus) => {
-                if (n.taskId) onUpdateTaskStatus(n.taskId, status)
-              }}
-            />
-          ))
+          <div className='flex-1 flex flex-col items-center justify-center gap-3 text-zinc-300 dark:text-zinc-700 pb-16'>
+            <div className='size-12 rounded-xl bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center'>
+              <Inbox size={22} className='text-zinc-300 dark:text-zinc-700' />
+            </div>
+            <p className='text-sm text-zinc-400 dark:text-zinc-500'>
+              Select a notification to view details
+            </p>
+          </div>
         )}
       </div>
     </div>
