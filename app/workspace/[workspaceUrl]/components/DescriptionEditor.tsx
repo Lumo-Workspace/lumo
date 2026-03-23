@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -22,6 +23,8 @@ import {
   ListOrdered,
   ListTodo,
   ChevronDown,
+  Link2,
+  Link2Off,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -116,8 +119,11 @@ const LIST_STYLES = [
 function BubbleMenuBar({ editor }: { editor: Editor }) {
   const [styleOpen, setStyleOpen] = useState(false)
   const [listOpen, setListOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const linkInputRef = useRef<HTMLInputElement>(null)
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -141,6 +147,7 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
       isCode: ctx.editor.isActive('code'),
       isCodeBlock: ctx.editor.isActive('codeBlock'),
       isBlockquote: ctx.editor.isActive('blockquote'),
+      isLink: ctx.editor.isActive('link'),
       isBulletList: ctx.editor.isActive('bulletList'),
       isOrderedList: ctx.editor.isActive('orderedList'),
       isTaskList: ctx.editor.isActive('taskList'),
@@ -152,6 +159,30 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
     }),
   })
 
+  function openLinkInput() {
+    const existing = editor.getAttributes('link').href as string | undefined
+    setLinkUrl(existing ?? '')
+    setLinkOpen(true)
+    setTimeout(() => linkInputRef.current?.focus(), 0)
+  }
+
+  function applyLink() {
+    const href = linkUrl.trim()
+    if (!href) {
+      editor.chain().focus().unsetLink().run()
+    } else {
+      editor
+        .chain()
+        .focus()
+        .setLink({
+          href: /^https?:\/\//i.test(href) ? href : `https://${href}`,
+        })
+        .run()
+    }
+    setLinkOpen(false)
+    setLinkUrl('')
+  }
+
   const activeFlags = [
     state.isParagraph,
     state.isH1,
@@ -161,6 +192,57 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
   ]
   const activeStyle =
     TEXT_STYLES.find((_, i) => activeFlags[i]) ?? TEXT_STYLES[0]!
+
+  // Link URL input panel
+  if (linkOpen) {
+    return (
+      <div className='flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+        <Link2 size={13} className='shrink-0 text-zinc-400' />
+        <input
+          ref={linkInputRef}
+          type='url'
+          value={linkUrl}
+          onChange={e => setLinkUrl(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              applyLink()
+            }
+            if (e.key === 'Escape') {
+              setLinkOpen(false)
+              setLinkUrl('')
+            }
+          }}
+          placeholder='https://'
+          className='w-52 text-xs bg-transparent outline-none text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400'
+        />
+        <button
+          type='button'
+          onMouseDown={e => {
+            e.preventDefault()
+            applyLink()
+          }}
+          className='text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors px-1'
+        >
+          Apply
+        </button>
+        {state.isLink && (
+          <button
+            type='button'
+            onMouseDown={e => {
+              e.preventDefault()
+              editor.chain().focus().unsetLink().run()
+              setLinkOpen(false)
+            }}
+            className='text-zinc-400 hover:text-destructive transition-colors'
+            title='Remove link'
+          >
+            <Link2Off size={13} />
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
@@ -225,6 +307,9 @@ function BubbleMenuBar({ editor }: { editor: Editor }) {
         title='Underline'
       >
         <UnderlineIcon size={14} />
+      </ToolbarButton>
+      <ToolbarButton onClick={openLinkInput} active={state.isLink} title='Link'>
+        <Link2 size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
@@ -342,6 +427,7 @@ export function DescriptionEditor({
     extensions: [
       StarterKit,
       Underline,
+      Link.configure({ openOnClick: false, autolink: true }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
