@@ -23,6 +23,19 @@ export function Modal({
   expandable = true,
 }: ModalProps) {
   const [expanded, setExpanded] = useState(false)
+  // layoutExpanded lags behind on collapse: only flips false after the animation ends
+  // so children's flex layout doesn't reflow mid-animation (causing the selector jump).
+  const [layoutExpanded, setLayoutExpanded] = useState(false)
+
+  const handleToggleExpand = () => {
+    if (!expanded) {
+      setLayoutExpanded(true)
+      setExpanded(true)
+    } else {
+      setExpanded(false)
+      // layoutExpanded → false deferred to onAnimationComplete
+    }
+  }
 
   if (!isOpen) return null
 
@@ -54,7 +67,7 @@ export function Modal({
               <Button
                 variant='ghost'
                 size='icon'
-                onClick={() => setExpanded(e => !e)}
+                onClick={handleToggleExpand}
                 className='h-7 w-7 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 title={expanded ? 'Collapse' : 'Expand'}
               >
@@ -78,9 +91,16 @@ export function Modal({
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className='overflow-hidden'
           style={{ minHeight: 0 }}
+          onAnimationComplete={() => {
+            if (!expanded) setLayoutExpanded(false)
+          }}
         >
-          <div className={`p-6 h-full ${expanded ? 'flex flex-col' : ''}`}>
-            {typeof children === 'function' ? children(expanded) : children}
+          <div
+            className={`p-6 h-full ${layoutExpanded ? 'flex flex-col' : ''}`}
+          >
+            {typeof children === 'function'
+              ? children(layoutExpanded)
+              : children}
           </div>
         </motion.div>
 
