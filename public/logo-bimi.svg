@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<svg version="1.2" baseProfile="tiny-ps" viewBox="0 0 600 600" width="600" height="600" xmlns="http://www.w3.org/2000/svg">
+  <title>bimi-svg-tiny-12-ps</title>
+  <rect width="600" height="600" fill="black"/>
+  <rect x="100" y="100" width="80" height="400" fill="white"/>
+  <rect x="100" y="500" width="80" height="400" transform="rotate(-90 100 500)" fill="white"/>
+  <circle cx="380" cy="220" r="120" fill="white"/>
+</svg>
