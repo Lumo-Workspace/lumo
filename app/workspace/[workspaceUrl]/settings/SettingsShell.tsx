@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { motion } from 'motion/react'
 import { ArrowLeft, Building2, Users } from 'lucide-react'
 import { API, CACHE_KEY } from '../constants'
 
@@ -58,7 +59,12 @@ export function SettingsShell({ workspaceUrl, children }: SettingsShellProps) {
   ]
 
   return (
-    <div className='flex h-screen bg-white dark:bg-zinc-950 font-sans'>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className='flex h-screen bg-white dark:bg-zinc-950 font-sans'
+    >
       {/* Left sidebar */}
       <aside className='w-52 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900'>
         {/* Back to app */}
@@ -108,6 +114,6 @@ export function SettingsShell({ workspaceUrl, children }: SettingsShellProps) {
 
       {/* Main content */}
       <main className='flex-1 overflow-hidden'>{children}</main>
-    </div>
+    </motion.div>
   )
 }

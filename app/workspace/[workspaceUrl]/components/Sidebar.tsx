@@ -16,8 +16,8 @@ import Link from 'next/link'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
-import { API } from '../constants'
-import { clearCache } from '../cache'
+import { API, CACHE_KEY } from '../constants'
+import { clearCache, readCache, writeCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
   Sidebar,
@@ -57,16 +57,23 @@ export function AppSidebar({
   const { user } = useUser()
   const { signOut } = useClerk()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-  const [workspaceName, setWorkspaceName] = useState<string>('')
-  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
+  const cached = readCache<{ name?: string; logoUrl?: string | null }>(
+    CACHE_KEY.workspace
+  )
+  const [workspaceName, setWorkspaceName] = useState<string>(cached?.name ?? '')
+  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(
+    cached?.logoUrl ?? null
+  )
 
   useEffect(() => {
     fetch(API.workspaces.me)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (data?.workspace?.name) setWorkspaceName(data.workspace.name)
-        if (data?.workspace?.logoUrl)
-          setWorkspaceLogoUrl(data.workspace.logoUrl)
+        const name: string | undefined = data?.workspace?.name
+        const logoUrl: string | null | undefined = data?.workspace?.logoUrl
+        if (name) setWorkspaceName(name)
+        setWorkspaceLogoUrl(logoUrl ?? null)
+        writeCache(CACHE_KEY.workspace, { name, logoUrl })
       })
       .catch(() => {})
   }, [])

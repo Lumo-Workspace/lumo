@@ -10,7 +10,7 @@ import {
   SetStateAction,
 } from 'react'
 import { useParams } from 'next/navigation'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
@@ -640,83 +640,92 @@ export default function DashboardApp() {
   }
 
   return (
-    <SidebarProvider className='h-screen overflow-hidden font-sans'>
-      <AppSidebar
-        currentPage={currentPage}
-        onNavigate={navigateTo}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(d => !d)}
-        unreadCount={unreadCount}
-      />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className='h-screen overflow-hidden'
+    >
+      <SidebarProvider className='h-full font-sans'>
+        <AppSidebar
+          currentPage={currentPage}
+          onNavigate={navigateTo}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={() => setIsDarkMode(d => !d)}
+          unreadCount={unreadCount}
+        />
 
-      <SidebarInset className='overflow-hidden flex flex-col'>
-        {/* Mobile-only top bar */}
-        <div className='md:hidden flex items-center h-12 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0'>
-          <MobileSidebar
-            currentPage={currentPage}
-            onNavigate={navigateTo}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={() => setIsDarkMode(d => !d)}
-            unreadCount={unreadCount}
-          />
-        </div>
-        <div className='flex-1 overflow-hidden flex flex-col relative'>
-          <PageTransition pageKey={currentPage}>{renderPage()}</PageTransition>
-        </div>
-      </SidebarInset>
+        <SidebarInset className='overflow-hidden flex flex-col'>
+          {/* Mobile-only top bar */}
+          <div className='md:hidden flex items-center h-12 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0'>
+            <MobileSidebar
+              currentPage={currentPage}
+              onNavigate={navigateTo}
+              isDarkMode={isDarkMode}
+              onToggleDarkMode={() => setIsDarkMode(d => !d)}
+              unreadCount={unreadCount}
+            />
+          </div>
+          <div className='flex-1 overflow-hidden flex flex-col relative'>
+            <PageTransition pageKey={currentPage}>
+              {renderPage()}
+            </PageTransition>
+          </div>
+        </SidebarInset>
 
-      <AnimatePresence>
-        {selectedTask && (
-          <TaskDrawer
-            initialTask={selectedTask}
-            {...(taskMap[selectedTask.id]
-              ? { liveTask: taskMap[selectedTask.id] }
-              : {})}
-            cachedDescription={
-              descriptionCache.current.has(selectedTask.id)
-                ? descriptionCache.current.get(selectedTask.id)
-                : readCache<{ desc: string | null }>(
-                    CACHE_KEY.description(selectedTask.id)
-                  )?.desc
-            }
-            onClose={handleCloseTask}
-            members={members}
-            projects={projects}
-            tasks={Object.values(taskMap)}
-            onUpdate={handleUpdateTask}
-            onDescriptionLoaded={(taskId, description) => {
-              descriptionCache.current.set(taskId, description)
-              writeCache(CACHE_KEY.description(taskId), { desc: description })
-            }}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {selectedTask && (
+            <TaskDrawer
+              initialTask={selectedTask}
+              {...(taskMap[selectedTask.id]
+                ? { liveTask: taskMap[selectedTask.id] }
+                : {})}
+              cachedDescription={
+                descriptionCache.current.has(selectedTask.id)
+                  ? descriptionCache.current.get(selectedTask.id)
+                  : readCache<{ desc: string | null }>(
+                      CACHE_KEY.description(selectedTask.id)
+                    )?.desc
+              }
+              onClose={handleCloseTask}
+              members={members}
+              projects={projects}
+              tasks={Object.values(taskMap)}
+              onUpdate={handleUpdateTask}
+              onDescriptionLoaded={(taskId, description) => {
+                descriptionCache.current.set(taskId, description)
+                writeCache(CACHE_KEY.description(taskId), { desc: description })
+              }}
+            />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {isNewTaskModalOpen && (
-          <NewTaskModal
-            isOpen={isNewTaskModalOpen}
-            onClose={() => {
-              setIsNewTaskModalOpen(false)
-              setNewTaskDefaultAssigneeId(undefined)
-              setNewTaskDefaultStatus(undefined)
-            }}
-            projects={projects}
-            members={members}
-            defaultProjectId={selectedProject?.id}
-            defaultAssigneeId={newTaskDefaultAssigneeId}
-            defaultStatus={newTaskDefaultStatus}
-            onSubmit={handleCreateTask}
-          />
-        )}
-        {isNewProjectModalOpen && (
-          <NewProjectModal
-            isOpen={isNewProjectModalOpen}
-            onClose={() => setIsNewProjectModalOpen(false)}
-            onSubmit={handleCreateProject}
-          />
-        )}
-      </AnimatePresence>
-    </SidebarProvider>
+        <AnimatePresence>
+          {isNewTaskModalOpen && (
+            <NewTaskModal
+              isOpen={isNewTaskModalOpen}
+              onClose={() => {
+                setIsNewTaskModalOpen(false)
+                setNewTaskDefaultAssigneeId(undefined)
+                setNewTaskDefaultStatus(undefined)
+              }}
+              projects={projects}
+              members={members}
+              defaultProjectId={selectedProject?.id}
+              defaultAssigneeId={newTaskDefaultAssigneeId}
+              defaultStatus={newTaskDefaultStatus}
+              onSubmit={handleCreateTask}
+            />
+          )}
+          {isNewProjectModalOpen && (
+            <NewProjectModal
+              isOpen={isNewProjectModalOpen}
+              onClose={() => setIsNewProjectModalOpen(false)}
+              onSubmit={handleCreateProject}
+            />
+          )}
+        </AnimatePresence>
+      </SidebarProvider>
+    </motion.div>
   )
 }
