@@ -30,6 +30,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {
   DropdownMenu,
@@ -57,6 +59,8 @@ export function AppSidebar({
   const { user } = useUser()
   const { signOut } = useClerk()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const { isMobile } = useSidebar()
+
   const cached = readCache<{ name?: string; logoUrl?: string | null }>(
     CACHE_KEY.workspace
   )
@@ -87,7 +91,7 @@ export function AppSidebar({
     : (user?.emailAddresses?.[0]?.emailAddress ?? '')
 
   return (
-    <Sidebar collapsible='none' className='hidden md:flex'>
+    <Sidebar collapsible='none'>
       {/* Workspace / user header */}
       <SidebarHeader>
         <SidebarMenu>
@@ -131,7 +135,12 @@ export function AppSidebar({
                   />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className='w-56' side='bottom' align='end'>
+              <DropdownMenuContent
+                className='w-(--radix-dropdown-menu-trigger-width) min-w-56'
+                side={isMobile ? 'bottom' : 'right'}
+                align='end'
+                sideOffset={4}
+              >
                 <DropdownMenuItem asChild className='cursor-pointer'>
                   <Link href={`/workspace/${workspaceUrl}/settings/members`}>
                     <Users size={13} />
@@ -219,7 +228,7 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer: dark mode / settings toggle */}
+      {/* Footer: dark mode toggle */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -233,6 +242,8 @@ export function AppSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   )
 }
