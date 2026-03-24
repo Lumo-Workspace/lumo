@@ -11,9 +11,74 @@ import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import Mention from '@tiptap/extension-mention'
+import { mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
-import type { WorkspaceMemberInfo } from '../types'
+import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
+
+/** Mention node extended with type / title / status attributes */
+const MentionWithType = Mention.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      mentionType: {
+        default: 'user',
+        parseHTML: el => el.getAttribute('data-mention-type') ?? 'user',
+        renderHTML: attrs => ({ 'data-mention-type': attrs.mentionType }),
+      },
+      mentionTitle: {
+        default: null,
+        parseHTML: el => el.getAttribute('data-mention-title') ?? null,
+        renderHTML: attrs =>
+          attrs.mentionTitle
+            ? { 'data-mention-title': attrs.mentionTitle }
+            : {},
+      },
+      mentionStatus: {
+        default: null,
+        parseHTML: el => el.getAttribute('data-mention-status') ?? null,
+        renderHTML: attrs =>
+          attrs.mentionStatus
+            ? { 'data-mention-status': attrs.mentionStatus }
+            : {},
+      },
+    }
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    const isTask = node.attrs.mentionType === 'task'
+    if (isTask) {
+      const label = node.attrs.label ?? node.attrs.id
+      const title = node.attrs.mentionTitle ?? ''
+      const text = title ? `${label} ${title}` : label
+      return [
+        'span',
+        mergeAttributes(HTMLAttributes, {
+          class: 'mention mention-task',
+          'data-mention-type': 'task',
+          ...(node.attrs.mentionStatus
+            ? { 'data-mention-status': node.attrs.mentionStatus }
+            : {}),
+        }),
+        text,
+      ]
+    }
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, { class: 'mention' }),
+      `@${node.attrs.label ?? node.attrs.id}`,
+    ]
+  },
+  renderText({ node }) {
+    const isTask = node.attrs.mentionType === 'task'
+    if (isTask) {
+      const label = node.attrs.label ?? node.attrs.id
+      return node.attrs.mentionTitle
+        ? `${label} ${node.attrs.mentionTitle}`
+        : label
+    }
+    return `@${node.attrs.label ?? node.attrs.id}`
+  },
+})
 import {
   Bold,
   Italic,
@@ -459,6 +524,7 @@ interface DescriptionEditorProps {
   onChange?: (html: string | null) => void
   placeholder?: string
   members?: WorkspaceMemberInfo[]
+  tasks?: ApiTask[]
 }
 
 export function DescriptionEditor({
@@ -467,6 +533,7 @@ export function DescriptionEditor({
   onChange,
   placeholder = 'Add a description…',
   members = [],
+  tasks = [],
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
@@ -485,10 +552,8 @@ export function DescriptionEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
-      Mention.configure({
-        HTMLAttributes: { class: 'mention' },
-        renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
-        suggestion: buildMentionSuggestion(members),
+      MentionWithType.configure({
+        suggestion: buildMentionSuggestion(members, tasks),
       }),
       ...(menuElement
         ? [

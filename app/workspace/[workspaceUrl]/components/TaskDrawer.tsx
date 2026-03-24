@@ -21,6 +21,7 @@ interface TaskDrawerProps {
   onClose: () => void
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
+  tasks?: ApiTask[]
   onUpdate: (
     taskId: string,
     data: Partial<{
@@ -42,6 +43,7 @@ export function TaskDrawer({
   onClose,
   members,
   projects,
+  tasks,
   onUpdate,
   onDescriptionLoaded,
 }: TaskDrawerProps) {
@@ -110,6 +112,7 @@ export function TaskDrawer({
             cachedDescription={cachedDescription}
             members={members}
             projects={projects}
+            {...(tasks ? { tasks } : {})}
             onUpdate={onUpdate}
             onDescriptionLoaded={onDescriptionLoaded}
           />

@@ -1,15 +1,46 @@
 import { ReactRenderer } from '@tiptap/react'
 import type { SuggestionOptions } from '@tiptap/suggestion'
-import type { WorkspaceMemberInfo } from '../types'
-import { MentionList, type MentionListRef } from './MentionList'
+import type { WorkspaceMemberInfo, ApiTask } from '../types'
+import {
+  MentionList,
+  type MentionListRef,
+  type MentionItem,
+} from './MentionList'
 
 export function buildMentionSuggestion(
-  members: WorkspaceMemberInfo[]
+  members: WorkspaceMemberInfo[],
+  tasks: ApiTask[] = []
 ): Partial<SuggestionOptions> {
   return {
-    items: ({ query }) => {
+    items: ({ query }): MentionItem[] => {
       const q = query.toLowerCase()
-      return members.filter(m => m.name.toLowerCase().includes(q)).slice(0, 8)
+
+      const userItems: MentionItem[] = members
+        .filter(m => m.name.toLowerCase().includes(q))
+        .slice(0, 5)
+        .map(m => ({
+          type: 'user',
+          id: m.clerkId,
+          label: m.name,
+          imageUrl: m.imageUrl,
+        }))
+
+      const taskItems: MentionItem[] = tasks
+        .filter(
+          t =>
+            t.title.toLowerCase().includes(q) ||
+            `${t.teamIdentifier}-${t.number}`.toLowerCase().includes(q)
+        )
+        .slice(0, 5)
+        .map(t => ({
+          type: 'task',
+          id: t.id,
+          label: `${t.teamIdentifier}-${t.number}`,
+          title: t.title,
+          status: t.status,
+        }))
+
+      return [...userItems, ...taskItems]
     },
 
     render() {
@@ -27,14 +58,13 @@ export function buildMentionSuggestion(
         if (!popupEl || !clientRect) return
         const rect = clientRect()
         if (!rect) return
-        const POPUP_WIDTH = 220
-        const POPUP_MAX_HEIGHT = 280
+        const POPUP_WIDTH = 260
+        const POPUP_MAX_HEIGHT = 320
         const GAP = 6
 
         let top = rect.bottom + GAP + window.scrollY
         let left = rect.left + window.scrollX
 
-        // Flip above if not enough space below
         const spaceBelow = window.innerHeight - rect.bottom
         if (spaceBelow < POPUP_MAX_HEIGHT && rect.top > POPUP_MAX_HEIGHT) {
           top = rect.top - GAP + window.scrollY
@@ -43,7 +73,6 @@ export function buildMentionSuggestion(
           popupEl.style.transform = ''
         }
 
-        // Clamp horizontally
         if (left + POPUP_WIDTH > window.innerWidth) {
           left = window.innerWidth - POPUP_WIDTH - 8
         }
@@ -56,7 +85,7 @@ export function buildMentionSuggestion(
         onStart(props) {
           popupEl = document.createElement('div')
           popupEl.className = [
-            'fixed z-[9999] w-[220px] max-h-[280px] overflow-y-auto',
+            'fixed z-[9999] w-[260px] max-h-[320px] overflow-y-auto',
             'bg-white dark:bg-zinc-900',
             'border border-zinc-200 dark:border-zinc-700',
             'rounded-lg shadow-lg',

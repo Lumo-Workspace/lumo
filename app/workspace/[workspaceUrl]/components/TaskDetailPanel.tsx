@@ -37,11 +37,13 @@ function CommentEditor({
   onSubmit,
   clearRef,
   members,
+  tasks,
 }: {
   onCommit: (html: string | null) => void
   onSubmit: () => void
   clearRef: React.MutableRefObject<(() => void) | null>
   members?: WorkspaceMemberInfo[]
+  tasks?: ApiTask[]
 }) {
   const [key, setKey] = useState(0)
 
@@ -67,6 +69,7 @@ function CommentEditor({
         onChange={onCommit}
         placeholder='Add a comment…'
         {...(members ? { members } : {})}
+        {...(tasks ? { tasks } : {})}
       />
     </div>
   )
@@ -95,6 +98,7 @@ export interface TaskDetailPanelProps {
   onDescriptionLoaded?:
     | ((taskId: string, description: string | null) => void)
     | undefined
+  tasks?: ApiTask[]
 }
 
 export function TaskDetailPanel({
@@ -105,6 +109,7 @@ export function TaskDetailPanel({
   projects,
   onUpdate,
   onDescriptionLoaded,
+  tasks = [],
 }: TaskDetailPanelProps) {
   const [task, setTask] = useState<TaskDetail>(() => ({
     id: initialTask.id,
@@ -355,6 +360,7 @@ export function TaskDetailPanel({
               value={descriptionValue}
               onCommit={commitDescription}
               members={mentionableMembers}
+              tasks={tasks}
             />
           )}
         </div>
@@ -437,6 +443,7 @@ export function TaskDetailPanel({
               onSubmit={submitComment}
               clearRef={clearCommentRef}
               members={mentionableMembers}
+              tasks={tasks}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button

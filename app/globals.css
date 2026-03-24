@@ -132,7 +132,10 @@
 /* ── Mention chip ────────────────────────────────────────────────────────── */
 .mention,
 .prose .mention,
-.ProseMirror .mention {
+.ProseMirror .mention,
+.mention-task,
+.prose .mention-task,
+.ProseMirror .mention-task {
   display: inline-flex;
   align-items: center;
   padding: 0 4px;
@@ -146,10 +149,28 @@
 }
 .dark .mention,
 .dark .prose .mention,
-.dark .ProseMirror .mention {
+.dark .ProseMirror .mention,
+.dark .mention-task,
+.dark .prose .mention-task,
+.dark .ProseMirror .mention-task {
   background-color: #3f3f46;
   color: #d4d4d8 !important;
 }
+
+/* Task chip — status dot via ::before using Unicode circle */
+.mention-task::before,
+.prose .mention-task::before,
+.ProseMirror .mention-task::before {
+  content: '○';
+  font-size: 0.65em;
+  line-height: 1;
+  margin-right: 3px;
+  color: #a1a1aa;
+}
+.mention-task[data-mention-status='TODO']::before        { content: '○'; color: #a1a1aa; }
+.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: #3b82f6; }
+.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: #8b5cf6; }
+.mention-task[data-mention-status='DONE']::before        { content: '●'; color: #10b981; }
 
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 @custom-variant dark (&:is(.dark *));

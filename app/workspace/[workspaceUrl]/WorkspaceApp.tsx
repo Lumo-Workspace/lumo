@@ -682,6 +682,7 @@ export default function DashboardApp() {
             onClose={handleCloseTask}
             members={members}
             projects={projects}
+            tasks={Object.values(taskMap)}
             onUpdate={handleUpdateTask}
             onDescriptionLoaded={(taskId, description) => {
               descriptionCache.current.set(taskId, description)
