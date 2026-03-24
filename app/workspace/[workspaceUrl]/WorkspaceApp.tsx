@@ -22,7 +22,7 @@ import {
   ApiPriority,
 } from './types'
 import { API, CACHE_KEY } from './constants'
-import { clearCache } from './cache'
+import { clearCache, readCache, writeCache } from './cache'
 
 // Hooks
 import { useTaskStore } from './hooks/useTaskStore'
@@ -672,7 +672,9 @@ export default function DashboardApp() {
             cachedDescription={
               descriptionCache.current.has(selectedTask.id)
                 ? descriptionCache.current.get(selectedTask.id)
-                : undefined
+                : readCache<{ desc: string | null }>(
+                    CACHE_KEY.description(selectedTask.id)
+                  )?.desc
             }
             onClose={handleCloseTask}
             members={members}
@@ -680,6 +682,7 @@ export default function DashboardApp() {
             onUpdate={handleUpdateTask}
             onDescriptionLoaded={(taskId, description) => {
               descriptionCache.current.set(taskId, description)
+              writeCache(CACHE_KEY.description(taskId), { desc: description })
             }}
           />
         )}

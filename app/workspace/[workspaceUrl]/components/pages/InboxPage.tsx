@@ -11,7 +11,8 @@ import {
   ApiProject,
   ApiPriority,
 } from '../../types'
-import { API } from '../../constants'
+import { API, CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -473,6 +474,14 @@ export function InboxPage({
           <TaskDetailPanel
             key={panelTask.id}
             initialTask={panelTask}
+            cachedDescription={
+              readCache<{ desc: string | null }>(
+                CACHE_KEY.description(panelTask.id)
+              )?.desc
+            }
+            onDescriptionLoaded={(taskId, description) => {
+              writeCache(CACHE_KEY.description(taskId), { desc: description })
+            }}
             members={members}
             projects={projects}
             onUpdate={onUpdate}

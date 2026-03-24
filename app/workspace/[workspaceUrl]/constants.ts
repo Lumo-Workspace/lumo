@@ -40,6 +40,7 @@ export const CACHE_KEY = {
   tasks: 'lumo:tasks',
   myTasks: 'lumo:myTasks',
   comments: (taskId: string) => `lumo:comments:${taskId}`,
+  description: (taskId: string) => `lumo:desc:${taskId}`,
   projects: 'lumo:projects',
   members: 'lumo:members',
   invites: 'lumo:invites',
