@@ -1,6 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  Dispatch,
+  SetStateAction,
+} from 'react'
+import { useParams } from 'next/navigation'
 import { AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
@@ -13,8 +22,10 @@ import {
   ApiPriority,
 } from './types'
 import { API, CACHE_KEY } from './constants'
+import { clearCache } from './cache'
 
 // Hooks
+import { useTaskStore } from './hooks/useTaskStore'
 import { useMyTasks } from './hooks/useMyTasks'
 import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
@@ -37,21 +48,33 @@ import {
 import { TaskDrawer } from './components/TaskDrawer'
 
 export default function DashboardApp() {
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+
   // ─── Navigation ────────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState<Page>('projects')
   const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
     null
   )
 
+  // ─── Normalized task store (single source of truth) ───────────────────────
+  const {
+    taskMap,
+    upsertTasks,
+    updateTask,
+    removeTask,
+    removeTasks,
+    replaceTempId,
+  } = useTaskStore()
+
   // ─── Data ──────────────────────────────────────────────────────────────────
   const {
-    myTasks,
-    setMyTasks,
+    taskIds: myTaskIds,
+    setTaskIds: setMyTaskIds,
     myTasksViewId,
     loading: myTasksLoading,
     error: myTasksError,
     fetchMyTasks,
-  } = useMyTasks()
+  } = useMyTasks(upsertTasks)
 
   const {
     projects,
@@ -62,14 +85,14 @@ export default function DashboardApp() {
   } = useProjects()
 
   const {
-    tasks: projectTasks,
-    setTasks: setProjectTasks,
+    taskIds: projectTaskIds,
+    setTaskIds: setProjectTaskIds,
     kanbanViewId,
     loading: projectTasksLoading,
     error: projectTasksError,
     hydrateForProject,
     fetchProjectTasks,
-  } = useProjectTasks()
+  } = useProjectTasks(upsertTasks)
 
   const { members, fetchMembers } = useMembers()
   const {
@@ -89,6 +112,45 @@ export default function DashboardApp() {
   const currentMemberId = useMemo(
     () => members.find(m => m.clerkId === user?.id)?.id,
     [members, user?.id]
+  )
+
+  // ─── Derive task arrays from normalized store ──────────────────────────────
+  const myTasks = useMemo(
+    () => myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[],
+    [myTaskIds, taskMap]
+  )
+
+  const projectTasks = useMemo(
+    () => projectTaskIds.map(id => taskMap[id]).filter(Boolean) as ApiTask[],
+    [projectTaskIds, taskMap]
+  )
+
+  // ─── DnD setTasks wrappers (bridge Dispatch<SetStateAction<T[]>> to store) ─
+  // These are passed to Board/List views which call setTasks for drag operations.
+  const setMyTasksForDnD = useCallback<Dispatch<SetStateAction<MyTask[]>>>(
+    action => {
+      const prev = myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[]
+      const next = typeof action === 'function' ? action(prev) : action
+      const changed = next.filter(t => taskMap[t.id] !== t)
+      if (changed.length > 0) upsertTasks(changed)
+      setMyTaskIds(next.map(t => t.id))
+    },
+    [myTaskIds, taskMap, upsertTasks, setMyTaskIds]
+  )
+
+  const setProjectTasksForDnD = useCallback<
+    Dispatch<SetStateAction<ApiTask[]>>
+  >(
+    action => {
+      const prev = projectTaskIds
+        .map(id => taskMap[id])
+        .filter(Boolean) as ApiTask[]
+      const next = typeof action === 'function' ? action(prev) : action
+      const changed = next.filter(t => taskMap[t.id] !== t)
+      if (changed.length > 0) upsertTasks(changed)
+      setProjectTaskIds(next.map(t => t.id))
+    },
+    [projectTaskIds, taskMap, upsertTasks, setProjectTaskIds]
   )
 
   // ─── Modal state ───────────────────────────────────────────────────────────
@@ -130,28 +192,21 @@ export default function DashboardApp() {
         priority: ApiPriority
       }>
     ) => {
-      // Optimistic update — apply immediately to both lists
-      const patch = (t: ApiTask) => (t.id === taskId ? { ...t, ...data } : t)
+      // Optimistic update — single call to task map
+      updateTask(taskId, data)
 
-      // If project changed, remove from current project's task list
+      // Sync ID lists if the task moves out of the current project
       if ('projectId' in data && data.projectId !== selectedProject?.id) {
-        setProjectTasks(prev => prev.filter(t => t.id !== taskId))
-      } else {
-        setProjectTasks(prev => prev.map(patch))
+        setProjectTaskIds(prev => prev.filter(id => id !== taskId))
       }
 
-      // If assignee changed, check whether this task still belongs in My Tasks
+      // Sync my-tasks ID list if assignee changed
       if ('assigneeId' in data) {
-        const stillMine = data.assigneeId === currentMemberId
-        setMyTasks(prev =>
-          stillMine
-            ? prev.map(t => (t.id === taskId ? { ...t, ...data } : t))
-            : prev.filter(t => t.id !== taskId)
-        )
-      } else {
-        setMyTasks(prev =>
-          prev.map(t => (t.id === taskId ? { ...t, ...data } : t))
-        )
+        const nowMine = data.assigneeId === currentMemberId
+        const wasMine = myTaskIds.includes(taskId)
+        if (wasMine && !nowMine)
+          setMyTaskIds(prev => prev.filter(id => id !== taskId))
+        if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
       }
 
       try {
@@ -162,27 +217,35 @@ export default function DashboardApp() {
         })
         if (!res.ok) throw new Error('Failed to update task')
         const { task: updated } = (await res.json()) as { task: ApiTask }
-        // Reconcile with server response
-        setProjectTasks(prev =>
-          prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
-        )
-        setMyTasks(prev =>
-          updated.assigneeId === currentMemberId
-            ? prev.map(t => (t.id === taskId ? { ...t, ...updated } : t))
-            : prev.filter(t => t.id !== taskId)
-        )
+        // Reconcile with server response (preserves project field via upsertTasks merge)
+        upsertTasks([updated])
+        // Re-check assignee after server confirms
+        const nowMine = updated.assigneeId === currentMemberId
+        const wasMine = myTaskIds.includes(taskId)
+        if (wasMine && !nowMine)
+          setMyTaskIds(prev => prev.filter(id => id !== taskId))
+        if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
       } catch (err) {
         throw err
       }
     },
-    [setProjectTasks, setMyTasks, currentMemberId]
+    [
+      updateTask,
+      upsertTasks,
+      selectedProject?.id,
+      currentMemberId,
+      myTaskIds,
+      setProjectTaskIds,
+      setMyTaskIds,
+    ]
   )
 
   const handleDeleteTask = useCallback(
     async (taskId: string) => {
-      // Optimistic removal from both lists
-      setProjectTasks(prev => prev.filter(t => t.id !== taskId))
-      setMyTasks(prev => prev.filter(t => t.id !== taskId))
+      // Optimistic removal
+      removeTask(taskId)
+      setMyTaskIds(prev => prev.filter(id => id !== taskId))
+      setProjectTaskIds(prev => prev.filter(id => id !== taskId))
       // Close drawer if this task is open
       setSelectedTask(prev => (prev?.id === taskId ? null : prev))
 
@@ -190,19 +253,16 @@ export default function DashboardApp() {
         const res = await fetch(API.tasks.byId(taskId), { method: 'DELETE' })
         if (!res.ok) throw new Error('Failed to delete task')
       } catch (err) {
-        // Roll-back is complex without a snapshot; just re-fetch
         console.error(err)
       }
     },
-    [setProjectTasks, setMyTasks]
+    [removeTask, setMyTaskIds, setProjectTaskIds]
   )
 
   const openNewTaskModal = useCallback(
     (assigneeId?: string, status?: ApiStatus) => {
       fetchMembers()
       fetchProjects()
-      // Guard: ignore anything that isn't a plain string (e.g. a stray MouseEvent
-      // from being used directly as an onClick handler)
       setNewTaskDefaultAssigneeId(
         typeof assigneeId === 'string' ? assigneeId : undefined
       )
@@ -230,7 +290,18 @@ export default function DashboardApp() {
     localStorage.setItem(CACHE_KEY.darkMode, String(isDarkMode))
   }, [isDarkMode])
 
-  // ─── Fetch notifications on mount (populates badge regardless of current page)
+  // ─── Clear stale cache when user or workspace changes ─────────────────────
+  useEffect(() => {
+    if (!user?.id || !workspaceUrl) return
+    const context = `${user.id}:${workspaceUrl}`
+    const prev = localStorage.getItem('lumo:context')
+    if (prev && prev !== context) {
+      clearCache()
+    }
+    localStorage.setItem('lumo:context', context)
+  }, [user?.id, workspaceUrl])
+
+  // ─── Fetch notifications on mount ─────────────────────────────────────────
   useEffect(() => {
     fetchNotifications()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,7 +319,6 @@ export default function DashboardApp() {
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
       hydrateForProject(selectedProject.id)
-      // Skip fetch for optimistic IDs — the real ID arrives shortly after creation
       if (!selectedProject.id.startsWith('optimistic-')) {
         fetchProjectTasks(selectedProject.id)
       }
@@ -329,6 +399,7 @@ export default function DashboardApp() {
     }: NewTaskFormData) => {
       const tempId = `optimistic-task-${Date.now()}`
       const now = new Date().toISOString()
+      const project = projects.find(p => p.id === projectId)
       const optimistic: ApiTask = {
         id: tempId,
         title,
@@ -341,22 +412,17 @@ export default function DashboardApp() {
         viewOrder: null,
         number: 0,
         teamIdentifier: '',
+        ...(project ? { project: { id: projectId, name: project.name } } : {}),
       }
+
+      upsertTasks([optimistic])
 
       if (projectId === selectedProject?.id) {
-        setProjectTasks(prev => [...prev, optimistic])
+        setProjectTaskIds(prev => [...prev, tempId])
       }
 
-      // Optimistic add to My Tasks if assigned to current user
-      const project = projects.find(p => p.id === projectId)
-      if (assigneeId && assigneeId === currentMemberId && project) {
-        setMyTasks(prev => [
-          ...prev,
-          {
-            ...optimistic,
-            project: { id: projectId, name: project.name },
-          },
-        ])
+      if (assigneeId && assigneeId === currentMemberId) {
+        setMyTaskIds(prev => [...prev, tempId])
       }
 
       const res = await fetch(API.projects.tasks(projectId), {
@@ -372,23 +438,20 @@ export default function DashboardApp() {
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
-        setProjectTasks(prev => prev.filter(t => t.id !== tempId))
-        setMyTasks(prev => prev.filter(t => t.id !== tempId))
+        removeTask(tempId)
+        setProjectTaskIds(prev => prev.filter(id => id !== tempId))
+        setMyTaskIds(prev => prev.filter(id => id !== tempId))
         toast.error(err.error ?? 'Failed to create task')
         throw new Error(err.error ?? 'Failed to create task')
       }
       const { task } = (await res.json()) as { task: ApiTask }
-      setProjectTasks(prev => prev.map(t => (t.id === tempId ? task : t)))
-      // Reconcile My Tasks with real task data
-      if (task.assigneeId === currentMemberId && project) {
-        setMyTasks(prev =>
-          prev.map(t =>
-            t.id === tempId
-              ? { ...task, project: { id: projectId, name: project.name } }
-              : t
-          )
-        )
-      }
+      // Merge real task (preserving project field via replaceTempId)
+      replaceTempId(tempId, {
+        ...task,
+        ...(project ? { project: { id: projectId, name: project.name } } : {}),
+      })
+      setProjectTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
+      setMyTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
       setProjects(prev =>
         prev.map(p =>
           p.id === projectId
@@ -402,32 +465,37 @@ export default function DashboardApp() {
     },
     [
       selectedProject?.id,
-      setProjectTasks,
-      setMyTasks,
+      upsertTasks,
+      replaceTempId,
+      removeTask,
+      setProjectTaskIds,
+      setMyTaskIds,
       setProjects,
       projects,
       currentMemberId,
     ]
   )
 
-  // ─── Update project name / description ────────────────────────────────────
+  // ─── Delete / update project ───────────────────────────────────────────────
   const handleDeleteProject = useCallback(
     async (projectId: string) => {
-      // Evict description cache entries for all tasks under this project
-      const deletedTaskIds = projectTasks
-        .filter(t => t.projectId === projectId)
-        .map(t => t.id)
-      deletedTaskIds.forEach(id => descriptionCache.current.delete(id))
+      // Evict description cache for all tasks under this project
+      const deletedIds = projectTaskIds.filter(
+        id => taskMap[id]?.projectId === projectId
+      )
+      deletedIds.forEach(id => descriptionCache.current.delete(id))
 
-      // Clear all related state before navigating away
       setSelectedProject(null)
       setSelectedTask(prev =>
         prev && 'projectId' in prev && prev.projectId === projectId
           ? null
           : prev
       )
-      setProjectTasks([])
-      setMyTasks(prev => prev.filter(t => t.projectId !== projectId))
+      removeTasks(deletedIds)
+      setProjectTaskIds([])
+      setMyTaskIds(prev =>
+        prev.filter(id => taskMap[id]?.projectId !== projectId)
+      )
       setProjects(prev => prev.filter(p => p.id !== projectId))
       navigateTo('projects')
 
@@ -438,12 +506,12 @@ export default function DashboardApp() {
     },
     [
       navigateTo,
-      projectTasks,
+      projectTaskIds,
+      taskMap,
       descriptionCache,
-      setSelectedProject,
-      setSelectedTask,
-      setProjectTasks,
-      setMyTasks,
+      removeTasks,
+      setProjectTaskIds,
+      setMyTaskIds,
       setProjects,
     ]
   )
@@ -497,7 +565,7 @@ export default function DashboardApp() {
         return (
           <MyTasksPage
             tasks={myTasks}
-            setTasks={setMyTasks}
+            setTasks={setMyTasksForDnD}
             viewId={myTasksViewId}
             loading={myTasksLoading}
             error={myTasksError}
@@ -525,7 +593,7 @@ export default function DashboardApp() {
           <ProjectDetailPage
             project={selectedProject}
             tasks={projectTasks}
-            setTasks={setProjectTasks}
+            setTasks={setProjectTasksForDnD}
             viewId={kanbanViewId}
             loading={projectTasksLoading}
             error={projectTasksError}
@@ -598,6 +666,9 @@ export default function DashboardApp() {
         {selectedTask && (
           <TaskDrawer
             initialTask={selectedTask}
+            {...(taskMap[selectedTask.id]
+              ? { liveTask: taskMap[selectedTask.id] }
+              : {})}
             cachedDescription={
               descriptionCache.current.has(selectedTask.id)
                 ? descriptionCache.current.get(selectedTask.id)

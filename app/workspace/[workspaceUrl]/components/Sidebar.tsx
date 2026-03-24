@@ -17,6 +17,7 @@ import { useUser, useClerk } from '@clerk/nextjs'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
 import { API } from '../constants'
+import { clearCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
   Sidebar,
@@ -130,7 +131,10 @@ export function AppSidebar({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className='text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer'
-                  onClick={() => signOut({ redirectUrl: '/signin' })}
+                  onClick={() => {
+                    clearCache()
+                    signOut({ redirectUrl: '/signin' })
+                  }}
                 >
                   <LogOut size={13} />
                   Sign out

@@ -16,6 +16,7 @@ import { TaskDetailPanel } from './TaskDetailPanel'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
+  liveTask?: ApiTask
   cachedDescription?: string | null | undefined
   onClose: () => void
   members: WorkspaceMemberInfo[]
@@ -36,6 +37,7 @@ interface TaskDrawerProps {
 
 export function TaskDrawer({
   initialTask,
+  liveTask,
   cachedDescription,
   onClose,
   members,
@@ -104,6 +106,7 @@ export function TaskDrawer({
           {/* Body — shared with Inbox detail panel */}
           <TaskDetailPanel
             initialTask={initialTask}
+            {...(liveTask ? { liveTask } : {})}
             cachedDescription={cachedDescription}
             members={members}
             projects={projects}

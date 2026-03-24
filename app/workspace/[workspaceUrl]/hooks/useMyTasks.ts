@@ -1,32 +1,45 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { MyTask } from '../types'
+import { ApiTask, MyTask } from '../types'
 import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
 
-export function useMyTasks() {
-  const [myTasks, setMyTasks] = useState<MyTask[]>([])
+type NewFormat = { taskIds: string[]; myTasksViewId: string | null }
+type LegacyFull = { tasks: MyTask[]; myTasksViewId: string | null }
+
+export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
+  const [taskIds, setTaskIds] = useState<string[]>([])
   const [myTasksViewId, setMyTasksViewId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const seeded = useRef(false)
 
-  // Hydrate from localStorage on mount so data shows immediately on refresh
+  // Hydrate from localStorage on mount so data shows immediately on refresh.
+  // Handles three cache formats:
+  //   1. new:    { taskIds, myTasksViewId }
+  //   2. legacy: { tasks: MyTask[], myTasksViewId }
+  //   3. oldest: MyTask[]
   useEffect(() => {
-    const cached = readCache<
-      { tasks: MyTask[]; myTasksViewId: string | null } | MyTask[]
-    >(CACHE_KEY.myTasks)
-    if (cached) {
-      if (Array.isArray(cached)) {
-        // Legacy format — migrate silently
-        setMyTasks(cached)
-      } else {
-        setMyTasks(cached.tasks ?? [])
-        setMyTasksViewId(cached.myTasksViewId)
-      }
-      seeded.current = true
+    const raw = readCache<NewFormat | LegacyFull | MyTask[]>(CACHE_KEY.myTasks)
+    if (!raw) return
+    if (Array.isArray(raw)) {
+      // Oldest legacy: plain array
+      upsertTasks(raw)
+      setTaskIds(raw.map(t => t.id))
+    } else if ('tasks' in raw) {
+      // Legacy full format
+      upsertTasks(raw.tasks)
+      setTaskIds(raw.tasks.map(t => t.id))
+      setMyTasksViewId(raw.myTasksViewId)
+    } else {
+      // New ID-only format — task data lives in lumo:tasks
+      setTaskIds(raw.taskIds)
+      setMyTasksViewId(raw.myTasksViewId)
     }
+    seeded.current = true
+    // upsertTasks is stable (wrapped in useCallback)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchMyTasks = useCallback(async () => {
@@ -39,10 +52,12 @@ export function useMyTasks() {
         tasks: MyTask[]
         myTasksViewId: string
       }
-      setMyTasks(data.tasks)
+      upsertTasks(data.tasks)
+      const ids = data.tasks.map(t => t.id)
+      setTaskIds(ids)
       setMyTasksViewId(data.myTasksViewId)
       writeCache(CACHE_KEY.myTasks, {
-        tasks: data.tasks,
+        taskIds: ids,
         myTasksViewId: data.myTasksViewId,
       })
       seeded.current = true
@@ -51,7 +66,7 @@ export function useMyTasks() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [upsertTasks])
 
-  return { myTasks, setMyTasks, myTasksViewId, loading, error, fetchMyTasks }
+  return { taskIds, setTaskIds, myTasksViewId, loading, error, fetchMyTasks }
 }

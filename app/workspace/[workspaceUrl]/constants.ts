@@ -37,7 +37,9 @@ export const API = {
 
 export const CACHE_KEY = {
   darkMode: 'lumo:darkMode',
+  tasks: 'lumo:tasks',
   myTasks: 'lumo:myTasks',
+  comments: (taskId: string) => `lumo:comments:${taskId}`,
   projects: 'lumo:projects',
   members: 'lumo:members',
   invites: 'lumo:invites',

@@ -18,6 +18,7 @@ import { useParams } from 'next/navigation'
 import { Drawer } from 'vaul'
 import { Page } from '../types'
 import { API } from '../constants'
+import { clearCache } from '../cache'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -179,7 +180,10 @@ export function MobileSidebar({
               </Link>
               <div className='my-1 border-t border-sidebar-border' />
               <button
-                onClick={() => signOut({ redirectUrl: '/signin' })}
+                onClick={() => {
+                  clearCache()
+                  signOut({ redirectUrl: '/signin' })
+                }}
                 className='w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors'
               >
                 <LogOut size={16} />

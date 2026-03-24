@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,8 @@ import {
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
-import { API } from '../constants'
+import { API, CACHE_KEY } from '../constants'
+import { readCache, writeCache } from '../cache'
 import { useUser } from '@clerk/nextjs'
 
 // ─── Comment editor (key-based clear + Cmd/Ctrl+Enter submit) ────────────────
@@ -72,6 +73,8 @@ function CommentEditor({
 
 export interface TaskDetailPanelProps {
   initialTask: ApiTask | MyTask
+  /** Live task from the normalized store — used to sync external updates (drag, etc.) */
+  liveTask?: ApiTask
   cachedDescription?: string | null | undefined
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
@@ -93,6 +96,7 @@ export interface TaskDetailPanelProps {
 
 export function TaskDetailPanel({
   initialTask,
+  liveTask,
   cachedDescription,
   members,
   projects,
@@ -119,9 +123,39 @@ export function TaskDetailPanel({
   }))
   const { user } = useUser()
 
-  // ─── Comments ───────────────────────────────────────────────────────────────
-  const [comments, setComments] = useState<ApiComment[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
+  // ─── Sync external updates (e.g. drag-and-drop status change) ───────────────
+  useEffect(() => {
+    if (!liveTask) return
+    setTask(prev => {
+      if (
+        prev.title === liveTask.title &&
+        prev.status === liveTask.status &&
+        prev.priority === liveTask.priority &&
+        prev.assigneeId === liveTask.assigneeId &&
+        prev.projectId === liveTask.projectId
+      )
+        return prev
+      return {
+        ...prev,
+        title: liveTask.title,
+        status: liveTask.status,
+        priority: liveTask.priority,
+        assigneeId: liveTask.assigneeId,
+        projectId: liveTask.projectId,
+      }
+    })
+  }, [liveTask])
+
+  // ─── Comments (stale-while-revalidate from localStorage) ─────────────────────
+  const cachedComments = useMemo(
+    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
+
+    [initialTask.id]
+  )
+  const [comments, setComments] = useState<ApiComment[]>(cachedComments ?? [])
+  const [commentsLoading, setCommentsLoading] = useState(
+    cachedComments === null
+  )
   const [commentBody, setCommentBody] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const clearCommentRef = useRef<(() => void) | null>(null)
@@ -136,7 +170,7 @@ export function TaskDetailPanel({
   // Fetch full task detail + comments
   useEffect(() => {
     if (!hasCached) setDescriptionLoading(true)
-    setCommentsLoading(true)
+    if (cachedComments === null) setCommentsLoading(true)
 
     Promise.all([
       fetch(API.tasks.byId(initialTask.id)).then(r => r.json()),
@@ -157,13 +191,18 @@ export function TaskDetailPanel({
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
         }
-        setComments((commentsData as { comments: ApiComment[] }).comments ?? [])
+        const freshComments =
+          (commentsData as { comments: ApiComment[] }).comments ?? []
+        setComments(freshComments)
+        writeCache(CACHE_KEY.comments(initialTask.id), freshComments)
       })
       .catch(console.error)
       .finally(() => {
         setDescriptionLoading(false)
         setCommentsLoading(false)
       })
+    // cachedComments intentionally omitted — stable ref from mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTask.id])
 
   const handlePatch = useCallback(
@@ -199,8 +238,10 @@ export function TaskDetailPanel({
       const next = html?.trim() || null
       if (next === (task.description ?? null)) return
       handlePatch({ description: next })
+      // Sync description cache immediately (optimistic, matches handlePatch)
+      onDescriptionLoaded?.(task.id, next)
     },
-    [task.description, handlePatch]
+    [task.description, task.id, handlePatch, onDescriptionLoaded]
   )
 
   const submitComment = useCallback(async () => {
@@ -229,7 +270,11 @@ export function TaskDetailPanel({
       })
       if (!res.ok) throw new Error()
       const { comment } = (await res.json()) as { comment: ApiComment }
-      setComments(prev => prev.map(c => (c.id === tempId ? comment : c)))
+      setComments(prev => {
+        const next = prev.map(c => (c.id === tempId ? comment : c))
+        writeCache(CACHE_KEY.comments(task.id), next)
+        return next
+      })
     } catch {
       setComments(prev => prev.filter(c => c.id !== tempId))
     } finally {

@@ -60,19 +60,9 @@ export interface WorkspaceMemberInfo {
   joinedAt: string
 }
 
-export interface MyTask {
-  id: string
-  title: string
-  status: ApiStatus
-  priority: ApiPriority
-  projectId: string
+/** Task assigned to the current user — always has `project` populated */
+export type MyTask = Omit<ApiTask, 'project'> & {
   project: { id: string; name: string }
-  parentTaskId: string | null
-  assigneeId: string | null
-  updatedAt: string
-  viewOrder: number | null
-  number: number
-  teamIdentifier: string
 }
 
 export interface ApiProject {
@@ -99,6 +89,8 @@ export interface ApiTask {
   viewOrder: number | null
   number: number
   teamIdentifier: string
+  /** Populated when task is loaded via /api/tasks/me */
+  project?: { id: string; name: string }
 }
 
 export interface ApiComment {
