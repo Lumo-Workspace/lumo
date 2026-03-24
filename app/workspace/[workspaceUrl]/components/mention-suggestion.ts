@@ -1,15 +1,26 @@
-import { ReactRenderer } from '@tiptap/react'
 import type { SuggestionOptions } from '@tiptap/suggestion'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
-import {
-  MentionList,
-  type MentionListRef,
-  type MentionItem,
-} from './MentionList'
+import type { MentionItem, MentionListRef } from './MentionList'
+
+export type MentionPopupState = {
+  items: MentionItem[]
+  rect: DOMRect
+  command: (attrs: {
+    id: string
+    label: string
+    mentionType: string
+    mentionTitle?: string
+    mentionStatus?: string
+  }) => void
+}
 
 export function buildMentionSuggestion(
   members: WorkspaceMemberInfo[],
-  tasks: ApiTask[] = []
+  tasks: ApiTask[],
+  onOpen: (state: MentionPopupState) => void,
+  onUpdate: (state: MentionPopupState) => void,
+  onClose: () => void,
+  listRef: React.RefObject<MentionListRef | null>
 ): Partial<SuggestionOptions> {
   return {
     items: ({ query }): MentionItem[] => {
@@ -44,77 +55,34 @@ export function buildMentionSuggestion(
     },
 
     render() {
-      let renderer: ReactRenderer<MentionListRef> | null = null
-      let popupEl: HTMLDivElement | null = null
-
-      const destroyPopup = () => {
-        renderer?.destroy()
-        popupEl?.remove()
-        renderer = null
-        popupEl = null
-      }
-
-      const positionPopup = (clientRect: (() => DOMRect | null) | null) => {
-        if (!popupEl || !clientRect) return
-        const rect = clientRect()
-        if (!rect) return
-        const POPUP_WIDTH = 260
-        const POPUP_MAX_HEIGHT = 320
-        const GAP = 6
-
-        let top = rect.bottom + GAP + window.scrollY
-        let left = rect.left + window.scrollX
-
-        const spaceBelow = window.innerHeight - rect.bottom
-        if (spaceBelow < POPUP_MAX_HEIGHT && rect.top > POPUP_MAX_HEIGHT) {
-          top = rect.top - GAP + window.scrollY
-          popupEl.style.transform = 'translateY(-100%)'
-        } else {
-          popupEl.style.transform = ''
-        }
-
-        if (left + POPUP_WIDTH > window.innerWidth) {
-          left = window.innerWidth - POPUP_WIDTH - 8
-        }
-
-        popupEl.style.top = `${top}px`
-        popupEl.style.left = `${left}px`
-      }
-
       return {
         onStart(props) {
-          popupEl = document.createElement('div')
-          popupEl.className = [
-            'fixed z-[9999] w-[260px] max-h-[320px] overflow-y-auto',
-            'bg-white dark:bg-zinc-900',
-            'border border-zinc-200 dark:border-zinc-700',
-            'rounded-lg shadow-lg',
-          ].join(' ')
-          document.body.appendChild(popupEl)
-
-          renderer = new ReactRenderer(MentionList, {
-            props,
-            editor: props.editor,
+          const rect = props.clientRect?.()
+          if (!rect) return
+          onOpen({
+            items: props.items as MentionItem[],
+            rect,
+            command: props.command,
           })
-          popupEl.appendChild(renderer.element)
-          positionPopup(props.clientRect ?? null)
         },
-
         onUpdate(props) {
-          renderer?.updateProps(props)
-          positionPopup(props.clientRect ?? null)
+          const rect = props.clientRect?.()
+          if (!rect) return
+          onUpdate({
+            items: props.items as MentionItem[],
+            rect,
+            command: props.command,
+          })
         },
-
         onKeyDown(props) {
           if (props.event.key === 'Escape') {
-            destroyPopup()
+            onClose()
             return true
           }
-          return renderer?.ref?.onKeyDown(props) ?? false
+          return listRef.current?.onKeyDown(props) ?? false
         },
-
         onExit() {
-          destroyPopup()
+          onClose()
         },
       }
     },

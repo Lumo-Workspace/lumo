@@ -106,8 +106,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           <button
             key={`user-${item.id}`}
             type='button'
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => selectItem(flatIndex)}
+            onPointerDown={e => {
+              e.preventDefault()
+              selectItem(flatIndex)
+            }}
             onMouseEnter={() => setSelectedIndex(flatIndex)}
             className={rowCls}
           >

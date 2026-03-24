@@ -15,6 +15,9 @@ import { mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
+import type { MentionPopupState } from './mention-suggestion'
+import { MentionList } from './MentionList'
+import type { MentionListRef } from './MentionList'
 
 /** Mention node extended with type / title / status attributes */
 const MentionWithType = Mention.extend({
@@ -537,6 +540,10 @@ export function DescriptionEditor({
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
+  const mentionListRef = useRef<MentionListRef | null>(null)
+  const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
+    null
+  )
 
   // Stable DOM element for the bubble menu (created once, never changes)
   const [menuElement] = useState<HTMLDivElement | null>(() =>
@@ -553,7 +560,14 @@ export function DescriptionEditor({
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
       MentionWithType.configure({
-        suggestion: buildMentionSuggestion(members, tasks),
+        suggestion: buildMentionSuggestion(
+          members,
+          tasks,
+          setMentionPopup,
+          setMentionPopup,
+          () => setMentionPopup(null),
+          mentionListRef
+        ),
       }),
       ...(menuElement
         ? [
@@ -626,6 +640,25 @@ export function DescriptionEditor({
         createPortal(
           <BubbleMenuBar editor={editor} openLinkInputRef={openLinkInputRef} />,
           menuElement
+        )}
+      {mentionPopup &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: mentionPopup.rect.bottom + 6,
+              left: mentionPopup.rect.left,
+              zIndex: 9999,
+            }}
+            className='w-[260px] max-h-[320px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
+          >
+            <MentionList
+              ref={mentionListRef}
+              items={mentionPopup.items}
+              command={mentionPopup.command}
+            />
+          </div>,
+          document.body
         )}
     </>
   )
