@@ -138,6 +138,7 @@
 .ProseMirror .mention-task {
   display: inline-flex;
   align-items: center;
+  vertical-align: middle;
   padding: 0 4px;
   border-radius: 4px;
   font-size: 0.875em;
