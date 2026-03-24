@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { useParams } from 'next/navigation'
 import { AnimatePresence } from 'motion/react'
+import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
 import {
@@ -659,8 +660,8 @@ export default function DashboardApp() {
             unreadCount={unreadCount}
           />
         </div>
-        <div className='flex-1 overflow-hidden flex flex-col'>
-          {renderPage()}
+        <div className='flex-1 overflow-hidden flex flex-col relative'>
+          <PageTransition pageKey={currentPage}>{renderPage()}</PageTransition>
         </div>
       </SidebarInset>
 
