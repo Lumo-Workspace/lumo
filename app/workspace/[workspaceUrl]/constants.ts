@@ -16,6 +16,7 @@ export const API = {
   },
   workspaces: {
     me: '/api/workspaces/me',
+    logo: '/api/workspaces/me/logo',
     members: '/api/workspaces/members',
     memberById: (id: string) => `/api/workspaces/members/${id}`,
     leaveWorkspace: '/api/workspaces/members/me',
