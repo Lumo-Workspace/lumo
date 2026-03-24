@@ -627,6 +627,8 @@ export default function DashboardApp() {
             }}
             members={members}
             projects={projects}
+            taskMap={taskMap}
+            upsertTasks={upsertTasks}
             onUpdate={handleUpdateTask}
           />
         )

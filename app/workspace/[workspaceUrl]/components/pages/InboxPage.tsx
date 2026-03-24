@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import { Inbox, CheckCheck, RotateCcw, Loader2 } from 'lucide-react'
 import {
@@ -233,6 +234,8 @@ interface InboxPageProps {
   onUpdateTaskStatus: (taskId: string, status: ApiStatus) => Promise<void>
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
+  taskMap?: Record<string, ApiTask>
+  upsertTasks?: (tasks: ApiTask[]) => void
   onUpdate: (
     taskId: string,
     data: Partial<{
@@ -260,6 +263,8 @@ export function InboxPage({
   onUpdateTaskStatus,
   members,
   projects,
+  taskMap,
+  upsertTasks,
   onUpdate,
 }: InboxPageProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -346,22 +351,32 @@ export function InboxPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications.length])
 
-  const selectNotification = useCallback(async (n: ApiNotification) => {
-    setSelectedId(n.id)
-    if (!n.taskId) {
-      setPanelTask(null)
-      return
-    }
-    setPanelLoading(true)
-    try {
-      const res = await fetch(API.tasks.byId(n.taskId))
-      if (!res.ok) return
-      const { task } = (await res.json()) as { task: ApiTask }
-      setPanelTask(task)
-    } finally {
-      setPanelLoading(false)
-    }
-  }, [])
+  const selectNotification = useCallback(
+    async (n: ApiNotification) => {
+      setSelectedId(n.id)
+      if (!n.taskId) {
+        setPanelTask(null)
+        return
+      }
+      // Show cached task immediately if available
+      const cached = taskMap?.[n.taskId]
+      if (cached) {
+        setPanelTask(cached)
+      } else {
+        setPanelLoading(true)
+      }
+      try {
+        const res = await fetch(API.tasks.byId(n.taskId))
+        if (!res.ok) return
+        const { task } = (await res.json()) as { task: ApiTask }
+        setPanelTask(task)
+        upsertTasks?.([task])
+      } finally {
+        setPanelLoading(false)
+      }
+    },
+    [taskMap, upsertTasks]
+  )
 
   const selectedNotification = notifications.find(n => n.id === selectedId)
 
@@ -462,44 +477,77 @@ export function InboxPage({
       </div>
 
       {/* ── Right column: task detail panel ── */}
-      <div className='flex-1 flex flex-col overflow-hidden'>
-        {panelLoading ? (
-          <div className='flex-1 flex items-center justify-center'>
-            <Loader2
-              size={20}
-              className='animate-spin text-zinc-300 dark:text-zinc-600'
-            />
-          </div>
-        ) : panelTask ? (
-          <TaskDetailPanel
-            key={panelTask.id}
-            initialTask={panelTask}
-            cachedDescription={
-              readCache<{ desc: string | null }>(
-                CACHE_KEY.description(panelTask.id)
-              )?.desc
-            }
-            onDescriptionLoaded={(taskId, description) => {
-              writeCache(CACHE_KEY.description(taskId), { desc: description })
-            }}
-            members={members}
-            projects={projects}
-            onUpdate={onUpdate}
-          />
-        ) : selectedNotification && !selectedNotification.taskId ? (
-          <div className='flex-1 flex items-center justify-center text-zinc-400'>
-            <p className='text-sm'>No task linked to this notification.</p>
-          </div>
-        ) : (
-          <div className='flex-1 flex flex-col items-center justify-center gap-3 pb-16'>
-            <Inbox size={32} className='text-muted-foreground/30' />
-            <p className='text-sm text-muted-foreground'>
-              {unreadCount > 0
-                ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                : "You're all caught up"}
-            </p>
-          </div>
-        )}
+      <div className='flex-1 flex flex-col overflow-hidden relative'>
+        <AnimatePresence mode='wait'>
+          {panelLoading ? (
+            <motion.div
+              key='loading'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className='absolute inset-0 flex items-center justify-center'
+            >
+              <Loader2
+                size={20}
+                className='animate-spin text-zinc-300 dark:text-zinc-600'
+              />
+            </motion.div>
+          ) : panelTask ? (
+            <motion.div
+              key={panelTask.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className='absolute inset-0 flex flex-col'
+            >
+              <TaskDetailPanel
+                initialTask={panelTask}
+                cachedDescription={
+                  readCache<{ desc: string | null }>(
+                    CACHE_KEY.description(panelTask.id)
+                  )?.desc
+                }
+                onDescriptionLoaded={(taskId, description) => {
+                  writeCache(CACHE_KEY.description(taskId), {
+                    desc: description,
+                  })
+                }}
+                members={members}
+                projects={projects}
+                onUpdate={onUpdate}
+              />
+            </motion.div>
+          ) : selectedNotification && !selectedNotification.taskId ? (
+            <motion.div
+              key='no-task'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className='absolute inset-0 flex items-center justify-center text-zinc-400'
+            >
+              <p className='text-sm'>No task linked to this notification.</p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key='empty'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className='absolute inset-0 flex flex-col items-center justify-center gap-3 pb-16'
+            >
+              <Inbox size={32} className='text-muted-foreground/30' />
+              <p className='text-sm text-muted-foreground'>
+                {unreadCount > 0
+                  ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+                  : "You're all caught up"}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
