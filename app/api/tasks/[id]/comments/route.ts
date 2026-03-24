@@ -79,12 +79,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     })
 
     // Fire-and-forget: create TASK_MENTIONED notifications.
-    // Strip HTML tags first, then detect @[clerkId] patterns in text content.
-    const textContent = parsed.data.body.replace(/<[^>]*>/g, ' ')
-    const mentionRegex = /@\[([^\]]+)\]/g
+    // Parse data-id attributes from mention chips: <span data-type="mention" data-id="{clerkId}">
+    const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
     const mentionedIds: string[] = []
     let match: RegExpExecArray | null
-    while ((match = mentionRegex.exec(textContent)) !== null) {
+    while ((match = mentionRegex.exec(parsed.data.body)) !== null) {
       const clerkId = match[1]
       if (clerkId && clerkId !== userId && !mentionedIds.includes(clerkId)) {
         mentionedIds.push(clerkId)

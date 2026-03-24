@@ -10,7 +10,10 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
+import Mention from '@tiptap/extension-mention'
 import type { Editor } from '@tiptap/core'
+import type { WorkspaceMemberInfo } from '../types'
+import { buildMentionSuggestion } from './mention-suggestion'
 import {
   Bold,
   Italic,
@@ -455,6 +458,7 @@ interface DescriptionEditorProps {
   onCommit: (html: string | null) => void
   onChange?: (html: string | null) => void
   placeholder?: string
+  members?: WorkspaceMemberInfo[]
 }
 
 export function DescriptionEditor({
@@ -462,6 +466,7 @@ export function DescriptionEditor({
   onCommit,
   onChange,
   placeholder = 'Add a description…',
+  members = [],
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
@@ -480,6 +485,11 @@ export function DescriptionEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
+      Mention.configure({
+        HTMLAttributes: { class: 'mention' },
+        renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
+        suggestion: buildMentionSuggestion(members),
+      }),
       ...(menuElement
         ? [
             BubbleMenu.configure({

@@ -36,10 +36,12 @@ function CommentEditor({
   onCommit,
   onSubmit,
   clearRef,
+  members,
 }: {
   onCommit: (html: string | null) => void
   onSubmit: () => void
   clearRef: React.MutableRefObject<(() => void) | null>
+  members?: WorkspaceMemberInfo[]
 }) {
   const [key, setKey] = useState(0)
 
@@ -64,6 +66,7 @@ function CommentEditor({
         onCommit={onCommit}
         onChange={onCommit}
         placeholder='Add a comment…'
+        {...(members ? { members } : {})}
       />
     </div>
   )
@@ -350,6 +353,7 @@ export function TaskDetailPanel({
             <DescriptionEditor
               value={descriptionValue}
               onCommit={commitDescription}
+              members={members}
             />
           )}
         </div>
@@ -431,6 +435,7 @@ export function TaskDetailPanel({
               onCommit={html => setCommentBody(html)}
               onSubmit={submitComment}
               clearRef={clearCommentRef}
+              members={members}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button
