@@ -125,6 +125,7 @@ export function TaskDetailPanel({
     teamIdentifier: initialTask.teamIdentifier,
   }))
   const { user } = useUser()
+  const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
   // ─── Sync external updates (e.g. drag-and-drop status change) ───────────────
   useEffect(() => {
@@ -353,7 +354,7 @@ export function TaskDetailPanel({
             <DescriptionEditor
               value={descriptionValue}
               onCommit={commitDescription}
-              members={members}
+              members={mentionableMembers}
             />
           )}
         </div>
@@ -435,7 +436,7 @@ export function TaskDetailPanel({
               onCommit={html => setCommentBody(html)}
               onSubmit={submitComment}
               clearRef={clearCommentRef}
-              members={members}
+              members={mentionableMembers}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button
