@@ -447,6 +447,12 @@ export function TaskDetailPanel({
               >
                 <Send size={12} />
                 Comment
+                <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                  {typeof navigator !== 'undefined' &&
+                  /Mac|iPhone|iPad/i.test(navigator.platform)
+                    ? '⌘↵'
+                    : 'Ctrl+↵'}
+                </kbd>
               </Button>
             </div>
           </div>
