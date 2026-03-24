@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { API } from '../../constants'
+import { LogoUploader } from '@/components/LogoUploader'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ interface Workspace {
   id: string
   name: string
   slug: string
+  logoUrl?: string | null
 }
 
 export function WorkspaceSettingsPage() {
@@ -133,14 +135,6 @@ export function WorkspaceSettingsPage() {
     }
   }
 
-  // ─── Avatar initials ──────────────────────────────────────────────────────
-  const initials = (workspace?.name ?? '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('')
-
   if (loading) {
     return (
       <div className='h-full flex items-center justify-center'>
@@ -168,9 +162,14 @@ export function WorkspaceSettingsPage() {
                 Recommended size is 256×256px
               </p>
             </div>
-            <div className='size-10 rounded-lg bg-zinc-800 dark:bg-zinc-700 flex items-center justify-center text-sm font-bold text-white shrink-0'>
-              {initials || '?'}
-            </div>
+            <LogoUploader
+              currentLogoUrl={workspace?.logoUrl}
+              workspaceName={workspace?.name ?? ''}
+              uploadUrl={API.workspaces.logo}
+              onUpload={url =>
+                setWorkspace(w => (w ? { ...w, logoUrl: url } : w))
+              }
+            />
           </div>
 
           {/* Name row */}
