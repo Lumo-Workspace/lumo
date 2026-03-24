@@ -270,6 +270,8 @@ export function InboxPage({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [panelTask, setPanelTask] = useState<ApiTask | null>(null)
   const [panelLoading, setPanelLoading] = useState(false)
+  const activeAbortRef = useRef<AbortController | null>(null)
+  const activeNotifIdRef = useRef<string | null>(null)
 
   // ─── Resizable divider ────────────────────────────────────────────────────
   const [leftWidth, setLeftWidth] = useState(384) // default w-96
@@ -342,37 +344,48 @@ export function InboxPage({
     return () => document.removeEventListener('keydown', handler)
   }, [selectedId, notifications, onMarkOneRead, onMarkOneUnread, onDeleteOne])
 
-  // Auto-select first notification when list loads
-  useEffect(() => {
-    if (notifications.length > 0 && selectedId === null) {
-      const first = notifications[0]
-      if (first) selectNotification(first)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notifications.length])
-
   const selectNotification = useCallback(
     async (n: ApiNotification) => {
+      // Cancel any in-flight fetch from the previous selection
+      activeAbortRef.current?.abort()
+      const controller = new AbortController()
+      activeAbortRef.current = controller
+      activeNotifIdRef.current = n.id
+
       setSelectedId(n.id)
+
       if (!n.taskId) {
         setPanelTask(null)
+        setPanelLoading(false)
         return
       }
-      // Show cached task immediately if available
+
+      // Show cached task immediately if available, otherwise clear + show spinner
       const cached = taskMap?.[n.taskId]
       if (cached) {
         setPanelTask(cached)
+        setPanelLoading(false)
       } else {
+        setPanelTask(null)
         setPanelLoading(true)
       }
+
       try {
-        const res = await fetch(API.tasks.byId(n.taskId))
+        const res = await fetch(API.tasks.byId(n.taskId), {
+          signal: controller.signal,
+        })
         if (!res.ok) return
         const { task } = (await res.json()) as { task: ApiTask }
+        // Ignore stale responses if the user has already moved on
+        if (activeNotifIdRef.current !== n.id) return
         setPanelTask(task)
         upsertTasks?.([task])
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
       } finally {
-        setPanelLoading(false)
+        if (activeNotifIdRef.current === n.id) {
+          setPanelLoading(false)
+        }
       }
     },
     [taskMap, upsertTasks]
@@ -484,7 +497,7 @@ export function InboxPage({
               key='loading'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0 } }}
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center'
             >
@@ -498,8 +511,8 @@ export function InboxPage({
               key={panelTask.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.1 }}
+              exit={{ opacity: 0, transition: { duration: 0 } }}
+              transition={{ duration: 0.12 }}
               className='absolute inset-0 flex flex-col'
             >
               <TaskDetailPanel
@@ -524,7 +537,7 @@ export function InboxPage({
               key='no-task'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0 } }}
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center text-zinc-400'
             >
@@ -535,7 +548,7 @@ export function InboxPage({
               key='empty'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0 } }}
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex flex-col items-center justify-center gap-3 pb-16'
             >
