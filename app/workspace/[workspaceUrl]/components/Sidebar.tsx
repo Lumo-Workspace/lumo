@@ -58,12 +58,15 @@ export function AppSidebar({
   const { signOut } = useClerk()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [workspaceName, setWorkspaceName] = useState<string>('')
+  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(API.workspaces.me)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.workspace?.name) setWorkspaceName(data.workspace.name)
+        if (data?.workspace?.logoUrl)
+          setWorkspaceLogoUrl(data.workspace.logoUrl)
       })
       .catch(() => {})
   }, [])
@@ -89,7 +92,13 @@ export function AppSidebar({
                   className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
                   tooltip={workspaceName || 'Workspace'}
                 >
-                  {user?.imageUrl ? (
+                  {workspaceLogoUrl ? (
+                    <img
+                      src={workspaceLogoUrl}
+                      alt={workspaceName}
+                      className='size-8 rounded-lg object-cover shrink-0'
+                    />
+                  ) : user?.imageUrl ? (
                     <img
                       src={user.imageUrl}
                       className='size-8 rounded-full object-cover shrink-0'
