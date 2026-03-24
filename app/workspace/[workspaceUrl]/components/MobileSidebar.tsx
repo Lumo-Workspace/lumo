@@ -42,12 +42,15 @@ export function MobileSidebar({
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [open, setOpen] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
+  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(API.workspaces.me)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.workspace?.name) setWorkspaceName(data.workspace.name)
+        if (data?.workspace?.logoUrl)
+          setWorkspaceLogoUrl(data.workspace.logoUrl)
       })
       .catch(() => {})
   }, [])
@@ -85,7 +88,13 @@ export function MobileSidebar({
             {/* Workspace / user header */}
             <div className='p-3 border-b border-sidebar-border'>
               <div className='flex items-center gap-3 px-2 py-2'>
-                {user?.imageUrl ? (
+                {workspaceLogoUrl ? (
+                  <img
+                    src={workspaceLogoUrl}
+                    alt={workspaceName}
+                    className='size-8 rounded-lg object-cover shrink-0'
+                  />
+                ) : user?.imageUrl ? (
                   <img
                     src={user.imageUrl}
                     className='size-8 rounded-full object-cover shrink-0'
