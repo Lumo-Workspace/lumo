@@ -23,7 +23,7 @@ const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 interface LogoUploaderProps {
   currentLogoUrl: string | null | undefined
   workspaceName: string
-  /** Called with the new public GCS URL after a successful upload. */
+  /** Called with the new public URL after a successful upload. */
   onUpload: (logoUrl: string) => void
   /** API endpoint — pass API.workspaces.logo */
   uploadUrl: string
@@ -90,15 +90,14 @@ export function LogoUploader({
     const img = imgRef.current
     if (!img || !crop || !srcUrl) return
 
-    // Draw the cropped region onto a canvas
+    // Draw the cropped region onto a canvas.
+    // crop is a PercentCrop (0–100), so convert directly via naturalWidth/naturalHeight.
     const canvas = document.createElement('canvas')
-    const scaleX = img.naturalWidth / img.width
-    const scaleY = img.naturalHeight / img.height
     const pixelCrop = {
-      x: (crop.x / 100) * img.width * scaleX,
-      y: (crop.y / 100) * img.height * scaleY,
-      width: (crop.width / 100) * img.width * scaleX,
-      height: (crop.height / 100) * img.height * scaleY,
+      x: (crop.x / 100) * img.naturalWidth,
+      y: (crop.y / 100) * img.naturalHeight,
+      width: (crop.width / 100) * img.naturalWidth,
+      height: (crop.height / 100) * img.naturalHeight,
     }
     const size = Math.min(pixelCrop.width, pixelCrop.height, 512)
     canvas.width = size
@@ -183,7 +182,7 @@ export function LogoUploader({
             <img
               src={currentLogoUrl}
               alt={workspaceName}
-              className='size-full object-cover'
+              className='size-full object-contain'
             />
           ) : (
             <div className='size-full bg-zinc-800 dark:bg-zinc-700 flex items-center justify-center text-sm font-bold text-white'>
@@ -213,7 +212,7 @@ export function LogoUploader({
             <div className='flex justify-center'>
               <ReactCrop
                 {...(crop !== undefined ? { crop } : {})}
-                onChange={c => setCrop(c)}
+                onChange={(_, percentCrop) => setCrop(percentCrop)}
                 aspect={1}
                 circularCrop={false}
               >

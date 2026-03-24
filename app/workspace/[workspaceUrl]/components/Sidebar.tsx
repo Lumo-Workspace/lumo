@@ -96,7 +96,7 @@ export function AppSidebar({
                     <img
                       src={workspaceLogoUrl}
                       alt={workspaceName}
-                      className='size-8 rounded-lg object-cover shrink-0'
+                      className='size-8 rounded-lg object-contain shrink-0'
                     />
                   ) : user?.imageUrl ? (
                     <img

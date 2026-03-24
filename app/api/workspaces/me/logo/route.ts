@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { put, del } from '@vercel/blob'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { logoBucket } from '@/lib/gcs'
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -15,7 +15,7 @@ function extFromMime(mime: string): string {
 /**
  * POST /api/workspaces/me/logo
  * Accepts multipart/form-data with a "file" field.
- * Deletes the previous logo from GCS (if any), uploads the new one, updates the DB.
+ * Deletes the previous logo from Vercel Blob (if any), uploads the new one, updates the DB.
  * Caller must be workspace OWNER.
  */
 export async function POST(request: NextRequest) {
@@ -56,39 +56,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Delete old GCS object ─────────────────────────────────────────────────
+    // ── Delete old blob ───────────────────────────────────────────────────────
     const oldLogoUrl = ws.workspace.logoUrl
     if (oldLogoUrl) {
       try {
-        const bucketName = process.env.GCS_BUCKET!
-        const prefix = `https://storage.googleapis.com/${bucketName}/`
-        if (oldLogoUrl.startsWith(prefix)) {
-          const objectPath = oldLogoUrl.slice(prefix.length)
-          await logoBucket.file(objectPath).delete()
-        }
+        await del(oldLogoUrl)
       } catch {
-        // Ignore — file may already be gone
+        // Ignore — blob may already be gone
       }
     }
 
-    // ── Upload new object ─────────────────────────────────────────────────────
+    // ── Upload new blob ───────────────────────────────────────────────────────
     const ext = extFromMime(file.type)
-    const objectPath = `workspaces/${ws.workspaceId}/logo-${Date.now()}.${ext}`
-    const gcFile = logoBucket.file(objectPath)
+    const pathname = `workspaces/${ws.workspaceId}/logo-${Date.now()}.${ext}`
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await gcFile.save(buffer, { contentType: file.type })
-    await gcFile.makePublic()
-
-    const logoUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET}/${objectPath}`
+    const blob = await put(pathname, file, {
+      access: 'public',
+      contentType: file.type,
+    })
 
     // ── Persist ───────────────────────────────────────────────────────────────
     await prisma.workspace.update({
       where: { id: ws.workspaceId },
-      data: { logoUrl },
+      data: { logoUrl: blob.url },
     })
 
-    return NextResponse.json({ logoUrl })
+    return NextResponse.json({ logoUrl: blob.url })
   } catch (error) {
     console.error('POST /api/workspaces/me/logo error:', error)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
