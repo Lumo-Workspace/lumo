@@ -130,21 +130,25 @@
 }
 
 /* ── Mention chip ────────────────────────────────────────────────────────── */
-.mention {
+.mention,
+.prose .mention,
+.ProseMirror .mention {
   display: inline-flex;
   align-items: center;
   padding: 0 4px;
   border-radius: 4px;
   font-size: 0.875em;
   font-weight: 500;
-  background-color: color-mix(in srgb, #6366f1 15%, transparent);
-  color: #6366f1;
+  background-color: #e4e4e7;
+  color: #3f3f46 !important;
   cursor: default;
   white-space: nowrap;
 }
-.dark .mention {
-  background-color: color-mix(in srgb, #818cf8 15%, transparent);
-  color: #818cf8;
+.dark .mention,
+.dark .prose .mention,
+.dark .ProseMirror .mention {
+  background-color: #3f3f46;
+  color: #d4d4d8 !important;
 }
 
 /* ── Design tokens ───────────────────────────────────────────────────────── */
