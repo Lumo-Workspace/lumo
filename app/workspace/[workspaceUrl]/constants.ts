@@ -5,6 +5,8 @@ export const API = {
     me: '/api/tasks/me',
     byId: (id: string) => `/api/tasks/${id}`,
     comments: (taskId: string) => `/api/tasks/${taskId}/comments`,
+    comment: (taskId: string, commentId: string) =>
+      `/api/tasks/${taskId}/comments/${commentId}`,
   },
   projects: {
     list: '/api/projects',

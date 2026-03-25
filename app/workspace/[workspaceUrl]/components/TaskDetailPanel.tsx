@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Send } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { Send, Pencil, Trash2 } from 'lucide-react'
+import { formatTimestamp } from '../utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -27,6 +27,21 @@ import {
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import { useUser } from '@clerk/nextjs'
@@ -173,6 +188,14 @@ export function TaskDetailPanel({
   const [commentBody, setCommentBody] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const clearCommentRef = useRef<(() => void) | null>(null)
+  // ─── Comment edit / delete ─────────────────────────────────────────────────
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentBody, setEditCommentBody] = useState<string | null>(null)
+  const [savingComment, setSavingComment] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+    null
+  )
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // ─── Description ────────────────────────────────────────────────────────────
   const hasCached = cachedDescription !== undefined
@@ -298,6 +321,57 @@ export function TaskDetailPanel({
     }
   }, [commentBody, submitting, task.id, user?.id])
 
+  const saveEditComment = useCallback(
+    async (commentId: string) => {
+      const body = editCommentBody?.trim()
+      if (!body || savingComment) return
+      setSavingComment(true)
+      try {
+        const res = await fetch(API.tasks.comment(task.id, commentId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body }),
+        })
+        if (!res.ok) throw new Error()
+        const { comment } = (await res.json()) as { comment: ApiComment }
+        setComments(prev => {
+          const next = prev.map(c => (c.id === commentId ? comment : c))
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+        setEditingCommentId(null)
+        setEditCommentBody(null)
+      } catch {
+        // keep editing state so the user can retry
+      } finally {
+        setSavingComment(false)
+      }
+    },
+    [editCommentBody, savingComment, task.id]
+  )
+
+  const deleteComment = useCallback(
+    async (commentId: string) => {
+      setDeletingCommentId(commentId)
+      try {
+        const res = await fetch(API.tasks.comment(task.id, commentId), {
+          method: 'DELETE',
+        })
+        if (!res.ok) throw new Error()
+        setComments(prev => {
+          const next = prev.filter(c => c.id !== commentId)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } catch {
+        // silently keep the comment on failure
+      } finally {
+        setDeletingCommentId(null)
+      }
+    },
+    [task.id]
+  )
+
   return (
     <div className='flex-1 overflow-y-auto px-5 py-4'>
       <div className='space-y-1'>
@@ -410,8 +484,15 @@ export function TaskDetailPanel({
                 .join('')
                 .slice(0, 2)
                 .toUpperCase()
+              const isAuthor = comment.authorId === user?.id
+              const isEditing = editingCommentId === comment.id
+              const isDeleting = deletingCommentId === comment.id
+              const wasEdited =
+                new Date(comment.updatedAt).getTime() -
+                  new Date(comment.createdAt).getTime() >
+                1000
               return (
-                <div key={comment.id} className='flex gap-2.5'>
+                <div key={comment.id} className='group flex gap-2.5'>
                   <Avatar className='size-7 shrink-0 mt-0.5'>
                     <AvatarImage src={author?.imageUrl ?? undefined} />
                     <AvatarFallback className='text-[10px]'>
@@ -419,21 +500,112 @@ export function TaskDetailPanel({
                     </AvatarFallback>
                   </Avatar>
                   <div className='flex-1 min-w-0'>
-                    <div className='flex items-baseline gap-2 mb-1'>
+                    <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
                       <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
                         {name}
                       </span>
                       <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                        {formatDistanceToNow(new Date(comment.createdAt), {
-                          addSuffix: true,
-                        })}
+                        {formatTimestamp(comment.createdAt)}
+                        {wasEdited && ' · edited'}
                       </span>
                     </div>
-                    <div
-                      className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
-                      dangerouslySetInnerHTML={{ __html: comment.body }}
-                    />
+
+                    {isEditing ? (
+                      <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                        <div
+                          className='px-3 pt-2 pb-1 text-sm'
+                          onKeyDown={e => {
+                            const isMac = /Mac|iPhone|iPad/i.test(
+                              navigator.platform
+                            )
+                            if (
+                              (isMac ? e.metaKey : e.ctrlKey) &&
+                              e.key === 'Enter'
+                            ) {
+                              e.preventDefault()
+                              saveEditComment(comment.id)
+                            }
+                            if (e.key === 'Escape') {
+                              setEditingCommentId(null)
+                              setEditCommentBody(null)
+                            }
+                          }}
+                        >
+                          <DescriptionEditor
+                            key={`edit-${comment.id}`}
+                            value={comment.body}
+                            onCommit={html => setEditCommentBody(html)}
+                            onChange={html => setEditCommentBody(html)}
+                            placeholder='Edit comment…'
+                            members={mentionableMembers}
+                            tasks={tasks}
+                          />
+                        </div>
+                        <div className='flex justify-end gap-2 px-2 pb-2'>
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            className='h-7 text-xs'
+                            onClick={() => {
+                              setEditingCommentId(null)
+                              setEditCommentBody(null)
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size='sm'
+                            className='h-7 text-xs'
+                            disabled={!editCommentBody?.trim() || savingComment}
+                            onClick={() => saveEditComment(comment.id)}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                        dangerouslySetInnerHTML={{ __html: comment.body }}
+                      />
+                    )}
                   </div>
+
+                  {/* Edit / delete — author only, visible on hover */}
+                  {isAuthor && !isEditing && (
+                    <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                            onClick={() => {
+                              setEditingCommentId(comment.id)
+                              setEditCommentBody(comment.body)
+                            }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                            disabled={isDeleting}
+                            onClick={() => setConfirmDeleteId(comment.id)}
+                          >
+                            {isDeleting ? (
+                              <Spinner className='size-3 text-zinc-400' />
+                            ) : (
+                              <Trash2 size={12} />
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -480,6 +652,45 @@ export function TaskDetailPanel({
           </div>
         </div>
       </div>
+
+      {/* Delete-comment confirmation dialog */}
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={open => {
+          if (!open) setConfirmDeleteId(null)
+        }}
+      >
+        <AlertDialogContent
+          className='max-w-xs'
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (confirmDeleteId) deleteComment(confirmDeleteId)
+              setConfirmDeleteId(null)
+            }
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              onClick={() => {
+                if (confirmDeleteId) deleteComment(confirmDeleteId)
+                setConfirmDeleteId(null)
+              }}
+            >
+              Delete
+              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -110,6 +110,10 @@ export const createCommentSchema = z.object({
   body: z.string().min(1, 'Comment cannot be empty').max(5000),
 })
 
+export const updateCommentSchema = z.object({
+  body: z.string().min(1, 'Comment cannot be empty').max(5000),
+})
+
 // ─── Invites ─────────────────────────────────────────────────────────────────
 
 export const sendInvitesSchema = z.object({

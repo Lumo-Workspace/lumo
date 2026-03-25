@@ -28,6 +28,53 @@ export function flattenTasks(
   return result
 }
 
+/**
+ * Format a timestamp according to the app's display rules:
+ *  < 1 min         → "just now"
+ *  1–59 min        → "23m ago"
+ *  same day        → "Today 2:23 PM"
+ *  yesterday       → "Yesterday"
+ *  this year       → "Mar 21"
+ *  older           → "Mar 21, 2025"
+ */
+export function formatTimestamp(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffMs / 60000)
+
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+
+  const sameDate = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+
+  if (sameDate(d, now)) {
+    return `Today ${d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })}`
+  }
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (sameDate(d, yesterday)) return 'Yesterday'
+
+  if (d.getFullYear() === now.getFullYear()) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 export const API_STATUS_LABEL: Record<string, string> = {
   TODO: 'Todo',
   IN_PROGRESS: 'In Progress',
