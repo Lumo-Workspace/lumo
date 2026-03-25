@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "lumo": {
+      "command": "npx",
+      "args": ["tsx", "mcp/server.ts"],
+      "cwd": "/Users/chaoli/Desktop/lumo/lumo",
+      "env": {
+        "MCP_WORKSPACE_ID": "cmn3of8v8000pngjpuam99zjj",
+        "MCP_MEMBER_ID": "cmn3of93f000rngjp5l6tzpr8"
+      }
+    }
+  }
+}
