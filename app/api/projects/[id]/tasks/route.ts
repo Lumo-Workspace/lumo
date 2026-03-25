@@ -114,7 +114,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const project = await prisma.project.findUnique({ where: { id } })
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: { defaultReviewer: { select: { id: true } } },
+    })
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
@@ -201,6 +204,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           status,
           priority,
           assigneeId: assigneeId ?? null,
+          reviewerId: project.defaultReviewer?.id ?? null,
           parentTaskId: parentTaskId ?? null,
           order: taskOrder,
         },

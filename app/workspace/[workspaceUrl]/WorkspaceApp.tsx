@@ -187,6 +187,7 @@ export default function DashboardApp() {
         title: string
         status: ApiStatus
         assigneeId: string | null
+        reviewerId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -348,6 +349,7 @@ export default function DashboardApp() {
         name,
         description: description.trim() || null,
         isIdea: false,
+        defaultReviewerId: null,
         createdAt: now,
         updatedAt: now,
         _count: { tasks: 0 },
@@ -408,6 +410,7 @@ export default function DashboardApp() {
         projectId,
         parentTaskId: null,
         assigneeId: assigneeId ?? null,
+        reviewerId: project?.defaultReviewerId ?? null,
         updatedAt: now,
         viewOrder: null,
         number: 0,
@@ -517,7 +520,14 @@ export default function DashboardApp() {
   )
 
   const handleUpdateProject = useCallback(
-    async (id: string, data: { name?: string; description?: string }) => {
+    async (
+      id: string,
+      data: {
+        name?: string
+        description?: string
+        defaultReviewerId?: string | null
+      }
+    ) => {
       const res = await fetch(API.projects.byId(id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

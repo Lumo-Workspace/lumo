@@ -84,8 +84,24 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const data: Record<string, unknown> = {}
     if (parsed.data.name !== undefined) data.name = parsed.data.name
-    if (parsed.data.description !== undefined) data.description = parsed.data.description
+    if (parsed.data.description !== undefined)
+      data.description = parsed.data.description
     if (parsed.data.isIdea !== undefined) data.isIdea = parsed.data.isIdea
+    if (parsed.data.defaultReviewerId !== undefined) {
+      // Validate reviewer belongs to this workspace
+      if (parsed.data.defaultReviewerId !== null) {
+        const reviewer = await prisma.workspaceMember.findUnique({
+          where: { id: parsed.data.defaultReviewerId },
+        })
+        if (!reviewer || reviewer.workspaceId !== project.workspaceId) {
+          return NextResponse.json(
+            { error: 'Reviewer is not a member of this workspace' },
+            { status: 400 }
+          )
+        }
+      }
+      data.defaultReviewerId = parsed.data.defaultReviewerId
+    }
 
     const updated = await prisma.project.update({ where: { id }, data })
 

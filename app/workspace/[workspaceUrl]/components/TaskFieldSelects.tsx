@@ -2,6 +2,7 @@
 
 import {
   UserCircle2,
+  Eye,
   BatteryWarning,
   BatteryFull,
   BatteryMedium,
@@ -14,6 +15,11 @@ import {
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { StatusIcon } from './StatusIcon'
 import {
   ApiProject,
@@ -132,12 +138,17 @@ export function StatusSelect({
 }) {
   return (
     <Select value={value} onValueChange={v => onChange(v as ApiStatus)}>
-      <SelectTrigger className={triggerClassName}>
-        <div className='flex items-center gap-1.5'>
-          <StatusIcon status={value} />
-          <span>{API_STATUS_LABEL[value]}</span>
-        </div>
-      </SelectTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SelectTrigger className={triggerClassName}>
+            <div className='flex items-center gap-1.5'>
+              <StatusIcon status={value} />
+              <span>{API_STATUS_LABEL[value]}</span>
+            </div>
+          </SelectTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Status</TooltipContent>
+      </Tooltip>
       <SelectContent>
         {(Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]).map(
           ([val, label]) => (
@@ -173,24 +184,99 @@ export function AssigneeSelect({
       value={value ?? '__unassigned__'}
       onValueChange={v => onChange(v === '__unassigned__' ? null : v)}
     >
-      <SelectTrigger className={triggerClassName}>
-        {assignee ? (
-          <div className='flex items-center gap-1.5'>
-            <MemberAvatar member={assignee} size='xs' />
-            <span>{assignee.name}</span>
-          </div>
-        ) : (
-          <div className='flex items-center gap-1.5 text-zinc-400'>
-            <UserCircle2 size={16} />
-            <span>No assignee</span>
-          </div>
-        )}
-      </SelectTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SelectTrigger className={triggerClassName}>
+            {assignee ? (
+              <div className='flex items-center gap-1.5'>
+                <MemberAvatar member={assignee} size='xs' />
+                <span>{assignee.name}</span>
+              </div>
+            ) : (
+              <div className='flex items-center gap-1.5 text-zinc-400'>
+                <UserCircle2 size={16} />
+                <span>No assignee</span>
+              </div>
+            )}
+          </SelectTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Assignee</TooltipContent>
+      </Tooltip>
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
             <UserCircle2 size={16} className='text-zinc-400 shrink-0' />
             <span className='text-zinc-400'>No assignee</span>
+          </div>
+        </SelectItem>
+        {members.map(m => (
+          <SelectItem key={m.id} value={m.id}>
+            <div className='flex items-center gap-2'>
+              <MemberAvatar member={m} size='xs' />
+              {m.name}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ─── ReviewerSelect ───────────────────────────────────────────────────────────
+
+export function ReviewerSelect({
+  value,
+  onChange,
+  members,
+  inheritedId,
+  triggerClassName,
+}: {
+  value: string | null
+  onChange: (v: string | null) => void
+  members: WorkspaceMemberInfo[]
+  /** The project-level default reviewer ID — used to show "inherited" state */
+  inheritedId?: string | null
+  triggerClassName?: string
+}) {
+  const reviewer = members.find(m => m.id === value)
+  const inherited =
+    !value && inheritedId ? members.find(m => m.id === inheritedId) : null
+
+  return (
+    <Select
+      value={value ?? '__unassigned__'}
+      onValueChange={v => onChange(v === '__unassigned__' ? null : v)}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SelectTrigger className={triggerClassName}>
+            {reviewer ? (
+              <div className='flex items-center gap-1.5'>
+                <MemberAvatar member={reviewer} size='xs' />
+                <span>{reviewer.name}</span>
+              </div>
+            ) : inherited ? (
+              <div className='flex items-center gap-1.5 text-zinc-400'>
+                <MemberAvatar member={inherited} size='xs' />
+                <span className='italic'>{inherited.name}</span>
+              </div>
+            ) : (
+              <div className='flex items-center gap-1.5 text-zinc-400'>
+                <Eye size={14} />
+                <span>No reviewer</span>
+              </div>
+            )}
+          </SelectTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          Reviewer — notified when task moves to In Review
+        </TooltipContent>
+      </Tooltip>
+      <SelectContent>
+        <SelectItem value='__unassigned__'>
+          <div className='flex items-center gap-2'>
+            <Eye size={14} className='text-zinc-400 shrink-0' />
+            <span className='text-zinc-400'>No reviewer</span>
           </div>
         </SelectItem>
         {members.map(m => (
@@ -220,12 +306,17 @@ export function PrioritySelect({
   const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
   return (
     <Select value={value} onValueChange={v => onChange(v as ApiPriority)}>
-      <SelectTrigger className={triggerClassName}>
-        <div className='flex items-center gap-1.5'>
-          <PriorityIcon priority={value} />
-          <span>{label}</span>
-        </div>
-      </SelectTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SelectTrigger className={triggerClassName}>
+            <div className='flex items-center gap-1.5'>
+              <PriorityIcon priority={value} />
+              <span>{label}</span>
+            </div>
+          </SelectTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Priority</TooltipContent>
+      </Tooltip>
       <SelectContent>
         {(
           Object.entries(PRIORITY_CONFIG) as [
@@ -265,13 +356,18 @@ export function ProjectSelect({
   const project = projects.find(p => p.id === value)
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={triggerClassName}>
-        {project ? (
-          <span>{project.name}</span>
-        ) : (
-          <span className='text-zinc-400'>{placeholder}</span>
-        )}
-      </SelectTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SelectTrigger className={triggerClassName}>
+            {project ? (
+              <span>{project.name}</span>
+            ) : (
+              <span className='text-zinc-400'>{placeholder}</span>
+            )}
+          </SelectTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Project</TooltipContent>
+      </Tooltip>
       <SelectContent>
         {projects.length === 0 ? (
           <SelectItem value='__empty__' disabled>

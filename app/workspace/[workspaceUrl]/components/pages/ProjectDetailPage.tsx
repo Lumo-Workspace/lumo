@@ -24,6 +24,12 @@ import {
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
+import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -80,7 +86,11 @@ interface ProjectDetailPageProps {
   ) => void
   onUpdateProject: (
     id: string,
-    data: { name?: string; description?: string }
+    data: {
+      name?: string
+      description?: string
+      defaultReviewerId?: string | null
+    }
   ) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
@@ -242,6 +252,30 @@ export function ProjectDetailPage({
                 {project.name}
               </TypographyH3>
               {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+            </div>
+
+            {/* Default reviewer */}
+            <div className='flex items-center gap-1.5 mt-1 -ml-2'>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className='text-xs text-zinc-400 pl-2 cursor-default'>
+                    Reviewer
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side='bottom'>
+                  Notified when a task moves to In Review.
+                  <br />
+                  Can be overridden per task in the task detail.
+                </TooltipContent>
+              </Tooltip>
+              <ReviewerSelect
+                value={project.defaultReviewerId ?? null}
+                onChange={v =>
+                  onUpdateProject(project.id, { defaultReviewerId: v })
+                }
+                members={members}
+                triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-6 text-xs')}
+              />
             </div>
 
             {/* Inline description editor — always a textarea to avoid layout shift */}

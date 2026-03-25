@@ -70,6 +70,7 @@ export interface ApiProject {
   name: string
   description: string | null
   isIdea: boolean
+  defaultReviewerId: string | null
   updatedAt: string
   createdAt: string
   _count: { tasks: number }
@@ -85,6 +86,7 @@ export interface ApiTask {
   projectId: string
   parentTaskId: string | null
   assigneeId: string | null
+  reviewerId: string | null
   updatedAt: string
   viewOrder: number | null
   number: number
@@ -126,9 +128,10 @@ export interface TaskDetail {
   status: ApiStatus
   priority: ApiPriority
   projectId: string
-  project: { id: string; name: string }
+  project: { id: string; name: string; defaultReviewerId?: string | null }
   parentTaskId: string | null
   assigneeId: string | null
+  reviewerId: string | null
   assignee: { id: string; clerkId: string } | null
   description: string | null
   updatedAt: string

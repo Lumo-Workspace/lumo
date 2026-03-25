@@ -61,6 +61,7 @@ export const updateProjectSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
   isIdea: z.boolean().optional(),
+  defaultReviewerId: z.string().nullable().optional(),
 })
 
 // ─── Task ───────────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ export const updateTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assigneeId: z.string().nullable().optional(),
+  reviewerId: z.string().nullable().optional(),
   projectId: z.string().optional(),
   parentTaskId: z.string().nullable().optional(),
   order: z.number().optional(),

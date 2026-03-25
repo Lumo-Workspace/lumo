@@ -20,6 +20,7 @@ import { TypographyH3 } from '@/components/ui/typography'
 import {
   StatusSelect,
   AssigneeSelect,
+  ReviewerSelect,
   ProjectSelect,
   PrioritySelect,
   SeparatorDot,
@@ -90,6 +91,7 @@ export interface TaskDetailPanelProps {
       title: string
       status: ApiStatus
       assigneeId: string | null
+      reviewerId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority
@@ -123,6 +125,7 @@ export function TaskDetailPanel({
         : { id: initialTask.projectId, name: '' },
     parentTaskId: initialTask.parentTaskId,
     assigneeId: initialTask.assigneeId,
+    reviewerId: initialTask.reviewerId,
     assignee: null,
     description: cachedDescription ?? null,
     updatedAt: initialTask.updatedAt,
@@ -141,6 +144,7 @@ export function TaskDetailPanel({
         prev.status === liveTask.status &&
         prev.priority === liveTask.priority &&
         prev.assigneeId === liveTask.assigneeId &&
+        prev.reviewerId === liveTask.reviewerId &&
         prev.projectId === liveTask.projectId
       )
         return prev
@@ -150,6 +154,7 @@ export function TaskDetailPanel({
         status: liveTask.status,
         priority: liveTask.priority,
         assigneeId: liveTask.assigneeId,
+        reviewerId: liveTask.reviewerId,
         projectId: liveTask.projectId,
       }
     })
@@ -194,6 +199,7 @@ export function TaskDetailPanel({
             ...prev,
             description: t.description,
             project: t.project,
+            reviewerId: t.reviewerId,
             number: t.number,
             teamIdentifier: t.teamIdentifier,
           }))
@@ -220,6 +226,7 @@ export function TaskDetailPanel({
         title: string
         status: ApiStatus
         assigneeId: string | null
+        reviewerId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -322,7 +329,7 @@ export function TaskDetailPanel({
           {task.title}
         </TypographyH3>
 
-        {/* Status · Assignee · Project · Priority */}
+        {/* Status · Assignee · Reviewer · Project · Priority */}
         <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
           <StatusSelect
             value={task.status}
@@ -334,6 +341,14 @@ export function TaskDetailPanel({
             value={task.assigneeId ?? null}
             onChange={v => handlePatch({ assigneeId: v })}
             members={members}
+            triggerClassName={FIELD_TRIGGER_CLS}
+          />
+          <SeparatorDot />
+          <ReviewerSelect
+            value={task.reviewerId ?? null}
+            onChange={v => handlePatch({ reviewerId: v })}
+            members={members}
+            inheritedId={task.project.defaultReviewerId ?? null}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
           <SeparatorDot />

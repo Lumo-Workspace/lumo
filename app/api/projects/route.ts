@@ -39,6 +39,8 @@ export async function GET() {
       orderBy: { updatedAt: 'desc' },
     })
 
+    // defaultReviewerId is already in the project rows — no extra query needed
+
     // Shape response: replace raw tasks array with inProgressCount
     const shaped = projects.map(({ tasks, ...p }) => ({
       ...p,

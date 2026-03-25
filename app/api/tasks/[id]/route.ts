@@ -38,7 +38,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const task = await prisma.task.findUnique({
       where: { id },
       include: {
-        project: { select: { id: true, name: true, workspaceId: true } },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            workspaceId: true,
+            defaultReviewerId: true,
+          },
+        },
         team: { select: { identifier: true } },
         assignee: { select: { id: true, clerkId: true } },
       },
@@ -77,7 +84,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { project: true, team: { select: { identifier: true } } },
+      include: {
+        project: {
+          include: { defaultReviewer: { select: { id: true, clerkId: true } } },
+        },
+        team: { select: { identifier: true } },
+      },
     })
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -98,7 +110,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       )
     }
 
-    const { parentTaskId, assigneeId, projectId, ...rest } = parsed.data
+    const { parentTaskId, assigneeId, reviewerId, projectId, ...rest } =
+      parsed.data
 
     // Validate parentTaskId change
     if (parentTaskId !== undefined) {
@@ -158,6 +171,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
+    // Validate reviewerId belongs to the same workspace
+    if (reviewerId !== undefined && reviewerId !== null) {
+      const reviewer = await prisma.workspaceMember.findUnique({
+        where: { id: reviewerId },
+      })
+      if (!reviewer || reviewer.workspaceId !== task.project.workspaceId) {
+        return NextResponse.json(
+          { error: 'Reviewer is not a member of this workspace' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Build update data explicitly to satisfy exactOptionalPropertyTypes
     const data: Record<string, unknown> = {}
     if (rest.title !== undefined) data.title = rest.title
@@ -167,6 +193,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.order !== undefined) data.order = rest.order
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
     if (assigneeId !== undefined) data.assigneeId = assigneeId
+    if (reviewerId !== undefined) data.reviewerId = reviewerId
     if (projectId !== undefined) data.projectId = projectId
 
     const updated = await prisma.task.update({
@@ -182,28 +209,59 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
-      // Notify all OWNERs (except the actor) that a task needs review
-      prisma.workspaceMember
-        .findMany({
-          where: { workspaceId, role: 'OWNER' },
-          select: { clerkId: true },
-        })
-        .then(owners => {
-          const recipients = owners
-            .map(o => o.clerkId)
-            .filter(c => c !== userId)
-          if (recipients.length === 0) return
-          return prisma.notification.createMany({
-            data: recipients.map(recipientId => ({
-              workspaceId,
-              recipientId,
-              type: 'TASK_IN_REVIEW' as const,
-              taskId: id,
-              actorId: userId,
-            })),
+      // Resolve reviewer: task-level → project default → workspace owners
+      const effectiveReviewerId =
+        updated.reviewerId ?? task.project.defaultReviewerId ?? null
+
+      if (effectiveReviewerId) {
+        // Notify the specific reviewer
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: effectiveReviewerId },
+            select: { clerkId: true },
           })
-        })
-        .catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+          .then(reviewer => {
+            if (!reviewer || reviewer.clerkId === userId) return
+            return prisma.notification.create({
+              data: {
+                workspaceId,
+                recipientId: reviewer.clerkId,
+                type: 'TASK_IN_REVIEW' as const,
+                taskId: id,
+                actorId: userId,
+              },
+            })
+          })
+          .catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+      } else {
+        // Fallback: notify all workspace owners
+        prisma.workspaceMember
+          .findMany({
+            where: { workspaceId, role: 'OWNER' },
+            select: { clerkId: true },
+          })
+          .then(owners => {
+            const recipients = owners
+              .map(o => o.clerkId)
+              .filter(c => c !== userId)
+            if (recipients.length === 0) return
+            return prisma.notification.createMany({
+              data: recipients.map(recipientId => ({
+                workspaceId,
+                recipientId,
+                type: 'TASK_IN_REVIEW' as const,
+                taskId: id,
+                actorId: userId,
+              })),
+            })
+          })
+          .catch(err =>
+            console.error(
+              '[notify] TASK_IN_REVIEW (owners fallback) failed:',
+              err
+            )
+          )
+      }
     }
 
     if (
