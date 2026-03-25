@@ -254,15 +254,17 @@ export function ProjectDetailPage({
               {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
             </div>
 
-            {/* Default reviewer */}
+            {/* Default lead (project-level reviewer) */}
             <div className='flex items-center gap-1.5 mt-1 -ml-2'>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className='text-xs text-zinc-400 pl-2 cursor-default'>
-                    Reviewer
+                    Lead
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side='bottom'>
+                  Default reviewer for all tasks in this project.
+                  <br />
                   Notified when a task moves to In Review.
                   <br />
                   Can be overridden per task in the task detail.
