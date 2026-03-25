@@ -61,13 +61,18 @@ export function AppSidebar({
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { isMobile } = useSidebar()
 
-  const cached = readCache<{ name?: string; logoUrl?: string | null }>(
-    CACHE_KEY.workspace
-  )
-  const [workspaceName, setWorkspaceName] = useState<string>(cached?.name ?? '')
-  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(
-    cached?.logoUrl ?? null
-  )
+  const [workspaceName, setWorkspaceName] = useState<string>('')
+  const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Hydrate from localStorage on client only (avoids SSR mismatch)
+    const cached = readCache<{ name?: string; logoUrl?: string | null }>(
+      CACHE_KEY.workspace
+    )
+    if (cached?.name) setWorkspaceName(cached.name)
+    if (cached?.logoUrl !== undefined)
+      setWorkspaceLogoUrl(cached.logoUrl ?? null)
+  }, [])
 
   useEffect(() => {
     fetch(API.workspaces.me)
