@@ -11,6 +11,10 @@ import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import Mention from '@tiptap/extension-mention'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableHeader } from '@tiptap/extension-table-header'
+import { TableCell } from '@tiptap/extension-table-cell'
 import { mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
@@ -96,6 +100,8 @@ import {
   ChevronDown,
   Link2,
   Link2Off,
+  Table2,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -241,6 +247,7 @@ function BubbleMenuBar({
       isBulletList: ctx.editor.isActive('bulletList'),
       isOrderedList: ctx.editor.isActive('orderedList'),
       isTaskList: ctx.editor.isActive('taskList'),
+      isTable: ctx.editor.isActive('table'),
       isParagraph: ctx.editor.isActive('paragraph'),
       isH1: ctx.editor.isActive('heading', { level: 1 }),
       isH2: ctx.editor.isActive('heading', { level: 2 }),
@@ -287,6 +294,63 @@ function BubbleMenuBar({
   ]
   const activeStyle =
     TEXT_STYLES.find((_, i) => activeFlags[i]) ?? TEXT_STYLES[0]!
+
+  // Table context toolbar — shown whenever cursor is inside a table
+  if (state.isTable) {
+    return (
+      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().addRowBefore().run()}
+          title='Add row above'
+        >
+          <span className='text-[10px] font-semibold leading-none'>↑</span>
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().addRowAfter().run()}
+          title='Add row below'
+        >
+          <span className='text-[10px] font-semibold leading-none'>↓</span>
+        </ToolbarButton>
+        <Divider />
+        <ToolbarButton
+          onClick={() => editor.chain().focus().addColumnBefore().run()}
+          title='Add column left'
+        >
+          <span className='text-[10px] font-semibold leading-none'>←</span>
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().addColumnAfter().run()}
+          title='Add column right'
+        >
+          <span className='text-[10px] font-semibold leading-none'>→</span>
+        </ToolbarButton>
+        <Divider />
+        <ToolbarButton
+          onClick={() => editor.chain().focus().deleteRow().run()}
+          title='Delete row'
+        >
+          <span className='text-[10px] font-semibold leading-none text-zinc-500'>
+            −R
+          </span>
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().deleteColumn().run()}
+          title='Delete column'
+        >
+          <span className='text-[10px] font-semibold leading-none text-zinc-500'>
+            −C
+          </span>
+        </ToolbarButton>
+        <Divider />
+        <ToolbarButton
+          onClick={() => editor.chain().focus().deleteTable().run()}
+          title='Delete table'
+        >
+          <Trash2 size={13} />
+        </ToolbarButton>
+      </div>
+    )
+  }
 
   // Link URL input panel
   if (linkOpen) {
@@ -515,6 +579,22 @@ function BubbleMenuBar({
           </div>
         )}
       </div>
+
+      <Divider />
+
+      {/* Insert table */}
+      <ToolbarButton
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run()
+        }
+        title='Insert table'
+      >
+        <Table2 size={14} />
+      </ToolbarButton>
     </div>
   )
 }
@@ -558,6 +638,10 @@ export function DescriptionEditor({
       Link.configure({ openOnClick: false, autolink: true }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Placeholder.configure({ placeholder }),
       MentionWithType.configure({
         suggestion: buildMentionSuggestion(
@@ -573,12 +657,12 @@ export function DescriptionEditor({
         ? [
             BubbleMenu.configure({
               element: menuElement,
-              // Only show for non-empty text selections
               shouldShow: ({ editor, state }) => {
-                const { selection } = state
-                const { empty } = selection
-                if (empty) return false
-                return editor.isEditable
+                if (!editor.isEditable) return false
+                // Always show when cursor is inside a table (for table ops)
+                if (editor.isActive('table')) return true
+                // Otherwise only show for non-empty text selections
+                return !state.selection.empty
               },
             }),
           ]
