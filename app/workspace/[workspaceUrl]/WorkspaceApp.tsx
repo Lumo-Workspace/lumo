@@ -674,28 +674,43 @@ export default function DashboardApp() {
 
         <AnimatePresence>
           {selectedTask && (
-            <TaskDrawer
-              initialTask={selectedTask}
-              {...(taskMap[selectedTask.id]
-                ? { liveTask: taskMap[selectedTask.id] }
-                : {})}
-              cachedDescription={
-                descriptionCache.current.has(selectedTask.id)
-                  ? descriptionCache.current.get(selectedTask.id)
-                  : readCache<{ desc: string | null }>(
-                      CACHE_KEY.description(selectedTask.id)
-                    )?.desc
-              }
-              onClose={handleCloseTask}
-              members={members}
-              projects={projects}
-              tasks={Object.values(taskMap)}
-              onUpdate={handleUpdateTask}
-              onDescriptionLoaded={(taskId, description) => {
-                descriptionCache.current.set(taskId, description)
-                writeCache(CACHE_KEY.description(taskId), { desc: description })
-              }}
-            />
+            <>
+              {(() => {
+                const drawerSource: 'my-tasks' | `project-${string}` =
+                  currentPage === 'my-tasks'
+                    ? 'my-tasks'
+                    : selectedProject
+                      ? `project-${selectedProject.id}`
+                      : 'my-tasks'
+                return (
+                  <TaskDrawer
+                    initialTask={selectedTask}
+                    source={drawerSource}
+                    {...(taskMap[selectedTask.id]
+                      ? { liveTask: taskMap[selectedTask.id] }
+                      : {})}
+                    cachedDescription={
+                      descriptionCache.current.has(selectedTask.id)
+                        ? descriptionCache.current.get(selectedTask.id)
+                        : readCache<{ desc: string | null }>(
+                            CACHE_KEY.description(selectedTask.id)
+                          )?.desc
+                    }
+                    onClose={handleCloseTask}
+                    members={members}
+                    projects={projects}
+                    tasks={Object.values(taskMap)}
+                    onUpdate={handleUpdateTask}
+                    onDescriptionLoaded={(taskId, description) => {
+                      descriptionCache.current.set(taskId, description)
+                      writeCache(CACHE_KEY.description(taskId), {
+                        desc: description,
+                      })
+                    }}
+                  />
+                )
+              })()}
+            </>
           )}
         </AnimatePresence>
 
