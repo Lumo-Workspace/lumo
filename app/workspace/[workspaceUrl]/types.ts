@@ -100,8 +100,12 @@ export interface ApiComment {
   taskId: string
   authorId: string // Clerk userId
   body: string // HTML
+  parentId: string | null
+  quotedCommentId: string | null
   createdAt: string
   updatedAt: string
+  /** Only present on top-level comments (parentId === null). */
+  replies?: ApiComment[]
 }
 
 export interface ApiNotification {

@@ -108,6 +108,10 @@ export const updateMemberRoleSchema = z.object({
 
 export const createCommentSchema = z.object({
   body: z.string().min(1, 'Comment cannot be empty').max(5000),
+  /** Present when posting a reply; must reference a top-level comment. */
+  parentId: z.string().cuid().optional(),
+  /** Which specific comment (top-level or sibling reply) is being quoted. */
+  quotedCommentId: z.string().cuid().optional(),
 })
 
 export const updateCommentSchema = z.object({

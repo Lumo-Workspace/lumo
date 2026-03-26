@@ -6,7 +6,9 @@ import { createCommentSchema } from '@/lib/validation/schemas'
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET /api/tasks/[id]/comments — list comments for a task.
+ * GET /api/tasks/[id]/comments
+ * Returns only top-level comments (parentId = null), each with their replies
+ * nested under a `replies` array, ordered oldest-first.
  */
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
@@ -28,7 +30,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
     if (memberResult instanceof NextResponse) return memberResult
 
     const comments = await prisma.comment.findMany({
-      where: { taskId: id },
+      where: { taskId: id, parentId: null },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'asc' },
     })
 
@@ -43,8 +46,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 /**
- * POST /api/tasks/[id]/comments — create a comment; fires @mention notifications.
- * Mention format in body: @[clerkId]
+ * POST /api/tasks/[id]/comments
+ * Creates a comment or reply. If `parentId` is supplied it must reference a
+ * top-level comment on the same task (replies cannot themselves be replied to).
+ * Fires TASK_MENTIONED notifications for @mention chips in the body.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -74,16 +79,42 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
+    const { body: commentBody, parentId, quotedCommentId } = parsed.data
+
+    // Validate parentId — must be a top-level comment on this task
+    if (parentId) {
+      const parent = await prisma.comment.findUnique({
+        where: { id: parentId },
+      })
+      if (!parent || parent.taskId !== id) {
+        return NextResponse.json(
+          { error: 'Parent comment not found' },
+          { status: 404 }
+        )
+      }
+      if (parent.parentId !== null) {
+        return NextResponse.json(
+          { error: 'Cannot reply to a reply' },
+          { status: 400 }
+        )
+      }
+    }
+
     const comment = await prisma.comment.create({
-      data: { taskId: id, authorId: userId, body: parsed.data.body },
+      data: {
+        taskId: id,
+        authorId: userId,
+        body: commentBody,
+        parentId: parentId ?? null,
+        quotedCommentId: quotedCommentId ?? null,
+      },
     })
 
-    // Fire-and-forget: create TASK_MENTIONED notifications.
-    // Parse data-id attributes from mention chips: <span data-type="mention" data-id="{clerkId}">
+    // Fire-and-forget: TASK_MENTIONED notifications for @mention chips
     const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
     const mentionedIds: string[] = []
     let match: RegExpExecArray | null
-    while ((match = mentionRegex.exec(parsed.data.body)) !== null) {
+    while ((match = mentionRegex.exec(commentBody)) !== null) {
       const clerkId = match[1]
       if (clerkId && clerkId !== userId && !mentionedIds.includes(clerkId)) {
         mentionedIds.push(clerkId)

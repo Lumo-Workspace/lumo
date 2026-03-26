@@ -264,16 +264,22 @@ model ViewTaskOrder {
 // ─── Comments ────────────────────────────────────────────────────────────────
 
 model Comment {
-  id        String   @id @default(cuid())
-  taskId    String
-  authorId  String   // Clerk userId
-  body      String   // plain text; @mentions encoded as @[clerkId]
+  id              String   @id @default(cuid())
+  taskId          String
+  authorId        String   // Clerk userId
+  body            String   // HTML; @mentions encoded as data-id attributes
+  parentId        String?  // null = top-level; non-null = reply (max 1 level deep)
+  quotedCommentId String?  // which specific comment this reply is quoting
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  parent        Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[] @relation("CommentReplies")
 
   @@index([taskId])
+  @@index([parentId])
   @@map("comments")
 }
 

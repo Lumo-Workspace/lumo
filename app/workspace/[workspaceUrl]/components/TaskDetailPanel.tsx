@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Send, Pencil, Trash2 } from 'lucide-react'
+import { Send, Pencil, Trash2, Reply } from 'lucide-react'
 import { formatTimestamp } from '../utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -196,6 +196,20 @@ export function TaskDetailPanel({
     null
   )
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // ─── Comment threads (replies) ──────────────────────────────────────────────
+  const [highlightedCommentId, setHighlightedCommentId] = useState<
+    string | null
+  >(null)
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
+  /** The specific comment being quoted — id + author + raw HTML body for preview. */
+  const [replyingToComment, setReplyingToComment] = useState<{
+    id: string
+    authorName: string
+    body: string
+  } | null>(null)
+  const [replyBody, setReplyBody] = useState<string | null>(null)
+  const [submittingReply, setSubmittingReply] = useState(false)
+  const clearReplyRef = useRef<(() => void) | null>(null)
 
   // ─── Description ────────────────────────────────────────────────────────────
   const hasCached = cachedDescription !== undefined
@@ -294,6 +308,8 @@ export function TaskDetailPanel({
       taskId: task.id,
       authorId: user?.id ?? '',
       body,
+      parentId: null,
+      quotedCommentId: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -321,6 +337,101 @@ export function TaskDetailPanel({
     }
   }, [commentBody, submitting, task.id, user?.id])
 
+  // Helper: apply a transform to any comment in the 2-level tree.
+  // transform returns the updated comment or null to remove it.
+  const mapCommentTree = useCallback(
+    (
+      prev: ApiComment[],
+      id: string,
+      transform: (c: ApiComment) => ApiComment | null
+    ): ApiComment[] =>
+      prev.flatMap(c => {
+        if (c.id === id) {
+          const updated = transform(c)
+          return updated ? [updated] : []
+        }
+        if (c.replies?.length) {
+          const newReplies = c.replies.flatMap(r => {
+            if (r.id === id) {
+              const updated = transform(r)
+              return updated ? [updated] : []
+            }
+            return [r]
+          })
+          return [{ ...c, replies: newReplies }]
+        }
+        return [c]
+      }),
+    []
+  )
+
+  // Scroll to a comment by id and briefly highlight it
+  const scrollToComment = useCallback((commentId: string) => {
+    const el = document.getElementById(`comment-${commentId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedCommentId(commentId)
+    setTimeout(() => setHighlightedCommentId(null), 1500)
+  }, [])
+
+  const submitReply = useCallback(
+    async (parentId: string) => {
+      const body = replyBody?.trim()
+      if (!body || submittingReply) return
+      setSubmittingReply(true)
+
+      const quotedCommentId = replyingToComment?.id ?? null
+      const tempId = `optimistic-reply-${Date.now()}`
+      const optimistic: ApiComment = {
+        id: tempId,
+        taskId: task.id,
+        authorId: user?.id ?? '',
+        body,
+        parentId,
+        quotedCommentId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setComments(prev => {
+        const next = prev.map(c =>
+          c.id === parentId
+            ? { ...c, replies: [...(c.replies ?? []), optimistic] }
+            : c
+        )
+        writeCache(CACHE_KEY.comments(task.id), next)
+        return next
+      })
+      setReplyBody(null)
+      clearReplyRef.current?.()
+      setReplyingToId(null)
+      setReplyingToComment(null)
+
+      try {
+        const res = await fetch(API.tasks.comments(task.id), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body, parentId, quotedCommentId }),
+        })
+        if (!res.ok) throw new Error()
+        const { comment } = (await res.json()) as { comment: ApiComment }
+        setComments(prev => {
+          const next = mapCommentTree(prev, tempId, () => comment)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } catch {
+        setComments(prev => {
+          const next = mapCommentTree(prev, tempId, () => null)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } finally {
+        setSubmittingReply(false)
+      }
+    },
+    [replyBody, submittingReply, task.id, user?.id, mapCommentTree]
+  )
+
   const saveEditComment = useCallback(
     async (commentId: string) => {
       const body = editCommentBody?.trim()
@@ -335,7 +446,7 @@ export function TaskDetailPanel({
         if (!res.ok) throw new Error()
         const { comment } = (await res.json()) as { comment: ApiComment }
         setComments(prev => {
-          const next = prev.map(c => (c.id === commentId ? comment : c))
+          const next = mapCommentTree(prev, commentId, () => comment)
           writeCache(CACHE_KEY.comments(task.id), next)
           return next
         })
@@ -347,7 +458,7 @@ export function TaskDetailPanel({
         setSavingComment(false)
       }
     },
-    [editCommentBody, savingComment, task.id]
+    [editCommentBody, savingComment, task.id, mapCommentTree]
   )
 
   const deleteComment = useCallback(
@@ -359,7 +470,7 @@ export function TaskDetailPanel({
         })
         if (!res.ok) throw new Error()
         setComments(prev => {
-          const next = prev.filter(c => c.id !== commentId)
+          const next = mapCommentTree(prev, commentId, () => null)
           writeCache(CACHE_KEY.comments(task.id), next)
           return next
         })
@@ -369,7 +480,7 @@ export function TaskDetailPanel({
         setDeletingCommentId(null)
       }
     },
-    [task.id]
+    [task.id, mapCommentTree]
   )
 
   return (
@@ -491,119 +602,476 @@ export function TaskDetailPanel({
                 new Date(comment.updatedAt).getTime() -
                   new Date(comment.createdAt).getTime() >
                 1000
-              return (
-                <div key={comment.id} className='group flex gap-2.5'>
-                  <Avatar className='size-7 shrink-0 mt-0.5'>
-                    <AvatarImage src={author?.imageUrl ?? undefined} />
-                    <AvatarFallback className='text-[10px]'>
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className='flex-1 min-w-0'>
-                    <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
-                      <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
-                        {name}
-                      </span>
-                      <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                        {formatTimestamp(comment.createdAt)}
-                        {wasEdited && ' · edited'}
-                      </span>
-                    </div>
+              const isReplying = replyingToId === comment.id
 
-                    {isEditing ? (
-                      <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
-                        <div
-                          className='px-3 pt-2 pb-1 text-sm'
-                          onKeyDown={e => {
-                            const isMac = /Mac|iPhone|iPad/i.test(
-                              navigator.platform
-                            )
-                            if (
-                              (isMac ? e.metaKey : e.ctrlKey) &&
-                              e.key === 'Enter'
-                            ) {
-                              e.preventDefault()
-                              saveEditComment(comment.id)
-                            }
-                            if (e.key === 'Escape') {
-                              setEditingCommentId(null)
-                              setEditCommentBody(null)
-                            }
-                          }}
-                        >
-                          <DescriptionEditor
-                            key={`edit-${comment.id}`}
-                            value={comment.body}
-                            onCommit={html => setEditCommentBody(html)}
-                            onChange={html => setEditCommentBody(html)}
-                            placeholder='Edit comment…'
-                            members={mentionableMembers}
-                            tasks={tasks}
-                          />
-                        </div>
-                        <div className='flex justify-end gap-2 px-2 pb-2'>
-                          <Button
-                            size='sm'
-                            variant='ghost'
-                            className='h-7 text-xs'
-                            onClick={() => {
-                              setEditingCommentId(null)
-                              setEditCommentBody(null)
+              return (
+                <div key={comment.id}>
+                  {/* ── Top-level comment ── */}
+                  <div
+                    id={`comment-${comment.id}`}
+                    className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                  >
+                    <Avatar className='size-7 shrink-0 mt-0.5'>
+                      <AvatarImage src={author?.imageUrl ?? undefined} />
+                      <AvatarFallback className='text-[10px]'>
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className='flex-1 min-w-0'>
+                      <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
+                        <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                          {name}
+                        </span>
+                        <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                          {formatTimestamp(comment.createdAt)}
+                          {wasEdited && ' · edited'}
+                        </span>
+                      </div>
+
+                      {isEditing ? (
+                        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                          <div
+                            className='px-3 pt-2 pb-1 text-sm'
+                            onKeyDown={e => {
+                              const isMac = /Mac|iPhone|iPad/i.test(
+                                navigator.platform
+                              )
+                              if (
+                                (isMac ? e.metaKey : e.ctrlKey) &&
+                                e.key === 'Enter'
+                              ) {
+                                e.preventDefault()
+                                saveEditComment(comment.id)
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingCommentId(null)
+                                setEditCommentBody(null)
+                              }
                             }}
                           >
-                            Cancel
-                          </Button>
-                          <Button
-                            size='sm'
-                            className='h-7 text-xs'
-                            disabled={!editCommentBody?.trim() || savingComment}
-                            onClick={() => saveEditComment(comment.id)}
-                          >
-                            Save
-                          </Button>
+                            <DescriptionEditor
+                              key={`edit-${comment.id}`}
+                              value={comment.body}
+                              onCommit={html => setEditCommentBody(html)}
+                              onChange={html => setEditCommentBody(html)}
+                              placeholder='Edit comment…'
+                              members={mentionableMembers}
+                              tasks={tasks}
+                            />
+                          </div>
+                          <div className='flex justify-end gap-2 px-2 pb-2'>
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              className='h-7 text-xs'
+                              onClick={() => {
+                                setEditingCommentId(null)
+                                setEditCommentBody(null)
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size='sm'
+                              className='h-7 text-xs'
+                              disabled={
+                                !editCommentBody?.trim() || savingComment
+                              }
+                              onClick={() => saveEditComment(comment.id)}
+                            >
+                              Save
+                            </Button>
+                          </div>
                         </div>
+                      ) : (
+                        <div
+                          className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                          dangerouslySetInnerHTML={{ __html: comment.body }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Actions — visible on hover */}
+                    {!isEditing && (
+                      <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                        {/* Reply button — anyone can reply */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                              onClick={() => {
+                                if (isReplying) {
+                                  setReplyingToId(null)
+                                  setReplyingToComment(null)
+                                } else {
+                                  setReplyingToId(comment.id)
+                                  setReplyingToComment({
+                                    id: comment.id,
+                                    authorName: name,
+                                    body: comment.body,
+                                  })
+                                }
+                              }}
+                            >
+                              <Reply size={12} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reply</TooltipContent>
+                        </Tooltip>
+                        {/* Edit / delete — author only */}
+                        {isAuthor && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                  onClick={() => {
+                                    setEditingCommentId(comment.id)
+                                    setEditCommentBody(comment.body)
+                                  }}
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                  disabled={isDeleting}
+                                  onClick={() => setConfirmDeleteId(comment.id)}
+                                >
+                                  {isDeleting ? (
+                                    <Spinner className='size-3 text-zinc-400' />
+                                  ) : (
+                                    <Trash2 size={12} />
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
                       </div>
-                    ) : (
-                      <div
-                        className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
-                        dangerouslySetInnerHTML={{ __html: comment.body }}
-                      />
                     )}
                   </div>
 
-                  {/* Edit / delete — author only, visible on hover */}
-                  {isAuthor && !isEditing && (
-                    <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                  {/* ── Replies ── */}
+                  {(comment.replies?.length ?? 0) > 0 && (
+                    <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
+                      {comment.replies!.map(reply => {
+                        const rAuthor = members.find(
+                          m => m.clerkId === reply.authorId
+                        )
+                        const rName = rAuthor?.name ?? 'Unknown'
+                        const rInitials = rName
+                          .split(' ')
+                          .map((n: string) => n[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()
+                        const rIsAuthor = reply.authorId === user?.id
+                        const rIsEditing = editingCommentId === reply.id
+                        const rIsDeleting = deletingCommentId === reply.id
+                        const rWasEdited =
+                          new Date(reply.updatedAt).getTime() -
+                            new Date(reply.createdAt).getTime() >
+                          1000
+                        return (
+                          <div
+                            key={reply.id}
+                            id={`comment-${reply.id}`}
+                            className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                          >
+                            <Avatar className='size-5 shrink-0 mt-0.5'>
+                              <AvatarImage
+                                src={rAuthor?.imageUrl ?? undefined}
+                              />
+                              <AvatarFallback className='text-[9px]'>
+                                {rInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className='flex-1 min-w-0'>
+                              <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
+                                <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                                  {rName}
+                                </span>
+                                <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                                  {formatTimestamp(reply.createdAt)}
+                                  {rWasEdited && ' · edited'}
+                                </span>
+                              </div>
+                              {rIsEditing ? (
+                                <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                                  <div
+                                    className='px-3 pt-2 pb-1 text-sm'
+                                    onKeyDown={e => {
+                                      const isMac = /Mac|iPhone|iPad/i.test(
+                                        navigator.platform
+                                      )
+                                      if (
+                                        (isMac ? e.metaKey : e.ctrlKey) &&
+                                        e.key === 'Enter'
+                                      ) {
+                                        e.preventDefault()
+                                        saveEditComment(reply.id)
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setEditingCommentId(null)
+                                        setEditCommentBody(null)
+                                      }
+                                    }}
+                                  >
+                                    <DescriptionEditor
+                                      key={`edit-reply-${reply.id}`}
+                                      value={reply.body}
+                                      onCommit={html =>
+                                        setEditCommentBody(html)
+                                      }
+                                      onChange={html =>
+                                        setEditCommentBody(html)
+                                      }
+                                      placeholder='Edit reply…'
+                                      members={mentionableMembers}
+                                      tasks={tasks}
+                                    />
+                                  </div>
+                                  <div className='flex justify-end gap-2 px-2 pb-2'>
+                                    <Button
+                                      size='sm'
+                                      variant='ghost'
+                                      className='h-7 text-xs'
+                                      onClick={() => {
+                                        setEditingCommentId(null)
+                                        setEditCommentBody(null)
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size='sm'
+                                      className='h-7 text-xs'
+                                      disabled={
+                                        !editCommentBody?.trim() ||
+                                        savingComment
+                                      }
+                                      onClick={() => saveEditComment(reply.id)}
+                                    >
+                                      Save
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {/* Quote block — shown when this reply references a specific comment */}
+                                  {reply.quotedCommentId &&
+                                    (() => {
+                                      // Resolve quoted comment from the loaded tree
+                                      const allComments = [
+                                        comment,
+                                        ...(comment.replies ?? []),
+                                      ]
+                                      const quoted = allComments.find(
+                                        c => c.id === reply.quotedCommentId
+                                      )
+                                      if (!quoted) return null
+                                      const qAuthor = members.find(
+                                        m => m.clerkId === quoted.authorId
+                                      )
+                                      const qName = qAuthor?.name ?? 'Unknown'
+                                      const qText = (() => {
+                                        if (typeof document !== 'undefined') {
+                                          const d =
+                                            document.createElement('div')
+                                          d.innerHTML = quoted.body
+                                          return (
+                                            (d.textContent ?? d.innerText ?? '')
+                                              .trim()
+                                              .slice(0, 120) || '…'
+                                          )
+                                        }
+                                        return quoted.body
+                                          .replace(/<[^>]+>/g, '')
+                                          .slice(0, 120)
+                                      })()
+                                      return (
+                                        <button
+                                          type='button'
+                                          onClick={() =>
+                                            scrollToComment(
+                                              reply.quotedCommentId!
+                                            )
+                                          }
+                                          className='mb-1.5 w-full text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                                        >
+                                          <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                                            {qName}
+                                          </p>
+                                          <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                                            {qText}
+                                          </p>
+                                        </button>
+                                      )
+                                    })()}
+                                  <div
+                                    className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                                    dangerouslySetInnerHTML={{
+                                      __html: reply.body,
+                                    }}
+                                  />
+                                </>
+                              )}
+                            </div>
+                            {!rIsEditing && (
+                              <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                                {/* Reply in the same thread */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                      onClick={() => {
+                                        if (replyingToId === comment.id) {
+                                          setReplyingToId(null)
+                                          setReplyingToComment(null)
+                                        } else {
+                                          setReplyingToId(comment.id)
+                                          setReplyingToComment({
+                                            id: reply.id,
+                                            authorName: rName,
+                                            body: reply.body,
+                                          })
+                                        }
+                                      }}
+                                    >
+                                      <Reply size={12} />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Reply</TooltipContent>
+                                </Tooltip>
+                                {/* Edit / delete — author only */}
+                                {rIsAuthor && (
+                                  <>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                          onClick={() => {
+                                            setEditingCommentId(reply.id)
+                                            setEditCommentBody(reply.body)
+                                          }}
+                                        >
+                                          <Pencil size={12} />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Edit</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                          disabled={rIsDeleting}
+                                          onClick={() =>
+                                            setConfirmDeleteId(reply.id)
+                                          }
+                                        >
+                                          {rIsDeleting ? (
+                                            <Spinner className='size-3 text-zinc-400' />
+                                          ) : (
+                                            <Trash2 size={12} />
+                                          )}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Delete</TooltipContent>
+                                    </Tooltip>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Inline reply input ── */}
+                  {isReplying && (
+                    <div className='ml-9 mt-3 flex gap-2'>
+                      <Avatar className='size-5 shrink-0 mt-0.5'>
+                        <AvatarImage src={user?.imageUrl} />
+                        <AvatarFallback className='text-[9px]'>
+                          {(
+                            user?.firstName?.[0] ??
+                            user?.emailAddresses?.[0]?.emailAddress?.[0] ??
+                            '?'
+                          ).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                        {/* Quote block */}
+                        {replyingToComment && (
                           <button
-                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                            type='button'
+                            onClick={() =>
+                              scrollToComment(replyingToComment.id)
+                            }
+                            className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                          >
+                            <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                              {replyingToComment.authorName}
+                            </p>
+                            <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                              {typeof document !== 'undefined'
+                                ? (() => {
+                                    const d = document.createElement('div')
+                                    d.innerHTML = replyingToComment.body
+                                    return (
+                                      (d.textContent ?? d.innerText ?? '')
+                                        .trim()
+                                        .slice(0, 120) || '…'
+                                    )
+                                  })()
+                                : replyingToComment.body
+                                    .replace(/<[^>]+>/g, '')
+                                    .slice(0, 120)}
+                            </p>
+                          </button>
+                        )}
+                        <CommentEditor
+                          onCommit={html => setReplyBody(html)}
+                          onSubmit={() => submitReply(comment.id)}
+                          clearRef={clearReplyRef}
+                          members={mentionableMembers}
+                          tasks={tasks}
+                        />
+                        <div className='flex items-center justify-between px-2 pb-2'>
+                          <button
+                            className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
                             onClick={() => {
-                              setEditingCommentId(comment.id)
-                              setEditCommentBody(comment.body)
+                              setReplyingToId(null)
+                              setReplyBody(null)
+                              setReplyingToComment(null)
                             }}
                           >
-                            <Pencil size={12} />
+                            Cancel
                           </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Edit</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
-                            disabled={isDeleting}
-                            onClick={() => setConfirmDeleteId(comment.id)}
+                          <Button
+                            size='sm'
+                            className='h-7 text-xs gap-1.5'
+                            disabled={!replyBody?.trim() || submittingReply}
+                            onClick={() => submitReply(comment.id)}
                           >
-                            {isDeleting ? (
-                              <Spinner className='size-3 text-zinc-400' />
-                            ) : (
-                              <Trash2 size={12} />
-                            )}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                      </Tooltip>
+                            <Send size={12} />
+                            Reply
+                            <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                              {typeof navigator !== 'undefined' &&
+                              /Mac|iPhone|iPad/i.test(navigator.platform)
+                                ? '⌘↵'
+                                : 'Ctrl+↵'}
+                            </kbd>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
