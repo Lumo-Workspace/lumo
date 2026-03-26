@@ -25,11 +25,6 @@ import {
   WorkspaceMemberInfo,
 } from '../../types'
 import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -274,21 +269,10 @@ export function ProjectDetailPage({
             </div>
             {/* Properties */}
             <div className='space-y-1'>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
+                Properties
+              </p>
               <div className='flex items-center gap-2 py-1'>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className='text-xs text-zinc-500 dark:text-zinc-400 w-20 shrink-0 cursor-default'>
-                      Lead
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side='right'>
-                    Default reviewer for all tasks in this project.
-                    <br />
-                    Notified when a task moves to In Review.
-                    <br />
-                    Can be overridden per task in the task detail.
-                  </TooltipContent>
-                </Tooltip>
                 <ReviewerSelect
                   value={project.defaultReviewerId ?? null}
                   onChange={v =>
