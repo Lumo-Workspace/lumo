@@ -136,7 +136,7 @@ const [loading, setLoading] = useState(true)
 const [error, setError] = useState<string | null>(null)
 ```
 
-`project` is seeded from `initialProject` (server-rendered) and updated optimistically by `handleUpdateProject`.
+`project` is seeded from `initialProject` (server-rendered) and updated optimistically by `handleUpdateProject`. The cast is safe — `ApiProject.createdAt` and `updatedAt` are typed as `string` (not `Date`), matching the serialized values. `'projects'` is already a valid value in the `Page` union in `types.ts`.
 
 #### Wiring `ProjectDetailPage` props
 
@@ -151,7 +151,8 @@ const [error, setError] = useState<string | null>(null)
   loading={loading}
   error={error}
   onRetry={() => fetchTasks()}
-  // onRetry intentionally only re-fetches tasks — that is all ProjectDetailPage's retry button controls
+  // onRetry intentionally only re-fetches tasks — it maps to ProjectDetailPage's inline retry button
+  // which appears only when task loading fails; members/projects errors are not surfaced via this button
   onBack={() => router.push(`/workspace/${workspaceUrl}`)}
   onNewTask={(status) => handleCreateTask(status)}
   onTaskClick={(task) => router.push(`/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`)}
@@ -198,13 +199,25 @@ Callers also briefly swap the copy icon to a `Check` for 1.5 s using local state
 
 ### Per-entity placement
 
-| Entity             | Trigger                                                                                                                       | File                              | URL copied                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
-| **Project** (list) | Hover on project row in `WorkspaceApp`'s sidebar project list (the `<button>` items in the left nav that switch to a project) | `WorkspaceApp.tsx`                | `/workspace/[slug]/projects/[projectId]`                   |
-| **Project** (page) | Always-visible in `ProjectDetailStandalonePage` header, next to the project title                                             | `ProjectDetailStandalonePage.tsx` | `/workspace/[slug]/projects/[projectId]`                   |
-| **Task** (drawer)  | Always-visible in `TaskDrawer` header, between `SquareArrowOutUpRight` and `X`                                                | `TaskDrawer.tsx`                  | `/workspace/[slug]/tasks/[identifier]`                     |
-| **Task** (page)    | Always-visible in `TaskDetailPage` title area, next to the title                                                              | `TaskDetailPage.tsx`              | `/workspace/[slug]/tasks/[identifier]`                     |
-| **Comment**        | Hover on individual comment → link icon appears top-right of that comment                                                     | `TaskDetailPanel.tsx`             | `/workspace/[slug]/tasks/[identifier]#comment-[commentId]` |
+| Entity               | Trigger                                                                                                                       | File                              | URL copied                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| **Project** (list)   | Hover on project row in `WorkspaceApp`'s sidebar project list (the `<button>` items in the left nav that switch to a project) | `WorkspaceApp.tsx`                | `/workspace/[slug]/projects/[projectId]`                   |
+| **Project** (page)   | Always-visible in `ProjectDetailStandalonePage` header, next to the project title                                             | `ProjectDetailStandalonePage.tsx` | `/workspace/[slug]/projects/[projectId]`                   |
+| **Task** (drawer)    | Always-visible in `TaskDrawer` header, between `SquareArrowOutUpRight` and `X`                                                | `TaskDrawer.tsx`                  | `/workspace/[slug]/tasks/[identifier]`                     |
+| **Task** (page)      | Always-visible in `TaskDetailPage` title area, next to the title                                                              | `TaskDetailPage.tsx`              | `/workspace/[slug]/tasks/[identifier]`                     |
+| **Comment** (drawer) | Hover on individual comment → link icon appears top-right of that comment                                                     | `TaskDetailPanel.tsx`             | `/workspace/[slug]/tasks/[identifier]#comment-[commentId]` |
+| **Comment** (page)   | Hover on individual comment → link icon appears top-right of that comment                                                     | `TaskDetailPage.tsx`              | `/workspace/[slug]/tasks/[identifier]#comment-[commentId]` |
+
+### `workspaceUrl` availability in copy-link callers
+
+- `TaskDrawer.tsx` — already calls `useParams<{ workspaceUrl: string }>()` (added in the task detail page implementation); `workspaceUrl` is in scope
+- `TaskDetailPanel.tsx` — already calls `useParams<{ workspaceUrl: string }>()` (line 51); `workspaceUrl` is in scope
+- `WorkspaceApp.tsx` — `workspaceUrl` is a prop received from its parent page
+- `TaskDetailPage.tsx` and `ProjectDetailStandalonePage.tsx` — `workspaceUrl` is a prop passed from the server component
+
+### Task identifier construction in copy-link callers
+
+For task copy links, construct the identifier as `\`${task.teamIdentifier}-${task.number}\``(e.g.`"LUM-12"`). `teamIdentifier`is the team prefix string (e.g.`"LUM"`); `number`is the integer task number (e.g.`12`). Both are always present on `ApiTask`and`MyTask`.
 
 ### Button style
 
@@ -247,7 +260,7 @@ useEffect(() => {
   if (!hash.startsWith('#comment-')) return
   // Strip the leading '#' only; the element id is "comment-cm4abc123"
   const el = document.getElementById(hash.slice(1))
-  if (!el) return
+  if (!el) return // Comment deleted or hash invalid — silent fail, no toast required
   hasScrolled.current = true
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   el.classList.add('comment-highlight')
@@ -295,16 +308,16 @@ The copy link button is still added to comments inside `TaskDetailPanel` (drawer
 
 ## Files
 
-| File                                                                            | Action                                                                                                                                     |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                                                              |
-| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                                                              |
-| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                                                             |
-| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment                                         |
-| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add `id="comment-[id]"` to comment containers; add copy link button to title area; add comment anchor scroll+highlight effect |
-| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                                                                |
-| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                                                            |
-| `app/globals.css`                                                               | **Modify** — add `.comment-highlight` animation                                                                                            |
+| File                                                                            | Action                                                                                                                                                                             |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                                                                                                      |
+| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                                                                                                      |
+| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                                                                                                     |
+| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment                                                                                 |
+| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment; add copy link button to title area; add comment anchor scroll+highlight effect |
+| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                                                                                                        |
+| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                                                                                                    |
+| `app/globals.css`                                                               | **Modify** — add `.comment-highlight` animation                                                                                                                                    |
 
 ### No type changes required
 
