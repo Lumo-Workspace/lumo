@@ -1,9 +1,16 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
-import { X, SquareArrowOutUpRight } from 'lucide-react'
+import { X, SquareArrowOutUpRight, Link as LinkIcon, Check } from 'lucide-react'
 import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { copyLink } from '../utils/copyLink'
 import {
   ApiTask,
   MyTask,
@@ -53,6 +60,15 @@ export function TaskDrawer({
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
+  const [copied, setCopied] = useState(false)
+  const handleCopyLink = useCallback(async () => {
+    await copyLink(
+      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
+    )
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [workspaceUrl, initialTask.teamIdentifier, initialTask.number])
+
   return (
     <DrawerPrimitive.Root
       open
@@ -93,14 +109,29 @@ export function TaskDrawer({
             >
               <SquareArrowOutUpRight size={14} />
             </Button>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onClose}
-              className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-            >
-              <X size={14} />
-            </Button>
+            <div className='flex items-center gap-1'>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    onClick={handleCopyLink}
+                    className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  >
+                    {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy link</TooltipContent>
+              </Tooltip>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={onClose}
+                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              >
+                <X size={14} />
+              </Button>
+            </div>
           </div>
 
           {/* Body — shared with Inbox detail panel */}
