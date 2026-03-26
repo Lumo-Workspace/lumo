@@ -48,7 +48,12 @@ export interface Notification {
 export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 
-export type Page = 'my-tasks' | 'projects' | 'project-detail' | 'inbox'
+export type Page =
+  | 'my-tasks'
+  | 'projects'
+  | 'project-detail'
+  | 'inbox'
+  | 'task-detail'
 
 export interface WorkspaceMemberInfo {
   id: string
@@ -141,4 +146,5 @@ export interface TaskDetail {
   updatedAt: string
   number: number
   teamIdentifier: string
+  children?: { id: string; title: string; number: number }[]
 }
