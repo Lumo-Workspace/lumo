@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft,
   Send,
   Pencil,
   Trash2,
@@ -485,7 +484,6 @@ export function TaskDetailPage({
               onClick={() => router.back()}
               className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
             >
-              <ChevronLeft size={14} />
               <span>{sourceLabel}</span>
             </button>
             <span className='text-zinc-300 dark:text-zinc-600'>›</span>
