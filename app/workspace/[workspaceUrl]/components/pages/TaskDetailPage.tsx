@@ -509,36 +509,17 @@ export function TaskDetailPage({
             <span className='text-zinc-700 dark:text-zinc-300 truncate max-w-xs'>
               {task.title}
             </span>
-          </div>
-          <div className='flex items-center gap-1'>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  onClick={handleCopyTaskLink}
-                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                >
-                  {taskLinkCopied ? (
-                    <Check size={14} />
-                  ) : (
-                    <LinkIcon size={14} />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copy link</TooltipContent>
-            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant='ghost'
                   size='icon'
-                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 >
                   <MoreHorizontal size={14} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align='end'>
+              <DropdownMenuContent align='start'>
                 <DropdownMenuItem
                   className='text-destructive focus:text-destructive'
                   onClick={() => setDeleteOpen(true)}
@@ -549,6 +530,19 @@ export function TaskDetailPage({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={handleCopyTaskLink}
+                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              >
+                {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy link</TooltipContent>
+          </Tooltip>
         </div>
 
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
