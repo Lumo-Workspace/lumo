@@ -211,7 +211,7 @@ Callers also briefly swap the copy icon to a `Check` for 1.5 s using local state
 ### `workspaceUrl` availability in copy-link callers
 
 - `TaskDrawer.tsx` — already calls `useParams<{ workspaceUrl: string }>()` (added in the task detail page implementation); `workspaceUrl` is in scope
-- `TaskDetailPanel.tsx` — already calls `useParams<{ workspaceUrl: string }>()` (line 51); `workspaceUrl` is in scope
+- `TaskDetailPanel.tsx` — does **not** currently call `useParams`. Add `const { workspaceUrl } = useParams<{ workspaceUrl: string }>()` and `import { useParams } from 'next/navigation'` at the top of the file.
 - `WorkspaceApp.tsx` — `workspaceUrl` is a prop received from its parent page
 - `TaskDetailPage.tsx` and `ProjectDetailStandalonePage.tsx` — `workspaceUrl` is a prop passed from the server component
 
@@ -233,22 +233,17 @@ Consistent across all entities:
 
 ### Marking comments in the DOM
 
-`TaskDetailPage` and `TaskDetailPanel` render their own independent comment lists (they do **not** share a sub-component for comments). Both must have the `id` attribute added to their comment containers:
+`TaskDetailPage` and `TaskDetailPanel` render their own independent comment lists (they do **not** share a sub-component for comments).
 
-```tsx
-<div id={`comment-${comment.id}`} ...>
-```
+**`TaskDetailPage.tsx`** — `id={`comment-${comment.id}`}` already exists on both top-level comment divs and reply divs. **No changes needed** for the `id` attributes.
 
-This applies to:
-
-- `TaskDetailPage.tsx` — the comment loop at the bottom of the right column
-- `TaskDetailPanel.tsx` — the comment loop inside the panel (for the drawer view's copy link button; no anchor scrolling here)
+**`TaskDetailPanel.tsx`** — must have `id={`comment-${comment.id}`}` added to each comment container (both top-level and replies), so the copy-link button in the drawer produces correct anchor URLs.
 
 ### Handling the hash on load (`TaskDetailPage`)
 
-In `TaskDetailPage`, after the comments have loaded:
+`TaskDetailPage` already has a `scrollToComment(commentId: string)` helper and `highlightedCommentId` state that apply scroll + amber highlight (light and dark mode already handled via Tailwind classes). **Reuse this existing mechanism** — do not add CSS classes or a new `globals.css` keyframe.
 
-Use a `hasScrolled` ref to ensure the effect only fires once (prevents re-triggering when comments are updated after posting a new comment). This is safe because `TaskDetailPage` unmounts on navigation, so the ref resets naturally on each new page load:
+Use a `hasScrolled` ref to ensure the effect only fires once (prevents re-triggering when comments are updated after posting). This is safe because `TaskDetailPage` unmounts on navigation:
 
 ```ts
 const hasScrolled = useRef(false)
@@ -258,44 +253,12 @@ useEffect(() => {
   if (!comments.length) return
   const hash = window.location.hash // e.g. "#comment-cm4abc123"
   if (!hash.startsWith('#comment-')) return
-  // Strip the leading '#' only; the element id is "comment-cm4abc123"
-  const el = document.getElementById(hash.slice(1))
-  if (!el) return // Comment deleted or hash invalid — silent fail, no toast required
+  // Strip "#comment-" to get just the comment ID
+  const commentId = hash.slice('#comment-'.length)
   hasScrolled.current = true
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  el.classList.add('comment-highlight')
-  setTimeout(() => el.classList.remove('comment-highlight'), 1500)
-}, [comments])
-```
-
-### Highlight style
-
-```css
-/* globals.css */
-.comment-highlight {
-  animation: highlight-fade 1.5s ease-out forwards;
-}
-@keyframes highlight-fade {
-  0% {
-    background-color: rgb(254 249 195); /* yellow-100 */
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-
-/* Dark mode — app toggles .dark class on <html> */
-.dark .comment-highlight {
-  animation: highlight-fade-dark 1.5s ease-out forwards;
-}
-@keyframes highlight-fade-dark {
-  0% {
-    background-color: rgb(78 63 0 / 0.3); /* amber-tinted dark */
-  }
-  100% {
-    background-color: transparent;
-  }
-}
+  scrollToComment(commentId) // reuse existing helper: scrolls + sets highlightedCommentId for 1.5 s
+  // If the comment doesn't exist, scrollToComment silently no-ops (it guards with getElementById)
+}, [comments, scrollToComment])
 ```
 
 ### Drawer behaviour
@@ -308,16 +271,15 @@ The copy link button is still added to comments inside `TaskDetailPanel` (drawer
 
 ## Files
 
-| File                                                                            | Action                                                                                                                                                                             |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                                                                                                      |
-| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                                                                                                      |
-| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                                                                                                     |
-| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment                                                                                 |
-| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment; add copy link button to title area; add comment anchor scroll+highlight effect |
-| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                                                                                                        |
-| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                                                                                                    |
-| `app/globals.css`                                                               | **Modify** — add `.comment-highlight` animation                                                                                                                                    |
+| File                                                                            | Action                                                                                                                                                                         |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                                                                                                  |
+| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                                                                                                  |
+| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                                                                                                 |
+| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `useParams` + `next/navigation` import; add `id="comment-[id]"` to comment containers (top-level and replies); add hover copy link button per comment         |
+| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add hover copy link button per comment (top-level and replies); add copy link button to title area; add `hasScrolled` ref + `useEffect` for comment anchor scroll |
+| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                                                                                                    |
+| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                                                                                                |
 
 ### No type changes required
 
