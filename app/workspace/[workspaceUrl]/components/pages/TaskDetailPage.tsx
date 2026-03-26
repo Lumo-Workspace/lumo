@@ -78,8 +78,13 @@ export function TaskDetailPage({
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(null)
   useEffect(() => {
-    setFrom(new URLSearchParams(window.location.search).get('from'))
-  }, [])
+    const fromParam = new URLSearchParams(window.location.search).get('from')
+    setFrom(fromParam)
+    // Clean the ?from= param from the URL without adding a history entry
+    if (fromParam) {
+      router.replace(window.location.pathname, { scroll: false })
+    }
+  }, [router])
   const sourceLabel =
     from === 'my-tasks' ? 'My Tasks' : (initialTask.project?.name ?? 'Project')
 
