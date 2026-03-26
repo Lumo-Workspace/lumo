@@ -41,6 +41,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import {
   TaskDetail,
+  ApiTask,
   ApiComment,
   ApiStatus,
   ApiPriority,
@@ -191,6 +192,9 @@ export function TaskDetailPage({
           const t = taskData.task as TaskDetail
           setTask(prev => ({ ...prev, ...t }))
           setDescriptionValue(t.description ?? null)
+          const taskMap =
+            readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
+          writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
         }
         const freshMembers: WorkspaceMemberInfo[] = membersData.members ?? []
         if (freshMembers.length > 0) {
@@ -257,10 +261,13 @@ export function TaskDetailPage({
           localUpdate.project = { id: newProject.id, name: newProject.name }
       }
       setTask(localUpdate)
+      const taskMap = readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
+      writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: localUpdate })
       try {
         await onUpdate(task.id, data)
       } catch {
         setTask(snapshot)
+        writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: snapshot })
       }
     },
     [task, onUpdate, projects]
