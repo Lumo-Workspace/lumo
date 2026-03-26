@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Layers, Plus, MoreHorizontal, Trash2 } from 'lucide-react'
 import {
   Breadcrumb,
@@ -25,6 +25,7 @@ import {
   WorkspaceMemberInfo,
 } from '../../types'
 import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
+import { DescriptionEditor } from '../DescriptionEditor'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -117,23 +118,6 @@ export function ProjectDetailPage({
     () => createTaskColumns(onTaskClick, onDeleteTask),
     [onTaskClick, onDeleteTask]
   )
-
-  // ─── Inline editing state ────────────────────────────────────────────────────
-  const [editingDesc, setEditingDesc] = useState(false)
-  const [descValue, setDescValue] = useState(project.description ?? '')
-  const descRef = useRef<HTMLTextAreaElement>(null)
-
-  // Keep description in sync when project prop changes
-  useEffect(() => {
-    setDescValue(project.description ?? '')
-  }, [project.description])
-
-  const commitDesc = async () => {
-    setEditingDesc(false)
-    const trimmed = descValue.trim()
-    if (trimmed === (project.description ?? '')) return
-    await onUpdateProject(project.id, { description: trimmed })
-  }
 
   // ─── DnD ────────────────────────────────────────────────────────────────────
   const sensors = useSensors(
@@ -289,29 +273,15 @@ export function ProjectDetailPage({
               <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
                 Description
               </p>
-              <textarea
-                ref={descRef}
-                value={descValue}
-                placeholder='Add a description…'
-                rows={6}
-                onChange={e => setDescValue(e.target.value)}
-                onFocus={() => setEditingDesc(true)}
-                onBlur={commitDesc}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') {
-                    setDescValue(project.description ?? '')
-                    setEditingDesc(false)
-                    descRef.current?.blur()
-                  }
+              <DescriptionEditor
+                key={project.id}
+                value={project.description}
+                onCommit={html => {
+                  onUpdateProject(project.id, { description: html ?? '' })
                 }}
-                className={cn(
-                  'w-full text-sm bg-transparent outline-none resize-none leading-relaxed border-none',
-                  editingDesc
-                    ? 'text-zinc-600 dark:text-zinc-300'
-                    : 'text-zinc-500 cursor-text hover:text-zinc-700 dark:hover:text-zinc-300',
-                  !descValue &&
-                    'placeholder:text-zinc-300 dark:placeholder:text-zinc-600'
-                )}
+                placeholder='Add a description…'
+                members={members}
+                documentId={project.id}
               />
             </div>
           </div>
