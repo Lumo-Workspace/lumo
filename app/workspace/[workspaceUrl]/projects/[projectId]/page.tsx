@@ -21,14 +21,24 @@ export default async function ProjectPage({
   // Fetch project — workspaceId is the security boundary
   const project = await prisma.project.findFirst({
     where: { id: projectId, workspaceId: workspace.id },
+    include: {
+      _count: { select: { tasks: true } },
+      tasks: {
+        where: { status: 'IN_PROGRESS' },
+        select: { id: true },
+      },
+    },
   })
   if (!project) notFound()
 
   // Serialize Dates — Next.js cannot pass Date objects from server to client
+  // Strip the tasks array and expose its length as inProgressCount (matches ApiProject type)
+  const { tasks: inProgressTasks, ...projectFields } = project
   const serialized = {
-    ...project,
+    ...projectFields,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
+    inProgressCount: inProgressTasks.length,
   }
 
   return (
