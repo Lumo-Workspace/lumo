@@ -140,7 +140,7 @@ const [error, setError] = useState<string | null>(null)
 
 #### Wiring `ProjectDetailPage` props
 
-`ProjectDetailStandalonePage` renders the existing `ProjectDetailPage` directly. All 16 props must be supplied:
+`ProjectDetailStandalonePage` renders the existing `ProjectDetailPage` directly. All 15 props must be supplied:
 
 ```ts
 <ProjectDetailPage
@@ -212,7 +212,7 @@ Callers also briefly swap the copy icon to a `Check` for 1.5 s using local state
 
 - `TaskDrawer.tsx` — already calls `useParams<{ workspaceUrl: string }>()` (added in the task detail page implementation); `workspaceUrl` is in scope
 - `TaskDetailPanel.tsx` — does **not** currently call `useParams`. Add `const { workspaceUrl } = useParams<{ workspaceUrl: string }>()` and `import { useParams } from 'next/navigation'` at the top of the file.
-- `WorkspaceApp.tsx` — `workspaceUrl` is a prop received from its parent page
+- `WorkspaceApp.tsx` — already calls `useParams<{ workspaceUrl: string }>()` internally; `workspaceUrl` is already in scope, no prop threading needed
 - `TaskDetailPage.tsx` and `ProjectDetailStandalonePage.tsx` — `workspaceUrl` is a prop passed from the server component
 
 ### Task identifier construction in copy-link callers
@@ -259,6 +259,7 @@ useEffect(() => {
   scrollToComment(commentId) // reuse existing helper: scrolls + sets highlightedCommentId for 1.5 s
   // If the comment doesn't exist, scrollToComment silently no-ops (it guards with getElementById)
 }, [comments, scrollToComment])
+// scrollToComment is stable (useCallback with [] deps) — safe to include in dep array; satisfies exhaustive-deps lint
 ```
 
 ### Drawer behaviour
