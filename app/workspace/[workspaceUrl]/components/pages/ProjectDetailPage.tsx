@@ -221,7 +221,7 @@ export function ProjectDetailPage({
       </AlertDialog>
 
       {/* Tab nav */}
-      <div className='flex items-center gap-0 px-4 md:px-8 mt-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
+      <div className='flex items-center gap-0 px-4 md:px-8 mt-4 shrink-0'>
         {(['overview', 'tasks'] as const).map(t => (
           <button
             key={t}
