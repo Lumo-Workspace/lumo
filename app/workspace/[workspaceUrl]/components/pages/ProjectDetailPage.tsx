@@ -274,9 +274,6 @@ export function ProjectDetailPage({
             </div>
             {/* Properties */}
             <div className='space-y-1'>
-              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
-                Properties
-              </p>
               <div className='flex items-center gap-2 py-1'>
                 <Tooltip>
                   <TooltipTrigger asChild>
