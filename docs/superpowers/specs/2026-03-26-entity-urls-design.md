@@ -109,7 +109,7 @@ interface Props {
 - Manages `isDarkMode` via localStorage (`CACHE_KEY.darkMode`) — same pattern as `TaskDetailPage`
 - Supplies all 5 required `AppSidebar` props:
   - `currentPage`: `'projects'` (highlights Projects in the sidebar nav)
-  - `onNavigate`: `(page) => router.push(\`/workspace/${workspaceUrl}\`)`— ignores`page` arg, always goes to workspace root
+  - `onNavigate`: `(page: Page) => router.push(\`/workspace/${workspaceUrl}\`)`— ignores`page` arg, always goes to workspace root
   - `isDarkMode` / `onToggleDarkMode`: local state + localStorage + classList toggle
   - `unreadCount`: `0`
 
@@ -128,12 +128,15 @@ Fetch in parallel:
 Manage local state:
 
 ```ts
+const [project, setProject] = useState<ApiProject>(initialProject as ApiProject)
 const [tasks, setTasks] = useState<ApiTask[]>([])
 const [kanbanViewId, setKanbanViewId] = useState<string | null>(null)
 const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
 const [loading, setLoading] = useState(true)
 const [error, setError] = useState<string | null>(null)
 ```
+
+`project` is seeded from `initialProject` (server-rendered) and updated optimistically by `handleUpdateProject`.
 
 #### Wiring `ProjectDetailPage` props
 
@@ -151,6 +154,7 @@ const [error, setError] = useState<string | null>(null)
   onBack={() => router.push(`/workspace/${workspaceUrl}`)}
   onNewTask={(status) => handleCreateTask(status)}
   onTaskClick={(task) => router.push(`/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`)}
+  // Note: ApiTask always includes teamIdentifier and number — both are present on the type
   onDeleteTask={handleDeleteTask}
   onTaskStatusChanged={handleTaskStatusChanged}
   onUpdateProject={handleUpdateProject}
@@ -215,17 +219,22 @@ Consistent across all entities:
 
 ### Marking comments in the DOM
 
-Each comment container in `TaskDetailPanel` (and `TaskDetailPage`) receives:
+`TaskDetailPage` and `TaskDetailPanel` render their own independent comment lists (they do **not** share a sub-component for comments). Both must have the `id` attribute added to their comment containers:
 
 ```tsx
 <div id={`comment-${comment.id}`} ...>
 ```
 
+This applies to:
+
+- `TaskDetailPage.tsx` — the comment loop at the bottom of the right column
+- `TaskDetailPanel.tsx` — the comment loop inside the panel (for the drawer view's copy link button; no anchor scrolling here)
+
 ### Handling the hash on load (`TaskDetailPage`)
 
 In `TaskDetailPage`, after the comments have loaded:
 
-Use a `hasScrolled` ref to ensure the effect only fires once (prevents re-triggering when comments are updated after posting a new comment):
+Use a `hasScrolled` ref to ensure the effect only fires once (prevents re-triggering when comments are updated after posting a new comment). This is safe because `TaskDetailPage` unmounts on navigation, so the ref resets naturally on each new page load:
 
 ```ts
 const hasScrolled = useRef(false)
@@ -248,21 +257,32 @@ useEffect(() => {
 ### Highlight style
 
 ```css
-/* globals.css or tailwind safelist */
+/* globals.css */
 .comment-highlight {
   animation: highlight-fade 1.5s ease-out forwards;
 }
 @keyframes highlight-fade {
   0% {
-    background-color: rgb(254 249 195);
-  } /* yellow-100 */
+    background-color: rgb(254 249 195); /* yellow-100 */
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Dark mode — app toggles .dark class on <html> */
+.dark .comment-highlight {
+  animation: highlight-fade-dark 1.5s ease-out forwards;
+}
+@keyframes highlight-fade-dark {
+  0% {
+    background-color: rgb(78 63 0 / 0.3); /* amber-tinted dark */
+  }
   100% {
     background-color: transparent;
   }
 }
 ```
-
-Dark mode variant uses `rgb(78 63 0 / 0.3)` (amber-tinted dark).
 
 ### Drawer behaviour
 
@@ -272,16 +292,16 @@ The drawer (`TaskDetailPanel`) does **not** handle anchor scrolling — deep lin
 
 ## Files
 
-| File                                                                            | Action                                                                                             |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                      |
-| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                      |
-| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                     |
-| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment |
-| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add copy link button to title area; add comment anchor scroll+highlight effect        |
-| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                        |
-| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                    |
-| `app/globals.css`                                                               | **Modify** — add `.comment-highlight` animation                                                    |
+| File                                                                            | Action                                                                                                                                     |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app/workspace/[workspaceUrl]/projects/[projectId]/page.tsx`                    | **Create** — server component                                                                                                              |
+| `app/workspace/[workspaceUrl]/components/pages/ProjectDetailStandalonePage.tsx` | **Create** — client component with AppSidebar                                                                                              |
+| `app/workspace/[workspaceUrl]/utils/copyLink.ts`                                | **Create** — clipboard utility                                                                                                             |
+| `app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx`                   | **Modify** — add `id="comment-[id]"` to comment containers; add hover copy link button per comment                                         |
+| `app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx`              | **Modify** — add `id="comment-[id]"` to comment containers; add copy link button to title area; add comment anchor scroll+highlight effect |
+| `app/workspace/[workspaceUrl]/components/TaskDrawer.tsx`                        | **Modify** — add copy link button to header                                                                                                |
+| `app/workspace/[workspaceUrl]/WorkspaceApp.tsx`                                 | **Modify** — add copy link button on project list items (hover)                                                                            |
+| `app/globals.css`                                                               | **Modify** — add `.comment-highlight` animation                                                                                            |
 
 ### No type changes required
 
