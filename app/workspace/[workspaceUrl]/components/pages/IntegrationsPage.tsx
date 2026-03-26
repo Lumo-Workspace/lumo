@@ -13,7 +13,7 @@ export interface GitHubStatus {
   repositories?: string[]
 }
 
-export function IntegrationsPage() {
+export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,6 +50,7 @@ export function IntegrationsPage() {
             workspaceUrl={workspaceUrl}
             status={ghStatus}
             onStatusChange={setGhStatus}
+            isOwner={isOwner}
           />
         )}
       </div>

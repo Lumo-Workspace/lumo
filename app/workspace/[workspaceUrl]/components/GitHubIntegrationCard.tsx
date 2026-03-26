@@ -28,6 +28,7 @@ interface GitHubIntegrationCardProps {
   workspaceUrl: string
   status: GitHubStatus | null
   onStatusChange: (status: GitHubStatus) => void
+  isOwner: boolean
 }
 
 interface GhRepo {
@@ -40,6 +41,7 @@ export function GitHubIntegrationCard({
   workspaceUrl,
   status,
   onStatusChange,
+  isOwner,
 }: GitHubIntegrationCardProps) {
   const [disconnectOpen, setDisconnectOpen] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -155,11 +157,11 @@ export function GitHubIntegrationCard({
               <Check size={12} />
               Connected
             </span>
-          ) : (
+          ) : isOwner ? (
             <Button size='sm' onClick={handleConnect}>
               Connect GitHub
             </Button>
-          )}
+          ) : null}
         </div>
 
         {/* Connected state */}
@@ -193,13 +195,15 @@ export function GitHubIntegrationCard({
                       <span className='text-zinc-700 dark:text-zinc-300 font-mono text-xs'>
                         {repo}
                       </span>
-                      <button
-                        onClick={() => handleRemoveRepo(repo)}
-                        className='text-zinc-400 hover:text-red-500 transition-colors ml-3 shrink-0'
-                        title='Remove repository'
-                      >
-                        <X size={13} />
-                      </button>
+                      {isOwner && (
+                        <button
+                          onClick={() => handleRemoveRepo(repo)}
+                          className='text-zinc-400 hover:text-red-500 transition-colors ml-3 shrink-0'
+                          title='Remove repository'
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -210,25 +214,27 @@ export function GitHubIntegrationCard({
               )}
             </div>
 
-            <div className='flex items-center justify-between pt-1'>
-              <Button
-                variant='outline'
-                size='sm'
-                className='gap-1.5'
-                onClick={openAddRepo}
-              >
-                <Plus size={13} />
-                Add repository
-              </Button>
-              <Button
-                variant='ghost'
-                size='sm'
-                className='text-zinc-400 hover:text-destructive'
-                onClick={() => setDisconnectOpen(true)}
-              >
-                Disconnect
-              </Button>
-            </div>
+            {isOwner && (
+              <div className='flex items-center justify-between pt-1'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='gap-1.5'
+                  onClick={openAddRepo}
+                >
+                  <Plus size={13} />
+                  Add repository
+                </Button>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  className='text-zinc-400 hover:text-destructive'
+                  onClick={() => setDisconnectOpen(true)}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
