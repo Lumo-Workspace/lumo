@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Send, Pencil, Trash2, Reply } from 'lucide-react'
+import {
+  ChevronLeft,
+  Send,
+  Pencil,
+  Trash2,
+  Reply,
+  Link as LinkIcon,
+  Check,
+} from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
@@ -36,6 +44,7 @@ import {
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { formatTimestamp } from '../../utils'
+import { copyLink } from '../../utils/copyLink'
 import { DescriptionEditor } from '../DescriptionEditor'
 import {
   StatusSelect,
@@ -93,6 +102,16 @@ export function TaskDetailPage({
     initialTask.description ?? null
   )
   const [descriptionLoading, setDescriptionLoading] = useState(true)
+
+  // ── Task copy link ─────────────────────────────────────────────────────────
+  const [taskLinkCopied, setTaskLinkCopied] = useState(false)
+  const handleCopyTaskLink = useCallback(async () => {
+    await copyLink(
+      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`
+    )
+    setTaskLinkCopied(true)
+    setTimeout(() => setTaskLinkCopied(false), 1500)
+  }, [workspaceUrl, task.teamIdentifier, task.number])
 
   // ── Members + Projects (cache-first) ───────────────────────────────────────
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
@@ -277,6 +296,18 @@ export function TaskDetailPage({
     setTimeout(() => setHighlightedCommentId(null), 1500)
   }, [])
 
+  // Anchor scroll: fire once when comments first load
+  const hasScrolled = useRef(false)
+  useEffect(() => {
+    if (hasScrolled.current) return
+    if (!comments.length) return
+    const hash = window.location.hash // e.g. "#comment-cm4abc123"
+    if (!hash.startsWith('#comment-')) return
+    const commentId = hash.slice('#comment-'.length)
+    hasScrolled.current = true
+    scrollToComment(commentId)
+  }, [comments, scrollToComment])
+
   const submitComment = useCallback(async () => {
     const body = commentBody?.trim()
     if (!body || submitting) return
@@ -448,22 +479,37 @@ export function TaskDetailPage({
       />
       <SidebarInset className='overflow-hidden flex flex-col'>
         {/* Breadcrumb */}
-        <div className='flex items-center gap-1.5 px-5 h-10 border-b border-zinc-100 dark:border-zinc-800 shrink-0 text-sm'>
-          <button
-            onClick={() => router.back()}
-            className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
-          >
-            <ChevronLeft size={14} />
-            <span>{sourceLabel}</span>
-          </button>
-          <span className='text-zinc-300 dark:text-zinc-600'>›</span>
-          <span className='text-zinc-500 font-medium'>
-            {task.teamIdentifier}-{task.number}
-          </span>
-          <span className='text-zinc-300 dark:text-zinc-600'>·</span>
-          <span className='text-zinc-700 dark:text-zinc-300 truncate max-w-xs'>
-            {task.title}
-          </span>
+        <div className='flex items-center justify-between px-5 h-10 border-b border-zinc-100 dark:border-zinc-800 shrink-0 text-sm'>
+          <div className='flex items-center gap-1.5'>
+            <button
+              onClick={() => router.back()}
+              className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+            >
+              <ChevronLeft size={14} />
+              <span>{sourceLabel}</span>
+            </button>
+            <span className='text-zinc-300 dark:text-zinc-600'>›</span>
+            <span className='text-zinc-500 font-medium'>
+              {task.teamIdentifier}-{task.number}
+            </span>
+            <span className='text-zinc-300 dark:text-zinc-600'>·</span>
+            <span className='text-zinc-700 dark:text-zinc-300 truncate max-w-xs'>
+              {task.title}
+            </span>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={handleCopyTaskLink}
+                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              >
+                {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy link</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Two-column body */}
@@ -695,6 +741,22 @@ export function TaskDetailPage({
                         {/* Actions — visible on hover */}
                         {!isEditing && (
                           <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                            {/* Copy comment link */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                  onClick={() =>
+                                    copyLink(
+                                      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
+                                    )
+                                  }
+                                >
+                                  <LinkIcon size={12} />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copy link</TooltipContent>
+                            </Tooltip>
                             {/* Reply button — anyone can reply */}
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -935,6 +997,22 @@ export function TaskDetailPage({
                                 </div>
                                 {!rIsEditing && (
                                   <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                                    {/* Copy reply link */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                          onClick={() =>
+                                            copyLink(
+                                              `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
+                                            )
+                                          }
+                                        >
+                                          <LinkIcon size={12} />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Copy link</TooltipContent>
+                                    </Tooltip>
                                     {/* Reply in the same thread */}
                                     <Tooltip>
                                       <TooltipTrigger asChild>
