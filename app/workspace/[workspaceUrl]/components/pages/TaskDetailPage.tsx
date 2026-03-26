@@ -9,6 +9,7 @@ import {
   Reply,
   Link as LinkIcon,
   Check,
+  MoreHorizontal,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -23,8 +24,15 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -111,6 +119,13 @@ export function TaskDetailPage({
     setTaskLinkCopied(true)
     setTimeout(() => setTaskLinkCopied(false), 1500)
   }, [workspaceUrl, task.teamIdentifier, task.number])
+
+  // ── Delete task ────────────────────────────────────────────────────────────
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const handleDeleteTask = useCallback(async () => {
+    await fetch(API.tasks.byId(task.id), { method: 'DELETE' })
+    router.back()
+  }, [task.id, router])
 
   // ── Members + Projects (cache-first) ───────────────────────────────────────
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
@@ -495,20 +510,70 @@ export function TaskDetailPage({
               {task.title}
             </span>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={handleCopyTaskLink}
-                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              >
-                {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copy link</TooltipContent>
-          </Tooltip>
+          <div className='flex items-center gap-1'>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={handleCopyTaskLink}
+                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                >
+                  {taskLinkCopied ? (
+                    <Check size={14} />
+                  ) : (
+                    <LinkIcon size={14} />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy link</TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                >
+                  <MoreHorizontal size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
+                  className='text-destructive focus:text-destructive'
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className='mr-2 size-4' />
+                  Delete task
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent size='sm'>
+            <AlertDialogHeader>
+              <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
+                <Trash2 />
+              </AlertDialogMedia>
+              <AlertDialogTitle>Delete task?</AlertDialogTitle>
+              <AlertDialogDescription>
+                &ldquo;{task.title}&rdquo; will be permanently deleted. This
+                action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant='destructive'
+                onClick={handleDeleteTask}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Two-column body */}
         <div className='flex flex-1 overflow-hidden'>
