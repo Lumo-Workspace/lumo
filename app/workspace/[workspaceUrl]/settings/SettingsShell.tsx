@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
-import { ArrowLeft, Building2, Users } from 'lucide-react'
+import { ArrowLeft, Building2, Users, Puzzle } from 'lucide-react'
 import { CACHE_KEY } from '../constants'
 
 interface SettingsShellProps {
@@ -38,6 +38,11 @@ export function SettingsShell({
       href: `/workspace/${workspaceUrl}/settings/members`,
       icon: Users,
     },
+    {
+      label: 'Integrations',
+      href: `/workspace/${workspaceUrl}/settings/integrations`,
+      icon: Puzzle,
+    },
   ]
 
   const memberItems = [
@@ -45,6 +50,11 @@ export function SettingsShell({
       label: 'Members',
       href: `/workspace/${workspaceUrl}/settings/members`,
       icon: Users,
+    },
+    {
+      label: 'Integrations',
+      href: `/workspace/${workspaceUrl}/settings/integrations`,
+      icon: Puzzle,
     },
   ]
 

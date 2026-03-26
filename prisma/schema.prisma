@@ -64,11 +64,12 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members  WorkspaceMember[]
-  teams    Team[]
-  projects Project[]
-  views    View[]
-  invites  WorkspaceInvite[]
+  members            WorkspaceMember[]
+  teams              Team[]
+  projects           Project[]
+  views              View[]
+  invites            WorkspaceInvite[]
+  githubIntegrations GitHubIntegration[]
 
   @@map("workspaces")
 }
@@ -126,6 +127,7 @@ model WorkspaceMember {
   createdViews           View[]       @relation("ViewCreator")
   sharedViews            ViewMember[]
   sentInvites            WorkspaceInvite[]
+  githubIntegrations     GitHubIntegration[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -298,6 +300,26 @@ model Notification {
 
   @@index([recipientId, read])
   @@map("notifications")
+}
+
+model GitHubIntegration {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  memberId     String
+  accessToken  String   // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  tokenType    String   @default("oauth")
+  githubUserId String
+  githubLogin  String
+  repositories String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, memberId])
+  @@index([workspaceId])
+  @@map("github_integrations")
 }
 
 model WorkspaceInvite {

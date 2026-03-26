@@ -34,6 +34,12 @@ export const API = {
     markAllRead: '/api/notifications',
     markOne: (id: string) => `/api/notifications/${id}`,
   },
+  github: {
+    oauth: (workspaceUrl: string) =>
+      `/api/github/oauth?workspaceUrl=${workspaceUrl}`,
+    integration: '/api/github/integration',
+    repos: '/api/github/repos',
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
