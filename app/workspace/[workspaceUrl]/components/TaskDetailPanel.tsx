@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Send, Pencil, Trash2, Reply } from 'lucide-react'
+import { Send, Pencil, Trash2, Reply, Link as LinkIcon } from 'lucide-react'
+import { useParams } from 'next/navigation'
 import { formatTimestamp } from '../utils'
+import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -148,6 +150,7 @@ export function TaskDetailPanel({
     teamIdentifier: initialTask.teamIdentifier,
   }))
   const { user } = useUser()
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
   // ─── Sync external updates (e.g. drag-and-drop status change) ───────────────
@@ -694,6 +697,22 @@ export function TaskDetailPanel({
                     {/* Actions — visible on hover */}
                     {!isEditing && (
                       <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                        {/* Copy link button */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                              onClick={() =>
+                                copyLink(
+                                  `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
+                                )
+                              }
+                            >
+                              <LinkIcon size={12} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Copy link</TooltipContent>
+                        </Tooltip>
                         {/* Reply button — anyone can reply */}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -925,6 +944,22 @@ export function TaskDetailPanel({
                             </div>
                             {!rIsEditing && (
                               <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                                {/* Copy link button */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                      onClick={() =>
+                                        copyLink(
+                                          `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
+                                        )
+                                      }
+                                    >
+                                      <LinkIcon size={12} />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Copy link</TooltipContent>
+                                </Tooltip>
                                 {/* Reply in the same thread */}
                                 <Tooltip>
                                   <TooltipTrigger asChild>
