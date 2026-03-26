@@ -1,0 +1,1201 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, Send, Pencil, Trash2, Reply } from 'lucide-react'
+import { useUser } from '@clerk/nextjs'
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { AppSidebar } from '../Sidebar'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  TaskDetail,
+  ApiComment,
+  ApiStatus,
+  ApiPriority,
+  WorkspaceMemberInfo,
+  ApiProject,
+  Page,
+} from '../../types'
+import { API, CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
+import { formatTimestamp } from '../../utils'
+import { DescriptionEditor } from '../DescriptionEditor'
+import {
+  StatusSelect,
+  AssigneeSelect,
+  ReviewerSelect,
+  ProjectSelect,
+  PrioritySelect,
+  FIELD_TRIGGER_CLS,
+} from '../TaskFieldSelects'
+
+interface TaskDetailPageProps {
+  initialTask: TaskDetail & {
+    children?: { id: string; title: string; number: number }[]
+  }
+  workspaceUrl: string
+}
+
+export function TaskDetailPage({
+  initialTask,
+  workspaceUrl,
+}: TaskDetailPageProps) {
+  // ── Hooks ──────────────────────────────────────────────────────────────────
+  const router = useRouter()
+  const { user } = useUser()
+
+  // ── Sidebar / dark mode ────────────────────────────────────────────────────
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  useEffect(() => {
+    setIsDarkMode(localStorage.getItem(CACHE_KEY.darkMode) === 'true')
+  }, [])
+  const handleToggleDarkMode = useCallback(() => {
+    setIsDarkMode(prev => {
+      const next = !prev
+      localStorage.setItem(CACHE_KEY.darkMode, String(next))
+      document.documentElement.classList.toggle('dark', next)
+      return next
+    })
+  }, [])
+
+  // ── Breadcrumb ─────────────────────────────────────────────────────────────
+  const [from, setFrom] = useState<string | null>(null)
+  useEffect(() => {
+    setFrom(new URLSearchParams(window.location.search).get('from'))
+  }, [])
+  const sourceLabel =
+    from === 'my-tasks' ? 'My Tasks' : (initialTask.project?.name ?? 'Project')
+
+  // ── Task state ─────────────────────────────────────────────────────────────
+  const [task, setTask] = useState<TaskDetail>(initialTask)
+  const [descriptionValue, setDescriptionValue] = useState<string | null>(
+    initialTask.description ?? null
+  )
+  const [descriptionLoading, setDescriptionLoading] = useState(true)
+
+  // ── Members + Projects (cache-first) ───────────────────────────────────────
+  const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
+    () => readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
+  )
+  const [projects, setProjects] = useState<ApiProject[]>(
+    () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
+  )
+
+  // ── Comments state ─────────────────────────────────────────────────────────
+  const cachedComments = useMemo(
+    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
+    [initialTask.id]
+  )
+  const [comments, setComments] = useState<ApiComment[]>(cachedComments ?? [])
+  const [commentsLoading, setCommentsLoading] = useState(
+    cachedComments === null
+  )
+  const [commentBody, setCommentBody] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const clearCommentRef = useRef<(() => void) | null>(null)
+  const [commentKey, setCommentKey] = useState(0)
+
+  // ── Comment edit / delete ──────────────────────────────────────────────────
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentBody, setEditCommentBody] = useState<string | null>(null)
+  const [savingComment, setSavingComment] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+    null
+  )
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // ── Comment threads (replies) ──────────────────────────────────────────────
+  const [highlightedCommentId, setHighlightedCommentId] = useState<
+    string | null
+  >(null)
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
+  const [replyingToComment, setReplyingToComment] = useState<{
+    id: string
+    authorName: string
+    body: string
+  } | null>(null)
+  const [replyBody, setReplyBody] = useState<string | null>(null)
+  const [submittingReply, setSubmittingReply] = useState(false)
+  const clearReplyRef = useRef<(() => void) | null>(null)
+
+  // ── Parallel fetch on mount ────────────────────────────────────────────────
+  useEffect(() => {
+    Promise.all([
+      fetch(API.tasks.byId(initialTask.id)).then(r => r.json()),
+      fetch(API.workspaces.members).then(r =>
+        r.ok ? r.json() : { members: [] }
+      ),
+      fetch(API.projects.list).then(r => (r.ok ? r.json() : { projects: [] })),
+      fetch(API.tasks.comments(initialTask.id)).then(r =>
+        r.ok ? r.json() : { comments: [] }
+      ),
+    ])
+      .then(([taskData, membersData, projectsData, commentsData]) => {
+        if (taskData.task) {
+          const t = taskData.task as TaskDetail
+          setTask(prev => ({ ...prev, ...t }))
+          setDescriptionValue(t.description ?? null)
+        }
+        const freshMembers: WorkspaceMemberInfo[] = membersData.members ?? []
+        if (freshMembers.length > 0) {
+          setMembers(freshMembers)
+          writeCache(CACHE_KEY.members, freshMembers)
+        }
+        const freshProjects: ApiProject[] = projectsData.projects ?? []
+        if (freshProjects.length > 0) {
+          setProjects(freshProjects)
+          writeCache(CACHE_KEY.projects, freshProjects)
+        }
+        const freshComments: ApiComment[] = commentsData.comments ?? []
+        setComments(freshComments)
+        writeCache(CACHE_KEY.comments(initialTask.id), freshComments)
+      })
+      .catch(console.error)
+      .finally(() => {
+        setDescriptionLoading(false)
+        setCommentsLoading(false)
+      })
+  }, [initialTask.id])
+
+  // ── Field mutations ────────────────────────────────────────────────────────
+  const onUpdate = useCallback(
+    async (
+      taskId: string,
+      data: Partial<{
+        title: string
+        status: ApiStatus
+        assigneeId: string | null
+        reviewerId: string | null
+        description: string | null
+        projectId: string
+        priority: ApiPriority
+      }>
+    ) => {
+      const res = await fetch(API.tasks.byId(taskId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error('Failed to update task')
+    },
+    []
+  )
+
+  const handlePatch = useCallback(
+    async (
+      data: Partial<{
+        title: string
+        status: ApiStatus
+        assigneeId: string | null
+        reviewerId: string | null
+        description: string | null
+        projectId: string
+        priority: ApiPriority
+      }>
+    ) => {
+      const snapshot = task
+      const localUpdate = { ...task, ...data }
+      if (data.projectId) {
+        const newProject = projects.find(p => p.id === data.projectId)
+        if (newProject)
+          localUpdate.project = { id: newProject.id, name: newProject.name }
+      }
+      setTask(localUpdate)
+      try {
+        await onUpdate(task.id, data)
+      } catch {
+        setTask(snapshot)
+      }
+    },
+    [task, onUpdate, projects]
+  )
+
+  const commitDescription = useCallback(
+    (html: string | null) => {
+      const next = html?.trim() || null
+      if (next === (task.description ?? null)) return
+      handlePatch({ description: next })
+    },
+    [task.description, handlePatch]
+  )
+
+  // ── Comment handlers ───────────────────────────────────────────────────────
+  const mapCommentTree = useCallback(
+    (
+      prev: ApiComment[],
+      id: string,
+      transform: (c: ApiComment) => ApiComment | null
+    ): ApiComment[] =>
+      prev.flatMap(c => {
+        if (c.id === id) {
+          const updated = transform(c)
+          return updated ? [updated] : []
+        }
+        if (c.replies?.length) {
+          const newReplies = c.replies.flatMap(r => {
+            if (r.id === id) {
+              const updated = transform(r)
+              return updated ? [updated] : []
+            }
+            return [r]
+          })
+          return [{ ...c, replies: newReplies }]
+        }
+        return [c]
+      }),
+    []
+  )
+
+  const scrollToComment = useCallback((commentId: string) => {
+    const el = document.getElementById(`comment-${commentId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedCommentId(commentId)
+    setTimeout(() => setHighlightedCommentId(null), 1500)
+  }, [])
+
+  const submitComment = useCallback(async () => {
+    const body = commentBody?.trim()
+    if (!body || submitting) return
+    setSubmitting(true)
+
+    const tempId = `optimistic-${Date.now()}`
+    const optimistic: ApiComment = {
+      id: tempId,
+      taskId: task.id,
+      authorId: user?.id ?? '',
+      body,
+      parentId: null,
+      quotedCommentId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setComments(prev => [...prev, optimistic])
+    setCommentBody(null)
+    clearCommentRef.current?.()
+    setCommentKey(k => k + 1)
+
+    try {
+      const res = await fetch(API.tasks.comments(task.id), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      })
+      if (!res.ok) throw new Error()
+      const { comment } = (await res.json()) as { comment: ApiComment }
+      setComments(prev => {
+        const next = prev.map(c => (c.id === tempId ? comment : c))
+        writeCache(CACHE_KEY.comments(task.id), next)
+        return next
+      })
+    } catch {
+      setComments(prev => prev.filter(c => c.id !== tempId))
+    } finally {
+      setSubmitting(false)
+    }
+  }, [commentBody, submitting, task.id, user?.id])
+
+  const submitReply = useCallback(
+    async (parentId: string) => {
+      const body = replyBody?.trim()
+      if (!body || submittingReply) return
+      setSubmittingReply(true)
+
+      const quotedCommentId = replyingToComment?.id ?? null
+      const tempId = `optimistic-reply-${Date.now()}`
+      const optimistic: ApiComment = {
+        id: tempId,
+        taskId: task.id,
+        authorId: user?.id ?? '',
+        body,
+        parentId,
+        quotedCommentId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setComments(prev => {
+        const next = prev.map(c =>
+          c.id === parentId
+            ? { ...c, replies: [...(c.replies ?? []), optimistic] }
+            : c
+        )
+        writeCache(CACHE_KEY.comments(task.id), next)
+        return next
+      })
+      setReplyBody(null)
+      clearReplyRef.current?.()
+      setReplyingToId(null)
+      setReplyingToComment(null)
+
+      try {
+        const res = await fetch(API.tasks.comments(task.id), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body, parentId, quotedCommentId }),
+        })
+        if (!res.ok) throw new Error()
+        const { comment } = (await res.json()) as { comment: ApiComment }
+        setComments(prev => {
+          const next = mapCommentTree(prev, tempId, () => comment)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } catch {
+        setComments(prev => {
+          const next = mapCommentTree(prev, tempId, () => null)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } finally {
+        setSubmittingReply(false)
+      }
+    },
+    [
+      replyBody,
+      submittingReply,
+      task.id,
+      user?.id,
+      mapCommentTree,
+      replyingToComment,
+    ]
+  )
+
+  const saveEditComment = useCallback(
+    async (commentId: string) => {
+      const body = editCommentBody?.trim()
+      if (!body || savingComment) return
+      setSavingComment(true)
+      try {
+        const res = await fetch(API.tasks.comment(task.id, commentId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body }),
+        })
+        if (!res.ok) throw new Error()
+        const { comment } = (await res.json()) as { comment: ApiComment }
+        setComments(prev => {
+          const next = mapCommentTree(prev, commentId, () => comment)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+        setEditingCommentId(null)
+        setEditCommentBody(null)
+      } catch {
+        // keep editing state so the user can retry
+      } finally {
+        setSavingComment(false)
+      }
+    },
+    [editCommentBody, savingComment, task.id, mapCommentTree]
+  )
+
+  const deleteComment = useCallback(
+    async (commentId: string) => {
+      setDeletingCommentId(commentId)
+      try {
+        const res = await fetch(API.tasks.comment(task.id, commentId), {
+          method: 'DELETE',
+        })
+        if (!res.ok) throw new Error()
+        setComments(prev => {
+          const next = mapCommentTree(prev, commentId, () => null)
+          writeCache(CACHE_KEY.comments(task.id), next)
+          return next
+        })
+      } catch {
+        // silently keep the comment on failure
+      } finally {
+        setDeletingCommentId(null)
+      }
+    },
+    [task.id, mapCommentTree]
+  )
+
+  const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <SidebarProvider className='h-screen font-sans'>
+      <AppSidebar
+        currentPage={'task-detail' as Page}
+        onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={handleToggleDarkMode}
+        unreadCount={0}
+      />
+      <SidebarInset className='overflow-hidden flex flex-col'>
+        {/* Breadcrumb */}
+        <div className='flex items-center gap-1.5 px-5 h-10 border-b border-zinc-100 dark:border-zinc-800 shrink-0 text-sm'>
+          <button
+            onClick={() => router.back()}
+            className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+          >
+            <ChevronLeft size={14} />
+            <span>{sourceLabel}</span>
+          </button>
+          <span className='text-zinc-300 dark:text-zinc-600'>›</span>
+          <span className='text-zinc-500 font-medium'>
+            {task.teamIdentifier}-{task.number}
+          </span>
+          <span className='text-zinc-300 dark:text-zinc-600'>·</span>
+          <span className='text-zinc-700 dark:text-zinc-300 truncate max-w-xs'>
+            {task.title}
+          </span>
+        </div>
+
+        {/* Two-column body */}
+        <div className='flex flex-1 overflow-hidden'>
+          {/* Left column */}
+          <div className='flex-1 overflow-y-auto px-8 py-6'>
+            {/* Editable title */}
+            <h1
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={e => {
+                const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                if (!trimmed || trimmed === task.title) {
+                  e.currentTarget.textContent = task.title
+                  return
+                }
+                handlePatch({ title: trimmed })
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.currentTarget.blur()
+                }
+                if (e.key === 'Escape') {
+                  e.currentTarget.textContent = task.title
+                  e.currentTarget.blur()
+                }
+              }}
+              className='text-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none cursor-text mb-6 leading-tight'
+            >
+              {task.title}
+            </h1>
+
+            {/* Description */}
+            {descriptionLoading ? (
+              <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
+            ) : (
+              <DescriptionEditor
+                value={descriptionValue}
+                onCommit={commitDescription}
+                members={mentionableMembers}
+              />
+            )}
+
+            {/* Sub-tasks placeholder */}
+            {(initialTask.children?.length ?? 0) > 0 && (
+              <div className='mt-8'>
+                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
+                  Sub-tasks
+                </p>
+                <div className='space-y-1'>
+                  {initialTask.children!.map(child => (
+                    <div
+                      key={child.id}
+                      className='text-sm text-zinc-600 dark:text-zinc-400 py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                    >
+                      {task.teamIdentifier}-{child.number} · {child.title}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right column */}
+          <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
+            {/* Properties */}
+            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
+              Properties
+            </p>
+            <div className='flex flex-col gap-1.5 mb-8 -ml-2'>
+              <StatusSelect
+                value={task.status}
+                onChange={v => handlePatch({ status: v })}
+                triggerClassName={FIELD_TRIGGER_CLS}
+              />
+              <AssigneeSelect
+                value={task.assigneeId ?? null}
+                onChange={v => handlePatch({ assigneeId: v })}
+                members={members}
+                triggerClassName={FIELD_TRIGGER_CLS}
+              />
+              <ReviewerSelect
+                value={task.reviewerId ?? null}
+                onChange={v => handlePatch({ reviewerId: v })}
+                members={members}
+                inheritedId={task.project?.defaultReviewerId ?? null}
+                triggerClassName={FIELD_TRIGGER_CLS}
+              />
+              <ProjectSelect
+                value={task.projectId}
+                onChange={v => handlePatch({ projectId: v })}
+                projects={projects}
+                triggerClassName={FIELD_TRIGGER_CLS}
+              />
+              <PrioritySelect
+                value={task.priority}
+                onChange={v => handlePatch({ priority: v })}
+                triggerClassName={FIELD_TRIGGER_CLS}
+              />
+            </div>
+
+            {/* Comments section */}
+            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
+              Comments
+            </p>
+
+            {/* Skeleton while loading */}
+            {commentsLoading && comments.length === 0 ? (
+              <div className='space-y-3'>
+                {[1, 2].map(i => (
+                  <div key={i} className='flex gap-2.5'>
+                    <div className='size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse shrink-0' />
+                    <div className='flex-1 space-y-1.5 pt-0.5'>
+                      <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-1/3' />
+                      <div className='h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse w-2/3' />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className='space-y-5'>
+                {comments.map(comment => {
+                  const author = members.find(
+                    m => m.clerkId === comment.authorId
+                  )
+                  const name = author?.name ?? 'Unknown'
+                  const initials = name
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                  const isAuthor = comment.authorId === user?.id
+                  const isEditing = editingCommentId === comment.id
+                  const isDeleting = deletingCommentId === comment.id
+                  const wasEdited =
+                    new Date(comment.updatedAt).getTime() -
+                      new Date(comment.createdAt).getTime() >
+                    1000
+                  const isReplying = replyingToId === comment.id
+
+                  return (
+                    <div key={comment.id}>
+                      {/* ── Top-level comment ── */}
+                      <div
+                        id={`comment-${comment.id}`}
+                        className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                      >
+                        <Avatar className='size-7 shrink-0 mt-0.5'>
+                          <AvatarImage src={author?.imageUrl ?? undefined} />
+                          <AvatarFallback className='text-[10px]'>
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className='flex-1 min-w-0'>
+                          <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
+                            <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                              {name}
+                            </span>
+                            <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                              {formatTimestamp(comment.createdAt)}
+                              {wasEdited && ' · edited'}
+                            </span>
+                          </div>
+
+                          {isEditing ? (
+                            <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                              <div
+                                className='px-3 pt-2 pb-1 text-sm'
+                                onKeyDown={e => {
+                                  const isMac = /Mac|iPhone|iPad/i.test(
+                                    navigator.platform
+                                  )
+                                  if (
+                                    (isMac ? e.metaKey : e.ctrlKey) &&
+                                    e.key === 'Enter'
+                                  ) {
+                                    e.preventDefault()
+                                    saveEditComment(comment.id)
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setEditingCommentId(null)
+                                    setEditCommentBody(null)
+                                  }
+                                }}
+                              >
+                                <DescriptionEditor
+                                  key={`edit-${comment.id}`}
+                                  value={comment.body}
+                                  onCommit={html => setEditCommentBody(html)}
+                                  onChange={html => setEditCommentBody(html)}
+                                  placeholder='Edit comment…'
+                                  members={mentionableMembers}
+                                />
+                              </div>
+                              <div className='flex justify-end gap-2 px-2 pb-2'>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-7 text-xs'
+                                  onClick={() => {
+                                    setEditingCommentId(null)
+                                    setEditCommentBody(null)
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size='sm'
+                                  className='h-7 text-xs'
+                                  disabled={
+                                    !editCommentBody?.trim() || savingComment
+                                  }
+                                  onClick={() => saveEditComment(comment.id)}
+                                >
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                              dangerouslySetInnerHTML={{ __html: comment.body }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Actions — visible on hover */}
+                        {!isEditing && (
+                          <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                            {/* Reply button — anyone can reply */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                  onClick={() => {
+                                    if (isReplying) {
+                                      setReplyingToId(null)
+                                      setReplyingToComment(null)
+                                    } else {
+                                      setReplyingToId(comment.id)
+                                      setReplyingToComment({
+                                        id: comment.id,
+                                        authorName: name,
+                                        body: comment.body,
+                                      })
+                                    }
+                                  }}
+                                >
+                                  <Reply size={12} />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Reply</TooltipContent>
+                            </Tooltip>
+                            {/* Edit / delete — author only */}
+                            {isAuthor && (
+                              <>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                      onClick={() => {
+                                        setEditingCommentId(comment.id)
+                                        setEditCommentBody(comment.body)
+                                      }}
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Edit</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                      disabled={isDeleting}
+                                      onClick={() =>
+                                        setConfirmDeleteId(comment.id)
+                                      }
+                                    >
+                                      {isDeleting ? (
+                                        <Spinner className='size-3 text-zinc-400' />
+                                      ) : (
+                                        <Trash2 size={12} />
+                                      )}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Replies ── */}
+                      {(comment.replies?.length ?? 0) > 0 && (
+                        <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
+                          {comment.replies!.map(reply => {
+                            const rAuthor = members.find(
+                              m => m.clerkId === reply.authorId
+                            )
+                            const rName = rAuthor?.name ?? 'Unknown'
+                            const rInitials = rName
+                              .split(' ')
+                              .map((n: string) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()
+                            const rIsAuthor = reply.authorId === user?.id
+                            const rIsEditing = editingCommentId === reply.id
+                            const rIsDeleting = deletingCommentId === reply.id
+                            const rWasEdited =
+                              new Date(reply.updatedAt).getTime() -
+                                new Date(reply.createdAt).getTime() >
+                              1000
+                            return (
+                              <div
+                                key={reply.id}
+                                id={`comment-${reply.id}`}
+                                className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                              >
+                                <Avatar className='size-5 shrink-0 mt-0.5'>
+                                  <AvatarImage
+                                    src={rAuthor?.imageUrl ?? undefined}
+                                  />
+                                  <AvatarFallback className='text-[9px]'>
+                                    {rInitials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className='flex-1 min-w-0'>
+                                  <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
+                                    <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+                                      {rName}
+                                    </span>
+                                    <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+                                      {formatTimestamp(reply.createdAt)}
+                                      {rWasEdited && ' · edited'}
+                                    </span>
+                                  </div>
+                                  {rIsEditing ? (
+                                    <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                                      <div
+                                        className='px-3 pt-2 pb-1 text-sm'
+                                        onKeyDown={e => {
+                                          const isMac = /Mac|iPhone|iPad/i.test(
+                                            navigator.platform
+                                          )
+                                          if (
+                                            (isMac ? e.metaKey : e.ctrlKey) &&
+                                            e.key === 'Enter'
+                                          ) {
+                                            e.preventDefault()
+                                            saveEditComment(reply.id)
+                                          }
+                                          if (e.key === 'Escape') {
+                                            setEditingCommentId(null)
+                                            setEditCommentBody(null)
+                                          }
+                                        }}
+                                      >
+                                        <DescriptionEditor
+                                          key={`edit-reply-${reply.id}`}
+                                          value={reply.body}
+                                          onCommit={html =>
+                                            setEditCommentBody(html)
+                                          }
+                                          onChange={html =>
+                                            setEditCommentBody(html)
+                                          }
+                                          placeholder='Edit reply…'
+                                          members={mentionableMembers}
+                                        />
+                                      </div>
+                                      <div className='flex justify-end gap-2 px-2 pb-2'>
+                                        <Button
+                                          size='sm'
+                                          variant='ghost'
+                                          className='h-7 text-xs'
+                                          onClick={() => {
+                                            setEditingCommentId(null)
+                                            setEditCommentBody(null)
+                                          }}
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          size='sm'
+                                          className='h-7 text-xs'
+                                          disabled={
+                                            !editCommentBody?.trim() ||
+                                            savingComment
+                                          }
+                                          onClick={() =>
+                                            saveEditComment(reply.id)
+                                          }
+                                        >
+                                          Save
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {/* Quote block — shown when this reply references a specific comment */}
+                                      {reply.quotedCommentId &&
+                                        (() => {
+                                          const allComments = [
+                                            comment,
+                                            ...(comment.replies ?? []),
+                                          ]
+                                          const quoted = allComments.find(
+                                            c => c.id === reply.quotedCommentId
+                                          )
+                                          if (!quoted) return null
+                                          const qAuthor = members.find(
+                                            m => m.clerkId === quoted.authorId
+                                          )
+                                          const qName =
+                                            qAuthor?.name ?? 'Unknown'
+                                          const qText = (() => {
+                                            if (
+                                              typeof document !== 'undefined'
+                                            ) {
+                                              const d =
+                                                document.createElement('div')
+                                              d.innerHTML = quoted.body
+                                              return (
+                                                (
+                                                  d.textContent ??
+                                                  d.innerText ??
+                                                  ''
+                                                )
+                                                  .trim()
+                                                  .slice(0, 120) || '…'
+                                              )
+                                            }
+                                            return quoted.body
+                                              .replace(/<[^>]+>/g, '')
+                                              .slice(0, 120)
+                                          })()
+                                          return (
+                                            <button
+                                              type='button'
+                                              onClick={() =>
+                                                scrollToComment(
+                                                  reply.quotedCommentId!
+                                                )
+                                              }
+                                              className='mb-1.5 w-full text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                                            >
+                                              <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                                                {qName}
+                                              </p>
+                                              <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                                                {qText}
+                                              </p>
+                                            </button>
+                                          )
+                                        })()}
+                                      <div
+                                        className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+                                        dangerouslySetInnerHTML={{
+                                          __html: reply.body,
+                                        }}
+                                      />
+                                    </>
+                                  )}
+                                </div>
+                                {!rIsEditing && (
+                                  <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
+                                    {/* Reply in the same thread */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                          onClick={() => {
+                                            if (replyingToId === comment.id) {
+                                              setReplyingToId(null)
+                                              setReplyingToComment(null)
+                                            } else {
+                                              setReplyingToId(comment.id)
+                                              setReplyingToComment({
+                                                id: reply.id,
+                                                authorName: rName,
+                                                body: reply.body,
+                                              })
+                                            }
+                                          }}
+                                        >
+                                          <Reply size={12} />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Reply</TooltipContent>
+                                    </Tooltip>
+                                    {/* Edit / delete — author only */}
+                                    {rIsAuthor && (
+                                      <>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
+                                              onClick={() => {
+                                                setEditingCommentId(reply.id)
+                                                setEditCommentBody(reply.body)
+                                              }}
+                                            >
+                                              <Pencil size={12} />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Edit</TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
+                                              disabled={rIsDeleting}
+                                              onClick={() =>
+                                                setConfirmDeleteId(reply.id)
+                                              }
+                                            >
+                                              {rIsDeleting ? (
+                                                <Spinner className='size-3 text-zinc-400' />
+                                              ) : (
+                                                <Trash2 size={12} />
+                                              )}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            Delete
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* ── Inline reply input ── */}
+                      {isReplying && (
+                        <div className='ml-9 mt-3 flex gap-2'>
+                          <Avatar className='size-5 shrink-0 mt-0.5'>
+                            <AvatarImage src={user?.imageUrl} />
+                            <AvatarFallback className='text-[9px]'>
+                              {(
+                                user?.firstName?.[0] ??
+                                user?.emailAddresses?.[0]?.emailAddress?.[0] ??
+                                '?'
+                              ).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                            {/* Quote block */}
+                            {replyingToComment && (
+                              <button
+                                type='button'
+                                onClick={() =>
+                                  scrollToComment(replyingToComment.id)
+                                }
+                                className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
+                              >
+                                <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
+                                  {replyingToComment.authorName}
+                                </p>
+                                <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
+                                  {typeof document !== 'undefined'
+                                    ? (() => {
+                                        const d = document.createElement('div')
+                                        d.innerHTML = replyingToComment.body
+                                        return (
+                                          (d.textContent ?? d.innerText ?? '')
+                                            .trim()
+                                            .slice(0, 120) || '…'
+                                        )
+                                      })()
+                                    : replyingToComment.body
+                                        .replace(/<[^>]+>/g, '')
+                                        .slice(0, 120)}
+                                </p>
+                              </button>
+                            )}
+                            <div
+                              className='px-3 pt-2 pb-1 text-sm'
+                              onKeyDown={e => {
+                                const isMac = /Mac|iPhone|iPad/i.test(
+                                  navigator.platform
+                                )
+                                if (
+                                  (isMac ? e.metaKey : e.ctrlKey) &&
+                                  e.key === 'Enter'
+                                ) {
+                                  e.preventDefault()
+                                  submitReply(comment.id)
+                                }
+                              }}
+                            >
+                              <DescriptionEditor
+                                key={`reply-${comment.id}`}
+                                value={null}
+                                onCommit={html => setReplyBody(html)}
+                                onChange={html => setReplyBody(html)}
+                                placeholder='Add a reply…'
+                                members={mentionableMembers}
+                              />
+                            </div>
+                            <div className='flex items-center justify-between px-2 pb-2'>
+                              <button
+                                className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                                onClick={() => {
+                                  setReplyingToId(null)
+                                  setReplyBody(null)
+                                  setReplyingToComment(null)
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <Button
+                                size='sm'
+                                className='h-7 text-xs gap-1.5'
+                                disabled={!replyBody?.trim() || submittingReply}
+                                onClick={() => submitReply(comment.id)}
+                              >
+                                <Send size={12} />
+                                Reply
+                                <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                                  {typeof navigator !== 'undefined' &&
+                                  /Mac|iPhone|iPad/i.test(navigator.platform)
+                                    ? '⌘↵'
+                                    : 'Ctrl+↵'}
+                                </kbd>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* New comment input */}
+            <div className='mt-5 flex gap-2.5'>
+              <Avatar className='size-7 shrink-0 mt-0.5'>
+                <AvatarImage src={user?.imageUrl} />
+                <AvatarFallback className='text-[10px]'>
+                  {(
+                    user?.firstName?.[0] ??
+                    user?.emailAddresses?.[0]?.emailAddress?.[0] ??
+                    '?'
+                  ).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
+                <div
+                  className='px-3 pt-2 pb-1 text-sm'
+                  onKeyDown={e => {
+                    const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
+                    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault()
+                      submitComment()
+                    }
+                  }}
+                >
+                  <DescriptionEditor
+                    key={commentKey}
+                    value={null}
+                    onCommit={setCommentBody}
+                    onChange={setCommentBody}
+                    placeholder='Add a comment…'
+                    members={mentionableMembers}
+                  />
+                </div>
+                <div className='flex justify-end px-2 pb-2'>
+                  <Button
+                    size='sm'
+                    className='h-7 text-xs gap-1.5'
+                    disabled={!commentBody?.trim() || submitting}
+                    onClick={submitComment}
+                  >
+                    <Send size={12} />
+                    Comment
+                    <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
+                      {typeof navigator !== 'undefined' &&
+                      /Mac|iPhone|iPad/i.test(navigator.platform)
+                        ? '⌘↵'
+                        : 'Ctrl+↵'}
+                    </kbd>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+
+      {/* Delete-comment confirmation dialog */}
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={open => {
+          if (!open) setConfirmDeleteId(null)
+        }}
+      >
+        <AlertDialogContent
+          className='max-w-xs'
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (confirmDeleteId) deleteComment(confirmDeleteId)
+              setConfirmDeleteId(null)
+            }
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+              onClick={() => {
+                if (confirmDeleteId) deleteComment(confirmDeleteId)
+                setConfirmDeleteId(null)
+              }}
+            >
+              Delete
+              <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </SidebarProvider>
+  )
+}

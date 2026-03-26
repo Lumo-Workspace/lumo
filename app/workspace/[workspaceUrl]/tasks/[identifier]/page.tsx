@@ -34,6 +34,7 @@ export default async function TaskIdentifierPage({
       project: { select: { id: true, name: true, defaultReviewerId: true } },
       assignee: { select: { id: true, clerkId: true } },
       children: { select: { id: true, title: true, number: true } },
+      team: { select: { identifier: true } },
     },
   })
   if (!rawTask) notFound()
@@ -41,6 +42,7 @@ export default async function TaskIdentifierPage({
   // Serialize Dates — Next.js cannot pass Date objects from server to client components
   const task = {
     ...rawTask,
+    teamIdentifier: rawTask.team.identifier,
     updatedAt: rawTask.updatedAt.toISOString(),
   }
 
