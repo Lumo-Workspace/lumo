@@ -215,6 +215,10 @@
   pointer-events: none;
 }
 
+.ProseMirror .column-resize-handle {
+  cursor: col-resize;
+}
+
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 @custom-variant dark (&:is(.dark *));
 
