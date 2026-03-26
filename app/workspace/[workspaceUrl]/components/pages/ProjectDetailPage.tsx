@@ -221,16 +221,16 @@ export function ProjectDetailPage({
       </AlertDialog>
 
       {/* Tab nav */}
-      <div className='flex items-center gap-0 px-4 md:px-8 mt-4 shrink-0'>
+      <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
         {(['overview', 'tasks'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              'px-1 pb-2.5 mr-5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px',
+              'px-3 py-1.5 text-sm font-medium capitalize rounded-md transition-colors',
               tab === t
-                ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100'
-                : 'border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
             )}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
