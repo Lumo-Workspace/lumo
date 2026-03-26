@@ -113,6 +113,7 @@ export function ProjectDetailPage({
   onDeleteProject,
   members,
 }: ProjectDetailPageProps) {
+  const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -219,167 +220,196 @@ export function ProjectDetailPage({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Page header */}
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-start justify-between shrink-0'>
-        <div className='flex items-start gap-4'>
-          <div>
-            <div className='flex items-center gap-1'>
-              {/* Inline name editor */}
-              <TypographyH3
-                key={project.id}
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={e => {
-                  const trimmed = e.currentTarget.textContent?.trim() ?? ''
-                  if (!trimmed || trimmed === project.name) {
-                    e.currentTarget.textContent = project.name
-                    return
+      {/* Project title — always visible */}
+      <div className='pt-5 px-4 md:px-8 shrink-0'>
+        <div className='flex items-center gap-1.5'>
+          <TypographyH3
+            key={project.id}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={e => {
+              const trimmed = e.currentTarget.textContent?.trim() ?? ''
+              if (!trimmed || trimmed === project.name) {
+                e.currentTarget.textContent = project.name
+                return
+              }
+              onUpdateProject(project.id, { name: trimmed })
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+              if (e.key === 'Escape') {
+                e.currentTarget.textContent = project.name
+                e.currentTarget.blur()
+              }
+            }}
+            className='outline-none cursor-text focus:outline-none'
+          >
+            {project.name}
+          </TypographyH3>
+          {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+        </div>
+      </div>
+
+      {/* Tab nav */}
+      <div className='flex items-center gap-0 px-4 md:px-8 mt-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
+        {(['overview', 'tasks'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={cn(
+              'px-1 pb-2.5 mr-5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px',
+              tab === t
+                ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100'
+                : 'border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            )}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Overview tab ── */}
+      {tab === 'overview' && (
+        <div className='flex-1 overflow-y-auto'>
+          <div className='max-w-3xl mx-auto px-4 md:px-8 py-8 space-y-6'>
+            {/* Properties */}
+            <div className='space-y-1'>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
+                Properties
+              </p>
+              <div className='flex items-center gap-2 py-1'>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className='text-xs text-zinc-500 dark:text-zinc-400 w-20 shrink-0 cursor-default'>
+                      Lead
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side='right'>
+                    Default reviewer for all tasks in this project.
+                    <br />
+                    Notified when a task moves to In Review.
+                    <br />
+                    Can be overridden per task in the task detail.
+                  </TooltipContent>
+                </Tooltip>
+                <ReviewerSelect
+                  value={project.defaultReviewerId ?? null}
+                  onChange={v =>
+                    onUpdateProject(project.id, { defaultReviewerId: v })
                   }
-                  onUpdateProject(project.id, { name: trimmed })
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    e.currentTarget.blur()
-                  }
-                  if (e.key === 'Escape') {
-                    e.currentTarget.textContent = project.name
-                    e.currentTarget.blur()
-                  }
-                }}
-                className='outline-none cursor-text focus:outline-none'
-              >
-                {project.name}
-              </TypographyH3>
-              {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+                  members={members}
+                  triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-6 text-xs')}
+                />
+              </div>
             </div>
 
-            {/* Default lead (project-level reviewer) */}
-            <div className='flex items-center gap-1.5 mt-1 -ml-2'>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className='text-xs text-zinc-400 pl-2 cursor-default'>
-                    Lead
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side='bottom'>
-                  Default reviewer for all tasks in this project.
-                  <br />
-                  Notified when a task moves to In Review.
-                  <br />
-                  Can be overridden per task in the task detail.
-                </TooltipContent>
-              </Tooltip>
-              <ReviewerSelect
-                value={project.defaultReviewerId ?? null}
-                onChange={v =>
-                  onUpdateProject(project.id, { defaultReviewerId: v })
-                }
-                members={members}
-                triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-6 text-xs')}
+            {/* Description */}
+            <div>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
+                Description
+              </p>
+              <textarea
+                ref={descRef}
+                value={descValue}
+                placeholder='Add a description…'
+                rows={6}
+                onChange={e => setDescValue(e.target.value)}
+                onFocus={() => setEditingDesc(true)}
+                onBlur={commitDesc}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setDescValue(project.description ?? '')
+                    setEditingDesc(false)
+                    descRef.current?.blur()
+                  }
+                }}
+                className={cn(
+                  'w-full text-sm bg-transparent outline-none resize-none leading-relaxed border-none',
+                  editingDesc
+                    ? 'text-zinc-600 dark:text-zinc-300'
+                    : 'text-zinc-500 cursor-text hover:text-zinc-700 dark:hover:text-zinc-300',
+                  !descValue &&
+                    'placeholder:text-zinc-300 dark:placeholder:text-zinc-600'
+                )}
               />
             </div>
-
-            {/* Inline description editor — always a textarea to avoid layout shift */}
-            <textarea
-              ref={descRef}
-              value={descValue}
-              placeholder='Add a summary…'
-              rows={1}
-              onChange={e => setDescValue(e.target.value)}
-              onFocus={() => setEditingDesc(true)}
-              onBlur={commitDesc}
-              onKeyDown={e => {
-                if (e.key === 'Escape') {
-                  setDescValue(project.description ?? '')
-                  setEditingDesc(false)
-                  descRef.current?.blur()
-                }
-              }}
-              className={cn(
-                'mt-0.5 text-sm bg-transparent outline-none resize-none w-full leading-relaxed transition-colors border-none',
-                editingDesc
-                  ? 'text-zinc-500'
-                  : 'text-zinc-500 cursor-text hover:text-zinc-700 dark:hover:text-zinc-300',
-                !descValue &&
-                  'placeholder:text-zinc-300 dark:placeholder:text-zinc-600'
-              )}
-            />
           </div>
         </div>
-        <Button
-          onClick={() => onNewTask()}
-          size='sm'
-          className='gap-1.5 shrink-0'
-        >
-          <Plus size={18} />
-          Create Task
-        </Button>
-      </header>
+      )}
 
-      {/* Toolbar */}
-      <div className='h-12 flex items-center justify-end px-4 md:px-8 shrink-0 bg-white dark:bg-zinc-950'>
-        <ViewToggle value={viewMode} onChange={setViewMode} />
-      </div>
+      {/* ── Tasks tab ── */}
+      {tab === 'tasks' && (
+        <div className='flex-1 flex flex-col overflow-hidden'>
+          {/* Toolbar */}
+          <div className='h-12 flex items-center justify-between px-4 md:px-8 shrink-0'>
+            <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
+              <Plus size={14} />
+              Create Task
+            </Button>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
 
-      {/* Content */}
-      <div className='flex-1 flex flex-col overflow-hidden'>
-        <AsyncContent
-          loading={loading}
-          error={error}
-          empty={tasks.length === 0 && viewMode !== 'board'}
-          onRetry={onRetry}
-          className='flex-1 flex flex-col overflow-hidden'
-          emptyState={
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant='icon'>
-                  <Layers />
-                </EmptyMedia>
-                <EmptyTitle>No tasks yet</EmptyTitle>
-                <EmptyDescription>
-                  This project has no tasks. Add the first one to get started.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={() => onNewTask()}>
-                  <Plus size={16} />
-                  Create Task
-                </Button>
-              </EmptyContent>
-            </Empty>
-          }
-        >
-          {viewMode === 'list' ? (
-            <div className='flex-1 overflow-auto'>
-              <DataTable
-                columns={taskColumns}
-                data={tasks}
-                onRowClick={onTaskClick}
-              />
-            </div>
-          ) : (
-            <BoardView
-              tasks={tasks}
-              sensors={sensors}
-              activeId={activeId}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDragEnd={onDragEnd}
-              renderCard={(task, isOverlay) => (
-                <ProjectTaskCard
-                  key={task.id}
-                  task={task}
-                  isOverlay={isOverlay}
-                  members={members}
-                  onClick={() => onTaskClick(task)}
+          {/* Content */}
+          <AsyncContent
+            loading={loading}
+            error={error}
+            empty={tasks.length === 0 && viewMode !== 'board'}
+            onRetry={onRetry}
+            className='flex-1 flex flex-col overflow-hidden'
+            emptyState={
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant='icon'>
+                    <Layers />
+                  </EmptyMedia>
+                  <EmptyTitle>No tasks yet</EmptyTitle>
+                  <EmptyDescription>
+                    This project has no tasks. Add the first one to get started.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button onClick={() => onNewTask()}>
+                    <Plus size={16} />
+                    Create Task
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            }
+          >
+            {viewMode === 'list' ? (
+              <div className='flex-1 overflow-auto'>
+                <DataTable
+                  columns={taskColumns}
+                  data={tasks}
+                  onRowClick={onTaskClick}
                 />
-              )}
-              onAddTask={onNewTask}
-            />
-          )}
-        </AsyncContent>
-      </div>
+              </div>
+            ) : (
+              <BoardView
+                tasks={tasks}
+                sensors={sensors}
+                activeId={activeId}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragEnd={onDragEnd}
+                renderCard={(task, isOverlay) => (
+                  <ProjectTaskCard
+                    key={task.id}
+                    task={task}
+                    isOverlay={isOverlay}
+                    members={members}
+                    onClick={() => onTaskClick(task)}
+                  />
+                )}
+                onAddTask={onNewTask}
+              />
+            )}
+          </AsyncContent>
+        </div>
+      )}
     </div>
   )
 }
