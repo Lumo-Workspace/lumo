@@ -114,7 +114,7 @@ export function ProjectDetailPage({
   members,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   // Memoised columns — stable reference so TanStack Table doesn't re-create on every render
@@ -220,41 +220,8 @@ export function ProjectDetailPage({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Project title — always visible */}
-      <div className='pt-5 px-4 md:px-8 shrink-0'>
-        <div className='flex items-center gap-1.5'>
-          <TypographyH3
-            key={project.id}
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={e => {
-              const trimmed = e.currentTarget.textContent?.trim() ?? ''
-              if (!trimmed || trimmed === project.name) {
-                e.currentTarget.textContent = project.name
-                return
-              }
-              onUpdateProject(project.id, { name: trimmed })
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.currentTarget.blur()
-              }
-              if (e.key === 'Escape') {
-                e.currentTarget.textContent = project.name
-                e.currentTarget.blur()
-              }
-            }}
-            className='outline-none cursor-text focus:outline-none'
-          >
-            {project.name}
-          </TypographyH3>
-          {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
-        </div>
-      </div>
-
       {/* Tab nav */}
-      <div className='flex items-center gap-0 px-4 md:px-8 mt-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
+      <div className='flex items-center gap-0 px-4 md:px-8 mt-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
         {(['overview', 'tasks'] as const).map(t => (
           <button
             key={t}
@@ -274,7 +241,37 @@ export function ProjectDetailPage({
       {/* ── Overview tab ── */}
       {tab === 'overview' && (
         <div className='flex-1 overflow-y-auto'>
-          <div className='max-w-3xl mx-auto px-4 md:px-8 py-8 space-y-6'>
+          <div className='px-4 md:px-8 py-8 space-y-6'>
+            {/* Title */}
+            <div className='flex items-center gap-1.5'>
+              <TypographyH3
+                key={project.id}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={e => {
+                  const trimmed = e.currentTarget.textContent?.trim() ?? ''
+                  if (!trimmed || trimmed === project.name) {
+                    e.currentTarget.textContent = project.name
+                    return
+                  }
+                  onUpdateProject(project.id, { name: trimmed })
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.currentTarget.blur()
+                  }
+                  if (e.key === 'Escape') {
+                    e.currentTarget.textContent = project.name
+                    e.currentTarget.blur()
+                  }
+                }}
+                className='outline-none cursor-text focus:outline-none'
+              >
+                {project.name}
+              </TypographyH3>
+              {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+            </div>
             {/* Properties */}
             <div className='space-y-1'>
               <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
@@ -344,11 +341,7 @@ export function ProjectDetailPage({
       {tab === 'tasks' && (
         <div className='flex-1 flex flex-col overflow-hidden'>
           {/* Toolbar */}
-          <div className='h-12 flex items-center justify-between px-4 md:px-8 shrink-0'>
-            <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
-              <Plus size={14} />
-              Create Task
-            </Button>
+          <div className='h-12 flex items-center justify-end px-4 md:px-8 shrink-0'>
             <ViewToggle value={viewMode} onChange={setViewMode} />
           </div>
 
