@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -11,6 +11,7 @@ import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import Mention from '@tiptap/extension-mention'
+import Image from '@tiptap/extension-image'
 import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
@@ -102,7 +103,9 @@ import {
   Link2Off,
   Table2,
   Trash2,
+  ImageIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -205,9 +208,11 @@ const LIST_STYLES = [
 function BubbleMenuBar({
   editor,
   openLinkInputRef,
+  onInsertImage,
 }: {
   editor: Editor
   openLinkInputRef: React.MutableRefObject<(() => void) | null>
+  onInsertImage: () => void
 }) {
   const [styleOpen, setStyleOpen] = useState(false)
   const [listOpen, setListOpen] = useState(false)
@@ -595,6 +600,11 @@ function BubbleMenuBar({
       >
         <Table2 size={14} />
       </ToolbarButton>
+
+      {/* Insert image */}
+      <ToolbarButton onClick={onInsertImage} title='Insert image'>
+        <ImageIcon size={14} />
+      </ToolbarButton>
     </div>
   )
 }
@@ -608,6 +618,100 @@ interface DescriptionEditorProps {
   placeholder?: string
   members?: WorkspaceMemberInfo[]
   tasks?: ApiTask[]
+  /** Used as the Blob path segment: documents/{documentId}/… */
+  documentId?: string
+}
+
+/** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
+async function uploadImageFile(
+  file: File,
+  documentId?: string
+): Promise<string | null> {
+  const formData = new FormData()
+  formData.set('file', file)
+  if (documentId) formData.set('folder', documentId)
+  const res = await fetch('/api/upload/image', {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return (data.url as string) ?? null
+}
+
+/**
+ * Insert an image immediately using a local blob URL for instant preview,
+ * upload in the background, then swap the src to the real CDN URL when done.
+ * On failure, removes the placeholder and shows a toast.
+ *
+ * Returns a Promise that resolves when the upload is settled (success or fail),
+ * so callers can track pending uploads before committing the document.
+ */
+async function insertImageWithUpload(
+  file: File,
+  documentId: string | undefined,
+  getEditor: () => import('@tiptap/core').Editor | null,
+  insertPos?: number
+): Promise<void> {
+  const tempUrl = URL.createObjectURL(file)
+  const ed = getEditor()
+  if (!ed) {
+    URL.revokeObjectURL(tempUrl)
+    return
+  }
+
+  // Show the image immediately with the local blob URL
+  if (insertPos !== undefined) {
+    ed.chain()
+      .focus()
+      .insertContentAt(insertPos, { type: 'image', attrs: { src: tempUrl } })
+      .run()
+  } else {
+    ed.chain().focus().setImage({ src: tempUrl }).run()
+  }
+
+  try {
+    const realUrl = await uploadImageFile(file, documentId)
+    if (!realUrl) throw new Error('Upload returned no URL')
+
+    // Swap blob URL → CDN URL in the document
+    const current = getEditor()
+    if (current) {
+      let swapped = false
+      current.state.doc.descendants((node, pos) => {
+        if (swapped) return false
+        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
+          const tr = current.state.tr.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            src: realUrl,
+          })
+          current.view.dispatch(tr)
+          swapped = true
+          return false
+        }
+        return true
+      })
+    }
+  } catch {
+    // Remove the broken placeholder image
+    const current = getEditor()
+    if (current) {
+      let removed = false
+      current.state.doc.descendants((node, pos) => {
+        if (removed) return false
+        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
+          const tr = current.state.tr.delete(pos, pos + node.nodeSize)
+          current.view.dispatch(tr)
+          removed = true
+          return false
+        }
+        return true
+      })
+    }
+    toast.error('Image upload failed')
+  } finally {
+    URL.revokeObjectURL(tempUrl)
+  }
 }
 
 export function DescriptionEditor({
@@ -617,10 +721,19 @@ export function DescriptionEditor({
   placeholder = 'Add a description…',
   members = [],
   tasks = [],
+  documentId,
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
   const mentionListRef = useRef<MentionListRef | null>(null)
+  // Ref kept in sync with the editor instance so async upload callbacks can
+  // always reach the latest editor without stale closures.
+  const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  // Track in-flight uploads so we delay onCommit until all are settled.
+  const pendingUploadsRef = useRef(0)
+  const pendingCommitRef = useRef<(() => void) | null>(null)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
     null
   )
@@ -642,6 +755,7 @@ export function DescriptionEditor({
       TableRow,
       TableHeader,
       TableCell,
+      Image.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({ placeholder }),
       MentionWithType.configure({
         suggestion: buildMentionSuggestion(
@@ -685,19 +799,129 @@ export function DescriptionEditor({
         }
         return false
       },
+      handlePaste: (_view, event) => {
+        const files = Array.from(event.clipboardData?.files ?? [])
+        const img = files.find(f => f.type.startsWith('image/'))
+        if (!img) return false
+        event.preventDefault()
+        pendingUploadsRef.current++
+        insertImageWithUpload(img, documentId, () => editorRef.current).finally(
+          () => {
+            pendingUploadsRef.current--
+            if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+              pendingCommitRef.current()
+              pendingCommitRef.current = null
+            }
+          }
+        )
+        return true
+      },
     },
     onFocus: () => {
       isFocusedRef.current = true
     },
     onBlur: ({ editor }) => {
       isFocusedRef.current = false
-      const html = editor.isEmpty ? null : editor.getHTML()
-      onCommit(html)
+      const commit = () => {
+        const html = editor.isEmpty ? null : editor.getHTML()
+        onCommit(html)
+      }
+      if (pendingUploadsRef.current > 0) {
+        // Uploads still in flight — defer commit until they all settle so we
+        // never write a blob: URL into the database.
+        pendingCommitRef.current = commit
+      } else {
+        commit()
+      }
     },
     onUpdate: ({ editor }) => {
       onChange?.(editor.isEmpty ? null : editor.getHTML())
     },
   })
+
+  // Keep editorRef in sync so async upload callbacks always reach the latest instance
+  useEffect(() => {
+    editorRef.current = editor ?? null
+  }, [editor])
+
+  // Open the hidden file picker when the toolbar image button is clicked
+  const handleInsertImage = useCallback(() => {
+    imageInputRef.current?.click()
+  }, [])
+
+  // ── Drag-and-drop image upload ─────────────────────────────────────────────
+  // React synthetic events are delegated at the React root, so they fire too
+  // late to reliably cancel the browser's "open file" navigation. We attach
+  // NATIVE listeners with capture:true directly on the drop-zone div so we
+  // intercept the event before ProseMirror or the browser can act on it.
+  useEffect(() => {
+    const el = dropZoneRef.current
+    if (!el) return
+
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+        // Prevent default on dragover so the browser allows a custom drop
+        // instead of navigating to the file.
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+
+    const onDrop = (e: DragEvent) => {
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      const img = files.find(f => f.type.startsWith('image/'))
+      if (!img) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const view = editorRef.current?.view
+      const coords = view?.posAtCoords({ left: e.clientX, top: e.clientY })
+      const insertPos = coords?.pos
+
+      pendingUploadsRef.current++
+      insertImageWithUpload(
+        img,
+        documentId,
+        () => editorRef.current,
+        insertPos
+      ).finally(() => {
+        pendingUploadsRef.current--
+        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+          pendingCommitRef.current()
+          pendingCommitRef.current = null
+        }
+      })
+    }
+
+    // capture: true → fires before any child handlers (including ProseMirror)
+    el.addEventListener('dragover', onDragOver, true)
+    el.addEventListener('drop', onDrop, true)
+    return () => {
+      el.removeEventListener('dragover', onDragOver, true)
+      el.removeEventListener('drop', onDrop, true)
+    }
+  }, [documentId])
+
+  // Called when the user picks a file from the hidden input
+  const handleImageFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      // Reset so the same file can be picked again
+      e.target.value = ''
+      pendingUploadsRef.current++
+      insertImageWithUpload(file, documentId, () => editorRef.current).finally(
+        () => {
+          pendingUploadsRef.current--
+          if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+            pendingCommitRef.current()
+            pendingCommitRef.current = null
+          }
+        }
+      )
+    },
+    [documentId]
+  )
 
   // Sync external value changes without overwriting active edits
   useEffect(() => {
@@ -718,11 +942,26 @@ export function DescriptionEditor({
 
   return (
     <>
-      <EditorContent editor={editor} />
+      {/* Hidden file picker for toolbar image insertion */}
+      <input
+        ref={imageInputRef}
+        type='file'
+        accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml'
+        className='hidden'
+        onChange={handleImageFileChange}
+      />
+      {/* Native capture listeners are bound to this div via useEffect above */}
+      <div ref={dropZoneRef}>
+        <EditorContent editor={editor} />
+      </div>
       {menuElement &&
         editor &&
         createPortal(
-          <BubbleMenuBar editor={editor} openLinkInputRef={openLinkInputRef} />,
+          <BubbleMenuBar
+            editor={editor}
+            openLinkInputRef={openLinkInputRef}
+            onInsertImage={handleInsertImage}
+          />,
           menuElement
         )}
       {mentionPopup &&
