@@ -104,15 +104,69 @@ interface Props {
 }
 ```
 
+#### Sidebar setup
+
 - Manages `isDarkMode` via localStorage (`CACHE_KEY.darkMode`) — same pattern as `TaskDetailPage`
 - Supplies all 5 required `AppSidebar` props:
   - `currentPage`: `'projects'` (highlights Projects in the sidebar nav)
-  - `onNavigate`: `router.push(\`/workspace/${workspaceUrl}\`)` for all pages
+  - `onNavigate`: `(page) => router.push(\`/workspace/${workspaceUrl}\`)`— ignores`page` arg, always goes to workspace root
   - `isDarkMode` / `onToggleDarkMode`: local state + localStorage + classList toggle
   - `unreadCount`: `0`
-- On mount, fetches in parallel: members, projects, project tasks
-- Breadcrumb: Back chevron → "Projects" (clickable, `router.back()`) → separator → project name
-- Renders the existing `ProjectDetailPage` component directly (no duplication)
+
+#### Breadcrumb
+
+Back chevron → "Projects" (clickable, calls `router.push(\`/workspace/${workspaceUrl}\`)`) → separator → project name. **Do not use `router.back()`** — direct deep links have no history, so `router.back()` would exit the app.
+
+#### Data fetching on mount
+
+Fetch in parallel:
+
+1. Members via `GET API.workspaces.members` — hydrate from `CACHE_KEY.members` first
+2. Projects via `GET API.projects.list` — hydrate from `CACHE_KEY.projects` first
+3. Project tasks via `GET API.projects.tasks(projectId)` — hydrate from `CACHE_KEY.projectTasks(projectId)` first (note: `projectTasks` cache key is a function, call it with `projectId`)
+
+Manage local state:
+
+```ts
+const [tasks, setTasks] = useState<ApiTask[]>([])
+const [kanbanViewId, setKanbanViewId] = useState<string | null>(null)
+const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
+const [loading, setLoading] = useState(true)
+const [error, setError] = useState<string | null>(null)
+```
+
+#### Wiring `ProjectDetailPage` props
+
+`ProjectDetailStandalonePage` renders the existing `ProjectDetailPage` directly. All 16 props must be supplied:
+
+```ts
+<ProjectDetailPage
+  project={project}                          // local state, seeded from initialProject
+  tasks={tasks}
+  setTasks={setTasks}
+  viewId={kanbanViewId}
+  loading={loading}
+  error={error}
+  onRetry={() => fetchTasks()}
+  onBack={() => router.push(`/workspace/${workspaceUrl}`)}
+  onNewTask={(status) => handleCreateTask(status)}
+  onTaskClick={(task) => router.push(`/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`)}
+  onDeleteTask={handleDeleteTask}
+  onTaskStatusChanged={handleTaskStatusChanged}
+  onUpdateProject={handleUpdateProject}
+  onDeleteProject={async (id) => { await handleDeleteProject(id); router.push(`/workspace/${workspaceUrl}`) }}
+  members={members}
+/>
+```
+
+Key handler implementations:
+
+- `onTaskClick`: navigate to task detail page (no drawer on this standalone page)
+- `onDeleteProject`: call `DELETE API.projects.byId(id)` then navigate to workspace root
+- `handleCreateTask`: call `POST API.projects.tasks(projectId)` with `{ title, status }`, add returned task to local state
+- `handleDeleteTask`: call `DELETE API.tasks.byId(taskId)`, remove from local state
+- `handleTaskStatusChanged`: call `PATCH API.tasks.byId(taskId)` with `{ status }`, update local state
+- `handleUpdateProject`: call `PATCH API.projects.byId(id)` with data, update local project state
 
 ---
 
@@ -123,20 +177,29 @@ interface Props {
 New file: `app/workspace/[workspaceUrl]/utils/copyLink.ts`
 
 ```ts
+import { toast } from 'sonner'
+
 export async function copyLink(url: string): Promise<void> {
-  await navigator.clipboard.writeText(url)
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.success('Link copied')
+  } catch {
+    toast.error('Failed to copy link')
+  }
 }
 ```
 
-Callers show a toast ("Link copied") and briefly swap the icon to a checkmark (1.5 s).
+Callers also briefly swap the copy icon to a `Check` for 1.5 s using local state (see button style below).
 
 ### Per-entity placement
 
-| Entity      | Trigger                                                                                                          | URL copied                                                 |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **Project** | Hover on project card in sidebar/list; always-visible on standalone project page header                          | `/workspace/[slug]/projects/[projectId]`                   |
-| **Task**    | Always-visible in TaskDrawer header (next to SquareArrowOutUpRight); always-visible on TaskDetailPage title area | `/workspace/[slug]/tasks/[identifier]`                     |
-| **Comment** | Hover on individual comment → link icon appears top-right                                                        | `/workspace/[slug]/tasks/[identifier]#comment-[commentId]` |
+| Entity             | Trigger                                                                                                                       | File                              | URL copied                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| **Project** (list) | Hover on project row in `WorkspaceApp`'s sidebar project list (the `<button>` items in the left nav that switch to a project) | `WorkspaceApp.tsx`                | `/workspace/[slug]/projects/[projectId]`                   |
+| **Project** (page) | Always-visible in `ProjectDetailStandalonePage` header, next to the project title                                             | `ProjectDetailStandalonePage.tsx` | `/workspace/[slug]/projects/[projectId]`                   |
+| **Task** (drawer)  | Always-visible in `TaskDrawer` header, between `SquareArrowOutUpRight` and `X`                                                | `TaskDrawer.tsx`                  | `/workspace/[slug]/tasks/[identifier]`                     |
+| **Task** (page)    | Always-visible in `TaskDetailPage` title area, next to the title                                                              | `TaskDetailPage.tsx`              | `/workspace/[slug]/tasks/[identifier]`                     |
+| **Comment**        | Hover on individual comment → link icon appears top-right of that comment                                                     | `TaskDetailPanel.tsx`             | `/workspace/[slug]/tasks/[identifier]#comment-[commentId]` |
 
 ### Button style
 
@@ -162,14 +225,20 @@ Each comment container in `TaskDetailPanel` (and `TaskDetailPage`) receives:
 
 In `TaskDetailPage`, after the comments have loaded:
 
+Use a `hasScrolled` ref to ensure the effect only fires once (prevents re-triggering when comments are updated after posting a new comment):
+
 ```ts
+const hasScrolled = useRef(false)
+
 useEffect(() => {
+  if (hasScrolled.current) return
   if (!comments.length) return
   const hash = window.location.hash // e.g. "#comment-cm4abc123"
   if (!hash.startsWith('#comment-')) return
   const id = hash.slice('#comment-'.length)
   const el = document.getElementById(`comment-${id}`)
   if (!el) return
+  hasScrolled.current = true
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   el.classList.add('comment-highlight')
   setTimeout(() => el.classList.remove('comment-highlight'), 1500)
