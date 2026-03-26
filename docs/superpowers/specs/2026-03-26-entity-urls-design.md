@@ -109,7 +109,7 @@ interface Props {
 - Manages `isDarkMode` via localStorage (`CACHE_KEY.darkMode`) — same pattern as `TaskDetailPage`
 - Supplies all 5 required `AppSidebar` props:
   - `currentPage`: `'projects'` (highlights Projects in the sidebar nav)
-  - `onNavigate`: `(page: Page) => router.push(\`/workspace/${workspaceUrl}\`)`— ignores`page` arg, always goes to workspace root
+  - `onNavigate`: `(page: Page) => router.push(\`/workspace/${workspaceUrl}\`)`— ignores`page`arg, always goes to workspace root. **Known limitation:** sidebar nav items all navigate to workspace root rather than their respective pages; accepted tradeoff for this standalone route (same as`TaskDetailPage`).
   - `isDarkMode` / `onToggleDarkMode`: local state + localStorage + classList toggle
   - `unreadCount`: `0`
 
@@ -123,7 +123,7 @@ Fetch in parallel:
 
 1. Members via `GET API.workspaces.members` — hydrate from `CACHE_KEY.members` first
 2. Projects via `GET API.projects.list` — hydrate from `CACHE_KEY.projects` first
-3. Project tasks via `GET API.projects.tasks(projectId)` — hydrate from `CACHE_KEY.projectTasks(projectId)` first (note: `projectTasks` cache key is a function, call it with `projectId`)
+3. Project tasks via `GET API.projects.tasks(projectId)` — hydrate from `CACHE_KEY.projectTasks(projectId)` first (note: `projectTasks` cache key is a function, call it with `projectId`). The response shape is `{ tasks: ApiTask[], kanbanViewId: string | null }` — call `setKanbanViewId(data.kanbanViewId)` after fetching
 
 Manage local state:
 
@@ -151,10 +151,11 @@ const [error, setError] = useState<string | null>(null)
   loading={loading}
   error={error}
   onRetry={() => fetchTasks()}
+  // onRetry intentionally only re-fetches tasks — that is all ProjectDetailPage's retry button controls
   onBack={() => router.push(`/workspace/${workspaceUrl}`)}
   onNewTask={(status) => handleCreateTask(status)}
   onTaskClick={(task) => router.push(`/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`)}
-  // Note: ApiTask always includes teamIdentifier and number — both are present on the type
+  // teamIdentifier is the team prefix (e.g. "LUM"), number is the task number (e.g. 12) → produces "LUM-12"
   onDeleteTask={handleDeleteTask}
   onTaskStatusChanged={handleTaskStatusChanged}
   onUpdateProject={handleUpdateProject}
@@ -244,8 +245,8 @@ useEffect(() => {
   if (!comments.length) return
   const hash = window.location.hash // e.g. "#comment-cm4abc123"
   if (!hash.startsWith('#comment-')) return
-  const id = hash.slice('#comment-'.length)
-  const el = document.getElementById(`comment-${id}`)
+  // Strip the leading '#' only; the element id is "comment-cm4abc123"
+  const el = document.getElementById(hash.slice(1))
   if (!el) return
   hasScrolled.current = true
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -287,6 +288,8 @@ useEffect(() => {
 ### Drawer behaviour
 
 The drawer (`TaskDetailPanel`) does **not** handle anchor scrolling — deep links via `#comment-[id]` only work on the standalone task detail page.
+
+The copy link button is still added to comments inside `TaskDetailPanel` (drawer view). The URL it copies always points to the standalone task detail page (`/workspace/[slug]/tasks/[identifier]#comment-[id]`), not to the current drawer context. This is intentional — the drawer has no shareable URL of its own.
 
 ---
 
