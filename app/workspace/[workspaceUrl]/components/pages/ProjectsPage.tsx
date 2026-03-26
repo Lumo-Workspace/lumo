@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Search, Plus, Layers } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { Search, Plus, Layers, Link as LinkIcon } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
@@ -29,6 +30,12 @@ import {
 } from '@/components/ui/breadcrumb'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
+import { copyLink } from '../../utils/copyLink'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 type ProjectSortKey = 'name' | 'tasks' | 'inProgress' | 'updatedAt'
 
@@ -49,6 +56,7 @@ export function ProjectsPage({
   onSelectProject,
   onNewProject,
 }: ProjectsPageProps) {
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -253,7 +261,27 @@ export function ProjectsPage({
                     </div>
                   </td>
                   <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
-                    {new Date(project.updatedAt).toLocaleDateString()}
+                    <div className='flex items-center justify-end gap-2'>
+                      <span>
+                        {new Date(project.updatedAt).toLocaleDateString()}
+                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100'
+                            onClick={e => {
+                              e.stopPropagation()
+                              copyLink(
+                                `${window.location.origin}/workspace/${workspaceUrl}/projects/${project.id}`
+                              )
+                            }}
+                          >
+                            <LinkIcon size={12} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copy link</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </td>
                 </tr>
               ))}
