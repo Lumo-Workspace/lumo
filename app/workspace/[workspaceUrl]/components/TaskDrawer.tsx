@@ -82,9 +82,10 @@ export function TaskDrawer({
               variant='ghost'
               size='icon'
               onClick={() => {
+                sessionStorage.setItem('lumo:taskSource', source)
                 onClose()
                 router.push(
-                  `/workspace/${workspaceUrl}/tasks/${initialTask.teamIdentifier}-${initialTask.number}?from=${source}`
+                  `/workspace/${workspaceUrl}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
                 )
               }}
               className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'

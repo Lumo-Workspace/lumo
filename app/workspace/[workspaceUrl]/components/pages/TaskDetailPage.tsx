@@ -78,13 +78,12 @@ export function TaskDetailPage({
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(null)
   useEffect(() => {
-    const fromParam = new URLSearchParams(window.location.search).get('from')
-    setFrom(fromParam)
-    // Clean the ?from= param from the URL without adding a history entry
-    if (fromParam) {
-      router.replace(window.location.pathname, { scroll: false })
+    const stored = sessionStorage.getItem('lumo:taskSource')
+    if (stored) {
+      setFrom(stored)
+      sessionStorage.removeItem('lumo:taskSource')
     }
-  }, [router])
+  }, [])
   const sourceLabel =
     from === 'my-tasks' ? 'My Tasks' : (initialTask.project?.name ?? 'Project')
 
