@@ -138,7 +138,9 @@ export function TaskDetailPage({
   // ── Parallel fetch on mount ────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
-      fetch(API.tasks.byId(initialTask.id)).then(r => r.json()),
+      fetch(API.tasks.byId(initialTask.id)).then(r =>
+        r.ok ? r.json() : { task: null }
+      ),
       fetch(API.workspaces.members).then(r =>
         r.ok ? r.json() : { members: [] }
       ),

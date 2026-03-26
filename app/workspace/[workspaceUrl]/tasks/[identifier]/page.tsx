@@ -44,6 +44,7 @@ export default async function TaskIdentifierPage({
     ...rawTask,
     teamIdentifier: rawTask.team.identifier,
     updatedAt: rawTask.updatedAt.toISOString(),
+    createdAt: rawTask.createdAt.toISOString(),
   }
 
   return <TaskDetailPage initialTask={task} workspaceUrl={workspaceUrl} />
