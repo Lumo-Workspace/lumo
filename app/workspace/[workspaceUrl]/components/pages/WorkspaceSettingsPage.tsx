@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { API } from '../../constants'
+import { API, CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
 import { LogoUploader } from '@/components/LogoUploader'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,12 +26,27 @@ interface Workspace {
   logoUrl?: string | null
 }
 
+type WorkspaceCache = {
+  name?: string
+  logoUrl?: string | null
+  slug?: string
+  role?: string
+}
+
+/** Merge new fields into the workspace cache without clobbering unrelated keys
+ *  (e.g. name/logoUrl written by Sidebar.tsx). */
+function patchWorkspaceCache(patch: Partial<WorkspaceCache>) {
+  const prev = readCache<WorkspaceCache>(CACHE_KEY.workspace) ?? {}
+  writeCache(CACHE_KEY.workspace, { ...prev, ...patch })
+}
+
 export function WorkspaceSettingsPage() {
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [isOwner, setIsOwner] = useState(false)
+  // Start as false only if we have no cached role yet; cache makes it instant
   const [loading, setLoading] = useState(true)
 
   // Name field
@@ -46,17 +62,47 @@ export function WorkspaceSettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
+  // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
+  useEffect(() => {
+    const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
+    if (cached?.name && cached?.slug) {
+      const owner = cached.role === 'OWNER'
+      setWorkspace({
+        id: '',
+        name: cached.name,
+        slug: cached.slug,
+        logoUrl: cached.logoUrl ?? null,
+      })
+      setName(cached.name)
+      setSlug(cached.slug)
+      setIsOwner(owner)
+      setLoading(false)
+      if (!owner && cached.role) {
+        // Role is known from cache — redirect immediately
+        router.replace(`/workspace/${workspaceUrl}/settings/members`)
+      }
+    }
+  }, [])
+
   const fetchWorkspace = useCallback(async () => {
     try {
       const res = await fetch(API.workspaces.me)
       if (!res.ok) return
       const data = await res.json()
       const owner = data.role === 'OWNER'
+
       setWorkspace(data.workspace)
       setIsOwner(owner)
       setName(data.workspace.name)
       setSlug(data.workspace.slug)
-      // Non-admins cannot access this page — redirect to members
+
+      // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
+      patchWorkspaceCache({
+        name: data.workspace.name,
+        slug: data.workspace.slug,
+        role: data.role,
+      })
+
       if (!owner) {
         router.replace(`/workspace/${workspaceUrl}/settings/members`)
         return
@@ -70,8 +116,18 @@ export function WorkspaceSettingsPage() {
     fetchWorkspace()
   }, [fetchWorkspace])
 
+  // ─── Permission guard (client-side; server also enforces 403) ────────────
+  function assertOwner(): boolean {
+    if (!isOwner) {
+      toast.error("You don't have permission to modify workspace settings.")
+      return false
+    }
+    return true
+  }
+
   // ─── Save name ────────────────────────────────────────────────────────────
   const handleSaveName = async () => {
+    if (!assertOwner()) return
     if (!name.trim() || name === workspace?.name) return
     setSavingName(true)
     try {
@@ -85,6 +141,7 @@ export function WorkspaceSettingsPage() {
       setWorkspace(prev =>
         prev ? { ...prev, name: data.workspace.name } : prev
       )
+      patchWorkspaceCache({ name: data.workspace.name })
       toast.success('Workspace name updated')
     } catch (err) {
       setName(workspace?.name ?? '')
@@ -96,6 +153,7 @@ export function WorkspaceSettingsPage() {
 
   // ─── Save slug ────────────────────────────────────────────────────────────
   const handleSaveSlug = async () => {
+    if (!assertOwner()) return
     const trimmed = slug.trim().toLowerCase()
     if (!trimmed || trimmed === workspace?.slug) return
     setSavingSlug(true)
@@ -107,8 +165,8 @@ export function WorkspaceSettingsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update URL')
+      patchWorkspaceCache({ slug: data.workspace.slug })
       toast.success('Workspace URL updated')
-      // Redirect to new workspace URL
       router.push(`/workspace/${data.workspace.slug}/settings/workspace`)
     } catch (err) {
       setSlug(workspace?.slug ?? '')
@@ -120,6 +178,7 @@ export function WorkspaceSettingsPage() {
 
   // ─── Delete workspace ─────────────────────────────────────────────────────
   const handleDelete = async () => {
+    if (!assertOwner()) return
     setDeleting(true)
     try {
       const res = await fetch(API.workspaces.me, { method: 'DELETE' })
@@ -166,9 +225,10 @@ export function WorkspaceSettingsPage() {
               currentLogoUrl={workspace?.logoUrl}
               workspaceName={workspace?.name ?? ''}
               uploadUrl={API.workspaces.logo}
-              onUpload={url =>
+              onUpload={url => {
                 setWorkspace(w => (w ? { ...w, logoUrl: url } : w))
-              }
+                patchWorkspaceCache({ logoUrl: url })
+              }}
             />
           </div>
 

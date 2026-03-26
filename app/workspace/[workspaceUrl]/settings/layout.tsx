@@ -1,3 +1,5 @@
+import { auth } from '@clerk/nextjs/server'
+import { getUserWorkspace } from '@/lib/auth'
 import { SettingsShell } from './SettingsShell'
 
 export default async function SettingsLayout({
@@ -8,5 +10,19 @@ export default async function SettingsLayout({
   params: Promise<{ workspaceUrl: string }>
 }) {
   const { workspaceUrl } = await params
-  return <SettingsShell workspaceUrl={workspaceUrl}>{children}</SettingsShell>
+
+  // Resolve role server-side so SettingsShell renders the correct nav on first
+  // paint — no client-side fetch or localStorage needed.
+  const { userId } = await auth()
+  let isOwner = false
+  if (userId) {
+    const ws = await getUserWorkspace(userId)
+    isOwner = ws?.member.role === 'OWNER'
+  }
+
+  return (
+    <SettingsShell workspaceUrl={workspaceUrl} isOwner={isOwner}>
+      {children}
+    </SettingsShell>
+  )
 }

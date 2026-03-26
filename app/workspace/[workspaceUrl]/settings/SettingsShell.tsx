@@ -1,33 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ArrowLeft, Building2, Users } from 'lucide-react'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
 
 interface SettingsShellProps {
   workspaceUrl: string
+  /** Resolved server-side by layout.tsx — no client fetch needed. */
+  isOwner: boolean
   children: React.ReactNode
 }
 
-export function SettingsShell({ workspaceUrl, children }: SettingsShellProps) {
+export function SettingsShell({
+  workspaceUrl,
+  isOwner,
+  children,
+}: SettingsShellProps) {
   const pathname = usePathname()
-  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
     // Restore dark mode on direct navigation to settings URL
     const dark = localStorage.getItem(CACHE_KEY.darkMode) === 'true'
     document.documentElement.classList.toggle('dark', dark)
-
-    // Fetch role to control nav visibility
-    fetch(API.workspaces.me)
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (data?.role === 'OWNER') setIsOwner(true)
-      })
-      .catch(() => {})
   }, [])
 
   const adminItems = [
