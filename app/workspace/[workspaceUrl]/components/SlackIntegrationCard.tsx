@@ -160,7 +160,7 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
             <Button
               size='sm'
               onClick={() => {
-                window.location.href = API.slack.oauth(workspaceUrl)
+                window.open(API.slack.oauth(workspaceUrl), '_blank')
               }}
             >
               Connect Slack
