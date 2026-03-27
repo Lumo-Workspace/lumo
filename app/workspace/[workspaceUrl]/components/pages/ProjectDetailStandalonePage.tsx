@@ -314,6 +314,7 @@ export function ProjectDetailStandalonePage({
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
             members={members}
+            onSlack={() => setSlackDialogOpen(true)}
           />
         </div>
       </SidebarInset>

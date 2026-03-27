@@ -46,6 +46,7 @@ import {
   NewProjectFormData,
 } from './components/modals/NewProjectModal'
 import { TaskDrawer } from './components/TaskDrawer'
+import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 
 export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -55,6 +56,9 @@ export default function DashboardApp() {
   const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
     null
   )
+
+  // ─── Slack ─────────────────────────────────────────────────────────────────
+  const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
   // ─── Normalized task store (single source of truth) ───────────────────────
   const {
@@ -616,6 +620,7 @@ export default function DashboardApp() {
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
             members={members}
+            onSlack={() => setSlackDialogOpen(true)}
           />
         )
 
@@ -739,6 +744,15 @@ export default function DashboardApp() {
             />
           )}
         </AnimatePresence>
+        {selectedProject && (
+          <ProjectSlackDialog
+            isOpen={slackDialogOpen}
+            onClose={() => setSlackDialogOpen(false)}
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            workspaceUrl={workspaceUrl}
+          />
+        )}
       </SidebarProvider>
     </motion.div>
   )

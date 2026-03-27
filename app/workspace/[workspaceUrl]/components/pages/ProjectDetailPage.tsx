@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Layers, Plus, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Layers, Plus, MoreHorizontal, Trash2, Slack } from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -90,6 +90,7 @@ interface ProjectDetailPageProps {
   ) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
+  onSlack?: () => void
 }
 
 export function ProjectDetailPage({
@@ -108,6 +109,7 @@ export function ProjectDetailPage({
   onUpdateProject,
   onDeleteProject,
   members,
+  onSlack,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
@@ -152,6 +154,17 @@ export function ProjectDetailPage({
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+          {onSlack && (
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={onSlack}
+              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              title='Slack notifications'
+            >
+              <Slack size={14} />
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
