@@ -95,7 +95,14 @@ export async function DELETE(request: NextRequest) {
         const slash = hook.repo.indexOf('/')
         const owner = hook.repo.slice(0, slash)
         const repo = hook.repo.slice(slash + 1)
-        await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
+        try {
+          await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
+        } catch (err) {
+          console.error(
+            `[github] failed to delete webhook ${hook.repo}#${hook.githubHookId}:`,
+            err
+          )
+        }
       }
       // Cascade delete handles GitHubWebhook records
       await prisma.gitHubIntegration.delete({
