@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
+import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -209,59 +210,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
-      // Resolve reviewer: task-level → project default → workspace owners
-      const effectiveReviewerId =
-        updated.reviewerId ?? task.project.defaultReviewerId ?? null
-
-      if (effectiveReviewerId) {
-        // Notify the specific reviewer
-        prisma.workspaceMember
-          .findUnique({
-            where: { id: effectiveReviewerId },
-            select: { clerkId: true },
-          })
-          .then(reviewer => {
-            if (!reviewer || reviewer.clerkId === userId) return
-            return prisma.notification.create({
-              data: {
-                workspaceId,
-                recipientId: reviewer.clerkId,
-                type: 'TASK_IN_REVIEW' as const,
-                taskId: id,
-                actorId: userId,
-              },
-            })
-          })
-          .catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
-      } else {
-        // Fallback: notify all workspace owners
-        prisma.workspaceMember
-          .findMany({
-            where: { workspaceId, role: 'OWNER' },
-            select: { clerkId: true },
-          })
-          .then(owners => {
-            const recipients = owners
-              .map(o => o.clerkId)
-              .filter(c => c !== userId)
-            if (recipients.length === 0) return
-            return prisma.notification.createMany({
-              data: recipients.map(recipientId => ({
-                workspaceId,
-                recipientId,
-                type: 'TASK_IN_REVIEW' as const,
-                taskId: id,
-                actorId: userId,
-              })),
-            })
-          })
-          .catch(err =>
-            console.error(
-              '[notify] TASK_IN_REVIEW (owners fallback) failed:',
-              err
-            )
-          )
-      }
+      notifyTaskInReview({
+        workspaceId,
+        taskId: id,
+        reviewerId: updated.reviewerId,
+        defaultReviewerId: task.project.defaultReviewerId,
+        actorId: userId,
+      }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
     }
 
     if (
