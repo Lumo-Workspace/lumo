@@ -125,27 +125,29 @@ async function lookupSlackUserByClerkId(
 export async function sendChannelNotification(
   workspaceId: string,
   event: SlackEventType,
-  payload: NotificationPayload
+  payload: NotificationPayload,
+  projectId: string // required — scope notifications to this project's configured channel
 ): Promise<void> {
   try {
+    // Workspace scoping is maintained via the outer findUnique({ where: { workspaceId } }).
+    // The channels filter is an additional constraint on the relation — not a standalone query.
     const integration = await prisma.slackIntegration.findUnique({
       where: { workspaceId },
       select: {
         accessToken: true,
-        channels: { select: { channelId: true, events: true } },
+        channels: {
+          where: { projectId, events: { has: event } },
+          select: { channelId: true },
+        },
       },
     })
-    if (!integration) return
+    if (!integration || integration.channels.length === 0) return
 
     const token = decrypt(integration.accessToken)
     const blocks = buildBlocks(event, payload)
 
-    const targetChannels = integration.channels.filter(c =>
-      c.events.includes(event)
-    )
-
     await Promise.allSettled(
-      targetChannels.map(c => postToChannel(token, c.channelId, blocks))
+      integration.channels.map(c => postToChannel(token, c.channelId, blocks))
     )
   } catch (error) {
     console.error(

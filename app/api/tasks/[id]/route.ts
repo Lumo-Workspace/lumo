@@ -284,12 +284,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       parsed.data.assigneeId !== null &&
       parsed.data.assigneeId !== task.assigneeId
     ) {
-      void sendChannelNotification(workspaceId, 'task_assigned', {
-        taskId: id,
-        taskTitle: updated.title,
-        taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
-      })
+      void sendChannelNotification(
+        workspaceId,
+        'task_assigned',
+        {
+          taskId: id,
+          taskTitle: updated.title,
+          taskIdentifier: `${updated.team.identifier}-${task.number}`,
+          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+        },
+        task.projectId
+      )
       prisma.workspaceMember
         .findUnique({
           where: { id: parsed.data.assigneeId },
@@ -334,12 +339,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
       }
-      void sendChannelNotification(workspaceId, 'task_sent_back', {
-        taskId: id,
-        taskTitle: updated.title,
-        taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
-      })
+      void sendChannelNotification(
+        workspaceId,
+        'task_sent_back',
+        {
+          taskId: id,
+          taskTitle: updated.title,
+          taskIdentifier: `${updated.team.identifier}-${task.number}`,
+          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+        },
+        task.projectId
+      )
       if (task.assigneeId) {
         prisma.workspaceMember
           .findUnique({
@@ -373,7 +383,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         taskIdentifier: `${updated.team.identifier}-${task.number}`,
         taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
       }
-      void sendChannelNotification(workspaceId, 'task_done', dmPayload)
+      void sendChannelNotification(
+        workspaceId,
+        'task_done',
+        dmPayload,
+        task.projectId
+      )
       if (task.assigneeId) {
         prisma.workspaceMember
           .findUnique({
@@ -403,7 +418,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       void sendChannelNotification(
         workspaceId,
         'task_sent_back',
-        sentBackPayload
+        sentBackPayload,
+        task.projectId
       )
       if (task.assigneeId) {
         prisma.workspaceMember

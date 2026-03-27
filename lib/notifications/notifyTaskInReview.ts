@@ -56,6 +56,7 @@ export async function notifyTaskInReview(params: {
     select: {
       title: true,
       number: true,
+      projectId: true,
       team: {
         select: {
           identifier: true,
@@ -68,12 +69,17 @@ export async function notifyTaskInReview(params: {
     const identifier = `${taskForSlack.team.identifier}-${taskForSlack.number}`
     const wsId = taskForSlack.team.workspace.id
     const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/task/${taskId}`
-    void sendChannelNotification(wsId, 'task_in_review', {
-      taskId,
-      taskTitle: taskForSlack.title,
-      taskIdentifier: identifier,
-      taskUrl,
-    })
+    void sendChannelNotification(
+      wsId,
+      'task_in_review',
+      {
+        taskId,
+        taskTitle: taskForSlack.title,
+        taskIdentifier: identifier,
+        taskUrl,
+      },
+      taskForSlack.projectId
+    )
     const effectiveReviewerClerkId = effectiveReviewerId
       ? ((
           await prisma.workspaceMember.findUnique({
