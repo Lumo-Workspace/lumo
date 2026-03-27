@@ -41,8 +41,8 @@ async function resolveSlackUser(
 
 const TASK_IDENTIFIER_REGEX = /^([A-Za-z]{1,10})-(\d+)$/
 
-function taskUrl(workspaceSlug: string, taskId: string) {
-  return `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${taskId}`
+function taskUrl(workspaceSlug: string, identifier: string) {
+  return `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${identifier}`
 }
 
 function taskBlocks(task: {
@@ -76,7 +76,7 @@ function taskBlocks(task: {
       accessory: {
         type: 'button',
         text: { type: 'plain_text', text: 'Open in Lumo ↗' },
-        url: taskUrl(task.workspaceSlug, task.id),
+        url: taskUrl(task.workspaceSlug, identifier),
       },
     },
   ]
@@ -280,7 +280,7 @@ export async function handleCommand(
       })
 
       const taskIdentifier = `${team.identifier}-${task.number}`
-      const url = taskUrl(team.workspace.slug, task.id)
+      const url = taskUrl(team.workspace.slug, taskIdentifier)
       return {
         type: 'blocks',
         blocks: [
@@ -350,7 +350,10 @@ export async function handleCommand(
           accessory: {
             type: 'button',
             text: { type: 'plain_text', text: 'Open ↗' },
-            url: taskUrl(t.team.workspace.slug, t.id),
+            url: taskUrl(
+              t.team.workspace.slug,
+              `${t.team.identifier}-${t.number}`
+            ),
           },
         })),
       }

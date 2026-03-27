@@ -291,7 +291,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           taskId: id,
           taskTitle: updated.title,
           taskIdentifier: `${updated.team.identifier}-${task.number}`,
-          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
         },
         task.projectId
       )
@@ -310,7 +310,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
               taskId: id,
               taskTitle: updated.title,
               taskIdentifier: `${updated.team.identifier}-${task.number}`,
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
             }
           )
         })
@@ -346,7 +346,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           taskId: id,
           taskTitle: updated.title,
           taskIdentifier: `${updated.team.identifier}-${task.number}`,
-          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
         },
         task.projectId
       )
@@ -366,7 +366,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
                   taskId: id,
                   taskTitle: updated.title,
                   taskIdentifier: `${updated.team.identifier}-${task.number}`,
-                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
                 }
               )
           })
@@ -381,7 +381,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         taskId: id,
         taskTitle: updated.title,
         taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
       }
       void sendChannelNotification(
         workspaceId,
@@ -413,7 +413,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         taskId: id,
         taskTitle: updated.title,
         taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
       }
       void sendChannelNotification(
         workspaceId,

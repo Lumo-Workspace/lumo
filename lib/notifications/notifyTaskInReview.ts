@@ -36,7 +36,7 @@ export async function notifyTaskInReview(params: {
   if (taskForSlack) {
     const identifier = `${taskForSlack.team.identifier}-${taskForSlack.number}`
     const wsId = taskForSlack.team.workspace.id
-    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/task/${taskId}`
+    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/tasks/${identifier}`
     void sendChannelNotification(
       wsId,
       'task_in_review',

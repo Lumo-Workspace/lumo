@@ -150,7 +150,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               taskId: id,
               taskTitle: task.title,
               commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
             })
           }
           // Channel notification for comment_mention (fire-and-forget)
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               taskId: task.id,
               taskTitle: task.title,
               taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${task.id}`,
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
               commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
             },
             task.projectId

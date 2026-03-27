@@ -153,7 +153,7 @@ export async function handlePullRequest(
   })
   const workspaceSlug = workspace?.slug ?? ''
   const taskIdentifier = `${task.team.identifier}-${task.number}`
-  const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${task.id}`
+  const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${taskIdentifier}`
 
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {
