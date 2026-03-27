@@ -17,40 +17,8 @@ export async function notifyTaskInReview(params: {
   const { workspaceId, taskId, reviewerId, defaultReviewerId, actorId } = params
   const effectiveReviewerId = reviewerId ?? defaultReviewerId ?? null
 
-  if (effectiveReviewerId) {
-    const reviewer = await prisma.workspaceMember.findUnique({
-      where: { id: effectiveReviewerId },
-      select: { clerkId: true },
-    })
-    if (!reviewer || reviewer.clerkId === actorId) return
-    await prisma.notification.create({
-      data: {
-        workspaceId,
-        recipientId: reviewer.clerkId,
-        type: 'TASK_IN_REVIEW',
-        taskId,
-        actorId,
-      },
-    })
-  } else {
-    const owners = await prisma.workspaceMember.findMany({
-      where: { workspaceId, role: 'OWNER' },
-      select: { clerkId: true },
-    })
-    const recipients = owners.map(o => o.clerkId).filter(c => c !== actorId)
-    if (recipients.length === 0) return
-    await prisma.notification.createMany({
-      data: recipients.map(recipientId => ({
-        workspaceId,
-        recipientId,
-        type: 'TASK_IN_REVIEW' as const,
-        taskId,
-        actorId,
-      })),
-    })
-  }
-
   // Slack: send channel + DM notification for task_in_review
+  // (must run before inbox guards — channel notifications fire regardless of reviewer assignment)
   const taskForSlack = await prisma.task.findUnique({
     where: { id: taskId },
     select: {
@@ -101,5 +69,39 @@ export async function notifyTaskInReview(params: {
         }
       )
     }
+  }
+
+  // Inbox: notify reviewer (or workspace owners if no reviewer assigned)
+  if (effectiveReviewerId) {
+    const reviewer = await prisma.workspaceMember.findUnique({
+      where: { id: effectiveReviewerId },
+      select: { clerkId: true },
+    })
+    if (!reviewer || reviewer.clerkId === actorId) return
+    await prisma.notification.create({
+      data: {
+        workspaceId,
+        recipientId: reviewer.clerkId,
+        type: 'TASK_IN_REVIEW',
+        taskId,
+        actorId,
+      },
+    })
+  } else {
+    const owners = await prisma.workspaceMember.findMany({
+      where: { workspaceId, role: 'OWNER' },
+      select: { clerkId: true },
+    })
+    const recipients = owners.map(o => o.clerkId).filter(c => c !== actorId)
+    if (recipients.length === 0) return
+    await prisma.notification.createMany({
+      data: recipients.map(recipientId => ({
+        workspaceId,
+        recipientId,
+        type: 'TASK_IN_REVIEW' as const,
+        taskId,
+        actorId,
+      })),
+    })
   }
 }
