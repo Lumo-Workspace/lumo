@@ -358,13 +358,21 @@ export function ProjectSlackDialog({
                         <button
                           type='button'
                           onClick={() => {
+                            const defaultName = projectName
+                              .toLowerCase()
+                              .replace(/\s+/g, '-')
+                              .replace(/[^a-z0-9-_]/g, '')
+                              .slice(0, 80)
                             setShowCreate(true)
                             setCreateError(null)
-                            setNewChannelName('')
-                            setTimeout(
-                              () => createInputRef.current?.focus(),
-                              50
-                            )
+                            setNewChannelName(defaultName)
+                            setTimeout(() => {
+                              const input = createInputRef.current
+                              if (input) {
+                                input.focus()
+                                input.select()
+                              }
+                            }, 50)
                           }}
                           className='flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
                         >
@@ -380,7 +388,11 @@ export function ProjectSlackDialog({
                           <Input
                             ref={createInputRef}
                             value={newChannelName}
-                            onChange={e => setNewChannelName(e.target.value)}
+                            onChange={e =>
+                              setNewChannelName(
+                                e.target.value.toLowerCase().replace(/ /g, '-')
+                              )
+                            }
                             onKeyDown={e => {
                               if (e.key === 'Enter')
                                 handleCreateChannel(loadState.availableChannels)
