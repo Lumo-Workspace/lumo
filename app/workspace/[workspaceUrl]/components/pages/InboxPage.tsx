@@ -94,6 +94,15 @@ function NotificationItem({
 }) {
   const { actor, task, type, commentPreview, createdAt, read } = notification
 
+  // Track which review action was taken this session so buttons stay visible
+  // after clicking instead of disappearing when read flips to true.
+  // wasUnreadOnMount captures whether to show buttons at all (we don't show
+  // action buttons for notifications that were already read on page load).
+  const [wasUnreadOnMount] = useState(!read)
+  const [actionTaken, setActionTaken] = useState<'DONE' | 'IN_PROGRESS' | null>(
+    null
+  )
+
   const verb =
     type === 'TASK_IN_REVIEW'
       ? 'submitted for review'
@@ -156,38 +165,44 @@ function NotificationItem({
 
             <p className='text-[10px] text-muted-foreground'>{timeAgo}</p>
 
-            {!read && (
+            {wasUnreadOnMount && type === 'TASK_IN_REVIEW' && (
               <ItemActions
                 className='mt-0.5'
                 onClick={e => e.stopPropagation()}
               >
-                {type === 'TASK_IN_REVIEW' && (
-                  <>
-                    <Button
-                      size='sm'
-                      className='h-6 text-[11px] px-2'
-                      onClick={() => {
-                        onTaskAction('DONE')
-                        onMarkRead()
-                      }}
-                    >
-                      <CheckCheck data-icon='inline-start' />
-                      Done
-                    </Button>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      className='h-6 text-[11px] px-2'
-                      onClick={() => {
-                        onTaskAction('IN_PROGRESS')
-                        onMarkRead()
-                      }}
-                    >
-                      <RotateCcw data-icon='inline-start' />
-                      Send back
-                    </Button>
-                  </>
-                )}
+                <Button
+                  size='sm'
+                  className={cn(
+                    'h-6 text-[11px] px-2',
+                    actionTaken === 'IN_PROGRESS' && 'opacity-40'
+                  )}
+                  disabled={!!actionTaken}
+                  onClick={() => {
+                    setActionTaken('DONE')
+                    onTaskAction('DONE')
+                    onMarkRead()
+                  }}
+                >
+                  <CheckCheck data-icon='inline-start' />
+                  Done
+                </Button>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  className={cn(
+                    'h-6 text-[11px] px-2',
+                    actionTaken === 'DONE' && 'opacity-40'
+                  )}
+                  disabled={!!actionTaken}
+                  onClick={() => {
+                    setActionTaken('IN_PROGRESS')
+                    onTaskAction('IN_PROGRESS')
+                    onMarkRead()
+                  }}
+                >
+                  <RotateCcw data-icon='inline-start' />
+                  Send back
+                </Button>
               </ItemActions>
             )}
           </ItemContent>
