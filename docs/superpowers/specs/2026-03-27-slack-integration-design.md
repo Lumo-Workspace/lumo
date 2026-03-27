@@ -37,7 +37,7 @@ Add a Slack integration to Lumo that:
 model SlackIntegration {
   id            String   @id @default(cuid())
   workspaceId   String   @unique   // one per Lumo workspace
-  installedBy   String             // WorkspaceMember.id who installed
+  installedBy   String?            // WorkspaceMember.id who installed (nullable for SetNull on member delete)
   installer     WorkspaceMember @relation("SlackInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
   accessToken   String             // AES-256-GCM encrypted bot token
   slackTeamId   String             // Slack workspace/team ID
