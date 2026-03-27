@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
@@ -287,16 +288,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       parsed.data.assigneeId !== null &&
       parsed.data.assigneeId !== task.assigneeId
     ) {
-      void sendChannelNotification(
-        workspaceId,
-        'task_assigned',
-        {
-          taskId: id,
-          taskTitle: updated.title,
-          taskIdentifier: `${updated.team.identifier}-${task.number}`,
-          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-        },
-        task.projectId
+      waitUntil(
+        sendChannelNotification(
+          workspaceId,
+          'task_assigned',
+          {
+            taskId: id,
+            taskTitle: updated.title,
+            taskIdentifier: `${updated.team.identifier}-${task.number}`,
+            taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
+          },
+          task.projectId
+        )
       )
       prisma.workspaceMember
         .findUnique({
@@ -305,16 +308,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         })
         .then(assignee => {
           if (!assignee || assignee.clerkId === userId) return
-          void sendDMNotification(
-            workspaceId,
-            assignee.clerkId,
-            'task_assigned',
-            {
+          waitUntil(
+            sendDMNotification(workspaceId, assignee.clerkId, 'task_assigned', {
               taskId: id,
               taskTitle: updated.title,
               taskIdentifier: `${updated.team.identifier}-${task.number}`,
               taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-            }
+            })
           )
         })
         .catch(err => console.error('[slack] task_assigned DM failed:', err))
@@ -342,16 +342,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
       }
-      void sendChannelNotification(
-        workspaceId,
-        'task_sent_back',
-        {
-          taskId: id,
-          taskTitle: updated.title,
-          taskIdentifier: `${updated.team.identifier}-${task.number}`,
-          taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-        },
-        task.projectId
+      waitUntil(
+        sendChannelNotification(
+          workspaceId,
+          'task_sent_back',
+          {
+            taskId: id,
+            taskTitle: updated.title,
+            taskIdentifier: `${updated.team.identifier}-${task.number}`,
+            taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
+          },
+          task.projectId
+        )
       )
       if (task.assigneeId) {
         prisma.workspaceMember
@@ -361,16 +363,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .then(assignee => {
             if (assignee)
-              void sendDMNotification(
-                workspaceId,
-                assignee.clerkId,
-                'task_sent_back',
-                {
-                  taskId: id,
-                  taskTitle: updated.title,
-                  taskIdentifier: `${updated.team.identifier}-${task.number}`,
-                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-                }
+              waitUntil(
+                sendDMNotification(
+                  workspaceId,
+                  assignee.clerkId,
+                  'task_sent_back',
+                  {
+                    taskId: id,
+                    taskTitle: updated.title,
+                    taskIdentifier: `${updated.team.identifier}-${task.number}`,
+                    taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
+                  }
+                )
               )
           })
           .catch(err =>
@@ -386,11 +390,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         taskIdentifier: `${updated.team.identifier}-${task.number}`,
         taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
       }
-      void sendChannelNotification(
-        workspaceId,
-        'task_done',
-        dmPayload,
-        task.projectId
+      waitUntil(
+        sendChannelNotification(
+          workspaceId,
+          'task_done',
+          dmPayload,
+          task.projectId
+        )
       )
       if (task.assigneeId) {
         prisma.workspaceMember
@@ -400,11 +406,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .then(assignee => {
             if (assignee)
-              void sendDMNotification(
-                workspaceId,
-                assignee.clerkId,
-                'task_done',
-                dmPayload
+              waitUntil(
+                sendDMNotification(
+                  workspaceId,
+                  assignee.clerkId,
+                  'task_done',
+                  dmPayload
+                )
               )
           })
           .catch(err => console.error('[slack] task_done DM failed:', err))
@@ -418,11 +426,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         taskIdentifier: `${updated.team.identifier}-${task.number}`,
         taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
       }
-      void sendChannelNotification(
-        workspaceId,
-        'task_sent_back',
-        sentBackPayload,
-        task.projectId
+      waitUntil(
+        sendChannelNotification(
+          workspaceId,
+          'task_sent_back',
+          sentBackPayload,
+          task.projectId
+        )
       )
       if (task.assigneeId) {
         prisma.workspaceMember
@@ -432,11 +442,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .then(assignee => {
             if (assignee)
-              void sendDMNotification(
-                workspaceId,
-                assignee.clerkId,
-                'task_sent_back',
-                sentBackPayload
+              waitUntil(
+                sendDMNotification(
+                  workspaceId,
+                  assignee.clerkId,
+                  'task_sent_back',
+                  sentBackPayload
+                )
               )
           })
           .catch(err => console.error('[slack] task_sent_back DM failed:', err))
