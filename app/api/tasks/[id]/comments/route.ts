@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
+import { sendDMNotification } from '@/lib/slack/notify'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -60,7 +61,15 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const task = await prisma.task.findUnique({
       where: { id },
-      include: { project: { select: { workspaceId: true } } },
+      select: {
+        title: true,
+        project: {
+          select: {
+            workspaceId: true,
+            workspace: { select: { slug: true } },
+          },
+        },
+      },
     })
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -130,6 +139,16 @@ export async function POST(request: NextRequest, { params }: Params) {
         })
         .then(members => {
           if (members.length === 0) return
+          // Send Slack DM to each mentioned user
+          const workspaceSlug = task.project.workspace?.slug ?? ''
+          for (const m of members) {
+            void sendDMNotification(workspaceId, m.clerkId, 'comment_mention', {
+              taskId: id,
+              taskTitle: task.title,
+              commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+            })
+          }
           return prisma.notification.createMany({
             data: members.map(m => ({
               workspaceId,
