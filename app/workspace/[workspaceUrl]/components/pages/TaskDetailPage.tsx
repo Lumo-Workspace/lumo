@@ -754,6 +754,23 @@ export function TaskDetailPage({
                   ))}
                 </ul>
               )}
+              {task.branches && task.branches.length > 0 && (
+                <ul className='space-y-1 mt-2'>
+                  {task.branches.map(branch => (
+                    <li key={branch.id} className='flex items-center gap-2'>
+                      <GitBranch size={12} className='text-zinc-400 shrink-0' />
+                      <a
+                        href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:underline truncate'
+                      >
+                        {branch.branchName}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <CreateBranchDialog

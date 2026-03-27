@@ -114,6 +114,13 @@ export interface ApiPullRequest {
   createdAt: string
 }
 
+export interface ApiTaskBranch {
+  id: string
+  repo: string
+  branchName: string
+  createdAt: string
+}
+
 export interface ApiComment {
   id: string
   taskId: string
@@ -167,4 +174,5 @@ export interface TaskDetail {
   teamIdentifier: string
   children?: { id: string; title: string; number: number }[]
   pullRequests?: ApiPullRequest[]
+  branches?: ApiTaskBranch[]
 }
