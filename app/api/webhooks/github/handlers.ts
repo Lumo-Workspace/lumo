@@ -177,7 +177,12 @@ export async function handlePullRequest(
         prTitle: pr.title,
         prUrl: pr.html_url,
       }
-      void sendChannelNotification(workspaceId, 'pr_opened', prOpenedPayload)
+      void sendChannelNotification(
+        workspaceId,
+        'pr_opened',
+        prOpenedPayload,
+        task.projectId
+      )
       if (task.reviewerId) {
         prisma.workspaceMember
           .findUnique({
@@ -210,13 +215,23 @@ export async function handlePullRequest(
       prTitle: pr.title,
       prUrl: pr.html_url,
     }
-    void sendChannelNotification(workspaceId, 'pr_merged', mergePayload)
-    void sendChannelNotification(workspaceId, 'task_done', {
-      taskId: task.id,
-      taskTitle: task.title,
-      taskIdentifier,
-      taskUrl,
-    })
+    void sendChannelNotification(
+      workspaceId,
+      'pr_merged',
+      mergePayload,
+      task.projectId
+    )
+    void sendChannelNotification(
+      workspaceId,
+      'task_done',
+      {
+        taskId: task.id,
+        taskTitle: task.title,
+        taskIdentifier,
+        taskUrl,
+      },
+      task.projectId
+    )
     if (task.assigneeId) {
       prisma.workspaceMember
         .findUnique({

@@ -39,8 +39,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const updated = await prisma.slackChannel.update({
       where: { id },
-      data: { events },
-      select: { id: true, channelId: true, channelName: true, events: true },
+      data: {
+        ...(body.channelId ? { channelId: body.channelId } : {}),
+        ...(body.channelName ? { channelName: body.channelName } : {}),
+        events,
+      },
+      select: {
+        id: true,
+        channelId: true,
+        channelName: true,
+        events: true,
+        projectId: true,
+      },
     })
     return NextResponse.json({ channel: updated })
   } catch (error) {

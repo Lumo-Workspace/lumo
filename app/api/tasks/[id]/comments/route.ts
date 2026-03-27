@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
-import { sendDMNotification } from '@/lib/slack/notify'
+import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -62,7 +62,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     const task = await prisma.task.findUnique({
       where: { id },
       select: {
+        id: true,
+        projectId: true,
+        number: true,
         title: true,
+        team: { select: { identifier: true } },
         project: {
           select: {
             workspaceId: true,
@@ -149,6 +153,19 @@ export async function POST(request: NextRequest, { params }: Params) {
               taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
             })
           }
+          // Channel notification for comment_mention (fire-and-forget)
+          void sendChannelNotification(
+            workspaceId,
+            'comment_mention',
+            {
+              taskId: task.id,
+              taskTitle: task.title,
+              taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${task.id}`,
+              commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
+            },
+            task.projectId
+          )
           return prisma.notification.createMany({
             data: members.map(m => ({
               workspaceId,

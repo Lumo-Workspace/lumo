@@ -47,8 +47,8 @@ export const API = {
       `/api/slack/oauth?workspaceUrl=${workspaceUrl}`,
     integration: (workspaceUrl: string) =>
       `/api/slack/integration?workspaceUrl=${workspaceUrl}`,
-    channels: (workspaceUrl: string) =>
-      `/api/slack/channels?workspaceUrl=${workspaceUrl}`,
+    channels: (workspaceUrl: string, projectId: string) =>
+      `/api/slack/channels?workspaceUrl=${workspaceUrl}&projectId=${encodeURIComponent(projectId)}`,
     channelById: (id: string) => `/api/slack/channels/${id}`,
     availableChannels: (workspaceUrl: string) =>
       `/api/slack/available-channels?workspaceUrl=${workspaceUrl}`,

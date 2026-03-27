@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Link as LinkIcon, Check } from 'lucide-react'
+import { ChevronLeft, Link as LinkIcon, Check, Slack } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
@@ -23,6 +23,7 @@ import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
+import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
 import { toast } from 'sonner'
 
@@ -68,6 +69,10 @@ export function ProjectDetailStandalonePage({
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Slack integration ─────────────────────────────────────────────────────
+  const [slackConnected, setSlackConnected] = useState<boolean | null>(null) // null = loading
+  const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
   // ── New task modal ────────────────────────────────────────────────────────
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
@@ -115,13 +120,19 @@ export function ProjectDetailStandalonePage({
       setKanbanViewId(cachedTasks.kanbanViewId ?? null)
     }
 
-    // Parallel fetch: members + project tasks + projects list (cache refresh only)
+    // Parallel fetch: members + project tasks + projects list (cache refresh only) + Slack status
     Promise.all([
       fetch(API.workspaces.members).then(r => (r.ok ? r.json() : null)),
       fetch(API.projects.tasks(project.id)).then(r => (r.ok ? r.json() : null)),
       fetch(API.projects.list).then(r => (r.ok ? r.json() : null)),
+      fetch(API.slack.integration(workspaceUrl))
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null),
     ])
-      .then(([membersData, tasksData, projectsData]) => {
+      .then(([membersData, tasksData, projectsData, slackData]) => {
+        if (slackData !== null) {
+          setSlackConnected(slackData.connected === true)
+        }
         if (membersData?.members) {
           setMembers(membersData.members)
           writeCache(CACHE_KEY.members, membersData.members)
@@ -243,19 +254,39 @@ export function ProjectDetailStandalonePage({
               {project.name}
             </span>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={handleCopyLink}
-                className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              >
-                {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copy link</TooltipContent>
-          </Tooltip>
+          <div className='flex items-center gap-1'>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={() => setSlackDialogOpen(true)}
+                  disabled={slackConnected === null}
+                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 disabled:opacity-30'
+                >
+                  <Slack size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {slackConnected === false
+                  ? 'Connect Slack in Settings first'
+                  : 'Slack notifications'}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={handleCopyLink}
+                  className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                >
+                  {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy link</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         {/* Main content */}
@@ -286,6 +317,14 @@ export function ProjectDetailStandalonePage({
           />
         </div>
       </SidebarInset>
+
+      <ProjectSlackDialog
+        isOpen={slackDialogOpen}
+        onClose={() => setSlackDialogOpen(false)}
+        projectId={project.id}
+        projectName={project.name}
+        workspaceUrl={workspaceUrl}
+      />
 
       <AnimatePresence>
         {isNewTaskModalOpen && (
