@@ -100,6 +100,19 @@ export interface ApiTask {
   project?: { id: string; name: string }
 }
 
+export interface ApiPullRequest {
+  id: string
+  number: number
+  title: string
+  url: string
+  state: string // "open" | "closed" | "merged"
+  authorLogin: string
+  headBranch: string
+  ciStatus: string | null // "pending" | "success" | "failure" | null
+  mergedAt: string | null
+  createdAt: string
+}
+
 export interface ApiComment {
   id: string
   taskId: string
@@ -147,4 +160,5 @@ export interface TaskDetail {
   number: number
   teamIdentifier: string
   children?: { id: string; title: string; number: number }[]
+  pullRequests?: ApiPullRequest[]
 }

@@ -49,6 +49,21 @@ export async function GET(_request: NextRequest, { params }: Params) {
         },
         team: { select: { identifier: true } },
         assignee: { select: { id: true, clerkId: true } },
+        pullRequests: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            url: true,
+            state: true,
+            authorLogin: true,
+            headBranch: true,
+            ciStatus: true,
+            mergedAt: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     })
     if (!task) {
