@@ -10,6 +10,10 @@ import {
   Link as LinkIcon,
   Check,
   MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  GitPullRequest,
+  Loader2,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -62,6 +66,38 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
+
+function PrStateBadge({ state }: { state: string }) {
+  if (state === 'merged') {
+    return (
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'>
+        Merged
+      </span>
+    )
+  }
+  if (state === 'closed') {
+    return (
+      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'>
+        Closed
+      </span>
+    )
+  }
+  return (
+    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'>
+      Open
+    </span>
+  )
+}
+
+function CiIcon({ status }: { status: string | null }) {
+  if (status === 'success')
+    return <CheckCircle2 size={13} className='text-emerald-500 shrink-0' />
+  if (status === 'failure')
+    return <XCircle size={13} className='text-red-500 shrink-0' />
+  if (status === 'pending')
+    return <Loader2 size={13} className='text-zinc-400 shrink-0 animate-spin' />
+  return null
+}
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -675,6 +711,38 @@ export function TaskDetailPage({
                 triggerClassName={FIELD_TRIGGER_CLS}
               />
             </div>
+
+            {task.pullRequests && task.pullRequests.length > 0 && (
+              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+                <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+                  <GitPullRequest size={12} />
+                  Pull Requests
+                </p>
+                <ul className='space-y-2'>
+                  {task.pullRequests.map(pr => (
+                    <li key={pr.id} className='flex items-start gap-2'>
+                      <CiIcon status={pr.ciStatus} />
+                      <div className='min-w-0 flex-1'>
+                        <a
+                          href={pr.url}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium truncate block'
+                        >
+                          #{pr.number} {pr.title}
+                        </a>
+                        <div className='flex items-center gap-1.5 mt-0.5'>
+                          <PrStateBadge state={pr.state} />
+                          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 font-mono truncate'>
+                            {pr.headBranch}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Comments section */}
             <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
