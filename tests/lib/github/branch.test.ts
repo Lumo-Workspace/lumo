@@ -72,7 +72,7 @@ describe('generateBranchName', () => {
   it('truncates long titles to keep branch name reasonable', () => {
     const longTitle = 'a'.repeat(100)
     const result = generateBranchName('ENG-123', longTitle)
-    expect(result.length).toBeLessThanOrEqual(60)
+    expect(result.length).toBeLessThanOrEqual(53)
     expect(result.startsWith('lumo/ENG-123-')).toBe(true)
   })
 })
