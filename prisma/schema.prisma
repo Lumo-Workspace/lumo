@@ -146,6 +146,7 @@ model Project {
   name              String
   description       String?
   isIdea            Boolean  @default(false)
+  githubRepo        String?  // "owner/repo" of the connected GitHub repo for this project
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

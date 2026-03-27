@@ -4,6 +4,7 @@ export const API = {
   tasks: {
     me: '/api/tasks/me',
     byId: (id: string) => `/api/tasks/${id}`,
+    branch: (id: string) => `/api/tasks/${id}/branch`,
     comments: (taskId: string) => `/api/tasks/${taskId}/comments`,
     comment: (taskId: string, commentId: string) =>
       `/api/tasks/${taskId}/comments/${commentId}`,

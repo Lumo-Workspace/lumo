@@ -76,6 +76,7 @@ export interface ApiProject {
   description: string | null
   isIdea: boolean
   defaultReviewerId: string | null
+  githubRepo?: string | null
   updatedAt: string
   createdAt: string
   _count: { tasks: number }
@@ -150,7 +151,12 @@ export interface TaskDetail {
   status: ApiStatus
   priority: ApiPriority
   projectId: string
-  project: { id: string; name: string; defaultReviewerId?: string | null }
+  project: {
+    id: string
+    name: string
+    defaultReviewerId?: string | null
+    githubRepo?: string | null
+  }
   parentTaskId: string | null
   assigneeId: string | null
   reviewerId: string | null

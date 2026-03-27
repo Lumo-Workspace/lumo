@@ -102,6 +102,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
       data.defaultReviewerId = parsed.data.defaultReviewerId
     }
+    if (parsed.data.githubRepo !== undefined)
+      data.githubRepo = parsed.data.githubRepo
 
     const updated = await prisma.project.update({ where: { id }, data })
 
