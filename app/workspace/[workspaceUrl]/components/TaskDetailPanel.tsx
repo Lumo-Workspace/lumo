@@ -26,7 +26,6 @@ import {
   ApiPriority,
   WorkspaceMemberInfo,
   ApiProject,
-  ApiPullRequest,
 } from '../types'
 import { DescriptionEditor } from './DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'

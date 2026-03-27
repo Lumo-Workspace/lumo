@@ -52,7 +52,6 @@ import {
   WorkspaceMemberInfo,
   ApiProject,
   Page,
-  ApiPullRequest,
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
