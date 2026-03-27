@@ -71,6 +71,7 @@ model Workspace {
   invites            WorkspaceInvite[]
   githubIntegrations GitHubIntegration[]
   pullRequests       PullRequest[]
+  slackIntegration   SlackIntegration?
 
   @@map("workspaces")
 }
@@ -129,6 +130,7 @@ model WorkspaceMember {
   sharedViews            ViewMember[]
   sentInvites            WorkspaceInvite[]
   githubIntegrations     GitHubIntegration[]
+  slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -342,6 +344,40 @@ model GitHubWebhook {
   @@unique([integrationId, repo])
   @@index([repo])
   @@map("github_webhooks")
+}
+
+model SlackIntegration {
+  id            String   @id @default(cuid())
+  workspaceId   String   @unique
+  installedBy   String?
+  installer     WorkspaceMember? @relation("SlackInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  accessToken   String
+  slackTeamId   String
+  slackTeamName String
+  slackUserId   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channels  SlackChannel[]
+
+  @@index([slackTeamId])
+  @@map("slack_integrations")
+}
+
+model SlackChannel {
+  id            String   @id @default(cuid())
+  integrationId String
+  channelId     String
+  channelName   String
+  events        String[]
+  createdAt     DateTime @default(now())
+
+  integration SlackIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, channelId])
+  @@index([integrationId])
+  @@map("slack_channels")
 }
 
 model PullRequest {
