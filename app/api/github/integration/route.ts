@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
+import { decrypt } from '@/lib/crypto'
+import { deleteRepoWebhook } from '@/lib/github/webhooks'
 
 /**
  * GET /api/github/integration?workspaceUrl={slug}
@@ -77,14 +79,29 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.gitHubIntegration.delete({
+    const integration = await prisma.gitHubIntegration.findUnique({
       where: {
         workspaceId_memberId: {
           workspaceId: ws.workspaceId,
           memberId: ws.member.id,
         },
       },
+      include: { webhooks: true },
     })
+
+    if (integration) {
+      const token = decrypt(integration.accessToken)
+      for (const hook of integration.webhooks) {
+        const slash = hook.repo.indexOf('/')
+        const owner = hook.repo.slice(0, slash)
+        const repo = hook.repo.slice(slash + 1)
+        await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
+      }
+      // Cascade delete handles GitHubWebhook records
+      await prisma.gitHubIntegration.delete({
+        where: { id: integration.id },
+      })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
