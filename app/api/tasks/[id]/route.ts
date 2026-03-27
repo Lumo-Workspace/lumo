@@ -243,6 +243,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const workspaceSlug = task.project.workspace?.slug ?? ''
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
+    if (parsed.data.status) {
+      console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
+    }
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
       notifyTaskInReview({
         workspaceId,
