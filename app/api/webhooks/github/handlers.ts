@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
@@ -177,11 +178,13 @@ export async function handlePullRequest(
         prTitle: pr.title,
         prUrl: pr.html_url,
       }
-      void sendChannelNotification(
-        workspaceId,
-        'pr_opened',
-        prOpenedPayload,
-        task.projectId
+      waitUntil(
+        sendChannelNotification(
+          workspaceId,
+          'pr_opened',
+          prOpenedPayload,
+          task.projectId
+        )
       )
       if (task.reviewerId) {
         prisma.workspaceMember
@@ -191,11 +194,13 @@ export async function handlePullRequest(
           })
           .then(reviewer => {
             if (reviewer)
-              void sendDMNotification(
-                workspaceId,
-                reviewer.clerkId,
-                'pr_opened',
-                prOpenedPayload
+              waitUntil(
+                sendDMNotification(
+                  workspaceId,
+                  reviewer.clerkId,
+                  'pr_opened',
+                  prOpenedPayload
+                )
               )
           })
           .catch(err => console.error('[slack] pr_opened DM failed:', err))
@@ -215,22 +220,26 @@ export async function handlePullRequest(
       prTitle: pr.title,
       prUrl: pr.html_url,
     }
-    void sendChannelNotification(
-      workspaceId,
-      'pr_merged',
-      mergePayload,
-      task.projectId
+    waitUntil(
+      sendChannelNotification(
+        workspaceId,
+        'pr_merged',
+        mergePayload,
+        task.projectId
+      )
     )
-    void sendChannelNotification(
-      workspaceId,
-      'task_done',
-      {
-        taskId: task.id,
-        taskTitle: task.title,
-        taskIdentifier,
-        taskUrl,
-      },
-      task.projectId
+    waitUntil(
+      sendChannelNotification(
+        workspaceId,
+        'task_done',
+        {
+          taskId: task.id,
+          taskTitle: task.title,
+          taskIdentifier,
+          taskUrl,
+        },
+        task.projectId
+      )
     )
     if (task.assigneeId) {
       prisma.workspaceMember
@@ -240,22 +249,21 @@ export async function handlePullRequest(
         })
         .then(assignee => {
           if (assignee) {
-            void sendDMNotification(
-              workspaceId,
-              assignee.clerkId,
-              'pr_merged',
-              mergePayload
+            waitUntil(
+              sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'pr_merged',
+                mergePayload
+              )
             )
-            void sendDMNotification(
-              workspaceId,
-              assignee.clerkId,
-              'task_done',
-              {
+            waitUntil(
+              sendDMNotification(workspaceId, assignee.clerkId, 'task_done', {
                 taskId: task.id,
                 taskTitle: task.title,
                 taskIdentifier,
                 taskUrl,
-              }
+              })
             )
           }
         })

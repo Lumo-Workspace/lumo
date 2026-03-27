@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 
@@ -37,16 +38,18 @@ export async function notifyTaskInReview(params: {
     const identifier = `${taskForSlack.team.identifier}-${taskForSlack.number}`
     const wsId = taskForSlack.team.workspace.id
     const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/tasks/${identifier}`
-    void sendChannelNotification(
-      wsId,
-      'task_in_review',
-      {
-        taskId,
-        taskTitle: taskForSlack.title,
-        taskIdentifier: identifier,
-        taskUrl,
-      },
-      taskForSlack.projectId
+    waitUntil(
+      sendChannelNotification(
+        wsId,
+        'task_in_review',
+        {
+          taskId,
+          taskTitle: taskForSlack.title,
+          taskIdentifier: identifier,
+          taskUrl,
+        },
+        taskForSlack.projectId
+      )
     )
     const effectiveReviewerClerkId = effectiveReviewerId
       ? ((
@@ -57,16 +60,13 @@ export async function notifyTaskInReview(params: {
         )?.clerkId ?? null)
       : null
     if (effectiveReviewerClerkId) {
-      void sendDMNotification(
-        wsId,
-        effectiveReviewerClerkId,
-        'task_in_review',
-        {
+      waitUntil(
+        sendDMNotification(wsId, effectiveReviewerClerkId, 'task_in_review', {
           taskId,
           taskTitle: taskForSlack.title,
           taskIdentifier: identifier,
           taskUrl,
-        }
+        })
       )
     }
   }

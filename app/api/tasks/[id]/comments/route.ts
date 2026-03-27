@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
@@ -146,25 +147,29 @@ export async function POST(request: NextRequest, { params }: Params) {
           // Send Slack DM to each mentioned user
           const workspaceSlug = task.project.workspace?.slug ?? ''
           for (const m of members) {
-            void sendDMNotification(workspaceId, m.clerkId, 'comment_mention', {
-              taskId: id,
-              taskTitle: task.title,
-              commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
-            })
+            waitUntil(
+              sendDMNotification(workspaceId, m.clerkId, 'comment_mention', {
+                taskId: id,
+                taskTitle: task.title,
+                commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
+                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
+              })
+            )
           }
           // Channel notification for comment_mention (fire-and-forget)
-          void sendChannelNotification(
-            workspaceId,
-            'comment_mention',
-            {
-              taskId: task.id,
-              taskTitle: task.title,
-              taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
-              commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-            },
-            task.projectId
+          waitUntil(
+            sendChannelNotification(
+              workspaceId,
+              'comment_mention',
+              {
+                taskId: task.id,
+                taskTitle: task.title,
+                taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
+                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
+                commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
+              },
+              task.projectId
+            )
           )
           return prisma.notification.createMany({
             data: members.map(m => ({
