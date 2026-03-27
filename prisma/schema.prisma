@@ -70,6 +70,7 @@ model Workspace {
   views              View[]
   invites            WorkspaceInvite[]
   githubIntegrations GitHubIntegration[]
+  pullRequests       PullRequest[]
 
   @@map("workspaces")
 }
@@ -188,6 +189,7 @@ model Task {
 
   viewTaskOrders ViewTaskOrder[]
   comments       Comment[]
+  pullRequests   PullRequest[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -310,16 +312,64 @@ model GitHubIntegration {
   tokenType    String   @default("oauth")
   githubUserId String
   githubLogin  String
-  repositories String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  repositories  String[]
+  webhookSecret String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member       WorkspaceMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  webhooks     GitHubWebhook[]
+  pullRequests PullRequest[]
 
   @@unique([workspaceId, memberId])
   @@index([workspaceId])
   @@map("github_integrations")
+}
+
+model GitHubWebhook {
+  id            String   @id @default(cuid())
+  integrationId String
+  repo          String   // "owner/repo"
+  githubHookId  Int      // GitHub's webhook ID, needed for deletion
+
+  createdAt DateTime @default(now())
+
+  integration GitHubIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, repo])
+  @@index([repo])
+  @@map("github_webhooks")
+}
+
+model PullRequest {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  taskId        String?
+  integrationId String
+  repo          String    // "owner/repo"
+  number        Int
+  title         String
+  url           String
+  state         String    // "open" | "closed" | "merged"
+  authorLogin   String
+  headBranch    String
+  baseBranch    String
+  isDraft       Boolean   @default(false)
+  ciStatus      String?   // null | "pending" | "success" | "failure"
+  mergedAt      DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task        Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  integration GitHubIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([repo, number])
+  @@index([workspaceId])
+  @@index([taskId])
+  @@map("pull_requests")
 }
 
 model WorkspaceInvite {
