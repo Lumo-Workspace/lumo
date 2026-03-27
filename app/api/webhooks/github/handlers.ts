@@ -124,6 +124,27 @@ export async function handlePullRequest(
     },
   })
 
+  // Ensure the branch appears in the task's branch list whenever a PR
+  // event references it — covers branches created outside Lumo and
+  // branches that were deleted before any push event was tracked
+  if (task) {
+    await prisma.taskBranch.upsert({
+      where: {
+        taskId_repo_branchName: {
+          taskId: task.id,
+          repo: repository.full_name,
+          branchName: pr.head.ref,
+        },
+      },
+      create: {
+        taskId: task.id,
+        repo: repository.full_name,
+        branchName: pr.head.ref,
+      },
+      update: {},
+    })
+  }
+
   if (!task) return
 
   const workspace = await prisma.workspace.findUnique({

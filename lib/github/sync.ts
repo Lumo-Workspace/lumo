@@ -102,6 +102,21 @@ export async function syncRepoPRs(
         ...(taskId ? { taskId } : {}),
       },
     })
+
+    // Also ensure the branch is visible in the task's branch list
+    if (taskId) {
+      await prisma.taskBranch.upsert({
+        where: {
+          taskId_repo_branchName: {
+            taskId,
+            repo: fullName,
+            branchName: pr.head.ref,
+          },
+        },
+        create: { taskId, repo: fullName, branchName: pr.head.ref },
+        update: {},
+      })
+    }
   }
 
   console.log(`[github/sync] synced ${prs.length} PRs for ${fullName}`)
