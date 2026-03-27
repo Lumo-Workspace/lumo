@@ -35,11 +35,19 @@ export async function GET(request: NextRequest) {
       }
     )
     const data = await res.json()
-    if (!data.ok)
+    if (!data.ok) {
+      console.error(
+        '[slack available-channels] conversations.list error:',
+        data.error
+      )
       return NextResponse.json(
-        { error: 'Failed to fetch channels from Slack' },
+        {
+          error: 'Failed to fetch channels from Slack',
+          slackError: data.error,
+        },
         { status: 502 }
       )
+    }
 
     const channels = (
       data.channels as Array<{
