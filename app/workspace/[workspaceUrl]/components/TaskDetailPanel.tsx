@@ -643,18 +643,43 @@ export function TaskDetailPanel({
             </ul>
           )}
           {task.branches && task.branches.length > 0 && (
-            <ul className='space-y-1 mt-2'>
+            <ul className='space-y-2 mt-2'>
               {task.branches.map(branch => (
-                <li key={branch.id} className='flex items-center gap-2'>
-                  <GitBranch size={12} className='text-zinc-400 shrink-0' />
-                  <a
-                    href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:underline truncate'
-                  >
-                    {branch.branchName}
-                  </a>
+                <li key={branch.id} className='flex items-start gap-2'>
+                  <GitBranch
+                    size={12}
+                    className='text-zinc-400 shrink-0 mt-0.5'
+                  />
+                  <div className='min-w-0'>
+                    <a
+                      href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:underline block truncate'
+                    >
+                      {branch.branchName}
+                    </a>
+                    {branch.lastCommitMessage && (
+                      <a
+                        href={
+                          branch.lastCommitSha
+                            ? `https://github.com/${branch.repo}/commit/${branch.lastCommitSha}`
+                            : undefined
+                        }
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='text-[10px] text-zinc-400 dark:text-zinc-500 truncate block hover:underline mt-0.5'
+                        title={branch.lastCommitMessage}
+                      >
+                        {branch.lastCommitAuthor && (
+                          <span className='font-medium'>
+                            {branch.lastCommitAuthor}:{' '}
+                          </span>
+                        )}
+                        {branch.lastCommitMessage}
+                      </a>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

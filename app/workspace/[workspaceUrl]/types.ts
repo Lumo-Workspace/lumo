@@ -118,6 +118,10 @@ export interface ApiTaskBranch {
   id: string
   repo: string
   branchName: string
+  lastCommitSha: string | null
+  lastCommitMessage: string | null
+  lastCommitAuthor: string | null
+  lastPushedAt: string | null
   createdAt: string
 }
 

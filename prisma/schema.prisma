@@ -412,14 +412,19 @@ model PullRequest {
 }
 
 model TaskBranch {
-  id         String   @id @default(cuid())
-  taskId     String
-  repo       String   // "owner/repo"
-  branchName String
-  createdAt  DateTime @default(now())
+  id                String    @id @default(cuid())
+  taskId            String
+  repo              String    // "owner/repo"
+  branchName        String
+  lastCommitSha     String?
+  lastCommitMessage String?
+  lastCommitAuthor  String?
+  lastPushedAt      DateTime?
+  createdAt         DateTime  @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  @@unique([taskId, repo, branchName])
   @@index([taskId])
   @@map("task_branches")
 }
