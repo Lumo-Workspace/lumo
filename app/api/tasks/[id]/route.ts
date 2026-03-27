@@ -65,6 +65,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
           orderBy: { createdAt: 'desc' },
         },
+        branches: {
+          select: {
+            id: true,
+            repo: true,
+            branchName: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' as const },
+        },
       },
     })
     if (!task) {

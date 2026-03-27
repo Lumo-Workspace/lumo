@@ -126,6 +126,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
+    await prisma.taskBranch.create({
+      data: { taskId, repo, branchName },
+    })
+
     // Save repo to project for next time (fire-and-forget)
     prisma.project
       .update({
