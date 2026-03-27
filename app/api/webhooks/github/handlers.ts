@@ -235,6 +235,62 @@ export async function handlePullRequest(
   }
 }
 
+// ── Push handler ─────────────────────────────────────────────────────────────
+
+type PushPayload = {
+  ref: string // "refs/heads/lumo/ENG-123-fix-bug"
+  deleted: boolean
+  head_commit: {
+    id: string
+    message: string
+    author: { name: string }
+  } | null
+  repository: { full_name: string }
+}
+
+export async function handlePush(
+  payload: Record<string, unknown>,
+  workspaceId: string
+): Promise<void> {
+  const { ref, deleted, head_commit, repository } =
+    payload as unknown as PushPayload
+
+  // Only track branch pushes (not tags), and ignore branch deletions
+  if (!ref.startsWith('refs/heads/') || deleted || !head_commit) return
+
+  const branchName = ref.slice('refs/heads/'.length)
+  const task = await findTaskForBranch(branchName, workspaceId)
+  if (!task) return
+
+  // Use only the first line of the commit message
+  const commitMessage = head_commit.message.split('\n')[0]!
+
+  await prisma.taskBranch.upsert({
+    where: {
+      taskId_repo_branchName: {
+        taskId: task.id,
+        repo: repository.full_name,
+        branchName,
+      },
+    },
+    create: {
+      taskId: task.id,
+      repo: repository.full_name,
+      branchName,
+      lastCommitSha: head_commit.id,
+      lastCommitMessage: commitMessage,
+      lastCommitAuthor: head_commit.author.name,
+      lastPushedAt: new Date(),
+    },
+    update: {
+      lastCommitSha: head_commit.id,
+      lastCommitMessage: commitMessage,
+      lastCommitAuthor: head_commit.author.name,
+      lastPushedAt: new Date(),
+    },
+  })
+}
+
 export async function handleCheckSuite(
   payload: Record<string, unknown>,
   _workspaceId: string
