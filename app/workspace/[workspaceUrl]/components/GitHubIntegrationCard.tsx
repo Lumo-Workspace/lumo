@@ -50,7 +50,7 @@ export function GitHubIntegrationCard({
   const [loadingRepos, setLoadingRepos] = useState(false)
 
   const handleConnect = () => {
-    window.location.href = API.github.oauth(workspaceUrl)
+    window.open(API.github.oauth(workspaceUrl), '_blank')
   }
 
   const handleDisconnect = async () => {

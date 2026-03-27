@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 
 /**
  * Fires a TASK_IN_REVIEW notification to the effective reviewer.
@@ -47,5 +48,52 @@ export async function notifyTaskInReview(params: {
         actorId,
       })),
     })
+  }
+
+  // Slack: send channel + DM notification for task_in_review
+  const taskForSlack = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: {
+      title: true,
+      number: true,
+      team: {
+        select: {
+          identifier: true,
+          workspace: { select: { id: true, slug: true } },
+        },
+      },
+    },
+  })
+  if (taskForSlack) {
+    const identifier = `${taskForSlack.team.identifier}-${taskForSlack.number}`
+    const wsId = taskForSlack.team.workspace.id
+    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/task/${taskId}`
+    void sendChannelNotification(wsId, 'task_in_review', {
+      taskId,
+      taskTitle: taskForSlack.title,
+      taskIdentifier: identifier,
+      taskUrl,
+    })
+    const effectiveReviewerClerkId = effectiveReviewerId
+      ? ((
+          await prisma.workspaceMember.findUnique({
+            where: { id: effectiveReviewerId },
+            select: { clerkId: true },
+          })
+        )?.clerkId ?? null)
+      : null
+    if (effectiveReviewerClerkId) {
+      void sendDMNotification(
+        wsId,
+        effectiveReviewerClerkId,
+        'task_in_review',
+        {
+          taskId,
+          taskTitle: taskForSlack.title,
+          taskIdentifier: identifier,
+          taskUrl,
+        }
+      )
+    }
   }
 }

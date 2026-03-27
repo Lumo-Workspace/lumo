@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
+import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { API } from '../../constants'
 
 export interface GitHubStatus {
@@ -46,12 +47,15 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
         {loading ? (
           <div className='h-32 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-pulse bg-zinc-50 dark:bg-zinc-900' />
         ) : (
-          <GitHubIntegrationCard
-            workspaceUrl={workspaceUrl}
-            status={ghStatus}
-            onStatusChange={setGhStatus}
-            isOwner={isOwner}
-          />
+          <div className='space-y-4'>
+            <GitHubIntegrationCard
+              workspaceUrl={workspaceUrl}
+              status={ghStatus}
+              onStatusChange={setGhStatus}
+              isOwner={isOwner}
+            />
+            <SlackIntegrationCard isOwner={isOwner} />
+          </div>
         )}
       </div>
     </div>

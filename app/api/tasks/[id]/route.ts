@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -112,7 +113,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       where: { id },
       include: {
         project: {
-          include: { defaultReviewer: { select: { id: true, clerkId: true } } },
+          include: {
+            defaultReviewer: { select: { id: true, clerkId: true } },
+            workspace: { select: { slug: true } },
+          },
         },
         team: { select: { identifier: true } },
       },
@@ -232,6 +236,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     })
 
     const workspaceId = task.project.workspaceId
+    const workspaceSlug = task.project.workspace?.slug ?? ''
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
@@ -270,6 +275,39 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         .catch(err => console.error('[notify] TASK_ASSIGNED failed:', err))
     }
 
+    if (
+      parsed.data.assigneeId !== undefined &&
+      parsed.data.assigneeId !== null &&
+      parsed.data.assigneeId !== task.assigneeId
+    ) {
+      void sendChannelNotification(workspaceId, 'task_assigned', {
+        taskId: id,
+        taskTitle: updated.title,
+        taskIdentifier: `${updated.team.identifier}-${task.number}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+      })
+      prisma.workspaceMember
+        .findUnique({
+          where: { id: parsed.data.assigneeId },
+          select: { clerkId: true },
+        })
+        .then(assignee => {
+          if (!assignee || assignee.clerkId === userId) return
+          void sendDMNotification(
+            workspaceId,
+            assignee.clerkId,
+            'task_assigned',
+            {
+              taskId: id,
+              taskTitle: updated.title,
+              taskIdentifier: `${updated.team.identifier}-${task.number}`,
+              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+            }
+          )
+        })
+        .catch(err => console.error('[slack] task_assigned DM failed:', err))
+    }
+
     if (parsed.data.status === 'IN_PROGRESS' && task.status === 'IN_REVIEW') {
       // Notify the assignee that the task was sent back
       if (task.assigneeId) {
@@ -291,6 +329,94 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             })
           })
           .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
+      }
+      void sendChannelNotification(workspaceId, 'task_sent_back', {
+        taskId: id,
+        taskTitle: updated.title,
+        taskIdentifier: `${updated.team.identifier}-${task.number}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+      })
+      if (task.assigneeId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.assigneeId },
+            select: { clerkId: true },
+          })
+          .then(assignee => {
+            if (assignee)
+              void sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_sent_back',
+                {
+                  taskId: id,
+                  taskTitle: updated.title,
+                  taskIdentifier: `${updated.team.identifier}-${task.number}`,
+                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+                }
+              )
+          })
+          .catch(err =>
+            console.error('[slack] task_sent_back IN_PROGRESS DM failed:', err)
+          )
+      }
+    }
+
+    if (parsed.data.status === 'DONE' && task.status !== 'DONE') {
+      const dmPayload = {
+        taskId: id,
+        taskTitle: updated.title,
+        taskIdentifier: `${updated.team.identifier}-${task.number}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+      }
+      void sendChannelNotification(workspaceId, 'task_done', dmPayload)
+      if (task.assigneeId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.assigneeId },
+            select: { clerkId: true },
+          })
+          .then(assignee => {
+            if (assignee)
+              void sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_done',
+                dmPayload
+              )
+          })
+          .catch(err => console.error('[slack] task_done DM failed:', err))
+      }
+    }
+
+    if (parsed.data.status === 'TODO' && task.status === 'IN_REVIEW') {
+      const sentBackPayload = {
+        taskId: id,
+        taskTitle: updated.title,
+        taskIdentifier: `${updated.team.identifier}-${task.number}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+      }
+      void sendChannelNotification(
+        workspaceId,
+        'task_sent_back',
+        sentBackPayload
+      )
+      if (task.assigneeId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.assigneeId },
+            select: { clerkId: true },
+          })
+          .then(assignee => {
+            if (assignee)
+              void sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_sent_back',
+                sentBackPayload
+              )
+          })
+          .catch(err => console.error('[slack] task_sent_back DM failed:', err))
       }
     }
 

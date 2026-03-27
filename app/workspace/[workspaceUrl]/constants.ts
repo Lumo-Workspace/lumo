@@ -42,6 +42,17 @@ export const API = {
     repos: '/api/github/repos',
     authorizedRepos: '/api/github/authorized-repos',
   },
+  slack: {
+    oauth: (workspaceUrl: string) =>
+      `/api/slack/oauth?workspaceUrl=${workspaceUrl}`,
+    integration: (workspaceUrl: string) =>
+      `/api/slack/integration?workspaceUrl=${workspaceUrl}`,
+    channels: (workspaceUrl: string) =>
+      `/api/slack/channels?workspaceUrl=${workspaceUrl}`,
+    channelById: (id: string) => `/api/slack/channels/${id}`,
+    availableChannels: (workspaceUrl: string) =>
+      `/api/slack/available-channels?workspaceUrl=${workspaceUrl}`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
