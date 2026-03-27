@@ -30,3 +30,24 @@ export function splitIdentifier(
   if (!teamIdentifier || isNaN(number)) return null
   return { teamIdentifier, number }
 }
+
+/**
+ * Generates a Lumo-convention branch name from a task identifier and title.
+ *
+ * Format: `lumo/ENG-123-fix-the-bug`
+ *
+ * - Title is lowercased, special chars removed, spaces → hyphens
+ * - Title slug capped at 40 chars to keep branch names reasonable
+ * - If title is empty or produces no slug, branch is just `lumo/IDENTIFIER`
+ */
+export function generateBranchName(identifier: string, title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 40)
+    .replace(/-$/, '')
+  return slug ? `lumo/${identifier}-${slug}` : `lumo/${identifier}`
+}

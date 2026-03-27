@@ -1,4 +1,8 @@
-import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
+import {
+  parseBranchIdentifier,
+  splitIdentifier,
+  generateBranchName,
+} from '@/lib/github/branch'
 
 describe('parseBranchIdentifier', () => {
   it('parses lumo/ prefix', () => {
@@ -40,5 +44,35 @@ describe('splitIdentifier', () => {
   })
   it('returns null for empty string', () => {
     expect(splitIdentifier('')).toBeNull()
+  })
+})
+
+describe('generateBranchName', () => {
+  it('generates lumo/IDENTIFIER-slug from identifier and title', () => {
+    expect(generateBranchName('ENG-123', 'Fix the bug')).toBe(
+      'lumo/ENG-123-fix-the-bug'
+    )
+  })
+  it('removes special characters', () => {
+    expect(generateBranchName('ENG-123', 'Fix!!! @#$%')).toBe(
+      'lumo/ENG-123-fix'
+    )
+  })
+  it('handles empty title', () => {
+    expect(generateBranchName('ENG-123', '')).toBe('lumo/ENG-123')
+  })
+  it('handles whitespace-only title', () => {
+    expect(generateBranchName('ENG-123', '   ')).toBe('lumo/ENG-123')
+  })
+  it('collapses multiple spaces and hyphens', () => {
+    expect(generateBranchName('ENG-123', 'hello   world')).toBe(
+      'lumo/ENG-123-hello-world'
+    )
+  })
+  it('truncates long titles to keep branch name reasonable', () => {
+    const longTitle = 'a'.repeat(100)
+    const result = generateBranchName('ENG-123', longTitle)
+    expect(result.length).toBeLessThanOrEqual(60)
+    expect(result.startsWith('lumo/ENG-123-')).toBe(true)
   })
 })
