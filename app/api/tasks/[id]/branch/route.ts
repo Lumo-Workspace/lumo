@@ -39,6 +39,13 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
+    if (!/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(repo)) {
+      return NextResponse.json(
+        { error: 'repo must be in owner/repo format' },
+        { status: 400 }
+      )
+    }
+
     // Load task + workspace membership check
     const task = await prisma.task.findUnique({
       where: { id: taskId },
@@ -91,7 +98,13 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
     const refData = await refRes.json()
-    const sha: string = refData.object.sha
+    const sha: string | undefined = refData?.object?.sha
+    if (!sha) {
+      return NextResponse.json(
+        { error: 'Could not find main branch on GitHub' },
+        { status: 422 }
+      )
+    }
 
     // Create the branch
     const createRes = await fetch(
@@ -124,7 +137,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
 
     const url = `https://github.com/${repo}/tree/${branchName}`
-    return NextResponse.json({ branchName, url })
+    return NextResponse.json({ branchName, url }, { status: 201 })
   } catch (error) {
     console.error('POST /api/tasks/[id]/branch error:', error)
     return NextResponse.json(
