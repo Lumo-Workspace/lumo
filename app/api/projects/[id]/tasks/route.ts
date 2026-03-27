@@ -1,7 +1,9 @@
+import { waitUntil } from '@vercel/functions'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
+import { sendChannelNotification } from '@/lib/slack/notify'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -116,7 +118,10 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const project = await prisma.project.findUnique({
       where: { id },
-      include: { defaultReviewer: { select: { id: true } } },
+      include: {
+        defaultReviewer: { select: { id: true } },
+        workspace: { select: { slug: true } },
+      },
     })
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
@@ -213,6 +218,23 @@ export async function POST(request: NextRequest, { params }: Params) {
     })
 
     const taskWithId = { ...task, teamIdentifier: task.team.identifier }
+
+    // ── Fire-and-forget: task_created Slack channel notification ─────────────
+    const taskIdentifier = `${task.team.identifier}-${task.number}`
+    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${project.workspace?.slug ?? ''}/tasks/${taskIdentifier}`
+    waitUntil(
+      sendChannelNotification(
+        project.workspaceId,
+        'task_created',
+        {
+          taskId: task.id,
+          taskTitle: task.title,
+          taskIdentifier,
+          taskUrl,
+        },
+        id
+      )
+    )
 
     // ── Fire-and-forget: notify assignee if task was created with one ─────────
     if (assigneeId) {

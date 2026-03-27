@@ -1,4 +1,5 @@
 export type SlackEventType =
+  | 'task_created'
   | 'task_assigned'
   | 'task_in_review'
   | 'task_done'
@@ -8,6 +9,7 @@ export type SlackEventType =
   | 'comment_mention'
 
 export const ALL_SLACK_EVENTS: SlackEventType[] = [
+  'task_created',
   'task_assigned',
   'task_in_review',
   'task_done',
@@ -18,6 +20,7 @@ export const ALL_SLACK_EVENTS: SlackEventType[] = [
 ]
 
 export const SLACK_EVENT_LABELS: Record<SlackEventType, string> = {
+  task_created: 'Task created',
   task_assigned: 'Task assigned',
   task_in_review: 'Task in review',
   task_done: 'Task done',

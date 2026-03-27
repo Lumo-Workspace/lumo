@@ -7,6 +7,7 @@ import {
 } from './types'
 
 const EMOJI: Record<SlackEventType, string> = {
+  task_created: '🆕',
   task_assigned: '👤',
   task_in_review: '🔍',
   task_done: '✅',
