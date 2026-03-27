@@ -38,6 +38,7 @@ model SlackIntegration {
   id            String   @id @default(cuid())
   workspaceId   String   @unique   // one per Lumo workspace
   installedBy   String             // WorkspaceMember.id who installed
+  installer     WorkspaceMember @relation("SlackInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
   accessToken   String             // AES-256-GCM encrypted bot token
   slackTeamId   String             // Slack workspace/team ID
   slackTeamName String             // Slack workspace name (display)
@@ -72,6 +73,8 @@ model SlackChannel {
 
 Add `slackIntegration SlackIntegration?` to the `Workspace` model.
 
+Add `slackInstalled SlackIntegration[] @relation("SlackInstaller")` to the `WorkspaceMember` model (back-relation for `installer`).
+
 ---
 
 ## API Routes
@@ -94,7 +97,7 @@ Add `slackIntegration SlackIntegration?` to the `Workspace` model.
 ## OAuth Flow
 
 1. Owner clicks "Connect Slack" → GET `/api/slack/oauth?workspaceUrl=lumo`
-2. Server: verify owner, build state = `encrypt(JSON.stringify({ workspaceId, memberId }))`, redirect to Slack with state
+2. Server: verify owner, build state = `encrypt(JSON.stringify({ workspaceId, memberId, workspaceUrl }))`, redirect to Slack with state (including `workspaceUrl` so the callback can redirect without an extra DB lookup)
 3. Slack redirects to `/api/slack/callback?code=...&state=...`
 4. Server: decrypt state, verify membership, POST to `https://slack.com/api/oauth.v2.access` with code + client credentials
 5. Receive `{ access_token, team.id, team.name, authed_user.id }`
@@ -104,7 +107,7 @@ Add `slackIntegration SlackIntegration?` to the `Workspace` model.
 
 ```
 chat:write, channels:read, users:read, users:read.email,
-app_mentions:read, commands, im:write, im:history
+app_mentions:read, commands, im:write
 ```
 
 **Env vars:**
@@ -113,6 +116,8 @@ app_mentions:read, commands, im:write, im:history
 SLACK_CLIENT_ID=
 SLACK_CLIENT_SECRET=
 SLACK_SIGNING_SECRET=   # for webhook verification
+NEXT_PUBLIC_APP_URL=    # already in .env.example for GitHub; required here for constructing the Slack redirect_uri
+ENCRYPTION_KEY=         # already in .env.example; required for bot token encryption/decryption
 ```
 
 ---
@@ -142,13 +147,19 @@ export const bot = new Chat({
 
 ```typescript
 export async function POST(request: NextRequest) {
-  // 1. Look up SlackIntegration by team_id from payload
-  // 2. Decrypt token
-  // 3. slackAdapter.withBotToken(token, async () => {
-  //      await bot.handleRequest(request)
-  //    })
+  // 1. Read raw body as text
+  // 2. Verify Slack signature (X-Slack-Signature + X-Slack-Request-Timestamp, 5-min window)
+  //    using SLACK_SIGNING_SECRET directly — this happens before DB lookup
+  // 3. Parse JSON, extract team_id
+  // 4. Look up SlackIntegration by team_id
+  // 5. Decrypt token
+  // 6. slackAdapter.withBotToken(token, () => bot.handleRequest(request))
 }
 ```
+
+> **Note — Chat SDK verification:** Chat SDK's `bot.handleRequest()` performs Slack signature verification internally using the `signingSecret` passed to `createSlackAdapter`. The 5-minute timestamp window is enforced by the SDK. Our webhook route must pass the raw request (not pre-parsed) to `bot.handleRequest()`.
+
+> **Note — URL verification challenge:** Slack sends `{ type: "url_verification", challenge: "..." }` when first configuring the Events API endpoint. Chat SDK's `bot.handleRequest()` handles this automatically and responds with `{ challenge }`. No special handling needed in our route.
 
 ### Commands
 
@@ -176,7 +187,11 @@ Project: Backend
 
 ### Auth in Commands
 
-Resolve Slack user → Lumo member by email (`users.lookupByEmail` → match `WorkspaceMember.clerkId` via Clerk API or email). If no match, still execute but attribute to system.
+Resolve Slack user → Lumo member by email (`users.lookupByEmail` → match `WorkspaceMember.clerkId` via Clerk API or email). If no Lumo member matches the Slack user's email, reply with an error: "Your Slack account is not linked to a Lumo account in this workspace. Please use the same email in both."
+
+### `TEAM` Resolution
+
+In `create "title" in TEAM`, the `TEAM` argument resolves via `Team.findFirst({ where: { workspaceId, identifier: TEAM.toUpperCase() } })`, where `workspaceId` comes from the `SlackIntegration` looked up by `slackTeamId`.
 
 ---
 
@@ -204,22 +219,23 @@ Both functions:
 1. Load `SlackIntegration` for workspace (return silently if not connected)
 2. Decrypt token, use `slackAdapter.withBotToken(token, ...)`
 3. For channel: find `SlackChannel` records where `events` includes this event type
-4. For DM: call `users.lookupByEmail(email)` → get Slack user ID → open DM → send
+4. For DM: fetch Clerk user email via `clerkClient().users.getUser(clerkId)`, then call `users.lookupByEmail(email)` → get Slack user ID → open DM → send
 5. Graceful degradation: log errors, never throw (notifications are non-critical)
 
 ### Hook-in Points
 
 Call `sendChannelNotification` + `sendDMNotification` alongside existing DB notification creation:
 
-| Event             | Hook location                                               | DM recipient       |
-| ----------------- | ----------------------------------------------------------- | ------------------ |
-| `task_assigned`   | `app/api/tasks/[id]/route.ts` PATCH                         | assignee           |
-| `task_in_review`  | `lib/notifications/notifyTaskInReview.ts`                   | reviewer           |
-| `task_done`       | `app/api/tasks/[id]/route.ts` PATCH                         | assignee + creator |
-| `task_sent_back`  | `lib/notifications/notifyTaskSentBack.ts` (new or existing) | assignee           |
-| `pr_opened`       | `app/api/webhooks/github/handlers.ts`                       | reviewer           |
-| `pr_merged`       | `app/api/webhooks/github/handlers.ts`                       | assignee           |
-| `comment_mention` | `app/api/tasks/[id]/comments/route.ts`                      | mentioned user     |
+| Event             | Hook location                                                               | DM recipient       |
+| ----------------- | --------------------------------------------------------------------------- | ------------------ |
+| `task_assigned`   | `app/api/tasks/[id]/route.ts` PATCH                                         | assignee           |
+| `task_in_review`  | `lib/notifications/notifyTaskInReview.ts`                                   | reviewer           |
+| `task_done`       | `app/api/tasks/[id]/route.ts` PATCH                                         | assignee + creator |
+| `task_done`       | `app/api/webhooks/github/handlers.ts` (when PR merged + status set to DONE) | assignee + creator |
+| `task_sent_back`  | `app/api/tasks/[id]/route.ts` PATCH (inline, same as `task_assigned`)       | assignee           |
+| `pr_opened`       | `app/api/webhooks/github/handlers.ts`                                       | reviewer           |
+| `pr_merged`       | `app/api/webhooks/github/handlers.ts`                                       | assignee           |
+| `comment_mention` | `app/api/tasks/[id]/comments/route.ts`                                      | mentioned user     |
 
 ---
 
@@ -272,29 +288,30 @@ slack: {
 
 ### New Files
 
-| File                                                               | Purpose                                        |
-| ------------------------------------------------------------------ | ---------------------------------------------- |
-| `prisma/schema.prisma`                                             | Add `SlackIntegration` + `SlackChannel` models |
-| `lib/slack/bot.ts`                                                 | Chat SDK init                                  |
-| `lib/slack/commands.ts`                                            | Command parser + handlers                      |
-| `lib/slack/notify.ts`                                              | Outbound notification helpers                  |
-| `app/api/slack/oauth/route.ts`                                     | OAuth initiation                               |
-| `app/api/slack/callback/route.ts`                                  | OAuth callback + token storage                 |
-| `app/api/slack/integration/route.ts`                               | GET + DELETE integration                       |
-| `app/api/slack/channels/route.ts`                                  | GET + POST channels                            |
-| `app/api/slack/channels/[id]/route.ts`                             | PATCH + DELETE channel                         |
-| `app/api/slack/available-channels/route.ts`                        | List available Slack channels                  |
-| `app/api/webhooks/slack/route.ts`                                  | Inbound Slack events                           |
-| `app/workspace/[workspaceUrl]/components/SlackIntegrationCard.tsx` | Settings UI card                               |
+| File                                                               | Purpose                                                              |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                             | Add `SlackIntegration` + `SlackChannel` models                       |
+| `lib/slack/bot.ts`                                                 | Chat SDK init                                                        |
+| `lib/slack/commands.ts`                                            | Command parser + handlers                                            |
+| `lib/slack/notify.ts`                                              | Outbound notification helpers                                        |
+| `app/api/slack/oauth/route.ts`                                     | OAuth initiation                                                     |
+| `app/api/slack/callback/route.ts`                                  | OAuth callback + token storage                                       |
+| `app/api/slack/integration/route.ts`                               | GET + DELETE integration                                             |
+| `app/api/slack/channels/route.ts`                                  | GET + POST channels                                                  |
+| `app/api/slack/channels/[id]/route.ts`                             | PATCH + DELETE channel                                               |
+| `app/api/slack/available-channels/route.ts`                        | List available Slack channels                                        |
+| `app/api/webhooks/slack/route.ts`                                  | Inbound Slack events                                                 |
+| `app/workspace/[workspaceUrl]/components/SlackIntegrationCard.tsx` | Settings UI card                                                     |
+| `lib/slack/types.ts`                                               | Shared types: `SlackEventType` enum, `NotificationPayload` interface |
 
 ### Modified Files
 
-| File                                                                 | Change                                                               |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `app/workspace/[workspaceUrl]/components/pages/IntegrationsPage.tsx` | Add `<SlackIntegrationCard>`                                         |
-| `app/workspace/[workspaceUrl]/constants.ts`                          | Add `slack` API constants                                            |
-| `lib/notifications/notifyTaskInReview.ts`                            | Call `sendChannelNotification` + `sendDMNotification`                |
-| `app/api/tasks/[id]/route.ts`                                        | Hook `task_assigned`, `task_done` notifications                      |
-| `app/api/tasks/[id]/comments/route.ts`                               | Hook `comment_mention` notifications                                 |
-| `app/api/webhooks/github/handlers.ts`                                | Hook `pr_opened`, `pr_merged` notifications                          |
-| `.env.example`                                                       | Add `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET` |
+| File                                                                 | Change                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `app/workspace/[workspaceUrl]/components/pages/IntegrationsPage.tsx` | Add `<SlackIntegrationCard>`                                           |
+| `app/workspace/[workspaceUrl]/constants.ts`                          | Add `slack` API constants                                              |
+| `lib/notifications/notifyTaskInReview.ts`                            | Call `sendChannelNotification` + `sendDMNotification`                  |
+| `app/api/tasks/[id]/route.ts`                                        | Hook `task_assigned`, `task_done`, `task_sent_back` notifications      |
+| `app/api/tasks/[id]/comments/route.ts`                               | Hook `comment_mention` notifications                                   |
+| `app/api/webhooks/github/handlers.ts`                                | Hook `pr_opened`, `pr_merged`, `task_done` (on PR merge) notifications |
+| `.env.example`                                                       | Add `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`   |
