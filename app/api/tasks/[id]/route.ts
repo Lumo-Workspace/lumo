@@ -248,13 +248,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
     }
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
-      notifyTaskInReview({
-        workspaceId,
-        taskId: id,
-        reviewerId: updated.reviewerId,
-        defaultReviewerId: task.project.defaultReviewerId,
-        actorId: userId,
-      }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+      waitUntil(
+        notifyTaskInReview({
+          workspaceId,
+          taskId: id,
+          reviewerId: updated.reviewerId,
+          defaultReviewerId: task.project.defaultReviewerId,
+          actorId: userId,
+        }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+      )
     }
 
     if (
@@ -362,20 +364,20 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             select: { clerkId: true },
           })
           .then(assignee => {
-            if (assignee)
-              waitUntil(
-                sendDMNotification(
-                  workspaceId,
-                  assignee.clerkId,
-                  'task_sent_back',
-                  {
-                    taskId: id,
-                    taskTitle: updated.title,
-                    taskIdentifier: `${updated.team.identifier}-${task.number}`,
-                    taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-                  }
-                )
+            if (!assignee || assignee.clerkId === userId) return
+            waitUntil(
+              sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_sent_back',
+                {
+                  taskId: id,
+                  taskTitle: updated.title,
+                  taskIdentifier: `${updated.team.identifier}-${task.number}`,
+                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
+                }
               )
+            )
           })
           .catch(err =>
             console.error('[slack] task_sent_back IN_PROGRESS DM failed:', err)
@@ -441,15 +443,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             select: { clerkId: true },
           })
           .then(assignee => {
-            if (assignee)
-              waitUntil(
-                sendDMNotification(
-                  workspaceId,
-                  assignee.clerkId,
-                  'task_sent_back',
-                  sentBackPayload
-                )
+            if (!assignee || assignee.clerkId === userId) return
+            waitUntil(
+              sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_sent_back',
+                sentBackPayload
               )
+            )
           })
           .catch(err => console.error('[slack] task_sent_back DM failed:', err))
       }
