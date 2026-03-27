@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
 import { API } from '../constants'
 import {
   ALL_SLACK_EVENTS,
@@ -66,6 +67,13 @@ export function ProjectSlackDialog({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Create-channel inline form
+  const [showCreate, setShowCreate] = useState(false)
+  const [newChannelName, setNewChannelName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const createInputRef = useRef<HTMLInputElement>(null)
+
   const load = useCallback(async () => {
     if (!isOpen) return
     setLoadState({ phase: 'loading' })
@@ -119,6 +127,9 @@ export function ProjectSlackDialog({
   useEffect(() => {
     if (isOpen) {
       setSaveError(null)
+      setShowCreate(false)
+      setNewChannelName('')
+      setCreateError(null)
       load()
     }
   }, [isOpen, load])
@@ -223,6 +234,55 @@ export function ProjectSlackDialog({
     }
   }
 
+  const handleCreateChannel = async (availableChannels: AvailableChannel[]) => {
+    const name = newChannelName.trim()
+    if (!name) return
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const res = await fetch(API.slack.createChannel(workspaceUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const data = (await res.json()) as {
+        channel?: AvailableChannel
+        error?: string
+      }
+      if (!res.ok) {
+        setCreateError(data.error ?? 'Failed to create channel')
+        return
+      }
+      if (!data.channel) {
+        setCreateError('Unexpected response from server')
+        return
+      }
+      // Add to available list and auto-select
+      if (loadState.phase === 'ready') {
+        const newChannel = data.channel
+        const already = availableChannels.find(c => c.id === newChannel.id)
+        const updatedChannels = already
+          ? availableChannels
+          : [...availableChannels, newChannel]
+        setLoadState(prev =>
+          prev.phase === 'ready'
+            ? { ...prev, availableChannels: updatedChannels }
+            : prev
+        )
+        setSelectedChannelId(newChannel.id)
+        setSelectedChannelName(newChannel.name)
+        setEnabled(true)
+      }
+      setShowCreate(false)
+      setNewChannelName('')
+      toast.success(`#${name.toLowerCase()} created and selected`)
+    } catch {
+      setCreateError('Something went wrong. Please try again.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className='sm:max-w-md'>
@@ -290,27 +350,102 @@ export function ProjectSlackDialog({
                 >
                   {/* Channel selector */}
                   <div className='space-y-1.5 mb-4'>
-                    <label className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
-                      Channel
-                    </label>
-                    <select
-                      value={selectedChannelId}
-                      onChange={e =>
-                        handleChannelSelect(
-                          e.target.value,
-                          loadState.availableChannels
-                        )
-                      }
-                      className='w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400'
-                    >
-                      <option value=''>Select a channel…</option>
-                      {loadState.availableChannels.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                          {c.private ? ' (private)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <div className='flex items-center justify-between'>
+                      <label className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
+                        Channel
+                      </label>
+                      {!showCreate && (
+                        <button
+                          type='button'
+                          onClick={() => {
+                            setShowCreate(true)
+                            setCreateError(null)
+                            setNewChannelName('')
+                            setTimeout(
+                              () => createInputRef.current?.focus(),
+                              50
+                            )
+                          }}
+                          className='flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+                        >
+                          <Plus size={12} />
+                          Create channel
+                        </button>
+                      )}
+                    </div>
+
+                    {showCreate ? (
+                      <div className='space-y-2'>
+                        <div className='flex gap-2'>
+                          <Input
+                            ref={createInputRef}
+                            value={newChannelName}
+                            onChange={e => setNewChannelName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter')
+                                handleCreateChannel(loadState.availableChannels)
+                              if (e.key === 'Escape') {
+                                setShowCreate(false)
+                                setNewChannelName('')
+                                setCreateError(null)
+                              }
+                            }}
+                            placeholder='channel-name'
+                            className='h-8 text-sm'
+                          />
+                          <Button
+                            size='sm'
+                            className='h-8 shrink-0'
+                            onClick={() =>
+                              handleCreateChannel(loadState.availableChannels)
+                            }
+                            disabled={creating || !newChannelName.trim()}
+                          >
+                            {creating ? (
+                              <Loader2 size={12} className='animate-spin' />
+                            ) : (
+                              'Create'
+                            )}
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            className='h-8 px-2 shrink-0'
+                            onClick={() => {
+                              setShowCreate(false)
+                              setNewChannelName('')
+                              setCreateError(null)
+                            }}
+                          >
+                            <X size={12} />
+                          </Button>
+                        </div>
+                        {createError && (
+                          <p className='text-xs text-red-600 dark:text-red-400'>
+                            {createError}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedChannelId}
+                        onChange={e =>
+                          handleChannelSelect(
+                            e.target.value,
+                            loadState.availableChannels
+                          )
+                        }
+                        className='w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400'
+                      >
+                        <option value=''>Select a channel…</option>
+                        {loadState.availableChannels.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                            {c.private ? ' (private)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {/* Event checklist */}

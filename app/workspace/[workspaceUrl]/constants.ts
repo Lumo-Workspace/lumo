@@ -52,6 +52,8 @@ export const API = {
     channelById: (id: string) => `/api/slack/channels/${id}`,
     availableChannels: (workspaceUrl: string) =>
       `/api/slack/available-channels?workspaceUrl=${workspaceUrl}`,
+    createChannel: (workspaceUrl: string) =>
+      `/api/slack/create-channel?workspaceUrl=${workspaceUrl}`,
   },
 }
 
