@@ -1,0 +1,40 @@
+export type SlackEventType =
+  | 'task_assigned'
+  | 'task_in_review'
+  | 'task_done'
+  | 'task_sent_back'
+  | 'pr_opened'
+  | 'pr_merged'
+  | 'comment_mention'
+
+export const ALL_SLACK_EVENTS: SlackEventType[] = [
+  'task_assigned',
+  'task_in_review',
+  'task_done',
+  'task_sent_back',
+  'pr_opened',
+  'pr_merged',
+  'comment_mention',
+]
+
+export const SLACK_EVENT_LABELS: Record<SlackEventType, string> = {
+  task_assigned: 'Task assigned',
+  task_in_review: 'Task in review',
+  task_done: 'Task done',
+  task_sent_back: 'Task sent back',
+  pr_opened: 'PR opened',
+  pr_merged: 'PR merged',
+  comment_mention: 'Comment mention',
+}
+
+export interface NotificationPayload {
+  taskId?: string
+  taskTitle?: string
+  taskIdentifier?: string // e.g. "ENG-123"
+  taskUrl?: string // full URL to task in Lumo
+  actorName?: string // display name of who triggered the event
+  prNumber?: number
+  prTitle?: string
+  prUrl?: string
+  commentBody?: string
+}

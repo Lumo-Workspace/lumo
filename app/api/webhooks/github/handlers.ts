@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import type { Task, Project } from '@prisma/client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -41,7 +42,10 @@ async function findTaskForBranch(
   headBranch: string,
   workspaceId: string
 ): Promise<
-  | (Task & { project: Pick<Project, 'defaultReviewerId' | 'workspaceId'> })
+  | (Task & {
+      project: Pick<Project, 'defaultReviewerId' | 'workspaceId'>
+      team: { identifier: string }
+    })
   | null
 > {
   const identifier = parseBranchIdentifier(headBranch)
@@ -56,6 +60,7 @@ async function findTaskForBranch(
     },
     include: {
       project: { select: { defaultReviewerId: true, workspaceId: true } },
+      team: { select: { identifier: true } },
     },
   })
 }
@@ -121,6 +126,14 @@ export async function handlePullRequest(
 
   if (!task) return
 
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { slug: true },
+  })
+  const workspaceSlug = workspace?.slug ?? ''
+  const taskIdentifier = `${task.team.identifier}-${task.number}`
+  const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${task.id}`
+
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {
       await prisma.task.update({
@@ -134,12 +147,84 @@ export async function handlePullRequest(
         defaultReviewerId: task.project.defaultReviewerId,
         actorId: null,
       }).catch(err => console.error('[webhook] notifyTaskInReview error:', err))
+      const prOpenedPayload = {
+        taskId: task.id,
+        taskTitle: task.title,
+        taskIdentifier,
+        taskUrl,
+        prNumber: pr.number,
+        prTitle: pr.title,
+        prUrl: pr.html_url,
+      }
+      void sendChannelNotification(workspaceId, 'pr_opened', prOpenedPayload)
+      if (task.reviewerId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.reviewerId },
+            select: { clerkId: true },
+          })
+          .then(reviewer => {
+            if (reviewer)
+              void sendDMNotification(
+                workspaceId,
+                reviewer.clerkId,
+                'pr_opened',
+                prOpenedPayload
+              )
+          })
+          .catch(err => console.error('[slack] pr_opened DM failed:', err))
+      }
     }
   } else if (action === 'closed' && pr.merged) {
     await prisma.task.update({
       where: { id: task.id },
       data: { status: 'DONE' },
     })
+    const mergePayload = {
+      taskId: task.id,
+      taskTitle: task.title,
+      taskIdentifier,
+      taskUrl,
+      prNumber: pr.number,
+      prTitle: pr.title,
+      prUrl: pr.html_url,
+    }
+    void sendChannelNotification(workspaceId, 'pr_merged', mergePayload)
+    void sendChannelNotification(workspaceId, 'task_done', {
+      taskId: task.id,
+      taskTitle: task.title,
+      taskIdentifier,
+      taskUrl,
+    })
+    if (task.assigneeId) {
+      prisma.workspaceMember
+        .findUnique({
+          where: { id: task.assigneeId },
+          select: { clerkId: true },
+        })
+        .then(assignee => {
+          if (assignee) {
+            void sendDMNotification(
+              workspaceId,
+              assignee.clerkId,
+              'pr_merged',
+              mergePayload
+            )
+            void sendDMNotification(
+              workspaceId,
+              assignee.clerkId,
+              'task_done',
+              {
+                taskId: task.id,
+                taskTitle: task.title,
+                taskIdentifier,
+                taskUrl,
+              }
+            )
+          }
+        })
+        .catch(err => console.error('[slack] pr_merged DM failed:', err))
+    }
   } else if (action === 'closed' && !pr.merged) {
     if (task.status === 'IN_REVIEW') {
       await prisma.task.update({
