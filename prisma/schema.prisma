@@ -379,6 +379,7 @@ model SlackChannel {
   project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([integrationId])
+  @@index([projectId])
   @@map("slack_channels")
 }
 
