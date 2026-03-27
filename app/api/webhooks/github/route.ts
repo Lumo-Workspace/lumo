@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { verifyGitHubSignature } from '@/lib/github/verify'
-import { handlePullRequest, handleCheckSuite } from './handlers'
+import { handlePullRequest, handleCheckSuite, handlePush } from './handlers'
 
 /**
  * POST /api/webhooks/github
@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
     switch (event) {
       case 'pull_request':
         await handlePullRequest(payload, workspaceId, integrationId)
+        break
+      case 'push':
+        await handlePush(payload, workspaceId)
         break
       case 'check_suite':
         await handleCheckSuite(payload, workspaceId)
