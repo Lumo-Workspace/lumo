@@ -126,7 +126,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
-    await prisma.taskBranch.create({
+    const createdBranch = await prisma.taskBranch.create({
       data: { taskId, repo, branchName },
     })
 
@@ -141,7 +141,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
 
     const url = `https://github.com/${repo}/tree/${branchName}`
-    return NextResponse.json({ branchName, url }, { status: 201 })
+    return NextResponse.json(
+      { branchName, url, branch: createdBranch },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('POST /api/tasks/[id]/branch error:', error)
     return NextResponse.json(

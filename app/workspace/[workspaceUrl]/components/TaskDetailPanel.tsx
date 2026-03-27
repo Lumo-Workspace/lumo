@@ -695,6 +695,12 @@ export function TaskDetailPanel({
           projectId={task.projectId}
           defaultRepo={task.project.githubRepo}
           workspaceUrl={workspaceUrl}
+          onBranchCreated={branch =>
+            setTask(prev => ({
+              ...prev,
+              branches: [...(prev.branches ?? []), branch],
+            }))
+          }
         />
 
         {/* Description */}

@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { generateBranchName } from '@/lib/github/branch'
 import { API } from '../constants'
+import type { ApiTaskBranch } from '../types'
 
 interface CreateBranchDialogProps {
   isOpen: boolean
@@ -23,6 +24,7 @@ interface CreateBranchDialogProps {
   projectId: string
   defaultRepo: string | null | undefined // project.githubRepo
   workspaceUrl: string
+  onBranchCreated?: (branch: ApiTaskBranch) => void
 }
 
 interface GhRepo {
@@ -49,6 +51,7 @@ export function CreateBranchDialog({
   projectId: _projectId,
   defaultRepo,
   workspaceUrl,
+  onBranchCreated,
 }: CreateBranchDialogProps) {
   const [state, setState] = useState<DialogState>({ phase: 'idle' })
   const [branchName, setBranchName] = useState('')
@@ -103,6 +106,9 @@ export function CreateBranchDialog({
           message: data.error ?? 'Failed to create branch',
         })
         return
+      }
+      if (data.branch) {
+        onBranchCreated?.(data.branch as ApiTaskBranch)
       }
       setState({ phase: 'success', branchName: data.branchName, url: data.url })
     } catch {
