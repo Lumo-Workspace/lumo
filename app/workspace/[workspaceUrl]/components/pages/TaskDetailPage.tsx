@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   GitPullRequest,
+  GitBranch,
   Loader2,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
@@ -66,6 +67,7 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
+import { CreateBranchDialog } from '../CreateBranchDialog'
 
 function PrStateBadge({ state }: { state: string }) {
   if (state === 'merged') {
@@ -159,6 +161,7 @@ export function TaskDetailPage({
 
   // ── Delete task ────────────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [createBranchOpen, setCreateBranchOpen] = useState(false)
   const handleDeleteTask = useCallback(async () => {
     await fetch(API.tasks.byId(task.id), { method: 'DELETE' })
     router.back()
@@ -712,12 +715,21 @@ export function TaskDetailPage({
               />
             </div>
 
-            {task.pullRequests && task.pullRequests.length > 0 && (
-              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-                <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+            <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+              <div className='flex items-center justify-between mb-2'>
+                <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
                   <GitPullRequest size={12} />
                   Pull Requests
                 </p>
+                <button
+                  onClick={() => setCreateBranchOpen(true)}
+                  className='flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+                >
+                  <GitBranch size={11} />
+                  Branch
+                </button>
+              </div>
+              {task.pullRequests && task.pullRequests.length > 0 && (
                 <ul className='space-y-2'>
                   {task.pullRequests.map(pr => (
                     <li key={pr.id} className='flex items-start gap-2'>
@@ -741,8 +753,19 @@ export function TaskDetailPage({
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              )}
+            </div>
+
+            <CreateBranchDialog
+              isOpen={createBranchOpen}
+              onClose={() => setCreateBranchOpen(false)}
+              taskId={task.id}
+              identifier={`${task.teamIdentifier}-${task.number}`}
+              title={task.title}
+              projectId={task.projectId}
+              defaultRepo={task.project.githubRepo}
+              workspaceUrl={workspaceUrl}
+            />
 
             {/* Comments section */}
             <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
