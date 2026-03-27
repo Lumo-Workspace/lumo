@@ -1,0 +1,12 @@
+-- Add projectId column (nullable FK)
+ALTER TABLE "slack_channels"
+  ADD COLUMN "projectId" TEXT REFERENCES "projects"("id") ON DELETE CASCADE;
+
+-- Drop old unique constraint
+DROP INDEX IF EXISTS "slack_channels_integrationId_channelId_key";
+
+-- Partial unique index: one channel per project (non-null rows only)
+-- channelId excluded intentionally — one record per project regardless of which channel
+CREATE UNIQUE INDEX "slack_channels_integrationId_projectId_key"
+  ON "slack_channels"("integrationId", "projectId")
+  WHERE "projectId" IS NOT NULL;
