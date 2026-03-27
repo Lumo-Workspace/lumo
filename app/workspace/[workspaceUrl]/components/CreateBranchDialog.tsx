@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { GitBranch, Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -54,6 +54,7 @@ export function CreateBranchDialog({
   const [branchName, setBranchName] = useState('')
   const [selectedRepo, setSelectedRepo] = useState('')
   const [copied, setCopied] = useState(false)
+  const reposRef = useRef<GhRepo[]>([])
 
   // Load repos and initialise form when dialog opens
   useEffect(() => {
@@ -79,6 +80,7 @@ export function CreateBranchDialog({
           repos.find(r => r.fullName === defaultRepo)?.fullName ??
           repos[0]!.fullName
         setSelectedRepo(preselect)
+        reposRef.current = repos
         setState({ phase: 'ready', repos })
       })
       .catch(() => setState({ phase: 'no_repos' }))
@@ -220,7 +222,9 @@ export function CreateBranchDialog({
               <Button
                 variant='outline'
                 className='w-full'
-                onClick={() => setState({ phase: 'idle' })}
+                onClick={() =>
+                  setState({ phase: 'ready', repos: reposRef.current })
+                }
               >
                 Try again
               </Button>
