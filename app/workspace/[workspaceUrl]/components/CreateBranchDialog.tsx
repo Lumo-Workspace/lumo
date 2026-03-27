@@ -67,7 +67,7 @@ export function CreateBranchDialog({
     setBranchName(generateBranchName(identifier, title))
     setState({ phase: 'loading_repos' })
 
-    fetch(`${API.github.repos}?workspaceUrl=${workspaceUrl}`)
+    fetch(`${API.github.authorizedRepos}?workspaceUrl=${workspaceUrl}`)
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: { repos: GhRepo[] }) => {
         const repos = data.repos ?? []

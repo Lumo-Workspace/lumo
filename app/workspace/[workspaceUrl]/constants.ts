@@ -40,6 +40,7 @@ export const API = {
       `/api/github/oauth?workspaceUrl=${workspaceUrl}`,
     integration: '/api/github/integration',
     repos: '/api/github/repos',
+    authorizedRepos: '/api/github/authorized-repos',
   },
 }
 
