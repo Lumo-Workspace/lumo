@@ -176,7 +176,6 @@ function NotificationItem({
                     'h-6 text-[11px] px-2',
                     actionTaken === 'IN_PROGRESS' && 'opacity-40'
                   )}
-                  disabled={!!actionTaken}
                   onClick={() => {
                     setActionTaken('DONE')
                     onTaskAction('DONE')
@@ -193,7 +192,6 @@ function NotificationItem({
                     'h-6 text-[11px] px-2',
                     actionTaken === 'DONE' && 'opacity-40'
                   )}
-                  disabled={!!actionTaken}
                   onClick={() => {
                     setActionTaken('IN_PROGRESS')
                     onTaskAction('IN_PROGRESS')
