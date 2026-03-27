@@ -4,6 +4,58 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { decrypt } from '@/lib/crypto'
 
 /**
+ * Invite a single Clerk user (by clerkId) to a Slack channel.
+ * Resolves their Slack user ID via primary email. Best-effort — never throws.
+ */
+async function inviteUserToChannel(
+  clerkId: string,
+  channelId: string,
+  token: string
+): Promise<void> {
+  try {
+    const { createClerkClient } = await import('@clerk/nextjs/server')
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY!,
+    })
+    const user = await clerk.users.getUser(clerkId)
+    const email = user.emailAddresses.find(
+      e => e.id === user.primaryEmailAddressId
+    )?.emailAddress
+    if (!email) return
+
+    const lookupRes = await fetch(
+      `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    const lookupData = await lookupRes.json()
+    if (!lookupData.ok) return
+    const slackUserId: string = lookupData.user?.id
+    if (!slackUserId) return
+
+    const inviteRes = await fetch(
+      'https://slack.com/api/conversations.invite',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ channel: channelId, users: slackUserId }),
+      }
+    )
+    const inviteData = await inviteRes.json()
+    if (!inviteData.ok && inviteData.error !== 'already_in_channel') {
+      console.error(
+        '[slack create-channel] conversations.invite error:',
+        inviteData.error
+      )
+    }
+  } catch (err) {
+    console.error('[slack create-channel] inviteUserToChannel error:', err)
+  }
+}
+
+/**
  * POST /api/slack/create-channel?workspaceUrl=...
  * Body: { name: string; isPrivate?: boolean }
  *
@@ -98,6 +150,12 @@ export async function POST(request: NextRequest) {
       name: string
       is_private: boolean
     }
+
+    // Invite the current user (project owner) to the new channel (fire-and-forget)
+    inviteUserToChannel(userId, channel.id, token).catch(err =>
+      console.error('[slack create-channel] invite user error:', err)
+    )
+
     return NextResponse.json({
       channel: {
         id: channel.id,
