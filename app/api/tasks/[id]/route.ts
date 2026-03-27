@@ -330,6 +330,36 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           })
           .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
       }
+      void sendChannelNotification(workspaceId, 'task_sent_back', {
+        taskId: id,
+        taskTitle: updated.title,
+        taskIdentifier: `${updated.team.identifier}-${task.number}`,
+        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+      })
+      if (task.assigneeId) {
+        prisma.workspaceMember
+          .findUnique({
+            where: { id: task.assigneeId },
+            select: { clerkId: true },
+          })
+          .then(assignee => {
+            if (assignee)
+              void sendDMNotification(
+                workspaceId,
+                assignee.clerkId,
+                'task_sent_back',
+                {
+                  taskId: id,
+                  taskTitle: updated.title,
+                  taskIdentifier: `${updated.team.identifier}-${task.number}`,
+                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/task/${id}`,
+                }
+              )
+          })
+          .catch(err =>
+            console.error('[slack] task_sent_back IN_PROGRESS DM failed:', err)
+          )
+      }
     }
 
     if (parsed.data.status === 'DONE' && task.status !== 'DONE') {

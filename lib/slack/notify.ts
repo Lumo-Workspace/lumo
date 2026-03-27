@@ -72,7 +72,7 @@ async function postToChannel(
   channelId: string,
   blocks: object[]
 ): Promise<void> {
-  await fetch('https://slack.com/api/chat.postMessage', {
+  const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -80,6 +80,13 @@ async function postToChannel(
     },
     body: JSON.stringify({ channel: channelId, blocks }),
   })
+  const data = await res.json().catch(() => ({}))
+  if (!(data as { ok?: boolean }).ok) {
+    console.error(
+      '[slack] chat.postMessage error:',
+      (data as { error?: string }).error ?? res.status
+    )
+  }
 }
 
 async function lookupSlackUserByClerkId(
