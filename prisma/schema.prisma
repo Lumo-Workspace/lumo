@@ -369,6 +369,7 @@ model PullRequest {
   @@unique([repo, number])
   @@index([workspaceId])
   @@index([taskId])
+  @@index([integrationId])
   @@map("pull_requests")
 }
 
