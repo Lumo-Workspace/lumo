@@ -67,7 +67,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const channelId: string = body.channelId ?? ''
     const channelName: string = body.channelName ?? ''
-    const events: SlackEventType[] = body.events ?? ALL_SLACK_EVENTS
+    const rawEvents: unknown[] = Array.isArray(body.events)
+      ? body.events
+      : ALL_SLACK_EVENTS
+    const events = rawEvents.filter((e): e is SlackEventType =>
+      ALL_SLACK_EVENTS.includes(e as SlackEventType)
+    )
+    if (events.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one valid event is required' },
+        { status: 400 }
+      )
+    }
 
     if (!channelId || !channelName) {
       return NextResponse.json(
@@ -95,6 +106,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ channel }, { status: 201 })
   } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P2002'
+    ) {
+      return NextResponse.json(
+        { error: 'Channel already configured' },
+        { status: 409 }
+      )
+    }
     console.error('POST /api/slack/channels error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

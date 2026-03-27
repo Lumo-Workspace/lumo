@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { SlackEventType } from '@/lib/slack/types'
+import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/slack/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,7 +30,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const body = await request.json()
-    const events: SlackEventType[] = body.events ?? channel.events
+    const rawEvents: unknown[] = Array.isArray(body.events)
+      ? body.events
+      : channel.events
+    const events = rawEvents.filter((e): e is SlackEventType =>
+      ALL_SLACK_EVENTS.includes(e as SlackEventType)
+    )
 
     const updated = await prisma.slackChannel.update({
       where: { id },

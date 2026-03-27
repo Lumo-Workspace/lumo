@@ -31,6 +31,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    if (!process.env.SLACK_CLIENT_ID || !process.env.SLACK_CLIENT_SECRET) {
+      return NextResponse.json(
+        { error: 'Slack OAuth not configured' },
+        { status: 500 }
+      )
+    }
+
     const state = encrypt(
       JSON.stringify({
         workspaceId: ws.workspaceId,
