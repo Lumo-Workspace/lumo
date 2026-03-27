@@ -84,7 +84,7 @@ export function TaskDrawer({
           onClick={onClose}
         />
         <DrawerPrimitive.Content
-          className='fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none w-full md:w-[460px]'
+          className='fixed right-0 top-0 bottom-0 z-50 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl outline-none w-full md:w-[520px]'
           onKeyDown={e => {
             if (e.key === 'Escape') onClose()
           }}
