@@ -191,6 +191,7 @@ model Task {
   viewTaskOrders ViewTaskOrder[]
   comments       Comment[]
   pullRequests   PullRequest[]
+  branches       TaskBranch[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -372,6 +373,19 @@ model PullRequest {
   @@index([taskId])
   @@index([integrationId])
   @@map("pull_requests")
+}
+
+model TaskBranch {
+  id         String   @id @default(cuid())
+  taskId     String
+  repo       String   // "owner/repo"
+  branchName String
+  createdAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_branches")
 }
 
 model WorkspaceInvite {
