@@ -444,6 +444,7 @@ function AddSlackChannelDialog({
             </div>
 
             <Button
+              size='sm'
               className='w-full'
               onClick={handleSave}
               disabled={
