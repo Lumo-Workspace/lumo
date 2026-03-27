@@ -289,8 +289,8 @@ export function TaskDetailPanel({
             reviewerId: t.reviewerId,
             number: t.number,
             teamIdentifier: t.teamIdentifier,
-            pullRequests: t.pullRequests,
-            branches: t.branches,
+            pullRequests: t.pullRequests ?? [],
+            branches: t.branches ?? [],
           }))
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
