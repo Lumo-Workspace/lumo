@@ -47,11 +47,37 @@ export function ProjectDetailStandalonePage({
   }, [workspaceUrl, initialProject.id])
 
   // ── Data state ────────────────────────────────────────────────────────────
-  const [project, setProject] = useState<ApiProject>(initialProject)
-  const [tasks, setTasks] = useState<ApiTask[]>([])
-  const [kanbanViewId, setKanbanViewId] = useState<string | null>(null)
-  const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
-  const [loading, setLoading] = useState(true)
+  const [project, setProject] = useState<ApiProject>(() => {
+    // Seed repositories from projects cache immediately
+    const cachedProjects = readCache<ApiProject[]>(CACHE_KEY.projects)
+    if (cachedProjects) {
+      const cached = cachedProjects.find(p => p.id === initialProject.id)
+      if (cached?.repositories)
+        return { ...initialProject, repositories: cached.repositories }
+    }
+    return initialProject
+  })
+  const [tasks, setTasks] = useState<ApiTask[]>(() => {
+    const cached = readCache<{ tasks?: ApiTask[] }>(
+      CACHE_KEY.projectTasks(initialProject.id)
+    )
+    return cached?.tasks ?? []
+  })
+  const [kanbanViewId, setKanbanViewId] = useState<string | null>(() => {
+    const cached = readCache<{ kanbanViewId?: string | null }>(
+      CACHE_KEY.projectTasks(initialProject.id)
+    )
+    return cached?.kanbanViewId ?? null
+  })
+  const [members, setMembers] = useState<WorkspaceMemberInfo[]>(() => {
+    return readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
+  })
+  const [loading, setLoading] = useState(() => {
+    const cached = readCache<{ tasks?: ApiTask[] }>(
+      CACHE_KEY.projectTasks(initialProject.id)
+    )
+    return !cached?.tasks?.length
+  })
   const [error, setError] = useState<string | null>(null)
 
   // ── Slack integration ─────────────────────────────────────────────────────
@@ -77,6 +103,7 @@ export function ProjectDetailStandalonePage({
       setTasks(data.tasks)
       setKanbanViewId(data.kanbanViewId)
       writeCache(CACHE_KEY.projectTasks(project.id), {
+        tasks: data.tasks,
         taskIds: data.tasks.map(t => t.id),
         kanbanViewId: data.kanbanViewId,
       })
@@ -87,23 +114,8 @@ export function ProjectDetailStandalonePage({
     }
   }, [project.id])
 
-  // ── Mount: hydrate from cache + parallel fetch ────────────────────────────
+  // ── Mount: background fetch (state already seeded from cache in initializers) ──
   useEffect(() => {
-    // Hydrate from cache immediately
-    const cachedMembers = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
-    if (cachedMembers) setMembers(cachedMembers)
-
-    const cachedTasks = readCache<{
-      taskIds?: string[]
-      tasks?: ApiTask[]
-      kanbanViewId?: string | null
-    }>(CACHE_KEY.projectTasks(project.id))
-    if (cachedTasks?.tasks) {
-      setTasks(cachedTasks.tasks)
-      setKanbanViewId(cachedTasks.kanbanViewId ?? null)
-    }
-
-    // Parallel fetch: members + project tasks + projects list (cache refresh only)
     Promise.all([
       fetch(API.workspaces.members).then(r => (r.ok ? r.json() : null)),
       fetch(API.projects.tasks(project.id)).then(r => (r.ok ? r.json() : null)),
@@ -118,13 +130,13 @@ export function ProjectDetailStandalonePage({
           setTasks(tasksData.tasks)
           setKanbanViewId(tasksData.kanbanViewId ?? null)
           writeCache(CACHE_KEY.projectTasks(project.id), {
+            tasks: tasksData.tasks,
             taskIds: tasksData.tasks.map((t: ApiTask) => t.id),
             kanbanViewId: tasksData.kanbanViewId,
           })
         }
         if (projectsData?.projects) {
           writeCache(CACHE_KEY.projects, projectsData.projects)
-          // Hydrate repositories from the API response (includes ordering)
           const fresh = projectsData.projects.find(
             (p: ApiProject) => p.id === project.id
           )
