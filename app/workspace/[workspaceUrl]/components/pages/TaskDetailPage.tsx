@@ -157,11 +157,11 @@ export function TaskDetailPage({
   const [taskLinkCopied, setTaskLinkCopied] = useState(false)
   const handleCopyTaskLink = useCallback(async () => {
     await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`
+      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}`
     )
     setTaskLinkCopied(true)
     setTimeout(() => setTaskLinkCopied(false), 1500)
-  }, [workspaceUrl, task.teamIdentifier, task.number])
+  }, [workspaceUrl, task.teamIdentifier, task.number, task.project.name])
 
   // ── Spec editing ───────────────────────────────────────────────────────────
   const [editingSpec, setEditingSpec] = useState(false)
@@ -951,7 +951,7 @@ export function TaskDetailPage({
                                   className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                   onClick={() =>
                                     copyLink(
-                                      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
+                                      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
                                     )
                                   }
                                 >
@@ -1207,7 +1207,7 @@ export function TaskDetailPage({
                                           className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                           onClick={() =>
                                             copyLink(
-                                              `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
+                                              `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
                                             )
                                           }
                                         >

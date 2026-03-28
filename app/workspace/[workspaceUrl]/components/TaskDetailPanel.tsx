@@ -14,7 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { formatTimestamp, apiFetch } from '../utils'
+import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
 import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -852,7 +852,7 @@ export function TaskDetailPanel({
                               className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                               onClick={() =>
                                 copyLink(
-                                  `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
+                                  `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}#comment-${comment.id}`
                                 )
                               }
                             >
@@ -1099,7 +1099,7 @@ export function TaskDetailPanel({
                                       className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                       onClick={() =>
                                         copyLink(
-                                          `${window.location.origin}/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
+                                          `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}#comment-${reply.id}`
                                         )
                                       }
                                     >

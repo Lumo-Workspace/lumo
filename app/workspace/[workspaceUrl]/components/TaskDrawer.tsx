@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { copyLink } from '../utils/copyLink'
+import { slugifyProjectName } from '../utils'
 import {
   ApiTask,
   MyTask,
@@ -60,14 +61,24 @@ export function TaskDrawer({
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
+  const projectName =
+    initialTask.project?.name ??
+    projects.find(p => p.id === initialTask.projectId)?.name ??
+    ''
+
   const [copied, setCopied] = useState(false)
   const handleCopyLink = useCallback(async () => {
     await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
+      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
     )
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
-  }, [workspaceUrl, initialTask.teamIdentifier, initialTask.number])
+  }, [
+    workspaceUrl,
+    initialTask.teamIdentifier,
+    initialTask.number,
+    projectName,
+  ])
 
   return (
     <DrawerPrimitive.Root
@@ -101,7 +112,7 @@ export function TaskDrawer({
                 sessionStorage.setItem('lumo:taskSource', source)
                 onClose()
                 router.push(
-                  `/workspace/${workspaceUrl}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
+                  `/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
                 )
               }}
               className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'

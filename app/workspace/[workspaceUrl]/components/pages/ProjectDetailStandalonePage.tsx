@@ -250,7 +250,7 @@ export function ProjectDetailStandalonePage({
             }}
             onTaskClick={task =>
               router.push(
-                `/workspace/${workspaceUrl}/tasks/${task.teamIdentifier}-${task.number}`
+                `/workspace/${workspaceUrl}/project/${slugifyProjectName(project.name)}/tasks/${task.teamIdentifier}-${task.number}`
               )
             }
             onDeleteTask={handleDeleteTask}
