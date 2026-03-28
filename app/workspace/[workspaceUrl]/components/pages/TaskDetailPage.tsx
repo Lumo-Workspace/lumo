@@ -18,6 +18,7 @@ import {
   GitPullRequest,
   GitBranch,
   Loader2,
+  Github,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -73,6 +74,13 @@ import {
 } from '../TaskFieldSelects'
 import { CreateBranchDialog } from '../CreateBranchDialog'
 import { CodingAgentPanel } from '@/components/task/CodingAgentPanel'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 function PrStateBadge({ state }: { state: string }) {
   if (state === 'merged') {
@@ -295,6 +303,7 @@ export function TaskDetailPage({
         assigneeId: string | null
         assigneeType: 'human' | 'agent'
         reviewerId: string | null
+        repositoryId: string | null
         description: string | null
         spec: string | null
         projectId: string
@@ -1487,6 +1496,39 @@ export function TaskDetailPage({
                       />
                     ),
                   },
+                  ...((task.project.repositories?.length ?? 0) > 0
+                    ? [
+                        {
+                          label: 'Repository',
+                          node: (
+                            <Select
+                              value={task.repositoryId ?? '__none__'}
+                              onValueChange={v =>
+                                handlePatch({
+                                  repositoryId: v === '__none__' ? null : v,
+                                })
+                              }
+                            >
+                              <SelectTrigger className={FIELD_TRIGGER_CLS}>
+                                <Github size={12} className='mr-1 shrink-0' />
+                                <SelectValue placeholder='Repository' />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value='__none__'>
+                                  No repository
+                                </SelectItem>
+                                {task.project.repositories!.map(repo => (
+                                  <SelectItem key={repo.id} value={repo.id}>
+                                    {repo.name}
+                                    {repo.isDefault ? ' (default)' : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ),
+                        },
+                      ]
+                    : []),
                 ] as { label: string; node: React.ReactNode }[]
               ).map(({ label, node }) => (
                 <div key={label} className='flex items-center gap-2 -ml-2'>
