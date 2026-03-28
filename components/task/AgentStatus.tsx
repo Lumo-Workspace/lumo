@@ -18,6 +18,7 @@ interface AgentStatusProps {
   initialPrUrl?: string | null
   onRetry?: () => void
   onSpecConfirmed?: () => void
+  onStatusChange?: (status: string) => void
 }
 
 const ICON: Record<AgentEvent['type'], string> = {
@@ -66,6 +67,7 @@ export function AgentStatus({
   initialPrUrl,
   onRetry,
   onSpecConfirmed,
+  onStatusChange,
 }: AgentStatusProps) {
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [status, setStatus] = useState<string>(initialStatus ?? 'idle')
@@ -170,17 +172,21 @@ export function AgentStatus({
       if (event.type === 'agent:done') {
         setStatus('done')
         setPrUrl(event.prUrl)
+        onStatusChange?.('done')
       }
       if (event.type === 'agent:failed') {
         const isCancelled = event.error === 'Cancelled by user'
-        setStatus(isCancelled ? 'cancelled' : 'failed')
+        const nextStatus = isCancelled ? 'cancelled' : 'failed'
+        setStatus(nextStatus)
         if (!isCancelled) setErrorMsg(event.error)
+        onStatusChange?.(nextStatus)
       }
       if (event.type === 'agent:clarify') setStatus('paused')
       if (event.type === 'agent:spec_draft') {
         setStatus('spec_review')
         setSpecDraft(event.spec)
         setLogs([]) // clear "generating..." logs, spec panel takes over
+        onStatusChange?.('spec_review')
       }
     })
 

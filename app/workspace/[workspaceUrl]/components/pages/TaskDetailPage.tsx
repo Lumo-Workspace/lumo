@@ -695,6 +695,9 @@ export function TaskDetailPage({
                   onSpecConfirmed={() =>
                     setTask(prev => ({ ...prev, agentStatus: 'running' }))
                   }
+                  onStatusChange={status =>
+                    setTask(prev => ({ ...prev, agentStatus: status }))
+                  }
                 />
               </div>
             )}
@@ -839,7 +842,8 @@ export function TaskDetailPage({
                   disabled={
                     agentRunning ||
                     task.agentStatus === 'running' ||
-                    task.agentStatus === 'paused'
+                    task.agentStatus === 'paused' ||
+                    task.agentStatus === 'spec_review'
                   }
                   className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                 >
