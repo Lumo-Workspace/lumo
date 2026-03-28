@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
 import { pushAgentEvent } from '@/lib/pusher/server'
+import { AgentError, userFriendlyError } from './errors'
+
+const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
+const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
 
 function slugify(title: string): string {
   return title
@@ -59,11 +63,26 @@ async function createPullRequest({
   )
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(`Failed to create PR: ${JSON.stringify(error)}`)
+    const err = await response.json().catch(() => ({}))
+    throw new AgentError(
+      'PR_CREATE_FAILED',
+      `Failed to create PR: ${JSON.stringify(err)}`
+    )
   }
 
   return response.json() as Promise<{ html_url: string; number: number }>
+}
+
+async function markFailed(taskId: string, code: string, message: string) {
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { agentStatus: 'failed', agentError: code, sandboxId: null },
+  })
+  await pushAgentEvent(taskId, {
+    type: 'agent:failed',
+    error: userFriendlyError(code),
+  })
+  console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
 
 export interface ExecuteAgentOptions {
@@ -95,7 +114,9 @@ export async function executeAgent({
     throw new Error(`Task ${taskId} has no GitHub repo configured`)
   }
 
-  const githubToken = await getGithubInstallationToken()
+  const githubToken = await getGithubInstallationToken().catch(err => {
+    throw new AgentError('CLONE_FAILED', 'Failed to get GitHub token', err)
+  })
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -111,11 +132,27 @@ export async function executeAgent({
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'running' },
+    data: { agentStatus: 'running', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
 
-  const sandbox = await Sandbox.create({ timeoutMs: 30 * 60 * 1000 })
+  const sandbox = await Sandbox.create({
+    timeoutMs: SANDBOX_TIMEOUT_MS,
+  }).catch(err => {
+    throw new AgentError(
+      'SANDBOX_CREATE_FAILED',
+      'Failed to create sandbox',
+      err
+    )
+  })
+
+  let timedOut = false
+
+  const timeoutHandle = setTimeout(async () => {
+    timedOut = true
+    await markFailed(taskId, 'TIMEOUT', 'Agent timed out after 28 minutes')
+    await sandbox.kill().catch(() => {})
+  }, AGENT_TIMEOUT_MS)
 
   try {
     await prisma.task.update({
@@ -128,12 +165,20 @@ export async function executeAgent({
       type: 'agent:progress',
       message: `Cloning ${repoOwner}/${repoName}...`,
     })
-    await sandbox.commands.run(
-      `git clone https://oauth2:${githubToken}@github.com/${repoOwner}/${repoName} /home/user/repo` +
-        ` && git -C /home/user/repo config user.email "agent@uselumo.ai"` +
-        ` && git -C /home/user/repo config user.name "Lumo Agent"`,
-      { timeoutMs: 2 * 60 * 1000 }
-    )
+    const clone = await sandbox.commands
+      .run(
+        `git clone https://oauth2:${githubToken}@github.com/${repoOwner}/${repoName} /home/user/repo` +
+          ` && git -C /home/user/repo config user.email "agent@uselumo.ai"` +
+          ` && git -C /home/user/repo config user.name "Lumo Agent"`,
+        { timeoutMs: 2 * 60 * 1000 }
+      )
+      .catch(err => {
+        throw new AgentError('CLONE_FAILED', 'Failed to clone repository', err)
+      })
+
+    if (clone.exitCode !== 0) {
+      throw new AgentError('CLONE_FAILED', `Git clone failed: ${clone.stderr}`)
+    }
 
     // Install Claude Code CLI
     await pushAgentEvent(taskId, {
@@ -218,9 +263,18 @@ ${taskSpec}
             },
           }
         )
-        .then(r => r),
+        .then(r => r)
+        .catch(err => {
+          throw new AgentError(
+            'AGENT_EXECUTION_FAILED',
+            'Agent execution failed',
+            err
+          )
+        }),
       monitorForClarify(sandbox, monitorTask).then(() => CLARIFY_SENTINEL),
     ])
+
+    if (timedOut) return
 
     if (winner === CLARIFY_SENTINEL) {
       const q = await prisma.task.findUnique({
@@ -237,12 +291,13 @@ ${taskSpec}
 
     const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
     if (result.exitCode !== 0) {
-      throw new Error(
-        `Agent failed (exit ${result.exitCode}): ${result.stderr}`
+      throw new AgentError(
+        'AGENT_EXECUTION_FAILED',
+        `Agent exited with code ${result.exitCode}: ${result.stderr}`
       )
     }
 
-    // Check if agent made any commits — no commits means nothing to PR
+    // Check if agent made any commits
     const commitCheck = await sandbox.commands.run(
       `git -C /home/user/repo log --oneline origin/HEAD..${branchName} 2>/dev/null | head -1`
     )
@@ -265,12 +320,16 @@ ${taskSpec}
       type: 'agent:progress',
       message: 'Pushing branch...',
     })
-    const push = await sandbox.commands.run(
-      `git -C /home/user/repo push origin ${branchName}`,
-      { timeoutMs: 60 * 1000 }
-    )
+    const push = await sandbox.commands
+      .run(`git -C /home/user/repo push origin ${branchName}`, {
+        timeoutMs: 60 * 1000,
+      })
+      .catch(err => {
+        throw new AgentError('PUSH_FAILED', 'Failed to push branch', err)
+      })
+
     if (push.exitCode !== 0) {
-      throw new Error(`Push failed: ${push.stderr}`)
+      throw new AgentError('PUSH_FAILED', `Git push failed: ${push.stderr}`)
     }
 
     // Create PR
@@ -305,19 +364,29 @@ ${taskSpec}
 
     await sandbox.kill().catch(() => {})
   } catch (error) {
+    if (timedOut) return
+
     const current = await prisma.task.findUnique({
       where: { id: taskId },
       select: { agentStatus: true },
     })
-    if (current?.agentStatus !== 'paused') {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      await prisma.task.update({
-        where: { id: taskId },
-        data: { agentStatus: 'failed' },
-      })
-      await pushAgentEvent(taskId, { type: 'agent:failed', error: message })
-      await sandbox.kill().catch(() => {})
+    if (
+      current?.agentStatus === 'paused' ||
+      current?.agentStatus === 'cancelled'
+    ) {
+      return
     }
+
+    if (error instanceof AgentError) {
+      await markFailed(taskId, error.code, error.message)
+    } else {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      await markFailed(taskId, 'UNKNOWN_ERROR', message)
+    }
+
+    await sandbox.kill().catch(() => {})
     throw error
+  } finally {
+    clearTimeout(timeoutHandle)
   }
 }

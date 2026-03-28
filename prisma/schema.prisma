@@ -183,6 +183,7 @@ model Task {
   priority       TaskPriority @default(MEDIUM)
   order          Float        @default(0)
   agentStatus    String?
+  agentError     String?
   sandboxId      String?
   clarifyQuestion String?
   clarifyContext  String?

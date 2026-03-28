@@ -687,6 +687,9 @@ export function TaskDetailPage({
                   taskId={task.id}
                   initialStatus={task.agentStatus}
                   initialPrUrl={task.githubPrUrl ?? null}
+                  onRetry={() =>
+                    setTask(prev => ({ ...prev, agentStatus: 'running' }))
+                  }
                 />
               </div>
             )}

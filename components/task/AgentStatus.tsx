@@ -15,6 +15,7 @@ interface AgentStatusProps {
   taskId: string
   initialStatus?: string | null
   initialPrUrl?: string | null
+  onRetry?: () => void
 }
 
 const ICON: Record<AgentEvent['type'], string> = {
@@ -57,11 +58,14 @@ export function AgentStatus({
   taskId,
   initialStatus,
   initialPrUrl,
+  onRetry,
 }: AgentStatusProps) {
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [status, setStatus] = useState<string>(initialStatus ?? 'idle')
   const [prUrl, setPrUrl] = useState<string | null>(initialPrUrl ?? null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   const handleCancel = useCallback(async () => {
@@ -76,6 +80,23 @@ export function AgentStatus({
       setCancelling(false)
     }
   }, [taskId])
+
+  const handleRetry = useCallback(async () => {
+    setRetrying(true)
+    setLogs([])
+    setErrorMsg(null)
+    try {
+      await fetch('/api/agent/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+      setStatus('running')
+      onRetry?.()
+    } finally {
+      setRetrying(false)
+    }
+  }, [taskId, onRetry])
 
   useEffect(() => {
     if (initialStatus && initialStatus !== 'idle') {
@@ -112,7 +133,9 @@ export function AgentStatus({
         setPrUrl(event.prUrl)
       }
       if (event.type === 'agent:failed') {
-        setStatus(event.error === 'Cancelled by user' ? 'cancelled' : 'failed')
+        const isCancelled = event.error === 'Cancelled by user'
+        setStatus(isCancelled ? 'cancelled' : 'failed')
+        if (!isCancelled) setErrorMsg(event.error)
       }
       if (event.type === 'agent:clarify') setStatus('paused')
     })
@@ -183,6 +206,25 @@ export function AgentStatus({
             </div>
           ))}
           <div ref={logsEndRef} />
+        </div>
+      )}
+
+      {errorMsg && (status === 'failed' || status === 'cancelled') && (
+        <div className='space-y-2'>
+          <p className='text-xs text-muted-foreground'>{errorMsg}</p>
+          <div className='flex items-center gap-2'>
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className='flex items-center gap-1 rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors dark:bg-zinc-700 dark:hover:bg-zinc-600'
+            >
+              {retrying ? <Loader2 size={11} className='animate-spin' /> : null}
+              {retrying ? 'Retrying...' : 'Retry'}
+            </button>
+            <span className='text-xs text-muted-foreground'>
+              or take over manually
+            </span>
+          </div>
         </div>
       )}
 
