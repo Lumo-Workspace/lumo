@@ -772,6 +772,18 @@ export function TaskDetailPage({
               </div>
             )}
 
+            {/* Coding Agent */}
+            {task.assigneeType === 'agent' && (
+              <div className='mt-8'>
+                <CodingAgentPanel
+                  task={task}
+                  onTaskUpdate={updates =>
+                    setTask(prev => ({ ...prev, ...updates }))
+                  }
+                />
+              </div>
+            )}
+
             {/* Comments section */}
             <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-8 mb-4'>
               Comments
@@ -1578,18 +1590,6 @@ export function TaskDetailPage({
               defaultRepo={task.project.githubRepo}
               workspaceUrl={workspaceUrl}
             />
-
-            {/* ── Coding Agent ────────────────────────────────────────────── */}
-            {task.assigneeType === 'agent' && (
-              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
-                <CodingAgentPanel
-                  task={task}
-                  onTaskUpdate={updates =>
-                    setTask(prev => ({ ...prev, ...updates }))
-                  }
-                />
-              </div>
-            )}
           </div>
         </div>
       </SidebarInset>
