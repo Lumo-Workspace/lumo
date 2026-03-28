@@ -149,6 +149,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       priority,
       assigneeId,
       parentTaskId,
+      repositoryId,
       order,
     } = parsed.data
 
@@ -211,6 +212,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           assigneeId: assigneeId ?? null,
           reviewerId: project.defaultReviewer?.id ?? null,
           parentTaskId: parentTaskId ?? null,
+          repositoryId: repositoryId ?? null,
           order: taskOrder,
         },
         include: { team: { select: { identifier: true } } },

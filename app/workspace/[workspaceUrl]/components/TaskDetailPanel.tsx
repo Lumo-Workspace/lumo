@@ -194,6 +194,8 @@ export function TaskDetailPanel({
     updatedAt: initialTask.updatedAt,
     number: initialTask.number,
     teamIdentifier: initialTask.teamIdentifier,
+    repositoryId:
+      'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
   }))
   const { user } = useUser()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()

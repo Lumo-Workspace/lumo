@@ -5,6 +5,7 @@ import { AnimatePresence } from 'motion/react'
 import { Modal } from '../Modal'
 import {
   ApiProject,
+  ApiRepository,
   ApiPriority,
   ApiStatus,
   WorkspaceMemberInfo,
@@ -19,6 +20,14 @@ import {
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Github } from 'lucide-react'
 
 export interface NewTaskFormData {
   title: string
@@ -27,6 +36,7 @@ export interface NewTaskFormData {
   priority: ApiPriority
   projectId: string
   assigneeId: string
+  repositoryId: string | null
 }
 
 interface NewTaskModalProps {
@@ -57,6 +67,8 @@ export function NewTaskModal({
   const [priority, setPriority] = useState<ApiPriority>('MEDIUM')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
+  const [repositoryId, setRepositoryId] = useState<string | null>(null)
+  const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
 
   // Sync defaults when they change (modal may stay mounted between opens)
   useEffect(() => {
@@ -71,6 +83,29 @@ export function NewTaskModal({
     if (isOpen) setStatus(defaultStatus ?? 'TODO')
   }, [isOpen, defaultStatus])
 
+  // Load repositories for the selected project
+  useEffect(() => {
+    const pid = projectId || defaultProjectId
+    if (!pid) {
+      setProjectRepos([])
+      setRepositoryId(null)
+      return
+    }
+    fetch(`/api/projects/${pid}/repositories`)
+      .then(r => r.json())
+      .then(data => {
+        const repos: ApiRepository[] = data.repositories ?? []
+        setProjectRepos(repos)
+        // Auto-select the default repo
+        const def = repos.find(r => r.isDefault)
+        setRepositoryId(def?.id ?? null)
+      })
+      .catch(() => {
+        setProjectRepos([])
+        setRepositoryId(null)
+      })
+  }, [projectId, defaultProjectId])
+
   const reset = () => {
     setTitle('')
     descriptionRef.current = null
@@ -78,6 +113,8 @@ export function NewTaskModal({
     setPriority('MEDIUM')
     setProjectId(defaultProjectId ?? '')
     setAssigneeId(defaultAssigneeId ?? '')
+    setRepositoryId(null)
+    setProjectRepos([])
   }
 
   const handleClose = () => {
@@ -97,6 +134,7 @@ export function NewTaskModal({
       priority,
       projectId: effectiveProjectId,
       assigneeId,
+      repositoryId,
     }
     reset()
     onClose()
@@ -172,6 +210,28 @@ export function NewTaskModal({
                 onChange={setPriority}
                 triggerClassName={triggerClass}
               />
+              {projectRepos.length > 0 && (
+                <Select
+                  value={repositoryId ?? '__none__'}
+                  onValueChange={v =>
+                    setRepositoryId(v === '__none__' ? null : v)
+                  }
+                >
+                  <SelectTrigger className={triggerClass}>
+                    <Github size={12} className='mr-1 shrink-0' />
+                    <SelectValue placeholder='Repository' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='__none__'>No repository</SelectItem>
+                    {projectRepos.map(repo => (
+                      <SelectItem key={repo.id} value={repo.id}>
+                        {repo.name}
+                        {repo.isDefault ? ' (default)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         )}

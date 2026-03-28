@@ -402,6 +402,7 @@ export default function DashboardApp() {
       priority,
       projectId,
       assigneeId,
+      repositoryId,
     }: NewTaskFormData) => {
       const tempId = `optimistic-task-${Date.now()}`
       const now = new Date().toISOString()
@@ -415,6 +416,7 @@ export default function DashboardApp() {
         parentTaskId: null,
         assigneeId: assigneeId ?? null,
         reviewerId: project?.defaultReviewerId ?? null,
+        repositoryId: repositoryId ?? null,
         updatedAt: now,
         viewOrder: null,
         number: 0,
@@ -441,6 +443,7 @@ export default function DashboardApp() {
           status,
           priority,
           assigneeId: assigneeId || undefined,
+          repositoryId: repositoryId ?? undefined,
         }),
       })
       if (!res.ok) {

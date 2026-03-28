@@ -48,6 +48,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
             workspaceId: true,
             defaultReviewerId: true,
             githubRepo: true,
+            repositories: {
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+            },
           },
         },
         team: { select: { identifier: true } },
@@ -145,8 +148,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       )
     }
 
-    const { parentTaskId, assigneeId, reviewerId, projectId, ...rest } =
-      parsed.data
+    const {
+      parentTaskId,
+      assigneeId,
+      reviewerId,
+      projectId,
+      repositoryId,
+      ...rest
+    } = parsed.data
 
     // Validate parentTaskId change
     if (parentTaskId !== undefined) {
@@ -230,6 +239,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (assigneeId !== undefined) data.assigneeId = assigneeId
     if (reviewerId !== undefined) data.reviewerId = reviewerId
     if (projectId !== undefined) data.projectId = projectId
+    if (repositoryId !== undefined) data.repositoryId = repositoryId
 
     const updated = await prisma.task.update({
       where: { id },

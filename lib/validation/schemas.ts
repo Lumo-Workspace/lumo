@@ -84,6 +84,7 @@ export const createTaskSchema = z.object({
     .default('MEDIUM'),
   assigneeId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),
+  repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
 })
 
@@ -96,6 +97,7 @@ export const updateTaskSchema = z.object({
   reviewerId: z.string().nullable().optional(),
   projectId: z.string().optional(),
   parentTaskId: z.string().nullable().optional(),
+  repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
 })
 

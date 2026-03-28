@@ -70,6 +70,15 @@ export type MyTask = Omit<ApiTask, 'project'> & {
   project: { id: string; name: string }
 }
 
+export interface ApiRepository {
+  id: string
+  projectId: string
+  fullName: string // "owner/repo"
+  name: string
+  isDefault: boolean
+  createdAt: string
+}
+
 export interface ApiProject {
   id: string
   name: string
@@ -77,6 +86,7 @@ export interface ApiProject {
   isIdea: boolean
   defaultReviewerId: string | null
   githubRepo?: string | null
+  repositories?: ApiRepository[]
   updatedAt: string
   createdAt: string
   _count: { tasks: number }
@@ -93,6 +103,7 @@ export interface ApiTask {
   parentTaskId: string | null
   assigneeId: string | null
   reviewerId: string | null
+  repositoryId: string | null
   updatedAt: string
   viewOrder: number | null
   number: number
@@ -167,10 +178,12 @@ export interface TaskDetail {
     name: string
     defaultReviewerId?: string | null
     githubRepo?: string | null
+    repositories?: ApiRepository[]
   }
   parentTaskId: string | null
   assigneeId: string | null
   reviewerId: string | null
+  repositoryId: string | null
   assignee: { id: string; clerkId: string } | null
   description: string | null
   updatedAt: string

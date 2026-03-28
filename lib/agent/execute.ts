@@ -98,6 +98,7 @@ export async function executeAgent({
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: {
+      repository: { select: { fullName: true } },
       project: {
         select: {
           id: true,
@@ -105,13 +106,25 @@ export async function executeAgent({
           workspaceId: true,
           githubRepo: true,
           defaultReviewerId: true,
+          repositories: {
+            where: { isDefault: true },
+            select: { fullName: true },
+            take: 1,
+          },
         },
       },
     },
   })
 
   if (!task) throw new Error(`Task ${taskId} not found`)
-  if (!task.project.githubRepo) {
+
+  // Resolve which repo to use: task-level → project default repo → legacy githubRepo
+  const resolvedRepo =
+    task.repository?.fullName ??
+    task.project.repositories[0]?.fullName ??
+    task.project.githubRepo
+
+  if (!resolvedRepo) {
     throw new Error(`Task ${taskId} has no GitHub repo configured`)
   }
 
@@ -122,9 +135,9 @@ export async function executeAgent({
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-  const [repoOwner, repoName] = task.project.githubRepo.split('/')
+  const [repoOwner, repoName] = resolvedRepo.split('/')
   if (!repoOwner || !repoName) {
-    throw new Error(`Invalid githubRepo format: ${task.project.githubRepo}`)
+    throw new Error(`Invalid githubRepo format: ${resolvedRepo}`)
   }
 
   const identifier = `LUM-${task.number}`

@@ -35,6 +35,9 @@ export async function GET() {
           where: { status: 'IN_PROGRESS' },
           select: { id: true },
         },
+        repositories: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        },
       },
       orderBy: { updatedAt: 'desc' },
     })

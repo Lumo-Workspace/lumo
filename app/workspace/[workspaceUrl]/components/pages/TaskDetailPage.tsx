@@ -822,7 +822,9 @@ export function TaskDetailPage({
             />
 
             {/* Run Agent */}
-            {task.project?.githubRepo && (
+            {(task.project?.githubRepo ||
+              (task.project?.repositories &&
+                task.project.repositories.length > 0)) && (
               <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
                 <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
                   Coding Agent

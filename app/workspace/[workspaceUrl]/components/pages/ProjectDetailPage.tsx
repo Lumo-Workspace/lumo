@@ -1,7 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Layers, Plus, MoreHorizontal, Trash2, Slack } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import {
+  Layers,
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Slack,
+  Github,
+  Star,
+  X,
+  Loader2,
+} from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -20,6 +30,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
 import {
   ApiProject,
+  ApiRepository,
   ApiTask,
   ApiStatus,
   WorkspaceMemberInfo,
@@ -114,6 +125,76 @@ export function ProjectDetailPage({
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // ── Repositories state ────────────────────────────────────────────────────
+  const [repositories, setRepositories] = useState<ApiRepository[]>(
+    project.repositories ?? []
+  )
+  const [repoInput, setRepoInput] = useState('')
+  const [repoLoading, setRepoLoading] = useState(false)
+  const [repoError, setRepoError] = useState<string | null>(null)
+
+  const handleAddRepo = useCallback(async () => {
+    const fullName = repoInput.trim()
+    if (!fullName || !fullName.includes('/')) return
+    setRepoLoading(true)
+    setRepoError(null)
+    try {
+      const res = await fetch(`/api/projects/${project.id}/repositories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to add repository')
+      setRepositories(prev => [...prev, data.repository as ApiRepository])
+      setRepoInput('')
+    } catch (err) {
+      setRepoError(
+        err instanceof Error ? err.message : 'Failed to add repository'
+      )
+    } finally {
+      setRepoLoading(false)
+    }
+  }, [project.id, repoInput])
+
+  const handleSetDefault = useCallback(
+    async (repoId: string) => {
+      try {
+        const res = await fetch(
+          `/api/projects/${project.id}/repositories/${repoId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isDefault: true }),
+          }
+        )
+        if (!res.ok) return
+        setRepositories(prev =>
+          prev.map(r => ({ ...r, isDefault: r.id === repoId }))
+        )
+      } catch {
+        // ignore
+      }
+    },
+    [project.id]
+  )
+
+  const handleRemoveRepo = useCallback(
+    async (repoId: string) => {
+      try {
+        const res = await fetch(
+          `/api/projects/${project.id}/repositories/${repoId}`,
+          { method: 'DELETE' }
+        )
+        if (!res.ok) return
+        setRepositories(prev => prev.filter(r => r.id !== repoId))
+      } catch {
+        // ignore
+      }
+    },
+    [project.id]
+  )
 
   // Memoised columns — stable reference so TanStack Table doesn't re-create on every render
   const taskColumns = useMemo(
@@ -279,6 +360,72 @@ export function ProjectDetailPage({
                   triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-6 text-xs')}
                 />
               </div>
+            </div>
+
+            {/* Repositories */}
+            <div className='space-y-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                Repositories
+              </p>
+              {repositories.length > 0 && (
+                <ul className='space-y-1'>
+                  {repositories.map(repo => (
+                    <li
+                      key={repo.id}
+                      className='flex items-center gap-2 text-sm'
+                    >
+                      <Github size={13} className='text-zinc-400 shrink-0' />
+                      <span className='flex-1 font-mono text-xs text-zinc-700 dark:text-zinc-300'>
+                        {repo.fullName}
+                      </span>
+                      {repo.isDefault ? (
+                        <span className='text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500'>
+                          default
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleSetDefault(repo.id)}
+                          className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                          title='Set as default'
+                        >
+                          <Star size={12} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveRepo(repo.id)}
+                        className='text-zinc-400 hover:text-red-500'
+                        title='Remove'
+                      >
+                        <X size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className='flex items-center gap-2'>
+                <input
+                  className='flex-1 h-7 rounded-md border border-border bg-background px-2 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-ring'
+                  placeholder='owner/repo'
+                  value={repoInput}
+                  onChange={e => setRepoInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAddRepo()
+                  }}
+                />
+                <button
+                  onClick={handleAddRepo}
+                  disabled={repoLoading || !repoInput.includes('/')}
+                  className='flex items-center gap-1 h-7 px-2.5 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium disabled:opacity-50 hover:bg-zinc-700 dark:hover:bg-zinc-300'
+                >
+                  {repoLoading ? (
+                    <Loader2 size={11} className='animate-spin' />
+                  ) : (
+                    <Plus size={11} />
+                  )}
+                  Add
+                </button>
+              </div>
+              {repoError && <p className='text-xs text-red-500'>{repoError}</p>}
             </div>
 
             {/* Description */}
