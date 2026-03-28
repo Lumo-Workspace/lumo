@@ -5,7 +5,6 @@
       "name": "lumo-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "/Users/chaoli/Desktop/lumo/lumo",
       "port": 3000
     }
   ]

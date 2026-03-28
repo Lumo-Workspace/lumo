@@ -78,6 +78,13 @@ export function AgentStatus({
   }, [taskId])
 
   useEffect(() => {
+    if (initialStatus && initialStatus !== 'idle') {
+      setStatus(initialStatus)
+      if (initialStatus === 'running') setLogs([])
+    }
+  }, [initialStatus])
+
+  useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs])
 
