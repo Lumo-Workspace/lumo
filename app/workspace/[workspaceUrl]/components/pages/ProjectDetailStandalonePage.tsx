@@ -222,7 +222,7 @@ export function ProjectDetailStandalonePage({
 
       <SidebarInset className='overflow-hidden flex flex-col'>
         {/* Main content */}
-        <div className='flex-1 overflow-hidden'>
+        <div className='flex-1 overflow-hidden flex flex-col'>
           <ProjectDetailPage
             project={project}
             tasks={tasks}
