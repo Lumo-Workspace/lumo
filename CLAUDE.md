@@ -30,7 +30,6 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - Commit message: type: description [LUM-N]
   Example: chore: add CLAUDE.md for agent instructions [LUM-5]
 - Never push directly to main or develop
-- Do NOT add Co-Authored-By or any AI attribution lines to commit messages
 
 ## Project Structure
 
