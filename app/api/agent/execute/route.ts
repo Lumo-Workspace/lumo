@@ -7,7 +7,6 @@ import { executeAgent } from '@/lib/agent/execute'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
-  workspaceId: z.string().min(1),
 })
 
 /**
@@ -29,13 +28,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    const { taskId, workspaceId } = parsed.data
+    const { taskId } = parsed.data
 
-    // Verify the caller is a member of this workspace
-    const memberResult = await requireWorkspaceMember(workspaceId, userId)
-    if (memberResult instanceof NextResponse) return memberResult
-
-    // Load task and validate it belongs to this workspace
+    // Load task and look up its workspace
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
@@ -49,9 +44,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    if (task.project.workspaceId !== workspaceId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    // Verify the caller is a member of this task's workspace
+    const memberResult = await requireWorkspaceMember(
+      task.project.workspaceId,
+      userId
+    )
+    if (memberResult instanceof NextResponse) return memberResult
 
     if (!task.project.githubRepo) {
       return NextResponse.json(

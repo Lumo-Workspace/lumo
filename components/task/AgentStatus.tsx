@@ -99,7 +99,7 @@ export function AgentStatus({
     }
   }, [taskId])
 
-  if (status === 'idle' || logs.length === 0) return null
+  if (status === 'idle') return null
 
   return (
     <div className='rounded-lg border border-border bg-muted/30 p-4 space-y-3'>
@@ -124,18 +124,25 @@ export function AgentStatus({
         </span>
       </div>
 
-      <div className='max-h-64 overflow-y-auto space-y-1 font-mono text-xs'>
-        {logs.map(log => (
-          <div
-            key={log.id}
-            className='flex items-start gap-2 text-muted-foreground'
-          >
-            <span className='shrink-0 w-4'>{ICON[log.type]}</span>
-            <span className='break-all'>{log.message}</span>
-          </div>
-        ))}
-        <div ref={logsEndRef} />
-      </div>
+      {logs.length === 0 ? (
+        <div className='flex items-center gap-2 font-mono text-xs text-muted-foreground'>
+          <span className='h-2 w-2 rounded-full bg-blue-400 animate-pulse shrink-0' />
+          Starting agent…
+        </div>
+      ) : (
+        <div className='max-h-64 overflow-y-auto space-y-1 font-mono text-xs'>
+          {logs.map(log => (
+            <div
+              key={log.id}
+              className='flex items-start gap-2 text-muted-foreground'
+            >
+              <span className='shrink-0 w-4'>{ICON[log.type]}</span>
+              <span className='break-all'>{log.message}</span>
+            </div>
+          ))}
+          <div ref={logsEndRef} />
+        </div>
+      )}
 
       {prUrl && (
         <a
