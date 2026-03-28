@@ -13,6 +13,7 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
+  Link as LinkIcon,
 } from 'lucide-react'
 import {
   Breadcrumb,
@@ -117,6 +118,8 @@ interface ProjectDetailPageProps {
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
   onSlack?: () => void
+  onCopyLink?: () => void
+  copied?: boolean
   workspaceUrl: string
 }
 
@@ -137,6 +140,8 @@ export function ProjectDetailPage({
   onDeleteProject,
   members,
   onSlack,
+  onCopyLink,
+  copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
@@ -283,6 +288,17 @@ export function ProjectDetailPage({
               title='Slack notifications'
             >
               <Slack size={14} />
+            </Button>
+          )}
+          {onCopyLink && (
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={onCopyLink}
+              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              title='Copy link'
+            >
+              {copied ? <Check size={14} /> : <LinkIcon size={14} />}
             </Button>
           )}
           <DropdownMenu>
