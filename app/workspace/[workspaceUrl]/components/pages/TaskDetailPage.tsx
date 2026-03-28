@@ -10,6 +10,8 @@ import {
   Link as LinkIcon,
   Check,
   X,
+  Copy,
+  ExternalLink,
   MoreHorizontal,
   CheckCircle2,
   XCircle,
@@ -17,6 +19,7 @@ import {
   GitBranch,
   Loader2,
   Bot,
+  RefreshCw,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -151,6 +154,14 @@ export function TaskDetailPage({
     initialTask.description ?? null
   )
   const [descriptionLoading, setDescriptionLoading] = useState(true)
+
+  // ── Branch copy ────────────────────────────────────────────────────────────
+  const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null)
+  const handleCopyBranch = useCallback(async (id: string, name: string) => {
+    await navigator.clipboard.writeText(name)
+    setCopiedBranchId(id)
+    setTimeout(() => setCopiedBranchId(null), 1500)
+  }, [])
 
   // ── Task copy link ─────────────────────────────────────────────────────────
   const [taskLinkCopied, setTaskLinkCopied] = useState(false)
@@ -886,22 +897,66 @@ export function TaskDetailPage({
               ))}
             </div>
 
+            {/* ── Branch ─────────────────────────────────────────────────── */}
             <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-              <div className='flex items-center justify-between mb-2'>
-                <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
+              <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+                <GitBranch size={12} />
+                Branch
+              </p>
+              {task.branches && task.branches.length > 0 ? (
+                <ul className='space-y-1.5'>
+                  {task.branches.map(branch => (
+                    <li
+                      key={branch.id}
+                      className='flex items-center gap-1.5 group'
+                    >
+                      <span className='text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate flex-1 min-w-0'>
+                        {branch.branchName}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleCopyBranch(branch.id, branch.branchName)
+                        }
+                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                        title='Copy branch name'
+                      >
+                        {copiedBranchId === branch.id ? (
+                          <Check size={12} className='text-emerald-500' />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
+                      <a
+                        href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                        title='Open on GitHub'
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <button
+                  onClick={() => setCreateBranchOpen(true)}
+                  className='w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
+                >
+                  <GitBranch size={12} />
+                  Create branch
+                </button>
+              )}
+            </div>
+
+            {/* ── Pull Requests ───────────────────────────────────────────── */}
+            {task.pullRequests && task.pullRequests.length > 0 && (
+              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
                   <GitPullRequest size={12} />
                   Pull Requests
                 </p>
-                <button
-                  onClick={() => setCreateBranchOpen(true)}
-                  className='flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
-                >
-                  <GitBranch size={11} />
-                  Branch
-                </button>
-              </div>
-              {task.pullRequests && task.pullRequests.length > 0 && (
-                <ul className='space-y-2'>
+                <ul className='space-y-2.5'>
                   {task.pullRequests.map(pr => (
                     <li key={pr.id} className='flex items-start gap-2'>
                       <CiIcon status={pr.ciStatus} />
@@ -910,39 +965,19 @@ export function TaskDetailPage({
                           href={pr.url}
                           target='_blank'
                           rel='noopener noreferrer'
-                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium truncate block'
+                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
                         >
                           #{pr.number} {pr.title}
                         </a>
-                        <div className='flex items-center gap-1.5 mt-0.5'>
+                        <div className='flex items-center gap-1.5 mt-1'>
                           <PrStateBadge state={pr.state} />
-                          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 font-mono truncate'>
-                            {pr.headBranch}
-                          </span>
                         </div>
                       </div>
                     </li>
                   ))}
                 </ul>
-              )}
-              {task.branches && task.branches.length > 0 && (
-                <ul className='space-y-1 mt-2'>
-                  {task.branches.map(branch => (
-                    <li key={branch.id} className='flex items-center gap-2'>
-                      <GitBranch size={12} className='text-zinc-400 shrink-0' />
-                      <a
-                        href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:underline truncate'
-                      >
-                        {branch.branchName}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+              </div>
+            )}
 
             <CreateBranchDialog
               isOpen={createBranchOpen}
@@ -955,7 +990,7 @@ export function TaskDetailPage({
               workspaceUrl={workspaceUrl}
             />
 
-            {/* Run Agent */}
+            {/* ── Coding Agent ────────────────────────────────────────────── */}
             {(task.project?.githubRepo ||
               (task.project?.repositories &&
                 task.project.repositories.length > 0)) && (
@@ -977,6 +1012,12 @@ export function TaskDetailPage({
                     <>
                       <Loader2 size={12} className='animate-spin' />
                       Running…
+                    </>
+                  ) : (task.branches?.length ?? 0) > 0 ||
+                    (task.pullRequests?.length ?? 0) > 0 ? (
+                    <>
+                      <RefreshCw size={12} />
+                      Re-run Agent
                     </>
                   ) : (
                     <>
