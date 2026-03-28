@@ -140,16 +140,18 @@ function NotificationItem({
 
           <ItemMedia className='self-start'>
             <Avatar className='size-9'>
-              <AvatarImage src={actor?.imageUrl ?? undefined} />
+              <AvatarImage
+                src={actor?.imageUrl ?? (!actor ? '/logo-dark.svg' : undefined)}
+              />
               <AvatarFallback className='text-[10px]'>
-                {actor ? getInitials(actor.name) : '?'}
+                {actor ? getInitials(actor.name) : 'LA'}
               </AvatarFallback>
             </Avatar>
           </ItemMedia>
 
           <ItemContent>
             <p className='text-xs leading-snug text-foreground'>
-              <span className='font-semibold'>{actor?.name ?? 'Someone'}</span>{' '}
+              <span className='font-semibold'>{actor?.name ?? 'Lumo AI'}</span>{' '}
               {verb}{' '}
               <span className='font-medium'>
                 {task ? `${task.teamIdentifier}-${task.number}` : 'a task'}
