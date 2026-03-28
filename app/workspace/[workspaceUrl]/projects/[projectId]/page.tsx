@@ -1,9 +1,9 @@
 import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
-import { ProjectDetailStandalonePage } from '../../components/pages/ProjectDetailStandalonePage'
+import { slugifyProjectName } from '../../utils'
 
-export default async function ProjectPage({
+export default async function LegacyProjectPage({
   params,
 }: {
   params: Promise<{ workspaceUrl: string; projectId: string }>
@@ -12,39 +12,18 @@ export default async function ProjectPage({
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  // Verify workspace membership
   const workspace = await prisma.workspace.findFirst({
     where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
   })
   if (!workspace) redirect('/onboarding')
 
-  // Fetch project — workspaceId is the security boundary
   const project = await prisma.project.findFirst({
     where: { id: projectId, workspaceId: workspace.id },
-    include: {
-      _count: { select: { tasks: true } },
-      tasks: {
-        where: { status: 'IN_PROGRESS' },
-        select: { id: true },
-      },
-    },
+    select: { name: true },
   })
   if (!project) notFound()
 
-  // Serialize Dates — Next.js cannot pass Date objects from server to client
-  // Strip the tasks array and expose its length as inProgressCount (matches ApiProject type)
-  const { tasks: inProgressTasks, ...projectFields } = project
-  const serialized = {
-    ...projectFields,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-    inProgressCount: inProgressTasks.length,
-  }
-
-  return (
-    <ProjectDetailStandalonePage
-      initialProject={serialized}
-      workspaceUrl={workspaceUrl}
-    />
+  redirect(
+    `/workspace/${workspaceUrl}/project/${slugifyProjectName(project.name)}`
   )
 }

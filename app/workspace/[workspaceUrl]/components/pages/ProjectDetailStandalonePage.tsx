@@ -25,6 +25,7 @@ import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
+import { slugifyProjectName } from '../../utils'
 import { toast } from 'sonner'
 
 interface Props {
@@ -56,7 +57,7 @@ export function ProjectDetailStandalonePage({
   const [copied, setCopied] = useState(false)
   const handleCopyLink = useCallback(async () => {
     await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/projects/${initialProject.id}`
+      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(initialProject.name)}`
     )
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)

@@ -61,7 +61,7 @@ import {
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { formatTimestamp } from '../../utils'
+import { formatTimestamp, slugifyProjectName } from '../../utils'
 import { copyLink } from '../../utils/copyLink'
 import { DescriptionEditor } from '../DescriptionEditor'
 import {
@@ -596,7 +596,15 @@ export function TaskDetailPage({
         <div className='flex items-center justify-between px-5 h-10 border-b border-zinc-100 dark:border-zinc-800 shrink-0 text-sm'>
           <div className='flex items-center gap-1.5'>
             <button
-              onClick={() => router.back()}
+              onClick={() => {
+                if (from === 'my-tasks') {
+                  router.push(`/workspace/${workspaceUrl}`)
+                } else {
+                  router.push(
+                    `/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}`
+                  )
+                }
+              }}
               className='flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
             >
               <span>{sourceLabel}</span>

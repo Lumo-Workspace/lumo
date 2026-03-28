@@ -75,6 +75,20 @@ export function formatTimestamp(date: Date | string): string {
   })
 }
 
+/**
+ * Convert a project name to a URL-safe slug.
+ * e.g. "My Cool Project!" → "my-cool-project"
+ */
+export function slugifyProjectName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 export const API_STATUS_LABEL: Record<string, string> = {
   TODO: 'Todo',
   IN_PROGRESS: 'In Progress',
