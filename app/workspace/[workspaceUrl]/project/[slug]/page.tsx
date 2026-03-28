@@ -27,9 +27,7 @@ export default async function ProjectSlugPage({
     },
   })
 
-  const project =
-    projects.find(p => slugifyProjectName(p.name) === slug) ??
-    projects.find(p => p.id === slug) // backward compat for old /projects/:id links
+  const project = projects.find(p => slugifyProjectName(p.name) === slug)
 
   if (!project) notFound()
 
