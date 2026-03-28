@@ -315,6 +315,7 @@ export function ProjectDetailStandalonePage({
             onDeleteProject={handleDeleteProject}
             members={members}
             onSlack={() => setSlackDialogOpen(true)}
+            workspaceUrl={workspaceUrl}
           />
         </div>
       </SidebarInset>

@@ -624,6 +624,7 @@ export default function DashboardApp() {
             onDeleteProject={handleDeleteProject}
             members={members}
             onSlack={() => setSlackDialogOpen(true)}
+            workspaceUrl={workspaceUrl}
           />
         )
 

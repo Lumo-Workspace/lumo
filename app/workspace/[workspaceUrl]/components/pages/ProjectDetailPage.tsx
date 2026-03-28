@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Layers,
   Plus,
@@ -11,6 +11,8 @@ import {
   Star,
   X,
   Loader2,
+  Check,
+  ChevronsUpDown,
 } from 'lucide-react'
 import {
   Breadcrumb,
@@ -73,6 +75,19 @@ import {
 } from '@/components/ui/alert-dialog'
 import { DND_ACTIVATION_DISTANCE, IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -102,6 +117,7 @@ interface ProjectDetailPageProps {
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
   onSlack?: () => void
+  workspaceUrl: string
 }
 
 export function ProjectDetailPage({
@@ -121,6 +137,7 @@ export function ProjectDetailPage({
   onDeleteProject,
   members,
   onSlack,
+  workspaceUrl,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
@@ -130,33 +147,55 @@ export function ProjectDetailPage({
   const [repositories, setRepositories] = useState<ApiRepository[]>(
     project.repositories ?? []
   )
-  const [repoInput, setRepoInput] = useState('')
-  const [repoLoading, setRepoLoading] = useState(false)
-  const [repoError, setRepoError] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [availableRepos, setAvailableRepos] = useState<
+    { fullName: string; private: boolean }[]
+  >([])
+  const [reposLoading, setReposLoading] = useState(false)
+  const [githubConnected, setGithubConnected] = useState<boolean | null>(null)
+  const [addingRepo, setAddingRepo] = useState<string | null>(null)
 
-  const handleAddRepo = useCallback(async () => {
-    const fullName = repoInput.trim()
-    if (!fullName || !fullName.includes('/')) return
-    setRepoLoading(true)
-    setRepoError(null)
-    try {
-      const res = await fetch(`/api/projects/${project.id}/repositories`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName }),
+  // Fetch available repos from GitHub when picker opens
+  useEffect(() => {
+    if (!pickerOpen) return
+    setReposLoading(true)
+    fetch(`/api/github/repos?workspaceUrl=${workspaceUrl}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.repos) {
+          setAvailableRepos(data.repos)
+          setGithubConnected(true)
+        } else {
+          setGithubConnected(false)
+        }
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to add repository')
-      setRepositories(prev => [...prev, data.repository as ApiRepository])
-      setRepoInput('')
-    } catch (err) {
-      setRepoError(
-        err instanceof Error ? err.message : 'Failed to add repository'
-      )
-    } finally {
-      setRepoLoading(false)
-    }
-  }, [project.id, repoInput])
+      .catch(() => setGithubConnected(false))
+      .finally(() => setReposLoading(false))
+  }, [pickerOpen, workspaceUrl])
+
+  const linkedFullNames = new Set(repositories.map(r => r.fullName))
+
+  const handleAddRepo = useCallback(
+    async (fullName: string) => {
+      if (linkedFullNames.has(fullName)) return
+      setAddingRepo(fullName)
+      try {
+        const res = await fetch(`/api/projects/${project.id}/repositories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullName }),
+        })
+        const data = await res.json()
+        if (!res.ok) return
+        setRepositories(prev => [...prev, data.repository as ApiRepository])
+        setPickerOpen(false)
+      } finally {
+        setAddingRepo(null)
+      }
+    },
+
+    [project.id, linkedFullNames]
+  )
 
   const handleSetDefault = useCallback(
     async (repoId: string) => {
@@ -402,30 +441,89 @@ export function ProjectDetailPage({
                   ))}
                 </ul>
               )}
-              <div className='flex items-center gap-2'>
-                <input
-                  className='flex-1 h-7 rounded-md border border-border bg-background px-2 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-ring'
-                  placeholder='owner/repo'
-                  value={repoInput}
-                  onChange={e => setRepoInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleAddRepo()
-                  }}
-                />
-                <button
-                  onClick={handleAddRepo}
-                  disabled={repoLoading || !repoInput.includes('/')}
-                  className='flex items-center gap-1 h-7 px-2.5 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium disabled:opacity-50 hover:bg-zinc-700 dark:hover:bg-zinc-300'
-                >
-                  {repoLoading ? (
-                    <Loader2 size={11} className='animate-spin' />
-                  ) : (
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button className='flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors'>
                     <Plus size={11} />
+                    Add repository
+                    <ChevronsUpDown size={10} className='opacity-50 ml-0.5' />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className='w-72 p-0' align='start'>
+                  {reposLoading ? (
+                    <div className='flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground'>
+                      <Loader2 size={13} className='animate-spin' />
+                      Loading repositories…
+                    </div>
+                  ) : githubConnected === false ? (
+                    <div className='px-3 py-4 text-xs text-muted-foreground text-center space-y-1'>
+                      <p>GitHub is not connected.</p>
+                      <p>
+                        Go to{' '}
+                        <a
+                          href={`/workspace/${workspaceUrl}/settings`}
+                          className='text-blue-500 underline'
+                        >
+                          Settings
+                        </a>{' '}
+                        to connect GitHub.
+                      </p>
+                    </div>
+                  ) : (
+                    <Command>
+                      <CommandInput
+                        placeholder='Search repositories…'
+                        className='text-xs h-8'
+                      />
+                      <CommandList>
+                        <CommandEmpty className='py-4 text-xs text-center text-muted-foreground'>
+                          No repositories found.
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {availableRepos.map(repo => {
+                            const isLinked = linkedFullNames.has(repo.fullName)
+                            const isAdding = addingRepo === repo.fullName
+                            return (
+                              <CommandItem
+                                key={repo.fullName}
+                                value={repo.fullName}
+                                onSelect={() => handleAddRepo(repo.fullName)}
+                                disabled={isLinked}
+                                className='flex items-center gap-2 text-xs'
+                              >
+                                {isAdding ? (
+                                  <Loader2
+                                    size={12}
+                                    className='animate-spin shrink-0'
+                                  />
+                                ) : isLinked ? (
+                                  <Check
+                                    size={12}
+                                    className='text-green-500 shrink-0'
+                                  />
+                                ) : (
+                                  <Github
+                                    size={12}
+                                    className='text-zinc-400 shrink-0'
+                                  />
+                                )}
+                                <span className='flex-1 truncate font-mono'>
+                                  {repo.fullName}
+                                </span>
+                                {repo.private && (
+                                  <span className='text-[10px] text-zinc-400'>
+                                    private
+                                  </span>
+                                )}
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
                   )}
-                  Add
-                </button>
-              </div>
-              {repoError && <p className='text-xs text-red-500'>{repoError}</p>}
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Description */}
