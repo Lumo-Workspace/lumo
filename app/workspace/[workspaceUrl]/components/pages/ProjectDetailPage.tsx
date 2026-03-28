@@ -463,12 +463,12 @@ export function ProjectDetailPage({
                             className='text-zinc-400 shrink-0 mt-0.5'
                           />
                           <div className='flex-1 min-w-0'>
-                            <div className='flex items-center gap-1.5 h-4'>
+                            <div className='flex items-center gap-1.5 h-[18px]'>
                               <span className='text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate'>
                                 {repo.name}
                               </span>
                               {repo.isDefault && (
-                                <span className='text-[10px] px-1 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 shrink-0'>
+                                <span className='inline-flex items-center h-[18px] px-1 rounded text-[10px] leading-none bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 shrink-0'>
                                   Default
                                 </span>
                               )}
