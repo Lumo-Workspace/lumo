@@ -9,7 +9,7 @@ import {
   Dispatch,
   SetStateAction,
 } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
@@ -23,6 +23,7 @@ import {
   ApiPriority,
 } from './types'
 import { API, CACHE_KEY } from './constants'
+import { slugifyProjectName } from './utils'
 import { clearCache, readCache, writeCache } from './cache'
 
 // Hooks
@@ -50,6 +51,8 @@ import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 
 export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+
+  const router = useRouter()
 
   // ─── Navigation ────────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState<Page>('projects')
@@ -337,10 +340,18 @@ export default function DashboardApp() {
   }, [])
 
   const handleSelectProject = useCallback(
-    (p: ApiProject) => navigateTo('project-detail', p),
-    [navigateTo]
+    (p: ApiProject) => {
+      navigateTo('project-detail', p)
+      router.push(
+        `/workspace/${workspaceUrl}/project/${slugifyProjectName(p.name)}`
+      )
+    },
+    [navigateTo, router, workspaceUrl]
   )
-  const handleBack = useCallback(() => navigateTo('projects'), [navigateTo])
+  const handleBack = useCallback(() => {
+    navigateTo('projects')
+    router.push(`/workspace/${workspaceUrl}`)
+  }, [navigateTo, router, workspaceUrl])
   const openNewProject = useCallback(() => setIsNewProjectModalOpen(true), [])
 
   // ─── Optimistic: create project ────────────────────────────────────────────
