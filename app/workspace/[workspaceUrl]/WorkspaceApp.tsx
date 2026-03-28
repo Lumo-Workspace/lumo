@@ -23,7 +23,7 @@ import {
   ApiPriority,
 } from './types'
 import { API, CACHE_KEY } from './constants'
-import { slugifyProjectName } from './utils'
+import { slugifyProjectName, apiFetch } from './utils'
 import { clearCache, readCache, writeCache } from './cache'
 
 // Hooks
@@ -33,6 +33,7 @@ import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 import { useNotifications } from './hooks/useNotifications'
+import { useDarkMode } from './hooks/useDarkMode'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -218,10 +219,9 @@ export default function DashboardApp() {
       }
 
       try {
-        const res = await fetch(API.tasks.byId(taskId), {
+        const res = await apiFetch(API.tasks.byId(taskId), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: data,
         })
         if (!res.ok) throw new Error('Failed to update task')
         const { task: updated } = (await res.json()) as { task: ApiTask }
@@ -287,16 +287,8 @@ export default function DashboardApp() {
     [openNewTaskModal, currentMemberId]
   )
 
-  // ─── Dark mode (persisted to localStorage) ────────────────────────────────
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(CACHE_KEY.darkMode) === 'true'
-  })
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDarkMode)
-    localStorage.setItem(CACHE_KEY.darkMode, String(isDarkMode))
-  }, [isDarkMode])
+  // ─── Dark mode ─────────────────────────────────────────────────────────────
+  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ─── Clear stale cache when user or workspace changes ─────────────────────
   useEffect(() => {
@@ -374,13 +366,12 @@ export default function DashboardApp() {
       setProjects(prev => [optimistic, ...prev])
       navigateTo('project-detail', optimistic)
 
-      const res = await fetch(API.projects.list, {
+      const res = await apiFetch(API.projects.list, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           name,
           description: description.trim() || undefined,
-        }),
+        },
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
@@ -445,17 +436,16 @@ export default function DashboardApp() {
         setMyTaskIds(prev => [...prev, tempId])
       }
 
-      const res = await fetch(API.projects.tasks(projectId), {
+      const res = await apiFetch(API.projects.tasks(projectId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           title,
           description: description.trim() || undefined,
           status,
           priority,
           assigneeId: assigneeId || undefined,
           repositoryId: repositoryId ?? undefined,
-        }),
+        },
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
@@ -546,10 +536,9 @@ export default function DashboardApp() {
         defaultReviewerId?: string | null
       }
     ) => {
-      const res = await fetch(API.projects.byId(id), {
+      const res = await apiFetch(API.projects.byId(id), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: data,
       })
       if (!res.ok) throw new Error('Failed to update project')
       const { project: updated } = await res.json()
@@ -680,7 +669,7 @@ export default function DashboardApp() {
           currentPage={currentPage}
           onNavigate={navigateTo}
           isDarkMode={isDarkMode}
-          onToggleDarkMode={() => setIsDarkMode(d => !d)}
+          onToggleDarkMode={handleToggleDarkMode}
           unreadCount={unreadCount}
         />
 

@@ -89,6 +89,25 @@ export function slugifyProjectName(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
+/**
+ * Wrapper around `fetch` that automatically sets `Content-Type: application/json`
+ * and serialises the body when provided. Returns the raw `Response` so callers
+ * can still inspect `.ok`, call `.json()`, etc.
+ */
+export function apiFetch(
+  url: string,
+  options?: { method?: string; body?: unknown }
+): Promise<Response> {
+  const { method = 'GET', body } = options ?? {}
+  return fetch(url, {
+    method,
+    ...(body !== undefined && {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  })
+}
+
 export const API_STATUS_LABEL: Record<string, string> = {
   TODO: 'Todo',
   IN_PROGRESS: 'In Progress',

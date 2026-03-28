@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiNotification } from '../types'
 import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
+import { apiFetch } from '../utils'
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
@@ -75,10 +76,9 @@ export function useNotifications() {
       )
       setUnreadCount(prev => prev + 1)
       try {
-        const res = await fetch(API.notifications.markOne(id), {
+        const res = await apiFetch(API.notifications.markOne(id), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ read: false }),
+          body: { read: false },
         })
         if (!res.ok) throw new Error()
       } catch {

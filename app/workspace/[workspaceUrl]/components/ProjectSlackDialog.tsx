@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { API } from '../constants'
+import { apiFetch } from '../utils'
 import {
   ALL_SLACK_EVENTS,
   SLACK_EVENT_LABELS,
@@ -182,17 +183,16 @@ export function ProjectSlackDialog({
         if (!res.ok) throw new Error('Failed to remove channel')
       } else if (enabled && !savedChannel) {
         // New config → POST
-        const res = await fetch(
+        const res = await apiFetch(
           `/api/slack/channels?workspaceUrl=${workspaceUrl}`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            body: {
               channelId: selectedChannelId,
               channelName: selectedChannelName,
               events: selectedEvents,
               projectId,
-            }),
+            },
           }
         )
         if (res.status === 409) {
@@ -209,14 +209,13 @@ export function ProjectSlackDialog({
         }
       } else if (enabled && savedChannel) {
         // Update → PATCH
-        const res = await fetch(API.slack.channelById(savedChannel.id), {
+        const res = await apiFetch(API.slack.channelById(savedChannel.id), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: {
             channelId: selectedChannelId,
             channelName: selectedChannelName,
             events: selectedEvents,
-          }),
+          },
         })
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as {
@@ -240,10 +239,9 @@ export function ProjectSlackDialog({
     setCreating(true)
     setCreateError(null)
     try {
-      const res = await fetch(API.slack.createChannel(workspaceUrl), {
+      const res = await apiFetch(API.slack.createChannel(workspaceUrl), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: { name },
       })
       const data = (await res.json()) as {
         channel?: AvailableChannel

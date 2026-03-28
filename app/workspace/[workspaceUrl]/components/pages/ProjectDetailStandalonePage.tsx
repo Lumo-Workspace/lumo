@@ -25,7 +25,8 @@ import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
-import { slugifyProjectName } from '../../utils'
+import { slugifyProjectName, apiFetch } from '../../utils'
+import { useDarkMode } from '../../hooks/useDarkMode'
 import { toast } from 'sonner'
 
 interface Props {
@@ -39,19 +40,8 @@ export function ProjectDetailStandalonePage({
 }: Props) {
   const router = useRouter()
 
-  // ── Dark mode (same pattern as TaskDetailPage) ────────────────────────────
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  useEffect(() => {
-    setIsDarkMode(localStorage.getItem(CACHE_KEY.darkMode) === 'true')
-  }, [])
-  const handleToggleDarkMode = useCallback(() => {
-    setIsDarkMode(prev => {
-      const next = !prev
-      localStorage.setItem(CACHE_KEY.darkMode, String(next))
-      document.documentElement.classList.toggle('dark', next)
-      return next
-    })
-  }, [])
+  // ── Dark mode ──────────────────────────────────────────────────────────────
+  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Copy link ─────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false)
@@ -165,16 +155,15 @@ export function ProjectDetailStandalonePage({
       priority,
       assigneeId,
     }: NewTaskFormData) => {
-      const res = await fetch(API.projects.tasks(project.id), {
+      const res = await apiFetch(API.projects.tasks(project.id), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           title,
           description: description?.trim() || undefined,
           status,
           priority,
           assigneeId: assigneeId || undefined,
-        }),
+        },
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
@@ -209,10 +198,9 @@ export function ProjectDetailStandalonePage({
         defaultReviewerId?: string | null
       }
     ) => {
-      const res = await fetch(API.projects.byId(id), {
+      const res = await apiFetch(API.projects.byId(id), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: data,
       })
       if (!res.ok) throw new Error('Failed to update project')
       const { project: updated } = await res.json()

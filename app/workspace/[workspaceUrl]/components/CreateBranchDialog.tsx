@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { generateBranchName } from '@/lib/github/branch'
 import { API } from '../constants'
+import { apiFetch } from '../utils'
 import type { ApiTaskBranch } from '../types'
 
 interface CreateBranchDialogProps {
@@ -94,10 +95,9 @@ export function CreateBranchDialog({
     setState({ phase: 'creating' })
 
     try {
-      const res = await fetch(API.tasks.branch(taskId), {
+      const res = await apiFetch(API.tasks.branch(taskId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo: selectedRepo, branchName }),
+        body: { repo: selectedRepo, branchName },
       })
       const data = await res.json()
       if (!res.ok) {

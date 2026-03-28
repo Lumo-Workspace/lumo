@@ -14,7 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { formatTimestamp } from '../utils'
+import { formatTimestamp, apiFetch } from '../utils'
 import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -372,10 +372,9 @@ export function TaskDetailPanel({
     clearCommentRef.current?.()
 
     try {
-      const res = await fetch(API.tasks.comments(task.id), {
+      const res = await apiFetch(API.tasks.comments(task.id), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
+        body: { body },
       })
       if (!res.ok) throw new Error()
       const { comment } = (await res.json()) as { comment: ApiComment }
@@ -461,10 +460,9 @@ export function TaskDetailPanel({
       setReplyingToComment(null)
 
       try {
-        const res = await fetch(API.tasks.comments(task.id), {
+        const res = await apiFetch(API.tasks.comments(task.id), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body, parentId, quotedCommentId }),
+          body: { body, parentId, quotedCommentId },
         })
         if (!res.ok) throw new Error()
         const { comment } = (await res.json()) as { comment: ApiComment }
@@ -492,10 +490,9 @@ export function TaskDetailPanel({
       if (!body || savingComment) return
       setSavingComment(true)
       try {
-        const res = await fetch(API.tasks.comment(task.id, commentId), {
+        const res = await apiFetch(API.tasks.comment(task.id, commentId), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body }),
+          body: { body },
         })
         if (!res.ok) throw new Error()
         const { comment } = (await res.json()) as { comment: ApiComment }

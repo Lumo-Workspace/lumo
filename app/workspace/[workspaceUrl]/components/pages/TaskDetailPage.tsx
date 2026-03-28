@@ -61,7 +61,8 @@ import {
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { formatTimestamp, slugifyProjectName } from '../../utils'
+import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
+import { useDarkMode } from '../../hooks/useDarkMode'
 import { copyLink } from '../../utils/copyLink'
 import { DescriptionEditor } from '../DescriptionEditor'
 import {
@@ -122,19 +123,8 @@ export function TaskDetailPage({
   const router = useRouter()
   const { user } = useUser()
 
-  // ── Sidebar / dark mode ────────────────────────────────────────────────────
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  useEffect(() => {
-    setIsDarkMode(localStorage.getItem(CACHE_KEY.darkMode) === 'true')
-  }, [])
-  const handleToggleDarkMode = useCallback(() => {
-    setIsDarkMode(prev => {
-      const next = !prev
-      localStorage.setItem(CACHE_KEY.darkMode, String(next))
-      document.documentElement.classList.toggle('dark', next)
-      return next
-    })
-  }, [])
+  // ── Dark mode ──────────────────────────────────────────────────────────────
+  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(null)
@@ -183,10 +173,9 @@ export function TaskDetailPage({
   const runAgent = useCallback(async () => {
     setAgentRunning(true)
     try {
-      const res = await fetch('/api/agent/execute', {
+      const res = await apiFetch('/api/agent/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id }),
+        body: { taskId: task.id },
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -312,10 +301,9 @@ export function TaskDetailPage({
         spec: string | null
       }>
     ) => {
-      const res = await fetch(API.tasks.byId(taskId), {
+      const res = await apiFetch(API.tasks.byId(taskId), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: data,
       })
       if (!res.ok) throw new Error('Failed to update task')
     },
@@ -444,10 +432,9 @@ export function TaskDetailPage({
     setCommentKey(k => k + 1)
 
     try {
-      const res = await fetch(API.tasks.comments(task.id), {
+      const res = await apiFetch(API.tasks.comments(task.id), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
+        body: { body },
       })
       if (!res.ok) throw new Error()
       const { comment } = (await res.json()) as { comment: ApiComment }
@@ -496,10 +483,9 @@ export function TaskDetailPage({
       setReplyingToComment(null)
 
       try {
-        const res = await fetch(API.tasks.comments(task.id), {
+        const res = await apiFetch(API.tasks.comments(task.id), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body, parentId, quotedCommentId }),
+          body: { body, parentId, quotedCommentId },
         })
         if (!res.ok) throw new Error()
         const { comment } = (await res.json()) as { comment: ApiComment }
@@ -534,10 +520,9 @@ export function TaskDetailPage({
       if (!body || savingComment) return
       setSavingComment(true)
       try {
-        const res = await fetch(API.tasks.comment(task.id, commentId), {
+        const res = await apiFetch(API.tasks.comment(task.id, commentId), {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body }),
+          body: { body },
         })
         if (!res.ok) throw new Error()
         const { comment } = (await res.json()) as { comment: ApiComment }

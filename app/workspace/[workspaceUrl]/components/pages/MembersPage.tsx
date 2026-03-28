@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs'
 import { useMembers } from '../../hooks/useMembers'
 import { readCache, writeCache } from '../../cache'
 import { API, CACHE_KEY } from '../../constants'
+import { apiFetch } from '../../utils'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -134,10 +135,9 @@ export function MembersPage() {
       const wsData = await wsRes.json()
       const workspaceId = wsData.workspace.id
 
-      const res = await fetch(API.invites.list, {
+      const res = await apiFetch(API.invites.list, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails, workspaceId }),
+        body: { emails, workspaceId },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to send invites')
@@ -210,10 +210,9 @@ export function MembersPage() {
     )
     setUpdatingRoleId(memberId)
     try {
-      const res = await fetch(API.workspaces.memberById(memberId), {
+      const res = await apiFetch(API.workspaces.memberById(memberId), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
+        body: { role: newRole },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update role')

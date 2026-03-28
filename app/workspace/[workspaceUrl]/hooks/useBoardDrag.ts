@@ -5,6 +5,7 @@ import { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { API_STATUS_LABEL } from '../utils'
 import { API } from '../constants'
+import { apiFetch } from '../utils'
 
 const API_STATUSES = Object.keys(API_STATUS_LABEL)
 
@@ -121,14 +122,13 @@ export function useBoardDrag<
         )
 
         try {
-          const res = await fetch(API.views.taskOrders(viewId), {
+          const res = await apiFetch(API.views.taskOrders(viewId), {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            body: {
               taskId: id,
               groupKey: task.status,
               order: newOrder,
-            }),
+            },
           })
           if (!res.ok) throw new Error('Failed to update order')
         } catch {

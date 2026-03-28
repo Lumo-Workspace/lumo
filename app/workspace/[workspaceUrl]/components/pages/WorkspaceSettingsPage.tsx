@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
+import { apiFetch } from '../../utils'
 import { LogoUploader } from '@/components/LogoUploader'
 import { Button } from '@/components/ui/button'
 import {
@@ -131,10 +132,9 @@ export function WorkspaceSettingsPage() {
     if (!name.trim() || name === workspace?.name) return
     setSavingName(true)
     try {
-      const res = await fetch(API.workspaces.me, {
+      const res = await apiFetch(API.workspaces.me, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: { name: name.trim() },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update name')
@@ -158,10 +158,9 @@ export function WorkspaceSettingsPage() {
     if (!trimmed || trimmed === workspace?.slug) return
     setSavingSlug(true)
     try {
-      const res = await fetch(API.workspaces.me, {
+      const res = await apiFetch(API.workspaces.me, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: trimmed }),
+        body: { slug: trimmed },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update URL')
