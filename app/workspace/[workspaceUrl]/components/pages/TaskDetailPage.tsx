@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Send,
@@ -9,6 +9,7 @@ import {
   Reply,
   Link as LinkIcon,
   Check,
+  X,
   MoreHorizontal,
   CheckCircle2,
   XCircle,
@@ -161,6 +162,11 @@ export function TaskDetailPage({
     setTimeout(() => setTaskLinkCopied(false), 1500)
   }, [workspaceUrl, task.teamIdentifier, task.number])
 
+  // ── Spec editing ───────────────────────────────────────────────────────────
+  const [editingSpec, setEditingSpec] = useState(false)
+  const [editedSpec, setEditedSpec] = useState('')
+  const [savingSpec, setSavingSpec] = useState(false)
+
   // ── Agent ──────────────────────────────────────────────────────────────────
   const [agentRunning, setAgentRunning] = useState(false)
   const runAgent = useCallback(async () => {
@@ -292,6 +298,7 @@ export function TaskDetailPage({
         description: string | null
         projectId: string
         priority: ApiPriority
+        spec: string | null
       }>
     ) => {
       const res = await fetch(API.tasks.byId(taskId), {
@@ -312,6 +319,7 @@ export function TaskDetailPage({
         assigneeId: string | null
         reviewerId: string | null
         description: string | null
+        spec: string | null
         projectId: string
         priority: ApiPriority
       }>
@@ -344,6 +352,17 @@ export function TaskDetailPage({
     },
     [task.description, handlePatch]
   )
+
+  const handleSaveSpec = useCallback(async () => {
+    const trimmed = editedSpec.trim()
+    setSavingSpec(true)
+    try {
+      await handlePatch({ spec: trimmed || null })
+      setEditingSpec(false)
+    } finally {
+      setSavingSpec(false)
+    }
+  }, [editedSpec, handlePatch])
 
   // ── Comment handlers ───────────────────────────────────────────────────────
   const mapCommentTree = useCallback(
@@ -681,6 +700,77 @@ export function TaskDetailPage({
               />
             )}
 
+            {/* Spec */}
+            <div className='mt-8'>
+              <div className='flex items-center justify-between mb-2'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
+                    Spec
+                  </span>
+                  <span className='text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded px-1.5 py-0.5 leading-none'>
+                    Agent reads this
+                  </span>
+                </div>
+                {!editingSpec ? (
+                  <button
+                    onClick={() => {
+                      setEditedSpec(task.spec ?? '')
+                      setEditingSpec(true)
+                    }}
+                    className='flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+                  >
+                    <Pencil size={11} />
+                    Edit
+                  </button>
+                ) : (
+                  <div className='flex items-center gap-2'>
+                    <button
+                      onClick={handleSaveSpec}
+                      disabled={savingSpec}
+                      className='flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50 transition-colors font-medium'
+                    >
+                      {savingSpec ? (
+                        <Loader2 size={11} className='animate-spin' />
+                      ) : (
+                        <Check size={11} />
+                      )}
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingSpec(false)}
+                      className='flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+                    >
+                      <X size={11} />
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+              {editingSpec ? (
+                <textarea
+                  autoFocus
+                  className='w-full h-56 rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring'
+                  value={editedSpec}
+                  onChange={e => setEditedSpec(e.target.value)}
+                  placeholder='Describe what the agent should implement...'
+                />
+              ) : task.spec ? (
+                <div className='rounded-md border border-border bg-zinc-50 dark:bg-zinc-900 px-3 py-2.5 text-xs font-mono whitespace-pre-wrap text-zinc-700 dark:text-zinc-300 leading-relaxed max-h-64 overflow-y-auto'>
+                  {task.spec}
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditedSpec('')
+                    setEditingSpec(true)
+                  }}
+                  className='w-full text-left rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
+                >
+                  + Add spec for the agent…
+                </button>
+              )}
+            </div>
+
             {/* Agent status */}
             {task.agentStatus && task.agentStatus !== 'idle' && (
               <div className='mt-6'>
@@ -728,36 +818,72 @@ export function TaskDetailPage({
             <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
               Properties
             </p>
-            <div className='flex flex-col gap-1.5 mb-8 -ml-2'>
-              <StatusSelect
-                value={task.status}
-                onChange={v => handlePatch({ status: v })}
-                triggerClassName={FIELD_TRIGGER_CLS}
-              />
-              <AssigneeSelect
-                value={task.assigneeId ?? null}
-                onChange={v => handlePatch({ assigneeId: v })}
-                members={members}
-                triggerClassName={FIELD_TRIGGER_CLS}
-              />
-              <ReviewerSelect
-                value={task.reviewerId ?? null}
-                onChange={v => handlePatch({ reviewerId: v })}
-                members={members}
-                inheritedId={task.project?.defaultReviewerId ?? null}
-                triggerClassName={FIELD_TRIGGER_CLS}
-              />
-              <ProjectSelect
-                value={task.projectId}
-                onChange={v => handlePatch({ projectId: v })}
-                projects={projects}
-                triggerClassName={FIELD_TRIGGER_CLS}
-              />
-              <PrioritySelect
-                value={task.priority}
-                onChange={v => handlePatch({ priority: v })}
-                triggerClassName={FIELD_TRIGGER_CLS}
-              />
+            <div className='flex flex-col gap-0.5 mb-8'>
+              {(
+                [
+                  {
+                    label: 'Status',
+                    node: (
+                      <StatusSelect
+                        value={task.status}
+                        onChange={v => handlePatch({ status: v })}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Assignee',
+                    node: (
+                      <AssigneeSelect
+                        value={task.assigneeId ?? null}
+                        onChange={v => handlePatch({ assigneeId: v })}
+                        members={members}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Reviewer',
+                    node: (
+                      <ReviewerSelect
+                        value={task.reviewerId ?? null}
+                        onChange={v => handlePatch({ reviewerId: v })}
+                        members={members}
+                        inheritedId={task.project?.defaultReviewerId ?? null}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Project',
+                    node: (
+                      <ProjectSelect
+                        value={task.projectId}
+                        onChange={v => handlePatch({ projectId: v })}
+                        projects={projects}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Priority',
+                    node: (
+                      <PrioritySelect
+                        value={task.priority}
+                        onChange={v => handlePatch({ priority: v })}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                ] as { label: string; node: React.ReactNode }[]
+              ).map(({ label, node }) => (
+                <div key={label} className='flex items-center gap-2 -ml-2'>
+                  <span className='w-16 shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500 pl-2'>
+                    {label}
+                  </span>
+                  <div className='flex-1 min-w-0'>{node}</div>
+                </div>
+              ))}
             </div>
 
             <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>

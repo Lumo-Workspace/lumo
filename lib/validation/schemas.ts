@@ -91,6 +91,7 @@ export const createTaskSchema = z.object({
 export const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   description: z.string().max(10000).nullable().optional(),
+  spec: z.string().max(20000).nullable().optional(),
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assigneeId: z.string().nullable().optional(),

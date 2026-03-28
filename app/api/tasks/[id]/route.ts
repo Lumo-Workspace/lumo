@@ -232,6 +232,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const data: Record<string, unknown> = {}
     if (rest.title !== undefined) data.title = rest.title
     if (rest.description !== undefined) data.description = rest.description
+    if (rest.spec !== undefined) data.spec = rest.spec
     if (rest.status !== undefined) data.status = rest.status
     if (rest.priority !== undefined) data.priority = rest.priority
     if (rest.order !== undefined) data.order = rest.order
