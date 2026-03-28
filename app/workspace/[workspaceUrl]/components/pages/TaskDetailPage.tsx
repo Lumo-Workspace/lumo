@@ -814,216 +814,9 @@ export function TaskDetailPage({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Right column */}
-          <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
-            {/* Properties */}
-            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
-              Properties
-            </p>
-            <div className='flex flex-col gap-0.5 mb-8'>
-              {(
-                [
-                  {
-                    label: 'Status',
-                    node: (
-                      <StatusSelect
-                        value={task.status}
-                        onChange={v => handlePatch({ status: v })}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                  {
-                    label: 'Assignee',
-                    node: (
-                      <AssigneeSelect
-                        value={task.assigneeId ?? null}
-                        onChange={v => handlePatch({ assigneeId: v })}
-                        members={members}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                  {
-                    label: 'Reviewer',
-                    node: (
-                      <ReviewerSelect
-                        value={task.reviewerId ?? null}
-                        onChange={v => handlePatch({ reviewerId: v })}
-                        members={members}
-                        inheritedId={task.project?.defaultReviewerId ?? null}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                  {
-                    label: 'Project',
-                    node: (
-                      <ProjectSelect
-                        value={task.projectId}
-                        onChange={v => handlePatch({ projectId: v })}
-                        projects={projects}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                  {
-                    label: 'Priority',
-                    node: (
-                      <PrioritySelect
-                        value={task.priority}
-                        onChange={v => handlePatch({ priority: v })}
-                        triggerClassName={FIELD_TRIGGER_CLS}
-                      />
-                    ),
-                  },
-                ] as { label: string; node: React.ReactNode }[]
-              ).map(({ label, node }) => (
-                <div key={label} className='flex items-center gap-2 -ml-2'>
-                  <span className='w-16 shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500 pl-2'>
-                    {label}
-                  </span>
-                  <div className='flex-1 min-w-0'>{node}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Branch ─────────────────────────────────────────────────── */}
-            <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-              <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
-                <GitBranch size={12} />
-                Branch
-              </p>
-              {task.branches && task.branches.length > 0 ? (
-                <ul className='space-y-1.5'>
-                  {task.branches.map(branch => (
-                    <li
-                      key={branch.id}
-                      className='flex items-center gap-1.5 group'
-                    >
-                      <span className='text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate flex-1 min-w-0'>
-                        {branch.branchName}
-                      </span>
-                      <button
-                        onClick={() =>
-                          handleCopyBranch(branch.id, branch.branchName)
-                        }
-                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                        title='Copy branch name'
-                      >
-                        {copiedBranchId === branch.id ? (
-                          <Check size={12} className='text-emerald-500' />
-                        ) : (
-                          <Copy size={12} />
-                        )}
-                      </button>
-                      <a
-                        href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                        title='Open on GitHub'
-                      >
-                        <ExternalLink size={12} />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <button
-                  onClick={() => setCreateBranchOpen(true)}
-                  className='w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
-                >
-                  <GitBranch size={12} />
-                  Create branch
-                </button>
-              )}
-            </div>
-
-            {/* ── Pull Requests ───────────────────────────────────────────── */}
-            {task.pullRequests && task.pullRequests.length > 0 && (
-              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
-                  <GitPullRequest size={12} />
-                  Pull Requests
-                </p>
-                <ul className='space-y-2.5'>
-                  {task.pullRequests.map(pr => (
-                    <li key={pr.id} className='flex items-start gap-2'>
-                      <CiIcon status={pr.ciStatus} />
-                      <div className='min-w-0 flex-1'>
-                        <a
-                          href={pr.url}
-                          target='_blank'
-                          rel='noopener noreferrer'
-                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
-                        >
-                          #{pr.number} {pr.title}
-                        </a>
-                        <div className='flex items-center gap-1.5 mt-1'>
-                          <PrStateBadge state={pr.state} />
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <CreateBranchDialog
-              isOpen={createBranchOpen}
-              onClose={() => setCreateBranchOpen(false)}
-              taskId={task.id}
-              identifier={`${task.teamIdentifier}-${task.number}`}
-              title={task.title}
-              projectId={task.projectId}
-              defaultRepo={task.project.githubRepo}
-              workspaceUrl={workspaceUrl}
-            />
-
-            {/* ── Coding Agent ────────────────────────────────────────────── */}
-            {(task.project?.githubRepo ||
-              (task.project?.repositories &&
-                task.project.repositories.length > 0)) && (
-              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
-                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
-                  Coding Agent
-                </p>
-                <button
-                  onClick={runAgent}
-                  disabled={
-                    agentRunning ||
-                    task.agentStatus === 'running' ||
-                    task.agentStatus === 'paused' ||
-                    task.agentStatus === 'spec_review'
-                  }
-                  className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                >
-                  {agentRunning || task.agentStatus === 'running' ? (
-                    <>
-                      <Loader2 size={12} className='animate-spin' />
-                      Running…
-                    </>
-                  ) : (task.branches?.length ?? 0) > 0 ||
-                    (task.pullRequests?.length ?? 0) > 0 ? (
-                    <>
-                      <RefreshCw size={12} />
-                      Re-run Agent
-                    </>
-                  ) : (
-                    <>
-                      <Bot size={12} />
-                      Run Agent
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
 
             {/* Comments section */}
-            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
+            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-8 mb-4'>
               Comments
             </p>
 
@@ -1648,6 +1441,213 @@ export function TaskDetailPage({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Right column */}
+          <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
+            {/* Properties */}
+            <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
+              Properties
+            </p>
+            <div className='flex flex-col gap-0.5 mb-8'>
+              {(
+                [
+                  {
+                    label: 'Status',
+                    node: (
+                      <StatusSelect
+                        value={task.status}
+                        onChange={v => handlePatch({ status: v })}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Assignee',
+                    node: (
+                      <AssigneeSelect
+                        value={task.assigneeId ?? null}
+                        onChange={v => handlePatch({ assigneeId: v })}
+                        members={members}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Reviewer',
+                    node: (
+                      <ReviewerSelect
+                        value={task.reviewerId ?? null}
+                        onChange={v => handlePatch({ reviewerId: v })}
+                        members={members}
+                        inheritedId={task.project?.defaultReviewerId ?? null}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Project',
+                    node: (
+                      <ProjectSelect
+                        value={task.projectId}
+                        onChange={v => handlePatch({ projectId: v })}
+                        projects={projects}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                  {
+                    label: 'Priority',
+                    node: (
+                      <PrioritySelect
+                        value={task.priority}
+                        onChange={v => handlePatch({ priority: v })}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
+                    ),
+                  },
+                ] as { label: string; node: React.ReactNode }[]
+              ).map(({ label, node }) => (
+                <div key={label} className='flex items-center gap-2 -ml-2'>
+                  <span className='w-16 shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500 pl-2'>
+                    {label}
+                  </span>
+                  <div className='flex-1 min-w-0'>{node}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Branch ─────────────────────────────────────────────────── */}
+            <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+              <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+                <GitBranch size={12} />
+                Branch
+              </p>
+              {task.branches && task.branches.length > 0 ? (
+                <ul className='space-y-1.5'>
+                  {task.branches.map(branch => (
+                    <li
+                      key={branch.id}
+                      className='flex items-center gap-1.5 group'
+                    >
+                      <span className='text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate flex-1 min-w-0'>
+                        {branch.branchName}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleCopyBranch(branch.id, branch.branchName)
+                        }
+                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                        title='Copy branch name'
+                      >
+                        {copiedBranchId === branch.id ? (
+                          <Check size={12} className='text-emerald-500' />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
+                      <a
+                        href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
+                        title='Open on GitHub'
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <button
+                  onClick={() => setCreateBranchOpen(true)}
+                  className='w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
+                >
+                  <GitBranch size={12} />
+                  Create branch
+                </button>
+              )}
+            </div>
+
+            {/* ── Pull Requests ───────────────────────────────────────────── */}
+            {task.pullRequests && task.pullRequests.length > 0 && (
+              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+                  <GitPullRequest size={12} />
+                  Pull Requests
+                </p>
+                <ul className='space-y-2.5'>
+                  {task.pullRequests.map(pr => (
+                    <li key={pr.id} className='flex items-start gap-2'>
+                      <CiIcon status={pr.ciStatus} />
+                      <div className='min-w-0 flex-1'>
+                        <a
+                          href={pr.url}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
+                        >
+                          #{pr.number} {pr.title}
+                        </a>
+                        <div className='flex items-center gap-1.5 mt-1'>
+                          <PrStateBadge state={pr.state} />
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <CreateBranchDialog
+              isOpen={createBranchOpen}
+              onClose={() => setCreateBranchOpen(false)}
+              taskId={task.id}
+              identifier={`${task.teamIdentifier}-${task.number}`}
+              title={task.title}
+              projectId={task.projectId}
+              defaultRepo={task.project.githubRepo}
+              workspaceUrl={workspaceUrl}
+            />
+
+            {/* ── Coding Agent ────────────────────────────────────────────── */}
+            {(task.project?.githubRepo ||
+              (task.project?.repositories &&
+                task.project.repositories.length > 0)) && (
+              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
+                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
+                  Coding Agent
+                </p>
+                <button
+                  onClick={runAgent}
+                  disabled={
+                    agentRunning ||
+                    task.agentStatus === 'running' ||
+                    task.agentStatus === 'paused' ||
+                    task.agentStatus === 'spec_review'
+                  }
+                  className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                >
+                  {agentRunning || task.agentStatus === 'running' ? (
+                    <>
+                      <Loader2 size={12} className='animate-spin' />
+                      Running…
+                    </>
+                  ) : (task.branches?.length ?? 0) > 0 ||
+                    (task.pullRequests?.length ?? 0) > 0 ? (
+                    <>
+                      <RefreshCw size={12} />
+                      Re-run Agent
+                    </>
+                  ) : (
+                    <>
+                      <Bot size={12} />
+                      Run Agent
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </SidebarInset>
