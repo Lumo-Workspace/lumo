@@ -21,11 +21,14 @@
     "mcp": "tsx mcp/server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.86",
+    "@anthropic-ai/claude-code": "^2.1.86",
     "@chat-adapter/slack": "^4.23.0",
     "@clerk/nextjs": "^7.0.5",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@e2b/code-interpreter": "^2.4.0",
     "@google-cloud/storage": "^7.19.0",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.5.0",
