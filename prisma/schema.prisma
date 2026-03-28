@@ -52,6 +52,7 @@ enum NotificationType {
   TASK_MENTIONED   // someone @mentioned you in a comment
   TASK_SENT_BACK   // owner sent a task back to IN_PROGRESS — sent to assignee
   TASK_ASSIGNED    // task assigned to you
+  TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer for confirmation
 }
 
 // ─── Workspace ──────────────────────────────────────────────────────────────

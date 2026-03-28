@@ -176,7 +176,8 @@ export function TaskDetailPage({
         console.error('[runAgent] error', err)
         return
       }
-      setTask(prev => ({ ...prev, agentStatus: 'running' }))
+      // Status will be updated via Pusher (running or spec_review)
+      setTask(prev => ({ ...prev, agentStatus: prev.agentStatus ?? 'running' }))
     } finally {
       setAgentRunning(false)
     }
@@ -686,8 +687,12 @@ export function TaskDetailPage({
                 <AgentStatus
                   taskId={task.id}
                   initialStatus={task.agentStatus}
+                  initialSpec={task.spec ?? null}
                   initialPrUrl={task.githubPrUrl ?? null}
                   onRetry={() =>
+                    setTask(prev => ({ ...prev, agentStatus: 'running' }))
+                  }
+                  onSpecConfirmed={() =>
                     setTask(prev => ({ ...prev, agentStatus: 'running' }))
                   }
                 />

@@ -5,6 +5,7 @@ import { monitorForClarify } from './clarify-monitor'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+import { generateSpecDraft } from './generate-spec'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -117,6 +118,21 @@ export async function executeAgent({
   })
 
   if (!task) throw new Error(`Task ${taskId} not found`)
+
+  // If no spec yet, generate one from the description and pause for review
+  if (!task.spec?.trim()) {
+    await generateSpecDraft(taskId, {
+      title: task.title,
+      description: task.description,
+      spec: task.spec,
+      project: {
+        workspaceId: task.project.workspaceId,
+        defaultReviewerId: task.project.defaultReviewerId,
+      },
+      reviewerId: task.reviewerId,
+    })
+    return
+  }
 
   // Resolve which repo to use: task-level → project default repo → legacy githubRepo
   const resolvedRepo =

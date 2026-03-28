@@ -21,6 +21,7 @@ export type AgentEvent =
   | { type: 'agent:tool'; tool: string; input: string }
   | { type: 'agent:progress'; message: string }
   | { type: 'agent:clarify'; question: string; context: string | null }
+  | { type: 'agent:spec_draft'; spec: string }
   | { type: 'agent:done'; prUrl: string; prNumber: number }
   | { type: 'agent:failed'; error: string }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Pusher from 'pusher-js'
-import { Loader2, X } from 'lucide-react'
+import { Loader2, X, Pencil, Check } from 'lucide-react'
 import type { AgentEvent } from '@/lib/pusher/server'
 
 interface AgentLog {
@@ -14,8 +14,10 @@ interface AgentLog {
 interface AgentStatusProps {
   taskId: string
   initialStatus?: string | null
+  initialSpec?: string | null
   initialPrUrl?: string | null
   onRetry?: () => void
+  onSpecConfirmed?: () => void
 }
 
 const ICON: Record<AgentEvent['type'], string> = {
@@ -24,6 +26,7 @@ const ICON: Record<AgentEvent['type'], string> = {
   'agent:tool': '⚡',
   'agent:progress': '●',
   'agent:clarify': '❓',
+  'agent:spec_draft': '📋',
   'agent:done': '✅',
   'agent:failed': '❌',
 }
@@ -47,6 +50,8 @@ function formatEvent(event: AgentEvent): string {
       return event.message
     case 'agent:clarify':
       return `Needs clarification: ${event.question}`
+    case 'agent:spec_draft':
+      return 'Spec draft ready for review'
     case 'agent:done':
       return 'Done — PR created'
     case 'agent:failed':
@@ -57,8 +62,10 @@ function formatEvent(event: AgentEvent): string {
 export function AgentStatus({
   taskId,
   initialStatus,
+  initialSpec,
   initialPrUrl,
   onRetry,
+  onSpecConfirmed,
 }: AgentStatusProps) {
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [status, setStatus] = useState<string>(initialStatus ?? 'idle')
@@ -66,6 +73,13 @@ export function AgentStatus({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  // Spec review state
+  const [specDraft, setSpecDraft] = useState<string | null>(
+    initialStatus === 'spec_review' ? (initialSpec ?? null) : null
+  )
+  const [editingSpec, setEditingSpec] = useState(false)
+  const [editedSpec, setEditedSpec] = useState('')
+  const [confirming, setConfirming] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   const handleCancel = useCallback(async () => {
@@ -98,12 +112,37 @@ export function AgentStatus({
     }
   }, [taskId, onRetry])
 
+  const handleConfirmSpec = useCallback(async () => {
+    const spec = editingSpec ? editedSpec.trim() : (specDraft ?? '')
+    if (!spec) return
+    setConfirming(true)
+    try {
+      const res = await fetch('/api/agent/confirm-spec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, spec }),
+      })
+      if (res.ok) {
+        setStatus('running')
+        setSpecDraft(null)
+        setEditingSpec(false)
+        setLogs([])
+        onSpecConfirmed?.()
+      }
+    } finally {
+      setConfirming(false)
+    }
+  }, [taskId, specDraft, editingSpec, editedSpec, onSpecConfirmed])
+
   useEffect(() => {
     if (initialStatus && initialStatus !== 'idle') {
       setStatus(initialStatus)
       if (initialStatus === 'running') setLogs([])
+      if (initialStatus === 'spec_review' && initialSpec) {
+        setSpecDraft(initialSpec)
+      }
     }
-  }, [initialStatus])
+  }, [initialStatus, initialSpec])
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -138,6 +177,11 @@ export function AgentStatus({
         if (!isCancelled) setErrorMsg(event.error)
       }
       if (event.type === 'agent:clarify') setStatus('paused')
+      if (event.type === 'agent:spec_draft') {
+        setStatus('spec_review')
+        setSpecDraft(event.spec)
+        setLogs([]) // clear "generating..." logs, spec panel takes over
+      }
     })
 
     return () => {
@@ -148,6 +192,61 @@ export function AgentStatus({
 
   if (status === 'idle') return null
 
+  // ── Spec review panel ──────────────────────────────────────────────────────
+  if (status === 'spec_review' && specDraft) {
+    return (
+      <div className='rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3'>
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-2'>
+            <span className='h-2 w-2 rounded-full bg-amber-500' />
+            <span className='text-sm font-medium text-amber-700 dark:text-amber-400'>
+              Spec ready — review before running
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setEditingSpec(v => {
+                if (!v) setEditedSpec(specDraft)
+                return !v
+              })
+            }}
+            className='flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+          >
+            {editingSpec ? <Check size={12} /> : <Pencil size={12} />}
+            {editingSpec ? 'Preview' : 'Edit'}
+          </button>
+        </div>
+
+        {editingSpec ? (
+          <textarea
+            className='w-full h-64 rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring'
+            value={editedSpec}
+            onChange={e => setEditedSpec(e.target.value)}
+          />
+        ) : (
+          <div className='rounded-md bg-background border border-border px-3 py-2 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto text-zinc-700 dark:text-zinc-300'>
+            {specDraft}
+          </div>
+        )}
+
+        <div className='flex items-center gap-2'>
+          <button
+            onClick={handleConfirmSpec}
+            disabled={confirming || (editingSpec && !editedSpec.trim())}
+            className='flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors'
+          >
+            {confirming ? <Loader2 size={11} className='animate-spin' /> : null}
+            {confirming ? 'Starting…' : 'Confirm & Run Agent'}
+          </button>
+          <span className='text-xs text-muted-foreground'>
+            or edit the spec above first
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Normal agent status panel ──────────────────────────────────────────────
   return (
     <div className='rounded-lg border border-border bg-muted/30 p-4 space-y-3'>
       <div className='flex items-center justify-between'>

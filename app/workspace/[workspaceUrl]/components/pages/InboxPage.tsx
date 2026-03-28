@@ -110,7 +110,9 @@ function NotificationItem({
         ? 'sent back to In Progress'
         : type === 'TASK_ASSIGNED'
           ? 'assigned you to'
-          : 'mentioned you in'
+          : type === 'TASK_SPEC_READY'
+            ? 'generated a spec draft for'
+            : 'mentioned you in'
 
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true })
 

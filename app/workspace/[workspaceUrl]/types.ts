@@ -151,7 +151,12 @@ export interface ApiComment {
 
 export interface ApiNotification {
   id: string
-  type: 'TASK_IN_REVIEW' | 'TASK_MENTIONED' | 'TASK_SENT_BACK' | 'TASK_ASSIGNED'
+  type:
+    | 'TASK_IN_REVIEW'
+    | 'TASK_MENTIONED'
+    | 'TASK_SENT_BACK'
+    | 'TASK_ASSIGNED'
+    | 'TASK_SPEC_READY'
   read: boolean
   createdAt: string
   taskId: string | null
@@ -193,5 +198,6 @@ export interface TaskDetail {
   pullRequests?: ApiPullRequest[]
   branches?: ApiTaskBranch[]
   agentStatus?: string | null
+  spec?: string | null
   githubPrUrl?: string | null
 }
