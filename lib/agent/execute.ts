@@ -307,14 +307,14 @@ ${taskSpec}
     if (timedOut) return
 
     if (winner === CLARIFY_SENTINEL) {
-      const q = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { clarifyQuestion: true, clarifyContext: true },
+      const clarify = await prisma.agentClarify.findFirst({
+        where: { taskId },
+        orderBy: { createdAt: 'desc' },
       })
       await pushAgentEvent(taskId, {
         type: 'agent:clarify',
-        question: q?.clarifyQuestion ?? '',
-        context: q?.clarifyContext ?? null,
+        question: clarify?.question ?? '',
+        context: clarify?.context ?? null,
       })
       return
     }
@@ -376,16 +376,28 @@ ${taskSpec}
       token: githubToken,
     })
 
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        agentStatus: 'done',
-        status: 'IN_REVIEW',
-        githubPrUrl: pr.html_url,
-        githubPrNumber: pr.number,
-        githubPrStatus: 'open',
-      },
-    })
+    await prisma.$transaction([
+      prisma.task.update({
+        where: { id: taskId },
+        data: { agentStatus: 'done', status: 'IN_REVIEW' },
+      }),
+      prisma.pullRequest.upsert({
+        where: { repo_number: { repo: resolvedRepo, number: pr.number } },
+        create: {
+          workspaceId: task.project.workspaceId,
+          taskId,
+          repo: resolvedRepo,
+          number: pr.number,
+          title: `${task.title} [${identifier}]`,
+          url: pr.html_url,
+          state: 'open',
+          authorLogin: 'lumo-agent',
+          headBranch: branchName,
+          baseBranch: 'main',
+        },
+        update: { state: 'open', url: pr.html_url, taskId },
+      }),
+    ])
     await pushAgentEvent(taskId, {
       type: 'agent:done',
       prUrl: pr.html_url,

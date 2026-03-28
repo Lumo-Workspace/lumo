@@ -162,12 +162,7 @@ ${task.spec}
     console.log('✓ PR created:', pr.html_url)
 
     // ── 10. 更新任务状态 ──────────────────────────────
-    await updateTask(task.id, {
-      agentStatus: 'done',
-      status: 'IN_REVIEW',
-      githubPrUrl: pr.html_url,
-      githubPrNumber: pr.number,
-    })
+    await updateTask(task.id, { agentStatus: 'done', status: 'IN_REVIEW' })
     await createNotification(task.reviewerId, 'TASK_IN_REVIEW', task.id)
     console.log('✓ Task status: IN_REVIEW, reviewer notified')
 

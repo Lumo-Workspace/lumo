@@ -32,12 +32,6 @@ export async function GET(req: NextRequest, { params }: Params) {
         id: true,
         agentStatus: true,
         sandboxId: true,
-        clarifyQuestion: true,
-        clarifyContext: true,
-        clarifyReply: true,
-        githubPrUrl: true,
-        githubPrNumber: true,
-        githubPrStatus: true,
         project: { select: { workspaceId: true } },
       },
     })
@@ -50,15 +44,26 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const [pendingClarify, activePr] = await Promise.all([
+      prisma.agentClarify.findFirst({
+        where: { taskId, reply: null },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.pullRequest.findFirst({
+        where: { taskId, state: 'open' },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
     return NextResponse.json({
       taskId: task.id,
       agentStatus: task.agentStatus,
-      clarifyQuestion: task.clarifyQuestion,
-      clarifyContext: task.clarifyContext,
-      clarifyReply: task.clarifyReply,
-      githubPrUrl: task.githubPrUrl,
-      githubPrNumber: task.githubPrNumber,
-      githubPrStatus: task.githubPrStatus,
+      clarifyQuestion: pendingClarify?.question ?? null,
+      clarifyContext: pendingClarify?.context ?? null,
+      clarifyReply: pendingClarify?.reply ?? null,
+      githubPrUrl: activePr?.url ?? null,
+      githubPrNumber: activePr?.number ?? null,
+      githubPrStatus: activePr?.state ?? null,
     })
   } catch (error) {
     console.error('[agent/status] Unexpected error:', error)

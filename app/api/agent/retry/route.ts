@@ -65,14 +65,7 @@ export async function POST(req: NextRequest) {
     // Reset state before re-running
     await prisma.task.update({
       where: { id: taskId },
-      data: {
-        agentStatus: 'idle',
-        agentError: null,
-        sandboxId: null,
-        clarifyQuestion: null,
-        clarifyContext: null,
-        clarifyReply: null,
-      },
+      data: { agentStatus: 'idle', agentError: null, sandboxId: null },
     })
 
     waitUntil(

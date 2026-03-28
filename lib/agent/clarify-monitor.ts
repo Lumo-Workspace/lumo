@@ -24,13 +24,17 @@ export async function monitorForClarify(
 
           const clarifyData = JSON.parse(questionFile)
 
+          await prisma.agentClarify.create({
+            data: {
+              taskId: task.id,
+              question: clarifyData.question,
+              context: clarifyData.context ?? null,
+            },
+          })
+
           await prisma.task.update({
             where: { id: task.id },
-            data: {
-              agentStatus: 'paused',
-              clarifyQuestion: clarifyData.question,
-              clarifyContext: clarifyData.context ?? null,
-            },
+            data: { agentStatus: 'paused' },
           })
 
           resolve()

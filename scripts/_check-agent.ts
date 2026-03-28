@@ -4,9 +4,12 @@ async function main() {
     where: { id: 'cmn3rtrac000a92jp9bhfafn6' },
     select: {
       agentStatus: true,
-      githubPrUrl: true,
-      githubPrNumber: true,
       sandboxId: true,
+      pullRequests: {
+        where: { state: 'open' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
     },
   })
   console.log(JSON.stringify(t, null, 2))

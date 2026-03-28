@@ -199,5 +199,4 @@ export interface TaskDetail {
   branches?: ApiTaskBranch[]
   agentStatus?: string | null
   spec?: string | null
-  githubPrUrl?: string | null
 }

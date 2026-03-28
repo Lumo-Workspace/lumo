@@ -204,12 +204,6 @@ model Task {
   agentStatus    String?
   agentError     String?
   sandboxId      String?
-  clarifyQuestion String?
-  clarifyContext  String?
-  clarifyReply    String?
-  githubPrUrl     String?
-  githubPrNumber  Int?
-  githubPrStatus  String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -225,6 +219,7 @@ model Task {
   comments       Comment[]
   pullRequests   PullRequest[]
   branches       TaskBranch[]
+  clarifies      AgentClarify[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -418,7 +413,7 @@ model PullRequest {
   id            String    @id @default(cuid())
   workspaceId   String
   taskId        String?
-  integrationId String
+  integrationId String?   // null for agent-created PRs (GitHub App, not OAuth)
   repo          String    // "owner/repo"
   number        Int
   title         String
@@ -434,9 +429,9 @@ model PullRequest {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  task        Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  integration GitHubIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task        Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  integration GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -461,6 +456,21 @@ model TaskBranch {
   @@unique([taskId, repo, branchName])
   @@index([taskId])
   @@map("task_branches")
+}
+
+model AgentClarify {
+  id        String    @id @default(cuid())
+  taskId    String
+  question  String
+  context   String?
+  reply     String?
+  repliedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("agent_clarifies")
 }
 
 model WorkspaceInvite {

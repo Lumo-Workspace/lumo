@@ -9,9 +9,21 @@ export async function resumeAgent(
   try {
     const sandbox = await Sandbox.connect(sandboxId)
     await sandbox.files.write('/tmp/clarify-reply.txt', reply)
+
+    const pendingClarify = await prisma.agentClarify.findFirst({
+      where: { taskId, reply: null },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (pendingClarify) {
+      await prisma.agentClarify.update({
+        where: { id: pendingClarify.id },
+        data: { reply, repliedAt: new Date() },
+      })
+    }
+
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'running', clarifyReply: reply },
+      data: { agentStatus: 'running' },
     })
   } catch {
     // Sandbox has expired — caller is responsible for restarting the agent
