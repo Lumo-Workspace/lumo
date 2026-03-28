@@ -102,7 +102,7 @@ export interface ApiTask {
   projectId: string
   parentTaskId: string | null
   assigneeId: string | null
-  assigneeType: string | null
+  assigneeType: 'human' | 'agent'
   reviewerId: string | null
   repositoryId: string | null
   updatedAt: string
@@ -197,7 +197,7 @@ export interface TaskDetail {
   }
   parentTaskId: string | null
   assigneeId: string | null
-  assigneeType: string | null
+  assigneeType: 'human' | 'agent'
   reviewerId: string | null
   repositoryId: string | null
   assignee: { id: string; clerkId: string } | null

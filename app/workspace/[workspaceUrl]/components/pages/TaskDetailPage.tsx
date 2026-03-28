@@ -293,7 +293,7 @@ export function TaskDetailPage({
         title: string
         status: ApiStatus
         assigneeId: string | null
-        assigneeType: string | null
+        assigneeType: 'human' | 'agent'
         reviewerId: string | null
         description: string | null
         spec: string | null
@@ -1428,7 +1428,7 @@ export function TaskDetailPage({
                         onChange={v =>
                           handlePatch({
                             assigneeId: v,
-                            assigneeType: v ? 'human' : null,
+                            assigneeType: 'human',
                           })
                         }
                         onAgentSelect={() =>

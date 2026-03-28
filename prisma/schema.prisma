@@ -55,6 +55,11 @@ enum NotificationType {
   TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer for confirmation
 }
 
+enum AssigneeType {
+  human
+  agent
+}
+
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
@@ -204,7 +209,7 @@ model Task {
   agentStatus    String?
   agentError     String?
   sandboxId      String?
-  assigneeType   String?      // null | "human" | "agent"
+  assigneeType   AssigneeType @default(human)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

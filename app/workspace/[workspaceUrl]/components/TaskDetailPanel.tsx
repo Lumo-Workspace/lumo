@@ -190,7 +190,9 @@ export function TaskDetailPanel({
     parentTaskId: initialTask.parentTaskId,
     assigneeId: initialTask.assigneeId,
     assigneeType:
-      'assigneeType' in initialTask ? (initialTask.assigneeType ?? null) : null,
+      'assigneeType' in initialTask
+        ? (initialTask.assigneeType ?? 'human')
+        : 'human',
     reviewerId: initialTask.reviewerId,
     assignee: null,
     description: cachedDescription ?? null,
@@ -320,7 +322,7 @@ export function TaskDetailPanel({
         title: string
         status: ApiStatus
         assigneeId: string | null
-        assigneeType: string | null
+        assigneeType: 'human' | 'agent'
         reviewerId: string | null
         description: string | null
         projectId: string
@@ -583,7 +585,7 @@ export function TaskDetailPanel({
             onChange={v =>
               handlePatch({
                 assigneeId: v,
-                assigneeType: v ? 'human' : null,
+                assigneeType: 'human',
               })
             }
             onAgentSelect={() =>

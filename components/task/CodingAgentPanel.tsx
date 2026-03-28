@@ -31,7 +31,7 @@ export interface AgentClarifyPending {
 
 export interface CodingAgentTask {
   id: string
-  assigneeType?: string | null
+  assigneeType?: 'human' | 'agent'
   agentStatus?: string | null
   agentError?: string | null
   sandboxId?: string | null
