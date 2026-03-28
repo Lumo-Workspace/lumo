@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Pusher from 'pusher-js'
+import { Loader2, X } from 'lucide-react'
 import type { AgentEvent } from '@/lib/pusher/server'
 
 interface AgentLog {
@@ -60,7 +61,21 @@ export function AgentStatus({
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [status, setStatus] = useState<string>(initialStatus ?? 'idle')
   const [prUrl, setPrUrl] = useState<string | null>(initialPrUrl ?? null)
+  const [cancelling, setCancelling] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
+
+  const handleCancel = useCallback(async () => {
+    setCancelling(true)
+    try {
+      await fetch('/api/agent/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+    } finally {
+      setCancelling(false)
+    }
+  }, [taskId])
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -89,7 +104,9 @@ export function AgentStatus({
         setStatus('done')
         setPrUrl(event.prUrl)
       }
-      if (event.type === 'agent:failed') setStatus('failed')
+      if (event.type === 'agent:failed') {
+        setStatus(event.error === 'Cancelled by user' ? 'cancelled' : 'failed')
+      }
       if (event.type === 'agent:clarify') setStatus('paused')
     })
 
@@ -103,25 +120,43 @@ export function AgentStatus({
 
   return (
     <div className='rounded-lg border border-border bg-muted/30 p-4 space-y-3'>
-      <div className='flex items-center gap-2 text-sm font-medium'>
-        {status === 'running' && (
-          <span className='h-2 w-2 rounded-full bg-blue-500 animate-pulse' />
+      <div className='flex items-center justify-between'>
+        <div className='flex items-center gap-2 text-sm font-medium'>
+          {status === 'running' && (
+            <span className='h-2 w-2 rounded-full bg-blue-500 animate-pulse' />
+          )}
+          {status === 'done' && (
+            <span className='h-2 w-2 rounded-full bg-green-500' />
+          )}
+          {(status === 'failed' || status === 'cancelled') && (
+            <span className='h-2 w-2 rounded-full bg-red-500' />
+          )}
+          {status === 'paused' && (
+            <span className='h-2 w-2 rounded-full bg-yellow-500' />
+          )}
+          <span className='text-muted-foreground'>
+            {status === 'running' && 'Agent is working...'}
+            {status === 'done' && 'Agent finished'}
+            {status === 'failed' && 'Agent failed'}
+            {status === 'cancelled' && 'Cancelled'}
+            {status === 'paused' && 'Waiting for clarification'}
+          </span>
+        </div>
+        {(status === 'running' || status === 'paused') && (
+          <button
+            onClick={handleCancel}
+            disabled={cancelling}
+            className='flex items-center gap-1 text-xs text-zinc-400 hover:text-red-500 disabled:opacity-50 transition-colors'
+            title='Cancel agent'
+          >
+            {cancelling ? (
+              <Loader2 size={12} className='animate-spin' />
+            ) : (
+              <X size={12} />
+            )}
+            Cancel
+          </button>
         )}
-        {status === 'done' && (
-          <span className='h-2 w-2 rounded-full bg-green-500' />
-        )}
-        {status === 'failed' && (
-          <span className='h-2 w-2 rounded-full bg-red-500' />
-        )}
-        {status === 'paused' && (
-          <span className='h-2 w-2 rounded-full bg-yellow-500' />
-        )}
-        <span className='text-muted-foreground'>
-          {status === 'running' && 'Agent is working...'}
-          {status === 'done' && 'Agent finished'}
-          {status === 'failed' && 'Agent failed'}
-          {status === 'paused' && 'Waiting for clarification'}
-        </span>
       </div>
 
       {logs.length === 0 ? (

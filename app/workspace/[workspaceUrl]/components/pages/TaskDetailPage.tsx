@@ -826,7 +826,11 @@ export function TaskDetailPage({
                 </p>
                 <button
                   onClick={runAgent}
-                  disabled={agentRunning || task.agentStatus === 'running'}
+                  disabled={
+                    agentRunning ||
+                    task.agentStatus === 'running' ||
+                    task.agentStatus === 'paused'
+                  }
                   className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
                 >
                   {agentRunning || task.agentStatus === 'running' ? (
