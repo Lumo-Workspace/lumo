@@ -243,6 +243,7 @@ ${taskSpec}
 - Read CLAUDE.md first for project conventions
 - Branch is already created: ${branchName}
 - Commit your changes when done; include [${identifier}] in the commit message
+- Do NOT add Co-Authored-By or any AI attribution lines to commit messages
 - Do NOT push; do NOT create a PR (handled automatically)`.trim()
     )
 
