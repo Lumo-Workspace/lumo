@@ -444,5 +444,10 @@ export function CodingAgentPanel({
   onTaskUpdate?: (updates: Partial<CodingAgentTask>) => void
 }) {
   if (task.assigneeType !== 'agent') return null
-  return <CodingAgentPanelInner task={task} onTaskUpdate={onTaskUpdate} />
+  return (
+    <CodingAgentPanelInner
+      task={task}
+      {...(onTaskUpdate && { onTaskUpdate })}
+    />
+  )
 }
