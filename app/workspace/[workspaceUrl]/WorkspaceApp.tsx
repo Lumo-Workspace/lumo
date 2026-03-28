@@ -417,6 +417,7 @@ export default function DashboardApp() {
         projectId,
         parentTaskId: null,
         assigneeId: assigneeId ?? null,
+        assigneeType: null,
         reviewerId: project?.defaultReviewerId ?? null,
         repositoryId: repositoryId ?? null,
         updatedAt: now,

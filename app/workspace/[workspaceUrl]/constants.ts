@@ -42,6 +42,13 @@ export const API = {
     repos: '/api/github/repos',
     authorizedRepos: '/api/github/authorized-repos',
   },
+  agent: {
+    run: (taskId: string) => `/api/agent/run/${taskId}`,
+    logs: (taskId: string) => `/api/agent/logs/${taskId}`,
+    resume: (taskId: string) => `/api/agent/resume/${taskId}`,
+    retry: '/api/agent/retry',
+    status: (taskId: string) => `/api/agent/status/${taskId}`,
+  },
   slack: {
     oauth: (workspaceUrl: string) =>
       `/api/slack/oauth?workspaceUrl=${workspaceUrl}`,

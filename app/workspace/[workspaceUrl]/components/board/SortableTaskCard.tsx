@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar, getInitials } from '../TaskFieldSelects'
-import { UserCircle2 } from 'lucide-react'
+import { UserCircle2, Bot } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import {
   HoverCard,
@@ -90,7 +90,14 @@ export function ProjectTaskCard({
         {task.title}
       </h4>
       <div className='flex justify-between items-center'>
-        {assignee ? (
+        {task.assigneeType === 'agent' ? (
+          <div
+            className='flex items-center justify-center size-5 rounded-full bg-violet-100 dark:bg-violet-900/40 shrink-0'
+            title='Lumo Agent'
+          >
+            <Bot size={11} className='text-violet-600 dark:text-violet-400' />
+          </div>
+        ) : assignee ? (
           <HoverCard openDelay={200}>
             <HoverCardTrigger asChild>
               <span

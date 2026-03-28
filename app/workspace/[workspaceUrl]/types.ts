@@ -102,6 +102,7 @@ export interface ApiTask {
   projectId: string
   parentTaskId: string | null
   assigneeId: string | null
+  assigneeType: string | null
   reviewerId: string | null
   repositoryId: string | null
   updatedAt: string
@@ -172,6 +173,15 @@ export interface ApiNotification {
   commentPreview: string | null
 }
 
+export interface ApiAgentClarify {
+  id: string
+  question: string
+  context: string | null
+  reply: string | null
+  repliedAt: string | null
+  createdAt: string
+}
+
 export interface TaskDetail {
   id: string
   title: string
@@ -187,6 +197,7 @@ export interface TaskDetail {
   }
   parentTaskId: string | null
   assigneeId: string | null
+  assigneeType: string | null
   reviewerId: string | null
   repositoryId: string | null
   assignee: { id: string; clerkId: string } | null
@@ -198,5 +209,8 @@ export interface TaskDetail {
   pullRequests?: ApiPullRequest[]
   branches?: ApiTaskBranch[]
   agentStatus?: string | null
+  agentError?: string | null
+  sandboxId?: string | null
+  clarifies?: ApiAgentClarify[]
   spec?: string | null
 }

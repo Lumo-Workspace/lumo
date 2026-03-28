@@ -204,6 +204,7 @@ model Task {
   agentStatus    String?
   agentError     String?
   sandboxId      String?
+  assigneeType   String?      // null | "human" | "agent"
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

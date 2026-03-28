@@ -40,6 +40,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
+import { CodingAgentPanel } from '@/components/task/CodingAgentPanel'
 import {
   Tooltip,
   TooltipContent,
@@ -188,6 +189,8 @@ export function TaskDetailPanel({
         : { id: initialTask.projectId, name: '' },
     parentTaskId: initialTask.parentTaskId,
     assigneeId: initialTask.assigneeId,
+    assigneeType:
+      'assigneeType' in initialTask ? (initialTask.assigneeType ?? null) : null,
     reviewerId: initialTask.reviewerId,
     assignee: null,
     description: cachedDescription ?? null,
@@ -317,6 +320,7 @@ export function TaskDetailPanel({
         title: string
         status: ApiStatus
         assigneeId: string | null
+        assigneeType: string | null
         reviewerId: string | null
         description: string | null
         projectId: string
@@ -575,7 +579,16 @@ export function TaskDetailPanel({
           <SeparatorDot />
           <AssigneeSelect
             value={task.assigneeId ?? null}
-            onChange={v => handlePatch({ assigneeId: v })}
+            isAgent={task.assigneeType === 'agent'}
+            onChange={v =>
+              handlePatch({
+                assigneeId: v,
+                assigneeType: v ? 'human' : null,
+              })
+            }
+            onAgentSelect={() =>
+              handlePatch({ assigneeId: null, assigneeType: 'agent' })
+            }
             members={members}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
@@ -684,6 +697,17 @@ export function TaskDetailPanel({
             </ul>
           )}
         </div>
+
+        {task.assigneeType === 'agent' && (
+          <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+            <CodingAgentPanel
+              task={task}
+              onTaskUpdate={updates =>
+                setTask(prev => ({ ...prev, ...updates }))
+              }
+            />
+          </div>
+        )}
 
         <CreateBranchDialog
           isOpen={createBranchOpen}

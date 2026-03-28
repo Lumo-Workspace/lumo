@@ -7,6 +7,7 @@ import {
   BatteryFull,
   BatteryMedium,
   BatteryLow,
+  Bot,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -171,23 +172,40 @@ export function AssigneeSelect({
   value,
   onChange,
   members,
+  isAgent,
+  onAgentSelect,
   triggerClassName,
 }: {
   value: string | null
   onChange: (v: string | null) => void
   members: WorkspaceMemberInfo[]
+  /** True when assigneeType === 'agent' */
+  isAgent?: boolean
+  /** Called when user picks the Agent option */
+  onAgentSelect?: () => void
   triggerClassName?: string
 }) {
-  const assignee = members.find(m => m.id === value)
+  const assignee = !isAgent ? members.find(m => m.id === value) : null
   return (
     <Select
-      value={value ?? '__unassigned__'}
-      onValueChange={v => onChange(v === '__unassigned__' ? null : v)}
+      value={isAgent ? '__agent__' : (value ?? '__unassigned__')}
+      onValueChange={v => {
+        if (v === '__agent__') {
+          onAgentSelect?.()
+        } else {
+          onChange(v === '__unassigned__' ? null : v)
+        }
+      }}
     >
       <Tooltip>
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
-            {assignee ? (
+            {isAgent ? (
+              <div className='flex items-center gap-1.5 text-violet-500'>
+                <Bot size={14} />
+                <span>Agent</span>
+              </div>
+            ) : assignee ? (
               <div className='flex items-center gap-1.5'>
                 <MemberAvatar member={assignee} size='xs' />
                 <span>{assignee.name}</span>
@@ -209,6 +227,14 @@ export function AssigneeSelect({
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>
+        {onAgentSelect && (
+          <SelectItem value='__agent__'>
+            <div className='flex items-center gap-2'>
+              <Bot size={14} className='text-violet-500 shrink-0' />
+              <span className='text-violet-500'>Agent</span>
+            </div>
+          </SelectItem>
+        )}
         {members.map(m => (
           <SelectItem key={m.id} value={m.id}>
             <div className='flex items-center gap-2'>

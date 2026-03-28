@@ -83,6 +83,17 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
           orderBy: { createdAt: 'desc' as const },
         },
+        clarifies: {
+          select: {
+            id: true,
+            question: true,
+            context: true,
+            reply: true,
+            repliedAt: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' as const },
+        },
       },
     })
     if (!task) {
@@ -236,6 +247,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.status !== undefined) data.status = rest.status
     if (rest.priority !== undefined) data.priority = rest.priority
     if (rest.order !== undefined) data.order = rest.order
+    if (rest.assigneeType !== undefined) data.assigneeType = rest.assigneeType
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
     if (assigneeId !== undefined) data.assigneeId = assigneeId
     if (reviewerId !== undefined) data.reviewerId = reviewerId

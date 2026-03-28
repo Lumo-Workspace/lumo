@@ -18,8 +18,6 @@ import {
   GitPullRequest,
   GitBranch,
   Loader2,
-  Bot,
-  RefreshCw,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -74,7 +72,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { CreateBranchDialog } from '../CreateBranchDialog'
-import { AgentStatus } from '@/components/task/AgentStatus'
+import { CodingAgentPanel } from '@/components/task/CodingAgentPanel'
 
 function PrStateBadge({ state }: { state: string }) {
   if (state === 'merged') {
@@ -167,27 +165,6 @@ export function TaskDetailPage({
   const [editingSpec, setEditingSpec] = useState(false)
   const [editedSpec, setEditedSpec] = useState('')
   const [savingSpec, setSavingSpec] = useState(false)
-
-  // ── Agent ──────────────────────────────────────────────────────────────────
-  const [agentRunning, setAgentRunning] = useState(false)
-  const runAgent = useCallback(async () => {
-    setAgentRunning(true)
-    try {
-      const res = await apiFetch('/api/agent/execute', {
-        method: 'POST',
-        body: { taskId: task.id },
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        console.error('[runAgent] error', err)
-        return
-      }
-      // Status will be updated via Pusher (running or spec_review)
-      setTask(prev => ({ ...prev, agentStatus: prev.agentStatus ?? 'running' }))
-    } finally {
-      setAgentRunning(false)
-    }
-  }, [task.id])
 
   // ── Delete task ────────────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -316,6 +293,7 @@ export function TaskDetailPage({
         title: string
         status: ApiStatus
         assigneeId: string | null
+        assigneeType: string | null
         reviewerId: string | null
         description: string | null
         spec: string | null
@@ -774,31 +752,6 @@ export function TaskDetailPage({
                 </button>
               )}
             </div>
-
-            {/* Agent status */}
-            {task.agentStatus && task.agentStatus !== 'idle' && (
-              <div className='mt-6'>
-                <AgentStatus
-                  taskId={task.id}
-                  initialStatus={task.agentStatus}
-                  initialSpec={task.spec ?? null}
-                  initialPrUrl={
-                    task.pullRequests?.find(pr => pr.state === 'open')?.url ??
-                    task.pullRequests?.[0]?.url ??
-                    null
-                  }
-                  onRetry={() =>
-                    setTask(prev => ({ ...prev, agentStatus: 'running' }))
-                  }
-                  onSpecConfirmed={() =>
-                    setTask(prev => ({ ...prev, agentStatus: 'running' }))
-                  }
-                  onStatusChange={status =>
-                    setTask(prev => ({ ...prev, agentStatus: status }))
-                  }
-                />
-              </div>
-            )}
 
             {/* Sub-tasks placeholder */}
             {(initialTask.children?.length ?? 0) > 0 && (
@@ -1471,7 +1424,19 @@ export function TaskDetailPage({
                     node: (
                       <AssigneeSelect
                         value={task.assigneeId ?? null}
-                        onChange={v => handlePatch({ assigneeId: v })}
+                        isAgent={task.assigneeType === 'agent'}
+                        onChange={v =>
+                          handlePatch({
+                            assigneeId: v,
+                            assigneeType: v ? 'human' : null,
+                          })
+                        }
+                        onAgentSelect={() =>
+                          handlePatch({
+                            assigneeId: null,
+                            assigneeType: 'agent',
+                          })
+                        }
                         members={members}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />
@@ -1615,41 +1580,14 @@ export function TaskDetailPage({
             />
 
             {/* ── Coding Agent ────────────────────────────────────────────── */}
-            {(task.project?.githubRepo ||
-              (task.project?.repositories &&
-                task.project.repositories.length > 0)) && (
+            {task.assigneeType === 'agent' && (
               <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
-                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
-                  Coding Agent
-                </p>
-                <button
-                  onClick={runAgent}
-                  disabled={
-                    agentRunning ||
-                    task.agentStatus === 'running' ||
-                    task.agentStatus === 'paused' ||
-                    task.agentStatus === 'spec_review'
+                <CodingAgentPanel
+                  task={task}
+                  onTaskUpdate={updates =>
+                    setTask(prev => ({ ...prev, ...updates }))
                   }
-                  className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                >
-                  {agentRunning || task.agentStatus === 'running' ? (
-                    <>
-                      <Loader2 size={12} className='animate-spin' />
-                      Running…
-                    </>
-                  ) : (task.branches?.length ?? 0) > 0 ||
-                    (task.pullRequests?.length ?? 0) > 0 ? (
-                    <>
-                      <RefreshCw size={12} />
-                      Re-run Agent
-                    </>
-                  ) : (
-                    <>
-                      <Bot size={12} />
-                      Run Agent
-                    </>
-                  )}
-                </button>
+                />
               </div>
             )}
           </div>

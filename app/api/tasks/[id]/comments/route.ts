@@ -124,13 +124,34 @@ export async function POST(request: NextRequest, { params }: Params) {
       },
     })
 
+    // Handle @agent mention — assign task to agent and trigger execution
+    if (commentBody.includes('data-id="__agent__"')) {
+      waitUntil(
+        (async () => {
+          await prisma.task.update({
+            where: { id },
+            data: { assigneeType: 'agent', assigneeId: null },
+          })
+          const { executeAgent } = await import('@/lib/agent/execute')
+          await executeAgent({ taskId: id, actorClerkId: userId }).catch(err =>
+            console.error('[comment/@agent] executeAgent failed:', err)
+          )
+        })()
+      )
+    }
+
     // Fire-and-forget: TASK_MENTIONED notifications for @mention chips
     const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
     const mentionedIds: string[] = []
     let match: RegExpExecArray | null
     while ((match = mentionRegex.exec(commentBody)) !== null) {
       const clerkId = match[1]
-      if (clerkId && clerkId !== userId && !mentionedIds.includes(clerkId)) {
+      if (
+        clerkId &&
+        clerkId !== userId &&
+        clerkId !== '__agent__' &&
+        !mentionedIds.includes(clerkId)
+      ) {
         mentionedIds.push(clerkId)
       }
     }

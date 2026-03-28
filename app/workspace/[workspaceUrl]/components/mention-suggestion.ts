@@ -26,6 +26,10 @@ export function buildMentionSuggestion(
     items: ({ query }): MentionItem[] => {
       const q = query.toLowerCase()
 
+      const agentItems: MentionItem[] = 'agent'.includes(q)
+        ? [{ type: 'agent', id: '__agent__', label: 'agent' }]
+        : []
+
       const userItems: MentionItem[] = members
         .filter(m => m.name.toLowerCase().includes(q))
         .slice(0, 5)
@@ -51,7 +55,7 @@ export function buildMentionSuggestion(
           status: t.status,
         }))
 
-      return [...userItems, ...taskItems]
+      return [...agentItems, ...userItems, ...taskItems]
     },
 
     render() {
