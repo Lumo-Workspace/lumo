@@ -152,6 +152,10 @@ export function ProjectDetailPage({
   const [repositories, setRepositories] = useState<ApiRepository[]>(
     project.repositories ?? []
   )
+  // Sync when parent hydrates repositories from the API (standalone page flow)
+  useEffect(() => {
+    if (project.repositories) setRepositories(project.repositories)
+  }, [project.repositories])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [availableRepos, setAvailableRepos] = useState<
     { fullName: string; private: boolean }[]
