@@ -4,6 +4,7 @@ import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
+import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -361,6 +362,15 @@ ${taskSpec}
       prUrl: pr.html_url,
       prNumber: pr.number,
     })
+
+    // Notify reviewer that task is ready for review
+    await notifyTaskInReview({
+      workspaceId: task.project.workspaceId,
+      taskId,
+      reviewerId: task.reviewerId ?? null,
+      defaultReviewerId: task.project.defaultReviewerId ?? null,
+      actorId: null, // agent action, no Clerk actor
+    }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
 
     await sandbox.kill().catch(() => {})
   } catch (error) {
