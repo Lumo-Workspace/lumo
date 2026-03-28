@@ -179,4 +179,6 @@ export interface TaskDetail {
   children?: { id: string; title: string; number: number }[]
   pullRequests?: ApiPullRequest[]
   branches?: ApiTaskBranch[]
+  agentStatus?: string | null
+  githubPrUrl?: string | null
 }

@@ -1,0 +1,22 @@
+import { Sandbox } from '@e2b/code-interpreter'
+import { prisma } from '@/lib/db/prisma'
+
+export async function resumeAgent(
+  taskId: string,
+  sandboxId: string,
+  reply: string
+): Promise<void> {
+  try {
+    const sandbox = await Sandbox.connect(sandboxId)
+    await sandbox.files.write('/tmp/clarify-reply.txt', reply)
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { agentStatus: 'running', clarifyReply: reply },
+    })
+  } catch {
+    // Sandbox has expired — caller is responsible for restarting the agent
+    throw new Error(
+      `Sandbox ${sandboxId} has expired. Restart the agent with clarify context.`
+    )
+  }
+}

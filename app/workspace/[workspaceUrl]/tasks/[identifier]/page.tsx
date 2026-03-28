@@ -31,7 +31,14 @@ export default async function TaskIdentifierPage({
       team: { identifier: teamIdentifier, workspaceId: workspace.id },
     },
     include: {
-      project: { select: { id: true, name: true, defaultReviewerId: true } },
+      project: {
+        select: {
+          id: true,
+          name: true,
+          defaultReviewerId: true,
+          githubRepo: true,
+        },
+      },
       assignee: { select: { id: true, clerkId: true } },
       children: { select: { id: true, title: true, number: true } },
       team: { select: { identifier: true } },

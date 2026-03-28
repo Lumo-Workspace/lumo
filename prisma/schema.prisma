@@ -178,9 +178,18 @@ model Task {
   reviewerId     String?
   title          String
   description    String?
+  spec           String?
   status         TaskStatus   @default(TODO)
   priority       TaskPriority @default(MEDIUM)
   order          Float        @default(0)
+  agentStatus    String?
+  sandboxId      String?
+  clarifyQuestion String?
+  clarifyContext  String?
+  clarifyReply    String?
+  githubPrUrl     String?
+  githubPrNumber  Int?
+  githubPrStatus  String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

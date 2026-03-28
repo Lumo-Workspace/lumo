@@ -15,6 +15,7 @@ import {
   GitPullRequest,
   GitBranch,
   Loader2,
+  Bot,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -68,6 +69,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { CreateBranchDialog } from '../CreateBranchDialog'
+import { AgentStatus } from '@/components/task/AgentStatus'
 
 function PrStateBadge({ state }: { state: string }) {
   if (state === 'merged') {
@@ -158,6 +160,27 @@ export function TaskDetailPage({
     setTaskLinkCopied(true)
     setTimeout(() => setTaskLinkCopied(false), 1500)
   }, [workspaceUrl, task.teamIdentifier, task.number])
+
+  // ── Agent ──────────────────────────────────────────────────────────────────
+  const [agentRunning, setAgentRunning] = useState(false)
+  const runAgent = useCallback(async () => {
+    setAgentRunning(true)
+    try {
+      const res = await fetch('/api/agent/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('[runAgent] error', err)
+        return
+      }
+      setTask(prev => ({ ...prev, agentStatus: 'running' }))
+    } finally {
+      setAgentRunning(false)
+    }
+  }, [task.id])
 
   // ── Delete task ────────────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -657,6 +680,17 @@ export function TaskDetailPage({
               />
             )}
 
+            {/* Agent status */}
+            {task.agentStatus && task.agentStatus !== 'idle' && (
+              <div className='mt-6'>
+                <AgentStatus
+                  taskId={task.id}
+                  initialStatus={task.agentStatus}
+                  initialPrUrl={task.githubPrUrl ?? null}
+                />
+              </div>
+            )}
+
             {/* Sub-tasks placeholder */}
             {(initialTask.children?.length ?? 0) > 0 && (
               <div className='mt-8'>
@@ -783,6 +817,32 @@ export function TaskDetailPage({
               defaultRepo={task.project.githubRepo}
               workspaceUrl={workspaceUrl}
             />
+
+            {/* Run Agent */}
+            {task.project?.githubRepo && (
+              <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800 mb-4'>
+                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
+                  Coding Agent
+                </p>
+                <button
+                  onClick={runAgent}
+                  disabled={agentRunning || task.agentStatus === 'running'}
+                  className='flex w-full items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                >
+                  {agentRunning || task.agentStatus === 'running' ? (
+                    <>
+                      <Loader2 size={12} className='animate-spin' />
+                      Running…
+                    </>
+                  ) : (
+                    <>
+                      <Bot size={12} />
+                      Run Agent
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Comments section */}
             <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
