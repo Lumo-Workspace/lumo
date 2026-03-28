@@ -1,5 +1,6 @@
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
+import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
 import { pushAgentEvent } from '@/lib/pusher/server'
 
@@ -94,9 +95,9 @@ export async function executeAgent({
     throw new Error(`Task ${taskId} has no GitHub repo configured`)
   }
 
-  const githubToken = process.env.GITHUB_TOKEN
+  const githubToken = await getGithubInstallationToken()
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY
-  if (!githubToken) throw new Error('GITHUB_TOKEN not configured')
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const [repoOwner, repoName] = task.project.githubRepo.split('/')
