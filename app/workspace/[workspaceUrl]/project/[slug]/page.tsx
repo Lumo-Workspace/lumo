@@ -24,7 +24,6 @@ export default async function ProjectSlugPage({
     include: {
       _count: { select: { tasks: true } },
       tasks: { where: { status: 'IN_PROGRESS' }, select: { id: true } },
-      repositories: true,
     },
   })
 
@@ -32,16 +31,12 @@ export default async function ProjectSlugPage({
 
   if (!project) notFound()
 
-  const { tasks: inProgressTasks, repositories, ...projectFields } = project
+  const { tasks: inProgressTasks, ...projectFields } = project
   const serialized = {
     ...projectFields,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
     inProgressCount: inProgressTasks.length,
-    repositories: repositories.map(r => ({
-      ...r,
-      createdAt: r.createdAt.toISOString(),
-    })),
   }
 
   return (

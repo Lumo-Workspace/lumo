@@ -124,6 +124,13 @@ export function ProjectDetailStandalonePage({
         }
         if (projectsData?.projects) {
           writeCache(CACHE_KEY.projects, projectsData.projects)
+          // Hydrate repositories from the API response (includes ordering)
+          const fresh = projectsData.projects.find(
+            (p: ApiProject) => p.id === project.id
+          )
+          if (fresh?.repositories) {
+            setProject(prev => ({ ...prev, repositories: fresh.repositories }))
+          }
         }
         setLoading(false)
       })
