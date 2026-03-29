@@ -61,6 +61,8 @@ import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import { useUser } from '@clerk/nextjs'
 import { CreateBranchDialog } from './CreateBranchDialog'
+import { usePusherEvent } from '../hooks/usePusher'
+import type { TaskEvent } from '@/lib/pusher/server'
 
 // ─── PR helpers ──────────────────────────────────────────────────────────────
 
@@ -332,6 +334,46 @@ export function TaskDetailPanel({
     // cachedComments intentionally omitted — stable ref from mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTask.id])
+
+  // ── Pusher: real-time task & comment updates ──────────────────────────────
+  usePusherEvent<TaskEvent>(`task-${initialTask.id}`, 'task-update', event => {
+    if (
+      event.type === 'comment:created' ||
+      event.type === 'comment:updated' ||
+      event.type === 'comment:deleted'
+    ) {
+      fetch(API.tasks.comments(initialTask.id))
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.comments) {
+            setComments(data.comments)
+            writeCache(CACHE_KEY.comments(initialTask.id), data.comments)
+          }
+        })
+        .catch(console.error)
+    }
+    if (event.type === 'task:updated') {
+      fetch(API.tasks.byId(initialTask.id))
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.task) {
+            const t = data.task as TaskDetail
+            setTask(prev => ({
+              ...prev,
+              description: t.description,
+              project: t.project,
+              reviewerActorId: t.reviewerActorId,
+              assignee: t.assignee,
+              reviewer: t.reviewer,
+              pullRequests: t.pullRequests ?? [],
+              branches: t.branches ?? [],
+            }))
+            setDescriptionValue(t.description ?? null)
+          }
+        })
+        .catch(console.error)
+    }
+  })
 
   const handlePatch = useCallback(
     async (

@@ -20,6 +20,9 @@ import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
 import { slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
+import { useNotifications } from '../../hooks/useNotifications'
+import { usePusherEvent } from '../../hooks/usePusher'
+import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 
 interface Props {
@@ -35,6 +38,16 @@ export function ProjectDetailStandalonePage({
 
   // ── Dark mode ──────────────────────────────────────────────────────────────
   const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const { user } = useUser()
+  const { unreadCount, fetchNotifications } = useNotifications()
+  useEffect(() => {
+    fetchNotifications()
+  }, [fetchNotifications])
+  usePusherEvent(user?.id ? `user-${user.id}` : null, 'user-update', () =>
+    fetchNotifications()
+  )
 
   // ── Copy link ─────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false)
@@ -229,7 +242,7 @@ export function ProjectDetailStandalonePage({
         onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
         isDarkMode={isDarkMode}
         onToggleDarkMode={handleToggleDarkMode}
-        unreadCount={0}
+        unreadCount={unreadCount}
       />
 
       <SidebarInset className='overflow-hidden flex flex-col'>

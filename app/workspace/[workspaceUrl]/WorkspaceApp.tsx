@@ -34,6 +34,8 @@ import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 import { useNotifications } from './hooks/useNotifications'
 import { useDarkMode } from './hooks/useDarkMode'
+import { usePusherEvent } from './hooks/usePusher'
+import type { UserEvent } from '@/lib/pusher/server'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -115,6 +117,13 @@ export default function DashboardApp() {
     markAllRead,
   } = useNotifications()
   const { user } = useUser()
+
+  // ── Pusher: real-time notification updates ────────────────────────────────
+  usePusherEvent<UserEvent>(
+    user?.id ? `user-${user.id}` : null,
+    'user-update',
+    () => fetchNotifications()
+  )
 
   // Current user's workspace member ID (for defaulting assignee to self)
   const currentMemberId = useMemo(

@@ -4,6 +4,7 @@ import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
 import { getCodingAgentActor, getHumanActorId } from '@/lib/actor'
+import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -93,6 +94,11 @@ async function postAgentReply(params: {
       type: 'AGENT',
     },
   })
+  // Push real-time comment event
+  pushTaskEvent(params.taskId, {
+    type: 'comment:created',
+    commentId: comment.id,
+  }).catch(() => {})
   return comment.id
 }
 
@@ -292,5 +298,7 @@ export async function handleAgentComment({
     }).catch(err =>
       console.error('[comment-handler] notification failed:', err)
     )
+    // Push real-time notification to the user
+    pushUserEvent(actorClerkId, { type: 'notification:new' }).catch(() => {})
   }
 }

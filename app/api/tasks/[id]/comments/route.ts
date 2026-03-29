@@ -5,6 +5,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
+import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -130,6 +131,11 @@ export async function POST(request: NextRequest, { params }: Params) {
       },
     })
 
+    // Push real-time comment event to task viewers
+    waitUntil(
+      pushTaskEvent(id, { type: 'comment:created', commentId: comment.id })
+    )
+
     // Handle @agent mention — delegate to orchestrator
     if (commentBody.includes('data-id="__agent__"')) {
       const { handleAgentComment } = await import('@/lib/agent/comment-handler')
@@ -201,6 +207,12 @@ export async function POST(request: NextRequest, { params }: Params) {
             .map(m => m.actor?.id)
             .filter((actorId): actorId is string => !!actorId)
           if (recipientActors.length === 0) return
+          // Push real-time notification to each mentioned user
+          for (const m of members) {
+            if (m.clerkId) {
+              waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }))
+            }
+          }
           return prisma.notification.createMany({
             data: recipientActors.map(recipientActorId => ({
               workspaceId,

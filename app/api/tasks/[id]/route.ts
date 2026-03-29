@@ -7,6 +7,7 @@ import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
 import { getGithubInstallationToken } from '@/lib/github/auth'
+import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -383,6 +384,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const workspaceId = task.project.workspaceId
     const workspaceSlug = task.project.workspace?.slug ?? ''
 
+    // Push real-time task update event
+    waitUntil(
+      pushTaskEvent(id, { type: 'task:updated', fields: Object.keys(data) })
+    )
+
     // Resolve current user's Actor ID for notification triggers
     const triggerActorId = await getHumanActorId(memberResult.id)
 
@@ -417,6 +423,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         .then(actor => {
           if (!actor || actor.type !== 'HUMAN' || !actor.member) return
           if (actor.member.clerkId === userId) return
+          waitUntil(
+            pushUserEvent(actor.member.clerkId, { type: 'notification:new' })
+          )
           return prisma.notification.create({
             data: {
               workspaceId,
@@ -485,6 +494,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           .then(actor => {
             if (!actor || actor.type !== 'HUMAN' || !actor.member) return
             if (actor.member.clerkId === userId) return
+            waitUntil(
+              pushUserEvent(actor.member.clerkId, { type: 'notification:new' })
+            )
             return prisma.notification.create({
               data: {
                 workspaceId,

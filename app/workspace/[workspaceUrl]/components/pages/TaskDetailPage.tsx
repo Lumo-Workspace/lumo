@@ -63,7 +63,10 @@ import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
+import { useNotifications } from '../../hooks/useNotifications'
 import { copyLink } from '../../utils/copyLink'
+import { usePusherEvent } from '../../hooks/usePusher'
+import type { TaskEvent } from '@/lib/pusher/server'
 import { DescriptionEditor } from '../DescriptionEditor'
 import {
   StatusSelect,
@@ -132,6 +135,15 @@ export function TaskDetailPage({
 
   // ── Dark mode ──────────────────────────────────────────────────────────────
   const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const { unreadCount, fetchNotifications: fetchNotifs } = useNotifications()
+  useEffect(() => {
+    fetchNotifs()
+  }, [fetchNotifs])
+  usePusherEvent(user?.id ? `user-${user.id}` : null, 'user-update', () =>
+    fetchNotifs()
+  )
 
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(null)
@@ -283,6 +295,39 @@ export function TaskDetailPage({
         setCommentsLoading(false)
       })
   }, [initialTask.id])
+
+  // ── Pusher: real-time task & comment updates ──────────────────────────────
+  usePusherEvent<TaskEvent>(`task-${initialTask.id}`, 'task-update', event => {
+    if (
+      event.type === 'comment:created' ||
+      event.type === 'comment:updated' ||
+      event.type === 'comment:deleted'
+    ) {
+      // Refetch comments
+      fetch(API.tasks.comments(initialTask.id))
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.comments) {
+            setComments(data.comments)
+            writeCache(CACHE_KEY.comments(initialTask.id), data.comments)
+          }
+        })
+        .catch(console.error)
+    }
+    if (event.type === 'task:updated') {
+      // Refetch task data
+      fetch(API.tasks.byId(initialTask.id))
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.task) {
+            const t = data.task as TaskDetail
+            setTask(prev => ({ ...prev, ...t }))
+            setDescriptionValue(t.description ?? null)
+          }
+        })
+        .catch(console.error)
+    }
+  })
 
   // ── Field mutations ────────────────────────────────────────────────────────
   const onUpdate = useCallback(
@@ -577,7 +622,7 @@ export function TaskDetailPage({
         onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
         isDarkMode={isDarkMode}
         onToggleDarkMode={handleToggleDarkMode}
-        unreadCount={0}
+        unreadCount={unreadCount}
       />
       <SidebarInset className='overflow-hidden flex flex-col'>
         {/* Breadcrumb */}
