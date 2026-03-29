@@ -116,7 +116,6 @@ export async function executeAgent({
           id: true,
           name: true,
           workspaceId: true,
-          githubRepo: true,
           defaultReviewerId: true,
           repositories: {
             where: { isDefault: true },
@@ -145,11 +144,9 @@ export async function executeAgent({
     return { outcome: 'spec_review' } as AgentResult
   }
 
-  // Resolve which repo to use: task-level → project default repo → legacy githubRepo
+  // Resolve which repo to use: task-level → project default repo
   const resolvedRepo =
-    task.repository?.fullName ??
-    task.project.repositories[0]?.fullName ??
-    task.project.githubRepo
+    task.repository?.fullName ?? task.project.repositories[0]?.fullName
 
   if (!resolvedRepo) {
     throw new Error(`Task ${taskId} has no GitHub repo configured`)
@@ -164,7 +161,7 @@ export async function executeAgent({
 
   const [repoOwner, repoName] = resolvedRepo.split('/')
   if (!repoOwner || !repoName) {
-    throw new Error(`Invalid githubRepo format: ${resolvedRepo}`)
+    throw new Error(`Invalid repo format: ${resolvedRepo}`)
   }
 
   const identifier = `LUM-${task.number}`

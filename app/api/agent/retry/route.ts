@@ -34,7 +34,17 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
-        project: { select: { workspaceId: true, githubRepo: true } },
+        repositoryId: true,
+        project: {
+          select: {
+            workspaceId: true,
+            repositories: {
+              where: { isDefault: true },
+              select: { fullName: true },
+              take: 1,
+            },
+          },
+        },
       },
     })
 
@@ -55,7 +65,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!task.project.githubRepo) {
+    if (!task.repositoryId && task.project.repositories.length === 0) {
       return NextResponse.json(
         { error: 'No GitHub repo configured for this project' },
         { status: 422 }

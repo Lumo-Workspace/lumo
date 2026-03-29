@@ -23,7 +23,7 @@ interface CreateBranchDialogProps {
   identifier: string // e.g. "ENG-123"
   title: string
   projectId: string
-  defaultRepo: string | null | undefined // project.githubRepo
+  defaultRepo: string | null | undefined // project default repository fullName
   workspaceUrl: string
   onBranchCreated?: (branch: ApiTaskBranch) => void
 }

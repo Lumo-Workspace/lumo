@@ -18,8 +18,7 @@ const GH_HEADERS = (token: string) => ({
  * POST /api/tasks/:id/branch
  * Body: { repo: "owner/repo", branchName: "lumo/ENG-123-fix-bug" }
  *
- * Creates a GitHub branch from main, saves repo to project.githubRepo,
- * returns { branchName, url }.
+ * Creates a GitHub branch from main, returns { branchName, url }.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -129,16 +128,6 @@ export async function POST(request: NextRequest, { params }: Params) {
     const createdBranch = await prisma.taskBranch.create({
       data: { taskId, repo, branchName },
     })
-
-    // Save repo to project for next time (fire-and-forget)
-    prisma.project
-      .update({
-        where: { id: task.project.id },
-        data: { githubRepo: repo },
-      })
-      .catch(err =>
-        console.error('[branch] failed to save project.githubRepo:', err)
-      )
 
     const url = `https://github.com/${repo}/tree/${branchName}`
     return NextResponse.json(
