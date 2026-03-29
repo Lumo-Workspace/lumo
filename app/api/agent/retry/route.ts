@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (task.agentStatus !== 'failed' && task.agentStatus !== 'cancelled') {
+    if (task.agentStatus !== 'FAILED' && task.agentStatus !== 'CANCELLED') {
       return NextResponse.json(
         { error: 'Can only retry failed or cancelled tasks' },
         { status: 409 }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     // Reset state before re-running
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'idle', agentError: null, sandboxId: null },
+      data: { agentStatus: null, agentError: null, sandboxId: null },
     })
 
     waitUntil(

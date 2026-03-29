@@ -152,7 +152,7 @@ export interface ApiComment {
   body: string // HTML
   parentId: string | null
   quotedCommentId: string | null
-  type: 'user' | 'agent'
+  type: 'USER' | 'AGENT'
   createdAt: string
   updatedAt: string
   /** Only present on top-level comments (parentId === null). */
@@ -167,11 +167,15 @@ export interface ApiNotification {
     | 'TASK_SENT_BACK'
     | 'TASK_ASSIGNED'
     | 'TASK_SPEC_READY'
+    | 'AGENT_CLARIFY'
+    | 'AGENT_FAILED'
+    | 'AGENT_DONE'
   read: boolean
   createdAt: string
   taskId: string | null
   commentId: string | null
-  actorId: string | null
+  clarifyId: string | null
+  triggerActorId: string | null
   actor: { name: string; imageUrl: string | null } | null
   task: {
     id: string

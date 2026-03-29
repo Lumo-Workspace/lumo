@@ -5,6 +5,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -279,6 +280,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const workspaceId = task.project.workspaceId
     const workspaceSlug = task.project.workspace?.slug ?? ''
 
+    // Resolve current user's Actor ID for notification triggers
+    const triggerActorId = await getHumanActorId(memberResult.id)
+
     // ── Fire-and-forget notification side-effects ────────────────────────────
     if (parsed.data.status) {
       console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
@@ -290,7 +294,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           taskId: id,
           reviewerActorId: updated.reviewerActorId ?? null,
           defaultReviewerActorId: null,
-          actorId: userId,
+          triggerActorId,
         }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
       )
     }
@@ -301,9 +305,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       parsed.data.assigneeActorId !== task.assigneeActorId
     ) {
       // Notify the new assignee (skip if they assigned it to themselves)
+      const newAssigneeActorId = parsed.data.assigneeActorId
       prisma.actor
         .findUnique({
-          where: { id: parsed.data.assigneeActorId },
+          where: { id: newAssigneeActorId },
           select: { type: true, member: { select: { clerkId: true } } },
         })
         .then(actor => {
@@ -312,10 +317,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           return prisma.notification.create({
             data: {
               workspaceId,
-              recipientId: actor.member.clerkId,
+              recipientActorId: newAssigneeActorId,
               type: 'TASK_ASSIGNED' as const,
               taskId: id,
-              actorId: userId,
+              triggerActorId,
             },
           })
         })
@@ -368,9 +373,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (parsed.data.status === 'IN_PROGRESS' && task.status === 'IN_REVIEW') {
       // Notify the assignee that the task was sent back
       if (task.assigneeActorId) {
+        const assigneeActorId = task.assigneeActorId
         prisma.actor
           .findUnique({
-            where: { id: task.assigneeActorId },
+            where: { id: assigneeActorId },
             select: { type: true, member: { select: { clerkId: true } } },
           })
           .then(actor => {
@@ -379,10 +385,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             return prisma.notification.create({
               data: {
                 workspaceId,
-                recipientId: actor.member.clerkId,
+                recipientActorId: assigneeActorId,
                 type: 'TASK_SENT_BACK' as const,
                 taskId: id,
-                actorId: userId,
+                triggerActorId,
               },
             })
           })

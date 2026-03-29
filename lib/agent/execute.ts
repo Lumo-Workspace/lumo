@@ -78,7 +78,7 @@ async function createPullRequest({
 async function markFailed(taskId: string, code: string, message: string) {
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'failed', agentError: code, sandboxId: null },
+    data: { agentStatus: 'FAILED', agentError: code, sandboxId: null },
   })
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
@@ -173,7 +173,7 @@ export async function executeAgent({
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'running', agentError: null },
+    data: { agentStatus: 'RUNNING', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
 
@@ -348,7 +348,7 @@ ${taskSpec}
     if (!commitCheck.stdout.trim()) {
       await prisma.task.update({
         where: { id: taskId },
-        data: { agentStatus: 'done' },
+        data: { agentStatus: 'DONE' },
       })
       await pushAgentEvent(taskId, {
         type: 'agent:failed',
@@ -392,7 +392,7 @@ ${taskSpec}
     await prisma.$transaction([
       prisma.task.update({
         where: { id: taskId },
-        data: { agentStatus: 'done', status: 'IN_REVIEW' },
+        data: { agentStatus: 'DONE', status: 'IN_REVIEW' },
       }),
       prisma.pullRequest.upsert({
         where: { repo_number: { repo: resolvedRepo, number: pr.number } },
@@ -432,7 +432,7 @@ ${taskSpec}
       taskId,
       reviewerActorId: task.reviewerActorId ?? null,
       defaultReviewerActorId,
-      actorId: null,
+      triggerActorId: null,
     }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
 
     return { outcome: 'done', prUrl: pr.html_url, prNumber: pr.number }
@@ -444,8 +444,8 @@ ${taskSpec}
       select: { agentStatus: true },
     })
     if (
-      current?.agentStatus === 'paused' ||
-      current?.agentStatus === 'cancelled'
+      current?.agentStatus === 'PAUSED' ||
+      current?.agentStatus === 'CANCELLED'
     ) {
       return { outcome: 'failed', error: `Agent ${current.agentStatus}` }
     }

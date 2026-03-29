@@ -86,43 +86,43 @@ function AgentStatusBadge({
 }) {
   const configs: Record<string, { label: string; dot: string; text: string }> =
     {
-      idle: {
+      IDLE: {
         label: 'Idle',
         dot: 'bg-zinc-400',
         text: 'text-zinc-500',
       },
-      running: {
+      RUNNING: {
         label: 'Running',
         dot: 'bg-blue-500 animate-pulse',
         text: 'text-blue-600 dark:text-blue-400',
       },
-      paused: {
+      PAUSED: {
         label: 'Waiting',
         dot: 'bg-amber-500',
         text: 'text-amber-600 dark:text-amber-400',
       },
-      spec_review: {
+      SPEC_REVIEW: {
         label: 'Spec review',
         dot: 'bg-amber-500',
         text: 'text-amber-600 dark:text-amber-400',
       },
-      done: {
+      DONE: {
         label: 'Done',
         dot: 'bg-emerald-500',
         text: 'text-emerald-600 dark:text-emerald-400',
       },
-      failed: {
+      FAILED: {
         label: error ?? 'Failed',
         dot: 'bg-red-500',
         text: 'text-red-600 dark:text-red-400',
       },
-      cancelled: {
+      CANCELLED: {
         label: 'Cancelled',
         dot: 'bg-zinc-400',
         text: 'text-zinc-500',
       },
     }
-  const cfg = configs[status] ?? configs['idle']!
+  const cfg = configs[status] ?? configs['IDLE']!
   return (
     <div
       className={`flex items-center gap-1.5 text-xs font-medium ${cfg.text}`}
@@ -210,7 +210,7 @@ function CodingAgentPanelInner({
   task: CodingAgentTask
   onTaskUpdate?: (updates: Partial<CodingAgentTask>) => void
 }) {
-  const [status, setStatus] = useState(task.agentStatus ?? 'idle')
+  const [status, setStatus] = useState(task.agentStatus ?? 'IDLE')
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [clarify, setClarify] = useState<AgentClarifyPending | null>(
     task.clarifies?.[0] ?? null
@@ -220,13 +220,13 @@ function CodingAgentPanelInner({
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   const isFirstRun = !task.branches?.length
-  const isRunning = status === 'running'
-  const isPaused = status === 'paused'
+  const isRunning = status === 'RUNNING'
+  const isPaused = status === 'PAUSED'
   const activePr = task.pullRequests?.find(pr => pr.state === 'open')
   const activeBranch = task.branches?.[task.branches.length - 1]
 
   useEffect(() => {
-    setStatus(task.agentStatus ?? 'idle')
+    setStatus(task.agentStatus ?? 'IDLE')
   }, [task.agentStatus])
 
   useEffect(() => {
@@ -253,25 +253,25 @@ function CodingAgentPanelInner({
       ])
 
       if (event.type === 'agent:started') {
-        setStatus('running')
-        onTaskUpdate?.({ agentStatus: 'running' })
+        setStatus('RUNNING')
+        onTaskUpdate?.({ agentStatus: 'RUNNING' })
       }
       if (event.type === 'agent:clarify') {
-        setStatus('paused')
+        setStatus('PAUSED')
         setClarify({
           id: crypto.randomUUID(),
           question: event.question,
           context: event.context ?? null,
         })
-        onTaskUpdate?.({ agentStatus: 'paused' })
+        onTaskUpdate?.({ agentStatus: 'PAUSED' })
       }
       if (event.type === 'agent:done') {
-        setStatus('done')
-        onTaskUpdate?.({ agentStatus: 'done' })
+        setStatus('DONE')
+        onTaskUpdate?.({ agentStatus: 'DONE' })
       }
       if (event.type === 'agent:failed') {
         const isCancelled = event.error === 'Cancelled by user'
-        const next = isCancelled ? 'cancelled' : 'failed'
+        const next = isCancelled ? 'CANCELLED' : 'FAILED'
         setStatus(next)
         onTaskUpdate?.({ agentStatus: next })
       }
@@ -292,8 +292,8 @@ function CodingAgentPanelInner({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: task.id }),
       })
-      setStatus('running')
-      onTaskUpdate?.({ agentStatus: 'running' })
+      setStatus('RUNNING')
+      onTaskUpdate?.({ agentStatus: 'RUNNING' })
     } finally {
       setRunning(false)
     }
@@ -314,9 +314,9 @@ function CodingAgentPanelInner({
 
   const handleClarifyReplied = useCallback(() => {
     setClarify(null)
-    setStatus('running')
+    setStatus('RUNNING')
     setLogs([])
-    onTaskUpdate?.({ agentStatus: 'running' })
+    onTaskUpdate?.({ agentStatus: 'RUNNING' })
   }, [onTaskUpdate])
 
   return (
@@ -327,7 +327,7 @@ function CodingAgentPanelInner({
           <Bot size={13} />
           Coding Agent
         </div>
-        {status !== 'idle' && (
+        {status !== 'IDLE' && (
           <AgentStatusBadge status={status} error={task.agentError ?? null} />
         )}
       </div>

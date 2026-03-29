@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { getHumanActorId } from '@/lib/actor'
 
 /**
  * GET /api/notifications — return unread notifications for the current user.
@@ -18,10 +19,26 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
     }
 
+    // Resolve current user's Actor ID to query notifications
+    const recipientActorId = await getHumanActorId(ws.member.id)
+    if (!recipientActorId) {
+      return NextResponse.json({ notifications: [], unreadCount: 0 })
+    }
+
     const rawNotifications = await prisma.notification.findMany({
-      where: { workspaceId: ws.workspaceId, recipientId: userId },
+      where: { workspaceId: ws.workspaceId, recipientActorId },
       orderBy: { createdAt: 'desc' },
       take: 50,
+      include: {
+        trigger: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { clerkId: true } },
+            agent: { select: { name: true, avatarColor: true } },
+          },
+        },
+      },
     })
 
     if (rawNotifications.length === 0) {
@@ -29,9 +46,13 @@ export async function GET(_request: NextRequest) {
     }
 
     // Collect IDs to batch-fetch
-    const actorIds = [
+    const humanClerkIds = [
       ...new Set(
-        rawNotifications.map(n => n.actorId).filter(Boolean) as string[]
+        rawNotifications
+          .map(n =>
+            n.trigger?.type === 'HUMAN' ? n.trigger.member?.clerkId : undefined
+          )
+          .filter(Boolean) as string[]
       ),
     ]
     const taskIds = [
@@ -45,16 +66,16 @@ export async function GET(_request: NextRequest) {
       ),
     ]
 
-    // Batch-fetch actors from Clerk
+    // Batch-fetch Clerk profiles for HUMAN trigger actors
     const clerk = await clerkClient()
     const clerkUsers =
-      actorIds.length > 0
+      humanClerkIds.length > 0
         ? await clerk.users.getUserList({
-            userId: actorIds,
-            limit: actorIds.length,
+            userId: humanClerkIds,
+            limit: humanClerkIds.length,
           })
         : { data: [] }
-    const actorMap = new Map(
+    const clerkUserMap = new Map(
       clerkUsers.data.map(u => [
         u.id,
         {
@@ -89,6 +110,15 @@ export async function GET(_request: NextRequest) {
 
     const notifications = rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
+      // Resolve actor display info from the trigger relation
+      let actor: { name: string; imageUrl: string | null } | null = null
+      if (n.trigger) {
+        if (n.trigger.type === 'HUMAN' && n.trigger.member?.clerkId) {
+          actor = clerkUserMap.get(n.trigger.member.clerkId) ?? null
+        } else if (n.trigger.type === 'AGENT' && n.trigger.agent) {
+          actor = { name: n.trigger.agent.name, imageUrl: null }
+        }
+      }
       return {
         id: n.id,
         type: n.type,
@@ -96,8 +126,8 @@ export async function GET(_request: NextRequest) {
         createdAt: n.createdAt.toISOString(),
         taskId: n.taskId,
         commentId: n.commentId,
-        actorId: n.actorId,
-        actor: n.actorId ? (actorMap.get(n.actorId) ?? null) : null,
+        triggerActorId: n.triggerActorId,
+        actor,
         task: task
           ? {
               id: task.id,
@@ -139,8 +169,11 @@ export async function PATCH(_request: NextRequest) {
     const ws = await getUserWorkspace(userId)
     if (!ws) return NextResponse.json({ ok: true })
 
+    const recipientActorId = await getHumanActorId(ws.member.id)
+    if (!recipientActorId) return NextResponse.json({ ok: true })
+
     await prisma.notification.updateMany({
-      where: { workspaceId: ws.workspaceId, recipientId: userId, read: false },
+      where: { workspaceId: ws.workspaceId, recipientActorId, read: false },
       data: { read: true },
     })
 

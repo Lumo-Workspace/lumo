@@ -23,7 +23,7 @@ export async function resumeAgent(
 
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'running' },
+      data: { agentStatus: 'RUNNING' },
     })
   } catch {
     // Sandbox has expired — caller is responsible for restarting the agent

@@ -166,7 +166,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       prisma.workspaceMember
         .findMany({
           where: { workspaceId, clerkId: { in: mentionedIds } },
-          select: { clerkId: true },
+          select: { clerkId: true, actor: { select: { id: true } } },
         })
         .then(members => {
           if (members.length === 0) return
@@ -197,14 +197,18 @@ export async function POST(request: NextRequest, { params }: Params) {
               task.projectId
             )
           )
+          const recipientActors = members
+            .map(m => m.actor?.id)
+            .filter((actorId): actorId is string => !!actorId)
+          if (recipientActors.length === 0) return
           return prisma.notification.createMany({
-            data: members.map(m => ({
+            data: recipientActors.map(recipientActorId => ({
               workspaceId,
-              recipientId: m.clerkId,
+              recipientActorId,
               type: 'TASK_MENTIONED' as const,
               taskId: id,
               commentId: comment.id,
-              actorId: userId,
+              triggerActorId: authorActorId,
             })),
           })
         })

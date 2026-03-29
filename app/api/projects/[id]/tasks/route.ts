@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
 import { sendChannelNotification } from '@/lib/slack/notify'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -249,24 +250,27 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     // ── Fire-and-forget: notify assignee if task was created with one ─────────
     if (assigneeActorId) {
-      prisma.actor
-        .findUnique({
-          where: { id: assigneeActorId },
-          select: { type: true, member: { select: { clerkId: true } } },
-        })
-        .then(actor => {
-          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-          if (actor.member.clerkId === userId) return
-          return prisma.notification.create({
-            data: {
-              workspaceId: project.workspaceId,
-              recipientId: actor.member.clerkId,
-              type: 'TASK_ASSIGNED' as const,
-              taskId: task.id,
-              actorId: userId,
-            },
-          })
-        })
+      getHumanActorId(memberResult.id)
+        .then(triggerActorId =>
+          prisma.actor
+            .findUnique({
+              where: { id: assigneeActorId },
+              select: { type: true, member: { select: { clerkId: true } } },
+            })
+            .then(actor => {
+              if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+              if (actor.member.clerkId === userId) return
+              return prisma.notification.create({
+                data: {
+                  workspaceId: project.workspaceId,
+                  recipientActorId: assigneeActorId,
+                  type: 'TASK_ASSIGNED' as const,
+                  taskId: task.id,
+                  triggerActorId,
+                },
+              })
+            })
+        )
         .catch(err =>
           console.error('[notify] TASK_ASSIGNED (create) failed:', err)
         )

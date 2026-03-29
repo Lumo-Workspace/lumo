@@ -389,7 +389,7 @@ export function TaskDetailPanel({
       body,
       parentId: null,
       quotedCommentId: null,
-      type: 'user',
+      type: 'USER',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -468,7 +468,7 @@ export function TaskDetailPanel({
         body,
         parentId,
         quotedCommentId,
-        type: 'user',
+        type: 'USER',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -783,7 +783,7 @@ export function TaskDetailPanel({
         ) : (
           <div className='space-y-5'>
             {comments.map(comment => {
-              const isAgentComment = comment.type === 'agent'
+              const isAgentComment = comment.type === 'AGENT'
               const author = isAgentComment
                 ? null
                 : members.find(m => m.actorId === comment.authorActorId)
@@ -988,7 +988,7 @@ export function TaskDetailPanel({
                   {(comment.replies?.length ?? 0) > 0 && (
                     <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                       {comment.replies!.map(reply => {
-                        const rIsAgent = reply.type === 'agent'
+                        const rIsAgent = reply.type === 'AGENT'
                         const rAuthor = rIsAgent
                           ? null
                           : members.find(m => m.actorId === reply.authorActorId)

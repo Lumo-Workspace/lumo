@@ -3,7 +3,7 @@ import { isSandboxAlive } from './sandbox-health'
 import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
-import { getCodingAgentActor } from '@/lib/actor'
+import { getCodingAgentActor, getHumanActorId } from '@/lib/actor'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ async function postAgentReply(params: {
       authorActorId: params.agentActorId,
       body: params.body,
       parentId: params.parentId,
-      type: 'agent',
+      type: 'AGENT',
     },
   })
   return comment.id
@@ -96,19 +96,19 @@ async function postAgentReply(params: {
 
 async function notifyActor(params: {
   workspaceId: string
-  recipientId: string
+  recipientActorId: string
   taskId: string
   commentId: string
-  actorId: string
+  triggerActorId: string | null
 }): Promise<void> {
   await prisma.notification.create({
     data: {
       workspaceId: params.workspaceId,
-      recipientId: params.recipientId,
+      recipientActorId: params.recipientActorId,
       type: 'TASK_MENTIONED',
       taskId: params.taskId,
       commentId: params.commentId,
-      actorId: params.actorId,
+      triggerActorId: params.triggerActorId,
     },
   })
 }
@@ -158,7 +158,7 @@ export async function handleAgentComment({
   }
 
   // ── Guard: Agent already running ─────────────────────────────────────────
-  if (task.agentStatus === 'running' && task.sandboxId) {
+  if (task.agentStatus === 'RUNNING' && task.sandboxId) {
     const alive = await isSandboxAlive(task.sandboxId)
     if (alive) {
       await postAgentReply({
@@ -172,7 +172,7 @@ export async function handleAgentComment({
     // Sandbox is dead — clean up stale state and continue
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'failed', sandboxId: null },
+      data: { agentStatus: 'FAILED', sandboxId: null },
     })
   }
 
@@ -277,11 +277,16 @@ export async function handleAgentComment({
   })
 
   // ── Notify actor ─────────────────────────────────────────────────────────
-  await notifyActor({
-    workspaceId,
-    recipientId: actorClerkId,
-    taskId,
-    commentId: completionReplyId,
-    actorId: actorClerkId,
-  }).catch(err => console.error('[comment-handler] notification failed:', err))
+  const actorHumanActorId = await getHumanActorId(member.id)
+  if (actorHumanActorId) {
+    await notifyActor({
+      workspaceId,
+      recipientActorId: actorHumanActorId,
+      taskId,
+      commentId: completionReplyId,
+      triggerActorId: agentActorId,
+    }).catch(err =>
+      console.error('[comment-handler] notification failed:', err)
+    )
+  }
 }
