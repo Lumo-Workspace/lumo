@@ -48,16 +48,28 @@ enum InviteStatus {
 }
 
 enum NotificationType {
-  TASK_IN_REVIEW   // task moved to IN_REVIEW — sent to all OWNERs
+  TASK_IN_REVIEW   // task moved to IN_REVIEW — sent to reviewer / OWNERs
   TASK_MENTIONED   // someone @mentioned you in a comment
   TASK_SENT_BACK   // owner sent a task back to IN_PROGRESS — sent to assignee
   TASK_ASSIGNED    // task assigned to you
-  TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer for confirmation
+  TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer
+  AGENT_CLARIFY    // agent needs clarification — sent to assignee / reviewer
+  AGENT_FAILED     // agent execution failed — sent to assignee
+  AGENT_DONE       // agent finished, PR created — sent to assignee / reviewer
 }
 
 enum CommentType {
-  user
-  agent
+  USER
+  AGENT
+}
+
+enum AgentStatus {
+  RUNNING
+  PAUSED
+  DONE
+  FAILED
+  CANCELLED
+  SPEC_REVIEW
 }
 
 enum ActorType {
@@ -149,6 +161,7 @@ model WorkspaceMember {
   githubIntegrations     GitHubIntegration[]
   slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
   actor                  Actor?
+  agentProfiles          AgentProfile[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -160,16 +173,18 @@ model WorkspaceMember {
 model AgentProfile {
   id          String    @id @default(cuid())
   workspaceId String
+  memberId    String?   // null = workspace-shared agent; set = personal agent (Phase 4)
   name        String    // "Coding Agent"
   type        AgentType
   avatarColor String    @default("#6366f1")
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
   actor     Actor?
 
-  @@unique([workspaceId, type])
+  @@unique([workspaceId, type, memberId])
   @@map("agent_profiles")
 }
 
@@ -184,10 +199,12 @@ model Actor {
   member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
   agent     AgentProfile?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  assignedTasks  Task[]         @relation("TaskAssignee")
-  reviewerTasks  Task[]         @relation("TaskReviewer")
-  comments       Comment[]      @relation("CommentAuthor")
-  activities     TaskActivity[]
+  assignedTasks          Task[]         @relation("TaskAssignee")
+  reviewerTasks          Task[]         @relation("TaskReviewer")
+  comments               Comment[]      @relation("CommentAuthor")
+  activities             TaskActivity[]
+  receivedNotifications  Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationTrigger")
 
   @@index([workspaceId])
   @@map("actors")
@@ -256,7 +273,7 @@ model Task {
   status           TaskStatus   @default(TODO)
   priority         TaskPriority @default(MEDIUM)
   order            Float        @default(0)
-  agentStatus      String?
+  agentStatus      AgentStatus?
   agentError       String?
   sandboxId        String?
   createdAt        DateTime     @default(now())
@@ -361,7 +378,7 @@ model Comment {
   body            String      // HTML; @mentions encoded as data-id attributes
   parentId        String?     // null = top-level; non-null = reply (max 1 level deep)
   quotedCommentId String?     // which specific comment this reply is quoting
-  type            CommentType @default(user)
+  type            CommentType @default(USER)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -395,17 +412,21 @@ model TaskActivity {
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 model Notification {
-  id          String           @id @default(cuid())
-  workspaceId String
-  recipientId String           // Clerk userId
-  type        NotificationType
-  taskId      String?
-  commentId   String?          // set for TASK_MENTIONED — used to scroll to comment
-  actorId     String?          // Clerk userId of who triggered it
-  read        Boolean          @default(false)
-  createdAt   DateTime         @default(now())
+  id               String           @id @default(cuid())
+  workspaceId      String
+  recipientActorId String           // Actor.id — who receives this notification
+  type             NotificationType
+  taskId           String?
+  commentId        String?          // set for TASK_MENTIONED — scroll to comment
+  clarifyId        String?          // set for AGENT_CLARIFY — link to AgentClarify
+  triggerActorId   String?          // Actor.id — who/what triggered it; null for system
+  read             Boolean          @default(false)
+  createdAt        DateTime         @default(now())
 
-  @@index([recipientId, read])
+  recipient Actor  @relation("NotificationRecipient", fields: [recipientActorId], references: [id], onDelete: Cascade)
+  trigger   Actor? @relation("NotificationTrigger", fields: [triggerActorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientActorId, read])
   @@map("notifications")
 }
 

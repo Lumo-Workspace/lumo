@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (task.agentStatus !== 'running' && task.agentStatus !== 'paused') {
+    if (task.agentStatus !== 'RUNNING' && task.agentStatus !== 'PAUSED') {
       return NextResponse.json(
         { error: 'Agent is not running' },
         { status: 409 }
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'cancelled', sandboxId: null },
+      data: { agentStatus: 'CANCELLED', sandboxId: null },
     })
 
     await pushAgentEvent(taskId, {

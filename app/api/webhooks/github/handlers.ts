@@ -176,7 +176,7 @@ export async function handlePullRequest(
         taskId: task.id,
         reviewerActorId: task.reviewerActorId,
         defaultReviewerActorId,
-        actorId: null,
+        triggerActorId: null,
       }).catch(err => console.error('[webhook] notifyTaskInReview error:', err))
       const prOpenedPayload = {
         taskId: task.id,

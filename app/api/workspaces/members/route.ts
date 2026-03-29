@@ -66,8 +66,8 @@ export async function GET() {
     })
 
     // Lazy-create Coding Agent if not yet seeded for this workspace
-    const existingAgent = await prisma.agentProfile.findUnique({
-      where: { workspaceId_type: { workspaceId, type: 'CODING' } },
+    const existingAgent = await prisma.agentProfile.findFirst({
+      where: { workspaceId, type: 'CODING', memberId: null },
     })
     if (!existingAgent) {
       const profile = await prisma.agentProfile.create({

@@ -415,7 +415,7 @@ export function TaskDetailPage({
       body,
       parentId: null,
       quotedCommentId: null,
-      type: 'user',
+      type: 'USER',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -459,7 +459,7 @@ export function TaskDetailPage({
         body,
         parentId,
         quotedCommentId,
-        type: 'user',
+        type: 'USER',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }

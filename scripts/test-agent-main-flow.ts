@@ -46,7 +46,7 @@ async function executeAgent(task: typeof testTask, githubToken: string) {
 
   try {
     // ── 1. 更新任务状态 ──────────────────────────────
-    await updateTask(task.id, { agentStatus: 'running' })
+    await updateTask(task.id, { agentStatus: 'RUNNING' })
     console.log('✓ Task status: running')
 
     // ── 2. 克隆仓库 ──────────────────────────────────
@@ -162,7 +162,7 @@ ${task.spec}
     console.log('✓ PR created:', pr.html_url)
 
     // ── 10. 更新任务状态 ──────────────────────────────
-    await updateTask(task.id, { agentStatus: 'done', status: 'IN_REVIEW' })
+    await updateTask(task.id, { agentStatus: 'DONE', status: 'IN_REVIEW' })
     await createNotification(task.reviewerId, 'TASK_IN_REVIEW', task.id)
     console.log('✓ Task status: IN_REVIEW, reviewer notified')
 
@@ -170,7 +170,7 @@ ${task.spec}
     return pr
   } catch (error) {
     console.error('\n❌ Agent failed:', error)
-    await updateTask(task.id, { agentStatus: 'failed' })
+    await updateTask(task.id, { agentStatus: 'FAILED' })
     await createNotification(task.reviewerId, 'AGENT_FAILED', task.id)
     throw error
   } finally {

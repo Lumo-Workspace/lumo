@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const timedOutTasks = await prisma.task.findMany({
     where: {
-      agentStatus: 'paused',
+      agentStatus: 'PAUSED',
       updatedAt: { lt: cutoff },
     },
     select: { id: true, sandboxId: true },
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       await prisma.task.update({
         where: { id: task.id },
         data: {
-          agentStatus: 'failed',
+          agentStatus: 'FAILED',
           agentError: 'CLARIFY_TIMEOUT',
           sandboxId: null,
         },

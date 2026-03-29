@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (task.agentStatus !== 'paused') {
+    if (task.agentStatus !== 'PAUSED') {
       return NextResponse.json(
         { error: 'Agent is not paused — nothing to resume' },
         { status: 409 }

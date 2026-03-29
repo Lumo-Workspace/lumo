@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Prevent double-execution
-    if (task.agentStatus === 'running') {
+    if (task.agentStatus === 'RUNNING') {
       return NextResponse.json(
         { error: 'Agent is already running for this task' },
         { status: 409 }
