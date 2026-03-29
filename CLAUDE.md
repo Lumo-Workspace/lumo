@@ -41,7 +41,6 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Forbidden
 
-- Never modify .env or .env.local files
 - Never delete files in prisma/migrations/
 - Never install new npm packages without noting it in PR description
 - Never hardcode API keys or secrets

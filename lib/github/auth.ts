@@ -15,10 +15,19 @@ export async function getGithubInstallationToken(): Promise<string> {
     )
   }
 
-  // Private key may be base64-encoded in env vars
-  const decodedKey = privateKey.includes('BEGIN')
-    ? privateKey
-    : Buffer.from(privateKey, 'base64').toString('utf-8')
+  // Private key may be stored as:
+  // 1. Full PEM (with BEGIN/END markers and newlines)
+  // 2. PEM with escaped newlines (\\n → \n)
+  // 3. Raw base64 DER content (no PEM headers)
+  let decodedKey: string
+  if (privateKey.includes('BEGIN')) {
+    decodedKey = privateKey.replace(/\\n/g, '\n')
+  } else {
+    // Raw base64 DER — wrap in PEM envelope
+    // Split into 64-char lines as per PEM spec
+    const lines = privateKey.match(/.{1,64}/g) ?? [privateKey]
+    decodedKey = `-----BEGIN RSA PRIVATE KEY-----\n${lines.join('\n')}\n-----END RSA PRIVATE KEY-----\n`
+  }
 
   const auth = createAppAuth({
     appId: Number(appId),
