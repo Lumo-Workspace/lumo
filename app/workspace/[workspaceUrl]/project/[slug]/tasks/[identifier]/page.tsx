@@ -33,7 +33,7 @@ export default async function ProjectTaskIdentifierPage({
           id: true,
           name: true,
           defaultReviewerId: true,
-          githubRepo: true,
+          repositories: true,
         },
       },
       assignee: {
@@ -63,6 +63,13 @@ export default async function ProjectTaskIdentifierPage({
     teamIdentifier: rawTask.team.identifier,
     updatedAt: rawTask.updatedAt.toISOString(),
     createdAt: rawTask.createdAt.toISOString(),
+    project: {
+      ...rawTask.project,
+      repositories: rawTask.project.repositories?.map(r => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    },
   } as Parameters<typeof TaskDetailPage>[0]['initialTask']
 
   return <TaskDetailPage initialTask={task} workspaceUrl={workspaceUrl} />

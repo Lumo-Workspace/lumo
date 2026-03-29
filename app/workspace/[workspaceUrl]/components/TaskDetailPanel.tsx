@@ -738,7 +738,11 @@ export function TaskDetailPanel({
           identifier={`${task.teamIdentifier}-${task.number}`}
           title={task.title}
           projectId={task.projectId}
-          defaultRepo={task.project.githubRepo}
+          defaultRepo={
+            task.project.repositories?.find(r => r.isDefault)?.fullName ??
+            task.project.repositories?.[0]?.fullName ??
+            null
+          }
           workspaceUrl={workspaceUrl}
           onBranchCreated={branch =>
             setTask(prev => ({

@@ -48,7 +48,6 @@ export async function GET(_request: NextRequest, { params }: Params) {
             name: true,
             workspaceId: true,
             defaultReviewerId: true,
-            githubRepo: true,
             repositories: {
               orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
             },

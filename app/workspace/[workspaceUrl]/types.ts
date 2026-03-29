@@ -93,7 +93,6 @@ export interface ApiProject {
   description: string | null
   isIdea: boolean
   defaultReviewerId: string | null
-  githubRepo?: string | null
   repositories?: ApiRepository[]
   updatedAt: string
   createdAt: string
@@ -205,7 +204,6 @@ export interface TaskDetail {
     id: string
     name: string
     defaultReviewerId?: string | null
-    githubRepo?: string | null
     repositories?: ApiRepository[]
   }
   parentTaskId: string | null

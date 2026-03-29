@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
-        project: { select: { workspaceId: true, githubRepo: true } },
+        project: { select: { workspaceId: true } },
       },
     })
 

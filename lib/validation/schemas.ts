@@ -62,7 +62,6 @@ export const updateProjectSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   isIdea: z.boolean().optional(),
   defaultReviewerId: z.string().nullable().optional(),
-  githubRepo: z.string().max(200).nullable().optional(),
 })
 
 // ─── Task ───────────────────────────────────────────────────────────────────
