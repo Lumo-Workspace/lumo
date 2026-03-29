@@ -140,10 +140,11 @@ export interface ApiTaskBranch {
 export interface ApiComment {
   id: string
   taskId: string
-  authorId: string // Clerk userId
+  authorId: string // Clerk userId or '__coding_agent__'
   body: string // HTML
   parentId: string | null
   quotedCommentId: string | null
+  type: 'user' | 'agent'
   createdAt: string
   updatedAt: string
   /** Only present on top-level comments (parentId === null). */
