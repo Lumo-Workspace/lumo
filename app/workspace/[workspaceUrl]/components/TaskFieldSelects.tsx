@@ -228,14 +228,16 @@ export function AssigneeSelect({
             </div>
           </SelectItem>
         ))}
-        {members.map(m => (
-          <SelectItem key={m.actorId} value={m.actorId}>
-            <div className='flex items-center gap-2'>
-              <MemberAvatar member={m} size='xs' />
-              {m.name}
-            </div>
-          </SelectItem>
-        ))}
+        {members
+          .filter(m => m.actorId)
+          .map(m => (
+            <SelectItem key={m.actorId} value={m.actorId}>
+              <div className='flex items-center gap-2'>
+                <MemberAvatar member={m} size='xs' />
+                {m.name}
+              </div>
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )
@@ -298,14 +300,16 @@ export function ReviewerSelect({
             <span className='text-zinc-400'>No reviewer</span>
           </div>
         </SelectItem>
-        {members.map(m => (
-          <SelectItem key={m.actorId} value={m.actorId}>
-            <div className='flex items-center gap-2'>
-              <MemberAvatar member={m} size='xs' />
-              {m.name}
-            </div>
-          </SelectItem>
-        ))}
+        {members
+          .filter(m => m.actorId)
+          .map(m => (
+            <SelectItem key={m.actorId} value={m.actorId}>
+              <div className='flex items-center gap-2'>
+                <MemberAvatar member={m} size='xs' />
+                {m.name}
+              </div>
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )
