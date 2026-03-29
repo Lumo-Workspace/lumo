@@ -258,7 +258,8 @@ interface InboxPageProps {
     data: Partial<{
       title: string
       status: ApiStatus
-      assigneeId: string | null
+      assigneeActorId: string | null
+      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority

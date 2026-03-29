@@ -76,15 +76,15 @@ export function registerCommentTools(server: McpServer) {
         })
         if (!task) throw new Error(`Task ${taskId} not found`)
 
-        // Resolve memberId → clerkId for authorId
-        const member = await prisma.workspaceMember.findUnique({
-          where: { id: memberId },
-          select: { clerkId: true },
+        // Resolve memberId → actor for authorActorId
+        const actor = await prisma.actor.findUnique({
+          where: { memberId },
+          select: { id: true },
         })
-        if (!member) throw new Error('Current member not found')
+        if (!actor) throw new Error('Actor not found for current member')
 
         const comment = await prisma.comment.create({
-          data: { taskId: id, authorId: member.clerkId, body },
+          data: { taskId: id, authorActorId: actor.id, body },
         })
 
         return {

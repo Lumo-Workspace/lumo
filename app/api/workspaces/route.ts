@@ -54,6 +54,27 @@ export async function POST(request: NextRequest) {
         data: { teamId: team.id, memberId: member.id },
       })
 
+      // Create human actor for the owner
+      await tx.actor.create({
+        data: { workspaceId: workspace.id, type: 'HUMAN', memberId: member.id },
+      })
+
+      // Create Coding Agent profile + actor
+      const agentProfile = await tx.agentProfile.create({
+        data: {
+          workspaceId: workspace.id,
+          name: 'Coding Agent',
+          type: 'CODING',
+        },
+      })
+      await tx.actor.create({
+        data: {
+          workspaceId: workspace.id,
+          type: 'AGENT',
+          agentId: agentProfile.id,
+        },
+      })
+
       return { workspace, member }
     })
 

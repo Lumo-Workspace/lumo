@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -84,6 +85,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
+    const authorActorId = await getHumanActorId(memberResult.id)
+    if (!authorActorId) {
+      return NextResponse.json({ error: 'Actor not found' }, { status: 500 })
+    }
+
     const body = await request.json()
     const parsed = createCommentSchema.safeParse(body)
     if (!parsed.success) {
@@ -117,7 +123,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const comment = await prisma.comment.create({
       data: {
         taskId: id,
-        authorId: userId,
+        authorActorId,
         body: commentBody,
         parentId: parentId ?? null,
         quotedCommentId: quotedCommentId ?? null,

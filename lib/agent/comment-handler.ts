@@ -3,8 +3,7 @@ import { isSandboxAlive } from './sandbox-health'
 import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
-
-export const CODING_AGENT_AUTHOR_ID = '__coding_agent__'
+import { getCodingAgentActor } from '@/lib/actor'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -79,11 +78,12 @@ async function postAgentReply(params: {
   taskId: string
   parentId: string
   body: string
+  agentActorId: string | null
 }): Promise<string> {
   const comment = await prisma.comment.create({
     data: {
       taskId: params.taskId,
-      authorId: CODING_AGENT_AUTHOR_ID,
+      authorActorId: params.agentActorId,
       body: params.body,
       parentId: params.parentId,
       type: 'agent',
@@ -144,6 +144,7 @@ export async function handleAgentComment({
   const { name: actorName, email: actorEmail } =
     await getClerkUser(actorClerkId)
   const workspaceId = task.project.workspaceId
+  const agentActorId = await getCodingAgentActor(workspaceId)
 
   // ── Guard: Task is Done ──────────────────────────────────────────────────
   if (task.status === 'DONE') {
@@ -151,6 +152,7 @@ export async function handleAgentComment({
       taskId,
       parentId: commentId,
       body: `<p>${mentionChip(actorClerkId, actorName)} This task is already done. Reopen it first if you want Agent to make changes.</p>`,
+      agentActorId,
     })
     return
   }
@@ -163,6 +165,7 @@ export async function handleAgentComment({
         taskId,
         parentId: commentId,
         body: `<p>${mentionChip(actorClerkId, actorName)} Agent is already working on this task. Please wait for it to finish.</p>`,
+        agentActorId,
       })
       return
     }
@@ -184,6 +187,7 @@ export async function handleAgentComment({
       taskId,
       parentId: commentId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
+      agentActorId,
     })
     return
   }
@@ -198,6 +202,7 @@ export async function handleAgentComment({
       taskId,
       parentId: commentId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
+      agentActorId,
     })
     return
   }
@@ -207,6 +212,7 @@ export async function handleAgentComment({
     taskId,
     parentId: commentId,
     body: `<p>${mentionChip(actorClerkId, actorName)} Got it. Starting to work on this...</p>`,
+    agentActorId,
   })
 
   // ── Build spec ───────────────────────────────────────────────────────────
@@ -217,8 +223,7 @@ export async function handleAgentComment({
   await prisma.task.update({
     where: { id: taskId },
     data: {
-      assigneeType: 'agent',
-      assigneeId: null,
+      assigneeActorId: agentActorId,
       ...(updatedSpec !== null ? { spec: updatedSpec } : {}),
     },
   })
@@ -268,6 +273,7 @@ export async function handleAgentComment({
     taskId,
     parentId: commentId,
     body: replyBody,
+    agentActorId,
   })
 
   // ── Notify actor ─────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ export async function generateSpecDraft(
     description: string | null
     spec: string | null
     project: { workspaceId: string; defaultReviewerId: string | null }
-    reviewerId: string | null
+    reviewerActorId: string | null
   }
 ): Promise<void> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY
@@ -80,24 +80,32 @@ export async function generateSpecDraft(
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
 
   // Send Inbox notification to reviewer
-  const effectiveReviewerId =
-    task.reviewerId ?? task.project.defaultReviewerId ?? null
-  if (effectiveReviewerId) {
-    const reviewer = await prisma.workspaceMember.findUnique({
-      where: { id: effectiveReviewerId },
+  // Resolve effective reviewer: task reviewer actor → or default reviewer (member ID → actor)
+  let effectiveReviewerClerkId: string | null = null
+  if (task.reviewerActorId) {
+    const actor = await prisma.actor.findUnique({
+      where: { id: task.reviewerActorId },
+      select: { member: { select: { clerkId: true } } },
+    })
+    effectiveReviewerClerkId = actor?.member?.clerkId ?? null
+  } else if (task.project.defaultReviewerId) {
+    const member = await prisma.workspaceMember.findUnique({
+      where: { id: task.project.defaultReviewerId },
       select: { clerkId: true },
     })
-    if (reviewer) {
-      await prisma.notification.create({
-        data: {
-          workspaceId: task.project.workspaceId,
-          recipientId: reviewer.clerkId,
-          type: 'TASK_SPEC_READY',
-          taskId,
-          actorId: null,
-        },
-      })
-    }
+    effectiveReviewerClerkId = member?.clerkId ?? null
+  }
+
+  if (effectiveReviewerClerkId) {
+    await prisma.notification.create({
+      data: {
+        workspaceId: task.project.workspaceId,
+        recipientId: effectiveReviewerClerkId,
+        type: 'TASK_SPEC_READY',
+        taskId,
+        actorId: null,
+      },
+    })
   } else {
     // Fall back to workspace owners
     const owners = await prisma.workspaceMember.findMany({

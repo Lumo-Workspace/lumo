@@ -436,7 +436,10 @@ export function ProjectDetailPage({
                     onChange={v =>
                       onUpdateProject(project.id, { defaultReviewerId: v })
                     }
-                    members={members}
+                    members={members.filter(
+                      (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                        m.actorId !== null
+                    )}
                     triggerClassName={cn(
                       FIELD_TRIGGER_CLS,
                       'h-7 text-xs w-full'

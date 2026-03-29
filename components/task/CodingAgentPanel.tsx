@@ -31,7 +31,7 @@ export interface AgentClarifyPending {
 
 export interface CodingAgentTask {
   id: string
-  assigneeType?: 'human' | 'agent'
+  assignee?: { type: 'HUMAN' | 'AGENT' } | null
   agentStatus?: string | null
   agentError?: string | null
   sandboxId?: string | null
@@ -443,7 +443,7 @@ export function CodingAgentPanel({
   task: CodingAgentTask
   onTaskUpdate?: (updates: Partial<CodingAgentTask>) => void
 }) {
-  if (task.assigneeType !== 'agent') return null
+  if (task.assignee?.type !== 'AGENT') return null
   return (
     <CodingAgentPanelInner
       task={task}

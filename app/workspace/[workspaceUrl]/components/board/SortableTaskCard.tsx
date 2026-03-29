@@ -72,7 +72,8 @@ export function ProjectTaskCard({
   members,
   onClick,
 }: ProjectTaskCardProps) {
-  const assignee = members?.find(m => m.id === task.assigneeId) ?? null
+  const assignee =
+    members?.find(m => m.actorId === task.assigneeActorId) ?? null
 
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
@@ -90,7 +91,7 @@ export function ProjectTaskCard({
         {task.title}
       </h4>
       <div className='flex justify-between items-center'>
-        {task.assigneeType === 'agent' ? (
+        {task.assignee?.type === 'AGENT' ? (
           <div
             className='flex items-center justify-center size-5 rounded-full bg-violet-100 dark:bg-violet-900/40 shrink-0'
             title='Lumo Agent'

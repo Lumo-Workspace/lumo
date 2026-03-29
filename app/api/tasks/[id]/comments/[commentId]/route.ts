@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateCommentSchema } from '@/lib/validation/schemas'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string; commentId: string }> }
 
@@ -31,7 +32,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (comment.authorId !== userId) {
+    const actorId = await getHumanActorId(memberResult.id)
+
+    if (comment.authorActorId !== actorId) {
       return NextResponse.json(
         { error: 'You can only edit your own comments' },
         { status: 403 }
@@ -88,7 +91,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (comment.authorId !== userId) {
+    const actorId = await getHumanActorId(memberResult.id)
+
+    if (comment.authorActorId !== actorId) {
       return NextResponse.json(
         { error: 'You can only delete your own comments' },
         { status: 403 }

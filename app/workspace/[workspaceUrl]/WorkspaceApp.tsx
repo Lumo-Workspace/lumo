@@ -102,7 +102,7 @@ export default function DashboardApp() {
     fetchProjectTasks,
   } = useProjectTasks(upsertTasks)
 
-  const { members, fetchMembers } = useMembers()
+  const { members, fetchMembers, agentActors } = useMembers()
   const {
     notifications,
     unreadCount,
@@ -194,8 +194,8 @@ export default function DashboardApp() {
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -210,8 +210,13 @@ export default function DashboardApp() {
       }
 
       // Sync my-tasks ID list if assignee changed
-      if ('assigneeId' in data) {
-        const nowMine = data.assigneeId === currentMemberId
+      // currentMemberId is a WorkspaceMember.id; we compare against task.assigneeActorId
+      // by looking up the member's actorId
+      const currentMemberActorId = members.find(
+        m => m.id === currentMemberId
+      )?.actorId
+      if ('assigneeActorId' in data && currentMemberActorId) {
+        const nowMine = data.assigneeActorId === currentMemberActorId
         const wasMine = myTaskIds.includes(taskId)
         if (wasMine && !nowMine)
           setMyTaskIds(prev => prev.filter(id => id !== taskId))
@@ -228,11 +233,13 @@ export default function DashboardApp() {
         // Reconcile with server response (preserves project field via upsertTasks merge)
         upsertTasks([updated])
         // Re-check assignee after server confirms
-        const nowMine = updated.assigneeId === currentMemberId
-        const wasMine = myTaskIds.includes(taskId)
-        if (wasMine && !nowMine)
-          setMyTaskIds(prev => prev.filter(id => id !== taskId))
-        if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
+        if (currentMemberActorId) {
+          const nowMine = updated.assigneeActorId === currentMemberActorId
+          const wasMine = myTaskIds.includes(taskId)
+          if (wasMine && !nowMine)
+            setMyTaskIds(prev => prev.filter(id => id !== taskId))
+          if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
+        }
       } catch (err) {
         throw err
       }
@@ -242,6 +249,7 @@ export default function DashboardApp() {
       upsertTasks,
       selectedProject?.id,
       currentMemberId,
+      members,
       myTaskIds,
       setProjectTaskIds,
       setMyTaskIds,
@@ -416,9 +424,8 @@ export default function DashboardApp() {
         priority,
         projectId,
         parentTaskId: null,
-        assigneeId: assigneeId ?? null,
-        assigneeType: 'human',
-        reviewerId: project?.defaultReviewerId ?? null,
+        assigneeActorId: assigneeId ?? null,
+        reviewerActorId: null,
         repositoryId: repositoryId ?? null,
         updatedAt: now,
         viewOrder: null,
@@ -708,6 +715,7 @@ export default function DashboardApp() {
                     }
                     onClose={handleCloseTask}
                     members={members}
+                    agentActors={agentActors}
                     projects={projects}
                     tasks={Object.values(taskMap)}
                     onUpdate={handleUpdateTask}

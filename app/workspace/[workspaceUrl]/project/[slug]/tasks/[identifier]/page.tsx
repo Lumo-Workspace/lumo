@@ -36,7 +36,22 @@ export default async function ProjectTaskIdentifierPage({
           githubRepo: true,
         },
       },
-      assignee: { select: { id: true, clerkId: true } },
+      assignee: {
+        select: {
+          id: true,
+          type: true,
+          member: { select: { id: true, clerkId: true } },
+          agent: { select: { id: true, name: true, avatarColor: true } },
+        },
+      },
+      reviewer: {
+        select: {
+          id: true,
+          type: true,
+          member: { select: { id: true, clerkId: true } },
+          agent: { select: { id: true, name: true, avatarColor: true } },
+        },
+      },
       children: { select: { id: true, title: true, number: true } },
       team: { select: { identifier: true } },
     },
@@ -48,7 +63,7 @@ export default async function ProjectTaskIdentifierPage({
     teamIdentifier: rawTask.team.identifier,
     updatedAt: rawTask.updatedAt.toISOString(),
     createdAt: rawTask.createdAt.toISOString(),
-  }
+  } as Parameters<typeof TaskDetailPage>[0]['initialTask']
 
   return <TaskDetailPage initialTask={task} workspaceUrl={workspaceUrl} />
 }

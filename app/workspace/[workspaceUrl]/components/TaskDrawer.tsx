@@ -28,6 +28,7 @@ interface TaskDrawerProps {
   cachedDescription?: string | null | undefined
   onClose: () => void
   members: WorkspaceMemberInfo[]
+  agentActors?: { actorId: string; name: string; avatarColor: string }[]
   projects: ApiProject[]
   tasks?: ApiTask[]
   source: 'my-tasks' | `project-${string}`
@@ -36,8 +37,8 @@ interface TaskDrawerProps {
     data: Partial<{
       title: string
       status: ApiStatus
-      assigneeId: string | null
-      reviewerId: string | null
+      assigneeActorId: string | null
+      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority
@@ -52,6 +53,7 @@ export function TaskDrawer({
   cachedDescription,
   onClose,
   members,
+  agentActors,
   projects,
   tasks,
   source,
@@ -151,6 +153,7 @@ export function TaskDrawer({
             {...(liveTask ? { liveTask } : {})}
             cachedDescription={cachedDescription}
             members={members}
+            agentActors={agentActors}
             projects={projects}
             {...(tasks ? { tasks } : {})}
             onUpdate={onUpdate}

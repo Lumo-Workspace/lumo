@@ -149,14 +149,17 @@ export interface TaskDetailPanelProps {
   liveTask?: ApiTask
   cachedDescription?: string | null | undefined
   members: WorkspaceMemberInfo[]
+  agentActors?:
+    | { actorId: string; name: string; avatarColor: string }[]
+    | undefined
   projects: ApiProject[]
   onUpdate: (
     taskId: string,
     data: Partial<{
       title: string
       status: ApiStatus
-      assigneeId: string | null
-      reviewerId: string | null
+      assigneeActorId: string | null
+      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority
@@ -173,6 +176,7 @@ export function TaskDetailPanel({
   liveTask,
   cachedDescription,
   members,
+  agentActors,
   projects,
   onUpdate,
   onDescriptionLoaded,
@@ -189,13 +193,10 @@ export function TaskDetailPanel({
         ? initialTask.project
         : { id: initialTask.projectId, name: '' },
     parentTaskId: initialTask.parentTaskId,
-    assigneeId: initialTask.assigneeId,
-    assigneeType:
-      'assigneeType' in initialTask
-        ? (initialTask.assigneeType ?? 'human')
-        : 'human',
-    reviewerId: initialTask.reviewerId,
-    assignee: null,
+    assigneeActorId: initialTask.assigneeActorId,
+    reviewerActorId: initialTask.reviewerActorId,
+    assignee: initialTask.assignee ?? null,
+    reviewer: null,
     description: cachedDescription ?? null,
     updatedAt: initialTask.updatedAt,
     number: initialTask.number,
@@ -207,6 +208,16 @@ export function TaskDetailPanel({
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
+  // Members with actorId (non-null only) for AssigneeSelect / ReviewerSelect
+  const membersWithActorId = useMemo(
+    () =>
+      members.filter(
+        (m): m is WorkspaceMemberInfo & { actorId: string } =>
+          m.actorId !== null
+      ),
+    [members]
+  )
+
   // ─── Sync external updates (e.g. drag-and-drop status change) ───────────────
   useEffect(() => {
     if (!liveTask) return
@@ -215,8 +226,8 @@ export function TaskDetailPanel({
         prev.title === liveTask.title &&
         prev.status === liveTask.status &&
         prev.priority === liveTask.priority &&
-        prev.assigneeId === liveTask.assigneeId &&
-        prev.reviewerId === liveTask.reviewerId &&
+        prev.assigneeActorId === liveTask.assigneeActorId &&
+        prev.reviewerActorId === liveTask.reviewerActorId &&
         prev.projectId === liveTask.projectId
       )
         return prev
@@ -225,8 +236,8 @@ export function TaskDetailPanel({
         title: liveTask.title,
         status: liveTask.status,
         priority: liveTask.priority,
-        assigneeId: liveTask.assigneeId,
-        reviewerId: liveTask.reviewerId,
+        assigneeActorId: liveTask.assigneeActorId,
+        reviewerActorId: liveTask.reviewerActorId,
         projectId: liveTask.projectId,
       }
     })
@@ -294,7 +305,9 @@ export function TaskDetailPanel({
             ...prev,
             description: t.description,
             project: t.project,
-            reviewerId: t.reviewerId,
+            reviewerActorId: t.reviewerActorId,
+            assignee: t.assignee,
+            reviewer: t.reviewer,
             number: t.number,
             teamIdentifier: t.teamIdentifier,
             pullRequests: t.pullRequests ?? [],
@@ -322,9 +335,8 @@ export function TaskDetailPanel({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        assigneeType: 'human' | 'agent'
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -358,6 +370,12 @@ export function TaskDetailPanel({
     [task.description, task.id, handlePatch, onDescriptionLoaded]
   )
 
+  // Derive current member for author comparisons
+  const currentMember = useMemo(
+    () => members.find(m => m.clerkId === user?.id),
+    [members, user?.id]
+  )
+
   const submitComment = useCallback(async () => {
     const body = commentBody?.trim()
     if (!body || submitting) return
@@ -367,7 +385,7 @@ export function TaskDetailPanel({
     const optimistic: ApiComment = {
       id: tempId,
       taskId: task.id,
-      authorId: user?.id ?? '',
+      authorActorId: currentMember?.actorId ?? null,
       body,
       parentId: null,
       quotedCommentId: null,
@@ -396,7 +414,7 @@ export function TaskDetailPanel({
     } finally {
       setSubmitting(false)
     }
-  }, [commentBody, submitting, task.id, user?.id])
+  }, [commentBody, submitting, task.id, currentMember?.actorId])
 
   // Helper: apply a transform to any comment in the 2-level tree.
   // transform returns the updated comment or null to remove it.
@@ -446,7 +464,7 @@ export function TaskDetailPanel({
       const optimistic: ApiComment = {
         id: tempId,
         taskId: task.id,
-        authorId: user?.id ?? '',
+        authorActorId: currentMember?.actorId ?? null,
         body,
         parentId,
         quotedCommentId,
@@ -490,7 +508,13 @@ export function TaskDetailPanel({
         setSubmittingReply(false)
       }
     },
-    [replyBody, submittingReply, task.id, user?.id, mapCommentTree]
+    [
+      replyBody,
+      submittingReply,
+      task.id,
+      currentMember?.actorId,
+      mapCommentTree,
+    ]
   )
 
   const saveEditComment = useCallback(
@@ -583,25 +607,17 @@ export function TaskDetailPanel({
           />
           <SeparatorDot />
           <AssigneeSelect
-            value={task.assigneeId ?? null}
-            isAgent={task.assigneeType === 'agent'}
-            onChange={v =>
-              handlePatch({
-                assigneeId: v,
-                assigneeType: 'human',
-              })
-            }
-            onAgentSelect={() =>
-              handlePatch({ assigneeId: null, assigneeType: 'agent' })
-            }
-            members={members}
+            value={task.assigneeActorId ?? null}
+            onChange={v => handlePatch({ assigneeActorId: v })}
+            members={membersWithActorId}
+            agentActors={agentActors}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
           <SeparatorDot />
           <ReviewerSelect
-            value={task.reviewerId ?? null}
-            onChange={v => handlePatch({ reviewerId: v })}
-            members={members}
+            value={task.reviewerActorId ?? null}
+            onChange={v => handlePatch({ reviewerActorId: v })}
+            members={membersWithActorId}
             inheritedId={task.project.defaultReviewerId ?? null}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
@@ -703,12 +719,12 @@ export function TaskDetailPanel({
           )}
         </div>
 
-        {task.assigneeType === 'agent' && (
+        {task.assignee?.type === 'AGENT' && (
           <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
             <CodingAgentPanel
               task={task}
               onTaskUpdate={updates =>
-                setTask(prev => ({ ...prev, ...updates }))
+                setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
               }
             />
           </div>
@@ -770,7 +786,7 @@ export function TaskDetailPanel({
               const isAgentComment = comment.type === 'agent'
               const author = isAgentComment
                 ? null
-                : members.find(m => m.clerkId === comment.authorId)
+                : members.find(m => m.actorId === comment.authorActorId)
               const name = isAgentComment
                 ? 'Coding Agent'
                 : (author?.name ?? 'Unknown')
@@ -782,7 +798,9 @@ export function TaskDetailPanel({
                     .join('')
                     .slice(0, 2)
                     .toUpperCase()
-              const isAuthor = !isAgentComment && comment.authorId === user?.id
+              const isAuthor =
+                !isAgentComment &&
+                comment.authorActorId === currentMember?.actorId
               const isEditing = editingCommentId === comment.id
               const isDeleting = deletingCommentId === comment.id
               const wasEdited =
@@ -973,7 +991,7 @@ export function TaskDetailPanel({
                         const rIsAgent = reply.type === 'agent'
                         const rAuthor = rIsAgent
                           ? null
-                          : members.find(m => m.clerkId === reply.authorId)
+                          : members.find(m => m.actorId === reply.authorActorId)
                         const rName = rIsAgent
                           ? 'Coding Agent'
                           : (rAuthor?.name ?? 'Unknown')
@@ -986,7 +1004,8 @@ export function TaskDetailPanel({
                               .slice(0, 2)
                               .toUpperCase()
                         const rIsAuthor =
-                          !rIsAgent && reply.authorId === user?.id
+                          !rIsAgent &&
+                          reply.authorActorId === currentMember?.actorId
                         const rIsEditing = editingCommentId === reply.id
                         const rIsDeleting = deletingCommentId === reply.id
                         const rWasEdited =
@@ -1098,7 +1117,7 @@ export function TaskDetailPanel({
                                       )
                                       if (!quoted) return null
                                       const qAuthor = members.find(
-                                        m => m.clerkId === quoted.authorId
+                                        m => m.actorId === quoted.authorActorId
                                       )
                                       const qName = qAuthor?.name ?? 'Unknown'
                                       const qText = (() => {
