@@ -121,14 +121,33 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    // Fire-and-forget: sync PR status from GitHub if task has open PRs
+    // Sync PR status from GitHub before responding
     const openPrs = task.pullRequests.filter(pr => pr.state === 'open')
+    let taskStatus = task.status
+    let pullRequests = task.pullRequests
+
     if (openPrs.length > 0) {
-      waitUntil(syncPullRequestStatus(task.id, openPrs))
+      const updates = await syncPullRequestStatus(task.id, openPrs)
+      if (updates.size > 0) {
+        pullRequests = task.pullRequests.map(pr => {
+          const update = updates.get(pr.id)
+          return update
+            ? { ...pr, state: update.state, mergedAt: update.mergedAt }
+            : pr
+        })
+        if ([...updates.values()].some(u => u.state === 'merged')) {
+          taskStatus = 'DONE'
+        }
+      }
     }
 
     return NextResponse.json({
-      task: { ...task, teamIdentifier: task.team.identifier },
+      task: {
+        ...task,
+        status: taskStatus,
+        pullRequests,
+        teamIdentifier: task.team.identifier,
+      },
     })
   } catch (error) {
     console.error('GET /api/tasks/[id] error:', error)
@@ -139,14 +158,20 @@ export async function GET(_request: NextRequest, { params }: Params) {
   }
 }
 
+interface PrStatusUpdate {
+  state: string
+  mergedAt: Date | null
+}
+
 /**
  * Sync PR state from GitHub API for any PRs still marked 'open' in DB.
- * Runs in background (waitUntil) so it doesn't block the response.
+ * Returns a map of PR id → updated state so the caller can patch the response.
  */
 async function syncPullRequestStatus(
   taskId: string,
   openPrs: { id: string; number: number; url: string; state: string }[]
-): Promise<void> {
+): Promise<Map<string, PrStatusUpdate>> {
+  const updates = new Map<string, PrStatusUpdate>()
   try {
     const token = await getGithubInstallationToken()
 
@@ -183,15 +208,19 @@ async function syncPullRequestStatus(
 
       if (newState === pr.state) continue
 
+      const mergedAt = ghPr.merged_at ? new Date(ghPr.merged_at) : null
+
       await prisma.pullRequest.update({
         where: { id: pr.id },
         data: {
           state: newState,
-          mergedAt: ghPr.merged_at ? new Date(ghPr.merged_at) : null,
+          mergedAt,
           closedAt: ghPr.closed_at ? new Date(ghPr.closed_at) : null,
           isDraft: ghPr.draft,
         },
       })
+
+      updates.set(pr.id, { state: newState, mergedAt })
 
       // If PR was merged, mark task as DONE
       if (newState === 'merged') {
@@ -204,6 +233,7 @@ async function syncPullRequestStatus(
   } catch (err) {
     console.error('[sync-pr] Failed to sync PR status:', err)
   }
+  return updates
 }
 
 /**
