@@ -140,7 +140,7 @@ export async function executeAgent({
         workspaceId: task.project.workspaceId,
         defaultReviewerId: task.project.defaultReviewerId,
       },
-      reviewerId: task.reviewerId,
+      reviewerActorId: task.reviewerActorId,
     })
     return { outcome: 'spec_review' } as AgentResult
   }
@@ -267,9 +267,7 @@ ${taskSpec}
       message: 'Agent is analyzing the codebase...',
     })
 
-    const reviewerMemberId =
-      task.reviewerId ?? task.project.defaultReviewerId ?? ''
-    const monitorTask = { id: taskId, identifier, reviewerId: reviewerMemberId }
+    const monitorTask = { id: taskId, identifier, reviewerId: '' }
 
     const CLARIFY_SENTINEL = '__clarify__'
     const winner = await Promise.race([
@@ -420,12 +418,21 @@ ${taskSpec}
     })
 
     // Notify reviewer that task is ready for review
+    // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
+    let defaultReviewerActorId: string | null = null
+    if (task.project.defaultReviewerId) {
+      const actor = await prisma.actor.findUnique({
+        where: { memberId: task.project.defaultReviewerId },
+        select: { id: true },
+      })
+      defaultReviewerActorId = actor?.id ?? null
+    }
     await notifyTaskInReview({
       workspaceId: task.project.workspaceId,
       taskId,
-      reviewerId: task.reviewerId ?? null,
-      defaultReviewerId: task.project.defaultReviewerId ?? null,
-      actorId: null, // agent action, no Clerk actor
+      reviewerActorId: task.reviewerActorId ?? null,
+      defaultReviewerActorId,
+      actorId: null,
     }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
 
     return { outcome: 'done', prUrl: pr.html_url, prNumber: pr.number }

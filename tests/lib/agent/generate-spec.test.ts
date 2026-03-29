@@ -49,7 +49,7 @@ const baseTask = {
   description: 'Users want a dark mode. Add a toggle to the settings page.',
   spec: null,
   project: { workspaceId: 'ws-1', defaultReviewerId: null },
-  reviewerId: null,
+  reviewerActorId: null,
 }
 
 function makeApiResponse(text: string) {
@@ -174,7 +174,7 @@ describe('generateSpecDraft', () => {
     })
 
     it('notifies the task-level reviewer when set', async () => {
-      const task = { ...baseTask, reviewerId: 'member-reviewer' }
+      const task = { ...baseTask, reviewerActorId: 'member-reviewer' }
       mockWorkspaceMemberFindUnique.mockResolvedValue({
         clerkId: 'clerk-reviewer',
       })
@@ -199,7 +199,7 @@ describe('generateSpecDraft', () => {
     it('falls back to project defaultReviewerId when task reviewerId is null', async () => {
       const task = {
         ...baseTask,
-        reviewerId: null,
+        reviewerActorId: null,
         project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
       }
       mockWorkspaceMemberFindUnique.mockResolvedValue({
@@ -251,7 +251,7 @@ describe('generateSpecDraft', () => {
     })
 
     it('does not notify anyone when reviewer member cannot be found', async () => {
-      const task = { ...baseTask, reviewerId: 'member-gone' }
+      const task = { ...baseTask, reviewerActorId: 'member-gone' }
       mockWorkspaceMemberFindUnique.mockResolvedValue(null)
 
       await generateSpecDraft(TASK_ID, task)

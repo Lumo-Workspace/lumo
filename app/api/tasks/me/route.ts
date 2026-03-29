@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { getHumanActorId } from '@/lib/actor'
 
 /**
  * GET /api/tasks/me
@@ -18,8 +19,10 @@ export async function GET() {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
+    const actorId = await getHumanActorId(ws.member.id)
+
     const tasks = await prisma.task.findMany({
-      where: { assigneeId: ws.member.id },
+      where: { assigneeActorId: actorId },
       include: {
         project: { select: { id: true, name: true } },
         team: { select: { identifier: true } },

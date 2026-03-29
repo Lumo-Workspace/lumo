@@ -147,7 +147,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       description,
       status,
       priority,
-      assigneeId,
+      assigneeActorId,
       parentTaskId,
       repositoryId,
       order,
@@ -180,14 +180,14 @@ export async function POST(request: NextRequest, { params }: Params) {
       taskOrder = (maxOrderTask?.order ?? 0) + 1
     }
 
-    // Validate assigneeId belongs to the same workspace
-    if (assigneeId) {
-      const assignee = await prisma.workspaceMember.findUnique({
-        where: { id: assigneeId },
+    // Validate assigneeActorId belongs to the same workspace
+    if (assigneeActorId) {
+      const actor = await prisma.actor.findUnique({
+        where: { id: assigneeActorId },
       })
-      if (!assignee || assignee.workspaceId !== project.workspaceId) {
+      if (!actor || actor.workspaceId !== project.workspaceId) {
         return NextResponse.json(
-          { error: 'Assignee is not a member of this workspace' },
+          { error: 'Assignee is not part of this workspace' },
           { status: 400 }
         )
       }
@@ -200,6 +200,15 @@ export async function POST(request: NextRequest, { params }: Params) {
         select: { taskSeq: true },
       })
 
+      // Resolve default reviewer to actor
+      let defaultReviewerActorId: string | null = null
+      if (project.defaultReviewer?.id) {
+        const reviewerActor = await tx.actor.findUnique({
+          where: { memberId: project.defaultReviewer.id },
+        })
+        defaultReviewerActorId = reviewerActor?.id ?? null
+      }
+
       return tx.task.create({
         data: {
           projectId: id,
@@ -209,8 +218,8 @@ export async function POST(request: NextRequest, { params }: Params) {
           description: description ?? null,
           status,
           priority,
-          assigneeId: assigneeId ?? null,
-          reviewerId: project.defaultReviewer?.id ?? null,
+          assigneeActorId: assigneeActorId ?? null,
+          reviewerActorId: defaultReviewerActorId,
           parentTaskId: parentTaskId ?? null,
           repositoryId: repositoryId ?? null,
           order: taskOrder,
@@ -239,15 +248,19 @@ export async function POST(request: NextRequest, { params }: Params) {
     )
 
     // ── Fire-and-forget: notify assignee if task was created with one ─────────
-    if (assigneeId) {
-      prisma.workspaceMember
-        .findUnique({ where: { id: assigneeId }, select: { clerkId: true } })
-        .then(assignee => {
-          if (!assignee || assignee.clerkId === userId) return
+    if (assigneeActorId) {
+      prisma.actor
+        .findUnique({
+          where: { id: assigneeActorId },
+          select: { type: true, member: { select: { clerkId: true } } },
+        })
+        .then(actor => {
+          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+          if (actor.member.clerkId === userId) return
           return prisma.notification.create({
             data: {
               workspaceId: project.workspaceId,
-              recipientId: assignee.clerkId,
+              recipientId: actor.member.clerkId,
               type: 'TASK_ASSIGNED' as const,
               taskId: task.id,
               actorId: userId,

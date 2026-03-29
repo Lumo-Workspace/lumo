@@ -5,8 +5,16 @@ import { WorkspaceMemberInfo } from '../types'
 import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
 
+export interface AgentActor {
+  actorId: string
+  name: string
+  avatarColor: string
+  type: string
+}
+
 export function useMembers() {
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
+  const [agentActors, setAgentActors] = useState<AgentActor[]>([])
   const fetching = useRef(false)
 
   useEffect(() => {
@@ -22,9 +30,15 @@ export function useMembers() {
     try {
       const res = await fetch(API.workspaces.members)
       if (!res.ok) return
-      const data = (await res.json()) as { members: WorkspaceMemberInfo[] }
+      const data = (await res.json()) as {
+        members: WorkspaceMemberInfo[]
+        agentActors?: AgentActor[]
+      }
       setMembers(data.members)
       writeCache(CACHE_KEY.members, data.members)
+      if (data.agentActors) {
+        setAgentActors(data.agentActors)
+      }
     } catch {
       // Non-critical — assignee picker keeps current list
     } finally {
@@ -32,5 +46,5 @@ export function useMembers() {
     }
   }, [])
 
-  return { members, setMembers, fetchMembers }
+  return { members, setMembers, fetchMembers, agentActors }
 }

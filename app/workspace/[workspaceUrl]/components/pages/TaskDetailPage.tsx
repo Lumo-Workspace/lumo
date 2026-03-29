@@ -186,6 +186,9 @@ export function TaskDetailPage({
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
     () => readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
   )
+  const [agentActors, setAgentActors] = useState<
+    { actorId: string; name: string; avatarColor: string }[]
+  >([])
   const [projects, setProjects] = useState<ApiProject[]>(
     () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
   )
@@ -255,6 +258,9 @@ export function TaskDetailPage({
           setMembers(freshMembers)
           writeCache(CACHE_KEY.members, freshMembers)
         }
+        if (membersData.agentActors) {
+          setAgentActors(membersData.agentActors)
+        }
         const freshProjects: ApiProject[] = projectsData.projects ?? []
         if (freshProjects.length > 0) {
           setProjects(freshProjects)
@@ -278,8 +284,8 @@ export function TaskDetailPage({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -300,9 +306,8 @@ export function TaskDetailPage({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        assigneeType: 'human' | 'agent'
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         repositoryId: string | null
         description: string | null
         spec: string | null
@@ -406,7 +411,7 @@ export function TaskDetailPage({
     const optimistic: ApiComment = {
       id: tempId,
       taskId: task.id,
-      authorId: user?.id ?? '',
+      authorActorId: members.find(m => m.clerkId === user?.id)?.actorId ?? null,
       body,
       parentId: null,
       quotedCommentId: null,
@@ -436,7 +441,7 @@ export function TaskDetailPage({
     } finally {
       setSubmitting(false)
     }
-  }, [commentBody, submitting, task.id, user?.id])
+  }, [commentBody, submitting, task.id, user?.id, members])
 
   const submitReply = useCallback(
     async (parentId: string) => {
@@ -449,7 +454,8 @@ export function TaskDetailPage({
       const optimistic: ApiComment = {
         id: tempId,
         taskId: task.id,
-        authorId: user?.id ?? '',
+        authorActorId:
+          members.find(m => m.clerkId === user?.id)?.actorId ?? null,
         body,
         parentId,
         quotedCommentId,
@@ -500,6 +506,7 @@ export function TaskDetailPage({
       user?.id,
       mapCommentTree,
       replyingToComment,
+      members,
     ]
   )
 
@@ -784,12 +791,12 @@ export function TaskDetailPage({
             )}
 
             {/* Coding Agent */}
-            {task.assigneeType === 'agent' && (
+            {task.assignee?.type === 'AGENT' && (
               <div className='mt-8'>
                 <CodingAgentPanel
                   task={task}
                   onTaskUpdate={updates =>
-                    setTask(prev => ({ ...prev, ...updates }))
+                    setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
                   }
                 />
               </div>
@@ -817,7 +824,7 @@ export function TaskDetailPage({
               <div className='space-y-5'>
                 {comments.map(comment => {
                   const author = members.find(
-                    m => m.clerkId === comment.authorId
+                    m => m.actorId === comment.authorActorId
                   )
                   const name = author?.name ?? 'Unknown'
                   const initials = name
@@ -826,7 +833,11 @@ export function TaskDetailPage({
                     .join('')
                     .slice(0, 2)
                     .toUpperCase()
-                  const isAuthor = comment.authorId === user?.id
+                  const currentMember = members.find(
+                    m => m.clerkId === user?.id
+                  )
+                  const isAuthor =
+                    comment.authorActorId === currentMember?.actorId
                   const isEditing = editingCommentId === comment.id
                   const isDeleting = deletingCommentId === comment.id
                   const wasEdited =
@@ -1010,7 +1021,7 @@ export function TaskDetailPage({
                         <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                           {comment.replies!.map(reply => {
                             const rAuthor = members.find(
-                              m => m.clerkId === reply.authorId
+                              m => m.actorId === reply.authorActorId
                             )
                             const rName = rAuthor?.name ?? 'Unknown'
                             const rInitials = rName
@@ -1019,7 +1030,8 @@ export function TaskDetailPage({
                               .join('')
                               .slice(0, 2)
                               .toUpperCase()
-                            const rIsAuthor = reply.authorId === user?.id
+                            const rIsAuthor =
+                              reply.authorActorId === currentMember?.actorId
                             const rIsEditing = editingCommentId === reply.id
                             const rIsDeleting = deletingCommentId === reply.id
                             const rWasEdited =
@@ -1125,7 +1137,8 @@ export function TaskDetailPage({
                                           )
                                           if (!quoted) return null
                                           const qAuthor = members.find(
-                                            m => m.clerkId === quoted.authorId
+                                            m =>
+                                              m.actorId === quoted.authorActorId
                                           )
                                           const qName =
                                             qAuthor?.name ?? 'Unknown'
@@ -1446,21 +1459,13 @@ export function TaskDetailPage({
                     label: 'Assignee',
                     node: (
                       <AssigneeSelect
-                        value={task.assigneeId ?? null}
-                        isAgent={task.assigneeType === 'agent'}
-                        onChange={v =>
-                          handlePatch({
-                            assigneeId: v,
-                            assigneeType: 'human',
-                          })
-                        }
-                        onAgentSelect={() =>
-                          handlePatch({
-                            assigneeId: null,
-                            assigneeType: 'agent',
-                          })
-                        }
-                        members={members}
+                        value={task.assigneeActorId ?? null}
+                        onChange={v => handlePatch({ assigneeActorId: v })}
+                        members={members.filter(
+                          (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                            m.actorId !== null
+                        )}
+                        agentActors={agentActors}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />
                     ),
@@ -1469,9 +1474,12 @@ export function TaskDetailPage({
                     label: 'Reviewer',
                     node: (
                       <ReviewerSelect
-                        value={task.reviewerId ?? null}
-                        onChange={v => handlePatch({ reviewerId: v })}
-                        members={members}
+                        value={task.reviewerActorId ?? null}
+                        onChange={v => handlePatch({ reviewerActorId: v })}
+                        members={members.filter(
+                          (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                            m.actorId !== null
+                        )}
                         inheritedId={task.project?.defaultReviewerId ?? null}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />

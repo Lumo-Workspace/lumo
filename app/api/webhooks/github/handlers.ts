@@ -162,11 +162,20 @@ export async function handlePullRequest(
         where: { id: task.id },
         data: { status: 'IN_REVIEW' },
       })
+      // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
+      let defaultReviewerActorId: string | null = null
+      if (task.project.defaultReviewerId) {
+        const actor = await prisma.actor.findUnique({
+          where: { memberId: task.project.defaultReviewerId },
+          select: { id: true },
+        })
+        defaultReviewerActorId = actor?.id ?? null
+      }
       notifyTaskInReview({
         workspaceId,
         taskId: task.id,
-        reviewerId: task.reviewerId,
-        defaultReviewerId: task.project.defaultReviewerId,
+        reviewerActorId: task.reviewerActorId,
+        defaultReviewerActorId,
         actorId: null,
       }).catch(err => console.error('[webhook] notifyTaskInReview error:', err))
       const prOpenedPayload = {
@@ -186,18 +195,18 @@ export async function handlePullRequest(
           task.projectId
         )
       )
-      if (task.reviewerId) {
-        prisma.workspaceMember
+      if (task.reviewerActorId) {
+        prisma.actor
           .findUnique({
-            where: { id: task.reviewerId },
-            select: { clerkId: true },
+            where: { id: task.reviewerActorId },
+            select: { member: { select: { clerkId: true } } },
           })
-          .then(reviewer => {
-            if (reviewer)
+          .then(actor => {
+            if (actor?.member)
               waitUntil(
                 sendDMNotification(
                   workspaceId,
-                  reviewer.clerkId,
+                  actor.member.clerkId,
                   'pr_opened',
                   prOpenedPayload
                 )
@@ -241,29 +250,34 @@ export async function handlePullRequest(
         task.projectId
       )
     )
-    if (task.assigneeId) {
-      prisma.workspaceMember
+    if (task.assigneeActorId) {
+      prisma.actor
         .findUnique({
-          where: { id: task.assigneeId },
-          select: { clerkId: true },
+          where: { id: task.assigneeActorId },
+          select: { member: { select: { clerkId: true } } },
         })
-        .then(assignee => {
-          if (assignee) {
+        .then(actor => {
+          if (actor?.member) {
             waitUntil(
               sendDMNotification(
                 workspaceId,
-                assignee.clerkId,
+                actor.member.clerkId,
                 'pr_merged',
                 mergePayload
               )
             )
             waitUntil(
-              sendDMNotification(workspaceId, assignee.clerkId, 'task_done', {
-                taskId: task.id,
-                taskTitle: task.title,
-                taskIdentifier,
-                taskUrl,
-              })
+              sendDMNotification(
+                workspaceId,
+                actor.member.clerkId,
+                'task_done',
+                {
+                  taskId: task.id,
+                  taskTitle: task.title,
+                  taskIdentifier,
+                  taskUrl,
+                }
+              )
             )
           }
         })

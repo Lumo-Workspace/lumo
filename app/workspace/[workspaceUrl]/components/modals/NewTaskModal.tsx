@@ -202,7 +202,10 @@ export function NewTaskModal({
               <AssigneeSelect
                 value={assigneeId || null}
                 onChange={v => setAssigneeId(v ?? '')}
-                members={members}
+                members={members.filter(
+                  (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                    m.actorId !== null
+                )}
                 triggerClassName={triggerClass}
               />
               <PrioritySelect
