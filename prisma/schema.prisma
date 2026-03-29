@@ -68,6 +68,7 @@ enum AgentStatus {
   PAUSED
   DONE
   FAILED
+  ERROR
   CANCELLED
   SPEC_REVIEW
 }

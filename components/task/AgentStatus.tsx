@@ -263,7 +263,9 @@ export function AgentStatus({
           {status === 'done' && (
             <span className='h-2 w-2 rounded-full bg-green-500' />
           )}
-          {(status === 'failed' || status === 'cancelled') && (
+          {(status === 'failed' ||
+            status === 'error' ||
+            status === 'cancelled') && (
             <span className='h-2 w-2 rounded-full bg-red-500' />
           )}
           {status === 'paused' && (
@@ -273,6 +275,7 @@ export function AgentStatus({
             {status === 'running' && 'Agent is working...'}
             {status === 'done' && 'Agent finished'}
             {status === 'failed' && 'Agent failed'}
+            {status === 'error' && 'Could not start agent'}
             {status === 'cancelled' && 'Cancelled'}
             {status === 'paused' && 'Waiting for clarification'}
           </span>
@@ -314,24 +317,29 @@ export function AgentStatus({
         </div>
       )}
 
-      {errorMsg && (status === 'failed' || status === 'cancelled') && (
-        <div className='space-y-2'>
-          <p className='text-xs text-muted-foreground'>{errorMsg}</p>
-          <div className='flex items-center gap-2'>
-            <button
-              onClick={handleRetry}
-              disabled={retrying}
-              className='flex items-center gap-1 rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors dark:bg-zinc-700 dark:hover:bg-zinc-600'
-            >
-              {retrying ? <Loader2 size={11} className='animate-spin' /> : null}
-              {retrying ? 'Retrying...' : 'Retry'}
-            </button>
-            <span className='text-xs text-muted-foreground'>
-              or take over manually
-            </span>
+      {errorMsg &&
+        (status === 'failed' ||
+          status === 'error' ||
+          status === 'cancelled') && (
+          <div className='space-y-2'>
+            <p className='text-xs text-muted-foreground'>{errorMsg}</p>
+            <div className='flex items-center gap-2'>
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className='flex items-center gap-1 rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors dark:bg-zinc-700 dark:hover:bg-zinc-600'
+              >
+                {retrying ? (
+                  <Loader2 size={11} className='animate-spin' />
+                ) : null}
+                {retrying ? 'Retrying...' : 'Retry'}
+              </button>
+              <span className='text-xs text-muted-foreground'>
+                or take over manually
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {prUrl && (
         <a

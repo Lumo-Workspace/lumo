@@ -58,9 +58,13 @@ export async function POST(req: NextRequest) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (task.agentStatus !== 'FAILED' && task.agentStatus !== 'CANCELLED') {
+    if (
+      task.agentStatus !== 'FAILED' &&
+      task.agentStatus !== 'ERROR' &&
+      task.agentStatus !== 'CANCELLED'
+    ) {
       return NextResponse.json(
-        { error: 'Can only retry failed or cancelled tasks' },
+        { error: 'Can only retry failed, errored, or cancelled tasks' },
         { status: 409 }
       )
     }
