@@ -2,7 +2,7 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, pushTaskEvent } from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
@@ -250,22 +250,26 @@ export async function executeAgent({
     )
 
     // Checkout branch (reuse existing or create new)
+    // First check if branch exists on remote (avoids E2B throwing on non-zero exit)
+    let branchExistsOnRemote = false
     if (isFollowUp) {
+      const lsRemote = await sandbox.commands
+        .run(`git -C /home/user/repo ls-remote --heads origin ${branchName}`, {
+          timeoutMs: 30 * 1000,
+        })
+        .catch(() => ({ stdout: '' }))
+      branchExistsOnRemote = !!(lsRemote.stdout && lsRemote.stdout.trim())
+    }
+
+    if (branchExistsOnRemote) {
       await pushAgentEvent(taskId, {
         type: 'agent:progress',
         message: `Checking out existing branch ${branchName}...`,
       })
-      // Fetch the remote branch and check it out
-      const checkout = await sandbox.commands.run(
+      await sandbox.commands.run(
         `git -C /home/user/repo fetch origin ${branchName} && git -C /home/user/repo checkout ${branchName}`,
         { timeoutMs: 60 * 1000 }
       )
-      if (checkout.exitCode !== 0) {
-        // Branch may have been deleted on remote — fall back to creating a new one
-        await sandbox.commands.run(
-          `git -C /home/user/repo checkout -b ${branchName}`
-        )
-      }
     } else {
       await pushAgentEvent(taskId, {
         type: 'agent:progress',
@@ -372,12 +376,15 @@ ${taskSpec}
     }
 
     // Check if agent made any commits (compare against remote branch for follow-ups, main for new branches)
-    const diffBase = isFollowUp ? `origin/${branchName}` : 'origin/HEAD'
+    const diffBase =
+      isFollowUp && branchExistsOnRemote
+        ? `origin/${branchName}`
+        : 'origin/HEAD'
     const commitCheck = await sandbox.commands.run(
       `git -C /home/user/repo log --oneline ${diffBase}..${branchName} 2>/dev/null | head -1`
     )
     if (!commitCheck.stdout.trim()) {
-      if (isFollowUp) {
+      if (isFollowUp && branchExistsOnRemote) {
         // Follow-up with no new changes — work was already done
         const existingPr = await prisma.pullRequest.findFirst({
           where: { taskId, state: 'open' },
@@ -430,7 +437,7 @@ ${taskSpec}
     let prUrl: string
     let prNumber: number
 
-    if (isFollowUp && task.pullRequests[0]) {
+    if (isFollowUp && branchExistsOnRemote && task.pullRequests[0]) {
       // Follow-up: PR already exists, just push updates the PR automatically
       await pushAgentEvent(taskId, {
         type: 'agent:progress',
@@ -507,6 +514,12 @@ ${taskSpec}
       type: 'agent:done',
       prUrl,
       prNumber,
+    })
+
+    // Push task update so sidebar refreshes PR/branch/status
+    await pushTaskEvent(taskId, {
+      type: 'task:updated',
+      fields: ['status', 'agentStatus', 'pullRequests', 'branches'],
     })
 
     // Notify reviewer that task is ready for review
