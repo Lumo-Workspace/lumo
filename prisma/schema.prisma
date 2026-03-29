@@ -55,14 +55,20 @@ enum NotificationType {
   TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer for confirmation
 }
 
-enum AssigneeType {
-  human
-  agent
-}
-
 enum CommentType {
   user
   agent
+}
+
+enum ActorType {
+  HUMAN
+  AGENT
+}
+
+enum AgentType {
+  CODING
+  REVIEW
+  PLANNER
 }
 
 // ─── Workspace ──────────────────────────────────────────────────────────────
@@ -83,6 +89,8 @@ model Workspace {
   githubIntegrations GitHubIntegration[]
   pullRequests       PullRequest[]
   slackIntegration   SlackIntegration?
+  actors             Actor[]
+  agentProfiles      AgentProfile[]
 
   @@map("workspaces")
 }
@@ -134,18 +142,55 @@ model WorkspaceMember {
   teams                  TeamMember[]
   createdProjects        Project[]    @relation("ProjectCreator")
   defaultReviewerFor     Project[]    @relation("ProjectDefaultReviewer")
-  assignedTasks          Task[]       @relation("TaskAssignee")
-  reviewerTasks          Task[]       @relation("TaskReviewer")
   ownedViews             View[]       @relation("ViewOwner")
   createdViews           View[]       @relation("ViewCreator")
   sharedViews            ViewMember[]
   sentInvites            WorkspaceInvite[]
   githubIntegrations     GitHubIntegration[]
   slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
+  actor                  Actor?
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
   @@map("workspace_members")
+}
+
+// ─── Agent Profiles ─────────────────────────────────────────────────────────
+
+model AgentProfile {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String    // "Coding Agent"
+  type        AgentType
+  avatarColor String    @default("#6366f1")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     Actor?
+
+  @@unique([workspaceId, type])
+  @@map("agent_profiles")
+}
+
+model Actor {
+  id          String    @id @default(cuid())
+  workspaceId String
+  type        ActorType
+  memberId    String?   @unique
+  agentId     String?   @unique
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  agent     AgentProfile?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  assignedTasks  Task[]         @relation("TaskAssignee")
+  reviewerTasks  Task[]         @relation("TaskReviewer")
+  comments       Comment[]      @relation("CommentAuthor")
+  activities     TaskActivity[]
+
+  @@index([workspaceId])
+  @@map("actors")
 }
 
 // ─── Project ────────────────────────────────────────────────────────────────
@@ -197,47 +242,47 @@ model ProjectRepository {
 // ─── Task (self-referencing tree) ───────────────────────────────────────────
 
 model Task {
-  id             String       @id @default(cuid())
-  projectId      String
-  teamId         String
-  number         Int
-  parentTaskId   String?
-  assigneeId     String?
-  reviewerId     String?
-  repositoryId   String?      // optional link to ProjectRepository
-  title          String
-  description    String?
-  spec           String?
-  status         TaskStatus   @default(TODO)
-  priority       TaskPriority @default(MEDIUM)
-  order          Float        @default(0)
-  agentStatus    String?
-  agentError     String?
-  sandboxId      String?
-  assigneeType   AssigneeType @default(human)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  projectId        String
+  teamId           String
+  number           Int
+  parentTaskId     String?
+  assigneeActorId  String?
+  reviewerActorId  String?
+  repositoryId     String?      // optional link to ProjectRepository
+  title            String
+  description      String?
+  spec             String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(MEDIUM)
+  order            Float        @default(0)
+  agentStatus      String?
+  agentError       String?
+  sandboxId        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  project    Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team       Team                 @relation(fields: [teamId], references: [id])
-  repository ProjectRepository?  @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
-  parent     Task?                @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  children   Task[]               @relation("TaskChildren")
-  assignee   WorkspaceMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  reviewer   WorkspaceMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team       Team                @relation(fields: [teamId], references: [id])
+  repository ProjectRepository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  parent     Task?               @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children   Task[]              @relation("TaskChildren")
+  assignee   Actor?              @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  reviewer   Actor?              @relation("TaskReviewer", fields: [reviewerActorId], references: [id], onDelete: SetNull)
 
   viewTaskOrders ViewTaskOrder[]
   comments       Comment[]
   pullRequests   PullRequest[]
   branches       TaskBranch[]
   clarifies      AgentClarify[]
+  activities     TaskActivity[]
 
   @@unique([teamId, number])
   @@index([projectId])
   @@index([teamId])
   @@index([parentTaskId])
-  @@index([assigneeId])
-  @@index([reviewerId])
+  @@index([assigneeActorId])
+  @@index([reviewerActorId])
   @@index([repositoryId])
   @@map("tasks")
 }
@@ -310,24 +355,41 @@ model ViewTaskOrder {
 // ─── Comments ────────────────────────────────────────────────────────────────
 
 model Comment {
-  id              String   @id @default(cuid())
+  id              String      @id @default(cuid())
   taskId          String
-  authorId        String   // Clerk userId
-  body            String   // HTML; @mentions encoded as data-id attributes
-  parentId        String?  // null = top-level; non-null = reply (max 1 level deep)
-  quotedCommentId String?  // which specific comment this reply is quoting
+  authorActorId   String?
+  body            String      // HTML; @mentions encoded as data-id attributes
+  parentId        String?     // null = top-level; non-null = reply (max 1 level deep)
+  quotedCommentId String?     // which specific comment this reply is quoting
   type            CommentType @default(user)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author        Actor?    @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
   parent        Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies       Comment[] @relation("CommentReplies")
 
   @@index([taskId])
   @@index([parentId])
+  @@index([authorActorId])
   @@map("comments")
+}
+
+model TaskActivity {
+  id        String   @id @default(cuid())
+  taskId    String
+  actorId   String?
+  type      String   // "status_changed" | "assignee_changed" | "comment_added" etc.
+  payload   Json?    // { from: "TODO", to: "IN_PROGRESS" }
+  createdAt DateTime @default(now())
+
+  task  Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor Actor? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@map("task_activities")
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────
