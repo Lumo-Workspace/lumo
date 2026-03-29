@@ -60,6 +60,11 @@ enum AssigneeType {
   agent
 }
 
+enum CommentType {
+  user
+  agent
+}
+
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
@@ -311,6 +316,7 @@ model Comment {
   body            String   // HTML; @mentions encoded as data-id attributes
   parentId        String?  // null = top-level; non-null = reply (max 1 level deep)
   quotedCommentId String?  // which specific comment this reply is quoting
+  type            CommentType @default(user)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

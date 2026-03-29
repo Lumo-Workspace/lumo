@@ -7,86 +7,6 @@ import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 
 type Params = { params: Promise<{ id: string }> }
 
-// ── @agent spec helpers ────────────────────────────────────────────────────
-
-/** Strip HTML tags, collapse whitespace → plain text */
-function htmlToText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-/**
- * Return the plain-text instruction the user typed after the @agent chip.
- * Returns '' if nothing was written after the mention.
- */
-function extractAgentInstruction(commentHtml: string): string {
-  const text = htmlToText(commentHtml)
-  const idx = text.toLowerCase().indexOf('@agent')
-  if (idx === -1) return ''
-  return text.slice(idx + '@agent'.length).trim()
-}
-
-/**
- * Build the new task spec by merging the instruction into the existing content.
- * Returns null when there is no instruction and the spec should be left alone.
- *
- * Rules:
- *  – instruction only → instruction becomes the whole spec
- *  – existing spec    → keep spec, append instruction section
- *  – no spec but description → description (plain text) + instruction
- *  – already ran (has branch/PR) → append context note so Agent continues on
- *    the existing branch instead of starting from scratch
- *  – multiple @agent calls → each appends; history is never overwritten
- */
-async function buildAgentSpec(
-  taskId: string,
-  instruction: string
-): Promise<string | null> {
-  if (!instruction) return null // no instruction → don't touch spec
-
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: {
-      spec: true,
-      description: true,
-      branches: { select: { branchName: true }, take: 1 },
-      pullRequests: {
-        where: { state: 'open' },
-        select: { number: true },
-        take: 1,
-      },
-    },
-  })
-  if (!task) return instruction
-
-  const date = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-
-  // Context hint when the agent has already done work on this task
-  let contextNote = ''
-  if (task.branches.length > 0 || task.pullRequests.length > 0) {
-    const parts: string[] = []
-    if (task.branches[0])
-      parts.push(`branch \`${task.branches[0].branchName}\``)
-    if (task.pullRequests[0]) parts.push(`PR #${task.pullRequests[0].number}`)
-    contextNote = `\n> Already has ${parts.join(' and ')}. Build on the existing code — do not start from scratch.`
-  }
-
-  const section = `\n\n---\n\n**Follow-up instruction (${date}):**\n\n${instruction}${contextNote}`
-
-  if (task.spec) {
-    return task.spec + section
-  }
-
-  if (task.description) {
-    return htmlToText(task.description) + section
-  }
-
-  // No spec, no description — the instruction itself is the spec
-  return instruction + (contextNote ? `\n${contextNote}` : '')
-}
-
 /**
  * GET /api/tasks/[id]/comments
  * Returns only top-level comments (parentId = null), each with their replies
@@ -204,27 +124,18 @@ export async function POST(request: NextRequest, { params }: Params) {
       },
     })
 
-    // Handle @agent mention — merge instruction into spec, assign, then run
+    // Handle @agent mention — delegate to orchestrator
     if (commentBody.includes('data-id="__agent__"')) {
+      const { handleAgentComment } = await import('@/lib/agent/comment-handler')
       waitUntil(
-        (async () => {
-          const instruction = extractAgentInstruction(commentBody)
-          const updatedSpec = await buildAgentSpec(id, instruction)
-
-          await prisma.task.update({
-            where: { id },
-            data: {
-              assigneeType: 'agent',
-              assigneeId: null,
-              ...(updatedSpec !== null ? { spec: updatedSpec } : {}),
-            },
-          })
-
-          const { executeAgent } = await import('@/lib/agent/execute')
-          await executeAgent({ taskId: id, actorClerkId: userId }).catch(err =>
-            console.error('[comment/@agent] executeAgent failed:', err)
-          )
-        })()
+        handleAgentComment({
+          taskId: id,
+          commentId: comment.id,
+          commentBody,
+          actorClerkId: userId,
+        }).catch(err =>
+          console.error('[comment/@agent] handleAgentComment failed:', err)
+        )
       )
     }
 

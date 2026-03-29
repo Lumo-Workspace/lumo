@@ -87,15 +87,26 @@ async function markFailed(taskId: string, code: string, message: string) {
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
 
+export type AgentResult =
+  | { outcome: 'done'; prUrl: string; prNumber: number }
+  | { outcome: 'failed'; error: string }
+  | { outcome: 'clarify'; question: string }
+  | { outcome: 'no_changes' }
+  | { outcome: 'spec_review' }
+
 export interface ExecuteAgentOptions {
   taskId: string
   actorClerkId: string
+  actorName?: string
+  actorEmail?: string
 }
 
 export async function executeAgent({
   taskId,
+  actorName,
+  actorEmail,
   // actorClerkId reserved for audit logging
-}: ExecuteAgentOptions): Promise<void> {
+}: ExecuteAgentOptions): Promise<AgentResult> {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: {
@@ -131,7 +142,7 @@ export async function executeAgent({
       },
       reviewerId: task.reviewerId,
     })
-    return
+    return { outcome: 'spec_review' } as AgentResult
   }
 
   // Resolve which repo to use: task-level → project default repo → legacy githubRepo
@@ -166,29 +177,33 @@ export async function executeAgent({
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
 
-  const sandbox = await Sandbox.create({
-    timeoutMs: SANDBOX_TIMEOUT_MS,
-  }).catch(err => {
-    throw new AgentError(
-      'SANDBOX_CREATE_FAILED',
-      'Failed to create sandbox',
-      err
-    )
-  })
-
+  let sandbox: Sandbox | undefined
   let timedOut = false
 
   const timeoutHandle = setTimeout(async () => {
     timedOut = true
     await markFailed(taskId, 'TIMEOUT', 'Agent timed out after 28 minutes')
-    await sandbox.kill().catch(() => {})
+    if (sandbox) await sandbox.kill().catch(() => {})
   }, AGENT_TIMEOUT_MS)
 
   try {
+    sandbox = await Sandbox.create({
+      timeoutMs: SANDBOX_TIMEOUT_MS,
+    }).catch(err => {
+      throw new AgentError(
+        'SANDBOX_CREATE_FAILED',
+        'Failed to create sandbox',
+        err
+      )
+    })
+
     await prisma.task.update({
       where: { id: taskId },
       data: { sandboxId: sandbox.sandboxId },
     })
+
+    const gitName = actorName ? `${actorName} (via Lumo Agent)` : 'Lumo Agent'
+    const gitEmail = actorEmail || 'agent@uselumo.ai'
 
     // Clone repo
     await pushAgentEvent(taskId, {
@@ -198,8 +213,8 @@ export async function executeAgent({
     const clone = await sandbox.commands
       .run(
         `git clone https://oauth2:${githubToken}@github.com/${repoOwner}/${repoName} /home/user/repo` +
-          ` && git -C /home/user/repo config user.email "agent@uselumo.ai"` +
-          ` && git -C /home/user/repo config user.name "Lumo Agent"`,
+          ` && git -C /home/user/repo config user.email "${gitEmail}"` +
+          ` && git -C /home/user/repo config user.name "${gitName}"`,
         { timeoutMs: 2 * 60 * 1000 }
       )
       .catch(err => {
@@ -305,7 +320,7 @@ ${taskSpec}
       monitorForClarify(sandbox, monitorTask).then(() => CLARIFY_SENTINEL),
     ])
 
-    if (timedOut) return
+    if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
 
     if (winner === CLARIFY_SENTINEL) {
       const clarify = await prisma.agentClarify.findFirst({
@@ -317,7 +332,7 @@ ${taskSpec}
         question: clarify?.question ?? '',
         context: clarify?.context ?? null,
       })
-      return
+      return { outcome: 'clarify', question: clarify?.question ?? '' }
     }
 
     const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
@@ -342,8 +357,7 @@ ${taskSpec}
         error:
           'Agent made no changes. Please add a spec or description to the task.',
       })
-      await sandbox.kill().catch(() => {})
-      return
+      return { outcome: 'no_changes' }
     }
 
     // Push branch
@@ -414,9 +428,9 @@ ${taskSpec}
       actorId: null, // agent action, no Clerk actor
     }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
 
-    await sandbox.kill().catch(() => {})
+    return { outcome: 'done', prUrl: pr.html_url, prNumber: pr.number }
   } catch (error) {
-    if (timedOut) return
+    if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
 
     const current = await prisma.task.findUnique({
       where: { id: taskId },
@@ -426,19 +440,19 @@ ${taskSpec}
       current?.agentStatus === 'paused' ||
       current?.agentStatus === 'cancelled'
     ) {
-      return
+      return { outcome: 'failed', error: `Agent ${current.agentStatus}` }
     }
 
     if (error instanceof AgentError) {
       await markFailed(taskId, error.code, error.message)
-    } else {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      await markFailed(taskId, 'UNKNOWN_ERROR', message)
+      return { outcome: 'failed', error: userFriendlyError(error.code) }
     }
 
-    await sandbox.kill().catch(() => {})
-    throw error
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    await markFailed(taskId, 'UNKNOWN_ERROR', message)
+    return { outcome: 'failed', error: userFriendlyError('UNKNOWN_ERROR') }
   } finally {
     clearTimeout(timeoutHandle)
+    if (sandbox) await sandbox.kill().catch(() => {})
   }
 }
