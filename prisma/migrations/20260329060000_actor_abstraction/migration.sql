@@ -70,13 +70,18 @@ SET "assigneeActorId" = a."id"
 FROM "actors" a
 WHERE a."memberId" = t."assigneeId" AND t."assigneeId" IS NOT NULL;
 
--- Migrate agent-assigned tasks
-UPDATE "tasks" t
-SET "assigneeActorId" = a."id"
-FROM "actors" a
-JOIN "agent_profiles" ap ON a."agentId" = ap."id" AND ap."type" = 'CODING'
-JOIN "projects" p ON t."projectId" = p."id"
-WHERE t."assigneeType" = 'agent' AND a."workspaceId" = p."workspaceId";
+-- Migrate agent-assigned tasks (subquery to avoid target table ref in FROM JOIN)
+UPDATE "tasks"
+SET "assigneeActorId" = sub."actorId"
+FROM (
+  SELECT t."id" AS task_id, a."id" AS "actorId"
+  FROM "tasks" t
+  JOIN "projects" p ON t."projectId" = p."id"
+  JOIN "actors" a ON a."workspaceId" = p."workspaceId"
+  JOIN "agent_profiles" ap ON a."agentId" = ap."id" AND ap."type" = 'CODING'
+  WHERE t."assigneeType" = 'agent'
+) sub
+WHERE "tasks"."id" = sub.task_id;
 
 -- Migrate task.reviewerId → reviewerActorId
 UPDATE "tasks" t
@@ -107,14 +112,19 @@ SET "authorActorId" = a."id"
 FROM "actors" a
 WHERE a."memberId" = c."authorId" AND c."authorId" IS NOT NULL;
 
--- Agent comments: map to workspace's agent actor
-UPDATE "comments" c
-SET "authorActorId" = a."id"
-FROM "tasks" t
-JOIN "projects" p ON t."projectId" = p."id"
-JOIN "actors" a ON a."workspaceId" = p."workspaceId"
-JOIN "agent_profiles" ap ON a."agentId" = ap."id" AND ap."type" = 'CODING'
-WHERE c."taskId" = t."id" AND c."type" = 'agent' AND c."authorActorId" IS NULL;
+-- Agent comments: map to workspace's agent actor (subquery to avoid target table ref)
+UPDATE "comments"
+SET "authorActorId" = sub."actorId"
+FROM (
+  SELECT c."id" AS comment_id, a."id" AS "actorId"
+  FROM "comments" c
+  JOIN "tasks" t ON c."taskId" = t."id"
+  JOIN "projects" p ON t."projectId" = p."id"
+  JOIN "actors" a ON a."workspaceId" = p."workspaceId"
+  JOIN "agent_profiles" ap ON a."agentId" = ap."id" AND ap."type" = 'CODING'
+  WHERE c."type" = 'agent' AND c."authorActorId" IS NULL
+) sub
+WHERE "comments"."id" = sub.comment_id;
 
 ALTER TABLE "comments" DROP CONSTRAINT IF EXISTS "comments_authorId_fkey";
 DROP INDEX IF EXISTS "comments_authorId_idx";

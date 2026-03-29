@@ -21,6 +21,8 @@ export function useMembers() {
     // Seed from cache immediately for instant display
     const cached = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
     if (cached) setMembers(cached)
+    const cachedAgents = readCache<AgentActor[]>(CACHE_KEY.agentActors)
+    if (cachedAgents) setAgentActors(cachedAgents)
   }, [])
 
   // Always re-fetches (stale-while-revalidate) so cache never goes stale
@@ -38,6 +40,7 @@ export function useMembers() {
       writeCache(CACHE_KEY.members, data.members)
       if (data.agentActors) {
         setAgentActors(data.agentActors)
+        writeCache(CACHE_KEY.agentActors, data.agentActors)
       }
     } catch {
       // Non-critical — assignee picker keeps current list

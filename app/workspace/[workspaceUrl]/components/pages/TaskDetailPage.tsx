@@ -188,7 +188,12 @@ export function TaskDetailPage({
   )
   const [agentActors, setAgentActors] = useState<
     { actorId: string; name: string; avatarColor: string }[]
-  >([])
+  >(
+    () =>
+      readCache<{ actorId: string; name: string; avatarColor: string }[]>(
+        CACHE_KEY.agentActors
+      ) ?? []
+  )
   const [projects, setProjects] = useState<ApiProject[]>(
     () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
   )
@@ -260,6 +265,7 @@ export function TaskDetailPage({
         }
         if (membersData.agentActors) {
           setAgentActors(membersData.agentActors)
+          writeCache(CACHE_KEY.agentActors, membersData.agentActors)
         }
         const freshProjects: ApiProject[] = projectsData.projects ?? []
         if (freshProjects.length > 0) {
@@ -1466,6 +1472,7 @@ export function TaskDetailPage({
                             m.actorId !== null
                         )}
                         agentActors={agentActors}
+                        assignee={task.assignee}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />
                     ),
