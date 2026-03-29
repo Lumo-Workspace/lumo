@@ -287,11 +287,25 @@ function CodingAgentPanelInner({
     setRunning(true)
     setLogs([])
     try {
-      await fetch('/api/agent/execute', {
+      const res = await fetch('/api/agent/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: task.id }),
       })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: 'Request failed' }))
+        setStatus('FAILED')
+        onTaskUpdate?.({ agentStatus: 'FAILED', agentError: data.error })
+        setLogs(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            type: 'agent:failed',
+            message: `Failed to start: ${data.error}`,
+          },
+        ])
+        return
+      }
       setStatus('RUNNING')
       onTaskUpdate?.({ agentStatus: 'RUNNING' })
     } finally {
@@ -370,8 +384,8 @@ function CodingAgentPanelInner({
         </Button>
       )}
 
-      {/* Live logs */}
-      {isRunning && logs.length > 0 && (
+      {/* Logs — visible while running and after completion */}
+      {logs.length > 0 && (
         <div className='rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 max-h-40 overflow-y-auto p-2 space-y-1'>
           {logs.map(log => (
             <div
