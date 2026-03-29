@@ -6,6 +6,7 @@ import { updateTaskSchema } from '@/lib/validation/schemas'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
+import { getGithubInstallationToken } from '@/lib/github/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -120,6 +121,12 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
+    // Fire-and-forget: sync PR status from GitHub if task has open PRs
+    const openPrs = task.pullRequests.filter(pr => pr.state === 'open')
+    if (openPrs.length > 0) {
+      waitUntil(syncPullRequestStatus(task.id, openPrs))
+    }
+
     return NextResponse.json({
       task: { ...task, teamIdentifier: task.team.identifier },
     })
@@ -129,6 +136,73 @@ export async function GET(_request: NextRequest, { params }: Params) {
       { error: 'Internal Server Error' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Sync PR state from GitHub API for any PRs still marked 'open' in DB.
+ * Runs in background (waitUntil) so it doesn't block the response.
+ */
+async function syncPullRequestStatus(
+  taskId: string,
+  openPrs: { id: string; number: number; url: string; state: string }[]
+): Promise<void> {
+  try {
+    const token = await getGithubInstallationToken()
+
+    for (const pr of openPrs) {
+      // Extract owner/repo from PR URL: https://github.com/owner/repo/pull/N
+      const match = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)
+      if (!match) continue
+      const repo = match[1]
+
+      const res = await fetch(
+        `https://api.github.com/repos/${repo}/pulls/${pr.number}`,
+        {
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }
+      )
+      if (!res.ok) continue
+
+      const ghPr = (await res.json()) as {
+        state: string
+        merged: boolean
+        merged_at: string | null
+        closed_at: string | null
+        draft: boolean
+      }
+
+      const newState = ghPr.merged
+        ? 'merged'
+        : ghPr.state === 'closed'
+          ? 'closed'
+          : 'open'
+
+      if (newState === pr.state) continue
+
+      await prisma.pullRequest.update({
+        where: { id: pr.id },
+        data: {
+          state: newState,
+          mergedAt: ghPr.merged_at ? new Date(ghPr.merged_at) : null,
+          closedAt: ghPr.closed_at ? new Date(ghPr.closed_at) : null,
+          isDraft: ghPr.draft,
+        },
+      })
+
+      // If PR was merged, mark task as DONE
+      if (newState === 'merged') {
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { status: 'DONE' },
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[sync-pr] Failed to sync PR status:', err)
   }
 }
 
