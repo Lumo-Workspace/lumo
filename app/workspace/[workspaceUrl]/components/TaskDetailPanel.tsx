@@ -611,6 +611,7 @@ export function TaskDetailPanel({
             onChange={v => handlePatch({ assigneeActorId: v })}
             members={membersWithActorId}
             agentActors={agentActors}
+            assignee={task.assignee}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
           <SeparatorDot />
