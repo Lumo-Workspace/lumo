@@ -104,12 +104,14 @@ function CommentEditor({
   clearRef,
   members,
   tasks,
+  agentActors,
 }: {
   onCommit: (html: string | null) => void
   onSubmit: () => void
   clearRef: React.MutableRefObject<(() => void) | null>
   members?: WorkspaceMemberInfo[]
   tasks?: ApiTask[]
+  agentActors?: { actorId: string; name: string; avatarColor: string }[]
 }) {
   const [key, setKey] = useState(0)
 
@@ -136,6 +138,7 @@ function CommentEditor({
         placeholder='Add a comment…'
         {...(members ? { members } : {})}
         {...(tasks ? { tasks } : {})}
+        {...(agentActors ? { agentActors } : {})}
       />
     </div>
   )
@@ -610,7 +613,7 @@ export function TaskDetailPanel({
             value={task.assigneeActorId ?? null}
             onChange={v => handlePatch({ assigneeActorId: v })}
             members={membersWithActorId}
-            agentActors={agentActors}
+            agentActors={agentActors ?? []}
             assignee={task.assignee}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
@@ -792,8 +795,13 @@ export function TaskDetailPanel({
               const author = isAgentComment
                 ? null
                 : members.find(m => m.actorId === comment.authorActorId)
+              const commentAgent = isAgentComment
+                ? (agentActors?.find(
+                    a => a.actorId === comment.authorActorId
+                  ) ?? agentActors?.[0])
+                : null
               const name = isAgentComment
-                ? 'Coding Agent'
+                ? (commentAgent?.name ?? 'Coding Agent')
                 : (author?.name ?? 'Unknown')
               const initials = isAgentComment
                 ? 'CA'
@@ -873,6 +881,7 @@ export function TaskDetailPanel({
                               placeholder='Edit comment…'
                               members={mentionableMembers}
                               tasks={tasks}
+                              agentActors={agentActors ?? []}
                             />
                           </div>
                           <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -997,8 +1006,13 @@ export function TaskDetailPanel({
                         const rAuthor = rIsAgent
                           ? null
                           : members.find(m => m.actorId === reply.authorActorId)
+                        const rReplyAgent = rIsAgent
+                          ? (agentActors?.find(
+                              a => a.actorId === reply.authorActorId
+                            ) ?? agentActors?.[0])
+                          : null
                         const rName = rIsAgent
-                          ? 'Coding Agent'
+                          ? (rReplyAgent?.name ?? 'Coding Agent')
                           : (rAuthor?.name ?? 'Unknown')
                         const rInitials = rIsAgent
                           ? 'CA'
@@ -1080,6 +1094,7 @@ export function TaskDetailPanel({
                                       placeholder='Edit reply…'
                                       members={mentionableMembers}
                                       tasks={tasks}
+                                      agentActors={agentActors ?? []}
                                     />
                                   </div>
                                   <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -1304,6 +1319,7 @@ export function TaskDetailPanel({
                           clearRef={clearReplyRef}
                           members={mentionableMembers}
                           tasks={tasks}
+                          agentActors={agentActors ?? []}
                         />
                         <div className='flex items-center justify-between px-2 pb-2'>
                           <button
@@ -1360,6 +1376,7 @@ export function TaskDetailPanel({
               clearRef={clearCommentRef}
               members={mentionableMembers}
               tasks={tasks}
+              agentActors={agentActors ?? []}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button

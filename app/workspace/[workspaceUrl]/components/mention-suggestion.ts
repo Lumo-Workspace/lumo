@@ -17,6 +17,7 @@ export type MentionPopupState = {
 export function buildMentionSuggestion(
   members: WorkspaceMemberInfo[],
   tasks: ApiTask[],
+  agentActors: { actorId: string; name: string }[],
   onOpen: (state: MentionPopupState) => void,
   onUpdate: (state: MentionPopupState) => void,
   onClose: () => void,
@@ -26,8 +27,9 @@ export function buildMentionSuggestion(
     items: ({ query }): MentionItem[] => {
       const q = query.toLowerCase()
 
-      const agentItems: MentionItem[] = 'agent'.includes(q)
-        ? [{ type: 'agent', id: '__agent__', label: 'agent' }]
+      const agentName = agentActors[0]?.name ?? 'Coding Agent'
+      const agentItems: MentionItem[] = agentName.toLowerCase().includes(q)
+        ? [{ type: 'agent', id: '__agent__', label: agentName }]
         : []
 
       const userItems: MentionItem[] = members
