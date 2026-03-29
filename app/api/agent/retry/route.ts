@@ -34,7 +34,17 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
-        project: { select: { workspaceId: true, githubRepo: true } },
+        repositoryId: true,
+        project: {
+          select: {
+            workspaceId: true,
+            repositories: {
+              where: { isDefault: true },
+              select: { fullName: true },
+              take: 1,
+            },
+          },
+        },
       },
     })
 
@@ -48,14 +58,18 @@ export async function POST(req: NextRequest) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (task.agentStatus !== 'failed' && task.agentStatus !== 'cancelled') {
+    if (
+      task.agentStatus !== 'FAILED' &&
+      task.agentStatus !== 'ERROR' &&
+      task.agentStatus !== 'CANCELLED'
+    ) {
       return NextResponse.json(
-        { error: 'Can only retry failed or cancelled tasks' },
+        { error: 'Can only retry failed, errored, or cancelled tasks' },
         { status: 409 }
       )
     }
 
-    if (!task.project.githubRepo) {
+    if (!task.repositoryId && task.project.repositories.length === 0) {
       return NextResponse.json(
         { error: 'No GitHub repo configured for this project' },
         { status: 422 }
@@ -65,7 +79,7 @@ export async function POST(req: NextRequest) {
     // Reset state before re-running
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'idle', agentError: null, sandboxId: null },
+      data: { agentStatus: null, agentError: null, sandboxId: null },
     })
 
     waitUntil(

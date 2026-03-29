@@ -45,6 +45,13 @@ export interface Notification {
 
 // ─── API types ────────────────────────────────────────────────────────────────
 
+export interface ActorInfo {
+  id: string
+  type: 'HUMAN' | 'AGENT'
+  member?: { id: string; clerkId: string } | null
+  agent?: { id: string; name: string; avatarColor: string } | null
+}
+
 export type ApiPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
 
@@ -63,6 +70,7 @@ export interface WorkspaceMemberInfo {
   email: string | null
   imageUrl: string | null
   joinedAt: string
+  actorId: string | null
 }
 
 /** Task assigned to the current user — always has `project` populated */
@@ -85,7 +93,6 @@ export interface ApiProject {
   description: string | null
   isIdea: boolean
   defaultReviewerId: string | null
-  githubRepo?: string | null
   repositories?: ApiRepository[]
   updatedAt: string
   createdAt: string
@@ -101,9 +108,9 @@ export interface ApiTask {
   priority: ApiPriority
   projectId: string
   parentTaskId: string | null
-  assigneeId: string | null
-  assigneeType: 'human' | 'agent'
-  reviewerId: string | null
+  assigneeActorId: string | null
+  reviewerActorId: string | null
+  assignee?: ActorInfo | null
   repositoryId: string | null
   updatedAt: string
   viewOrder: number | null
@@ -140,10 +147,11 @@ export interface ApiTaskBranch {
 export interface ApiComment {
   id: string
   taskId: string
-  authorId: string // Clerk userId
+  authorActorId: string | null // Actor.id — null for system comments
   body: string // HTML
   parentId: string | null
   quotedCommentId: string | null
+  type: 'USER' | 'AGENT'
   createdAt: string
   updatedAt: string
   /** Only present on top-level comments (parentId === null). */
@@ -158,11 +166,15 @@ export interface ApiNotification {
     | 'TASK_SENT_BACK'
     | 'TASK_ASSIGNED'
     | 'TASK_SPEC_READY'
+    | 'AGENT_CLARIFY'
+    | 'AGENT_FAILED'
+    | 'AGENT_DONE'
   read: boolean
   createdAt: string
   taskId: string | null
   commentId: string | null
-  actorId: string | null
+  clarifyId: string | null
+  triggerActorId: string | null
   actor: { name: string; imageUrl: string | null } | null
   task: {
     id: string
@@ -192,15 +204,14 @@ export interface TaskDetail {
     id: string
     name: string
     defaultReviewerId?: string | null
-    githubRepo?: string | null
     repositories?: ApiRepository[]
   }
   parentTaskId: string | null
-  assigneeId: string | null
-  assigneeType: 'human' | 'agent'
-  reviewerId: string | null
+  assigneeActorId: string | null
+  reviewerActorId: string | null
   repositoryId: string | null
-  assignee: { id: string; clerkId: string } | null
+  assignee: ActorInfo | null
+  reviewer: ActorInfo | null
   description: string | null
   updatedAt: string
   number: number

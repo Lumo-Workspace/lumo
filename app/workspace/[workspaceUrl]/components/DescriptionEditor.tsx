@@ -618,6 +618,7 @@ interface DescriptionEditorProps {
   placeholder?: string
   members?: WorkspaceMemberInfo[]
   tasks?: ApiTask[]
+  agentActors?: { actorId: string; name: string }[]
   /** Used as the Blob path segment: documents/{documentId}/… */
   documentId?: string
 }
@@ -721,6 +722,7 @@ export function DescriptionEditor({
   placeholder = 'Add a description…',
   members = [],
   tasks = [],
+  agentActors = [],
   documentId,
 }: DescriptionEditorProps) {
   const isFocusedRef = useRef(false)
@@ -761,6 +763,7 @@ export function DescriptionEditor({
         suggestion: buildMentionSuggestion(
           members,
           tasks,
+          agentActors,
           setMentionPopup,
           setMentionPopup,
           () => setMentionPopup(null),

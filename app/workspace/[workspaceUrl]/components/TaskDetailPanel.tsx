@@ -12,6 +12,7 @@ import {
   GitPullRequest,
   GitBranch,
   Loader2,
+  Bot,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
@@ -103,12 +104,14 @@ function CommentEditor({
   clearRef,
   members,
   tasks,
+  agentActors,
 }: {
   onCommit: (html: string | null) => void
   onSubmit: () => void
   clearRef: React.MutableRefObject<(() => void) | null>
   members?: WorkspaceMemberInfo[]
   tasks?: ApiTask[]
+  agentActors?: { actorId: string; name: string; avatarColor: string }[]
 }) {
   const [key, setKey] = useState(0)
 
@@ -135,6 +138,7 @@ function CommentEditor({
         placeholder='Add a comment…'
         {...(members ? { members } : {})}
         {...(tasks ? { tasks } : {})}
+        {...(agentActors ? { agentActors } : {})}
       />
     </div>
   )
@@ -148,14 +152,17 @@ export interface TaskDetailPanelProps {
   liveTask?: ApiTask
   cachedDescription?: string | null | undefined
   members: WorkspaceMemberInfo[]
+  agentActors?:
+    | { actorId: string; name: string; avatarColor: string }[]
+    | undefined
   projects: ApiProject[]
   onUpdate: (
     taskId: string,
     data: Partial<{
       title: string
       status: ApiStatus
-      assigneeId: string | null
-      reviewerId: string | null
+      assigneeActorId: string | null
+      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority
@@ -172,6 +179,7 @@ export function TaskDetailPanel({
   liveTask,
   cachedDescription,
   members,
+  agentActors,
   projects,
   onUpdate,
   onDescriptionLoaded,
@@ -188,13 +196,10 @@ export function TaskDetailPanel({
         ? initialTask.project
         : { id: initialTask.projectId, name: '' },
     parentTaskId: initialTask.parentTaskId,
-    assigneeId: initialTask.assigneeId,
-    assigneeType:
-      'assigneeType' in initialTask
-        ? (initialTask.assigneeType ?? 'human')
-        : 'human',
-    reviewerId: initialTask.reviewerId,
-    assignee: null,
+    assigneeActorId: initialTask.assigneeActorId,
+    reviewerActorId: initialTask.reviewerActorId,
+    assignee: initialTask.assignee ?? null,
+    reviewer: null,
     description: cachedDescription ?? null,
     updatedAt: initialTask.updatedAt,
     number: initialTask.number,
@@ -206,6 +211,16 @@ export function TaskDetailPanel({
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
+  // Members with actorId (non-null only) for AssigneeSelect / ReviewerSelect
+  const membersWithActorId = useMemo(
+    () =>
+      members.filter(
+        (m): m is WorkspaceMemberInfo & { actorId: string } =>
+          m.actorId !== null
+      ),
+    [members]
+  )
+
   // ─── Sync external updates (e.g. drag-and-drop status change) ───────────────
   useEffect(() => {
     if (!liveTask) return
@@ -214,8 +229,8 @@ export function TaskDetailPanel({
         prev.title === liveTask.title &&
         prev.status === liveTask.status &&
         prev.priority === liveTask.priority &&
-        prev.assigneeId === liveTask.assigneeId &&
-        prev.reviewerId === liveTask.reviewerId &&
+        prev.assigneeActorId === liveTask.assigneeActorId &&
+        prev.reviewerActorId === liveTask.reviewerActorId &&
         prev.projectId === liveTask.projectId
       )
         return prev
@@ -224,8 +239,8 @@ export function TaskDetailPanel({
         title: liveTask.title,
         status: liveTask.status,
         priority: liveTask.priority,
-        assigneeId: liveTask.assigneeId,
-        reviewerId: liveTask.reviewerId,
+        assigneeActorId: liveTask.assigneeActorId,
+        reviewerActorId: liveTask.reviewerActorId,
         projectId: liveTask.projectId,
       }
     })
@@ -293,7 +308,9 @@ export function TaskDetailPanel({
             ...prev,
             description: t.description,
             project: t.project,
-            reviewerId: t.reviewerId,
+            reviewerActorId: t.reviewerActorId,
+            assignee: t.assignee,
+            reviewer: t.reviewer,
             number: t.number,
             teamIdentifier: t.teamIdentifier,
             pullRequests: t.pullRequests ?? [],
@@ -321,9 +338,8 @@ export function TaskDetailPanel({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        assigneeType: 'human' | 'agent'
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -357,6 +373,12 @@ export function TaskDetailPanel({
     [task.description, task.id, handlePatch, onDescriptionLoaded]
   )
 
+  // Derive current member for author comparisons
+  const currentMember = useMemo(
+    () => members.find(m => m.clerkId === user?.id),
+    [members, user?.id]
+  )
+
   const submitComment = useCallback(async () => {
     const body = commentBody?.trim()
     if (!body || submitting) return
@@ -366,10 +388,11 @@ export function TaskDetailPanel({
     const optimistic: ApiComment = {
       id: tempId,
       taskId: task.id,
-      authorId: user?.id ?? '',
+      authorActorId: currentMember?.actorId ?? null,
       body,
       parentId: null,
       quotedCommentId: null,
+      type: 'USER',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -394,7 +417,7 @@ export function TaskDetailPanel({
     } finally {
       setSubmitting(false)
     }
-  }, [commentBody, submitting, task.id, user?.id])
+  }, [commentBody, submitting, task.id, currentMember?.actorId])
 
   // Helper: apply a transform to any comment in the 2-level tree.
   // transform returns the updated comment or null to remove it.
@@ -444,10 +467,11 @@ export function TaskDetailPanel({
       const optimistic: ApiComment = {
         id: tempId,
         taskId: task.id,
-        authorId: user?.id ?? '',
+        authorActorId: currentMember?.actorId ?? null,
         body,
         parentId,
         quotedCommentId,
+        type: 'USER',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -487,7 +511,13 @@ export function TaskDetailPanel({
         setSubmittingReply(false)
       }
     },
-    [replyBody, submittingReply, task.id, user?.id, mapCommentTree]
+    [
+      replyBody,
+      submittingReply,
+      task.id,
+      currentMember?.actorId,
+      mapCommentTree,
+    ]
   )
 
   const saveEditComment = useCallback(
@@ -580,25 +610,18 @@ export function TaskDetailPanel({
           />
           <SeparatorDot />
           <AssigneeSelect
-            value={task.assigneeId ?? null}
-            isAgent={task.assigneeType === 'agent'}
-            onChange={v =>
-              handlePatch({
-                assigneeId: v,
-                assigneeType: 'human',
-              })
-            }
-            onAgentSelect={() =>
-              handlePatch({ assigneeId: null, assigneeType: 'agent' })
-            }
-            members={members}
+            value={task.assigneeActorId ?? null}
+            onChange={v => handlePatch({ assigneeActorId: v })}
+            members={membersWithActorId}
+            agentActors={agentActors ?? []}
+            assignee={task.assignee}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
           <SeparatorDot />
           <ReviewerSelect
-            value={task.reviewerId ?? null}
-            onChange={v => handlePatch({ reviewerId: v })}
-            members={members}
+            value={task.reviewerActorId ?? null}
+            onChange={v => handlePatch({ reviewerActorId: v })}
+            members={membersWithActorId}
             inheritedId={task.project.defaultReviewerId ?? null}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
@@ -700,12 +723,12 @@ export function TaskDetailPanel({
           )}
         </div>
 
-        {task.assigneeType === 'agent' && (
+        {task.assignee?.type === 'AGENT' && (
           <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
             <CodingAgentPanel
               task={task}
               onTaskUpdate={updates =>
-                setTask(prev => ({ ...prev, ...updates }))
+                setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
               }
             />
           </div>
@@ -718,7 +741,11 @@ export function TaskDetailPanel({
           identifier={`${task.teamIdentifier}-${task.number}`}
           title={task.title}
           projectId={task.projectId}
-          defaultRepo={task.project.githubRepo}
+          defaultRepo={
+            task.project.repositories?.find(r => r.isDefault)?.fullName ??
+            task.project.repositories?.[0]?.fullName ??
+            null
+          }
           workspaceUrl={workspaceUrl}
           onBranchCreated={branch =>
             setTask(prev => ({
@@ -764,15 +791,29 @@ export function TaskDetailPanel({
         ) : (
           <div className='space-y-5'>
             {comments.map(comment => {
-              const author = members.find(m => m.clerkId === comment.authorId)
-              const name = author?.name ?? 'Unknown'
-              const initials = name
-                .split(' ')
-                .map((n: string) => n[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase()
-              const isAuthor = comment.authorId === user?.id
+              const isAgentComment = comment.type === 'AGENT'
+              const author = isAgentComment
+                ? null
+                : members.find(m => m.actorId === comment.authorActorId)
+              const commentAgent = isAgentComment
+                ? (agentActors?.find(
+                    a => a.actorId === comment.authorActorId
+                  ) ?? agentActors?.[0])
+                : null
+              const name = isAgentComment
+                ? (commentAgent?.name ?? 'Coding Agent')
+                : (author?.name ?? 'Unknown')
+              const initials = isAgentComment
+                ? 'CA'
+                : name
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+              const isAuthor =
+                !isAgentComment &&
+                comment.authorActorId === currentMember?.actorId
               const isEditing = editingCommentId === comment.id
               const isDeleting = deletingCommentId === comment.id
               const wasEdited =
@@ -788,12 +829,18 @@ export function TaskDetailPanel({
                     id={`comment-${comment.id}`}
                     className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                   >
-                    <Avatar className='size-7 shrink-0 mt-0.5'>
-                      <AvatarImage src={author?.imageUrl ?? undefined} />
-                      <AvatarFallback className='text-[10px]'>
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
+                    {isAgentComment ? (
+                      <div className='size-7 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                        <Bot className='size-3.5 text-violet-600 dark:text-violet-400' />
+                      </div>
+                    ) : (
+                      <Avatar className='size-7 shrink-0 mt-0.5'>
+                        <AvatarImage src={author?.imageUrl ?? undefined} />
+                        <AvatarFallback className='text-[10px]'>
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
                         <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
@@ -834,6 +881,7 @@ export function TaskDetailPanel({
                               placeholder='Edit comment…'
                               members={mentionableMembers}
                               tasks={tasks}
+                              agentActors={agentActors ?? []}
                             />
                           </div>
                           <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -954,17 +1002,29 @@ export function TaskDetailPanel({
                   {(comment.replies?.length ?? 0) > 0 && (
                     <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                       {comment.replies!.map(reply => {
-                        const rAuthor = members.find(
-                          m => m.clerkId === reply.authorId
-                        )
-                        const rName = rAuthor?.name ?? 'Unknown'
-                        const rInitials = rName
-                          .split(' ')
-                          .map((n: string) => n[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()
-                        const rIsAuthor = reply.authorId === user?.id
+                        const rIsAgent = reply.type === 'AGENT'
+                        const rAuthor = rIsAgent
+                          ? null
+                          : members.find(m => m.actorId === reply.authorActorId)
+                        const rReplyAgent = rIsAgent
+                          ? (agentActors?.find(
+                              a => a.actorId === reply.authorActorId
+                            ) ?? agentActors?.[0])
+                          : null
+                        const rName = rIsAgent
+                          ? (rReplyAgent?.name ?? 'Coding Agent')
+                          : (rAuthor?.name ?? 'Unknown')
+                        const rInitials = rIsAgent
+                          ? 'CA'
+                          : rName
+                              .split(' ')
+                              .map((n: string) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()
+                        const rIsAuthor =
+                          !rIsAgent &&
+                          reply.authorActorId === currentMember?.actorId
                         const rIsEditing = editingCommentId === reply.id
                         const rIsDeleting = deletingCommentId === reply.id
                         const rWasEdited =
@@ -977,14 +1037,20 @@ export function TaskDetailPanel({
                             id={`comment-${reply.id}`}
                             className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                           >
-                            <Avatar className='size-5 shrink-0 mt-0.5'>
-                              <AvatarImage
-                                src={rAuthor?.imageUrl ?? undefined}
-                              />
-                              <AvatarFallback className='text-[9px]'>
-                                {rInitials}
-                              </AvatarFallback>
-                            </Avatar>
+                            {rIsAgent ? (
+                              <div className='size-5 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                                <Bot className='size-3 text-violet-600 dark:text-violet-400' />
+                              </div>
+                            ) : (
+                              <Avatar className='size-5 shrink-0 mt-0.5'>
+                                <AvatarImage
+                                  src={rAuthor?.imageUrl ?? undefined}
+                                />
+                                <AvatarFallback className='text-[9px]'>
+                                  {rInitials}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
                             <div className='flex-1 min-w-0'>
                               <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
                                 <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
@@ -1028,6 +1094,7 @@ export function TaskDetailPanel({
                                       placeholder='Edit reply…'
                                       members={mentionableMembers}
                                       tasks={tasks}
+                                      agentActors={agentActors ?? []}
                                     />
                                   </div>
                                   <div className='flex justify-end gap-2 px-2 pb-2'>
@@ -1070,7 +1137,7 @@ export function TaskDetailPanel({
                                       )
                                       if (!quoted) return null
                                       const qAuthor = members.find(
-                                        m => m.clerkId === quoted.authorId
+                                        m => m.actorId === quoted.authorActorId
                                       )
                                       const qName = qAuthor?.name ?? 'Unknown'
                                       const qText = (() => {
@@ -1252,6 +1319,7 @@ export function TaskDetailPanel({
                           clearRef={clearReplyRef}
                           members={mentionableMembers}
                           tasks={tasks}
+                          agentActors={agentActors ?? []}
                         />
                         <div className='flex items-center justify-between px-2 pb-2'>
                           <button
@@ -1308,6 +1376,7 @@ export function TaskDetailPanel({
               clearRef={clearCommentRef}
               members={mentionableMembers}
               tasks={tasks}
+              agentActors={agentActors ?? []}
             />
             <div className='flex justify-end px-2 pb-2'>
               <Button

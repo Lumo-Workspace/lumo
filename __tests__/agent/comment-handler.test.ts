@@ -7,7 +7,12 @@ jest.mock('@/lib/db/prisma', () => ({
     workspaceMember: { findFirst: jest.fn() },
     gitHubIntegration: { findUnique: jest.fn() },
     notification: { create: jest.fn() },
+    actor: { findFirst: jest.fn(), findUnique: jest.fn() },
   },
+}))
+jest.mock('@/lib/actor', () => ({
+  getCodingAgentActor: jest.fn().mockResolvedValue('agent-actor-1'),
+  getHumanActorId: jest.fn().mockResolvedValue('human-actor-1'),
 }))
 jest.mock('@/lib/agent/execute', () => ({
   executeAgent: jest.fn(),
@@ -68,7 +73,7 @@ describe('handleAgentComment', () => {
       data: expect.objectContaining({
         taskId: 'task-1',
         parentId: 'comment-1',
-        type: 'agent',
+        type: 'AGENT',
         body: expect.stringContaining('already done'),
       }),
     })
@@ -79,7 +84,7 @@ describe('handleAgentComment', () => {
     mockTaskFindUnique.mockResolvedValue({
       id: 'task-1',
       status: 'IN_PROGRESS',
-      agentStatus: 'running',
+      agentStatus: 'RUNNING',
       sandboxId: 'sandbox-123',
       project: { workspaceId: 'ws-1' },
     })
@@ -107,7 +112,7 @@ describe('handleAgentComment', () => {
     mockTaskFindUnique.mockResolvedValueOnce({
       id: 'task-1',
       status: 'IN_PROGRESS',
-      agentStatus: 'running',
+      agentStatus: 'RUNNING',
       sandboxId: 'sandbox-dead',
       project: { workspaceId: 'ws-1' },
     })
@@ -137,7 +142,7 @@ describe('handleAgentComment', () => {
 
     expect(mockTaskUpdate).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { agentStatus: 'failed', sandboxId: null },
+      data: { agentStatus: 'FAILED', sandboxId: null },
     })
     expect(mockExecuteAgent).toHaveBeenCalled()
   })
@@ -244,20 +249,19 @@ describe('handleAgentComment', () => {
       actorEmail: 'vincent@example.com',
     })
 
-    // Task should be updated with assigneeType
+    // Task should be updated with agent actor as assignee
     expect(mockTaskUpdate).toHaveBeenCalledWith({
       where: { id: 'task-1' },
       data: expect.objectContaining({
-        assigneeType: 'agent',
-        assigneeId: null,
+        assigneeActorId: 'agent-actor-1',
       }),
     })
 
-    // Notification sent
+    // Notification sent with Actor IDs
     expect(mockNotificationCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         type: 'TASK_MENTIONED',
-        recipientId: 'clerk_vincent',
+        recipientActorId: 'human-actor-1',
       }),
     })
   })

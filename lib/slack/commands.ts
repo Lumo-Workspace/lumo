@@ -103,10 +103,9 @@ async function findTaskByIdentifier(identifier: string, workspaceId: string) {
       status: true,
       priority: true,
       projectId: true,
-      assigneeId: true,
-      reviewerId: true,
+      assigneeActorId: true,
+      reviewerActorId: true,
       project: { select: { name: true } },
-      // Workspace is accessed via team → workspace relation
       team: {
         select: { identifier: true, workspace: { select: { slug: true } } },
       },
@@ -214,9 +213,12 @@ export async function handleCommand(
           text: `That user doesn't have a linked Lumo account.`,
         }
 
+      // Resolve target member → Actor for assignment
+      const { getHumanActorId } = await import('@/lib/actor')
+      const targetActorId = await getHumanActorId(targetMember.id)
       await prisma.task.update({
         where: { id: task.id },
-        data: { assigneeId: targetMember.id },
+        data: { assigneeActorId: targetActorId },
       })
       return {
         type: 'text',
@@ -313,10 +315,12 @@ export async function handleCommand(
           text: `Your Slack account is not linked to a Lumo account.`,
         }
 
+      const { getHumanActorId: getActorId } = await import('@/lib/actor')
+      const memberActorId = await getActorId(member.id)
       const tasks = await prisma.task.findMany({
         where: {
           team: { workspaceId },
-          assigneeId: member.id,
+          assigneeActorId: memberActorId,
           status: { notIn: ['DONE'] },
         },
         orderBy: { updatedAt: 'desc' },

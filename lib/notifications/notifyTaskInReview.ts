@@ -5,18 +5,34 @@ import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 /**
  * Fires a TASK_IN_REVIEW notification to the effective reviewer.
  *
- * actorId is a Clerk userId (string) when triggered by a user action,
- * or null when triggered by GitHub webhook (no Clerk actor).
+ * triggerActorId is an Actor.id when triggered by a user action,
+ * or null when triggered by GitHub webhook (no actor).
  */
 export async function notifyTaskInReview(params: {
   workspaceId: string
   taskId: string
-  reviewerId: string | null
-  defaultReviewerId: string | null
-  actorId: string | null
+  reviewerActorId: string | null
+  defaultReviewerActorId: string | null
+  triggerActorId: string | null
 }): Promise<void> {
-  const { workspaceId, taskId, reviewerId, defaultReviewerId, actorId } = params
-  const effectiveReviewerId = reviewerId ?? defaultReviewerId ?? null
+  const {
+    workspaceId,
+    taskId,
+    reviewerActorId,
+    defaultReviewerActorId,
+    triggerActorId,
+  } = params
+  const effectiveActorId = reviewerActorId ?? defaultReviewerActorId ?? null
+
+  // Resolve effective reviewer actor → clerkId
+  let effectiveReviewerClerkId: string | null = null
+  if (effectiveActorId) {
+    const actor = await prisma.actor.findUnique({
+      where: { id: effectiveActorId },
+      select: { member: { select: { id: true, clerkId: true } } },
+    })
+    effectiveReviewerClerkId = actor?.member?.clerkId ?? null
+  }
 
   // Slack: send channel + DM notification for task_in_review
   // (must run before inbox guards — channel notifications fire regardless of reviewer assignment)
@@ -51,14 +67,6 @@ export async function notifyTaskInReview(params: {
         taskForSlack.projectId
       )
     )
-    const effectiveReviewerClerkId = effectiveReviewerId
-      ? ((
-          await prisma.workspaceMember.findUnique({
-            where: { id: effectiveReviewerId },
-            select: { clerkId: true },
-          })
-        )?.clerkId ?? null)
-      : null
     if (effectiveReviewerClerkId) {
       waitUntil(
         sendDMNotification(wsId, effectiveReviewerClerkId, 'task_in_review', {
@@ -72,35 +80,38 @@ export async function notifyTaskInReview(params: {
   }
 
   // Inbox: notify reviewer (or workspace owners if no reviewer assigned)
-  if (effectiveReviewerId) {
-    const reviewer = await prisma.workspaceMember.findUnique({
-      where: { id: effectiveReviewerId },
-      select: { clerkId: true },
-    })
-    if (!reviewer || reviewer.clerkId === actorId) return
+  if (effectiveActorId) {
+    if (effectiveActorId === triggerActorId) return
     await prisma.notification.create({
       data: {
         workspaceId,
-        recipientId: reviewer.clerkId,
+        recipientActorId: effectiveActorId,
         type: 'TASK_IN_REVIEW',
         taskId,
-        actorId,
+        triggerActorId,
       },
     })
   } else {
-    const owners = await prisma.workspaceMember.findMany({
-      where: { workspaceId, role: 'OWNER' },
-      select: { clerkId: true },
+    // Fall back to workspace owners
+    const ownerActors = await prisma.actor.findMany({
+      where: {
+        workspaceId,
+        type: 'HUMAN',
+        member: { role: 'OWNER' },
+      },
+      select: { id: true },
     })
-    const recipients = owners.map(o => o.clerkId).filter(c => c !== actorId)
+    const recipients = ownerActors
+      .map(a => a.id)
+      .filter(actorId => actorId !== triggerActorId)
     if (recipients.length === 0) return
     await prisma.notification.createMany({
-      data: recipients.map(recipientId => ({
+      data: recipients.map(recipientActorId => ({
         workspaceId,
-        recipientId,
+        recipientActorId,
         type: 'TASK_IN_REVIEW' as const,
         taskId,
-        actorId,
+        triggerActorId,
       })),
     })
   }

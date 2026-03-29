@@ -28,3 +28,22 @@ export function resolveAssignee(
   if (!assigneeId) return undefined
   return assigneeId === 'me' ? memberId : assigneeId
 }
+
+/**
+ * Resolve assignee: supports "me" shortcut.
+ * Returns an Actor ID.
+ */
+export async function resolveAssigneeActor(
+  assigneeId: string | undefined,
+  memberId: string
+): Promise<string | undefined> {
+  if (!assigneeId) return undefined
+  const resolvedMemberId = assigneeId === 'me' ? memberId : assigneeId
+
+  const { prisma } = await import('./db.js')
+  const actor = await prisma.actor.findUnique({
+    where: { memberId: resolvedMemberId },
+    select: { id: true },
+  })
+  return actor?.id ?? undefined
+}

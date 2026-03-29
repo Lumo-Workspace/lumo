@@ -3,6 +3,7 @@ import { isSandboxAlive } from './sandbox-health'
 import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
+import { getCodingAgentActor, getHumanActorId } from '@/lib/actor'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -21,9 +22,13 @@ function htmlToText(html: string): string {
 
 export function extractAgentInstruction(commentHtml: string): string {
   const text = htmlToText(commentHtml)
-  const idx = text.toLowerCase().indexOf('@agent')
-  if (idx === -1) return ''
-  return text.slice(idx + '@agent'.length).trim()
+  // Match both "@agent" (legacy) and "@Coding Agent" (current)
+  const patterns = ['@coding agent', '@agent']
+  for (const pattern of patterns) {
+    const idx = text.toLowerCase().indexOf(pattern)
+    if (idx !== -1) return text.slice(idx + pattern.length).trim()
+  }
+  return ''
 }
 
 export async function buildAgentSpec(
@@ -76,16 +81,16 @@ export async function buildAgentSpec(
 async function postAgentReply(params: {
   taskId: string
   parentId: string
-  authorId: string
   body: string
+  agentActorId: string | null
 }): Promise<string> {
   const comment = await prisma.comment.create({
     data: {
       taskId: params.taskId,
-      authorId: params.authorId,
+      authorActorId: params.agentActorId,
       body: params.body,
       parentId: params.parentId,
-      type: 'agent',
+      type: 'AGENT',
     },
   })
   return comment.id
@@ -95,19 +100,19 @@ async function postAgentReply(params: {
 
 async function notifyActor(params: {
   workspaceId: string
-  recipientId: string
+  recipientActorId: string
   taskId: string
   commentId: string
-  actorId: string
+  triggerActorId: string | null
 }): Promise<void> {
   await prisma.notification.create({
     data: {
       workspaceId: params.workspaceId,
-      recipientId: params.recipientId,
+      recipientActorId: params.recipientActorId,
       type: 'TASK_MENTIONED',
       taskId: params.taskId,
       commentId: params.commentId,
-      actorId: params.actorId,
+      triggerActorId: params.triggerActorId,
     },
   })
 }
@@ -143,34 +148,35 @@ export async function handleAgentComment({
   const { name: actorName, email: actorEmail } =
     await getClerkUser(actorClerkId)
   const workspaceId = task.project.workspaceId
+  const agentActorId = await getCodingAgentActor(workspaceId)
 
   // ── Guard: Task is Done ──────────────────────────────────────────────────
   if (task.status === 'DONE') {
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} This task is already done. Reopen it first if you want Agent to make changes.</p>`,
+      agentActorId,
     })
     return
   }
 
   // ── Guard: Agent already running ─────────────────────────────────────────
-  if (task.agentStatus === 'running' && task.sandboxId) {
+  if (task.agentStatus === 'RUNNING' && task.sandboxId) {
     const alive = await isSandboxAlive(task.sandboxId)
     if (alive) {
       await postAgentReply({
         taskId,
         parentId: commentId,
-        authorId: actorClerkId,
         body: `<p>${mentionChip(actorClerkId, actorName)} Agent is already working on this task. Please wait for it to finish.</p>`,
+        agentActorId,
       })
       return
     }
     // Sandbox is dead — clean up stale state and continue
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'failed', sandboxId: null },
+      data: { agentStatus: 'FAILED', sandboxId: null },
     })
   }
 
@@ -184,8 +190,8 @@ export async function handleAgentComment({
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
+      agentActorId,
     })
     return
   }
@@ -199,8 +205,8 @@ export async function handleAgentComment({
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
+      agentActorId,
     })
     return
   }
@@ -209,8 +215,8 @@ export async function handleAgentComment({
   await postAgentReply({
     taskId,
     parentId: commentId,
-    authorId: actorClerkId,
     body: `<p>${mentionChip(actorClerkId, actorName)} Got it. Starting to work on this...</p>`,
+    agentActorId,
   })
 
   // ── Build spec ───────────────────────────────────────────────────────────
@@ -221,8 +227,7 @@ export async function handleAgentComment({
   await prisma.task.update({
     where: { id: taskId },
     data: {
-      assigneeType: 'agent',
-      assigneeId: null,
+      assigneeActorId: agentActorId,
       ...(updatedSpec !== null ? { spec: updatedSpec } : {}),
     },
   })
@@ -271,16 +276,21 @@ export async function handleAgentComment({
   const completionReplyId = await postAgentReply({
     taskId,
     parentId: commentId,
-    authorId: actorClerkId,
     body: replyBody,
+    agentActorId,
   })
 
   // ── Notify actor ─────────────────────────────────────────────────────────
-  await notifyActor({
-    workspaceId,
-    recipientId: actorClerkId,
-    taskId,
-    commentId: completionReplyId,
-    actorId: actorClerkId,
-  }).catch(err => console.error('[comment-handler] notification failed:', err))
+  const actorHumanActorId = await getHumanActorId(member.id)
+  if (actorHumanActorId) {
+    await notifyActor({
+      workspaceId,
+      recipientActorId: actorHumanActorId,
+      taskId,
+      commentId: completionReplyId,
+      triggerActorId: agentActorId,
+    }).catch(err =>
+      console.error('[comment-handler] notification failed:', err)
+    )
+  }
 }

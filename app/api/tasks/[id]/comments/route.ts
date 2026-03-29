@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -84,6 +85,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
+    const authorActorId = await getHumanActorId(memberResult.id)
+    if (!authorActorId) {
+      return NextResponse.json({ error: 'Actor not found' }, { status: 500 })
+    }
+
     const body = await request.json()
     const parsed = createCommentSchema.safeParse(body)
     if (!parsed.success) {
@@ -117,7 +123,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const comment = await prisma.comment.create({
       data: {
         taskId: id,
-        authorId: userId,
+        authorActorId,
         body: commentBody,
         parentId: parentId ?? null,
         quotedCommentId: quotedCommentId ?? null,
@@ -160,7 +166,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       prisma.workspaceMember
         .findMany({
           where: { workspaceId, clerkId: { in: mentionedIds } },
-          select: { clerkId: true },
+          select: { clerkId: true, actor: { select: { id: true } } },
         })
         .then(members => {
           if (members.length === 0) return
@@ -191,14 +197,18 @@ export async function POST(request: NextRequest, { params }: Params) {
               task.projectId
             )
           )
+          const recipientActors = members
+            .map(m => m.actor?.id)
+            .filter((actorId): actorId is string => !!actorId)
+          if (recipientActors.length === 0) return
           return prisma.notification.createMany({
-            data: members.map(m => ({
+            data: recipientActors.map(recipientActorId => ({
               workspaceId,
-              recipientId: m.clerkId,
+              recipientActorId,
               type: 'TASK_MENTIONED' as const,
               taskId: id,
               commentId: comment.id,
-              actorId: userId,
+              triggerActorId: authorActorId,
             })),
           })
         })

@@ -78,7 +78,7 @@ async function createPullRequest({
 async function markFailed(taskId: string, code: string, message: string) {
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'failed', agentError: code, sandboxId: null },
+    data: { agentStatus: 'FAILED', agentError: code, sandboxId: null },
   })
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
@@ -111,12 +111,21 @@ export async function executeAgent({
     where: { id: taskId },
     include: {
       repository: { select: { fullName: true } },
+      branches: {
+        select: { branchName: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+      pullRequests: {
+        where: { state: 'open' },
+        select: { headBranch: true },
+        take: 1,
+      },
       project: {
         select: {
           id: true,
           name: true,
           workspaceId: true,
-          githubRepo: true,
           defaultReviewerId: true,
           repositories: {
             where: { isDefault: true },
@@ -140,16 +149,14 @@ export async function executeAgent({
         workspaceId: task.project.workspaceId,
         defaultReviewerId: task.project.defaultReviewerId,
       },
-      reviewerId: task.reviewerId,
+      reviewerActorId: task.reviewerActorId,
     })
     return { outcome: 'spec_review' } as AgentResult
   }
 
-  // Resolve which repo to use: task-level → project default repo → legacy githubRepo
+  // Resolve which repo to use: task-level → project default repo
   const resolvedRepo =
-    task.repository?.fullName ??
-    task.project.repositories[0]?.fullName ??
-    task.project.githubRepo
+    task.repository?.fullName ?? task.project.repositories[0]?.fullName
 
   if (!resolvedRepo) {
     throw new Error(`Task ${taskId} has no GitHub repo configured`)
@@ -164,16 +171,21 @@ export async function executeAgent({
 
   const [repoOwner, repoName] = resolvedRepo.split('/')
   if (!repoOwner || !repoName) {
-    throw new Error(`Invalid githubRepo format: ${resolvedRepo}`)
+    throw new Error(`Invalid repo format: ${resolvedRepo}`)
   }
 
   const identifier = `LUM-${task.number}`
-  const branchName = `lumo/${identifier}-${slugify(task.title)}`
+  // Reuse existing branch if task already has one (e.g. follow-up @agent comment)
+  const existingBranch =
+    task.pullRequests[0]?.headBranch ?? task.branches[0]?.branchName ?? null
+  const branchName =
+    existingBranch ?? `lumo/${identifier}-${slugify(task.title)}`
+  const isFollowUp = !!existingBranch
   const taskSpec = task.spec ?? task.description ?? task.title
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'running', agentError: null },
+    data: { agentStatus: 'RUNNING', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
 
@@ -237,14 +249,32 @@ export async function executeAgent({
       }
     )
 
-    // Create branch
-    await pushAgentEvent(taskId, {
-      type: 'agent:progress',
-      message: `Creating branch ${branchName}...`,
-    })
-    await sandbox.commands.run(
-      `git -C /home/user/repo checkout -b ${branchName}`
-    )
+    // Checkout branch (reuse existing or create new)
+    if (isFollowUp) {
+      await pushAgentEvent(taskId, {
+        type: 'agent:progress',
+        message: `Checking out existing branch ${branchName}...`,
+      })
+      // Fetch the remote branch and check it out
+      const checkout = await sandbox.commands.run(
+        `git -C /home/user/repo fetch origin ${branchName} && git -C /home/user/repo checkout ${branchName}`,
+        { timeoutMs: 60 * 1000 }
+      )
+      if (checkout.exitCode !== 0) {
+        // Branch may have been deleted on remote — fall back to creating a new one
+        await sandbox.commands.run(
+          `git -C /home/user/repo checkout -b ${branchName}`
+        )
+      }
+    } else {
+      await pushAgentEvent(taskId, {
+        type: 'agent:progress',
+        message: `Creating branch ${branchName}...`,
+      })
+      await sandbox.commands.run(
+        `git -C /home/user/repo checkout -b ${branchName}`
+      )
+    }
 
     // Write task spec file
     await sandbox.files.write(
@@ -267,9 +297,7 @@ ${taskSpec}
       message: 'Agent is analyzing the codebase...',
     })
 
-    const reviewerMemberId =
-      task.reviewerId ?? task.project.defaultReviewerId ?? ''
-    const monitorTask = { id: taskId, identifier, reviewerId: reviewerMemberId }
+    const monitorTask = { id: taskId, identifier, reviewerId: '' }
 
     const CLARIFY_SENTINEL = '__clarify__'
     const winner = await Promise.race([
@@ -343,14 +371,35 @@ ${taskSpec}
       )
     }
 
-    // Check if agent made any commits
+    // Check if agent made any commits (compare against remote branch for follow-ups, main for new branches)
+    const diffBase = isFollowUp ? `origin/${branchName}` : 'origin/HEAD'
     const commitCheck = await sandbox.commands.run(
-      `git -C /home/user/repo log --oneline origin/HEAD..${branchName} 2>/dev/null | head -1`
+      `git -C /home/user/repo log --oneline ${diffBase}..${branchName} 2>/dev/null | head -1`
     )
     if (!commitCheck.stdout.trim()) {
+      if (isFollowUp) {
+        // Follow-up with no new changes — work was already done
+        const existingPr = await prisma.pullRequest.findFirst({
+          where: { taskId, state: 'open' },
+          select: { url: true, number: true },
+        })
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { agentStatus: 'DONE' },
+        })
+        const prUrl =
+          existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
+        const prNumber = existingPr?.number ?? 0
+        await pushAgentEvent(taskId, {
+          type: 'agent:done',
+          prUrl,
+          prNumber,
+        })
+        return { outcome: 'done', prUrl, prNumber }
+      }
       await prisma.task.update({
         where: { id: taskId },
-        data: { agentStatus: 'done' },
+        data: { agentStatus: 'DONE' },
       })
       await pushAgentEvent(taskId, {
         type: 'agent:failed',
@@ -377,58 +426,108 @@ ${taskSpec}
       throw new AgentError('PUSH_FAILED', `Git push failed: ${push.stderr}`)
     }
 
-    // Create PR
-    await pushAgentEvent(taskId, {
-      type: 'agent:progress',
-      message: 'Creating pull request...',
-    })
-    const pr = await createPullRequest({
-      owner: repoOwner,
-      repo: repoName,
-      branch: branchName,
-      title: `${task.title} [${identifier}]`,
-      body: `## Summary\n\n${taskSpec}\n\n---\n_This PR was created by Lumo Agent_\n\nRelated task: ${identifier}`,
-      token: githubToken,
-    })
+    // Create or reuse PR
+    let prUrl: string
+    let prNumber: number
 
-    await prisma.$transaction([
-      prisma.task.update({
-        where: { id: taskId },
-        data: { agentStatus: 'done', status: 'IN_REVIEW' },
-      }),
-      prisma.pullRequest.upsert({
-        where: { repo_number: { repo: resolvedRepo, number: pr.number } },
-        create: {
-          workspaceId: task.project.workspaceId,
-          taskId,
-          repo: resolvedRepo,
-          number: pr.number,
-          title: `${task.title} [${identifier}]`,
-          url: pr.html_url,
-          state: 'open',
-          authorLogin: 'lumo-agent',
-          headBranch: branchName,
-          baseBranch: 'main',
-        },
-        update: { state: 'open', url: pr.html_url, taskId },
-      }),
-    ])
+    if (isFollowUp && task.pullRequests[0]) {
+      // Follow-up: PR already exists, just push updates the PR automatically
+      await pushAgentEvent(taskId, {
+        type: 'agent:progress',
+        message: 'Updating existing pull request...',
+      })
+      const existingPr = await prisma.pullRequest.findFirst({
+        where: { taskId, state: 'open' },
+        select: { url: true, number: true },
+      })
+      prUrl = existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
+      prNumber = existingPr?.number ?? 0
+
+      await prisma.$transaction([
+        prisma.task.update({
+          where: { id: taskId },
+          data: { agentStatus: 'DONE', status: 'IN_REVIEW' },
+        }),
+        prisma.taskBranch.upsert({
+          where: {
+            taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
+          },
+          create: { taskId, repo: resolvedRepo, branchName },
+          update: {},
+        }),
+      ])
+    } else {
+      await pushAgentEvent(taskId, {
+        type: 'agent:progress',
+        message: 'Creating pull request...',
+      })
+      const pr = await createPullRequest({
+        owner: repoOwner,
+        repo: repoName,
+        branch: branchName,
+        title: `${task.title} [${identifier}]`,
+        body: `## Summary\n\n${taskSpec}\n\n---\n_This PR was created by Lumo Agent_\n\nRelated task: ${identifier}`,
+        token: githubToken,
+      })
+      prUrl = pr.html_url
+      prNumber = pr.number
+
+      await prisma.$transaction([
+        prisma.task.update({
+          where: { id: taskId },
+          data: { agentStatus: 'DONE', status: 'IN_REVIEW' },
+        }),
+        prisma.taskBranch.upsert({
+          where: {
+            taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
+          },
+          create: { taskId, repo: resolvedRepo, branchName },
+          update: {},
+        }),
+        prisma.pullRequest.upsert({
+          where: { repo_number: { repo: resolvedRepo, number: pr.number } },
+          create: {
+            workspaceId: task.project.workspaceId,
+            taskId,
+            repo: resolvedRepo,
+            number: pr.number,
+            title: `${task.title} [${identifier}]`,
+            url: pr.html_url,
+            state: 'open',
+            authorLogin: 'lumo-agent',
+            headBranch: branchName,
+            baseBranch: 'main',
+          },
+          update: { state: 'open', url: pr.html_url, taskId },
+        }),
+      ])
+    }
+
     await pushAgentEvent(taskId, {
       type: 'agent:done',
-      prUrl: pr.html_url,
-      prNumber: pr.number,
+      prUrl,
+      prNumber,
     })
 
     // Notify reviewer that task is ready for review
+    // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
+    let defaultReviewerActorId: string | null = null
+    if (task.project.defaultReviewerId) {
+      const actor = await prisma.actor.findUnique({
+        where: { memberId: task.project.defaultReviewerId },
+        select: { id: true },
+      })
+      defaultReviewerActorId = actor?.id ?? null
+    }
     await notifyTaskInReview({
       workspaceId: task.project.workspaceId,
       taskId,
-      reviewerId: task.reviewerId ?? null,
-      defaultReviewerId: task.project.defaultReviewerId ?? null,
-      actorId: null, // agent action, no Clerk actor
+      reviewerActorId: task.reviewerActorId ?? null,
+      defaultReviewerActorId,
+      triggerActorId: null,
     }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
 
-    return { outcome: 'done', prUrl: pr.html_url, prNumber: pr.number }
+    return { outcome: 'done', prUrl, prNumber }
   } catch (error) {
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
 
@@ -437,8 +536,8 @@ ${taskSpec}
       select: { agentStatus: true },
     })
     if (
-      current?.agentStatus === 'paused' ||
-      current?.agentStatus === 'cancelled'
+      current?.agentStatus === 'PAUSED' ||
+      current?.agentStatus === 'CANCELLED'
     ) {
       return { outcome: 'failed', error: `Agent ${current.agentStatus}` }
     }

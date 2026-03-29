@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { prisma } from '../db.js'
-import { getContext, resolveAssignee } from '../context.js'
+import { getContext, resolveAssigneeActor } from '../context.js'
 import { resolveTaskId } from '../resolvers.js'
 
 const statusEnum = z
@@ -21,7 +21,7 @@ const taskSelect = {
   priority: true,
   order: true,
   projectId: true,
-  assigneeId: true,
+  assigneeActorId: true,
   parentTaskId: true,
   createdAt: true,
   updatedAt: true,
@@ -38,7 +38,7 @@ function formatTask(t: {
   priority: string
   order: number
   projectId: string
-  assigneeId: string | null
+  assigneeActorId: string | null
   parentTaskId: string | null
   createdAt: Date
   updatedAt: Date
@@ -74,7 +74,10 @@ export function registerTaskTools(server: McpServer) {
     },
     async ({ projectId, status, priority, assigneeId, includeSubtasks }) => {
       const { workspaceId, memberId } = getContext()
-      const resolvedAssigneeId = resolveAssignee(assigneeId, memberId)
+      const resolvedAssigneeActorId = await resolveAssigneeActor(
+        assigneeId,
+        memberId
+      )
 
       // Build where clause scoped to workspace via team
       const tasks = await prisma.task.findMany({
@@ -83,7 +86,9 @@ export function registerTaskTools(server: McpServer) {
           ...(projectId ? { projectId } : {}),
           ...(status ? { status } : {}),
           ...(priority ? { priority } : {}),
-          ...(resolvedAssigneeId ? { assigneeId: resolvedAssigneeId } : {}),
+          ...(resolvedAssigneeActorId
+            ? { assigneeActorId: resolvedAssigneeActorId }
+            : {}),
           ...(!includeSubtasks ? { parentTaskId: null } : {}),
         },
         select: taskSelect,
@@ -120,7 +125,12 @@ export function registerTaskTools(server: McpServer) {
           ...taskSelect,
           children: { select: taskSelect },
           comments: {
-            select: { id: true, authorId: true, body: true, createdAt: true },
+            select: {
+              id: true,
+              authorActorId: true,
+              body: true,
+              createdAt: true,
+            },
             orderBy: { createdAt: 'asc' },
           },
         },
@@ -168,7 +178,10 @@ export function registerTaskTools(server: McpServer) {
       parentTaskId,
     }) => {
       const { workspaceId, memberId } = getContext()
-      const resolvedAssigneeId = resolveAssignee(assigneeId, memberId)
+      const resolvedAssigneeActorId = await resolveAssigneeActor(
+        assigneeId,
+        memberId
+      )
 
       const project = await prisma.project.findFirst({
         where: { id: projectId, workspaceId },
@@ -208,7 +221,7 @@ export function registerTaskTools(server: McpServer) {
             description: description ?? null,
             status: status ?? 'TODO',
             priority: priority ?? 'MEDIUM',
-            assigneeId: resolvedAssigneeId ?? null,
+            assigneeActorId: resolvedAssigneeActorId ?? null,
             parentTaskId: resolvedParentId,
             order,
           },
@@ -260,8 +273,10 @@ export function registerTaskTools(server: McpServer) {
       if (status !== undefined) data.status = status
       if (priority !== undefined) data.priority = priority
       if (assigneeId !== undefined) {
-        data.assigneeId =
-          assigneeId === null ? null : resolveAssignee(assigneeId, memberId)
+        data.assigneeActorId =
+          assigneeId === null
+            ? null
+            : ((await resolveAssigneeActor(assigneeId, memberId)) ?? null)
       }
 
       const task = await prisma.task.update({

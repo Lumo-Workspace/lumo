@@ -19,6 +19,7 @@ import {
   GitBranch,
   Loader2,
   Github,
+  Bot,
 } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -186,6 +187,14 @@ export function TaskDetailPage({
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
     () => readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
   )
+  const [agentActors, setAgentActors] = useState<
+    { actorId: string; name: string; avatarColor: string }[]
+  >(
+    () =>
+      readCache<{ actorId: string; name: string; avatarColor: string }[]>(
+        CACHE_KEY.agentActors
+      ) ?? []
+  )
   const [projects, setProjects] = useState<ApiProject[]>(
     () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
   )
@@ -255,6 +264,10 @@ export function TaskDetailPage({
           setMembers(freshMembers)
           writeCache(CACHE_KEY.members, freshMembers)
         }
+        if (membersData.agentActors) {
+          setAgentActors(membersData.agentActors)
+          writeCache(CACHE_KEY.agentActors, membersData.agentActors)
+        }
         const freshProjects: ApiProject[] = projectsData.projects ?? []
         if (freshProjects.length > 0) {
           setProjects(freshProjects)
@@ -278,8 +291,8 @@ export function TaskDetailPage({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -300,9 +313,8 @@ export function TaskDetailPage({
       data: Partial<{
         title: string
         status: ApiStatus
-        assigneeId: string | null
-        assigneeType: 'human' | 'agent'
-        reviewerId: string | null
+        assigneeActorId: string | null
+        reviewerActorId: string | null
         repositoryId: string | null
         description: string | null
         spec: string | null
@@ -406,10 +418,11 @@ export function TaskDetailPage({
     const optimistic: ApiComment = {
       id: tempId,
       taskId: task.id,
-      authorId: user?.id ?? '',
+      authorActorId: members.find(m => m.clerkId === user?.id)?.actorId ?? null,
       body,
       parentId: null,
       quotedCommentId: null,
+      type: 'USER',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -435,7 +448,7 @@ export function TaskDetailPage({
     } finally {
       setSubmitting(false)
     }
-  }, [commentBody, submitting, task.id, user?.id])
+  }, [commentBody, submitting, task.id, user?.id, members])
 
   const submitReply = useCallback(
     async (parentId: string) => {
@@ -448,10 +461,12 @@ export function TaskDetailPage({
       const optimistic: ApiComment = {
         id: tempId,
         taskId: task.id,
-        authorId: user?.id ?? '',
+        authorActorId:
+          members.find(m => m.clerkId === user?.id)?.actorId ?? null,
         body,
         parentId,
         quotedCommentId,
+        type: 'USER',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -498,6 +513,7 @@ export function TaskDetailPage({
       user?.id,
       mapCommentTree,
       replyingToComment,
+      members,
     ]
   )
 
@@ -782,12 +798,12 @@ export function TaskDetailPage({
             )}
 
             {/* Coding Agent */}
-            {task.assigneeType === 'agent' && (
+            {task.assignee?.type === 'AGENT' && (
               <div className='mt-8'>
                 <CodingAgentPanel
                   task={task}
                   onTaskUpdate={updates =>
-                    setTask(prev => ({ ...prev, ...updates }))
+                    setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
                   }
                 />
               </div>
@@ -814,17 +830,32 @@ export function TaskDetailPage({
             ) : (
               <div className='space-y-5'>
                 {comments.map(comment => {
-                  const author = members.find(
-                    m => m.clerkId === comment.authorId
+                  const isAgentComment = comment.type === 'AGENT'
+                  const author = isAgentComment
+                    ? null
+                    : members.find(m => m.actorId === comment.authorActorId)
+                  const agentActor = isAgentComment
+                    ? (agentActors.find(
+                        a => a.actorId === comment.authorActorId
+                      ) ?? agentActors[0])
+                    : null
+                  const name = isAgentComment
+                    ? (agentActor?.name ?? 'Coding Agent')
+                    : (author?.name ?? 'Unknown')
+                  const initials = isAgentComment
+                    ? 'CA'
+                    : name
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()
+                  const currentMember = members.find(
+                    m => m.clerkId === user?.id
                   )
-                  const name = author?.name ?? 'Unknown'
-                  const initials = name
-                    .split(' ')
-                    .map((n: string) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()
-                  const isAuthor = comment.authorId === user?.id
+                  const isAuthor =
+                    !isAgentComment &&
+                    comment.authorActorId === currentMember?.actorId
                   const isEditing = editingCommentId === comment.id
                   const isDeleting = deletingCommentId === comment.id
                   const wasEdited =
@@ -840,12 +871,18 @@ export function TaskDetailPage({
                         id={`comment-${comment.id}`}
                         className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                       >
-                        <Avatar className='size-7 shrink-0 mt-0.5'>
-                          <AvatarImage src={author?.imageUrl ?? undefined} />
-                          <AvatarFallback className='text-[10px]'>
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
+                        {isAgentComment ? (
+                          <div className='size-7 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                            <Bot className='size-3.5 text-violet-600 dark:text-violet-400' />
+                          </div>
+                        ) : (
+                          <Avatar className='size-7 shrink-0 mt-0.5'>
+                            <AvatarImage src={author?.imageUrl ?? undefined} />
+                            <AvatarFallback className='text-[10px]'>
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
                         <div className='flex-1 min-w-0'>
                           <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
                             <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
@@ -1007,17 +1044,31 @@ export function TaskDetailPage({
                       {(comment.replies?.length ?? 0) > 0 && (
                         <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                           {comment.replies!.map(reply => {
-                            const rAuthor = members.find(
-                              m => m.clerkId === reply.authorId
-                            )
-                            const rName = rAuthor?.name ?? 'Unknown'
-                            const rInitials = rName
-                              .split(' ')
-                              .map((n: string) => n[0])
-                              .join('')
-                              .slice(0, 2)
-                              .toUpperCase()
-                            const rIsAuthor = reply.authorId === user?.id
+                            const rIsAgent = reply.type === 'AGENT'
+                            const rAuthor = rIsAgent
+                              ? null
+                              : members.find(
+                                  m => m.actorId === reply.authorActorId
+                                )
+                            const rAgentActor = rIsAgent
+                              ? (agentActors.find(
+                                  a => a.actorId === reply.authorActorId
+                                ) ?? agentActors[0])
+                              : null
+                            const rName = rIsAgent
+                              ? (rAgentActor?.name ?? 'Coding Agent')
+                              : (rAuthor?.name ?? 'Unknown')
+                            const rInitials = rIsAgent
+                              ? 'CA'
+                              : rName
+                                  .split(' ')
+                                  .map((n: string) => n[0])
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()
+                            const rIsAuthor =
+                              !rIsAgent &&
+                              reply.authorActorId === currentMember?.actorId
                             const rIsEditing = editingCommentId === reply.id
                             const rIsDeleting = deletingCommentId === reply.id
                             const rWasEdited =
@@ -1030,14 +1081,20 @@ export function TaskDetailPage({
                                 id={`comment-${reply.id}`}
                                 className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                               >
-                                <Avatar className='size-5 shrink-0 mt-0.5'>
-                                  <AvatarImage
-                                    src={rAuthor?.imageUrl ?? undefined}
-                                  />
-                                  <AvatarFallback className='text-[9px]'>
-                                    {rInitials}
-                                  </AvatarFallback>
-                                </Avatar>
+                                {rIsAgent ? (
+                                  <div className='size-5 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                                    <Bot className='size-3 text-violet-600 dark:text-violet-400' />
+                                  </div>
+                                ) : (
+                                  <Avatar className='size-5 shrink-0 mt-0.5'>
+                                    <AvatarImage
+                                      src={rAuthor?.imageUrl ?? undefined}
+                                    />
+                                    <AvatarFallback className='text-[9px]'>
+                                      {rInitials}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
                                 <div className='flex-1 min-w-0'>
                                   <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
                                     <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
@@ -1123,7 +1180,8 @@ export function TaskDetailPage({
                                           )
                                           if (!quoted) return null
                                           const qAuthor = members.find(
-                                            m => m.clerkId === quoted.authorId
+                                            m =>
+                                              m.actorId === quoted.authorActorId
                                           )
                                           const qName =
                                             qAuthor?.name ?? 'Unknown'
@@ -1398,6 +1456,7 @@ export function TaskDetailPage({
                     onChange={setCommentBody}
                     placeholder='Add a comment…'
                     members={mentionableMembers}
+                    agentActors={agentActors}
                   />
                 </div>
                 <div className='flex justify-end px-2 pb-2'>
@@ -1444,21 +1503,14 @@ export function TaskDetailPage({
                     label: 'Assignee',
                     node: (
                       <AssigneeSelect
-                        value={task.assigneeId ?? null}
-                        isAgent={task.assigneeType === 'agent'}
-                        onChange={v =>
-                          handlePatch({
-                            assigneeId: v,
-                            assigneeType: 'human',
-                          })
-                        }
-                        onAgentSelect={() =>
-                          handlePatch({
-                            assigneeId: null,
-                            assigneeType: 'agent',
-                          })
-                        }
-                        members={members}
+                        value={task.assigneeActorId ?? null}
+                        onChange={v => handlePatch({ assigneeActorId: v })}
+                        members={members.filter(
+                          (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                            m.actorId !== null
+                        )}
+                        agentActors={agentActors}
+                        assignee={task.assignee}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />
                     ),
@@ -1467,9 +1519,12 @@ export function TaskDetailPage({
                     label: 'Reviewer',
                     node: (
                       <ReviewerSelect
-                        value={task.reviewerId ?? null}
-                        onChange={v => handlePatch({ reviewerId: v })}
-                        members={members}
+                        value={task.reviewerActorId ?? null}
+                        onChange={v => handlePatch({ reviewerActorId: v })}
+                        members={members.filter(
+                          (m): m is WorkspaceMemberInfo & { actorId: string } =>
+                            m.actorId !== null
+                        )}
                         inheritedId={task.project?.defaultReviewerId ?? null}
                         triggerClassName={FIELD_TRIGGER_CLS}
                       />
@@ -1629,7 +1684,11 @@ export function TaskDetailPage({
               identifier={`${task.teamIdentifier}-${task.number}`}
               title={task.title}
               projectId={task.projectId}
-              defaultRepo={task.project.githubRepo}
+              defaultRepo={
+                task.project.repositories?.find(r => r.isDefault)?.fullName ??
+                task.project.repositories?.[0]?.fullName ??
+                null
+              }
               workspaceUrl={workspaceUrl}
             />
           </div>

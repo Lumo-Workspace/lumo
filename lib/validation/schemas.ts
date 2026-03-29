@@ -62,7 +62,6 @@ export const updateProjectSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   isIdea: z.boolean().optional(),
   defaultReviewerId: z.string().nullable().optional(),
-  githubRepo: z.string().max(200).nullable().optional(),
 })
 
 // ─── Task ───────────────────────────────────────────────────────────────────
@@ -82,7 +81,7 @@ export const createTaskSchema = z.object({
     .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
     .optional()
     .default('MEDIUM'),
-  assigneeId: z.string().nullable().optional(),
+  assigneeActorId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
@@ -94,9 +93,8 @@ export const updateTaskSchema = z.object({
   spec: z.string().max(20000).nullable().optional(),
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  assigneeId: z.string().nullable().optional(),
-  assigneeType: z.enum(['human', 'agent']).optional(),
-  reviewerId: z.string().nullable().optional(),
+  assigneeActorId: z.string().nullable().optional(),
+  reviewerActorId: z.string().nullable().optional(),
   projectId: z.string().optional(),
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),

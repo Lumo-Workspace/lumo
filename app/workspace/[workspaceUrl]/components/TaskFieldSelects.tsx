@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import {
   UserCircle2,
   Eye,
@@ -172,43 +173,59 @@ export function AssigneeSelect({
   value,
   onChange,
   members,
-  isAgent,
-  onAgentSelect,
+  agentActors,
+  assignee,
   triggerClassName,
 }: {
-  value: string | null
+  value: string | null // Actor.id
   onChange: (v: string | null) => void
-  members: WorkspaceMemberInfo[]
-  /** True when assigneeType === 'agent' */
-  isAgent?: boolean
-  /** Called when user picks the Agent option */
-  onAgentSelect?: () => void
+  members: (WorkspaceMemberInfo & { actorId: string })[]
+  agentActors?:
+    | { actorId: string; name: string; avatarColor: string }[]
+    | undefined
+  /** Current assignee from task detail — used as fallback when agentActors hasn't loaded */
+  assignee?: { type: 'HUMAN' | 'AGENT'; agent?: { name: string } | null } | null
   triggerClassName?: string
 }) {
-  const assignee = !isAgent ? members.find(m => m.id === value) : null
+  const assigneeMember = members.find(m => m.actorId === value)
+  // Merge agentActors list with a fallback entry from the task's assignee
+  // so the dropdown always shows the current agent even before agentActors loads
+  const allAgents = useMemo(() => {
+    const list = agentActors ?? []
+    if (
+      value &&
+      assignee?.type === 'AGENT' &&
+      !list.some(a => a.actorId === value)
+    ) {
+      return [
+        ...list,
+        {
+          actorId: value,
+          name: assignee.agent?.name ?? 'Coding Agent',
+          avatarColor: '#6366f1',
+        },
+      ]
+    }
+    return list
+  }, [agentActors, value, assignee])
+  const resolvedAgent = allAgents.find(a => a.actorId === value)
   return (
     <Select
-      value={isAgent ? '__agent__' : (value ?? '__unassigned__')}
-      onValueChange={v => {
-        if (v === '__agent__') {
-          onAgentSelect?.()
-        } else {
-          onChange(v === '__unassigned__' ? null : v)
-        }
-      }}
+      value={value ?? '__unassigned__'}
+      onValueChange={v => onChange(v === '__unassigned__' ? null : v)}
     >
       <Tooltip>
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
-            {isAgent ? (
+            {resolvedAgent ? (
               <div className='flex items-center gap-1.5 text-violet-500'>
                 <Bot size={14} />
-                <span>Agent</span>
+                <span>{resolvedAgent.name}</span>
               </div>
-            ) : assignee ? (
+            ) : assigneeMember ? (
               <div className='flex items-center gap-1.5'>
-                <MemberAvatar member={assignee} size='xs' />
-                <span>{assignee.name}</span>
+                <MemberAvatar member={assigneeMember} size='xs' />
+                <span>{assigneeMember.name}</span>
               </div>
             ) : (
               <div className='flex items-center gap-1.5 text-zinc-400'>
@@ -227,22 +244,24 @@ export function AssigneeSelect({
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>
-        {onAgentSelect && (
-          <SelectItem value='__agent__'>
+        {allAgents.map(a => (
+          <SelectItem key={a.actorId} value={a.actorId}>
             <div className='flex items-center gap-2'>
               <Bot size={14} className='text-violet-500 shrink-0' />
-              <span className='text-violet-500'>Agent</span>
-            </div>
-          </SelectItem>
-        )}
-        {members.map(m => (
-          <SelectItem key={m.id} value={m.id}>
-            <div className='flex items-center gap-2'>
-              <MemberAvatar member={m} size='xs' />
-              {m.name}
+              <span className='text-violet-500'>{a.name}</span>
             </div>
           </SelectItem>
         ))}
+        {members
+          .filter(m => m.actorId)
+          .map(m => (
+            <SelectItem key={m.actorId} value={m.actorId}>
+              <div className='flex items-center gap-2'>
+                <MemberAvatar member={m} size='xs' />
+                {m.name}
+              </div>
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )
@@ -259,14 +278,14 @@ export function ReviewerSelect({
 }: {
   value: string | null
   onChange: (v: string | null) => void
-  members: WorkspaceMemberInfo[]
+  members: (WorkspaceMemberInfo & { actorId: string })[]
   /** The project-level default reviewer ID — used to show "inherited" state */
   inheritedId?: string | null
   triggerClassName?: string
 }) {
-  const reviewer = members.find(m => m.id === value)
+  const reviewer = members.find(m => m.actorId === value)
   const inherited =
-    !value && inheritedId ? members.find(m => m.id === inheritedId) : null
+    !value && inheritedId ? members.find(m => m.actorId === inheritedId) : null
 
   return (
     <Select
@@ -305,14 +324,16 @@ export function ReviewerSelect({
             <span className='text-zinc-400'>No reviewer</span>
           </div>
         </SelectItem>
-        {members.map(m => (
-          <SelectItem key={m.id} value={m.id}>
-            <div className='flex items-center gap-2'>
-              <MemberAvatar member={m} size='xs' />
-              {m.name}
-            </div>
-          </SelectItem>
-        ))}
+        {members
+          .filter(m => m.actorId)
+          .map(m => (
+            <SelectItem key={m.actorId} value={m.actorId}>
+              <div className='flex items-center gap-2'>
+                <MemberAvatar member={m} size='xs' />
+                {m.name}
+              </div>
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )

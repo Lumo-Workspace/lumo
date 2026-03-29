@@ -13,7 +13,7 @@ jest.mock('@anthropic-ai/sdk', () => ({
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { update: jest.fn() },
-    workspaceMember: {
+    actor: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
@@ -33,9 +33,8 @@ import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
-const mockWorkspaceMemberFindUnique = prisma.workspaceMember
-  .findUnique as jest.Mock
-const mockWorkspaceMemberFindMany = prisma.workspaceMember.findMany as jest.Mock
+const mockActorFindUnique = (prisma as any).actor.findUnique as jest.Mock
+const mockActorFindMany = (prisma as any).actor.findMany as jest.Mock
 const mockNotificationCreate = prisma.notification.create as jest.Mock
 const mockNotificationCreateMany = prisma.notification.createMany as jest.Mock
 const mockPushAgentEvent = pushAgentEvent as jest.Mock
@@ -49,7 +48,7 @@ const baseTask = {
   description: 'Users want a dark mode. Add a toggle to the settings page.',
   spec: null,
   project: { workspaceId: 'ws-1', defaultReviewerId: null },
-  reviewerId: null,
+  reviewerActorId: null,
 }
 
 function makeApiResponse(text: string) {
@@ -86,17 +85,17 @@ describe('generateSpecDraft', () => {
 
     beforeEach(() => {
       mockCreate.mockResolvedValue(makeApiResponse(SPEC_TEXT))
-      mockWorkspaceMemberFindMany.mockResolvedValue([])
+      mockActorFindMany.mockResolvedValue([])
     })
 
-    it('sets agentStatus to running then spec_review', async () => {
+    it('sets agentStatus to RUNNING then SPEC_REVIEW', async () => {
       await generateSpecDraft(TASK_ID, baseTask)
 
       expect(mockPrismaTaskUpdate).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           where: { id: TASK_ID },
-          data: expect.objectContaining({ agentStatus: 'running' }),
+          data: expect.objectContaining({ agentStatus: 'RUNNING' }),
         })
       )
       expect(mockPrismaTaskUpdate).toHaveBeenNthCalledWith(
@@ -105,7 +104,7 @@ describe('generateSpecDraft', () => {
           where: { id: TASK_ID },
           data: expect.objectContaining({
             spec: SPEC_TEXT,
-            agentStatus: 'spec_review',
+            agentStatus: 'SPEC_REVIEW',
           }),
         })
       )
@@ -173,76 +172,73 @@ describe('generateSpecDraft', () => {
       mockCreate.mockResolvedValue(makeApiResponse(SPEC_TEXT))
     })
 
-    it('notifies the task-level reviewer when set', async () => {
-      const task = { ...baseTask, reviewerId: 'member-reviewer' }
-      mockWorkspaceMemberFindUnique.mockResolvedValue({
-        clerkId: 'clerk-reviewer',
-      })
+    it('notifies the task-level reviewer when set (reviewerActorId used directly)', async () => {
+      const task = { ...baseTask, reviewerActorId: 'actor-reviewer' }
 
       await generateSpecDraft(TASK_ID, task)
 
-      expect(mockWorkspaceMemberFindUnique).toHaveBeenCalledWith({
-        where: { id: 'member-reviewer' },
-        select: { clerkId: true },
-      })
+      // reviewerActorId is an Actor ID — used directly, no lookup needed
       expect(mockNotificationCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             type: 'TASK_SPEC_READY',
-            recipientId: 'clerk-reviewer',
+            recipientActorId: 'actor-reviewer',
+            triggerActorId: null,
             taskId: TASK_ID,
           }),
         })
       )
     })
 
-    it('falls back to project defaultReviewerId when task reviewerId is null', async () => {
+    it('falls back to project defaultReviewerId via actor lookup when task reviewerActorId is null', async () => {
       const task = {
         ...baseTask,
-        reviewerId: null,
+        reviewerActorId: null,
         project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
       }
-      mockWorkspaceMemberFindUnique.mockResolvedValue({
-        clerkId: 'clerk-default',
-      })
+      mockActorFindUnique.mockResolvedValue({ id: 'actor-default' })
 
       await generateSpecDraft(TASK_ID, task)
 
-      expect(mockWorkspaceMemberFindUnique).toHaveBeenCalledWith({
-        where: { id: 'member-default' },
-        select: { clerkId: true },
+      expect(mockActorFindUnique).toHaveBeenCalledWith({
+        where: { memberId: 'member-default' },
+        select: { id: true },
       })
       expect(mockNotificationCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             type: 'TASK_SPEC_READY',
-            recipientId: 'clerk-default',
+            recipientActorId: 'actor-default',
           }),
         })
       )
     })
 
-    it('notifies all workspace owners when no reviewer is configured', async () => {
-      mockWorkspaceMemberFindMany.mockResolvedValue([
-        { clerkId: 'clerk-owner-1' },
-        { clerkId: 'clerk-owner-2' },
+    it('notifies all workspace owner actors when no reviewer is configured', async () => {
+      mockActorFindMany.mockResolvedValue([
+        { id: 'actor-owner-1' },
+        { id: 'actor-owner-2' },
       ])
 
       await generateSpecDraft(TASK_ID, baseTask)
 
-      expect(mockWorkspaceMemberFindMany).toHaveBeenCalledWith({
-        where: { workspaceId: 'ws-1', role: 'OWNER' },
-        select: { clerkId: true },
+      expect(mockActorFindMany).toHaveBeenCalledWith({
+        where: {
+          workspaceId: 'ws-1',
+          type: 'HUMAN',
+          member: { role: 'OWNER' },
+        },
+        select: { id: true },
       })
       expect(mockNotificationCreateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.arrayContaining([
             expect.objectContaining({
-              recipientId: 'clerk-owner-1',
+              recipientActorId: 'actor-owner-1',
               type: 'TASK_SPEC_READY',
             }),
             expect.objectContaining({
-              recipientId: 'clerk-owner-2',
+              recipientActorId: 'actor-owner-2',
               type: 'TASK_SPEC_READY',
             }),
           ]),
@@ -250,17 +246,22 @@ describe('generateSpecDraft', () => {
       )
     })
 
-    it('does not notify anyone when reviewer member cannot be found', async () => {
-      const task = { ...baseTask, reviewerId: 'member-gone' }
-      mockWorkspaceMemberFindUnique.mockResolvedValue(null)
+    it('does not notify anyone when default reviewer actor cannot be found', async () => {
+      const task = {
+        ...baseTask,
+        reviewerActorId: null,
+        project: { workspaceId: 'ws-1', defaultReviewerId: 'member-gone' },
+      }
+      mockActorFindUnique.mockResolvedValue(null)
+      mockActorFindMany.mockResolvedValue([])
 
       await generateSpecDraft(TASK_ID, task)
 
       expect(mockNotificationCreate).not.toHaveBeenCalled()
     })
 
-    it('does not call createMany when there are no workspace owners', async () => {
-      mockWorkspaceMemberFindMany.mockResolvedValue([])
+    it('does not call createMany when there are no workspace owner actors', async () => {
+      mockActorFindMany.mockResolvedValue([])
 
       await generateSpecDraft(TASK_ID, baseTask)
 
@@ -277,7 +278,7 @@ describe('generateSpecDraft', () => {
       expect(mockPrismaTaskUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            agentStatus: 'failed',
+            agentStatus: 'FAILED',
             agentError: 'SPEC_GEN_EMPTY',
           }),
         })
@@ -296,7 +297,7 @@ describe('generateSpecDraft', () => {
       const calls: Parameters<typeof mockPrismaTaskUpdate>[] =
         mockPrismaTaskUpdate.mock.calls
       const specReviewCall = calls.find(
-        ([arg]) => arg?.data?.agentStatus === 'spec_review'
+        ([arg]) => arg?.data?.agentStatus === 'SPEC_REVIEW'
       )
       expect(specReviewCall).toBeUndefined()
     })
@@ -310,7 +311,7 @@ describe('generateSpecDraft', () => {
 
       expect(mockPrismaTaskUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ agentStatus: 'failed' }),
+          data: expect.objectContaining({ agentStatus: 'FAILED' }),
         })
       )
     })

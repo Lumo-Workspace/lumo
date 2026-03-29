@@ -70,6 +70,14 @@ export async function POST(
         },
       })
 
+      await tx.actor.create({
+        data: {
+          workspaceId: invite.workspaceId,
+          type: 'HUMAN',
+          memberId: member.id,
+        },
+      })
+
       if (defaultTeam) {
         await tx.teamMember.create({
           data: { teamId: defaultTeam.id, memberId: member.id },

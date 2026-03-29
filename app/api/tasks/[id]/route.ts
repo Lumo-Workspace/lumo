@@ -5,6 +5,8 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import { getHumanActorId } from '@/lib/actor'
+import { getGithubInstallationToken } from '@/lib/github/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -47,14 +49,27 @@ export async function GET(_request: NextRequest, { params }: Params) {
             name: true,
             workspaceId: true,
             defaultReviewerId: true,
-            githubRepo: true,
             repositories: {
               orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
             },
           },
         },
         team: { select: { identifier: true } },
-        assignee: { select: { id: true, clerkId: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+          },
+        },
         pullRequests: {
           select: {
             id: true,
@@ -106,6 +121,12 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
+    // Fire-and-forget: sync PR status from GitHub if task has open PRs
+    const openPrs = task.pullRequests.filter(pr => pr.state === 'open')
+    if (openPrs.length > 0) {
+      waitUntil(syncPullRequestStatus(task.id, openPrs))
+    }
+
     return NextResponse.json({
       task: { ...task, teamIdentifier: task.team.identifier },
     })
@@ -115,6 +136,73 @@ export async function GET(_request: NextRequest, { params }: Params) {
       { error: 'Internal Server Error' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Sync PR state from GitHub API for any PRs still marked 'open' in DB.
+ * Runs in background (waitUntil) so it doesn't block the response.
+ */
+async function syncPullRequestStatus(
+  taskId: string,
+  openPrs: { id: string; number: number; url: string; state: string }[]
+): Promise<void> {
+  try {
+    const token = await getGithubInstallationToken()
+
+    for (const pr of openPrs) {
+      // Extract owner/repo from PR URL: https://github.com/owner/repo/pull/N
+      const match = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)
+      if (!match) continue
+      const repo = match[1]
+
+      const res = await fetch(
+        `https://api.github.com/repos/${repo}/pulls/${pr.number}`,
+        {
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }
+      )
+      if (!res.ok) continue
+
+      const ghPr = (await res.json()) as {
+        state: string
+        merged: boolean
+        merged_at: string | null
+        closed_at: string | null
+        draft: boolean
+      }
+
+      const newState = ghPr.merged
+        ? 'merged'
+        : ghPr.state === 'closed'
+          ? 'closed'
+          : 'open'
+
+      if (newState === pr.state) continue
+
+      await prisma.pullRequest.update({
+        where: { id: pr.id },
+        data: {
+          state: newState,
+          mergedAt: ghPr.merged_at ? new Date(ghPr.merged_at) : null,
+          closedAt: ghPr.closed_at ? new Date(ghPr.closed_at) : null,
+          isDraft: ghPr.draft,
+        },
+      })
+
+      // If PR was merged, mark task as DONE
+      if (newState === 'merged') {
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { status: 'DONE' },
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[sync-pr] Failed to sync PR status:', err)
   }
 }
 
@@ -161,8 +249,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const {
       parentTaskId,
-      assigneeId,
-      reviewerId,
+      assigneeActorId,
+      reviewerActorId,
       projectId,
       repositoryId,
       ...rest
@@ -213,27 +301,27 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
-    // Validate assigneeId belongs to the same workspace
-    if (assigneeId !== undefined && assigneeId !== null) {
-      const assignee = await prisma.workspaceMember.findUnique({
-        where: { id: assigneeId },
+    // Validate assigneeActorId belongs to the same workspace
+    if (assigneeActorId !== undefined && assigneeActorId !== null) {
+      const actor = await prisma.actor.findUnique({
+        where: { id: assigneeActorId },
       })
-      if (!assignee || assignee.workspaceId !== task.project.workspaceId) {
+      if (!actor || actor.workspaceId !== task.project.workspaceId) {
         return NextResponse.json(
-          { error: 'Assignee is not a member of this workspace' },
+          { error: 'Assignee is not part of this workspace' },
           { status: 400 }
         )
       }
     }
 
-    // Validate reviewerId belongs to the same workspace
-    if (reviewerId !== undefined && reviewerId !== null) {
-      const reviewer = await prisma.workspaceMember.findUnique({
-        where: { id: reviewerId },
+    // Validate reviewerActorId belongs to the same workspace
+    if (reviewerActorId !== undefined && reviewerActorId !== null) {
+      const actor = await prisma.actor.findUnique({
+        where: { id: reviewerActorId },
       })
-      if (!reviewer || reviewer.workspaceId !== task.project.workspaceId) {
+      if (!actor || actor.workspaceId !== task.project.workspaceId) {
         return NextResponse.json(
-          { error: 'Reviewer is not a member of this workspace' },
+          { error: 'Reviewer is not part of this workspace' },
           { status: 400 }
         )
       }
@@ -247,10 +335,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.status !== undefined) data.status = rest.status
     if (rest.priority !== undefined) data.priority = rest.priority
     if (rest.order !== undefined) data.order = rest.order
-    if (rest.assigneeType !== undefined) data.assigneeType = rest.assigneeType
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
-    if (assigneeId !== undefined) data.assigneeId = assigneeId
-    if (reviewerId !== undefined) data.reviewerId = reviewerId
+    if (assigneeActorId !== undefined) data.assigneeActorId = assigneeActorId
+    if (reviewerActorId !== undefined) data.reviewerActorId = reviewerActorId
     if (projectId !== undefined) data.projectId = projectId
     if (repositoryId !== undefined) data.repositoryId = repositoryId
 
@@ -266,6 +353,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const workspaceId = task.project.workspaceId
     const workspaceSlug = task.project.workspace?.slug ?? ''
 
+    // Resolve current user's Actor ID for notification triggers
+    const triggerActorId = await getHumanActorId(memberResult.id)
+
     // ── Fire-and-forget notification side-effects ────────────────────────────
     if (parsed.data.status) {
       console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
@@ -275,33 +365,35 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         notifyTaskInReview({
           workspaceId,
           taskId: id,
-          reviewerId: updated.reviewerId,
-          defaultReviewerId: task.project.defaultReviewerId,
-          actorId: userId,
+          reviewerActorId: updated.reviewerActorId ?? null,
+          defaultReviewerActorId: null,
+          triggerActorId,
         }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
       )
     }
 
     if (
-      parsed.data.assigneeId !== undefined &&
-      parsed.data.assigneeId !== null &&
-      parsed.data.assigneeId !== task.assigneeId
+      parsed.data.assigneeActorId !== undefined &&
+      parsed.data.assigneeActorId !== null &&
+      parsed.data.assigneeActorId !== task.assigneeActorId
     ) {
       // Notify the new assignee (skip if they assigned it to themselves)
-      prisma.workspaceMember
+      const newAssigneeActorId = parsed.data.assigneeActorId
+      prisma.actor
         .findUnique({
-          where: { id: parsed.data.assigneeId },
-          select: { clerkId: true },
+          where: { id: newAssigneeActorId },
+          select: { type: true, member: { select: { clerkId: true } } },
         })
-        .then(assignee => {
-          if (!assignee || assignee.clerkId === userId) return
+        .then(actor => {
+          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+          if (actor.member.clerkId === userId) return
           return prisma.notification.create({
             data: {
               workspaceId,
-              recipientId: assignee.clerkId,
+              recipientActorId: newAssigneeActorId,
               type: 'TASK_ASSIGNED' as const,
               taskId: id,
-              actorId: userId,
+              triggerActorId,
             },
           })
         })
@@ -309,9 +401,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     if (
-      parsed.data.assigneeId !== undefined &&
-      parsed.data.assigneeId !== null &&
-      parsed.data.assigneeId !== task.assigneeId
+      parsed.data.assigneeActorId !== undefined &&
+      parsed.data.assigneeActorId !== null &&
+      parsed.data.assigneeActorId !== task.assigneeActorId
     ) {
       waitUntil(
         sendChannelNotification(
@@ -326,20 +418,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           task.projectId
         )
       )
-      prisma.workspaceMember
+      prisma.actor
         .findUnique({
-          where: { id: parsed.data.assigneeId },
-          select: { clerkId: true },
+          where: { id: parsed.data.assigneeActorId },
+          select: { type: true, member: { select: { clerkId: true } } },
         })
-        .then(assignee => {
-          if (!assignee || assignee.clerkId === userId) return
+        .then(actor => {
+          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+          if (actor.member.clerkId === userId) return
           waitUntil(
-            sendDMNotification(workspaceId, assignee.clerkId, 'task_assigned', {
-              taskId: id,
-              taskTitle: updated.title,
-              taskIdentifier: `${updated.team.identifier}-${task.number}`,
-              taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-            })
+            sendDMNotification(
+              workspaceId,
+              actor.member.clerkId,
+              'task_assigned',
+              {
+                taskId: id,
+                taskTitle: updated.title,
+                taskIdentifier: `${updated.team.identifier}-${task.number}`,
+                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
+              }
+            )
           )
         })
         .catch(err => console.error('[slack] task_assigned DM failed:', err))
@@ -347,21 +445,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (parsed.data.status === 'IN_PROGRESS' && task.status === 'IN_REVIEW') {
       // Notify the assignee that the task was sent back
-      if (task.assigneeId) {
-        prisma.workspaceMember
+      if (task.assigneeActorId) {
+        const assigneeActorId = task.assigneeActorId
+        prisma.actor
           .findUnique({
-            where: { id: task.assigneeId },
-            select: { clerkId: true },
+            where: { id: assigneeActorId },
+            select: { type: true, member: { select: { clerkId: true } } },
           })
-          .then(assignee => {
-            if (!assignee || assignee.clerkId === userId) return
+          .then(actor => {
+            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+            if (actor.member.clerkId === userId) return
             return prisma.notification.create({
               data: {
                 workspaceId,
-                recipientId: assignee.clerkId,
+                recipientActorId: assigneeActorId,
                 type: 'TASK_SENT_BACK' as const,
                 taskId: id,
-                actorId: userId,
+                triggerActorId,
               },
             })
           })
@@ -380,18 +480,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           task.projectId
         )
       )
-      if (task.assigneeId) {
-        prisma.workspaceMember
+      if (task.assigneeActorId) {
+        prisma.actor
           .findUnique({
-            where: { id: task.assigneeId },
-            select: { clerkId: true },
+            where: { id: task.assigneeActorId },
+            select: { type: true, member: { select: { clerkId: true } } },
           })
-          .then(assignee => {
-            if (!assignee || assignee.clerkId === userId) return
+          .then(actor => {
+            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+            if (actor.member.clerkId === userId) return
             waitUntil(
               sendDMNotification(
                 workspaceId,
-                assignee.clerkId,
+                actor.member.clerkId,
                 'task_sent_back',
                 {
                   taskId: id,
@@ -423,22 +524,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           task.projectId
         )
       )
-      if (task.assigneeId) {
-        prisma.workspaceMember
+      if (task.assigneeActorId) {
+        prisma.actor
           .findUnique({
-            where: { id: task.assigneeId },
-            select: { clerkId: true },
+            where: { id: task.assigneeActorId },
+            select: { type: true, member: { select: { clerkId: true } } },
           })
-          .then(assignee => {
-            if (assignee)
-              waitUntil(
-                sendDMNotification(
-                  workspaceId,
-                  assignee.clerkId,
-                  'task_done',
-                  dmPayload
-                )
+          .then(actor => {
+            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+            waitUntil(
+              sendDMNotification(
+                workspaceId,
+                actor.member.clerkId,
+                'task_done',
+                dmPayload
               )
+            )
           })
           .catch(err => console.error('[slack] task_done DM failed:', err))
       }
@@ -459,18 +560,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           task.projectId
         )
       )
-      if (task.assigneeId) {
-        prisma.workspaceMember
+      if (task.assigneeActorId) {
+        prisma.actor
           .findUnique({
-            where: { id: task.assigneeId },
-            select: { clerkId: true },
+            where: { id: task.assigneeActorId },
+            select: { type: true, member: { select: { clerkId: true } } },
           })
-          .then(assignee => {
-            if (!assignee || assignee.clerkId === userId) return
+          .then(actor => {
+            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+            if (actor.member.clerkId === userId) return
             waitUntil(
               sendDMNotification(
                 workspaceId,
-                assignee.clerkId,
+                actor.member.clerkId,
                 'task_sent_back',
                 sentBackPayload
               )

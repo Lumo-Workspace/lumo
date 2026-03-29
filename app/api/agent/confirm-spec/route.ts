@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
-        project: { select: { workspaceId: true, githubRepo: true } },
+        project: { select: { workspaceId: true } },
       },
     })
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (task.agentStatus !== 'spec_review') {
+    if (task.agentStatus !== 'SPEC_REVIEW') {
       return NextResponse.json(
         { error: 'Task is not awaiting spec confirmation' },
         { status: 409 }
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     // Save confirmed spec, reset status so execute.ts proceeds
     await prisma.task.update({
       where: { id: taskId },
-      data: { spec, agentStatus: 'idle', agentError: null },
+      data: { spec, agentStatus: null, agentError: null },
     })
 
     waitUntil(

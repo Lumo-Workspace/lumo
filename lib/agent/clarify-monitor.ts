@@ -34,7 +34,7 @@ export async function monitorForClarify(
 
           await prisma.task.update({
             where: { id: task.id },
-            data: { agentStatus: 'paused' },
+            data: { agentStatus: 'PAUSED' },
           })
 
           resolve()

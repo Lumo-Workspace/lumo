@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ id: string }> }
+
+/**
+ * Resolve the current user's Actor ID from their Clerk userId.
+ * Returns null if the user has no workspace or no actor.
+ */
+async function resolveCurrentActorId(userId: string): Promise<string | null> {
+  const ws = await getUserWorkspace(userId)
+  if (!ws) return null
+  return getHumanActorId(ws.member.id)
+}
 
 /**
  * PATCH /api/notifications/[id] — mark a single notification as read or unread.
@@ -19,7 +30,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!notification) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
-    if (notification.recipientId !== userId) {
+
+    const currentActorId = await resolveCurrentActorId(userId)
+    if (!currentActorId || notification.recipientActorId !== currentActorId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -52,7 +65,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (!notification) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
-    if (notification.recipientId !== userId) {
+
+    const currentActorId = await resolveCurrentActorId(userId)
+    if (!currentActorId || notification.recipientActorId !== currentActorId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

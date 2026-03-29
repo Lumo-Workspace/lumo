@@ -28,7 +28,7 @@ export async function generateSpecDraft(
     description: string | null
     spec: string | null
     project: { workspaceId: string; defaultReviewerId: string | null }
-    reviewerId: string | null
+    reviewerActorId: string | null
   }
 ): Promise<void> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY
@@ -36,7 +36,7 @@ export async function generateSpecDraft(
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: 'running', agentError: null },
+    data: { agentStatus: 'RUNNING', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
   await pushAgentEvent(taskId, {
@@ -61,7 +61,7 @@ export async function generateSpecDraft(
   if (!specText) {
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'failed', agentError: 'SPEC_GEN_EMPTY' },
+      data: { agentStatus: 'FAILED', agentError: 'SPEC_GEN_EMPTY' },
     })
     await pushAgentEvent(taskId, {
       type: 'agent:failed',
@@ -74,44 +74,50 @@ export async function generateSpecDraft(
   // Save the generated spec and set status to spec_review
   await prisma.task.update({
     where: { id: taskId },
-    data: { spec: specText, agentStatus: 'spec_review' },
+    data: { spec: specText, agentStatus: 'SPEC_REVIEW' },
   })
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
 
   // Send Inbox notification to reviewer
-  const effectiveReviewerId =
-    task.reviewerId ?? task.project.defaultReviewerId ?? null
-  if (effectiveReviewerId) {
-    const reviewer = await prisma.workspaceMember.findUnique({
-      where: { id: effectiveReviewerId },
-      select: { clerkId: true },
+  // Resolve effective reviewer Actor ID: task reviewer actor → or default reviewer (member → actor)
+  let effectiveReviewerActorId: string | null = task.reviewerActorId ?? null
+  if (!effectiveReviewerActorId && task.project.defaultReviewerId) {
+    const reviewerActor = await prisma.actor.findUnique({
+      where: { memberId: task.project.defaultReviewerId },
+      select: { id: true },
     })
-    if (reviewer) {
-      await prisma.notification.create({
-        data: {
-          workspaceId: task.project.workspaceId,
-          recipientId: reviewer.clerkId,
-          type: 'TASK_SPEC_READY',
-          taskId,
-          actorId: null,
-        },
-      })
-    }
+    effectiveReviewerActorId = reviewerActor?.id ?? null
+  }
+
+  if (effectiveReviewerActorId) {
+    await prisma.notification.create({
+      data: {
+        workspaceId: task.project.workspaceId,
+        recipientActorId: effectiveReviewerActorId,
+        type: 'TASK_SPEC_READY',
+        taskId,
+        triggerActorId: null,
+      },
+    })
   } else {
     // Fall back to workspace owners
-    const owners = await prisma.workspaceMember.findMany({
-      where: { workspaceId: task.project.workspaceId, role: 'OWNER' },
-      select: { clerkId: true },
+    const ownerActors = await prisma.actor.findMany({
+      where: {
+        workspaceId: task.project.workspaceId,
+        type: 'HUMAN',
+        member: { role: 'OWNER' },
+      },
+      select: { id: true },
     })
-    if (owners.length > 0) {
+    if (ownerActors.length > 0) {
       await prisma.notification.createMany({
-        data: owners.map(o => ({
+        data: ownerActors.map(a => ({
           workspaceId: task.project.workspaceId,
-          recipientId: o.clerkId,
+          recipientActorId: a.id,
           type: 'TASK_SPEC_READY' as const,
           taskId,
-          actorId: null,
+          triggerActorId: null,
         })),
       })
     }
