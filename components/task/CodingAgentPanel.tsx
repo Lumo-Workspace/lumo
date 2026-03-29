@@ -116,6 +116,11 @@ function AgentStatusBadge({
         dot: 'bg-red-500',
         text: 'text-red-600 dark:text-red-400',
       },
+      ERROR: {
+        label: error ?? 'Error',
+        dot: 'bg-orange-500',
+        text: 'text-orange-600 dark:text-orange-400',
+      },
       CANCELLED: {
         label: 'Cancelled',
         dot: 'bg-zinc-400',
@@ -294,8 +299,8 @@ function CodingAgentPanelInner({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Request failed' }))
-        setStatus('FAILED')
-        onTaskUpdate?.({ agentStatus: 'FAILED', agentError: data.error })
+        setStatus('ERROR')
+        onTaskUpdate?.({ agentStatus: 'ERROR', agentError: data.error })
         setLogs(prev => [
           ...prev,
           {
