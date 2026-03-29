@@ -180,21 +180,29 @@ export async function handleAgentComment({
     select: { id: true },
   })
 
-  if (member) {
-    const ghIntegration = await prisma.gitHubIntegration.findUnique({
-      where: { workspaceId_memberId: { workspaceId, memberId: member.id } },
-      select: { id: true },
+  if (!member) {
+    await postAgentReply({
+      taskId,
+      parentId: commentId,
+      authorId: actorClerkId,
+      body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
     })
+    return
+  }
 
-    if (!ghIntegration) {
-      await postAgentReply({
-        taskId,
-        parentId: commentId,
-        authorId: actorClerkId,
-        body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
-      })
-      return
-    }
+  const ghIntegration = await prisma.gitHubIntegration.findUnique({
+    where: { workspaceId_memberId: { workspaceId, memberId: member.id } },
+    select: { id: true },
+  })
+
+  if (!ghIntegration) {
+    await postAgentReply({
+      taskId,
+      parentId: commentId,
+      authorId: actorClerkId,
+      body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
+    })
+    return
   }
 
   // ── Post "Got it" reply ──────────────────────────────────────────────────
@@ -254,6 +262,9 @@ export async function handleAgentComment({
       break
     case 'spec_review':
       replyBody = `<p>${mentionChip(actorClerkId, actorName)} A spec has been generated and is ready for your review in the task detail page.</p>`
+      break
+    default:
+      replyBody = `<p>${mentionChip(actorClerkId, actorName)} Agent finished with an unexpected status.</p>`
       break
   }
 

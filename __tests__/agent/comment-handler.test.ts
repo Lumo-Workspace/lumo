@@ -142,6 +142,33 @@ describe('handleAgentComment', () => {
     expect(mockExecuteAgent).toHaveBeenCalled()
   })
 
+  it('posts reply when commenter is not a workspace member', async () => {
+    mockTaskFindUnique.mockResolvedValue({
+      id: 'task-1',
+      status: 'IN_PROGRESS',
+      agentStatus: null,
+      sandboxId: null,
+      project: { workspaceId: 'ws-1' },
+    })
+    mockMemberFindFirst.mockResolvedValue(null)
+
+    await handleAgentComment({
+      taskId: 'task-1',
+      commentId: 'comment-1',
+      commentBody:
+        '<span data-type="mention" data-id="__agent__">@agent</span> fix it',
+      actorClerkId: 'clerk_vincent',
+    })
+
+    expect(mockCommentCreate).toHaveBeenCalledTimes(1)
+    expect(mockCommentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        body: expect.stringContaining('connect your GitHub'),
+      }),
+    })
+    expect(mockExecuteAgent).not.toHaveBeenCalled()
+  })
+
   it('posts reply when commenter has no GitHub integration', async () => {
     mockTaskFindUnique.mockResolvedValue({
       id: 'task-1',
