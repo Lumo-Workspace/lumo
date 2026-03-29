@@ -4,6 +4,8 @@ import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
 
+export const CODING_AGENT_AUTHOR_ID = '__coding_agent__'
+
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
 function mentionChip(clerkId: string, displayName: string): string {
@@ -76,13 +78,12 @@ export async function buildAgentSpec(
 async function postAgentReply(params: {
   taskId: string
   parentId: string
-  authorId: string
   body: string
 }): Promise<string> {
   const comment = await prisma.comment.create({
     data: {
       taskId: params.taskId,
-      authorId: params.authorId,
+      authorId: CODING_AGENT_AUTHOR_ID,
       body: params.body,
       parentId: params.parentId,
       type: 'agent',
@@ -149,7 +150,6 @@ export async function handleAgentComment({
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} This task is already done. Reopen it first if you want Agent to make changes.</p>`,
     })
     return
@@ -162,7 +162,6 @@ export async function handleAgentComment({
       await postAgentReply({
         taskId,
         parentId: commentId,
-        authorId: actorClerkId,
         body: `<p>${mentionChip(actorClerkId, actorName)} Agent is already working on this task. Please wait for it to finish.</p>`,
       })
       return
@@ -184,7 +183,6 @@ export async function handleAgentComment({
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
     })
     return
@@ -199,7 +197,6 @@ export async function handleAgentComment({
     await postAgentReply({
       taskId,
       parentId: commentId,
-      authorId: actorClerkId,
       body: `<p>${mentionChip(actorClerkId, actorName)} Please connect your GitHub account first: Settings \u2192 Integrations</p>`,
     })
     return
@@ -209,7 +206,6 @@ export async function handleAgentComment({
   await postAgentReply({
     taskId,
     parentId: commentId,
-    authorId: actorClerkId,
     body: `<p>${mentionChip(actorClerkId, actorName)} Got it. Starting to work on this...</p>`,
   })
 
@@ -271,7 +267,6 @@ export async function handleAgentComment({
   const completionReplyId = await postAgentReply({
     taskId,
     parentId: commentId,
-    authorId: actorClerkId,
     body: replyBody,
   })
 

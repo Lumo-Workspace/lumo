@@ -12,6 +12,7 @@ import {
   GitPullRequest,
   GitBranch,
   Loader2,
+  Bot,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
@@ -370,6 +371,7 @@ export function TaskDetailPanel({
       body,
       parentId: null,
       quotedCommentId: null,
+      type: 'user',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -448,6 +450,7 @@ export function TaskDetailPanel({
         body,
         parentId,
         quotedCommentId,
+        type: 'user',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -764,15 +767,22 @@ export function TaskDetailPanel({
         ) : (
           <div className='space-y-5'>
             {comments.map(comment => {
-              const author = members.find(m => m.clerkId === comment.authorId)
-              const name = author?.name ?? 'Unknown'
-              const initials = name
-                .split(' ')
-                .map((n: string) => n[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase()
-              const isAuthor = comment.authorId === user?.id
+              const isAgentComment = comment.type === 'agent'
+              const author = isAgentComment
+                ? null
+                : members.find(m => m.clerkId === comment.authorId)
+              const name = isAgentComment
+                ? 'Coding Agent'
+                : (author?.name ?? 'Unknown')
+              const initials = isAgentComment
+                ? 'CA'
+                : name
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+              const isAuthor = !isAgentComment && comment.authorId === user?.id
               const isEditing = editingCommentId === comment.id
               const isDeleting = deletingCommentId === comment.id
               const wasEdited =
@@ -788,12 +798,18 @@ export function TaskDetailPanel({
                     id={`comment-${comment.id}`}
                     className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                   >
-                    <Avatar className='size-7 shrink-0 mt-0.5'>
-                      <AvatarImage src={author?.imageUrl ?? undefined} />
-                      <AvatarFallback className='text-[10px]'>
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
+                    {isAgentComment ? (
+                      <div className='size-7 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                        <Bot className='size-3.5 text-violet-600 dark:text-violet-400' />
+                      </div>
+                    ) : (
+                      <Avatar className='size-7 shrink-0 mt-0.5'>
+                        <AvatarImage src={author?.imageUrl ?? undefined} />
+                        <AvatarFallback className='text-[10px]'>
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
                         <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
@@ -954,17 +970,23 @@ export function TaskDetailPanel({
                   {(comment.replies?.length ?? 0) > 0 && (
                     <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                       {comment.replies!.map(reply => {
-                        const rAuthor = members.find(
-                          m => m.clerkId === reply.authorId
-                        )
-                        const rName = rAuthor?.name ?? 'Unknown'
-                        const rInitials = rName
-                          .split(' ')
-                          .map((n: string) => n[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()
-                        const rIsAuthor = reply.authorId === user?.id
+                        const rIsAgent = reply.type === 'agent'
+                        const rAuthor = rIsAgent
+                          ? null
+                          : members.find(m => m.clerkId === reply.authorId)
+                        const rName = rIsAgent
+                          ? 'Coding Agent'
+                          : (rAuthor?.name ?? 'Unknown')
+                        const rInitials = rIsAgent
+                          ? 'CA'
+                          : rName
+                              .split(' ')
+                              .map((n: string) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()
+                        const rIsAuthor =
+                          !rIsAgent && reply.authorId === user?.id
                         const rIsEditing = editingCommentId === reply.id
                         const rIsDeleting = deletingCommentId === reply.id
                         const rWasEdited =
@@ -977,14 +999,20 @@ export function TaskDetailPanel({
                             id={`comment-${reply.id}`}
                             className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                           >
-                            <Avatar className='size-5 shrink-0 mt-0.5'>
-                              <AvatarImage
-                                src={rAuthor?.imageUrl ?? undefined}
-                              />
-                              <AvatarFallback className='text-[9px]'>
-                                {rInitials}
-                              </AvatarFallback>
-                            </Avatar>
+                            {rIsAgent ? (
+                              <div className='size-5 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
+                                <Bot className='size-3 text-violet-600 dark:text-violet-400' />
+                              </div>
+                            ) : (
+                              <Avatar className='size-5 shrink-0 mt-0.5'>
+                                <AvatarImage
+                                  src={rAuthor?.imageUrl ?? undefined}
+                                />
+                                <AvatarFallback className='text-[9px]'>
+                                  {rInitials}
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
                             <div className='flex-1 min-w-0'>
                               <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
                                 <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
