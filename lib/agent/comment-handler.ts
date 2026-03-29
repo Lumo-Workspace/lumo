@@ -22,9 +22,13 @@ function htmlToText(html: string): string {
 
 export function extractAgentInstruction(commentHtml: string): string {
   const text = htmlToText(commentHtml)
-  const idx = text.toLowerCase().indexOf('@agent')
-  if (idx === -1) return ''
-  return text.slice(idx + '@agent'.length).trim()
+  // Match both "@agent" (legacy) and "@Coding Agent" (current)
+  const patterns = ['@coding agent', '@agent']
+  for (const pattern of patterns) {
+    const idx = text.toLowerCase().indexOf(pattern)
+    if (idx !== -1) return text.slice(idx + pattern.length).trim()
+  }
+  return ''
 }
 
 export async function buildAgentSpec(

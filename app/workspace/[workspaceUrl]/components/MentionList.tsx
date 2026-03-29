@@ -24,7 +24,7 @@ export type MentionItem =
       title: string
       status: string
     }
-  | { type: 'agent'; id: '__agent__'; label: 'agent' }
+  | { type: 'agent'; id: '__agent__'; label: string }
 
 interface MentionListProps {
   items: MentionItem[]
@@ -57,7 +57,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           mentionStatus: item.status,
         })
       } else if (item.type === 'agent') {
-        command({ id: '__agent__', label: 'agent', mentionType: 'agent' })
+        command({ id: '__agent__', label: item.label, mentionType: 'agent' })
       } else {
         command({ id: item.id, label: item.label, mentionType: 'user' })
       }
@@ -118,7 +118,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
               className='text-violet-600 dark:text-violet-400 shrink-0'
             />
             <span className='text-violet-600 dark:text-violet-400'>
-              Lumo Agent
+              {item.label}
             </span>
           </button>
         )
