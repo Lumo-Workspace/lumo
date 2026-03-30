@@ -11,6 +11,8 @@ import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'
+import { isValidTaskTransition } from '@/lib/task/state-machine'
+import type { TaskStatusValue } from '@/lib/task/state-machine'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -464,8 +466,18 @@ ${taskSpec}
       prUrl = existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
       prNumber = existingPr?.number ?? 0
 
+      if (!isValidTaskTransition(task.status as TaskStatusValue, 'IN_REVIEW')) {
+        console.warn(
+          `[Agent] Skipping task status → IN_REVIEW: invalid from ${task.status}`
+        )
+      }
       await transitionAgentStatus(taskId, task.project.id, 'DONE', {
-        status: 'IN_REVIEW',
+        status: isValidTaskTransition(
+          task.status as TaskStatusValue,
+          'IN_REVIEW'
+        )
+          ? 'IN_REVIEW'
+          : undefined,
         skipBroadcast: true,
       })
       await prisma.taskBranch.upsert({
@@ -492,7 +504,12 @@ ${taskSpec}
       prNumber = pr.number
 
       await transitionAgentStatus(taskId, task.project.id, 'DONE', {
-        status: 'IN_REVIEW',
+        status: isValidTaskTransition(
+          task.status as TaskStatusValue,
+          'IN_REVIEW'
+        )
+          ? 'IN_REVIEW'
+          : undefined,
         skipBroadcast: true,
       })
       await prisma.$transaction([

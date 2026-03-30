@@ -5,6 +5,7 @@ import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
+import { transitionTaskStatus } from '@/lib/task/state-machine'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,9 +160,8 @@ export async function handlePullRequest(
 
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { status: 'IN_REVIEW' },
+      await transitionTaskStatus(task.id, task.projectId, 'IN_REVIEW', {
+        currentStatus: task.status,
       })
       // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
       let defaultReviewerActorId: string | null = null
@@ -217,9 +217,8 @@ export async function handlePullRequest(
       }
     }
   } else if (action === 'closed' && pr.merged) {
-    await prisma.task.update({
-      where: { id: task.id },
-      data: { status: 'DONE' },
+    await transitionTaskStatus(task.id, task.projectId, 'DONE', {
+      currentStatus: task.status,
     })
     const mergePayload = {
       taskId: task.id,
@@ -286,9 +285,8 @@ export async function handlePullRequest(
     }
   } else if (action === 'closed' && !pr.merged) {
     if (task.status === 'IN_REVIEW') {
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { status: 'IN_PROGRESS' },
+      await transitionTaskStatus(task.id, task.projectId, 'IN_PROGRESS', {
+        currentStatus: 'IN_REVIEW',
       })
     }
   }

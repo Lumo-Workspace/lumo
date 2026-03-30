@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { transitionTaskStatus } from '@/lib/task/state-machine'
 
 // Input: the raw text after "@Lumo " or "/lumo "
 // Returns: Slack Block Kit blocks array OR a plain string message
@@ -168,10 +169,10 @@ export async function handleCommand(
       if (!task)
         return { type: 'text', text: `Task \`${parts[1]}\` not found.` }
 
-      const newStatus = cmd === 'done' ? 'DONE' : 'IN_REVIEW'
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { status: newStatus as 'DONE' | 'IN_REVIEW' },
+      const newStatus =
+        cmd === 'done' ? ('DONE' as const) : ('IN_REVIEW' as const)
+      await transitionTaskStatus(task.id, task.projectId, newStatus, {
+        currentStatus: task.status,
       })
       return {
         type: 'text',

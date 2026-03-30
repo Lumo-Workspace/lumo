@@ -11,6 +11,10 @@ import {
 import { getHumanActorId } from '@/lib/actor'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
+import {
+  isValidTaskTransition,
+  type TaskStatusValue,
+} from '@/lib/task/state-machine'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -131,7 +135,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     let pullRequests = task.pullRequests
 
     if (openPrs.length > 0) {
-      const updates = await syncPullRequestStatus(task.id, openPrs)
+      const updates = await syncPullRequestStatus(openPrs)
       if (updates.size > 0) {
         pullRequests = task.pullRequests.map(pr => {
           const update = updates.get(pr.id)
@@ -172,7 +176,6 @@ interface PrStatusUpdate {
  * Returns a map of PR id → updated state so the caller can patch the response.
  */
 async function syncPullRequestStatus(
-  taskId: string,
   openPrs: { id: string; number: number; url: string; state: string }[]
 ): Promise<Map<string, PrStatusUpdate>> {
   const updates = new Map<string, PrStatusUpdate>()
@@ -225,14 +228,6 @@ async function syncPullRequestStatus(
       })
 
       updates.set(pr.id, { state: newState, mergedAt })
-
-      // If PR was merged, mark task as DONE
-      if (newState === 'merged') {
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { status: 'DONE' },
-        })
-      }
     }
   } catch (err) {
     console.error('[sync-pr] Failed to sync PR status:', err)
@@ -284,6 +279,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       repositoryId,
       ...rest
     } = parsed.data
+
+    // Validate task status transition
+    if (rest.status !== undefined && rest.status !== task.status) {
+      if (
+        !isValidTaskTransition(
+          task.status as TaskStatusValue,
+          rest.status as TaskStatusValue
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error: `Invalid status transition: ${task.status} → ${rest.status}`,
+          },
+          { status: 409 }
+        )
+      }
+    }
 
     // Validate parentTaskId change
     if (parentTaskId !== undefined) {
