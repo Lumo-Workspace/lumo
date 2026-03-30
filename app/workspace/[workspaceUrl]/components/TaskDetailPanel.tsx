@@ -54,7 +54,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { API, CACHE_KEY } from '../constants'
-import { readCache, writeCache } from '../cache'
+import { readCache, writeCache, CACHE_TTL } from '../cache'
 import { useUser } from '@clerk/nextjs'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
@@ -215,7 +215,11 @@ export function TaskDetailPanel({
 
   // ─── Comments (stale-while-revalidate from localStorage) ─────────────────────
   const cachedComments = useMemo(
-    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
+    () =>
+      readCache<ApiComment[]>(
+        CACHE_KEY.comments(initialTask.id),
+        CACHE_TTL.short
+      ) ?? null,
 
     [initialTask.id]
   )
@@ -250,10 +254,19 @@ export function TaskDetailPanel({
   const [submittingReply, setSubmittingReply] = useState(false)
   const clearReplyRef = useRef<(() => void) | null>(null)
 
-  // ─── Description ────────────────────────────────────────────────────────────
-  const hasCached = cachedDescription !== undefined
+  // ─── Description (prop → localStorage → loading) ───────────────────────────
+  const resolvedDescription = useMemo(() => {
+    if (cachedDescription !== undefined) return cachedDescription
+    return (
+      readCache<{ desc: string | null }>(
+        CACHE_KEY.description(initialTask.id),
+        CACHE_TTL.short
+      )?.desc ?? undefined
+    )
+  }, [cachedDescription, initialTask.id])
+  const hasCached = resolvedDescription !== undefined
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
-    hasCached ? cachedDescription : null
+    hasCached ? (resolvedDescription ?? null) : null
   )
   const [descriptionLoading, setDescriptionLoading] = useState(!hasCached)
 
@@ -285,6 +298,13 @@ export function TaskDetailPanel({
           }))
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
+          // Sync task + description to cache
+          const taskMap =
+            readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
+          writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
+          writeCache(CACHE_KEY.description(t.id), {
+            desc: t.description ?? null,
+          })
         }
         const freshComments =
           (commentsData as { comments: ApiComment[] }).comments ?? []
@@ -334,6 +354,13 @@ export function TaskDetailPanel({
               branches: t.branches ?? [],
             }))
             setDescriptionValue(t.description ?? null)
+            // Sync task + description to cache
+            const taskMap =
+              readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
+            writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
+            writeCache(CACHE_KEY.description(t.id), {
+              desc: t.description ?? null,
+            })
           }
         })
         .catch(console.error)
