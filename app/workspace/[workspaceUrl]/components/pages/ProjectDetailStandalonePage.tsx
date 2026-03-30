@@ -21,9 +21,7 @@ import { copyLink } from '../../utils/copyLink'
 import { slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useCopyState } from '../../hooks/useCopyState'
-import { useNotifications } from '../../hooks/useNotifications'
-import { usePusherEvent } from '../../hooks/usePusher'
-import { useUser } from '@clerk/nextjs'
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { toast } from 'sonner'
 
 interface Props {
@@ -41,14 +39,7 @@ export function ProjectDetailStandalonePage({
   const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  const { user } = useUser()
-  const { unreadCount, fetchNotifications } = useNotifications()
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
-  usePusherEvent(user?.id ? `user-${user.id}` : null, 'user-update', () =>
-    fetchNotifications()
-  )
+  const { unreadCount } = useRealtimeNotifications()
 
   // ── Copy link ─────────────────────────────────────────────────────────────
   const [copied, triggerCopy] = useCopyState()

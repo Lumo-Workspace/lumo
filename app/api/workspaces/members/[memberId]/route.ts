@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateMemberRoleSchema } from '@/lib/validation/schemas'
 
 export async function PATCH(
@@ -12,10 +13,8 @@ export async function PATCH(
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
 
     // Caller must be OWNER
     if (ws.member.role !== 'OWNER') {
@@ -44,12 +43,7 @@ export async function PATCH(
 
     const body = await request.json()
     const parsed = updateMemberRoleSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { role } = parsed.data
 

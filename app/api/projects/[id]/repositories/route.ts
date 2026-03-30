@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
-import { isPrismaUniqueError } from '@/lib/api/helpers'
+import { requireAuth } from '@/lib/auth'
+import {
+  isPrismaUniqueError,
+  loadProjectAndMember,
+  zodError,
+} from '@/lib/api/helpers'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -13,14 +17,6 @@ const addRepoSchema = z.object({
     .regex(/^[^/]+\/[^/]+$/, 'Must be in owner/repo format'),
   isDefault: z.boolean().optional(),
 })
-
-async function loadProjectAndMember(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({ where: { id: projectId } })
-  if (!project) return null
-  const member = await requireWorkspaceMember(project.workspaceId, userId)
-  if (member instanceof NextResponse) return null
-  return { project, member }
-}
 
 /**
  * GET /api/projects/[id]/repositories — list all linked repos for a project
@@ -33,9 +29,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const { id } = await params
 
     const result = await loadProjectAndMember(id, userId)
-    if (!result) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
+    if (result instanceof NextResponse) return result
 
     const repositories = await prisma.projectRepository.findMany({
       where: { projectId: id },
@@ -63,18 +57,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     const { id } = await params
 
     const result = await loadProjectAndMember(id, userId)
-    if (!result) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
+    if (result instanceof NextResponse) return result
 
     const body = await req.json()
     const parsed = addRepoSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { fullName, isDefault } = parsed.data
     const name = fullName.split('/')[1] ?? fullName

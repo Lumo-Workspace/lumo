@@ -1,23 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { updateProjectSchema } from '@/lib/validation/schemas'
+import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 
 type Params = { params: Promise<{ id: string }> }
-
-/**
- * Shared helper: load project + verify workspace membership.
- * Returns { project, member } or a NextResponse on failure.
- */
-async function loadProjectAndMember(id: string, userId: string) {
-  const project = await prisma.project.findUnique({ where: { id } })
-  if (!project) {
-    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-  }
-  const member = await requireWorkspaceMember(project.workspaceId, userId)
-  if (member instanceof NextResponse) return member
-  return { project, member }
-}
 
 /**
  * GET /api/projects/[id] — Get a single project with its task/view count.
@@ -75,12 +62,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const body = await request.json()
     const parsed = updateProjectSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const data: Record<string, unknown> = {}
     if (parsed.data.name !== undefined) data.name = parsed.data.name

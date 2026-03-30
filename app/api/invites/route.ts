@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { currentUser } from '@clerk/nextjs/server'
-import {
-  requireAuth,
-  requireWorkspaceMember,
-  getUserWorkspace,
-} from '@/lib/auth'
+import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { sendInvitesSchema } from '@/lib/validation/schemas'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
@@ -19,12 +16,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const parsed = sendInvitesSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { emails, workspaceId } = parsed.data
 
@@ -122,10 +114,8 @@ export async function GET() {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
 
     const invites = await prisma.workspaceInvite.findMany({
       where: { workspaceId: ws.workspaceId, status: 'PENDING' },

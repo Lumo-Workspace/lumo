@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
+import { zodError } from '@/lib/api/helpers'
 import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
@@ -94,12 +95,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const body = await request.json()
     const parsed = createCommentSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { body: commentBody, parentId, quotedCommentId } = parsed.data
 

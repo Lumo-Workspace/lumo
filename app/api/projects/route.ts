@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createProjectSchema } from '@/lib/validation/schemas'
 import { getDefaultTeam } from '@/lib/team'
 
@@ -15,10 +16,8 @@ export async function GET() {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
 
     const projects = await prisma.project.findMany({
       where: {
@@ -69,19 +68,12 @@ export async function POST(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
 
     const body = await request.json()
     const parsed = createProjectSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const defaultTeam = await getDefaultTeam(ws.workspaceId)
 

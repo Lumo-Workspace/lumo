@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
 
@@ -22,15 +23,10 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const parsed = bodySchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
     const { taskId, spec } = parsed.data
 
-    const task = await prisma.task.findUnique({
+    const rawTask = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
         id: true,
@@ -39,15 +35,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (!task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-    }
-
-    const memberResult = await requireWorkspaceMember(
-      task.project.workspaceId,
-      userId
-    )
-    if (memberResult instanceof NextResponse) return memberResult
+    const taskCheck = await requireTaskMember(rawTask, userId)
+    if (taskCheck instanceof NextResponse) return taskCheck
+    const task = taskCheck.task
 
     if (task.agentStatus !== 'SPEC_REVIEW') {
       return NextResponse.json(

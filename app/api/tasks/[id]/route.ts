@@ -3,6 +3,7 @@ import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
+import { zodError } from '@/lib/api/helpers'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import {
   buildTaskNotificationCtx,
@@ -274,12 +275,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const body = await request.json()
     const parsed = updateTaskSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const {
       parentTaskId,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createWorkspaceSchema } from '@/lib/validation/schemas'
 
 /**
@@ -12,10 +13,8 @@ export async function GET() {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const result = await getUserWorkspace(userId)
-    if (!result) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const result = await requireUserWorkspace(userId)
+    if (result instanceof NextResponse) return result
 
     return NextResponse.json({
       workspace: result.workspace,
@@ -40,10 +39,8 @@ export async function PATCH(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
     if (ws.member.role !== 'OWNER') {
       return NextResponse.json(
         { error: 'Only admins can update workspace settings' },
@@ -53,12 +50,7 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json()
     const parsed = createWorkspaceSchema.partial().safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { name, slug } = parsed.data
 
@@ -100,10 +92,8 @@ export async function DELETE() {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
     if (ws.member.role !== 'OWNER') {
       return NextResponse.json(
         { error: 'Only admins can delete a workspace' },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 
 type Params = { params: Promise<{ id: string; repoId: string }> }
 
@@ -44,12 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const body = await req.json()
     const parsed = patchRepoSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     if (parsed.data.isDefault === true) {
       // Clear existing defaults, then set this one

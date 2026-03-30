@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { requireUserWorkspace } from '@/lib/api/helpers'
 import { getOrCreateHumanActor } from '@/lib/actor'
 
 /**
@@ -16,10 +17,8 @@ export async function GET() {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
-    }
+    const ws = await requireUserWorkspace(userId)
+    if (ws instanceof NextResponse) return ws
 
     const workspaceId = ws.workspaceId
 

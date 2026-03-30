@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { Sandbox } from '@e2b/code-interpreter'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 
@@ -21,12 +22,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const parsed = bodySchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request', details: parsed.error.flatten() },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
     const { taskId } = parsed.data
 
     const task = await prisma.task.findUnique({
@@ -39,17 +35,14 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (!task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-    }
+    const taskCheck = await requireTaskMember(task, userId)
+    if (taskCheck instanceof NextResponse) return taskCheck
+    const verifiedTask = taskCheck.task
 
-    const memberResult = await requireWorkspaceMember(
-      task.project.workspaceId,
-      userId
-    )
-    if (memberResult instanceof NextResponse) return memberResult
-
-    if (task.agentStatus !== 'RUNNING' && task.agentStatus !== 'PAUSED') {
+    if (
+      verifiedTask.agentStatus !== 'RUNNING' &&
+      verifiedTask.agentStatus !== 'PAUSED'
+    ) {
       return NextResponse.json(
         { error: 'Agent is not running' },
         { status: 409 }
@@ -57,9 +50,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Kill the sandbox if we have its ID
-    if (task.sandboxId) {
+    if (verifiedTask.sandboxId) {
       try {
-        const sandbox = await Sandbox.connect(task.sandboxId)
+        const sandbox = await Sandbox.connect(verifiedTask.sandboxId)
         await sandbox.kill()
       } catch {
         // Sandbox may have already exited — not a fatal error

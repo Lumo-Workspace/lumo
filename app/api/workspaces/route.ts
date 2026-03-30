@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 import { createWorkspaceSchema } from '@/lib/validation/schemas'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import { generateIdentifier } from '@/lib/team'
@@ -16,12 +17,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const parsed = createWorkspaceSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-        { status: 400 }
-      )
-    }
+    if (!parsed.success) return zodError(parsed)
 
     const { name } = parsed.data
     const slug = parsed.data.slug ?? generateWorkspaceSlug(name)

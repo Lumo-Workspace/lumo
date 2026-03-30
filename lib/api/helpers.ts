@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getUserWorkspace } from '@/lib/auth'
+import { getUserWorkspace, requireWorkspaceMember } from '@/lib/auth'
+import { prisma } from '@/lib/db/prisma'
+
+// ── Workspace guards ────────────────────────────────────────────────────────
 
 /**
  * Validate workspaceUrl query param and verify the caller owns it.
@@ -25,20 +28,61 @@ export async function requireWorkspaceByUrl(
 }
 
 /**
- * Return a 400 response from a failed Zod parse, or null if valid.
+ * Get current user's workspace or return 404.
  */
-export function zodError(
-  parsed:
-    | { success: false; error: { issues: { message: string }[] } }
-    | { success: true }
-): NextResponse | null {
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-      { status: 400 }
-    )
+export async function requireUserWorkspace(userId: string) {
+  const ws = await getUserWorkspace(userId)
+  if (!ws) {
+    return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
   }
-  return null
+  return ws
+}
+
+// ── Resource loaders ────────────────────────────────────────────────────────
+
+/**
+ * Load a project by ID and verify the caller is a workspace member.
+ */
+export async function loadProjectAndMember(projectId: string, userId: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } })
+  if (!project) {
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  }
+  const member = await requireWorkspaceMember(project.workspaceId, userId)
+  if (member instanceof NextResponse) return member
+  return { project, member }
+}
+
+/**
+ * Verify a task exists and the caller is a workspace member.
+ * Accepts a pre-fetched task (with at least `project.workspaceId`).
+ * Returns the original task (preserving its full type) + member, or a NextResponse.
+ */
+export async function requireTaskMember<
+  T extends { project: { workspaceId: string } },
+>(task: T | null, userId: string) {
+  if (!task) {
+    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+  }
+  const member = await requireWorkspaceMember(task.project.workspaceId, userId)
+  if (member instanceof NextResponse) return member
+  return { task, member }
+}
+
+// ── Validation helpers ──────────────────────────────────────────────────────
+
+/**
+ * Build a 400 response from a failed Zod parse result.
+ * Use with: `if (!parsed.success) return zodError(parsed)`
+ * This preserves TypeScript's type narrowing on `parsed.data`.
+ */
+export function zodError(parsed: {
+  error: { issues: { message: string }[] }
+}): NextResponse {
+  return NextResponse.json(
+    { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+    { status: 400 }
+  )
 }
 
 /**

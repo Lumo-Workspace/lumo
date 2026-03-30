@@ -32,10 +32,8 @@ import { useMyTasks } from './hooks/useMyTasks'
 import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
-import { useNotifications } from './hooks/useNotifications'
+import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
 import { useDarkMode } from './hooks/useDarkMode'
-import { usePusherEvent } from './hooks/usePusher'
-import type { UserEvent } from '@/lib/pusher/server'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -115,15 +113,8 @@ export default function DashboardApp() {
     markOneUnread,
     deleteOne: deleteNotification,
     markAllRead,
-  } = useNotifications()
+  } = useRealtimeNotifications()
   const { user } = useUser()
-
-  // ── Pusher: real-time notification updates ────────────────────────────────
-  usePusherEvent<UserEvent>(
-    user?.id ? `user-${user.id}` : null,
-    'user-update',
-    () => fetchNotifications()
-  )
 
   // Current user's workspace member ID (for defaulting assignee to self)
   const currentMemberId = useMemo(
@@ -318,11 +309,7 @@ export default function DashboardApp() {
     localStorage.setItem('lumo:context', context)
   }, [user?.id, workspaceUrl])
 
-  // ─── Fetch notifications on mount ─────────────────────────────────────────
-  useEffect(() => {
-    fetchNotifications()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // (notifications mount + pusher handled by useRealtimeNotifications)
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {

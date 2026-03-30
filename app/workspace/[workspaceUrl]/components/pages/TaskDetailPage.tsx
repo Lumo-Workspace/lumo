@@ -60,7 +60,7 @@ import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
-import { useNotifications } from '../../hooks/useNotifications'
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { copyLink } from '../../utils/copyLink'
 import { useCopyState } from '../../hooks/useCopyState'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -106,13 +106,7 @@ export function TaskDetailPage({
   const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  const { unreadCount, fetchNotifications: fetchNotifs } = useNotifications()
-  useEffect(() => {
-    fetchNotifs()
-  }, [fetchNotifs])
-  usePusherEvent(user?.id ? `user-${user.id}` : null, 'user-update', () =>
-    fetchNotifs()
-  )
+  const { unreadCount } = useRealtimeNotifications()
 
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(null)
