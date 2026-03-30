@@ -3,7 +3,12 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
-import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
+import {
+  AgentStatusValue,
+  ApiTask,
+  MyTask,
+  WorkspaceMemberInfo,
+} from '../../types'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../TaskFieldSelects'
 import { getInitials } from '@/lib/utils/getInitials'
@@ -16,16 +21,116 @@ import {
 } from '@/components/ui/hover-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+// ─── Agent status helpers ──────────────────────────────────────────────────
+
+const NEEDS_YOU_STATUSES: AgentStatusValue[] = [
+  'PAUSED',
+  'SPEC_REVIEW',
+  'ERROR',
+]
+
+function agentStatusLabel(
+  status: AgentStatusValue | null | undefined
+): string | null {
+  switch (status) {
+    case 'IDLE':
+      return 'Ready'
+    case 'RUNNING':
+      return 'Running...'
+    case 'PAUSED':
+    case 'SPEC_REVIEW':
+    case 'ERROR':
+      return 'Needs you'
+    case 'DONE':
+      return 'Done'
+    case 'FAILED':
+      return 'Failed'
+    case 'CANCELLED':
+      return 'Cancelled'
+    default:
+      return null
+  }
+}
+
+function agentBadgeClasses(
+  status: AgentStatusValue | null | undefined
+): string {
+  switch (status) {
+    case 'IDLE':
+      return 'bg-zinc-400'
+    case 'RUNNING':
+      return 'bg-blue-500 animate-pulse'
+    case 'PAUSED':
+    case 'SPEC_REVIEW':
+      return 'bg-yellow-500'
+    case 'DONE':
+      return 'bg-green-500'
+    case 'FAILED':
+    case 'ERROR':
+      return 'bg-red-500'
+    case 'CANCELLED':
+      return 'bg-zinc-400'
+    default:
+      return 'bg-zinc-400'
+  }
+}
+
+function agentStatusTextClasses(
+  status: AgentStatusValue | null | undefined
+): string {
+  switch (status) {
+    case 'IDLE':
+      return 'text-zinc-400'
+    case 'RUNNING':
+      return 'text-blue-500 animate-pulse'
+    case 'PAUSED':
+    case 'SPEC_REVIEW':
+    case 'ERROR':
+      return 'text-orange-500 font-medium'
+    case 'DONE':
+      return 'text-green-600'
+    case 'FAILED':
+      return 'text-red-500'
+    case 'CANCELLED':
+      return 'text-zinc-400'
+    default:
+      return 'text-zinc-400'
+  }
+}
+
+/** 12px badge overlaid at bottom-right of the avatar */
+function AgentStatusBadge({
+  status,
+}: {
+  status: AgentStatusValue | null | undefined
+}) {
+  return (
+    <span
+      className={cn(
+        'absolute -bottom-0.5 -right-0.5 size-3 rounded-sm border-2 border-white dark:border-zinc-900',
+        agentBadgeClasses(status)
+      )}
+    />
+  )
+}
+
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
 interface CardShellProps {
   taskId: string
   isOverlay: boolean
+  needsAttention?: boolean
   onClick?: (() => void) | undefined
   children: React.ReactNode
 }
 
-function CardShell({ taskId, isOverlay, onClick, children }: CardShellProps) {
+function CardShell({
+  taskId,
+  isOverlay,
+  needsAttention,
+  onClick,
+  children,
+}: CardShellProps) {
   const {
     attributes,
     listeners,
@@ -50,7 +155,8 @@ function CardShell({ taskId, isOverlay, onClick, children }: CardShellProps) {
       onClick={onClick}
       className={cn(
         'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none',
-        isOverlay && 'shadow-xl border-blue-500/50 rotate-2 cursor-grabbing'
+        isOverlay && 'shadow-xl border-blue-500/50 rotate-2 cursor-grabbing',
+        needsAttention && 'border-l-3 border-l-orange-400'
       )}
     >
       {children}
@@ -64,6 +170,10 @@ interface ProjectTaskCardProps {
   task: ApiTask
   isOverlay: boolean
   members?: WorkspaceMemberInfo[]
+  /** Actor ID of the current logged-in user */
+  currentActorId?: string | null | undefined
+  /** Whether the current user is a workspace OWNER */
+  isOwner?: boolean | undefined
   onClick?: () => void
 }
 
@@ -71,13 +181,31 @@ export function ProjectTaskCard({
   task,
   isOverlay,
   members,
+  currentActorId,
+  isOwner,
   onClick,
 }: ProjectTaskCardProps) {
   const assignee =
     members?.find(m => m.actorId === task.assigneeActorId) ?? null
+  const isAgent = task.assignee?.type === 'AGENT'
+  const label = isAgent ? agentStatusLabel(task.agentStatus) : null
+
+  // Orange border: PAUSED/SPEC_REVIEW → reviewer or owner; ERROR → owner only
+  const needsAttention =
+    isAgent &&
+    task.agentStatus != null &&
+    NEEDS_YOU_STATUSES.includes(task.agentStatus) &&
+    (task.agentStatus === 'ERROR'
+      ? !!isOwner
+      : currentActorId === task.reviewerActorId || !!isOwner)
 
   return (
-    <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
+    <CardShell
+      taskId={task.id}
+      isOverlay={isOverlay}
+      needsAttention={needsAttention}
+      onClick={onClick}
+    >
       <div className='flex justify-between items-start mb-2'>
         {task.number === 0 ? (
           <Spinner className='size-3 text-zinc-400' />
@@ -92,12 +220,16 @@ export function ProjectTaskCard({
         {task.title}
       </h4>
       <div className='flex justify-between items-center'>
-        {task.assignee?.type === 'AGENT' ? (
-          <div
-            className='flex items-center justify-center size-5 rounded-full bg-violet-100 dark:bg-violet-900/40 shrink-0'
-            title='Lumo Agent'
-          >
-            <Bot size={11} className='text-violet-600 dark:text-violet-400' />
+        {/* ── Left: avatar + agent badge ── */}
+        {isAgent ? (
+          <div className='relative shrink-0'>
+            <div
+              className='flex items-center justify-center size-5 rounded-full bg-violet-100 dark:bg-violet-900/40'
+              title='Lumo Agent'
+            >
+              <Bot size={11} className='text-violet-600 dark:text-violet-400' />
+            </div>
+            <AgentStatusBadge status={task.agentStatus} />
           </div>
         ) : assignee ? (
           <HoverCard openDelay={200}>
@@ -138,9 +270,22 @@ export function ProjectTaskCard({
         ) : (
           <UserCircle2 size={16} className='text-zinc-300 dark:text-zinc-600' />
         )}
-        <span className='text-[10px] text-zinc-400'>
-          Created {new Date(task.updatedAt).toLocaleDateString()}
-        </span>
+
+        {/* ── Right: status text or date ── */}
+        {isAgent && label ? (
+          <span
+            className={cn(
+              'text-[10px]',
+              agentStatusTextClasses(task.agentStatus)
+            )}
+          >
+            {label}
+          </span>
+        ) : (
+          <span className='text-[10px] text-zinc-400'>
+            Created {new Date(task.updatedAt).toLocaleDateString()}
+          </span>
+        )}
       </div>
     </CardShell>
   )
@@ -155,6 +300,9 @@ interface MyTaskCardProps {
 }
 
 export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
+  const isAgent = task.assignee?.type === 'AGENT'
+  const label = isAgent ? agentStatusLabel(task.agentStatus) : null
+
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
       <div className='flex justify-between items-start mb-2'>
@@ -174,9 +322,20 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
           {task.project.name}
         </span>
-        <span className='text-[10px] text-zinc-400'>
-          {new Date(task.updatedAt).toLocaleDateString()}
-        </span>
+        {isAgent && label ? (
+          <span
+            className={cn(
+              'text-[10px]',
+              agentStatusTextClasses(task.agentStatus)
+            )}
+          >
+            {label}
+          </span>
+        ) : (
+          <span className='text-[10px] text-zinc-400'>
+            {new Date(task.updatedAt).toLocaleDateString()}
+          </span>
+        )}
       </div>
     </CardShell>
   )

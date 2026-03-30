@@ -11,7 +11,7 @@ import {
 } from '@/lib/notifications/notifyTaskChange'
 import { getHumanActorId } from '@/lib/actor'
 import { getGithubInstallationToken } from '@/lib/github/auth'
-import { pushTaskEvent } from '@/lib/pusher/server'
+import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -332,9 +332,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     // Validate assigneeActorId belongs to the same workspace
+    let newAssigneeType: 'HUMAN' | 'AGENT' | null = null
     if (assigneeActorId !== undefined && assigneeActorId !== null) {
       const actor = await prisma.actor.findUnique({
         where: { id: assigneeActorId },
+        select: { type: true, workspaceId: true },
       })
       if (!actor || actor.workspaceId !== task.project.workspaceId) {
         return NextResponse.json(
@@ -342,6 +344,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           { status: 400 }
         )
       }
+      newAssigneeType = actor.type
     }
 
     // Validate reviewerActorId belongs to the same workspace
@@ -366,7 +369,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.priority !== undefined) data.priority = rest.priority
     if (rest.order !== undefined) data.order = rest.order
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
-    if (assigneeActorId !== undefined) data.assigneeActorId = assigneeActorId
+    if (assigneeActorId !== undefined) {
+      data.assigneeActorId = assigneeActorId
+      // Sync agentStatus when assignee type changes
+      if (newAssigneeType === 'AGENT') {
+        data.agentStatus = 'IDLE'
+        data.agentError = null
+      } else {
+        // Reassigned to human or unassigned — clear agent state
+        data.agentStatus = null
+        data.agentError = null
+        data.sandboxId = null
+      }
+    }
     if (reviewerActorId !== undefined) data.reviewerActorId = reviewerActorId
     if (projectId !== undefined) data.projectId = projectId
     if (repositoryId !== undefined) data.repositoryId = repositoryId
@@ -382,9 +397,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const workspaceId = task.project.workspaceId
 
-    // Push real-time task update event
+    // Push real-time task update event (detail page + board)
+    const changedFields = Object.keys(data)
     waitUntil(
-      pushTaskEvent(id, { type: 'task:updated', fields: Object.keys(data) })
+      Promise.all([
+        pushTaskEvent(id, { type: 'task:updated', fields: changedFields }),
+        pushProjectEvent(updated.projectId, {
+          type: 'task:updated',
+          taskId: id,
+          fields: changedFields,
+          patch: data,
+        }),
+      ])
     )
 
     // Resolve current user's Actor ID for notification triggers

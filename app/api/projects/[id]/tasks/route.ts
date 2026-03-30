@@ -64,7 +64,17 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     const tasks = await prisma.task.findMany({
       where: { projectId: id },
-      include: { team: { select: { identifier: true } } },
+      include: {
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+      },
       orderBy: { order: 'asc' },
     })
 
@@ -179,9 +189,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     // Validate assigneeActorId belongs to the same workspace
+    let assigneeIsAgent = false
     if (assigneeActorId) {
       const actor = await prisma.actor.findUnique({
         where: { id: assigneeActorId },
+        select: { type: true, workspaceId: true },
       })
       if (!actor || actor.workspaceId !== project.workspaceId) {
         return NextResponse.json(
@@ -189,6 +201,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 400 }
         )
       }
+      assigneeIsAgent = actor.type === 'AGENT'
     }
 
     const task = await prisma.$transaction(async tx => {
@@ -217,12 +230,23 @@ export async function POST(request: NextRequest, { params }: Params) {
           status,
           priority,
           assigneeActorId: assigneeActorId ?? null,
+          agentStatus: assigneeIsAgent ? 'IDLE' : null,
           reviewerActorId: defaultReviewerActorId,
           parentTaskId: parentTaskId ?? null,
           repositoryId: repositoryId ?? null,
           order: taskOrder,
         },
-        include: { team: { select: { identifier: true } } },
+        include: {
+          team: { select: { identifier: true } },
+          assignee: {
+            select: {
+              id: true,
+              type: true,
+              member: { select: { id: true, clerkId: true } },
+              agent: { select: { id: true, name: true, avatarColor: true } },
+            },
+          },
+        },
       })
     })
 

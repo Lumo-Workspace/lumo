@@ -57,6 +57,27 @@ export async function pushTaskEvent(
   }
 }
 
+// ── Project events (board-level updates) ────────────────────────────────
+
+export type ProjectEvent = {
+  type: 'task:updated'
+  taskId: string
+  fields: string[]
+  /** Partial task data for lightweight board updates */
+  patch?: Record<string, unknown>
+}
+
+export async function pushProjectEvent(
+  projectId: string,
+  event: ProjectEvent
+): Promise<void> {
+  try {
+    await getPusher().trigger(`project-${projectId}`, 'project-update', event)
+  } catch (err) {
+    console.error('[pusher] Failed to push project event:', err)
+  }
+}
+
 // ── User events (notifications) ─────────────────────────────────────────────
 
 export type UserEvent = { type: 'notification:new' }

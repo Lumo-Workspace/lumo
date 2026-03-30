@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { AnimatePresence } from 'motion/react'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
@@ -22,6 +23,7 @@ import { slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useCopyState } from '../../hooks/useCopyState'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
+import { usePusherEvent } from '../../hooks/usePusher'
 import { toast } from 'sonner'
 
 interface Props {
@@ -51,16 +53,23 @@ export function ProjectDetailStandalonePage({
   }, [workspaceUrl, initialProject.id, triggerCopy])
 
   // ── Data state ────────────────────────────────────────────────────────────
-  const [project, setProject] = useState<ApiProject>(() => {
-    // Seed repositories from projects cache immediately
+  const [project, setProject] = useState<ApiProject>(initialProject)
+
+  // Seed repositories from cache after mount to avoid hydration mismatch
+  // (localStorage is not available during SSR)
+  useEffect(() => {
     const cachedProjects = readCache<ApiProject[]>(CACHE_KEY.projects)
     if (cachedProjects) {
       const cached = cachedProjects.find(p => p.id === initialProject.id)
-      if (cached?.repositories)
-        return { ...initialProject, repositories: cached.repositories }
+      if (cached?.repositories) {
+        setProject(prev =>
+          prev.repositories?.length
+            ? prev
+            : { ...prev, repositories: cached.repositories! }
+        )
+      }
     }
-    return initialProject
-  })
+  }, [initialProject.id])
   const [tasks, setTasks] = useState<ApiTask[]>(() => {
     const cached = readCache<{ tasks?: ApiTask[] }>(
       CACHE_KEY.projectTasks(initialProject.id)
@@ -76,6 +85,16 @@ export function ProjectDetailStandalonePage({
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(() => {
     return readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
   })
+
+  // Current user identity for agent card styling
+  const { user } = useUser()
+  const currentMember = useMemo(
+    () => members.find(m => m.clerkId === user?.id),
+    [members, user?.id]
+  )
+  const currentActorId = currentMember?.actorId ?? null
+  const isOwner = currentMember?.role === 'OWNER'
+
   const [loading, setLoading] = useState(() => {
     const cached = readCache<{ tasks?: ApiTask[] }>(
       CACHE_KEY.projectTasks(initialProject.id)
@@ -83,6 +102,26 @@ export function ProjectDetailStandalonePage({
     return !cached?.tasks?.length
   })
   const [error, setError] = useState<string | null>(null)
+
+  // ── Real-time board updates via project channel ────────────────────────────
+  usePusherEvent<{
+    taskId: string
+    fields: string[]
+    patch?: Record<string, unknown>
+  }>(
+    `project-${initialProject.id}`,
+    'project-update',
+    useCallback(event => {
+      if (event.patch) {
+        setTasks(
+          prev =>
+            prev.map(t =>
+              t.id === event.taskId ? { ...t, ...event.patch } : t
+            ) as ApiTask[]
+        )
+      }
+    }, [])
+  )
 
   // ── Slack integration ─────────────────────────────────────────────────────
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
@@ -262,6 +301,8 @@ export function ProjectDetailStandalonePage({
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
             members={members}
+            currentActorId={currentActorId}
+            isOwner={isOwner}
             onSlack={() => setSlackDialogOpen(true)}
             onCopyLink={handleCopyLink}
             copied={copied}

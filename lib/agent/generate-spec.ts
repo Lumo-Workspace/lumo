@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, pushProjectEvent } from '@/lib/pusher/server'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -27,7 +27,11 @@ export async function generateSpecDraft(
     title: string
     description: string | null
     spec: string | null
-    project: { workspaceId: string; defaultReviewerId: string | null }
+    project: {
+      id: string
+      workspaceId: string
+      defaultReviewerId: string | null
+    }
     reviewerActorId: string | null
   }
 ): Promise<void> {
@@ -39,6 +43,12 @@ export async function generateSpecDraft(
     data: { agentStatus: 'RUNNING', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
+  await pushProjectEvent(task.project.id, {
+    type: 'task:updated',
+    taskId,
+    fields: ['agentStatus'],
+    patch: { agentStatus: 'RUNNING' },
+  })
   await pushAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Generating spec from description…',
@@ -68,6 +78,12 @@ export async function generateSpecDraft(
       error:
         'Spec generation returned empty output. Please add more detail to the description and retry.',
     })
+    await pushProjectEvent(task.project.id, {
+      type: 'task:updated',
+      taskId,
+      fields: ['agentStatus'],
+      patch: { agentStatus: 'FAILED' },
+    })
     return
   }
 
@@ -78,6 +94,12 @@ export async function generateSpecDraft(
   })
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
+  await pushProjectEvent(task.project.id, {
+    type: 'task:updated',
+    taskId,
+    fields: ['agentStatus'],
+    patch: { agentStatus: 'SPEC_REVIEW' },
+  })
 
   // Send Inbox notification to reviewer
   // Resolve effective reviewer Actor ID: task reviewer actor → or default reviewer (member → actor)

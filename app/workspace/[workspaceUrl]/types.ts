@@ -101,6 +101,16 @@ export interface ApiProject {
   kanbanViewId?: string
 }
 
+export type AgentStatusValue =
+  | 'IDLE'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'DONE'
+  | 'FAILED'
+  | 'ERROR'
+  | 'CANCELLED'
+  | 'SPEC_REVIEW'
+
 export interface ApiTask {
   id: string
   title: string
@@ -112,6 +122,7 @@ export interface ApiTask {
   reviewerActorId: string | null
   assignee?: ActorInfo | null
   repositoryId: string | null
+  agentStatus?: AgentStatusValue | null
   updatedAt: string
   viewOrder: number | null
   number: number

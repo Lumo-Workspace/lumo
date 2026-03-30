@@ -33,6 +33,7 @@ import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
+import { usePusherEvent } from './hooks/usePusher'
 import { useDarkMode } from './hooks/useDarkMode'
 
 // Components
@@ -116,11 +117,14 @@ export default function DashboardApp() {
   } = useRealtimeNotifications()
   const { user } = useUser()
 
-  // Current user's workspace member ID (for defaulting assignee to self)
-  const currentMemberId = useMemo(
-    () => members.find(m => m.clerkId === user?.id)?.id,
+  // Current user's workspace member info
+  const currentMember = useMemo(
+    () => members.find(m => m.clerkId === user?.id),
     [members, user?.id]
   )
+  const currentMemberId = currentMember?.id
+  const currentActorId = currentMember?.actorId ?? null
+  const isOwner = currentMember?.role === 'OWNER'
 
   // ─── Derive task arrays from normalized store ──────────────────────────────
   const myTasks = useMemo(
@@ -131,6 +135,24 @@ export default function DashboardApp() {
   const projectTasks = useMemo(
     () => projectTaskIds.map(id => taskMap[id]).filter(Boolean) as ApiTask[],
     [projectTaskIds, taskMap]
+  )
+
+  // ─── Real-time board updates via project channel ──────────────────────────
+  usePusherEvent<{
+    taskId: string
+    fields: string[]
+    patch?: Record<string, unknown>
+  }>(
+    selectedProject ? `project-${selectedProject.id}` : null,
+    'project-update',
+    useCallback(
+      event => {
+        if (event.patch) {
+          updateTask(event.taskId, event.patch)
+        }
+      },
+      [updateTask]
+    )
   )
 
   // ─── DnD setTasks wrappers (bridge Dispatch<SetStateAction<T[]>> to store) ─
@@ -627,6 +649,8 @@ export default function DashboardApp() {
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
             members={members}
+            currentActorId={currentActorId}
+            isOwner={isOwner}
             onSlack={() => setSlackDialogOpen(true)}
             workspaceUrl={workspaceUrl}
           />

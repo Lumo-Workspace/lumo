@@ -4,7 +4,7 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, pushProjectEvent } from '@/lib/pusher/server'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
         id: true,
         agentStatus: true,
         sandboxId: true,
+        projectId: true,
         project: { select: { workspaceId: true } },
       },
     })
@@ -67,6 +68,12 @@ export async function POST(req: NextRequest) {
     await pushAgentEvent(taskId, {
       type: 'agent:failed',
       error: 'Cancelled by user',
+    })
+    await pushProjectEvent(verifiedTask.projectId, {
+      type: 'task:updated',
+      taskId,
+      fields: ['agentStatus'],
+      patch: { agentStatus: 'CANCELLED' },
     })
 
     return NextResponse.json({ status: 'cancelled', taskId })

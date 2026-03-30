@@ -111,6 +111,8 @@ interface ProjectDetailPageProps {
   ) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>
   members: WorkspaceMemberInfo[]
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
   onSlack?: () => void
   onCopyLink?: () => void
   copied?: boolean
@@ -133,6 +135,8 @@ export function ProjectDetailPage({
   onUpdateProject,
   onDeleteProject,
   members,
+  currentActorId,
+  isOwner,
   onSlack,
   onCopyLink,
   copied,
@@ -661,6 +665,8 @@ export function ProjectDetailPage({
                     task={task}
                     isOverlay={isOverlay}
                     members={members}
+                    currentActorId={currentActorId}
+                    isOwner={isOwner}
                     onClick={() => onTaskClick(task)}
                   />
                 )}

@@ -65,6 +65,7 @@ enum CommentType {
 }
 
 enum AgentStatus {
+  IDLE
   RUNNING
   PAUSED
   DONE

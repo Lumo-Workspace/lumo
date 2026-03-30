@@ -31,6 +31,29 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
   Example: chore: add CLAUDE.md for agent instructions [LUM-5]
 - Never push directly to main or develop
 
+## React Rules
+
+### Hooks
+
+- Only call Hooks at the top level of function components or custom hooks
+- Never call Hooks inside loops, conditionals, nested functions, try/catch, or after early returns
+- Never call Hooks from regular JS functions, class components, or event handlers
+- Never call Hooks inside callbacks passed to useMemo, useReducer, or useEffect
+
+### Purity
+
+- Components and Hooks must be idempotent — same inputs → same output, no side effects during render
+- No `new Date()`, `Math.random()`, or other non-deterministic calls during render; move to useEffect or event handlers
+- Never mutate props, state, or Hook return values directly — always create new copies
+- Local mutation (variables created within the same render) is fine
+- Side effects belong in event handlers or useEffect, never in render logic
+
+### Component & Hook Calling
+
+- Never call component functions directly (`Article()`); always use JSX (`<Article />`)
+- Never pass Hooks as values or props — always call them directly inline
+- Never dynamically create or wrap Hooks at runtime; define static versions upfront
+
 ## Project Structure
 
 - app/ → Next.js App Router pages and API routes

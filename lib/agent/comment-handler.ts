@@ -234,6 +234,8 @@ export async function handleAgentComment({
     where: { id: taskId },
     data: {
       assigneeActorId: agentActorId,
+      agentStatus: 'IDLE',
+      agentError: null,
       ...(updatedSpec !== null ? { spec: updatedSpec } : {}),
     },
   })

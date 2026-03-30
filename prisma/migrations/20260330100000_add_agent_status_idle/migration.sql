@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AgentStatus" ADD VALUE 'IDLE' BEFORE 'RUNNING';

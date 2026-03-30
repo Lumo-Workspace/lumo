@@ -25,6 +25,14 @@ export async function GET() {
       include: {
         project: { select: { id: true, name: true } },
         team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
       },
       orderBy: { order: 'asc' },
     })

@@ -47,7 +47,7 @@ const baseTask = {
   title: 'Add dark mode toggle',
   description: 'Users want a dark mode. Add a toggle to the settings page.',
   spec: null,
-  project: { workspaceId: 'ws-1', defaultReviewerId: null },
+  project: { id: 'proj-1', workspaceId: 'ws-1', defaultReviewerId: null },
   reviewerActorId: null,
 }
 
@@ -194,7 +194,11 @@ describe('generateSpecDraft', () => {
       const task = {
         ...baseTask,
         reviewerActorId: null,
-        project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
+        project: {
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          defaultReviewerId: 'member-default',
+        },
       }
       mockActorFindUnique.mockResolvedValue({ id: 'actor-default' })
 
@@ -250,7 +254,11 @@ describe('generateSpecDraft', () => {
       const task = {
         ...baseTask,
         reviewerActorId: null,
-        project: { workspaceId: 'ws-1', defaultReviewerId: 'member-gone' },
+        project: {
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          defaultReviewerId: 'member-gone',
+        },
       }
       mockActorFindUnique.mockResolvedValue(null)
       mockActorFindMany.mockResolvedValue([])

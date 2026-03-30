@@ -2,7 +2,11 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
-import { pushAgentEvent, pushTaskEvent } from '@/lib/pusher/server'
+import {
+  pushAgentEvent,
+  pushTaskEvent,
+  pushProjectEvent,
+} from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
@@ -75,7 +79,12 @@ async function createPullRequest({
   return response.json() as Promise<{ html_url: string; number: number }>
 }
 
-async function markFailed(taskId: string, code: string, message: string) {
+async function markFailed(
+  taskId: string,
+  projectId: string,
+  code: string,
+  message: string
+) {
   await prisma.task.update({
     where: { id: taskId },
     data: { agentStatus: 'FAILED', agentError: code, sandboxId: null },
@@ -83,6 +92,12 @@ async function markFailed(taskId: string, code: string, message: string) {
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
     error: userFriendlyError(code),
+  })
+  await pushProjectEvent(projectId, {
+    type: 'task:updated',
+    taskId,
+    fields: ['agentStatus'],
+    patch: { agentStatus: 'FAILED' },
   })
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
@@ -146,6 +161,7 @@ export async function executeAgent({
       description: task.description,
       spec: task.spec,
       project: {
+        id: task.project.id,
         workspaceId: task.project.workspaceId,
         defaultReviewerId: task.project.defaultReviewerId,
       },
@@ -188,13 +204,24 @@ export async function executeAgent({
     data: { agentStatus: 'RUNNING', agentError: null },
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
+  await pushProjectEvent(task.project.id, {
+    type: 'task:updated',
+    taskId,
+    fields: ['agentStatus'],
+    patch: { agentStatus: 'RUNNING' },
+  })
 
   let sandbox: Sandbox | undefined
   let timedOut = false
 
   const timeoutHandle = setTimeout(async () => {
     timedOut = true
-    await markFailed(taskId, 'TIMEOUT', 'Agent timed out after 28 minutes')
+    await markFailed(
+      taskId,
+      task.project.id,
+      'TIMEOUT',
+      'Agent timed out after 28 minutes'
+    )
     if (sandbox) await sandbox.kill().catch(() => {})
   }, AGENT_TIMEOUT_MS)
 
@@ -301,7 +328,12 @@ ${taskSpec}
       message: 'Agent is analyzing the codebase...',
     })
 
-    const monitorTask = { id: taskId, identifier, reviewerId: '' }
+    const monitorTask = {
+      id: taskId,
+      identifier,
+      reviewerId: '',
+      projectId: task.project.id,
+    }
 
     const CLARIFY_SENTINEL = '__clarify__'
     const winner = await Promise.race([
@@ -516,10 +548,16 @@ ${taskSpec}
       prNumber,
     })
 
-    // Push task update so sidebar refreshes PR/branch/status
+    // Push task update so sidebar/board refresh PR/branch/status
     await pushTaskEvent(taskId, {
       type: 'task:updated',
       fields: ['status', 'agentStatus', 'pullRequests', 'branches'],
+    })
+    await pushProjectEvent(task.project.id, {
+      type: 'task:updated',
+      taskId,
+      fields: ['status', 'agentStatus'],
+      patch: { agentStatus: 'DONE', status: 'IN_REVIEW' },
     })
 
     // Notify reviewer that task is ready for review
@@ -556,12 +594,12 @@ ${taskSpec}
     }
 
     if (error instanceof AgentError) {
-      await markFailed(taskId, error.code, error.message)
+      await markFailed(taskId, task.project.id, error.code, error.message)
       return { outcome: 'failed', error: userFriendlyError(error.code) }
     }
 
     const message = error instanceof Error ? error.message : 'Unknown error'
-    await markFailed(taskId, 'UNKNOWN_ERROR', message)
+    await markFailed(taskId, task.project.id, 'UNKNOWN_ERROR', message)
     return { outcome: 'failed', error: userFriendlyError('UNKNOWN_ERROR') }
   } finally {
     clearTimeout(timeoutHandle)

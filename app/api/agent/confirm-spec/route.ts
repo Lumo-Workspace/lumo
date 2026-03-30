@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
+import { pushProjectEvent } from '@/lib/pusher/server'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
+        projectId: true,
         project: { select: { workspaceId: true } },
       },
     })
@@ -46,10 +48,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Save confirmed spec, reset status so execute.ts proceeds
+    // Save confirmed spec, reset to IDLE before re-executing
     await prisma.task.update({
       where: { id: taskId },
-      data: { spec, agentStatus: null, agentError: null },
+      data: { spec, agentStatus: 'IDLE', agentError: null },
+    })
+    await pushProjectEvent(task.projectId, {
+      type: 'task:updated',
+      taskId,
+      fields: ['agentStatus'],
+      patch: { agentStatus: 'IDLE' },
     })
 
     waitUntil(
