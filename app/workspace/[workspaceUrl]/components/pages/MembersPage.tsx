@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, MoreHorizontal, RefreshCw, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
 import { readCache, writeCache, clearCache } from '../../cache'
 import { API, CACHE_KEY } from '../../constants'
@@ -63,7 +63,7 @@ function formatDate(iso: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MembersPage() {
-  const { user } = useUser()
+  const { user } = useCurrentUser()
   const { members, setMembers, fetchMembers } = useMembers()
   const [invites, setInvites] = useState<PendingInvite[]>([])
   const [loadingInvites, setLoadingInvites] = useState(true)

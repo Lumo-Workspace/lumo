@@ -55,7 +55,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
 import { CommentAvatar } from './CommentAvatar'
@@ -174,7 +174,7 @@ export function TaskDetailPanel({
     repositoryId:
       'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
   }))
-  const { user } = useUser()
+  const { user } = useCurrentUser()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
@@ -1258,11 +1258,7 @@ export function TaskDetailPanel({
                       <Avatar className='size-5 shrink-0 mt-0.5'>
                         <AvatarImage src={user?.imageUrl} />
                         <AvatarFallback className='text-[9px]'>
-                          {(
-                            user?.firstName?.[0] ??
-                            user?.emailAddresses?.[0]?.emailAddress?.[0] ??
-                            '?'
-                          ).toUpperCase()}
+                          {user?.initials ?? '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
@@ -1344,11 +1340,7 @@ export function TaskDetailPanel({
           <Avatar className='size-7 shrink-0 mt-0.5'>
             <AvatarImage src={user?.imageUrl} />
             <AvatarFallback className='text-[10px]'>
-              {(
-                user?.firstName?.[0] ??
-                user?.emailAddresses?.[0]?.emailAddress?.[0] ??
-                '?'
-              ).toUpperCase()}
+              {user?.initials ?? '?'}
             </AvatarFallback>
           </Avatar>
           <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>

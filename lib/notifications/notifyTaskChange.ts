@@ -129,6 +129,88 @@ export function notifyChannel(
   )
 }
 
+// ── Dispatch all notifications for a task update ───────────────────────────
+
+export function dispatchTaskUpdateNotifications(params: {
+  ctx: TaskNotificationCtx
+  taskId: string
+  oldStatus: string
+  newStatus?: string | undefined
+  oldAssigneeActorId: string | null
+  newAssigneeActorId?: string | null | undefined
+  updatedReviewerActorId: string | null
+  workspaceId: string
+  triggerActorId: string | null
+}): void {
+  const {
+    ctx,
+    taskId,
+    oldStatus,
+    newStatus,
+    oldAssigneeActorId,
+    newAssigneeActorId,
+    updatedReviewerActorId,
+    workspaceId,
+    triggerActorId,
+  } = params
+
+  // Status → IN_REVIEW
+  if (newStatus === 'IN_REVIEW' && oldStatus !== 'IN_REVIEW') {
+    // Imported lazily to avoid circular deps
+    import('@/lib/notifications/notifyTaskInReview').then(
+      ({ notifyTaskInReview }) =>
+        notifyTaskInReview({
+          workspaceId,
+          taskId,
+          reviewerActorId: updatedReviewerActorId,
+          defaultReviewerActorId: null,
+          triggerActorId,
+        }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
+    )
+  }
+
+  // Assignee changed → notify new assignee
+  if (
+    newAssigneeActorId !== undefined &&
+    newAssigneeActorId !== null &&
+    newAssigneeActorId !== oldAssigneeActorId
+  ) {
+    notifyStatusChange({
+      ctx,
+      taskId,
+      recipientActorId: newAssigneeActorId,
+      notificationType: 'TASK_ASSIGNED',
+      slackEventType: 'task_assigned',
+    })
+  }
+
+  // Sent back (IN_REVIEW → IN_PROGRESS or IN_REVIEW → TODO)
+  if (
+    (newStatus === 'IN_PROGRESS' || newStatus === 'TODO') &&
+    oldStatus === 'IN_REVIEW'
+  ) {
+    notifyStatusChange({
+      ctx,
+      taskId,
+      recipientActorId: oldAssigneeActorId,
+      notificationType: 'TASK_SENT_BACK',
+      slackEventType: 'task_sent_back',
+    })
+  }
+
+  // Task done
+  if (newStatus === 'DONE' && oldStatus !== 'DONE') {
+    notifyStatusChange({
+      ctx,
+      taskId,
+      recipientActorId: oldAssigneeActorId,
+      notificationType: 'TASK_DONE',
+      slackEventType: 'task_done',
+      skipSelfCheck: true,
+    })
+  }
+}
+
 // ── Notify actor + channel in one call ──────────────────────────────────────
 
 export function notifyStatusChange(params: {

@@ -31,6 +31,15 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
   Example: chore: add CLAUDE.md for agent instructions [LUM-5]
 - Never push directly to main or develop
 
+## Design Principles (SOLID + LoD)
+
+- **SRP**: Each component, hook, or function does one thing. Don't mix data fetching, business logic, and rendering in a single component.
+- **OCP**: Extend via composition (children, props, hooks), not by modifying existing components. Add new variants instead of adding flags to existing ones.
+- **LSP**: Component variants must honor the same props contract. A `<PrimaryButton>` must be swappable with `<SecondaryButton>` without breaking callers.
+- **ISP**: Pass only the props a component needs, not entire objects. Use `select` in Prisma queries to fetch only required fields.
+- **DIP**: Components depend on abstractions (hooks, context) not implementations. Import from `@/lib/` wrappers, not directly from third-party SDKs.
+- **LoD**: Components should not reach deep into nested props (`task.project.workspace.slug`). Parent extracts and passes flat values.
+
 ## React Rules
 
 ### Hooks

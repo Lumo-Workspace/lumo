@@ -13,7 +13,8 @@ import {
   Settings,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useUser, useClerk } from '@clerk/nextjs'
+import { useClerk } from '@clerk/nextjs'
+import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
 import { API, CACHE_KEY } from '../constants'
@@ -56,7 +57,7 @@ export function AppSidebar({
   onToggleDarkMode,
   unreadCount,
 }: AppSidebarProps) {
-  const { user } = useUser()
+  const { user } = useCurrentUser()
   const { signOut } = useClerk()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { isMobile } = useSidebar()
@@ -87,13 +88,8 @@ export function AppSidebar({
       .catch(() => {})
   }, [])
 
-  const initials =
-    user?.firstName?.[0] ??
-    user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
-    '?'
-  const displayName = user?.firstName
-    ? `${user.firstName} ${user.lastName ?? ''}`.trim()
-    : (user?.emailAddresses?.[0]?.emailAddress ?? '')
+  const initials = user?.initials ?? '?'
+  const displayName = user?.displayName ?? ''
 
   return (
     <Sidebar collapsible='none'>

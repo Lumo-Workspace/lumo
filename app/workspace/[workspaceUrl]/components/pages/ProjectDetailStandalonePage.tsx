@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { AnimatePresence } from 'motion/react'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
@@ -87,7 +87,7 @@ export function ProjectDetailStandalonePage({
   })
 
   // Current user identity for agent card styling
-  const { user } = useUser()
+  const { user } = useCurrentUser()
   const currentMember = useMemo(
     () => members.find(m => m.clerkId === user?.id),
     [members, user?.id]

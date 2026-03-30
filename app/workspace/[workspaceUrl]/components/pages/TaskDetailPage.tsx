@@ -18,7 +18,7 @@ import {
   Loader2,
   Github,
 } from 'lucide-react'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '../Sidebar'
 import { Button } from '@/components/ui/button'
@@ -100,7 +100,7 @@ export function TaskDetailPage({
 }: TaskDetailPageProps) {
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const router = useRouter()
-  const { user } = useUser()
+  const { user } = useCurrentUser()
 
   // ── Dark mode ──────────────────────────────────────────────────────────────
   const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
@@ -1309,11 +1309,7 @@ export function TaskDetailPage({
                           <Avatar className='size-5 shrink-0 mt-0.5'>
                             <AvatarImage src={user?.imageUrl} />
                             <AvatarFallback className='text-[9px]'>
-                              {(
-                                user?.firstName?.[0] ??
-                                user?.emailAddresses?.[0]?.emailAddress?.[0] ??
-                                '?'
-                              ).toUpperCase()}
+                              {user?.initials ?? '?'}
                             </AvatarFallback>
                           </Avatar>
                           <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
@@ -1411,11 +1407,7 @@ export function TaskDetailPage({
               <Avatar className='size-7 shrink-0 mt-0.5'>
                 <AvatarImage src={user?.imageUrl} />
                 <AvatarFallback className='text-[10px]'>
-                  {(
-                    user?.firstName?.[0] ??
-                    user?.emailAddresses?.[0]?.emailAddress?.[0] ??
-                    '?'
-                  ).toUpperCase()}
+                  {user?.initials ?? '?'}
                 </AvatarFallback>
               </Avatar>
               <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>

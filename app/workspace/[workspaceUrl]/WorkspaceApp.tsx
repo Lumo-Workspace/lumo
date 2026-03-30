@@ -13,7 +13,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from './hooks/useCurrentUser'
 import {
   Page,
   ApiProject,
@@ -115,7 +115,7 @@ export default function DashboardApp() {
     deleteOne: deleteNotification,
     markAllRead,
   } = useRealtimeNotifications()
-  const { user } = useUser()
+  const { user } = useCurrentUser()
 
   // Current user's workspace member info
   const currentMember = useMemo(

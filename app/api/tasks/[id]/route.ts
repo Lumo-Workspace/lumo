@@ -4,10 +4,9 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
-import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import {
   buildTaskNotificationCtx,
-  notifyStatusChange,
+  dispatchTaskUpdateNotifications,
 } from '@/lib/notifications/notifyTaskChange'
 import { getHumanActorId } from '@/lib/actor'
 import { getGithubInstallationToken } from '@/lib/github/auth'
@@ -415,64 +414,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const triggerActorId = await getHumanActorId(memberResult.id)
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
-    const ctx = buildTaskNotificationCtx(task, updated, triggerActorId, userId)
-
     if (parsed.data.status) {
       console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
     }
 
-    if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
-      waitUntil(
-        notifyTaskInReview({
-          workspaceId,
-          taskId: id,
-          reviewerActorId: updated.reviewerActorId ?? null,
-          defaultReviewerActorId: null,
-          triggerActorId,
-        }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
-      )
-    }
-
-    // Assignee changed → notify new assignee
-    if (
-      parsed.data.assigneeActorId !== undefined &&
-      parsed.data.assigneeActorId !== null &&
-      parsed.data.assigneeActorId !== task.assigneeActorId
-    ) {
-      notifyStatusChange({
-        ctx,
-        taskId: id,
-        recipientActorId: parsed.data.assigneeActorId,
-        notificationType: 'TASK_ASSIGNED',
-        slackEventType: 'task_assigned',
-      })
-    }
-
-    // Sent back (IN_REVIEW → IN_PROGRESS or IN_REVIEW → TODO)
-    if (
-      (parsed.data.status === 'IN_PROGRESS' || parsed.data.status === 'TODO') &&
-      task.status === 'IN_REVIEW'
-    ) {
-      notifyStatusChange({
-        ctx,
-        taskId: id,
-        recipientActorId: task.assigneeActorId ?? null,
-        notificationType: 'TASK_SENT_BACK',
-        slackEventType: 'task_sent_back',
-      })
-    }
-
-    // Task done
-    if (parsed.data.status === 'DONE' && task.status !== 'DONE') {
-      notifyStatusChange({
-        ctx,
-        taskId: id,
-        recipientActorId: task.assigneeActorId ?? null,
-        notificationType: 'TASK_DONE',
-        slackEventType: 'task_done',
-        skipSelfCheck: true,
-      })
-    }
+    const ctx = buildTaskNotificationCtx(task, updated, triggerActorId, userId)
+    dispatchTaskUpdateNotifications({
+      ctx,
+      taskId: id,
+      oldStatus: task.status,
+      newStatus: parsed.data.status,
+      oldAssigneeActorId: task.assigneeActorId ?? null,
+      newAssigneeActorId: parsed.data.assigneeActorId,
+      updatedReviewerActorId: updated.reviewerActorId ?? null,
+      workspaceId,
+      triggerActorId,
+    })
 
     return NextResponse.json({
       task: { ...updated, teamIdentifier: updated.team.identifier },

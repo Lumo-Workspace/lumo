@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from './useCurrentUser'
 import { useNotifications } from './useNotifications'
 import { usePusherEvent } from './usePusher'
 import type { UserEvent } from '@/lib/pusher/server'
@@ -12,7 +12,7 @@ import type { UserEvent } from '@/lib/pusher/server'
  */
 export function useRealtimeNotifications() {
   const state = useNotifications()
-  const { user } = useUser()
+  const { user } = useCurrentUser()
 
   useEffect(() => {
     state.fetchNotifications()
