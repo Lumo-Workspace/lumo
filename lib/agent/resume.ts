@@ -1,8 +1,10 @@
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
+import { transitionAgentStatus } from './state-machine'
 
 export async function resumeAgent(
   taskId: string,
+  projectId: string,
   sandboxId: string,
   reply: string
 ): Promise<void> {
@@ -21,9 +23,8 @@ export async function resumeAgent(
       })
     }
 
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { agentStatus: 'RUNNING' },
+    await transitionAgentStatus(taskId, projectId, 'RUNNING', {
+      currentStatus: 'PAUSED',
     })
   } catch {
     // Sandbox has expired — caller is responsible for restarting the agent

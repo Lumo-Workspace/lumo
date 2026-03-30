@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
+import { transitionAgentStatus } from '@/lib/agent/state-machine'
 
 const CLARIFY_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       agentStatus: 'PAUSED',
       updatedAt: { lt: cutoff },
     },
-    select: { id: true, sandboxId: true },
+    select: { id: true, sandboxId: true, projectId: true },
   })
 
   const results = await Promise.allSettled(
@@ -37,13 +38,10 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      await prisma.task.update({
-        where: { id: task.id },
-        data: {
-          agentStatus: 'FAILED',
-          agentError: 'CLARIFY_TIMEOUT',
-          sandboxId: null,
-        },
+      await transitionAgentStatus(task.id, task.projectId, 'FAILED', {
+        agentError: 'CLARIFY_TIMEOUT',
+        sandboxId: null,
+        currentStatus: 'PAUSED',
       })
 
       await pushAgentEvent(task.id, {

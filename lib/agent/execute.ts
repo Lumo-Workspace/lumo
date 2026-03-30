@@ -10,6 +10,7 @@ import {
 import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
+import { transitionAgentStatus } from './state-machine'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -85,19 +86,13 @@ async function markFailed(
   code: string,
   message: string
 ) {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { agentStatus: 'FAILED', agentError: code, sandboxId: null },
+  await transitionAgentStatus(taskId, projectId, 'FAILED', {
+    agentError: code,
+    sandboxId: null,
   })
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
     error: userFriendlyError(code),
-  })
-  await pushProjectEvent(projectId, {
-    type: 'task:updated',
-    taskId,
-    fields: ['agentStatus'],
-    patch: { agentStatus: 'FAILED' },
   })
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
@@ -199,17 +194,10 @@ export async function executeAgent({
   const isFollowUp = !!existingBranch
   const taskSpec = task.spec ?? task.description ?? task.title
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { agentStatus: 'RUNNING', agentError: null },
+  await transitionAgentStatus(taskId, task.project.id, 'RUNNING', {
+    agentError: null,
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
-  await pushProjectEvent(task.project.id, {
-    type: 'task:updated',
-    taskId,
-    fields: ['agentStatus'],
-    patch: { agentStatus: 'RUNNING' },
-  })
 
   let sandbox: Sandbox | undefined
   let timedOut = false
@@ -422,10 +410,7 @@ ${taskSpec}
           where: { taskId, state: 'open' },
           select: { url: true, number: true },
         })
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { agentStatus: 'DONE' },
-        })
+        await transitionAgentStatus(taskId, task.project.id, 'DONE')
         const prUrl =
           existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
         const prNumber = existingPr?.number ?? 0
@@ -436,10 +421,7 @@ ${taskSpec}
         })
         return { outcome: 'done', prUrl, prNumber }
       }
-      await prisma.task.update({
-        where: { id: taskId },
-        data: { agentStatus: 'DONE' },
-      })
+      await transitionAgentStatus(taskId, task.project.id, 'DONE')
       await pushAgentEvent(taskId, {
         type: 'agent:failed',
         error:
@@ -482,19 +464,17 @@ ${taskSpec}
       prUrl = existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
       prNumber = existingPr?.number ?? 0
 
-      await prisma.$transaction([
-        prisma.task.update({
-          where: { id: taskId },
-          data: { agentStatus: 'DONE', status: 'IN_REVIEW' },
-        }),
-        prisma.taskBranch.upsert({
-          where: {
-            taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
-          },
-          create: { taskId, repo: resolvedRepo, branchName },
-          update: {},
-        }),
-      ])
+      await transitionAgentStatus(taskId, task.project.id, 'DONE', {
+        status: 'IN_REVIEW',
+        skipBroadcast: true,
+      })
+      await prisma.taskBranch.upsert({
+        where: {
+          taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
+        },
+        create: { taskId, repo: resolvedRepo, branchName },
+        update: {},
+      })
     } else {
       await pushAgentEvent(taskId, {
         type: 'agent:progress',
@@ -511,11 +491,11 @@ ${taskSpec}
       prUrl = pr.html_url
       prNumber = pr.number
 
+      await transitionAgentStatus(taskId, task.project.id, 'DONE', {
+        status: 'IN_REVIEW',
+        skipBroadcast: true,
+      })
       await prisma.$transaction([
-        prisma.task.update({
-          where: { id: taskId },
-          data: { agentStatus: 'DONE', status: 'IN_REVIEW' },
-        }),
         prisma.taskBranch.upsert({
           where: {
             taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },

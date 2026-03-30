@@ -12,7 +12,7 @@ jest.mock('@anthropic-ai/sdk', () => ({
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
-    task: { update: jest.fn() },
+    task: { update: jest.fn(), findUnique: jest.fn() },
     actor: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -26,6 +26,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 jest.mock('@/lib/pusher/server', () => ({
   pushAgentEvent: jest.fn(),
+  pushProjectEvent: jest.fn().mockReturnValue(Promise.resolve()),
 }))
 
 // Import mocked modules AFTER jest.mock calls so we get the mock instances
@@ -33,6 +34,7 @@ import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
+const mockPrismaTaskFindUnique = (prisma as any).task.findUnique as jest.Mock
 const mockActorFindUnique = (prisma as any).actor.findUnique as jest.Mock
 const mockActorFindMany = (prisma as any).actor.findMany as jest.Mock
 const mockNotificationCreate = prisma.notification.create as jest.Mock
@@ -61,6 +63,11 @@ beforeEach(() => {
   jest.clearAllMocks()
   process.env.ANTHROPIC_API_KEY = 'test-key'
   mockPrismaTaskUpdate.mockResolvedValue({})
+  // State machine reads current agentStatus before each transition:
+  // First call: IDLE (for IDLE→RUNNING), Second call: RUNNING (for RUNNING→SPEC_REVIEW or RUNNING→FAILED)
+  mockPrismaTaskFindUnique
+    .mockResolvedValueOnce({ agentStatus: 'IDLE' })
+    .mockResolvedValueOnce({ agentStatus: 'RUNNING' })
   mockPushAgentEvent.mockResolvedValue(undefined)
   mockNotificationCreate.mockResolvedValue({})
   mockNotificationCreateMany.mockResolvedValue({ count: 0 })

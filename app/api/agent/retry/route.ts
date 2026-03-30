@@ -5,7 +5,6 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
-import { pushProjectEvent } from '@/lib/pusher/server'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -68,16 +67,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Reset state before re-running
+    // Clear error/sandbox (no status change — executeAgent handles FAILED/ERROR/CANCELLED → RUNNING)
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentStatus: 'IDLE', agentError: null, sandboxId: null },
-    })
-    await pushProjectEvent(task.projectId, {
-      type: 'task:updated',
-      taskId,
-      fields: ['agentStatus'],
-      patch: { agentStatus: 'IDLE' },
+      data: { agentError: null, sandboxId: null },
     })
 
     waitUntil(

@@ -1,6 +1,6 @@
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { transitionAgentStatus } from './state-machine'
 
 interface MonitorTask {
   id: string
@@ -34,16 +34,7 @@ export async function monitorForClarify(
             },
           })
 
-          await prisma.task.update({
-            where: { id: task.id },
-            data: { agentStatus: 'PAUSED' },
-          })
-          await pushProjectEvent(task.projectId, {
-            type: 'task:updated',
-            taskId: task.id,
-            fields: ['agentStatus'],
-            patch: { agentStatus: 'PAUSED' },
-          })
+          await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
 
           resolve()
         }

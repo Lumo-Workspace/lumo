@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
         id: true,
         agentStatus: true,
         sandboxId: true,
+        projectId: true,
         project: { select: { workspaceId: true } },
       },
     })
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await resumeAgent(taskId, task.sandboxId, reply)
+    await resumeAgent(taskId, task.projectId, task.sandboxId, reply)
 
     return NextResponse.json({ status: 'resumed', taskId })
   } catch (error) {

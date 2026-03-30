@@ -23,6 +23,11 @@ jest.mock('@/lib/agent/sandbox-health', () => ({
 jest.mock('@/lib/agent/clerk-cache', () => ({
   getClerkUser: jest.fn(),
 }))
+jest.mock('@/lib/pusher/server', () => ({
+  pushTaskEvent: jest.fn().mockReturnValue(Promise.resolve()),
+  pushUserEvent: jest.fn().mockReturnValue(Promise.resolve()),
+  pushProjectEvent: jest.fn().mockReturnValue(Promise.resolve()),
+}))
 
 import { prisma } from '@/lib/db/prisma'
 import { getClerkUser } from '@/lib/agent/clerk-cache'
@@ -49,6 +54,14 @@ describe('handleAgentComment', () => {
     })
     mockCommentCreate.mockResolvedValue({ id: 'comment-reply-1' })
     mockNotificationCreate.mockResolvedValue({})
+    // Re-apply mocks after resetAllMocks clears them
+    const pusher = require('@/lib/pusher/server')
+    pusher.pushTaskEvent.mockReturnValue(Promise.resolve())
+    pusher.pushUserEvent.mockReturnValue(Promise.resolve())
+    pusher.pushProjectEvent.mockReturnValue(Promise.resolve())
+    const actor = require('@/lib/actor')
+    actor.getCodingAgentActor.mockResolvedValue('agent-actor-1')
+    actor.getHumanActorId.mockResolvedValue('human-actor-1')
   })
 
   it('posts reply and returns early when task is Done', async () => {
@@ -57,6 +70,7 @@ describe('handleAgentComment', () => {
       status: 'DONE',
       agentStatus: null,
       sandboxId: null,
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
 
@@ -86,6 +100,7 @@ describe('handleAgentComment', () => {
       status: 'IN_PROGRESS',
       agentStatus: 'RUNNING',
       sandboxId: 'sandbox-123',
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
     mockIsSandboxAlive.mockResolvedValue(true)
@@ -114,6 +129,7 @@ describe('handleAgentComment', () => {
       status: 'IN_PROGRESS',
       agentStatus: 'RUNNING',
       sandboxId: 'sandbox-dead',
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
     // Second call: buildAgentSpec's findUnique
@@ -140,10 +156,15 @@ describe('handleAgentComment', () => {
       actorClerkId: 'clerk_vincent',
     })
 
-    expect(mockTaskUpdate).toHaveBeenCalledWith({
-      where: { id: 'task-1' },
-      data: { agentStatus: 'FAILED', sandboxId: null },
-    })
+    expect(mockTaskUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'task-1' },
+        data: expect.objectContaining({
+          agentStatus: 'FAILED',
+          sandboxId: null,
+        }),
+      })
+    )
     expect(mockExecuteAgent).toHaveBeenCalled()
   })
 
@@ -153,6 +174,7 @@ describe('handleAgentComment', () => {
       status: 'IN_PROGRESS',
       agentStatus: null,
       sandboxId: null,
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
     mockMemberFindFirst.mockResolvedValue(null)
@@ -180,6 +202,7 @@ describe('handleAgentComment', () => {
       status: 'IN_PROGRESS',
       agentStatus: null,
       sandboxId: null,
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
     mockMemberFindFirst.mockResolvedValue({ id: 'member-1' })
@@ -209,6 +232,7 @@ describe('handleAgentComment', () => {
       status: 'IN_PROGRESS',
       agentStatus: null,
       sandboxId: null,
+      projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
     // Second call: buildAgentSpec's findUnique

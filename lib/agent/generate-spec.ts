@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent, pushProjectEvent } from '@/lib/pusher/server'
+import { pushAgentEvent } from '@/lib/pusher/server'
+import { transitionAgentStatus } from './state-machine'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -38,17 +39,10 @@ export async function generateSpecDraft(
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { agentStatus: 'RUNNING', agentError: null },
+  await transitionAgentStatus(taskId, task.project.id, 'RUNNING', {
+    agentError: null,
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
-  await pushProjectEvent(task.project.id, {
-    type: 'task:updated',
-    taskId,
-    fields: ['agentStatus'],
-    patch: { agentStatus: 'RUNNING' },
-  })
   await pushAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Generating spec from description…',
@@ -69,37 +63,23 @@ export async function generateSpecDraft(
     message.content[0]?.type === 'text' ? message.content[0].text.trim() : ''
 
   if (!specText) {
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { agentStatus: 'FAILED', agentError: 'SPEC_GEN_EMPTY' },
+    await transitionAgentStatus(taskId, task.project.id, 'FAILED', {
+      agentError: 'SPEC_GEN_EMPTY',
     })
     await pushAgentEvent(taskId, {
       type: 'agent:failed',
       error:
         'Spec generation returned empty output. Please add more detail to the description and retry.',
     })
-    await pushProjectEvent(task.project.id, {
-      type: 'task:updated',
-      taskId,
-      fields: ['agentStatus'],
-      patch: { agentStatus: 'FAILED' },
-    })
     return
   }
 
   // Save the generated spec and set status to spec_review
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { spec: specText, agentStatus: 'SPEC_REVIEW' },
+  await transitionAgentStatus(taskId, task.project.id, 'SPEC_REVIEW', {
+    spec: specText,
   })
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
-  await pushProjectEvent(task.project.id, {
-    type: 'task:updated',
-    taskId,
-    fields: ['agentStatus'],
-    patch: { agentStatus: 'SPEC_REVIEW' },
-  })
 
   // Send Inbox notification to reviewer
   // Resolve effective reviewer Actor ID: task reviewer actor → or default reviewer (member → actor)

@@ -5,6 +5,7 @@ import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
 import { getCodingAgentActor, getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
+import { transitionAgentStatus } from './state-machine'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -145,6 +146,7 @@ export async function handleAgentComment({
       status: true,
       agentStatus: true,
       sandboxId: true,
+      projectId: true,
       project: { select: { workspaceId: true } },
     },
   })
@@ -180,9 +182,9 @@ export async function handleAgentComment({
       return
     }
     // Sandbox is dead — clean up stale state and continue
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { agentStatus: 'FAILED', sandboxId: null },
+    await transitionAgentStatus(taskId, task.projectId, 'FAILED', {
+      sandboxId: null,
+      currentStatus: 'RUNNING',
     })
   }
 
