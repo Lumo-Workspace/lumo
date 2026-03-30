@@ -5,7 +5,7 @@ import { Plus, MoreHorizontal, RefreshCw, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
 import { useMembers } from '../../hooks/useMembers'
-import { readCache, writeCache } from '../../cache'
+import { readCache, writeCache, clearCache } from '../../cache'
 import { API, CACHE_KEY } from '../../constants'
 import { apiFetch } from '../../utils'
 import { Button } from '@/components/ui/button'
@@ -233,7 +233,7 @@ export function MembersPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to leave workspace')
-      // Redirect to onboarding after leaving
+      clearCache()
       window.location.href = '/onboarding'
     } catch (err) {
       toast.error(

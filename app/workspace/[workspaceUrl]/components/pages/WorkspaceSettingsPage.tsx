@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { API, CACHE_KEY } from '../../constants'
-import { readCache, writeCache } from '../../cache'
+import { readCache, writeCache, clearCache } from '../../cache'
 import { apiFetch } from '../../utils'
 import { LogoUploader } from '@/components/LogoUploader'
 import { Button } from '@/components/ui/button'
@@ -183,6 +183,7 @@ export function WorkspaceSettingsPage() {
       const res = await fetch(API.workspaces.me, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to delete workspace')
+      clearCache()
       window.location.href = '/onboarding'
     } catch (err) {
       toast.error(
