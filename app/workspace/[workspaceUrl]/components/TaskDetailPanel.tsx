@@ -7,12 +7,8 @@ import {
   Trash2,
   Reply,
   Link as LinkIcon,
-  CheckCircle2,
-  XCircle,
   GitPullRequest,
   GitBranch,
-  Loader2,
-  Bot,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
@@ -61,42 +57,11 @@ import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import { useUser } from '@clerk/nextjs'
 import { CreateBranchDialog } from './CreateBranchDialog'
+import { PrStateBadge, CiIcon } from './pr-helpers'
+import { CommentAvatar } from './CommentAvatar'
+import { resolveCommentAuthor } from './comment-utils'
 import { usePusherEvent } from '../hooks/usePusher'
 import type { TaskEvent } from '@/lib/pusher/server'
-
-// ─── PR helpers ──────────────────────────────────────────────────────────────
-
-function PrStateBadge({ state }: { state: string }) {
-  if (state === 'merged') {
-    return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'>
-        Merged
-      </span>
-    )
-  }
-  if (state === 'closed') {
-    return (
-      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'>
-        Closed
-      </span>
-    )
-  }
-  return (
-    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'>
-      Open
-    </span>
-  )
-}
-
-function CiIcon({ status }: { status: string | null }) {
-  if (status === 'success')
-    return <CheckCircle2 size={13} className='text-emerald-500 shrink-0' />
-  if (status === 'failure')
-    return <XCircle size={13} className='text-red-500 shrink-0' />
-  if (status === 'pending')
-    return <Loader2 size={13} className='text-zinc-400 shrink-0 animate-spin' />
-  return null
-}
 
 // ─── Comment editor (key-based clear + Cmd/Ctrl+Enter submit) ────────────────
 
@@ -833,29 +798,13 @@ export function TaskDetailPanel({
         ) : (
           <div className='space-y-5'>
             {comments.map(comment => {
-              const isAgentComment = comment.type === 'AGENT'
-              const author = isAgentComment
-                ? null
-                : members.find(m => m.actorId === comment.authorActorId)
-              const commentAgent = isAgentComment
-                ? (agentActors?.find(
-                    a => a.actorId === comment.authorActorId
-                  ) ?? agentActors?.[0])
-                : null
-              const name = isAgentComment
-                ? (commentAgent?.name ?? 'Coding Agent')
-                : (author?.name ?? 'Unknown')
-              const initials = isAgentComment
-                ? 'CA'
-                : name
-                    .split(' ')
-                    .map((n: string) => n[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase()
+              const ca = resolveCommentAuthor(
+                comment,
+                members,
+                agentActors ?? []
+              )
               const isAuthor =
-                !isAgentComment &&
-                comment.authorActorId === currentMember?.actorId
+                !ca.isAgent && comment.authorActorId === currentMember?.actorId
               const isEditing = editingCommentId === comment.id
               const isDeleting = deletingCommentId === comment.id
               const wasEdited =
@@ -871,22 +820,15 @@ export function TaskDetailPanel({
                     id={`comment-${comment.id}`}
                     className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                   >
-                    {isAgentComment ? (
-                      <div className='size-7 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
-                        <Bot className='size-3.5 text-violet-600 dark:text-violet-400' />
-                      </div>
-                    ) : (
-                      <Avatar className='size-7 shrink-0 mt-0.5'>
-                        <AvatarImage src={author?.imageUrl ?? undefined} />
-                        <AvatarFallback className='text-[10px]'>
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
+                    <CommentAvatar
+                      isAgent={ca.isAgent}
+                      imageUrl={ca.imageUrl}
+                      initials={ca.initials}
+                    />
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
                         <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
-                          {name}
+                          {ca.name}
                         </span>
                         <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
                           {formatTimestamp(comment.createdAt)}
@@ -990,7 +932,7 @@ export function TaskDetailPanel({
                                   setReplyingToId(comment.id)
                                   setReplyingToComment({
                                     id: comment.id,
-                                    authorName: name,
+                                    authorName: ca.name,
                                     body: comment.body,
                                   })
                                 }
@@ -1044,28 +986,13 @@ export function TaskDetailPanel({
                   {(comment.replies?.length ?? 0) > 0 && (
                     <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
                       {comment.replies!.map(reply => {
-                        const rIsAgent = reply.type === 'AGENT'
-                        const rAuthor = rIsAgent
-                          ? null
-                          : members.find(m => m.actorId === reply.authorActorId)
-                        const rReplyAgent = rIsAgent
-                          ? (agentActors?.find(
-                              a => a.actorId === reply.authorActorId
-                            ) ?? agentActors?.[0])
-                          : null
-                        const rName = rIsAgent
-                          ? (rReplyAgent?.name ?? 'Coding Agent')
-                          : (rAuthor?.name ?? 'Unknown')
-                        const rInitials = rIsAgent
-                          ? 'CA'
-                          : rName
-                              .split(' ')
-                              .map((n: string) => n[0])
-                              .join('')
-                              .slice(0, 2)
-                              .toUpperCase()
+                        const ra = resolveCommentAuthor(
+                          reply,
+                          members,
+                          agentActors ?? []
+                        )
                         const rIsAuthor =
-                          !rIsAgent &&
+                          !ra.isAgent &&
                           reply.authorActorId === currentMember?.actorId
                         const rIsEditing = editingCommentId === reply.id
                         const rIsDeleting = deletingCommentId === reply.id
@@ -1079,24 +1006,16 @@ export function TaskDetailPanel({
                             id={`comment-${reply.id}`}
                             className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                           >
-                            {rIsAgent ? (
-                              <div className='size-5 shrink-0 mt-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center'>
-                                <Bot className='size-3 text-violet-600 dark:text-violet-400' />
-                              </div>
-                            ) : (
-                              <Avatar className='size-5 shrink-0 mt-0.5'>
-                                <AvatarImage
-                                  src={rAuthor?.imageUrl ?? undefined}
-                                />
-                                <AvatarFallback className='text-[9px]'>
-                                  {rInitials}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
+                            <CommentAvatar
+                              isAgent={ra.isAgent}
+                              imageUrl={ra.imageUrl}
+                              initials={ra.initials}
+                              size='sm'
+                            />
                             <div className='flex-1 min-w-0'>
                               <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
                                 <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
-                                  {rName}
+                                  {ra.name}
                                 </span>
                                 <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
                                   {formatTimestamp(reply.createdAt)}
@@ -1256,7 +1175,7 @@ export function TaskDetailPanel({
                                           setReplyingToId(comment.id)
                                           setReplyingToComment({
                                             id: reply.id,
-                                            authorName: rName,
+                                            authorName: ra.name,
                                             body: reply.body,
                                           })
                                         }

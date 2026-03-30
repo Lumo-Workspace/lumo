@@ -4,10 +4,13 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateTaskSchema } from '@/lib/validation/schemas'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
-import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import {
+  buildTaskNotificationCtx,
+  notifyStatusChange,
+} from '@/lib/notifications/notifyTaskChange'
 import { getHumanActorId } from '@/lib/actor'
 import { getGithubInstallationToken } from '@/lib/github/auth'
-import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
+import { pushTaskEvent } from '@/lib/pusher/server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -382,7 +385,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     })
 
     const workspaceId = task.project.workspaceId
-    const workspaceSlug = task.project.workspace?.slug ?? ''
 
     // Push real-time task update event
     waitUntil(
@@ -393,9 +395,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const triggerActorId = await getHumanActorId(memberResult.id)
 
     // ── Fire-and-forget notification side-effects ────────────────────────────
+    const ctx = buildTaskNotificationCtx(task, updated, triggerActorId, userId)
+
     if (parsed.data.status) {
       console.log(`[task status] ${id}: ${task.status} → ${parsed.data.status}`)
     }
+
     if (parsed.data.status === 'IN_REVIEW' && task.status !== 'IN_REVIEW') {
       waitUntil(
         notifyTaskInReview({
@@ -408,220 +413,45 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       )
     }
 
+    // Assignee changed → notify new assignee
     if (
       parsed.data.assigneeActorId !== undefined &&
       parsed.data.assigneeActorId !== null &&
       parsed.data.assigneeActorId !== task.assigneeActorId
     ) {
-      // Notify the new assignee (skip if they assigned it to themselves)
-      const newAssigneeActorId = parsed.data.assigneeActorId
-      prisma.actor
-        .findUnique({
-          where: { id: newAssigneeActorId },
-          select: { type: true, member: { select: { clerkId: true } } },
-        })
-        .then(actor => {
-          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-          if (actor.member.clerkId === userId) return
-          waitUntil(
-            pushUserEvent(actor.member.clerkId, { type: 'notification:new' })
-          )
-          return prisma.notification.create({
-            data: {
-              workspaceId,
-              recipientActorId: newAssigneeActorId,
-              type: 'TASK_ASSIGNED' as const,
-              taskId: id,
-              triggerActorId,
-            },
-          })
-        })
-        .catch(err => console.error('[notify] TASK_ASSIGNED failed:', err))
+      notifyStatusChange({
+        ctx,
+        taskId: id,
+        recipientActorId: parsed.data.assigneeActorId,
+        notificationType: 'TASK_ASSIGNED',
+        slackEventType: 'task_assigned',
+      })
     }
 
+    // Sent back (IN_REVIEW → IN_PROGRESS or IN_REVIEW → TODO)
     if (
-      parsed.data.assigneeActorId !== undefined &&
-      parsed.data.assigneeActorId !== null &&
-      parsed.data.assigneeActorId !== task.assigneeActorId
+      (parsed.data.status === 'IN_PROGRESS' || parsed.data.status === 'TODO') &&
+      task.status === 'IN_REVIEW'
     ) {
-      waitUntil(
-        sendChannelNotification(
-          workspaceId,
-          'task_assigned',
-          {
-            taskId: id,
-            taskTitle: updated.title,
-            taskIdentifier: `${updated.team.identifier}-${task.number}`,
-            taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-          },
-          task.projectId
-        )
-      )
-      prisma.actor
-        .findUnique({
-          where: { id: parsed.data.assigneeActorId },
-          select: { type: true, member: { select: { clerkId: true } } },
-        })
-        .then(actor => {
-          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-          if (actor.member.clerkId === userId) return
-          waitUntil(
-            sendDMNotification(
-              workspaceId,
-              actor.member.clerkId,
-              'task_assigned',
-              {
-                taskId: id,
-                taskTitle: updated.title,
-                taskIdentifier: `${updated.team.identifier}-${task.number}`,
-                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-              }
-            )
-          )
-        })
-        .catch(err => console.error('[slack] task_assigned DM failed:', err))
+      notifyStatusChange({
+        ctx,
+        taskId: id,
+        recipientActorId: task.assigneeActorId ?? null,
+        notificationType: 'TASK_SENT_BACK',
+        slackEventType: 'task_sent_back',
+      })
     }
 
-    if (parsed.data.status === 'IN_PROGRESS' && task.status === 'IN_REVIEW') {
-      // Notify the assignee that the task was sent back
-      if (task.assigneeActorId) {
-        const assigneeActorId = task.assigneeActorId
-        prisma.actor
-          .findUnique({
-            where: { id: assigneeActorId },
-            select: { type: true, member: { select: { clerkId: true } } },
-          })
-          .then(actor => {
-            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-            if (actor.member.clerkId === userId) return
-            waitUntil(
-              pushUserEvent(actor.member.clerkId, { type: 'notification:new' })
-            )
-            return prisma.notification.create({
-              data: {
-                workspaceId,
-                recipientActorId: assigneeActorId,
-                type: 'TASK_SENT_BACK' as const,
-                taskId: id,
-                triggerActorId,
-              },
-            })
-          })
-          .catch(err => console.error('[notify] TASK_SENT_BACK failed:', err))
-      }
-      waitUntil(
-        sendChannelNotification(
-          workspaceId,
-          'task_sent_back',
-          {
-            taskId: id,
-            taskTitle: updated.title,
-            taskIdentifier: `${updated.team.identifier}-${task.number}`,
-            taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-          },
-          task.projectId
-        )
-      )
-      if (task.assigneeActorId) {
-        prisma.actor
-          .findUnique({
-            where: { id: task.assigneeActorId },
-            select: { type: true, member: { select: { clerkId: true } } },
-          })
-          .then(actor => {
-            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-            if (actor.member.clerkId === userId) return
-            waitUntil(
-              sendDMNotification(
-                workspaceId,
-                actor.member.clerkId,
-                'task_sent_back',
-                {
-                  taskId: id,
-                  taskTitle: updated.title,
-                  taskIdentifier: `${updated.team.identifier}-${task.number}`,
-                  taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-                }
-              )
-            )
-          })
-          .catch(err =>
-            console.error('[slack] task_sent_back IN_PROGRESS DM failed:', err)
-          )
-      }
-    }
-
+    // Task done
     if (parsed.data.status === 'DONE' && task.status !== 'DONE') {
-      const dmPayload = {
+      notifyStatusChange({
+        ctx,
         taskId: id,
-        taskTitle: updated.title,
-        taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-      }
-      waitUntil(
-        sendChannelNotification(
-          workspaceId,
-          'task_done',
-          dmPayload,
-          task.projectId
-        )
-      )
-      if (task.assigneeActorId) {
-        prisma.actor
-          .findUnique({
-            where: { id: task.assigneeActorId },
-            select: { type: true, member: { select: { clerkId: true } } },
-          })
-          .then(actor => {
-            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-            waitUntil(
-              sendDMNotification(
-                workspaceId,
-                actor.member.clerkId,
-                'task_done',
-                dmPayload
-              )
-            )
-          })
-          .catch(err => console.error('[slack] task_done DM failed:', err))
-      }
-    }
-
-    if (parsed.data.status === 'TODO' && task.status === 'IN_REVIEW') {
-      const sentBackPayload = {
-        taskId: id,
-        taskTitle: updated.title,
-        taskIdentifier: `${updated.team.identifier}-${task.number}`,
-        taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${updated.team.identifier}-${task.number}`,
-      }
-      waitUntil(
-        sendChannelNotification(
-          workspaceId,
-          'task_sent_back',
-          sentBackPayload,
-          task.projectId
-        )
-      )
-      if (task.assigneeActorId) {
-        prisma.actor
-          .findUnique({
-            where: { id: task.assigneeActorId },
-            select: { type: true, member: { select: { clerkId: true } } },
-          })
-          .then(actor => {
-            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-            if (actor.member.clerkId === userId) return
-            waitUntil(
-              sendDMNotification(
-                workspaceId,
-                actor.member.clerkId,
-                'task_sent_back',
-                sentBackPayload
-              )
-            )
-          })
-          .catch(err => console.error('[slack] task_sent_back DM failed:', err))
-      }
+        recipientActorId: task.assigneeActorId ?? null,
+        notificationType: 'TASK_DONE',
+        slackEventType: 'task_done',
+        skipSelfCheck: true,
+      })
     }
 
     return NextResponse.json({
