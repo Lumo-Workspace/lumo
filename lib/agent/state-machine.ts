@@ -51,8 +51,6 @@ export interface TransitionOptions {
   agentError?: string | null | undefined
   sandboxId?: string | null | undefined
   spec?: string | undefined
-  /** Also update task-level status (e.g. 'IN_REVIEW' when agent completes) */
-  status?: string | undefined
   /** Skip reading current status — use this when you already know it */
   currentStatus?: AgentStatusValue | null | undefined
   /** Skip the Pusher project broadcast */
@@ -96,7 +94,6 @@ export async function transitionAgentStatus(
   if (opts?.agentError !== undefined) data.agentError = opts.agentError
   if (opts?.sandboxId !== undefined) data.sandboxId = opts.sandboxId
   if (opts?.spec !== undefined) data.spec = opts.spec
-  if (opts?.status !== undefined) data.status = opts.status
 
   await prisma.task.update({ where: { id: taskId }, data })
 
@@ -104,7 +101,6 @@ export async function transitionAgentStatus(
   if (!opts?.skipBroadcast) {
     const fields = Object.keys(data)
     const patch: Record<string, unknown> = { agentStatus: to }
-    if (opts?.status !== undefined) patch.status = opts.status
     await pushProjectEvent(projectId, {
       type: 'task:updated',
       taskId,

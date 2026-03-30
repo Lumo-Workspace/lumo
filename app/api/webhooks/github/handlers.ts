@@ -197,23 +197,20 @@ export async function handlePullRequest(
         )
       )
       if (task.reviewerActorId) {
-        prisma.actor
-          .findUnique({
-            where: { id: task.reviewerActorId },
-            select: { member: { select: { clerkId: true } } },
-          })
-          .then(actor => {
-            if (actor?.member)
-              waitUntil(
-                sendDMNotification(
-                  workspaceId,
-                  actor.member.clerkId,
-                  'pr_opened',
-                  prOpenedPayload
-                )
-              )
-          })
-          .catch(err => console.error('[slack] pr_opened DM failed:', err))
+        const reviewer = await prisma.actor.findUnique({
+          where: { id: task.reviewerActorId },
+          select: { member: { select: { clerkId: true } } },
+        })
+        if (reviewer?.member) {
+          waitUntil(
+            sendDMNotification(
+              workspaceId,
+              reviewer.member.clerkId,
+              'pr_opened',
+              prOpenedPayload
+            )
+          )
+        }
       }
     }
   } else if (action === 'closed' && pr.merged) {
@@ -251,37 +248,28 @@ export async function handlePullRequest(
       )
     )
     if (task.assigneeActorId) {
-      prisma.actor
-        .findUnique({
-          where: { id: task.assigneeActorId },
-          select: { member: { select: { clerkId: true } } },
-        })
-        .then(actor => {
-          if (actor?.member) {
-            waitUntil(
-              sendDMNotification(
-                workspaceId,
-                actor.member.clerkId,
-                'pr_merged',
-                mergePayload
-              )
-            )
-            waitUntil(
-              sendDMNotification(
-                workspaceId,
-                actor.member.clerkId,
-                'task_done',
-                {
-                  taskId: task.id,
-                  taskTitle: task.title,
-                  taskIdentifier,
-                  taskUrl,
-                }
-              )
-            )
-          }
-        })
-        .catch(err => console.error('[slack] pr_merged DM failed:', err))
+      const assignee = await prisma.actor.findUnique({
+        where: { id: task.assigneeActorId },
+        select: { member: { select: { clerkId: true } } },
+      })
+      if (assignee?.member) {
+        waitUntil(
+          sendDMNotification(
+            workspaceId,
+            assignee.member.clerkId,
+            'pr_merged',
+            mergePayload
+          )
+        )
+        waitUntil(
+          sendDMNotification(
+            workspaceId,
+            assignee.member.clerkId,
+            'task_done',
+            { taskId: task.id, taskTitle: task.title, taskIdentifier, taskUrl }
+          )
+        )
+      }
     }
   } else if (action === 'closed' && !pr.merged) {
     if (task.status === 'IN_REVIEW') {

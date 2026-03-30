@@ -11,8 +11,10 @@ import { AgentError, userFriendlyError } from './errors'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'
-import { isValidTaskTransition } from '@/lib/task/state-machine'
-import type { TaskStatusValue } from '@/lib/task/state-machine'
+import {
+  transitionTaskStatus,
+  type TaskStatusValue,
+} from '@/lib/task/state-machine'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -105,6 +107,86 @@ export type AgentResult =
   | { outcome: 'clarify'; question: string }
   | { outcome: 'no_changes' }
   | { outcome: 'spec_review' }
+
+// ── Resolve default reviewer Actor ID from WorkspaceMember.id ────────────────
+
+async function resolveDefaultReviewerActorId(
+  memberId: string | null
+): Promise<string | null> {
+  if (!memberId) return null
+  const actor = await prisma.actor.findUnique({
+    where: { memberId },
+    select: { id: true },
+  })
+  return actor?.id ?? null
+}
+
+// ── Complete agent run: set DONE + IN_REVIEW + persist branch/PR ─────────────
+
+async function completeAgentRun(params: {
+  taskId: string
+  projectId: string
+  taskStatus: string
+  branchName: string
+  resolvedRepo: string
+  prUpsertData?: {
+    workspaceId: string
+    number: number
+    title: string
+    url: string
+  }
+}): Promise<void> {
+  const { taskId, projectId, taskStatus, branchName, resolvedRepo } = params
+
+  await transitionAgentStatus(taskId, projectId, 'DONE', {
+    skipBroadcast: true,
+  })
+
+  // Transition task status to IN_REVIEW if valid
+  try {
+    await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
+      currentStatus: taskStatus as TaskStatusValue,
+      skipBroadcast: true,
+    })
+  } catch {
+    console.warn(
+      `[Agent] Skipping task status → IN_REVIEW: invalid from ${taskStatus}`
+    )
+  }
+
+  const branchUpsert = prisma.taskBranch.upsert({
+    where: {
+      taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
+    },
+    create: { taskId, repo: resolvedRepo, branchName },
+    update: {},
+  })
+
+  if (params.prUpsertData) {
+    const { workspaceId, number, title, url } = params.prUpsertData
+    await prisma.$transaction([
+      branchUpsert,
+      prisma.pullRequest.upsert({
+        where: { repo_number: { repo: resolvedRepo, number } },
+        create: {
+          workspaceId,
+          taskId,
+          repo: resolvedRepo,
+          number,
+          title,
+          url,
+          state: 'open',
+          authorLogin: 'lumo-agent',
+          headBranch: branchName,
+          baseBranch: 'main',
+        },
+        update: { state: 'open', url, taskId },
+      }),
+    ])
+  } else {
+    await branchUpsert
+  }
+}
 
 export interface ExecuteAgentOptions {
   taskId: string
@@ -466,26 +548,12 @@ ${taskSpec}
       prUrl = existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
       prNumber = existingPr?.number ?? 0
 
-      if (!isValidTaskTransition(task.status as TaskStatusValue, 'IN_REVIEW')) {
-        console.warn(
-          `[Agent] Skipping task status → IN_REVIEW: invalid from ${task.status}`
-        )
-      }
-      await transitionAgentStatus(taskId, task.project.id, 'DONE', {
-        status: isValidTaskTransition(
-          task.status as TaskStatusValue,
-          'IN_REVIEW'
-        )
-          ? 'IN_REVIEW'
-          : undefined,
-        skipBroadcast: true,
-      })
-      await prisma.taskBranch.upsert({
-        where: {
-          taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
-        },
-        create: { taskId, repo: resolvedRepo, branchName },
-        update: {},
+      await completeAgentRun({
+        taskId,
+        projectId: task.project.id,
+        taskStatus: task.status,
+        branchName,
+        resolvedRepo,
       })
     } else {
       await pushAgentEvent(taskId, {
@@ -503,40 +571,19 @@ ${taskSpec}
       prUrl = pr.html_url
       prNumber = pr.number
 
-      await transitionAgentStatus(taskId, task.project.id, 'DONE', {
-        status: isValidTaskTransition(
-          task.status as TaskStatusValue,
-          'IN_REVIEW'
-        )
-          ? 'IN_REVIEW'
-          : undefined,
-        skipBroadcast: true,
+      await completeAgentRun({
+        taskId,
+        projectId: task.project.id,
+        taskStatus: task.status,
+        branchName,
+        resolvedRepo,
+        prUpsertData: {
+          workspaceId: task.project.workspaceId,
+          number: pr.number,
+          title: `${task.title} [${identifier}]`,
+          url: pr.html_url,
+        },
       })
-      await prisma.$transaction([
-        prisma.taskBranch.upsert({
-          where: {
-            taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
-          },
-          create: { taskId, repo: resolvedRepo, branchName },
-          update: {},
-        }),
-        prisma.pullRequest.upsert({
-          where: { repo_number: { repo: resolvedRepo, number: pr.number } },
-          create: {
-            workspaceId: task.project.workspaceId,
-            taskId,
-            repo: resolvedRepo,
-            number: pr.number,
-            title: `${task.title} [${identifier}]`,
-            url: pr.html_url,
-            state: 'open',
-            authorLogin: 'lumo-agent',
-            headBranch: branchName,
-            baseBranch: 'main',
-          },
-          update: { state: 'open', url: pr.html_url, taskId },
-        }),
-      ])
     }
 
     await pushAgentEvent(taskId, {
@@ -554,19 +601,13 @@ ${taskSpec}
       type: 'task:updated',
       taskId,
       fields: ['status', 'agentStatus'],
-      patch: { agentStatus: 'DONE', status: 'IN_REVIEW' },
+      patch: { agentStatus: 'DONE' },
     })
 
     // Notify reviewer that task is ready for review
-    // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
-    let defaultReviewerActorId: string | null = null
-    if (task.project.defaultReviewerId) {
-      const actor = await prisma.actor.findUnique({
-        where: { memberId: task.project.defaultReviewerId },
-        select: { id: true },
-      })
-      defaultReviewerActorId = actor?.id ?? null
-    }
+    const defaultReviewerActorId = await resolveDefaultReviewerActorId(
+      task.project.defaultReviewerId
+    )
     await notifyTaskInReview({
       workspaceId: task.project.workspaceId,
       taskId,

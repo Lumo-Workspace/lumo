@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
+import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -81,47 +81,13 @@ export async function generateSpecDraft(
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
 
-  // Send Inbox notification to reviewer
-  // Resolve effective reviewer Actor ID: task reviewer actor → or default reviewer (member → actor)
-  let effectiveReviewerActorId: string | null = task.reviewerActorId ?? null
-  if (!effectiveReviewerActorId && task.project.defaultReviewerId) {
-    const reviewerActor = await prisma.actor.findUnique({
-      where: { memberId: task.project.defaultReviewerId },
-      select: { id: true },
-    })
-    effectiveReviewerActorId = reviewerActor?.id ?? null
-  }
-
-  if (effectiveReviewerActorId) {
-    await prisma.notification.create({
-      data: {
-        workspaceId: task.project.workspaceId,
-        recipientActorId: effectiveReviewerActorId,
-        type: 'TASK_SPEC_READY',
-        taskId,
-        triggerActorId: null,
-      },
-    })
-  } else {
-    // Fall back to workspace owners
-    const ownerActors = await prisma.actor.findMany({
-      where: {
-        workspaceId: task.project.workspaceId,
-        type: 'HUMAN',
-        member: { role: 'OWNER' },
-      },
-      select: { id: true },
-    })
-    if (ownerActors.length > 0) {
-      await prisma.notification.createMany({
-        data: ownerActors.map(a => ({
-          workspaceId: task.project.workspaceId,
-          recipientActorId: a.id,
-          type: 'TASK_SPEC_READY' as const,
-          taskId,
-          triggerActorId: null,
-        })),
-      })
-    }
-  }
+  // Notify reviewer (or workspace owners) that spec is ready
+  await notifyReviewerOrOwners({
+    workspaceId: task.project.workspaceId,
+    taskId,
+    type: 'TASK_SPEC_READY',
+    reviewerActorId: task.reviewerActorId ?? null,
+    defaultReviewerMemberId: task.project.defaultReviewerId,
+    triggerActorId: null,
+  })
 }

@@ -239,7 +239,7 @@ describe('generateSpecDraft', () => {
           type: 'HUMAN',
           member: { role: 'OWNER' },
         },
-        select: { id: true },
+        select: { id: true, member: { select: { clerkId: true } } },
       })
       expect(mockNotificationCreateMany).toHaveBeenCalledWith(
         expect.objectContaining({
