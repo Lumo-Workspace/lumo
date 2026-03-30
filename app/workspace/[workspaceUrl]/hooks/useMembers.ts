@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { WorkspaceMemberInfo } from '../types'
-import { readCache, writeCache, CACHE_TTL } from '../cache'
+import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
 
 export interface AgentActor {
@@ -19,15 +19,9 @@ export function useMembers() {
 
   useEffect(() => {
     // Seed from cache immediately for instant display
-    const cached = readCache<WorkspaceMemberInfo[]>(
-      CACHE_KEY.members,
-      CACHE_TTL.long
-    )
+    const cached = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
     if (cached) setMembers(cached)
-    const cachedAgents = readCache<AgentActor[]>(
-      CACHE_KEY.agentActors,
-      CACHE_TTL.long
-    )
+    const cachedAgents = readCache<AgentActor[]>(CACHE_KEY.agentActors)
     if (cachedAgents) setAgentActors(cachedAgents)
   }, [])
 

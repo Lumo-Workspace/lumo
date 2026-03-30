@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiProject } from '../types'
-import { readCache, writeCache, CACHE_TTL } from '../cache'
+import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
 
 export function useProjects() {
@@ -12,7 +12,7 @@ export function useProjects() {
   const seeded = useRef(false)
 
   useEffect(() => {
-    const cached = readCache<ApiProject[]>(CACHE_KEY.projects, CACHE_TTL.long)
+    const cached = readCache<ApiProject[]>(CACHE_KEY.projects)
     if (cached) {
       setProjects(cached)
       seeded.current = true

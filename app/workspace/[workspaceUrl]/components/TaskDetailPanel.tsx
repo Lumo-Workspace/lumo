@@ -54,7 +54,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { API, CACHE_KEY } from '../constants'
-import { readCache, writeCache, CACHE_TTL } from '../cache'
+import { readCache, writeCache } from '../cache'
 import { useUser } from '@clerk/nextjs'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
@@ -215,11 +215,7 @@ export function TaskDetailPanel({
 
   // ─── Comments (stale-while-revalidate from localStorage) ─────────────────────
   const cachedComments = useMemo(
-    () =>
-      readCache<ApiComment[]>(
-        CACHE_KEY.comments(initialTask.id),
-        CACHE_TTL.short
-      ) ?? null,
+    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
 
     [initialTask.id]
   )
@@ -258,10 +254,8 @@ export function TaskDetailPanel({
   const resolvedDescription = useMemo(() => {
     if (cachedDescription !== undefined) return cachedDescription
     return (
-      readCache<{ desc: string | null }>(
-        CACHE_KEY.description(initialTask.id),
-        CACHE_TTL.short
-      )?.desc ?? undefined
+      readCache<{ desc: string | null }>(CACHE_KEY.description(initialTask.id))
+        ?.desc ?? undefined
     )
   }, [cachedDescription, initialTask.id])
   const hasCached = resolvedDescription !== undefined

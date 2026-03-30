@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiNotification } from '../types'
-import { readCache, writeCache, CACHE_TTL } from '../cache'
+import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
 import { apiFetch } from '../utils'
 
@@ -19,7 +19,7 @@ export function useNotifications() {
     const cached = readCache<{
       notifications: ApiNotification[]
       unreadCount: number
-    }>(CACHE_KEY.notifications, CACHE_TTL.notifications)
+    }>(CACHE_KEY.notifications)
     if (cached) {
       setNotifications(cached.notifications)
       setUnreadCount(cached.unreadCount)

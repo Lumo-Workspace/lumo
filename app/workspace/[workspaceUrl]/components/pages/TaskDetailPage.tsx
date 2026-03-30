@@ -57,7 +57,7 @@ import {
   Page,
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
-import { readCache, writeCache, CACHE_TTL } from '../../cache'
+import { readCache, writeCache } from '../../cache'
 import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
@@ -124,10 +124,8 @@ export function TaskDetailPage({
   const [task, setTask] = useState<TaskDetail>(initialTask)
   const cachedDesc = useMemo(
     () =>
-      readCache<{ desc: string | null }>(
-        CACHE_KEY.description(initialTask.id),
-        CACHE_TTL.short
-      )?.desc,
+      readCache<{ desc: string | null }>(CACHE_KEY.description(initialTask.id))
+        ?.desc,
     [initialTask.id]
   )
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
@@ -175,29 +173,23 @@ export function TaskDetailPage({
 
   // ── Members + Projects (cache-first) ───────────────────────────────────────
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
-    () =>
-      readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members, CACHE_TTL.long) ?? []
+    () => readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
   )
   const [agentActors, setAgentActors] = useState<
     { actorId: string; name: string; avatarColor: string }[]
   >(
     () =>
       readCache<{ actorId: string; name: string; avatarColor: string }[]>(
-        CACHE_KEY.agentActors,
-        CACHE_TTL.long
+        CACHE_KEY.agentActors
       ) ?? []
   )
   const [projects, setProjects] = useState<ApiProject[]>(
-    () => readCache<ApiProject[]>(CACHE_KEY.projects, CACHE_TTL.long) ?? []
+    () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
   )
 
   // ── Comments state ─────────────────────────────────────────────────────────
   const cachedComments = useMemo(
-    () =>
-      readCache<ApiComment[]>(
-        CACHE_KEY.comments(initialTask.id),
-        CACHE_TTL.short
-      ) ?? null,
+    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
     [initialTask.id]
   )
   const [comments, setComments] = useState<ApiComment[]>(cachedComments ?? [])
