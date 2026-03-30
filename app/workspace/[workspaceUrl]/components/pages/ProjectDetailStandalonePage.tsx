@@ -20,6 +20,7 @@ import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
 import { slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
+import { useCopyState } from '../../hooks/useCopyState'
 import { useNotifications } from '../../hooks/useNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { useUser } from '@clerk/nextjs'
@@ -50,14 +51,13 @@ export function ProjectDetailStandalonePage({
   )
 
   // ── Copy link ─────────────────────────────────────────────────────────────
-  const [copied, setCopied] = useState(false)
+  const [copied, triggerCopy] = useCopyState()
   const handleCopyLink = useCallback(async () => {
     await copyLink(
       `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(initialProject.name)}`
     )
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }, [workspaceUrl, initialProject.id])
+    triggerCopy()
+  }, [workspaceUrl, initialProject.id, triggerCopy])
 
   // ── Data state ────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ApiProject>(() => {

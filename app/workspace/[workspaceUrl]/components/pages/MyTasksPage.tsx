@@ -8,13 +8,6 @@ import {
   BreadcrumbItem,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import {
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { MyTask, ApiStatus } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
 import { StatusIcon } from '../StatusIcon'
@@ -42,7 +35,7 @@ import {
   cmpPriority,
   cmpDate,
 } from '../../hooks/useTableSort'
-import { DND_ACTIVATION_DISTANCE } from '../../constants'
+import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 
 type MyTaskSortKey = 'title' | 'project' | 'status' | 'priority' | 'updatedAt'
@@ -70,12 +63,7 @@ export function MyTasksPage({
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: DND_ACTIVATION_DISTANCE },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  const sensors = useBoardSensors()
 
   const { activeId, onDragStart, onDragOver, onDragEnd } = useBoardDrag({
     tasks,

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -153,8 +154,8 @@ export async function handlePullRequest(
     select: { slug: true },
   })
   const workspaceSlug = workspace?.slug ?? ''
-  const taskIdentifier = `${task.team.identifier}-${task.number}`
-  const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${taskIdentifier}`
+  const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
+  const taskUrl = buildTaskUrl(workspaceSlug, task.team.identifier, task.number)
 
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {

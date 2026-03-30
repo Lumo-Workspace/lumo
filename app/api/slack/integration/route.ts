@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import {
-  requireAuth,
-  getUserWorkspace,
-  requireWorkspaceMember,
-} from '@/lib/auth'
+import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
 
 export async function GET(request: NextRequest) {
@@ -13,16 +10,11 @@ export async function GET(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    if (!workspaceUrl)
-      return NextResponse.json(
-        { error: 'workspaceUrl is required' },
-        { status: 400 }
-      )
-
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const integration = await prisma.slackIntegration.findUnique({
       where: { workspaceId: ws.workspaceId },
@@ -46,16 +38,11 @@ export async function DELETE(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    if (!workspaceUrl)
-      return NextResponse.json(
-        { error: 'workspaceUrl is required' },
-        { status: 400 }
-      )
-
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult

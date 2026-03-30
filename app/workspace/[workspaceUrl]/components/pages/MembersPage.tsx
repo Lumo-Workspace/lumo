@@ -39,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { getInitials } from '@/lib/utils/getInitials'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PendingInvite {
@@ -57,11 +58,6 @@ function formatDate(iso: string) {
     month: 'short',
     year: 'numeric',
   })
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/)
-  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

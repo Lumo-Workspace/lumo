@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
 import { X, SquareArrowOutUpRight, Link as LinkIcon, Check } from 'lucide-react'
 import { useRouter, useParams } from 'next/navigation'
@@ -21,6 +21,7 @@ import {
   ApiProject,
 } from '../types'
 import { TaskDetailPanel } from './TaskDetailPanel'
+import { useCopyState } from '../hooks/useCopyState'
 
 interface TaskDrawerProps {
   initialTask: ApiTask | MyTask
@@ -68,18 +69,18 @@ export function TaskDrawer({
     projects.find(p => p.id === initialTask.projectId)?.name ??
     ''
 
-  const [copied, setCopied] = useState(false)
+  const [copied, triggerCopy] = useCopyState()
   const handleCopyLink = useCallback(async () => {
     await copyLink(
       `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
     )
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    triggerCopy()
   }, [
     workspaceUrl,
     initialTask.teamIdentifier,
     initialTask.number,
     projectName,
+    triggerCopy,
   ])
 
   return (

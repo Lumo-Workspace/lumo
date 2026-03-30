@@ -6,6 +6,7 @@ import { createCommentSchema } from '@/lib/validation/schemas'
 import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
+import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -184,7 +185,11 @@ export async function POST(request: NextRequest, { params }: Params) {
                 taskId: id,
                 taskTitle: task.title,
                 commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
+                taskUrl: buildTaskUrl(
+                  workspaceSlug,
+                  task.team?.identifier ?? '',
+                  task.number
+                ),
               })
             )
           }
@@ -197,7 +202,11 @@ export async function POST(request: NextRequest, { params }: Params) {
                 taskId: task.id,
                 taskTitle: task.title,
                 taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
-                taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${task.team?.identifier ?? ''}-${task.number}`,
+                taskUrl: buildTaskUrl(
+                  workspaceSlug,
+                  task.team?.identifier ?? '',
+                  task.number
+                ),
                 commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
               },
               task.projectId

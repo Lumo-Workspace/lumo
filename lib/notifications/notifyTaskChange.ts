@@ -4,6 +4,7 @@ import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { pushUserEvent } from '@/lib/pusher/server'
 import type { SlackEventType, NotificationPayload } from '@/lib/slack/types'
 import type { NotificationType } from '@prisma/client'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 
 // ── Context shared by all notification helpers ──────────────────────────────
 
@@ -31,12 +32,15 @@ export function buildTaskNotificationCtx(
   triggerClerkId: string
 ): TaskNotificationCtx {
   const workspaceSlug = task.project.workspace?.slug ?? ''
-  const taskIdentifier = `${updated.team.identifier}-${task.number}`
+  const taskIdentifier = buildTaskIdentifier(
+    updated.team.identifier,
+    task.number
+  )
   return {
     workspaceId: task.project.workspaceId,
     taskTitle: updated.title,
     taskIdentifier,
-    taskUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceSlug}/tasks/${taskIdentifier}`,
+    taskUrl: buildTaskUrl(workspaceSlug, updated.team.identifier, task.number),
     projectId: task.projectId,
     triggerActorId,
     triggerClerkId,

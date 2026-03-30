@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { isPrismaUniqueError } from '@/lib/api/helpers'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -103,12 +104,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ repository }, { status: 201 })
   } catch (error: unknown) {
     // Unique constraint: repo already linked to project
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code: string }).code === 'P2002'
-    ) {
+    if (isPrismaUniqueError(error)) {
       return NextResponse.json(
         { error: 'This repository is already linked to the project' },
         { status: 409 }

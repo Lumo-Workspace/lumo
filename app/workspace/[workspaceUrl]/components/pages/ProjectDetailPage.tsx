@@ -23,13 +23,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import {
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
 import {
   ApiProject,
@@ -74,7 +67,8 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { DND_ACTIVATION_DISTANCE, IDEA_BADGE_CLS } from '../../constants'
+import { IDEA_BADGE_CLS } from '../../constants'
+import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import {
   Popover,
@@ -251,12 +245,7 @@ export function ProjectDetailPage({
   )
 
   // ─── DnD ────────────────────────────────────────────────────────────────────
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: DND_ACTIVATION_DISTANCE },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  const sensors = useBoardSensors()
 
   const { activeId, onDragStart, onDragOver, onDragEnd } = useBoardDrag({
     tasks,

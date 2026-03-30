@@ -62,6 +62,7 @@ import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
 import { useDarkMode } from '../../hooks/useDarkMode'
 import { useNotifications } from '../../hooks/useNotifications'
 import { copyLink } from '../../utils/copyLink'
+import { useCopyState } from '../../hooks/useCopyState'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/pusher/server'
 import { DescriptionEditor } from '../DescriptionEditor'
@@ -141,14 +142,19 @@ export function TaskDetailPage({
   }, [])
 
   // ── Task copy link ─────────────────────────────────────────────────────────
-  const [taskLinkCopied, setTaskLinkCopied] = useState(false)
+  const [taskLinkCopied, triggerTaskLinkCopy] = useCopyState()
   const handleCopyTaskLink = useCallback(async () => {
     await copyLink(
       `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}`
     )
-    setTaskLinkCopied(true)
-    setTimeout(() => setTaskLinkCopied(false), 1500)
-  }, [workspaceUrl, task.teamIdentifier, task.number, task.project.name])
+    triggerTaskLinkCopy()
+  }, [
+    workspaceUrl,
+    task.teamIdentifier,
+    task.number,
+    task.project.name,
+    triggerTaskLinkCopy,
+  ])
 
   // ── Spec editing ───────────────────────────────────────────────────────────
   const [editingSpec, setEditingSpec] = useState(false)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { createRepoWebhook, deleteRepoWebhook } from '@/lib/github/webhooks'
@@ -16,18 +17,11 @@ export async function GET(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    if (!workspaceUrl) {
-      return NextResponse.json(
-        { error: 'workspaceUrl is required' },
-        { status: 400 }
-      )
-    }
-
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const integration = await prisma.gitHubIntegration.findUnique({
       where: {
@@ -99,18 +93,11 @@ export async function PATCH(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    if (!workspaceUrl) {
-      return NextResponse.json(
-        { error: 'workspaceUrl is required' },
-        { status: 400 }
-      )
-    }
-
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const body = await request.json()
     const repositories: string[] = Array.isArray(body.repositories)

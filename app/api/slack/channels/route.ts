@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/slack/types'
+import { isPrismaUniqueError, requireWorkspaceByUrl } from '@/lib/api/helpers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,17 +10,18 @@ export async function GET(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
     const projectId = request.nextUrl.searchParams.get('projectId')
-    if (!workspaceUrl || !projectId)
+    if (!projectId)
       return NextResponse.json(
         { error: 'workspaceUrl and projectId are required' },
         { status: 400 }
       )
 
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const integration = await prisma.slackIntegration.findUnique({
       where: { workspaceId: ws.workspaceId },
@@ -49,16 +51,11 @@ export async function POST(request: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
-    if (!workspaceUrl)
-      return NextResponse.json(
-        { error: 'workspaceUrl is required' },
-        { status: 400 }
-      )
-
-    const ws = await getUserWorkspace(userId)
-    if (!ws || ws.workspace.slug !== workspaceUrl)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ws = await requireWorkspaceByUrl(
+      userId,
+      request.nextUrl.searchParams.get('workspaceUrl')
+    )
+    if (ws instanceof NextResponse) return ws
 
     const body = await request.json()
     const channelId: string = body.channelId ?? ''
@@ -125,11 +122,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ channel }, { status: 201 })
   } catch (error) {
-    if (
-      error instanceof Error &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2002'
-    ) {
+    if (isPrismaUniqueError(error)) {
       return NextResponse.json(
         { error: 'Channel already configured for this project' },
         { status: 409 }

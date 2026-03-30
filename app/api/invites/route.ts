@@ -9,8 +9,7 @@ import {
 import { sendInvitesSchema } from '@/lib/validation/schemas'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
-
-const INVITE_EXPIRY_DAYS = 7
+import { inviteExpiresAt } from '@/lib/utils/invite'
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,9 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const expiresAt = new Date(
-      Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-    )
+    const expiresAt = inviteExpiresAt()
     const resend = getResend()
 
     const results: { email: string; status: 'sent' | 'failed' }[] = []

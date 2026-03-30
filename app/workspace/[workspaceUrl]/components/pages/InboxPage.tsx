@@ -39,17 +39,9 @@ import {
 } from '@/components/ui/breadcrumb'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { TaskDetailPanel } from '../TaskDetailPanel'
+import { getInitials } from '@/lib/utils/getInitials'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 /** Render comment body with @[clerkId] replaced by highlighted @mention spans */
 function CommentPreview({ body }: { body: string }) {

@@ -3,8 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
-
-const INVITE_EXPIRY_DAYS = 7
+import { inviteExpiresAt } from '@/lib/utils/invite'
 
 export async function POST(
   _request: NextRequest,
@@ -46,9 +45,7 @@ export async function POST(
     }
 
     // Reset expiry
-    const expiresAt = new Date(
-      Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-    )
+    const expiresAt = inviteExpiresAt()
     await prisma.workspaceInvite.update({
       where: { id: invite.id },
       data: { expiresAt },

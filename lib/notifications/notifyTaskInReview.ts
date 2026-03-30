@@ -1,6 +1,8 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import { pushUserEvent } from '@/lib/pusher/server'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 
 /**
  * Fires a TASK_IN_REVIEW notification to the effective reviewer.
@@ -29,14 +31,13 @@ export async function notifyTaskInReview(params: {
   if (effectiveActorId) {
     const actor = await prisma.actor.findUnique({
       where: { id: effectiveActorId },
-      select: { member: { select: { id: true, clerkId: true } } },
+      select: { member: { select: { clerkId: true } } },
     })
     effectiveReviewerClerkId = actor?.member?.clerkId ?? null
   }
 
-  // Slack: send channel + DM notification for task_in_review
-  // (must run before inbox guards — channel notifications fire regardless of reviewer assignment)
-  const taskForSlack = await prisma.task.findUnique({
+  // Load task data for notification payloads
+  const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: {
       title: true,
@@ -50,33 +51,34 @@ export async function notifyTaskInReview(params: {
       },
     },
   })
-  if (taskForSlack) {
-    const identifier = `${taskForSlack.team.identifier}-${taskForSlack.number}`
-    const wsId = taskForSlack.team.workspace.id
-    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${taskForSlack.team.workspace.slug}/tasks/${identifier}`
+  if (!task) return
+
+  const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
+  const taskUrl = buildTaskUrl(
+    task.team.workspace.slug,
+    task.team.identifier,
+    task.number
+  )
+  const payload = { taskId, taskTitle: task.title, taskIdentifier, taskUrl }
+
+  // Slack: channel + DM (fire regardless of reviewer assignment)
+  waitUntil(
+    sendChannelNotification(
+      task.team.workspace.id,
+      'task_in_review',
+      payload,
+      task.projectId
+    )
+  )
+  if (effectiveReviewerClerkId) {
     waitUntil(
-      sendChannelNotification(
-        wsId,
+      sendDMNotification(
+        task.team.workspace.id,
+        effectiveReviewerClerkId,
         'task_in_review',
-        {
-          taskId,
-          taskTitle: taskForSlack.title,
-          taskIdentifier: identifier,
-          taskUrl,
-        },
-        taskForSlack.projectId
+        payload
       )
     )
-    if (effectiveReviewerClerkId) {
-      waitUntil(
-        sendDMNotification(wsId, effectiveReviewerClerkId, 'task_in_review', {
-          taskId,
-          taskTitle: taskForSlack.title,
-          taskIdentifier: identifier,
-          taskUrl,
-        })
-      )
-    }
   }
 
   // Inbox: notify reviewer (or workspace owners if no reviewer assigned)
@@ -91,28 +93,33 @@ export async function notifyTaskInReview(params: {
         triggerActorId,
       },
     })
+    if (effectiveReviewerClerkId) {
+      waitUntil(
+        pushUserEvent(effectiveReviewerClerkId, { type: 'notification:new' })
+      )
+    }
   } else {
     // Fall back to workspace owners
     const ownerActors = await prisma.actor.findMany({
-      where: {
-        workspaceId,
-        type: 'HUMAN',
-        member: { role: 'OWNER' },
-      },
-      select: { id: true },
+      where: { workspaceId, type: 'HUMAN', member: { role: 'OWNER' } },
+      select: { id: true, member: { select: { clerkId: true } } },
     })
-    const recipients = ownerActors
-      .map(a => a.id)
-      .filter(actorId => actorId !== triggerActorId)
+    const recipients = ownerActors.filter(a => a.id !== triggerActorId)
     if (recipients.length === 0) return
     await prisma.notification.createMany({
-      data: recipients.map(recipientActorId => ({
+      data: recipients.map(a => ({
         workspaceId,
-        recipientActorId,
+        recipientActorId: a.id,
         type: 'TASK_IN_REVIEW' as const,
         taskId,
         triggerActorId,
       })),
     })
+    // Push real-time to each owner
+    for (const a of recipients) {
+      if (a.member?.clerkId) {
+        waitUntil(pushUserEvent(a.member.clerkId, { type: 'notification:new' }))
+      }
+    }
   }
 }

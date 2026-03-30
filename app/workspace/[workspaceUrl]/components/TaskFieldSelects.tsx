@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { getInitials } from '@/lib/utils/getInitials'
 import {
   UserCircle2,
   Eye,
@@ -70,15 +71,6 @@ export function SeparatorDot() {
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
   'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
-
-export function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 export function PriorityIcon({ priority }: { priority: ApiPriority }) {
   const { Icon, iconColor } =

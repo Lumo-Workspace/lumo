@@ -5,6 +5,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
 import { sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -232,8 +233,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     const taskWithId = { ...task, teamIdentifier: task.team.identifier }
 
     // ── Fire-and-forget: task_created Slack channel notification ─────────────
-    const taskIdentifier = `${task.team.identifier}-${task.number}`
-    const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${project.workspace?.slug ?? ''}/tasks/${taskIdentifier}`
+    const taskIdentifier = buildTaskIdentifier(
+      task.team.identifier,
+      task.number
+    )
+    const taskUrl = buildTaskUrl(
+      project.workspace?.slug ?? '',
+      task.team.identifier,
+      task.number
+    )
     waitUntil(
       sendChannelNotification(
         project.workspaceId,
