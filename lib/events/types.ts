@@ -24,4 +24,15 @@ export type TaskStatusChangedEvent = {
 
 export type DomainEvent = AgentStatusChangedEvent | TaskStatusChangedEvent
 
-export type EventHandler = (event: DomainEvent) => Promise<void>
+// ── Typed handler signatures ────────────────────────────────────────────────
+
+export type AgentEventHandler = (
+  event: AgentStatusChangedEvent
+) => Promise<void>
+export type TaskEventHandler = (event: TaskStatusChangedEvent) => Promise<void>
+
+/** Map from event type to the corresponding typed handler array */
+export type EventHandlerRegistry = {
+  'agent:status_changed': AgentEventHandler[]
+  'task:status_changed': TaskEventHandler[]
+}

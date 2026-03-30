@@ -1,5 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
+import { getActorClerkId } from '@/lib/actor'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyReviewerOrOwners } from './notifyReviewerOrOwners'
@@ -27,14 +28,9 @@ export async function notifyTaskInReview(params: {
   const effectiveActorId = reviewerActorId ?? defaultReviewerActorId ?? null
 
   // Resolve effective reviewer actor → clerkId for Slack DM
-  let effectiveReviewerClerkId: string | null = null
-  if (effectiveActorId) {
-    const actor = await prisma.actor.findUnique({
-      where: { id: effectiveActorId },
-      select: { member: { select: { clerkId: true } } },
-    })
-    effectiveReviewerClerkId = actor?.member?.clerkId ?? null
-  }
+  const effectiveReviewerClerkId = effectiveActorId
+    ? await getActorClerkId(effectiveActorId)
+    : null
 
   // Load task data for notification payloads
   const task = await prisma.task.findUnique({

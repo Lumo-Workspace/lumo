@@ -1,5 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
+import { getHumanActorId, getActorClerkId } from '@/lib/actor'
 import { pushUserEvent } from '@/lib/pusher/server'
 import type { NotificationType } from '@prisma/client'
 
@@ -29,11 +30,7 @@ export async function notifyReviewerOrOwners(params: {
   // Resolve effective reviewer Actor ID
   let effectiveActorId = reviewerActorId
   if (!effectiveActorId && defaultReviewerMemberId) {
-    const actor = await prisma.actor.findUnique({
-      where: { memberId: defaultReviewerMemberId },
-      select: { id: true },
-    })
-    effectiveActorId = actor?.id ?? null
+    effectiveActorId = await getHumanActorId(defaultReviewerMemberId)
   }
 
   if (effectiveActorId) {
@@ -50,14 +47,9 @@ export async function notifyReviewerOrOwners(params: {
     })
 
     // Push real-time notification
-    const actor = await prisma.actor.findUnique({
-      where: { id: effectiveActorId },
-      select: { member: { select: { clerkId: true } } },
-    })
-    if (actor?.member?.clerkId) {
-      waitUntil(
-        pushUserEvent(actor.member.clerkId, { type: 'notification:new' })
-      )
+    const clerkId = await getActorClerkId(effectiveActorId)
+    if (clerkId) {
+      waitUntil(pushUserEvent(clerkId, { type: 'notification:new' }))
     }
   } else {
     // Fall back to workspace owners

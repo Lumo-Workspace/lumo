@@ -1,5 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
+import { getActorClerkId } from '@/lib/actor'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
@@ -181,15 +182,12 @@ export async function handlePullRequest(
         )
       )
       if (task.reviewerActorId) {
-        const reviewer = await prisma.actor.findUnique({
-          where: { id: task.reviewerActorId },
-          select: { member: { select: { clerkId: true } } },
-        })
-        if (reviewer?.member) {
+        const reviewerClerkId = await getActorClerkId(task.reviewerActorId)
+        if (reviewerClerkId) {
           waitUntil(
             sendDMNotification(
               workspaceId,
-              reviewer.member.clerkId,
+              reviewerClerkId,
               'pr_opened',
               prOpenedPayload
             )
@@ -232,26 +230,23 @@ export async function handlePullRequest(
       )
     )
     if (task.assigneeActorId) {
-      const assignee = await prisma.actor.findUnique({
-        where: { id: task.assigneeActorId },
-        select: { member: { select: { clerkId: true } } },
-      })
-      if (assignee?.member) {
+      const assigneeClerkId = await getActorClerkId(task.assigneeActorId)
+      if (assigneeClerkId) {
         waitUntil(
           sendDMNotification(
             workspaceId,
-            assignee.member.clerkId,
+            assigneeClerkId,
             'pr_merged',
             mergePayload
           )
         )
         waitUntil(
-          sendDMNotification(
-            workspaceId,
-            assignee.member.clerkId,
-            'task_done',
-            { taskId: task.id, taskTitle: task.title, taskIdentifier, taskUrl }
-          )
+          sendDMNotification(workspaceId, assigneeClerkId, 'task_done', {
+            taskId: task.id,
+            taskTitle: task.title,
+            taskIdentifier,
+            taskUrl,
+          })
         )
       }
     }

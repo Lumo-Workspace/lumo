@@ -1,13 +1,16 @@
 import { handleNotifyTaskInReview } from '@/lib/events/handlers/notify-task-in-review'
-import type { TaskStatusChangedEvent, DomainEvent } from '@/lib/events/types'
+import type { TaskStatusChangedEvent } from '@/lib/events/types'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn() },
-    actor: { findUnique: jest.fn() },
   },
+}))
+
+jest.mock('@/lib/actor', () => ({
+  getHumanActorId: jest.fn(),
 }))
 
 jest.mock('@/lib/notifications/notifyTaskInReview', () => ({
@@ -15,10 +18,11 @@ jest.mock('@/lib/notifications/notifyTaskInReview', () => ({
 }))
 
 import { prisma } from '@/lib/db/prisma'
+import { getHumanActorId } from '@/lib/actor'
 import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
-const mockActorFindUnique = (prisma as any).actor.findUnique as jest.Mock
+const mockGetHumanActorId = getHumanActorId as jest.Mock
 const mockNotify = notifyTaskInReview as jest.Mock
 
 beforeEach(() => {
@@ -58,14 +62,11 @@ describe('handleNotifyTaskInReview', () => {
       reviewerActorId: null,
       project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
     })
-    mockActorFindUnique.mockResolvedValue({ id: 'actor-default' })
+    mockGetHumanActorId.mockResolvedValue('actor-default')
 
     await handleNotifyTaskInReview(inReviewEvent)
 
-    expect(mockActorFindUnique).toHaveBeenCalledWith({
-      where: { memberId: 'member-default' },
-      select: { id: true },
-    })
+    expect(mockGetHumanActorId).toHaveBeenCalledWith('member-default')
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewerActorId: null,
@@ -79,7 +80,7 @@ describe('handleNotifyTaskInReview', () => {
       reviewerActorId: null,
       project: { workspaceId: 'ws-1', defaultReviewerId: 'member-gone' },
     })
-    mockActorFindUnique.mockResolvedValue(null)
+    mockGetHumanActorId.mockResolvedValue(null)
 
     await handleNotifyTaskInReview(inReviewEvent)
 
@@ -106,21 +107,5 @@ describe('handleNotifyTaskInReview', () => {
 
     expect(mockTaskFindUnique).not.toHaveBeenCalled()
     expect(mockNotify).not.toHaveBeenCalled()
-  })
-
-  it('ignores agent status changed events', async () => {
-    const agentEvent: DomainEvent = {
-      type: 'agent:status_changed',
-      taskId: 'task-1',
-      projectId: 'proj-1',
-      from: 'IDLE',
-      to: 'RUNNING',
-      fields: ['agentStatus'],
-      patch: { agentStatus: 'RUNNING' },
-    }
-
-    await handleNotifyTaskInReview(agentEvent)
-
-    expect(mockTaskFindUnique).not.toHaveBeenCalled()
   })
 })

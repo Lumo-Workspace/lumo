@@ -1,5 +1,5 @@
 import { handleNotifySpecReady } from '@/lib/events/handlers/notify-spec-ready'
-import type { AgentStatusChangedEvent, DomainEvent } from '@/lib/events/types'
+import type { AgentStatusChangedEvent } from '@/lib/events/types'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -72,20 +72,6 @@ describe('handleNotifySpecReady', () => {
 
     expect(mockTaskFindUnique).not.toHaveBeenCalled()
     expect(mockNotify).not.toHaveBeenCalled()
-  })
-
-  it('ignores task status changed events', async () => {
-    const taskEvent: DomainEvent = {
-      type: 'task:status_changed',
-      taskId: 'task-1',
-      projectId: 'proj-1',
-      from: 'TODO',
-      to: 'IN_REVIEW',
-    }
-
-    await handleNotifySpecReady(taskEvent)
-
-    expect(mockTaskFindUnique).not.toHaveBeenCalled()
   })
 
   it('passes null reviewerActorId when task has no reviewer', async () => {

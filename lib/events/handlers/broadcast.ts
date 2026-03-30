@@ -1,10 +1,10 @@
 import { pushProjectEvent } from '@/lib/pusher/server'
-import type { DomainEvent } from '../types'
+import type { AgentStatusChangedEvent, TaskStatusChangedEvent } from '../types'
 
 /** Broadcast agent status change to project channel (board / sidebar). */
-export async function handleAgentBroadcast(event: DomainEvent): Promise<void> {
-  if (event.type !== 'agent:status_changed') return
-
+export async function handleAgentBroadcast(
+  event: AgentStatusChangedEvent
+): Promise<void> {
   await pushProjectEvent(event.projectId, {
     type: 'task:updated',
     taskId: event.taskId,
@@ -14,9 +14,9 @@ export async function handleAgentBroadcast(event: DomainEvent): Promise<void> {
 }
 
 /** Broadcast task status change to project channel. */
-export async function handleTaskBroadcast(event: DomainEvent): Promise<void> {
-  if (event.type !== 'task:status_changed') return
-
+export async function handleTaskBroadcast(
+  event: TaskStatusChangedEvent
+): Promise<void> {
   await pushProjectEvent(event.projectId, {
     type: 'task:updated',
     taskId: event.taskId,

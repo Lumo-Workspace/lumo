@@ -1,14 +1,15 @@
 import { prisma } from '@/lib/db/prisma'
 import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
-import type { DomainEvent } from '../types'
+import type { AgentStatusChangedEvent } from '../types'
 
 /**
  * When agent transitions to SPEC_REVIEW, notify the reviewer
  * (or fallback to workspace owners) that a spec is ready.
  */
-export async function handleNotifySpecReady(event: DomainEvent): Promise<void> {
-  if (event.type !== 'agent:status_changed' || event.to !== 'SPEC_REVIEW')
-    return
+export async function handleNotifySpecReady(
+  event: AgentStatusChangedEvent
+): Promise<void> {
+  if (event.to !== 'SPEC_REVIEW') return
 
   const task = await prisma.task.findUnique({
     where: { id: event.taskId },

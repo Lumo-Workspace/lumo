@@ -1,5 +1,5 @@
-import type { DomainEvent, EventHandler } from './types'
-import { getHandlers } from './handlers'
+import type { DomainEvent } from './types'
+import { registry } from './handlers'
 
 /**
  * Dispatch domain events to registered handlers.
@@ -9,14 +9,24 @@ import { getHandlers } from './handlers'
  */
 export async function dispatchEvents(events: DomainEvent[]): Promise<void> {
   for (const event of events) {
-    const handlers = getHandlers(event.type)
-    await Promise.all(handlers.map(h => runWithRetry(h, event)))
+    switch (event.type) {
+      case 'agent:status_changed': {
+        const handlers = registry['agent:status_changed']
+        await Promise.all(handlers.map(h => runWithRetry(h, event)))
+        break
+      }
+      case 'task:status_changed': {
+        const handlers = registry['task:status_changed']
+        await Promise.all(handlers.map(h => runWithRetry(h, event)))
+        break
+      }
+    }
   }
 }
 
-async function runWithRetry(
-  handler: EventHandler,
-  event: DomainEvent
+async function runWithRetry<T>(
+  handler: (event: T) => Promise<void>,
+  event: T
 ): Promise<void> {
   try {
     await handler(event)
@@ -25,10 +35,7 @@ async function runWithRetry(
     try {
       await handler(event)
     } catch (retryError) {
-      console.error(
-        `[events] Handler failed after retry for ${event.type}:`,
-        retryError
-      )
+      console.error(`[events] Handler failed after retry:`, retryError)
     }
   }
 }

@@ -1,18 +1,24 @@
-import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { DomainEvent } from '@/lib/events/types'
 
 // ── Mock handler registry ─────────────────────────────────────────────────
 
-const mockHandler1 = jest.fn<Promise<void>, [DomainEvent]>()
-const mockHandler2 = jest.fn<Promise<void>, [DomainEvent]>()
+// Use module-level jest.fn() via a shared object to avoid hoisting issues
+const mocks = {
+  agentHandler1: jest.fn(),
+  agentHandler2: jest.fn(),
+  taskHandler: jest.fn(),
+}
 
 jest.mock('@/lib/events/handlers', () => ({
-  getHandlers: jest.fn((type: string) => {
-    if (type === 'agent:status_changed') return [mockHandler1, mockHandler2]
-    if (type === 'task:status_changed') return [mockHandler1]
-    return []
-  }),
+  get registry() {
+    return {
+      'agent:status_changed': [mocks.agentHandler1, mocks.agentHandler2],
+      'task:status_changed': [mocks.taskHandler],
+    }
+  },
 }))
+
+import { dispatchEvents } from '@/lib/events/dispatcher'
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -38,39 +44,42 @@ const taskEvent: DomainEvent = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockHandler1.mockResolvedValue(undefined)
-  mockHandler2.mockResolvedValue(undefined)
+  mocks.agentHandler1.mockResolvedValue(undefined)
+  mocks.agentHandler2.mockResolvedValue(undefined)
+  mocks.taskHandler.mockResolvedValue(undefined)
 })
 
 describe('dispatchEvents', () => {
   it('calls all registered handlers for an event type', async () => {
     await dispatchEvents([agentEvent])
 
-    expect(mockHandler1).toHaveBeenCalledWith(agentEvent)
-    expect(mockHandler2).toHaveBeenCalledWith(agentEvent)
+    expect(mocks.agentHandler1).toHaveBeenCalledWith(agentEvent)
+    expect(mocks.agentHandler2).toHaveBeenCalledWith(agentEvent)
+    expect(mocks.taskHandler).not.toHaveBeenCalled()
   })
 
   it('dispatches multiple events sequentially', async () => {
     await dispatchEvents([agentEvent, taskEvent])
 
-    expect(mockHandler1).toHaveBeenCalledTimes(2)
-    expect(mockHandler2).toHaveBeenCalledTimes(1) // only registered for agent events
+    expect(mocks.agentHandler1).toHaveBeenCalledTimes(1)
+    expect(mocks.agentHandler2).toHaveBeenCalledTimes(1)
+    expect(mocks.taskHandler).toHaveBeenCalledTimes(1)
   })
 
   it('retries once on handler failure then succeeds', async () => {
-    mockHandler1
+    mocks.agentHandler1
       .mockRejectedValueOnce(new Error('transient'))
       .mockResolvedValueOnce(undefined)
 
     await dispatchEvents([agentEvent])
 
-    expect(mockHandler1).toHaveBeenCalledTimes(2)
-    expect(mockHandler2).toHaveBeenCalledTimes(1)
+    expect(mocks.agentHandler1).toHaveBeenCalledTimes(2)
+    expect(mocks.agentHandler2).toHaveBeenCalledTimes(1)
   })
 
   it('logs error after retry failure but does not throw', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    mockHandler1
+    mocks.agentHandler1
       .mockRejectedValueOnce(new Error('fail-1'))
       .mockRejectedValueOnce(new Error('fail-2'))
 
@@ -81,24 +90,24 @@ describe('dispatchEvents', () => {
       expect.any(Error)
     )
     // Other handlers still ran
-    expect(mockHandler2).toHaveBeenCalledTimes(1)
+    expect(mocks.agentHandler2).toHaveBeenCalledTimes(1)
     consoleSpy.mockRestore()
   })
 
   it('does nothing for empty event array', async () => {
     await dispatchEvents([])
 
-    expect(mockHandler1).not.toHaveBeenCalled()
+    expect(mocks.agentHandler1).not.toHaveBeenCalled()
   })
 
   it('runs handlers in parallel for the same event', async () => {
     const order: string[] = []
-    mockHandler1.mockImplementation(async () => {
+    mocks.agentHandler1.mockImplementation(async () => {
       order.push('h1-start')
       await new Promise(r => setTimeout(r, 10))
       order.push('h1-end')
     })
-    mockHandler2.mockImplementation(async () => {
+    mocks.agentHandler2.mockImplementation(async () => {
       order.push('h2-start')
       await new Promise(r => setTimeout(r, 5))
       order.push('h2-end')

@@ -5,7 +5,6 @@ import {
 import type {
   AgentStatusChangedEvent,
   TaskStatusChangedEvent,
-  DomainEvent,
 } from '@/lib/events/types'
 
 jest.mock('@/lib/pusher/server', () => ({
@@ -44,18 +43,22 @@ describe('handleAgentBroadcast', () => {
     })
   })
 
-  it('ignores task status changed events', async () => {
-    const taskEvent: DomainEvent = {
-      type: 'task:status_changed',
-      taskId: 'task-1',
-      projectId: 'proj-1',
-      from: 'TODO',
-      to: 'IN_PROGRESS',
+  it('broadcasts clear (to=null) events', async () => {
+    const clearEvent: AgentStatusChangedEvent = {
+      ...event,
+      to: null,
+      fields: ['agentStatus'],
+      patch: { agentStatus: null },
     }
 
-    await handleAgentBroadcast(taskEvent)
+    await handleAgentBroadcast(clearEvent)
 
-    expect(mockPushProjectEvent).not.toHaveBeenCalled()
+    expect(mockPushProjectEvent).toHaveBeenCalledWith('proj-1', {
+      type: 'task:updated',
+      taskId: 'task-1',
+      fields: ['agentStatus'],
+      patch: { agentStatus: null },
+    })
   })
 })
 
@@ -79,21 +82,5 @@ describe('handleTaskBroadcast', () => {
       fields: ['status'],
       patch: { status: 'IN_REVIEW' },
     })
-  })
-
-  it('ignores agent status changed events', async () => {
-    const agentEvent: DomainEvent = {
-      type: 'agent:status_changed',
-      taskId: 'task-1',
-      projectId: 'proj-1',
-      from: 'IDLE',
-      to: 'RUNNING',
-      fields: ['agentStatus'],
-      patch: { agentStatus: 'RUNNING' },
-    }
-
-    await handleTaskBroadcast(agentEvent)
-
-    expect(mockPushProjectEvent).not.toHaveBeenCalled()
   })
 })

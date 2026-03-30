@@ -47,3 +47,15 @@ export async function getHumanActorId(
   })
   return actor?.id ?? null
 }
+
+/**
+ * Resolve an Actor ID to its associated Clerk user ID.
+ * Used for sending Slack DMs and real-time push notifications.
+ */
+export async function getActorClerkId(actorId: string): Promise<string | null> {
+  const actor = await prisma.actor.findUnique({
+    where: { id: actorId },
+    select: { member: { select: { clerkId: true } } },
+  })
+  return actor?.member?.clerkId ?? null
+}
