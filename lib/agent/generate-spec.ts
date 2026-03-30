@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
-import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -28,12 +27,7 @@ export async function generateSpecDraft(
     title: string
     description: string | null
     spec: string | null
-    project: {
-      id: string
-      workspaceId: string
-      defaultReviewerId: string | null
-    }
-    reviewerActorId: string | null
+    project: { id: string }
   }
 ): Promise<void> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY
@@ -81,13 +75,5 @@ export async function generateSpecDraft(
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
 
-  // Notify reviewer (or workspace owners) that spec is ready
-  await notifyReviewerOrOwners({
-    workspaceId: task.project.workspaceId,
-    taskId,
-    type: 'TASK_SPEC_READY',
-    reviewerActorId: task.reviewerActorId ?? null,
-    defaultReviewerMemberId: task.project.defaultReviewerId,
-    triggerActorId: null,
-  })
+  // Reviewer notification is handled by domain event handler (agent → SPEC_REVIEW)
 }

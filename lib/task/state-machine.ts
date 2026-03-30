@@ -1,6 +1,7 @@
 import type { TaskStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { DomainEvent } from '@/lib/events/types'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,18 +41,22 @@ export class InvalidTaskTransitionError extends Error {
 export interface TaskTransitionOptions {
   /** Skip reading current status — use this when you already know it */
   currentStatus?: TaskStatusValue | undefined
-  /** Skip the Pusher project broadcast */
-  skipBroadcast?: boolean | undefined
+  /** Skip dispatching domain events (broadcast, notifications) */
+  skipDispatch?: boolean | undefined
 }
 
 // ── Core transition function ────────────────────────────────────────────────
 
+/**
+ * Transition a task's status with validation and domain event dispatch.
+ * Returns emitted events so callers using skipDispatch can dispatch later.
+ */
 export async function transitionTaskStatus(
   taskId: string,
   projectId: string,
   to: TaskStatusValue,
   opts?: TaskTransitionOptions
-): Promise<void> {
+): Promise<DomainEvent[]> {
   // Determine current status
   let current: TaskStatusValue
   if (opts?.currentStatus !== undefined) {
@@ -66,7 +71,7 @@ export async function transitionTaskStatus(
   }
 
   // No-op if already in target status
-  if (current === to) return
+  if (current === to) return []
 
   // Validate
   if (!isValidTaskTransition(current, to)) {
@@ -78,13 +83,20 @@ export async function transitionTaskStatus(
     data: { status: to },
   })
 
-  // Broadcast project-level event
-  if (!opts?.skipBroadcast) {
-    await pushProjectEvent(projectId, {
-      type: 'task:updated',
+  // Emit domain event
+  const events: DomainEvent[] = [
+    {
+      type: 'task:status_changed',
       taskId,
-      fields: ['status'],
-      patch: { status: to },
-    })
+      projectId,
+      from: current,
+      to,
+    },
+  ]
+
+  if (!opts?.skipDispatch) {
+    await dispatchEvents(events)
   }
+
+  return events
 }

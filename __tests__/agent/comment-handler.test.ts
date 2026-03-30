@@ -26,7 +26,9 @@ jest.mock('@/lib/agent/clerk-cache', () => ({
 jest.mock('@/lib/pusher/server', () => ({
   pushTaskEvent: jest.fn().mockReturnValue(Promise.resolve()),
   pushUserEvent: jest.fn().mockReturnValue(Promise.resolve()),
-  pushProjectEvent: jest.fn().mockReturnValue(Promise.resolve()),
+}))
+jest.mock('@/lib/events/dispatcher', () => ({
+  dispatchEvents: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
@@ -58,7 +60,8 @@ describe('handleAgentComment', () => {
     const pusher = require('@/lib/pusher/server')
     pusher.pushTaskEvent.mockReturnValue(Promise.resolve())
     pusher.pushUserEvent.mockReturnValue(Promise.resolve())
-    pusher.pushProjectEvent.mockReturnValue(Promise.resolve())
+    const dispatcher = require('@/lib/events/dispatcher')
+    dispatcher.dispatchEvents.mockResolvedValue(undefined)
     const actor = require('@/lib/actor')
     actor.getCodingAgentActor.mockResolvedValue('agent-actor-1')
     actor.getHumanActorId.mockResolvedValue('human-actor-1')

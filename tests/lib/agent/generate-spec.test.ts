@@ -13,20 +13,15 @@ jest.mock('@anthropic-ai/sdk', () => ({
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { update: jest.fn(), findUnique: jest.fn() },
-    actor: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-    },
-    notification: {
-      create: jest.fn(),
-      createMany: jest.fn(),
-    },
   },
 }))
 
 jest.mock('@/lib/pusher/server', () => ({
   pushAgentEvent: jest.fn(),
-  pushProjectEvent: jest.fn().mockReturnValue(Promise.resolve()),
+}))
+
+jest.mock('@/lib/events/dispatcher', () => ({
+  dispatchEvents: jest.fn().mockResolvedValue(undefined),
 }))
 
 // Import mocked modules AFTER jest.mock calls so we get the mock instances
@@ -35,10 +30,6 @@ import { pushAgentEvent } from '@/lib/pusher/server'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
 const mockPrismaTaskFindUnique = (prisma as any).task.findUnique as jest.Mock
-const mockActorFindUnique = (prisma as any).actor.findUnique as jest.Mock
-const mockActorFindMany = (prisma as any).actor.findMany as jest.Mock
-const mockNotificationCreate = prisma.notification.create as jest.Mock
-const mockNotificationCreateMany = prisma.notification.createMany as jest.Mock
 const mockPushAgentEvent = pushAgentEvent as jest.Mock
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -49,8 +40,7 @@ const baseTask = {
   title: 'Add dark mode toggle',
   description: 'Users want a dark mode. Add a toggle to the settings page.',
   spec: null,
-  project: { id: 'proj-1', workspaceId: 'ws-1', defaultReviewerId: null },
-  reviewerActorId: null,
+  project: { id: 'proj-1' },
 }
 
 function makeApiResponse(text: string) {
@@ -69,8 +59,6 @@ beforeEach(() => {
     .mockResolvedValueOnce({ agentStatus: 'IDLE' })
     .mockResolvedValueOnce({ agentStatus: 'RUNNING' })
   mockPushAgentEvent.mockResolvedValue(undefined)
-  mockNotificationCreate.mockResolvedValue({})
-  mockNotificationCreateMany.mockResolvedValue({ count: 0 })
 })
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -92,7 +80,6 @@ describe('generateSpecDraft', () => {
 
     beforeEach(() => {
       mockCreate.mockResolvedValue(makeApiResponse(SPEC_TEXT))
-      mockActorFindMany.mockResolvedValue([])
     })
 
     it('sets agentStatus to RUNNING then SPEC_REVIEW', async () => {
@@ -169,118 +156,6 @@ describe('generateSpecDraft', () => {
           ],
         })
       )
-    })
-  })
-
-  describe('reviewer notification', () => {
-    const SPEC_TEXT = '## Requirements\n- ...'
-
-    beforeEach(() => {
-      mockCreate.mockResolvedValue(makeApiResponse(SPEC_TEXT))
-    })
-
-    it('notifies the task-level reviewer when set (reviewerActorId used directly)', async () => {
-      const task = { ...baseTask, reviewerActorId: 'actor-reviewer' }
-
-      await generateSpecDraft(TASK_ID, task)
-
-      // reviewerActorId is an Actor ID — used directly, no lookup needed
-      expect(mockNotificationCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: 'TASK_SPEC_READY',
-            recipientActorId: 'actor-reviewer',
-            triggerActorId: null,
-            taskId: TASK_ID,
-          }),
-        })
-      )
-    })
-
-    it('falls back to project defaultReviewerId via actor lookup when task reviewerActorId is null', async () => {
-      const task = {
-        ...baseTask,
-        reviewerActorId: null,
-        project: {
-          id: 'proj-1',
-          workspaceId: 'ws-1',
-          defaultReviewerId: 'member-default',
-        },
-      }
-      mockActorFindUnique.mockResolvedValue({ id: 'actor-default' })
-
-      await generateSpecDraft(TASK_ID, task)
-
-      expect(mockActorFindUnique).toHaveBeenCalledWith({
-        where: { memberId: 'member-default' },
-        select: { id: true },
-      })
-      expect(mockNotificationCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: 'TASK_SPEC_READY',
-            recipientActorId: 'actor-default',
-          }),
-        })
-      )
-    })
-
-    it('notifies all workspace owner actors when no reviewer is configured', async () => {
-      mockActorFindMany.mockResolvedValue([
-        { id: 'actor-owner-1' },
-        { id: 'actor-owner-2' },
-      ])
-
-      await generateSpecDraft(TASK_ID, baseTask)
-
-      expect(mockActorFindMany).toHaveBeenCalledWith({
-        where: {
-          workspaceId: 'ws-1',
-          type: 'HUMAN',
-          member: { role: 'OWNER' },
-        },
-        select: { id: true, member: { select: { clerkId: true } } },
-      })
-      expect(mockNotificationCreateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.arrayContaining([
-            expect.objectContaining({
-              recipientActorId: 'actor-owner-1',
-              type: 'TASK_SPEC_READY',
-            }),
-            expect.objectContaining({
-              recipientActorId: 'actor-owner-2',
-              type: 'TASK_SPEC_READY',
-            }),
-          ]),
-        })
-      )
-    })
-
-    it('does not notify anyone when default reviewer actor cannot be found', async () => {
-      const task = {
-        ...baseTask,
-        reviewerActorId: null,
-        project: {
-          id: 'proj-1',
-          workspaceId: 'ws-1',
-          defaultReviewerId: 'member-gone',
-        },
-      }
-      mockActorFindUnique.mockResolvedValue(null)
-      mockActorFindMany.mockResolvedValue([])
-
-      await generateSpecDraft(TASK_ID, task)
-
-      expect(mockNotificationCreate).not.toHaveBeenCalled()
-    })
-
-    it('does not call createMany when there are no workspace owner actors', async () => {
-      mockActorFindMany.mockResolvedValue([])
-
-      await generateSpecDraft(TASK_ID, baseTask)
-
-      expect(mockNotificationCreateMany).not.toHaveBeenCalled()
     })
   })
 

@@ -1,7 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
-import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
@@ -163,22 +162,7 @@ export async function handlePullRequest(
       await transitionTaskStatus(task.id, task.projectId, 'IN_REVIEW', {
         currentStatus: task.status,
       })
-      // Resolve project.defaultReviewerId (WorkspaceMember.id) → Actor ID
-      let defaultReviewerActorId: string | null = null
-      if (task.project.defaultReviewerId) {
-        const actor = await prisma.actor.findUnique({
-          where: { memberId: task.project.defaultReviewerId },
-          select: { id: true },
-        })
-        defaultReviewerActorId = actor?.id ?? null
-      }
-      notifyTaskInReview({
-        workspaceId,
-        taskId: task.id,
-        reviewerActorId: task.reviewerActorId,
-        defaultReviewerActorId,
-        triggerActorId: null,
-      }).catch(err => console.error('[webhook] notifyTaskInReview error:', err))
+      // Reviewer notification is handled by domain event handler (task → IN_REVIEW)
       const prOpenedPayload = {
         taskId: task.id,
         taskTitle: task.title,

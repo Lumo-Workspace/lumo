@@ -1,6 +1,7 @@
 import type { AgentStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { DomainEvent } from '@/lib/events/types'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -53,16 +54,17 @@ export interface TransitionOptions {
   spec?: string | undefined
   /** Skip reading current status — use this when you already know it */
   currentStatus?: AgentStatusValue | null | undefined
-  /** Skip the Pusher project broadcast */
-  skipBroadcast?: boolean | undefined
+  /** Skip dispatching domain events (broadcast, notifications) */
+  skipDispatch?: boolean | undefined
 }
 
 // ── Core transition function ────────────────────────────────────────────────
 
 /**
- * Transition a task's agentStatus with validation and project-level broadcast.
+ * Transition a task's agentStatus with validation and domain event dispatch.
  * This is the single authoritative place for agentStatus writes.
  *
+ * Returns emitted events so callers using skipDispatch can dispatch later.
  * Callers remain responsible for rich pushAgentEvent calls
  * (agent:done with prUrl, agent:clarify with question, etc.).
  */
@@ -71,7 +73,7 @@ export async function transitionAgentStatus(
   projectId: string,
   to: AgentStatusValue,
   opts?: TransitionOptions
-): Promise<void> {
+): Promise<DomainEvent[]> {
   // Determine current status
   let current: AgentStatusValue | null
   if (opts?.currentStatus !== undefined) {
@@ -97,40 +99,62 @@ export async function transitionAgentStatus(
 
   await prisma.task.update({ where: { id: taskId }, data })
 
-  // Broadcast project-level event
-  if (!opts?.skipBroadcast) {
-    const fields = Object.keys(data)
-    const patch: Record<string, unknown> = { agentStatus: to }
-    await pushProjectEvent(projectId, {
-      type: 'task:updated',
+  // Emit domain event
+  const events: DomainEvent[] = [
+    {
+      type: 'agent:status_changed',
       taskId,
-      fields,
-      patch,
-    })
+      projectId,
+      from: current,
+      to,
+      fields: Object.keys(data),
+      patch: { agentStatus: to },
+    },
+  ]
+
+  if (!opts?.skipDispatch) {
+    await dispatchEvents(events)
   }
+
+  return events
 }
 
 // ── Clear helper (any → null) ───────────────────────────────────────────────
 
 /**
  * Clear agentStatus entirely. Used when unassigning a task from an agent.
+ * Returns emitted events for optional deferred dispatch.
  */
 export async function clearAgentStatus(
   taskId: string,
   projectId: string,
-  opts?: { skipBroadcast?: boolean | undefined }
-): Promise<void> {
+  opts?: { skipDispatch?: boolean | undefined }
+): Promise<DomainEvent[]> {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { agentStatus: true },
+  })
+
   await prisma.task.update({
     where: { id: taskId },
     data: { agentStatus: null, agentError: null, sandboxId: null },
   })
 
-  if (!opts?.skipBroadcast) {
-    await pushProjectEvent(projectId, {
-      type: 'task:updated',
+  const events: DomainEvent[] = [
+    {
+      type: 'agent:status_changed',
       taskId,
+      projectId,
+      from: task?.agentStatus ?? null,
+      to: null,
       fields: ['agentStatus'],
       patch: { agentStatus: null },
-    })
+    },
+  ]
+
+  if (!opts?.skipDispatch) {
+    await dispatchEvents(events)
   }
+
+  return events
 }

@@ -13,21 +13,21 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/pusher/server', () => ({
-  pushProjectEvent: jest.fn().mockReturnValue(Promise.resolve()),
+jest.mock('@/lib/events/dispatcher', () => ({
+  dispatchEvents: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { dispatchEvents } from '@/lib/events/dispatcher'
 
 const mockFindUnique = prisma.task.findUnique as jest.Mock
 const mockUpdate = prisma.task.update as jest.Mock
-const mockPushProjectEvent = pushProjectEvent as jest.Mock
+const mockDispatchEvents = dispatchEvents as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
   mockUpdate.mockResolvedValue({})
-  mockPushProjectEvent.mockReturnValue(Promise.resolve())
+  mockDispatchEvents.mockResolvedValue(undefined)
 })
 
 // ── isValidTaskTransition ──────────────────────────────────────────────────
@@ -108,35 +108,57 @@ describe('transitionTaskStatus', () => {
   })
 
   it('no-ops when current status equals target', async () => {
-    await transitionTaskStatus('task-1', 'proj-1', 'TODO', {
+    const events = await transitionTaskStatus('task-1', 'proj-1', 'TODO', {
       currentStatus: 'TODO',
     })
 
     expect(mockUpdate).not.toHaveBeenCalled()
-    expect(mockPushProjectEvent).not.toHaveBeenCalled()
+    expect(mockDispatchEvents).not.toHaveBeenCalled()
+    expect(events).toHaveLength(0)
   })
 
-  it('broadcasts project event by default', async () => {
-    await transitionTaskStatus('task-1', 'proj-1', 'IN_PROGRESS', {
-      currentStatus: 'TODO',
-    })
+  it('dispatches domain events by default', async () => {
+    const events = await transitionTaskStatus(
+      'task-1',
+      'proj-1',
+      'IN_PROGRESS',
+      {
+        currentStatus: 'TODO',
+      }
+    )
 
-    expect(mockPushProjectEvent).toHaveBeenCalledWith('proj-1', {
-      type: 'task:updated',
-      taskId: 'task-1',
-      fields: ['status'],
-      patch: { status: 'IN_PROGRESS' },
-    })
+    expect(mockDispatchEvents).toHaveBeenCalledWith([
+      {
+        type: 'task:status_changed',
+        taskId: 'task-1',
+        projectId: 'proj-1',
+        from: 'TODO',
+        to: 'IN_PROGRESS',
+      },
+    ])
+    expect(events).toHaveLength(1)
   })
 
-  it('skips broadcast when skipBroadcast is true', async () => {
-    await transitionTaskStatus('task-1', 'proj-1', 'IN_PROGRESS', {
-      currentStatus: 'TODO',
-      skipBroadcast: true,
-    })
+  it('skips dispatch when skipDispatch is true', async () => {
+    const events = await transitionTaskStatus(
+      'task-1',
+      'proj-1',
+      'IN_PROGRESS',
+      {
+        currentStatus: 'TODO',
+        skipDispatch: true,
+      }
+    )
 
     expect(mockUpdate).toHaveBeenCalled()
-    expect(mockPushProjectEvent).not.toHaveBeenCalled()
+    expect(mockDispatchEvents).not.toHaveBeenCalled()
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      type: 'task:status_changed',
+      taskId: 'task-1',
+      from: 'TODO',
+      to: 'IN_PROGRESS',
+    })
   })
 
   it('throws InvalidTaskTransitionError on invalid transition', async () => {

@@ -2,19 +2,16 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
-import {
-  pushAgentEvent,
-  pushTaskEvent,
-  pushProjectEvent,
-} from '@/lib/pusher/server'
+import { pushAgentEvent, pushTaskEvent } from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
-import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'
 import {
   transitionTaskStatus,
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { DomainEvent } from '@/lib/events/types'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -108,19 +105,6 @@ export type AgentResult =
   | { outcome: 'no_changes' }
   | { outcome: 'spec_review' }
 
-// ── Resolve default reviewer Actor ID from WorkspaceMember.id ────────────────
-
-async function resolveDefaultReviewerActorId(
-  memberId: string | null
-): Promise<string | null> {
-  if (!memberId) return null
-  const actor = await prisma.actor.findUnique({
-    where: { memberId },
-    select: { id: true },
-  })
-  return actor?.id ?? null
-}
-
 // ── Complete agent run: set DONE + IN_REVIEW + persist branch/PR ─────────────
 
 async function completeAgentRun(params: {
@@ -138,15 +122,16 @@ async function completeAgentRun(params: {
 }): Promise<void> {
   const { taskId, projectId, taskStatus, branchName, resolvedRepo } = params
 
-  await transitionAgentStatus(taskId, projectId, 'DONE', {
-    skipBroadcast: true,
+  // Transitions with skipDispatch — dispatch after all DB writes complete
+  const agentEvents = await transitionAgentStatus(taskId, projectId, 'DONE', {
+    skipDispatch: true,
   })
 
-  // Transition task status to IN_REVIEW if valid
+  let taskEvents: DomainEvent[] = []
   try {
-    await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
+    taskEvents = await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
       currentStatus: taskStatus as TaskStatusValue,
-      skipBroadcast: true,
+      skipDispatch: true,
     })
   } catch {
     console.warn(
@@ -186,6 +171,9 @@ async function completeAgentRun(params: {
   } else {
     await branchUpsert
   }
+
+  // Dispatch all events after DB writes complete
+  await dispatchEvents([...agentEvents, ...taskEvents])
 }
 
 export interface ExecuteAgentOptions {
@@ -239,12 +227,7 @@ export async function executeAgent({
       title: task.title,
       description: task.description,
       spec: task.spec,
-      project: {
-        id: task.project.id,
-        workspaceId: task.project.workspaceId,
-        defaultReviewerId: task.project.defaultReviewerId,
-      },
-      reviewerActorId: task.reviewerActorId,
+      project: { id: task.project.id },
     })
     return { outcome: 'spec_review' } as AgentResult
   }
@@ -592,29 +575,13 @@ ${taskSpec}
       prNumber,
     })
 
-    // Push task update so sidebar/board refresh PR/branch/status
+    // Push task-level update so detail page refreshes PR/branch data
     await pushTaskEvent(taskId, {
       type: 'task:updated',
       fields: ['status', 'agentStatus', 'pullRequests', 'branches'],
     })
-    await pushProjectEvent(task.project.id, {
-      type: 'task:updated',
-      taskId,
-      fields: ['status', 'agentStatus'],
-      patch: { agentStatus: 'DONE' },
-    })
 
-    // Notify reviewer that task is ready for review
-    const defaultReviewerActorId = await resolveDefaultReviewerActorId(
-      task.project.defaultReviewerId
-    )
-    await notifyTaskInReview({
-      workspaceId: task.project.workspaceId,
-      taskId,
-      reviewerActorId: task.reviewerActorId ?? null,
-      defaultReviewerActorId,
-      triggerActorId: null,
-    }).catch(err => console.error('[agent] notifyTaskInReview failed:', err))
+    // Reviewer notification is handled by domain event handler (task → IN_REVIEW)
 
     return { outcome: 'done', prUrl, prNumber }
   } catch (error) {
