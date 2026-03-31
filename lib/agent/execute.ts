@@ -2,7 +2,7 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
-import { monitorForClarify } from './clarify-monitor'
+import { monitorForClarify, checkForClarifyFile } from './clarify-monitor'
 import { pushAgentEvent, pushTaskEvent } from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
 import { generateSpecDraft } from './generate-spec'
@@ -390,6 +390,7 @@ export async function executeAgent({
 
   let sandbox: Sandbox | undefined
   let timedOut = false
+  let clarifyHandle: ReturnType<typeof monitorForClarify> | undefined
 
   const timeoutHandle = setTimeout(async () => {
     timedOut = true
@@ -498,7 +499,16 @@ ${taskSpec}
 - Branch is already created: ${branchName}
 - Commit your changes when done; include [${identifier}] in the commit message
 - Do NOT add Co-Authored-By or any AI attribution lines to commit messages
-- Do NOT push; do NOT create a PR (handled automatically)`.trim()
+- Do NOT push; do NOT create a PR (handled automatically)
+
+## Clarification Protocol
+If the spec is ambiguous, missing critical details, or you are unsure how to proceed,
+you MUST ask for clarification instead of guessing. To do so:
+1. Use the Write tool to create \`/tmp/clarify-question.txt\` with this exact JSON format:
+   {"question":"Your specific question here","context":"What you were doing when you got stuck"}
+2. After writing the file, STOP immediately. Do not continue working. Output a short
+   message like "I've requested clarification and stopped." then produce no more tool calls.
+The system will deliver your question to the assignee and restart you with the answer.`.trim()
     )
 
     await pushAgentEvent(taskId, {
@@ -514,6 +524,8 @@ ${taskSpec}
     }
 
     const CLARIFY_SENTINEL = '__clarify__'
+    clarifyHandle = monitorForClarify(sandbox, monitorTask)
+
     const winner = await Promise.race([
       sandbox.commands
         .run(
@@ -559,13 +571,16 @@ ${taskSpec}
             err
           )
         }),
-      monitorForClarify(sandbox, monitorTask).then(() => CLARIFY_SENTINEL),
+      clarifyHandle.promise.then(() => CLARIFY_SENTINEL),
     ])
+
+    // Stop the clarify monitor polling (no-op if it already resolved)
+    clarifyHandle.stop()
 
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
 
-    if (winner === CLARIFY_SENTINEL) {
-      // Link any unlinked clarifies to this run
+    // Helper: finalize a clarify outcome (shared by monitor-wins and fallback paths)
+    const finalizeClarify = async (): Promise<AgentResult> => {
       await prisma.agentClarify.updateMany({
         where: { taskId, agentRunId: null },
         data: { agentRunId: currentRunId },
@@ -580,6 +595,17 @@ ${taskSpec}
         context: clarify?.context ?? null,
       })
       return { outcome: 'clarify', question: clarify?.question ?? '' }
+    }
+
+    if (winner === CLARIFY_SENTINEL) {
+      return finalizeClarify()
+    }
+
+    // Fallback: agent command exited before the monitor polled.
+    // Do one final check for the clarify file.
+    const clarifyFallback = await checkForClarifyFile(sandbox, monitorTask)
+    if (clarifyFallback) {
+      return finalizeClarify()
     }
 
     const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
@@ -788,6 +814,7 @@ ${taskSpec}
     )
     return { outcome: 'failed', error: userFriendlyError('UNKNOWN_ERROR') }
   } finally {
+    clarifyHandle?.stop()
     clearTimeout(timeoutHandle)
     if (sandbox) await sandbox.kill().catch(() => {})
   }

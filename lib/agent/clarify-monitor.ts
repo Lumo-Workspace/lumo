@@ -10,39 +10,98 @@ interface MonitorTask {
   projectId: string
 }
 
-export async function monitorForClarify(
+interface ClarifyMonitorHandle {
+  /** Resolves when /tmp/clarify-question.txt is detected */
+  promise: Promise<void>
+  /** Call to stop polling (e.g. when the agent command finishes first) */
+  stop: () => void
+}
+
+/**
+ * Poll the sandbox for `/tmp/clarify-question.txt` every `intervalMs` ms.
+ * Returns a handle with a promise and a stop function for cleanup.
+ */
+export function monitorForClarify(
   sandbox: Sandbox,
   task: MonitorTask,
-  intervalMs = 5000
-): Promise<void> {
-  return new Promise(resolve => {
-    const interval = setInterval(async () => {
+  intervalMs = 3000
+): ClarifyMonitorHandle {
+  let stopped = false
+  let intervalHandle: ReturnType<typeof setInterval> | null = null
+
+  const promise = new Promise<void>(resolve => {
+    intervalHandle = setInterval(async () => {
+      if (stopped) return
       try {
         const questionFile = await sandbox.files
           .read('/tmp/clarify-question.txt')
           .catch(() => null)
 
-        if (questionFile) {
-          clearInterval(interval)
+        if (!questionFile || stopped) return
 
-          const clarifyData = JSON.parse(questionFile)
+        stopped = true
+        if (intervalHandle) clearInterval(intervalHandle)
 
-          const clarify = await prisma.agentClarify.create({
-            data: {
-              taskId: task.id,
-              question: clarifyData.question,
-              context: clarifyData.context ?? null,
-            },
-          })
+        const clarifyData = JSON.parse(questionFile)
 
-          await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
-          await notifyAgentClarify(task.id, clarify.id)
+        const clarify = await prisma.agentClarify.create({
+          data: {
+            taskId: task.id,
+            question: clarifyData.question,
+            context: clarifyData.context ?? null,
+          },
+        })
 
-          resolve()
-        }
+        await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
+        await notifyAgentClarify(task.id, clarify.id)
+
+        resolve()
       } catch {
-        // File not present yet — keep polling
+        // File not present or parse error — keep polling
       }
     }, intervalMs)
   })
+
+  return {
+    promise,
+    stop: () => {
+      stopped = true
+      if (intervalHandle) clearInterval(intervalHandle)
+    },
+  }
+}
+
+/**
+ * One-shot check: read `/tmp/clarify-question.txt` from the sandbox.
+ * Used as a fallback after the agent command exits, in case the monitor
+ * didn't get a chance to poll before the race resolved.
+ */
+export async function checkForClarifyFile(
+  sandbox: Sandbox,
+  task: MonitorTask
+): Promise<boolean> {
+  try {
+    const questionFile = await sandbox.files
+      .read('/tmp/clarify-question.txt')
+      .catch(() => null)
+
+    if (!questionFile) return false
+
+    const clarifyData = JSON.parse(questionFile)
+
+    const clarify = await prisma.agentClarify.create({
+      data: {
+        taskId: task.id,
+        question: clarifyData.question,
+        context: clarifyData.context ?? null,
+      },
+    })
+
+    await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
+    await notifyAgentClarify(task.id, clarify.id)
+
+    return true
+  } catch {
+    return false
+  }
 }
