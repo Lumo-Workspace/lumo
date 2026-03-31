@@ -6,6 +6,7 @@ import type { AgentResult } from './execute'
 import { getAgentActor, getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
+import { htmlToMarkdown, markdownToHtml } from './markdown'
 
 // ── Mention chip builder ─────────────────────────────────────────────────────
 
@@ -79,14 +80,18 @@ export async function buildAgentSpec(
   const section = `\n\n---\n\n**Follow-up instruction (${date}):**\n\n${instruction}${contextNote}`
 
   if (task.spec) {
-    return task.spec + section
+    // spec is stored as HTML — convert to markdown, append instruction, convert back
+    const specMd = htmlToMarkdown(task.spec)
+    return markdownToHtml(specMd + section)
   }
 
   if (task.description) {
-    return htmlToText(task.description) + section
+    // description is HTML — build combined spec as HTML
+    const descMd = htmlToText(task.description)
+    return markdownToHtml(descMd + section)
   }
 
-  return instruction + (contextNote ? `\n${contextNote}` : '')
+  return markdownToHtml(instruction + (contextNote ? `\n${contextNote}` : ''))
 }
 
 // ── Reply helper ─────────────────────────────────────────────────────────────

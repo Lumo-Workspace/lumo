@@ -20,6 +20,26 @@ jest.mock('@/lib/pusher/server', () => ({
   pushAgentEvent: jest.fn(),
 }))
 
+jest.mock('@/lib/agent/markdown', () => ({
+  markdownToHtml: jest.fn((md: string) =>
+    /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
+      md
+    )
+      ? md
+      : `<p>${md}</p>`
+  ),
+  htmlToMarkdown: jest.fn((html: string) =>
+    /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
+      html
+    )
+      ? html
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : html
+  ),
+}))
+
 jest.mock('@/lib/events/dispatcher', () => ({
   dispatchEvents: jest.fn().mockResolvedValue(undefined),
 }))
@@ -92,12 +112,13 @@ describe('generateSpecDraft', () => {
           data: expect.objectContaining({ agentStatus: 'RUNNING' }),
         })
       )
+      // spec is now stored as HTML via markdownToHtml
       expect(mockPrismaTaskUpdate).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           where: { id: TASK_ID },
           data: expect.objectContaining({
-            spec: SPEC_TEXT,
+            spec: `<p>${SPEC_TEXT}</p>`,
             agentStatus: 'SPEC_REVIEW',
           }),
         })
@@ -114,9 +135,10 @@ describe('generateSpecDraft', () => {
         TASK_ID,
         expect.objectContaining({ type: 'agent:progress' })
       )
+      // spec_draft event also uses HTML
       expect(mockPushAgentEvent).toHaveBeenCalledWith(TASK_ID, {
         type: 'agent:spec_draft',
-        spec: SPEC_TEXT,
+        spec: `<p>${SPEC_TEXT}</p>`,
       })
     })
 

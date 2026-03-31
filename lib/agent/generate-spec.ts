@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
+import { markdownToHtml } from './markdown'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -68,12 +69,15 @@ export async function generateSpecDraft(
     return
   }
 
-  // Save the generated spec and set status to spec_review
+  // Convert markdown spec to HTML for rich-text display and storage
+  const specHtml = markdownToHtml(specText)
+
+  // Save the generated spec (as HTML) and set status to spec_review
   await transitionAgentStatus(taskId, task.project.id, 'SPEC_REVIEW', {
-    spec: specText,
+    spec: specHtml,
   })
 
-  await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specText })
+  await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specHtml })
 
   // Reviewer notification is handled by domain event handler (agent → SPEC_REVIEW)
 }

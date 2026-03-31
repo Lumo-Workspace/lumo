@@ -17,6 +17,7 @@ import {
   notifyAgentVerify,
   notifyAgentFailed,
 } from '@/lib/notifications/notifyAgentActions'
+import { htmlToMarkdown } from './markdown'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -364,7 +365,9 @@ export async function executeAgent({
   const branchName =
     existingBranch ?? `lumo/${identifier}-${slugify(task.title)}`
   const isFollowUp = !!existingBranch
-  const taskSpec = task.spec ?? task.description ?? task.title
+  // Convert HTML spec/description to markdown for the agent prompt
+  const rawSpec = task.spec ?? task.description ?? task.title
+  const taskSpec = htmlToMarkdown(rawSpec)
 
   const agentStartedAt = Date.now()
 

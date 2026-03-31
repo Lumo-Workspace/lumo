@@ -9,13 +9,11 @@ import {
   Reply,
   Link as LinkIcon,
   Check,
-  X,
   Copy,
   ExternalLink,
   MoreHorizontal,
   GitPullRequest,
   GitBranch,
-  Loader2,
   Github,
 } from 'lucide-react'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -168,11 +166,6 @@ export function TaskDetailPage({
     await copyLink(taskFullUrl)
     triggerTaskLinkCopy()
   }, [taskFullUrl, triggerTaskLinkCopy])
-
-  // ── Spec editing ───────────────────────────────────────────────────────────
-  const [editingSpec, setEditingSpec] = useState(false)
-  const [editedSpec, setEditedSpec] = useState('')
-  const [savingSpec, setSavingSpec] = useState(false)
 
   // ── Delete task ────────────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -400,16 +393,14 @@ export function TaskDetailPage({
     [task.description, handlePatch]
   )
 
-  const handleSaveSpec = useCallback(async () => {
-    const trimmed = editedSpec.trim()
-    setSavingSpec(true)
-    try {
-      await handlePatch({ spec: trimmed || null })
-      setEditingSpec(false)
-    } finally {
-      setSavingSpec(false)
-    }
-  }, [editedSpec, handlePatch])
+  const commitSpec = useCallback(
+    (html: string | null) => {
+      const next = html?.trim() || null
+      if (next === (task.spec ?? null)) return
+      handlePatch({ spec: next })
+    },
+    [task.spec, handlePatch]
+  )
 
   // ── Comment handlers ───────────────────────────────────────────────────────
   const mapCommentTree = useCallback(
@@ -758,73 +749,20 @@ export function TaskDetailPage({
 
             {/* Spec */}
             <div className='mt-8'>
-              <div className='flex items-center justify-between mb-2'>
-                <div className='flex items-center gap-2'>
-                  <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
-                    Spec
-                  </span>
-                  <span className='text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded px-1.5 py-0.5 leading-none'>
-                    Agent reads this
-                  </span>
-                </div>
-                {!editingSpec ? (
-                  <button
-                    onClick={() => {
-                      setEditedSpec(task.spec ?? '')
-                      setEditingSpec(true)
-                    }}
-                    className='flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
-                  >
-                    <Pencil size={11} />
-                    Edit
-                  </button>
-                ) : (
-                  <div className='flex items-center gap-2'>
-                    <button
-                      onClick={handleSaveSpec}
-                      disabled={savingSpec}
-                      className='flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50 transition-colors font-medium'
-                    >
-                      {savingSpec ? (
-                        <Loader2 size={11} className='animate-spin' />
-                      ) : (
-                        <Check size={11} />
-                      )}
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingSpec(false)}
-                      className='flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
-                    >
-                      <X size={11} />
-                      Cancel
-                    </button>
-                  </div>
-                )}
+              <div className='flex items-center gap-2 mb-2'>
+                <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
+                  Spec
+                </span>
+                <span className='text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded px-1.5 py-0.5 leading-none'>
+                  Agent reads this
+                </span>
               </div>
-              {editingSpec ? (
-                <textarea
-                  autoFocus
-                  className='w-full h-56 rounded-md border border-border bg-background px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring'
-                  value={editedSpec}
-                  onChange={e => setEditedSpec(e.target.value)}
-                  placeholder='Describe what the agent should implement...'
-                />
-              ) : task.spec ? (
-                <div className='rounded-md border border-border bg-zinc-50 dark:bg-zinc-900 px-3 py-2.5 text-xs font-mono whitespace-pre-wrap text-zinc-700 dark:text-zinc-300 leading-relaxed max-h-64 overflow-y-auto'>
-                  {task.spec}
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setEditedSpec('')
-                    setEditingSpec(true)
-                  }}
-                  className='w-full text-left rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
-                >
-                  + Add spec for the agent…
-                </button>
-              )}
+              <DescriptionEditor
+                value={task.spec ?? null}
+                onCommit={commitSpec}
+                placeholder='+ Add spec for the agent…'
+                members={mentionableMembers}
+              />
             </div>
 
             {/* Sub-tasks placeholder */}

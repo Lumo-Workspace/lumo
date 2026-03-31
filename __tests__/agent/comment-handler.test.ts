@@ -18,6 +18,25 @@ jest.mock('@/lib/actor', () => ({
 jest.mock('@/lib/agent/execute', () => ({
   executeAgent: jest.fn(),
 }))
+jest.mock('@/lib/agent/markdown', () => ({
+  markdownToHtml: jest.fn((md: string) =>
+    /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
+      md
+    )
+      ? md
+      : `<p>${md}</p>`
+  ),
+  htmlToMarkdown: jest.fn((html: string) =>
+    /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
+      html
+    )
+      ? html
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : html
+  ),
+}))
 jest.mock('@/lib/agent/sandbox-health', () => ({
   isSandboxAlive: jest.fn(),
 }))
