@@ -169,7 +169,7 @@ function CodingAgentPanelInner({
             ...prev,
             {
               id: crypto.randomUUID(),
-              text: `中止 · ${event.error.slice(0, 40)}`,
+              text: `Aborted · ${event.error.slice(0, 40)}`,
               elapsedMs: elapsed(),
               status: 'failed',
             },
@@ -252,7 +252,7 @@ function CodingAgentPanelInner({
           {currentRunNumber > 0 && (
             <span className='text-zinc-400 font-normal'>
               · Session #{currentRunNumber}
-              {(isDone || isPaused || isFailed) && ' · 最新'}
+              {(isDone || isPaused || isFailed) && ' · Latest'}
             </span>
           )}
         </div>

@@ -20,7 +20,7 @@ export function AgentFailedSummary({
   const message =
     latestRun?.errorMessage ??
     latestRun?.summary ??
-    '执行过程中发生错误，请重试。'
+    'An error occurred during execution. Please retry.'
 
   return (
     <div className='rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 overflow-hidden'>
@@ -28,7 +28,7 @@ export function AgentFailedSummary({
       <div className='flex items-center gap-1.5 px-3 pt-2.5 pb-2 border-b border-red-200/60 dark:border-red-900/60'>
         <XCircle size={12} className='text-red-500 shrink-0' />
         <span className='text-xs font-semibold text-red-700 dark:text-red-400'>
-          失败原因
+          Failure reason
         </span>
       </div>
 
@@ -58,7 +58,7 @@ export function AgentFailedSummary({
           ) : (
             <RotateCcw size={12} />
           )}
-          重新运行
+          Re-run
         </Button>
       </div>
     </div>

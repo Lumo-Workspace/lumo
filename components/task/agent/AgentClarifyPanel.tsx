@@ -27,7 +27,7 @@ export function AgentClarifyPanel({
     if (!pausedAt) return
     const update = () => {
       const mins = Math.floor((Date.now() - pausedAt.getTime()) / 60000)
-      setElapsed(mins < 1 ? '< 1 分钟' : `${mins} 分钟`)
+      setElapsed(mins < 1 ? '< 1m' : `${mins}m`)
     }
     update()
     const timer = setInterval(update, 30000)
@@ -56,12 +56,12 @@ export function AgentClarifyPanel({
         <div className='flex items-center gap-1.5'>
           <HelpCircle size={12} className='text-amber-500 shrink-0' />
           <span className='text-xs font-semibold text-amber-800 dark:text-amber-200'>
-            Agent 需要确认
+            Agent needs input
           </span>
         </div>
         {elapsed && (
           <span className='text-[10px] text-amber-600 dark:text-amber-400'>
-            已停待等 · {elapsed}
+            Waiting · {elapsed}
           </span>
         )}
       </div>
@@ -78,7 +78,7 @@ export function AgentClarifyPanel({
         <Textarea
           value={reply}
           onChange={e => setReply(e.target.value)}
-          placeholder='回复后 Agent 立即继续...'
+          placeholder='Reply to continue...'
           className='min-h-[56px] text-xs resize-none bg-white/70 dark:bg-zinc-900/50 border-amber-200 dark:border-amber-800 focus-visible:ring-amber-400'
           onKeyDown={e => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
@@ -93,7 +93,7 @@ export function AgentClarifyPanel({
           {submitting ? (
             <Loader2 size={12} className='animate-spin mr-1' />
           ) : null}
-          发送
+          Send
         </Button>
       </div>
     </div>

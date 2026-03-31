@@ -1637,11 +1637,11 @@ export function TaskDetailPage({
                       : null
                     const runStatusLabel =
                       relatedRun?.status === 'FAILED'
-                        ? '·测试失败'
+                        ? ' · Failed'
                         : relatedRun?.status === 'CANCELLED'
-                          ? '·已取消'
+                          ? ' · Cancelled'
                           : relatedRun?.errorCode === 'TIMEOUT'
-                            ? '·沙箱超时'
+                            ? ' · Timed out'
                             : null
 
                     return (

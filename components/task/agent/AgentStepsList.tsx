@@ -46,7 +46,7 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                   )}
                 >
                   {isPausedStep
-                    ? `等待澄清 · ${step.text.slice(0, 40)}`
+                    ? `Waiting · ${step.text.slice(0, 40)}`
                     : step.text}
                 </span>
                 {step.subText && (
@@ -57,7 +57,7 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
               </div>
               {isPausedStep ? (
                 <span className='shrink-0 text-[10px] text-amber-500 font-medium mt-0.5'>
-                  暂停中
+                  Paused
                 </span>
               ) : (
                 <span className='shrink-0 text-[10px] text-zinc-400 font-mono mt-0.5'>

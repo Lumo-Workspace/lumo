@@ -35,8 +35,8 @@ export function AgentStatusBadge({
       PAUSED: {
         label:
           pausedMins != null && pausedMins > 0
-            ? `等待回复 · 暂停 ${pausedMins}m`
-            : '等待回复 · 暂停中',
+            ? `Waiting · paused ${pausedMins}m`
+            : 'Waiting · paused',
         dot: 'bg-amber-500',
         text: 'text-amber-600 dark:text-amber-400',
       },
@@ -51,12 +51,12 @@ export function AgentStatusBadge({
         text: 'text-emerald-600 dark:text-emerald-400',
       },
       FAILED: {
-        label: '执行失败',
+        label: 'Failed',
         dot: 'bg-red-500',
         text: 'text-red-600 dark:text-red-400',
       },
       ERROR: {
-        label: '执行出错',
+        label: 'Error',
         dot: 'bg-orange-500',
         text: 'text-orange-600 dark:text-orange-400',
       },

@@ -15,22 +15,22 @@ import { formatDuration, formatRelativeTime } from './utils'
 import type { ApiAgentRun } from './types'
 
 const TRIGGER_LABELS: Record<string, string> = {
-  initial: '首次执行',
-  retry: '重试',
-  comment: '评论触发',
-  confirm_spec: '确认 Spec',
-  clarify_reply: '回复澄清',
-  send_back: '打回重做',
+  initial: 'Initial run',
+  retry: 'Retry',
+  comment: 'Comment trigger',
+  confirm_spec: 'Confirm spec',
+  clarify_reply: 'Clarify reply',
+  send_back: 'Sent back',
 }
 
 const RUN_STATUS_CONFIG: Record<
   string,
   { label: string; color: string; icon: typeof CheckCircle2 }
 > = {
-  DONE: { label: '成功', color: 'text-emerald-600', icon: CheckCircle2 },
-  FAILED: { label: '失败', color: 'text-red-600', icon: XCircle },
-  CANCELLED: { label: '取消', color: 'text-zinc-500', icon: Ban },
-  RUNNING: { label: '执行中', color: 'text-blue-600', icon: Loader2 },
+  DONE: { label: 'Done', color: 'text-emerald-600', icon: CheckCircle2 },
+  FAILED: { label: 'Failed', color: 'text-red-600', icon: XCircle },
+  CANCELLED: { label: 'Cancelled', color: 'text-zinc-500', icon: Ban },
+  RUNNING: { label: 'Running', color: 'text-blue-600', icon: Loader2 },
 }
 
 export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
@@ -54,7 +54,7 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
             expanded ? 'rotate-0' : '-rotate-90'
           )}
         />
-        历史执行记录 (共 {runs.length} 次)
+        Run history ({runs.length} total)
       </button>
 
       {expanded && (
@@ -90,7 +90,7 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
                   <div className='ml-5 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-2 space-y-1.5 text-[11px]'>
                     {run.trigger && (
                       <p className='text-zinc-500'>
-                        触发：{TRIGGER_LABELS[run.trigger] ?? run.trigger}
+                        Trigger: {TRIGGER_LABELS[run.trigger] ?? run.trigger}
                       </p>
                     )}
                     {run.errorMessage && (
@@ -105,7 +105,7 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
                     )}
                     {run.durationMs != null && (
                       <p className='text-zinc-400'>
-                        耗时 {formatDuration(run.durationMs)}
+                        Duration: {formatDuration(run.durationMs)}
                       </p>
                     )}
                     {run.prUrl && (
