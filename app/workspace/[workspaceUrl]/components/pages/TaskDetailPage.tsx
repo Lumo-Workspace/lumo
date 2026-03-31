@@ -92,11 +92,14 @@ interface TaskDetailPageProps {
     children?: { id: string; title: string; number: number }[]
   }
   workspaceUrl: string
+  /** Pre-set source for breadcrumb (e.g. 'my-tasks'). Falls back to sessionStorage. */
+  source?: string | undefined
 }
 
 export function TaskDetailPage({
   initialTask,
   workspaceUrl,
+  source: sourceProp,
 }: TaskDetailPageProps) {
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const router = useRouter()
@@ -109,31 +112,37 @@ export function TaskDetailPage({
   const { unreadCount } = useRealtimeNotifications()
 
   // ── Breadcrumb ─────────────────────────────────────────────────────────────
-  const [from, setFrom] = useState<string | null>(null)
+  const [from, setFrom] = useState<string | null>(sourceProp ?? null)
   useEffect(() => {
+    if (sourceProp) return // already set via prop
     const stored = sessionStorage.getItem('lumo:taskSource')
     if (stored) {
       setFrom(stored)
       sessionStorage.removeItem('lumo:taskSource')
     }
-  }, [])
+  }, [sourceProp])
   const sourceLabel =
     from === 'my-tasks' ? 'My Tasks' : (initialTask.project?.name ?? 'Project')
 
   // ── Task state ─────────────────────────────────────────────────────────────
   const [task, setTask] = useState<TaskDetail>(initialTask)
-  const cachedDesc = useMemo(
-    () =>
-      readCache<{ desc: string | null }>(CACHE_KEY.description(initialTask.id))
-        ?.desc,
-    [initialTask.id]
-  )
   const [descriptionValue, setDescriptionValue] = useState<string | null>(
-    initialTask.description ?? cachedDesc ?? null
+    initialTask.description ?? null
   )
   const [descriptionLoading, setDescriptionLoading] = useState(
-    initialTask.description === undefined && cachedDesc === undefined
+    initialTask.description === undefined
   )
+  // Hydrate description from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    if (initialTask.description !== undefined) return
+    const cached = readCache<{ desc: string | null }>(
+      CACHE_KEY.description(initialTask.id)
+    )
+    if (cached) {
+      setDescriptionValue(cached.desc)
+      setDescriptionLoading(false)
+    }
+  }, [initialTask.id, initialTask.description])
 
   // ── Branch copy ────────────────────────────────────────────────────────────
   const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null)
@@ -144,19 +153,21 @@ export function TaskDetailPage({
   }, [])
 
   // ── Task copy link ─────────────────────────────────────────────────────────
+  const taskIdentifier = `${task.teamIdentifier}-${task.number}`
+  const [origin, setOrigin] = useState('')
+  useEffect(() => setOrigin(window.location.origin), [])
+  const taskFullUrl = useMemo(() => {
+    const base = `${origin}/workspace/${workspaceUrl}`
+    return from === 'my-tasks'
+      ? `${base}/my-tasks/${taskIdentifier}`
+      : `${base}/project/${slugifyProjectName(task.project.name)}/tasks/${taskIdentifier}`
+  }, [origin, workspaceUrl, from, taskIdentifier, task.project.name])
+
   const [taskLinkCopied, triggerTaskLinkCopy] = useCopyState()
   const handleCopyTaskLink = useCallback(async () => {
-    await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}/tasks/${task.teamIdentifier}-${task.number}`
-    )
+    await copyLink(taskFullUrl)
     triggerTaskLinkCopy()
-  }, [
-    workspaceUrl,
-    task.teamIdentifier,
-    task.number,
-    task.project.name,
-    triggerTaskLinkCopy,
-  ])
+  }, [taskFullUrl, triggerTaskLinkCopy])
 
   // ── Spec editing ───────────────────────────────────────────────────────────
   const [editingSpec, setEditingSpec] = useState(false)
@@ -171,31 +182,38 @@ export function TaskDetailPage({
     router.back()
   }, [task.id, router])
 
-  // ── Members + Projects (cache-first) ───────────────────────────────────────
-  const [members, setMembers] = useState<WorkspaceMemberInfo[]>(
-    () => readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members) ?? []
-  )
+  // ── Members + Projects (hydrate from cache after mount to avoid SSR mismatch)
+  const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
   const [agentActors, setAgentActors] = useState<
     { actorId: string; name: string; avatarColor: string }[]
-  >(
-    () =>
-      readCache<{ actorId: string; name: string; avatarColor: string }[]>(
-        CACHE_KEY.agentActors
-      ) ?? []
-  )
-  const [projects, setProjects] = useState<ApiProject[]>(
-    () => readCache<ApiProject[]>(CACHE_KEY.projects) ?? []
-  )
+  >([])
+  const [projects, setProjects] = useState<ApiProject[]>([])
+  useEffect(() => {
+    const cachedMembers = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
+    if (cachedMembers) setMembers(cachedMembers)
+    const cachedAgents = readCache<
+      { actorId: string; name: string; avatarColor: string }[]
+    >(CACHE_KEY.agentActors)
+    if (cachedAgents) setAgentActors(cachedAgents)
+    const cachedProjects = readCache<ApiProject[]>(CACHE_KEY.projects)
+    if (cachedProjects) setProjects(cachedProjects)
+  }, [])
 
   // ── Comments state ─────────────────────────────────────────────────────────
-  const cachedComments = useMemo(
-    () => readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id)) ?? null,
-    [initialTask.id]
-  )
-  const [comments, setComments] = useState<ApiComment[]>(cachedComments ?? [])
-  const [commentsLoading, setCommentsLoading] = useState(
-    cachedComments === null
-  )
+  // Always start with loading=true to avoid SSR/client hydration mismatch
+  // (localStorage is not available on the server)
+  const [comments, setComments] = useState<ApiComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const hydratedComments = useRef(false)
+  useEffect(() => {
+    if (hydratedComments.current) return
+    hydratedComments.current = true
+    const cached = readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id))
+    if (cached) {
+      setComments(cached)
+      setCommentsLoading(false)
+    }
+  }, [initialTask.id])
   const [commentBody, setCommentBody] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const clearCommentRef = useRef<(() => void) | null>(null)
@@ -617,10 +635,10 @@ export function TaskDetailPage({
             <button
               onClick={() => {
                 if (from === 'my-tasks') {
-                  router.push(`/workspace/${workspaceUrl}`)
+                  router.push(`/workspace/${workspaceUrl}/my-tasks`)
                 } else {
                   router.push(
-                    `/workspace/${workspaceUrl}/project/${slugifyProjectName(task.project.name)}`
+                    `/workspace/${workspaceUrl}/projects/${slugifyProjectName(task.project.name)}`
                   )
                 }
               }}

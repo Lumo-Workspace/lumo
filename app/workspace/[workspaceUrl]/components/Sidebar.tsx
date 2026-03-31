@@ -179,27 +179,43 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  asChild
                   isActive={currentPage === 'my-tasks'}
-                  onClick={() => onNavigate('my-tasks')}
                   tooltip='My Tasks'
                 >
-                  <Home />
-                  <span>My Tasks</span>
+                  <Link
+                    href={`/workspace/${workspaceUrl}/my-tasks`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('my-tasks')
+                    }}
+                  >
+                    <Home />
+                    <span>My Tasks</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  asChild
                   isActive={currentPage === 'inbox'}
-                  onClick={() => onNavigate('inbox')}
                   tooltip='Inbox'
                 >
-                  <Inbox />
-                  <span className='flex-1'>Inbox</span>
-                  {unreadCount > 0 && (
-                    <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Badge>
-                  )}
+                  <Link
+                    href={`/workspace/${workspaceUrl}/inbox`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('inbox')
+                    }}
+                  >
+                    <Inbox />
+                    <span className='flex-1'>Inbox</span>
+                    {unreadCount > 0 && (
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -213,15 +229,23 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  asChild
                   isActive={
                     currentPage === 'projects' ||
                     currentPage === 'project-detail'
                   }
-                  onClick={() => onNavigate('projects')}
                   tooltip='Projects'
                 >
-                  <Layers />
-                  <span>Projects</span>
+                  <Link
+                    href={`/workspace/${workspaceUrl}/projects`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('projects')
+                    }}
+                  >
+                    <Layers />
+                    <span>Projects</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

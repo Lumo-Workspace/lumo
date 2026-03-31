@@ -69,19 +69,20 @@ export function TaskDrawer({
     projects.find(p => p.id === initialTask.projectId)?.name ??
     ''
 
+  const taskIdentifier = `${initialTask.teamIdentifier}-${initialTask.number}`
+  const taskUrl = useCallback(
+    (forSource: string) =>
+      forSource === 'my-tasks'
+        ? `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}`
+        : `/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${taskIdentifier}`,
+    [workspaceUrl, taskIdentifier, projectName]
+  )
+
   const [copied, triggerCopy] = useCopyState()
   const handleCopyLink = useCallback(async () => {
-    await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
-    )
+    await copyLink(`${window.location.origin}${taskUrl(source)}`)
     triggerCopy()
-  }, [
-    workspaceUrl,
-    initialTask.teamIdentifier,
-    initialTask.number,
-    projectName,
-    triggerCopy,
-  ])
+  }, [taskUrl, source, triggerCopy])
 
   return (
     <DrawerPrimitive.Root
@@ -114,9 +115,7 @@ export function TaskDrawer({
               onClick={() => {
                 sessionStorage.setItem('lumo:taskSource', source)
                 onClose()
-                router.push(
-                  `/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${initialTask.teamIdentifier}-${initialTask.number}`
-                )
+                router.push(taskUrl(source))
               }}
               className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               title='Open full page'

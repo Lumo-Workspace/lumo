@@ -9,7 +9,7 @@ import {
   Dispatch,
   SetStateAction,
 } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
@@ -51,16 +51,66 @@ import {
 import { TaskDrawer } from './components/TaskDrawer'
 import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 
+// ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
+
+function pageToPath(
+  workspaceUrl: string,
+  page: Page,
+  project?: ApiProject | null
+): string {
+  const base = `/workspace/${workspaceUrl}`
+  switch (page) {
+    case 'my-tasks':
+      return `${base}/my-tasks`
+    case 'inbox':
+      return `${base}/inbox`
+    case 'projects':
+      return `${base}/projects`
+    case 'project-detail':
+      return project
+        ? `${base}/projects/${slugifyProjectName(project.name)}`
+        : `${base}/projects`
+    default:
+      return `${base}/my-tasks`
+  }
+}
+
+function pathToPage(
+  pathname: string,
+  workspaceUrl: string
+): { page: Page; projectSlug?: string | undefined } {
+  const base = `/workspace/${workspaceUrl}`
+  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : ''
+
+  if (rest.startsWith('/inbox')) return { page: 'inbox' }
+  if (rest.startsWith('/projects/')) {
+    const projectSlug = rest.slice('/projects/'.length).split('/')[0]
+    return { page: 'project-detail', projectSlug }
+  }
+  if (rest.startsWith('/projects')) return { page: 'projects' }
+  // Default: /my-tasks or bare /workspace/[slug]
+  return { page: 'my-tasks' }
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
-  const router = useRouter()
-
   // ─── Navigation ────────────────────────────────────────────────────────────
-  const [currentPage, setCurrentPage] = useState<Page>('projects')
+  // Initialise currentPage from the current URL
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    if (typeof window === 'undefined') return 'my-tasks'
+    return pathToPage(window.location.pathname, workspaceUrl).page
+  })
   const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
     null
   )
+  // Track the initial project slug from the URL so we can resolve it after projects load
+  const [pendingProjectSlug] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined
+    return pathToPage(window.location.pathname, workspaceUrl).projectSlug
+  })
 
   // ─── Slack ─────────────────────────────────────────────────────────────────
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
@@ -340,7 +390,8 @@ export default function DashboardApp() {
       fetchMyTasks()
       fetchProjects()
     }
-    if (currentPage === 'projects') fetchProjects()
+    if (currentPage === 'projects' || currentPage === 'project-detail')
+      fetchProjects()
   }, [currentPage, fetchMyTasks, fetchProjects])
 
   useEffect(() => {
@@ -352,25 +403,71 @@ export default function DashboardApp() {
     }
   }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
-  // ─── Navigation helpers ────────────────────────────────────────────────────
-  const navigateTo = useCallback((page: Page, project?: ApiProject) => {
-    setCurrentPage(page)
-    if (project) setSelectedProject(project)
-  }, [])
+  // ─── URL sync: push URL when navigating, listen for back/forward ─────────
+  const navigateTo = useCallback(
+    (page: Page, project?: ApiProject) => {
+      setCurrentPage(page)
+      if (project) setSelectedProject(project)
+      const path = pageToPath(workspaceUrl, page, project)
+      window.history.pushState(null, '', path)
+    },
+    [workspaceUrl]
+  )
+
+  // Browser back/forward → sync currentPage from URL
+  useEffect(() => {
+    const onPopState = () => {
+      const { page, projectSlug } = pathToPage(
+        window.location.pathname,
+        workspaceUrl
+      )
+      setCurrentPage(page)
+      if (page === 'project-detail' && projectSlug) {
+        const match = projects.find(
+          p => slugifyProjectName(p.name) === projectSlug
+        )
+        if (match) setSelectedProject(match)
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [workspaceUrl, projects])
+
+  // Replace bare /workspace/[slug] URL with /workspace/[slug]/my-tasks
+  useEffect(() => {
+    const base = `/workspace/${workspaceUrl}`
+    if (
+      window.location.pathname === base ||
+      window.location.pathname === `${base}/`
+    ) {
+      window.history.replaceState(null, '', `${base}/my-tasks`)
+    }
+  }, [workspaceUrl])
+
+  // Resolve pending project slug once projects have loaded
+  useEffect(() => {
+    if (
+      pendingProjectSlug &&
+      currentPage === 'project-detail' &&
+      !selectedProject &&
+      projects.length > 0
+    ) {
+      const match = projects.find(
+        p => slugifyProjectName(p.name) === pendingProjectSlug
+      )
+      if (match) setSelectedProject(match)
+    }
+  }, [pendingProjectSlug, currentPage, selectedProject, projects])
 
   const handleSelectProject = useCallback(
     (p: ApiProject) => {
       navigateTo('project-detail', p)
-      router.push(
-        `/workspace/${workspaceUrl}/project/${slugifyProjectName(p.name)}`
-      )
     },
-    [navigateTo, router, workspaceUrl]
+    [navigateTo]
   )
   const handleBack = useCallback(() => {
     navigateTo('projects')
-    router.push(`/workspace/${workspaceUrl}`)
-  }, [navigateTo, router, workspaceUrl])
+  }, [navigateTo])
   const openNewProject = useCallback(() => setIsNewProjectModalOpen(true), [])
 
   // ─── Optimistic: create project ────────────────────────────────────────────
