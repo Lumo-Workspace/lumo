@@ -48,15 +48,17 @@ enum InviteStatus {
 }
 
 enum NotificationType {
-  TASK_IN_REVIEW   // task moved to IN_REVIEW — sent to reviewer / OWNERs
-  TASK_MENTIONED   // someone @mentioned you in a comment
-  TASK_SENT_BACK   // owner sent a task back to IN_PROGRESS — sent to assignee
-  TASK_ASSIGNED    // task assigned to you
-  TASK_SPEC_READY  // agent generated a spec draft — sent to reviewer
-  AGENT_CLARIFY    // agent needs clarification — sent to assignee / reviewer
-  AGENT_FAILED     // agent execution failed — sent to assignee
-  AGENT_DONE       // agent finished, PR created — sent to assignee / reviewer
-  TASK_DONE        // task marked as done — sent to assignee
+  TASK_IN_REVIEW    // task moved to IN_REVIEW — sent to reviewer / OWNERs
+  TASK_MENTIONED    // someone @mentioned you in a comment
+  TASK_SENT_BACK    // owner sent a task back to IN_PROGRESS — sent to assignee
+  TASK_ASSIGNED     // task assigned to you
+  TASK_SPEC_READY   // agent generated a spec draft — sent to reviewer
+  TASK_DONE         // task marked as done — sent to assignee
+  AGENT_CLARIFY     // agent needs clarification — requires reply to continue
+  AGENT_AUTHORIZE   // agent needs authorization for a high-risk operation
+  AGENT_VERIFY      // agent finished, requests human verification before DONE
+  AGENT_FAILED      // agent execution failed — informational
+  AGENT_DONE        // agent finished, PR created — informational
 }
 
 enum CommentType {
@@ -423,12 +425,15 @@ model Notification {
   clarifyId        String?          // set for AGENT_CLARIFY — link to AgentClarify
   triggerActorId   String?          // Actor.id — who/what triggered it; null for system
   read             Boolean          @default(false)
+  requiresAction   Boolean          @default(false) // AGENT_CLARIFY / AGENT_AUTHORIZE / AGENT_VERIFY
+  actionTakenAt    DateTime?        // when the user responded to an actionable notification
   createdAt        DateTime         @default(now())
 
   recipient Actor  @relation("NotificationRecipient", fields: [recipientActorId], references: [id], onDelete: Cascade)
   trigger   Actor? @relation("NotificationTrigger", fields: [triggerActorId], references: [id], onDelete: SetNull)
 
   @@index([recipientActorId, read])
+  @@index([recipientActorId, requiresAction, actionTakenAt]) // pending action queries
   @@map("notifications")
 }
 

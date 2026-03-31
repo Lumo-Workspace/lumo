@@ -108,6 +108,36 @@ export function useNotifications() {
     [notifications, unreadCount]
   )
 
+  const respondToNotification = useCallback(
+    async (
+      id: string,
+      action: 'reply' | 'confirm' | 'send_back' | 'approve' | 'deny',
+      reply?: string
+    ) => {
+      // Optimistically mark action taken
+      setNotifications(prev =>
+        prev.map(n =>
+          n.id === id
+            ? { ...n, actionTakenAt: new Date().toISOString(), read: true }
+            : n
+        )
+      )
+      try {
+        const res = await apiFetch(API.notifications.respond(id), {
+          method: 'POST',
+          body: action === 'reply' ? { action, reply } : { action },
+        })
+        if (!res.ok) throw new Error()
+        // Refresh to get up-to-date server state
+        await fetchNotifications()
+      } catch {
+        // Revert optimistic update on error
+        fetchNotifications()
+      }
+    },
+    [fetchNotifications]
+  )
+
   const markAllRead = useCallback(async () => {
     const snapshot = notifications
     const snapshotCount = unreadCount
@@ -134,5 +164,6 @@ export function useNotifications() {
     markOneUnread,
     deleteOne,
     markAllRead,
+    respondToNotification,
   }
 }

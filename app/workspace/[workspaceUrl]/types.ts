@@ -178,9 +178,13 @@ export interface ApiNotification {
     | 'TASK_ASSIGNED'
     | 'TASK_SPEC_READY'
     | 'AGENT_CLARIFY'
+    | 'AGENT_AUTHORIZE'
+    | 'AGENT_VERIFY'
     | 'AGENT_FAILED'
     | 'AGENT_DONE'
   read: boolean
+  requiresAction: boolean
+  actionTakenAt: string | null
   createdAt: string
   taskId: string | null
   commentId: string | null
@@ -194,6 +198,9 @@ export interface ApiNotification {
     teamIdentifier: string
   } | null
   commentPreview: string | null
+  /** Populated for AGENT_CLARIFY notifications */
+  clarifyQuestion: string | null
+  clarifyContext: string | null
 }
 
 export interface ApiAgentClarify {

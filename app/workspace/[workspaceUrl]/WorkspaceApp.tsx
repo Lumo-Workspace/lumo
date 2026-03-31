@@ -114,6 +114,7 @@ export default function DashboardApp() {
     markOneUnread,
     deleteOne: deleteNotification,
     markAllRead,
+    respondToNotification,
   } = useRealtimeNotifications()
   const { user } = useCurrentUser()
 
@@ -669,6 +670,7 @@ export default function DashboardApp() {
             onMarkOneUnread={markOneUnread}
             onDeleteOne={deleteNotification}
             onMarkAllRead={markAllRead}
+            onRespondToNotification={respondToNotification}
             onUpdateTaskStatus={async (taskId, status) => {
               await handleUpdateTask(taskId, { status })
             }}

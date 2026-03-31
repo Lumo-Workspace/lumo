@@ -1,6 +1,7 @@
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { transitionAgentStatus } from './state-machine'
+import { notifyAgentClarify } from '@/lib/notifications/notifyAgentActions'
 
 interface MonitorTask {
   id: string
@@ -26,7 +27,7 @@ export async function monitorForClarify(
 
           const clarifyData = JSON.parse(questionFile)
 
-          await prisma.agentClarify.create({
+          const clarify = await prisma.agentClarify.create({
             data: {
               taskId: task.id,
               question: clarifyData.question,
@@ -35,6 +36,7 @@ export async function monitorForClarify(
           })
 
           await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
+          await notifyAgentClarify(task.id, clarify.id)
 
           resolve()
         }

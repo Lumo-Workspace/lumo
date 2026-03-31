@@ -41,6 +41,15 @@ export async function GET(_request: NextRequest) {
       },
     })
 
+    // Sort actionable (requiresAction=true AND actionTakenAt=null) to top
+    rawNotifications.sort((a, b) => {
+      const aActionable = a.requiresAction && a.actionTakenAt === null
+      const bActionable = b.requiresAction && b.actionTakenAt === null
+      if (aActionable && !bActionable) return -1
+      if (!aActionable && bActionable) return 1
+      return b.createdAt.getTime() - a.createdAt.getTime()
+    })
+
     if (rawNotifications.length === 0) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
     }
@@ -108,6 +117,23 @@ export async function GET(_request: NextRequest) {
         : []
     const commentMap = new Map(comments.map(c => [c.id, c.body]))
 
+    // Batch-fetch AgentClarify records for AGENT_CLARIFY notifications
+    const clarifyIds = [
+      ...new Set(
+        rawNotifications
+          .filter(n => n.type === 'AGENT_CLARIFY' && n.clarifyId)
+          .map(n => n.clarifyId) as string[]
+      ),
+    ]
+    const clarifies =
+      clarifyIds.length > 0
+        ? await prisma.agentClarify.findMany({
+            where: { id: { in: clarifyIds } },
+            select: { id: true, question: true, context: true },
+          })
+        : []
+    const clarifyMap = new Map(clarifies.map(c => [c.id, c]))
+
     const notifications = rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
       // Resolve actor display info from the trigger relation
@@ -119,13 +145,20 @@ export async function GET(_request: NextRequest) {
           actor = { name: n.trigger.agent.name, imageUrl: null }
         }
       }
+      const clarify =
+        n.type === 'AGENT_CLARIFY' && n.clarifyId
+          ? (clarifyMap.get(n.clarifyId) ?? null)
+          : null
       return {
         id: n.id,
         type: n.type,
         read: n.read,
+        requiresAction: n.requiresAction,
+        actionTakenAt: n.actionTakenAt ? n.actionTakenAt.toISOString() : null,
         createdAt: n.createdAt.toISOString(),
         taskId: n.taskId,
         commentId: n.commentId,
+        clarifyId: n.clarifyId,
         triggerActorId: n.triggerActorId,
         actor,
         task: task
@@ -143,6 +176,8 @@ export async function GET(_request: NextRequest) {
               .replace(/\s+/g, ' ')
               .trim() ?? null)
           : null,
+        clarifyQuestion: clarify?.question ?? null,
+        clarifyContext: clarify?.context ?? null,
       }
     })
 

@@ -12,6 +12,10 @@ import {
 } from '@/lib/task/state-machine'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { DomainEvent } from '@/lib/events/types'
+import {
+  notifyAgentVerify,
+  notifyAgentFailed,
+} from '@/lib/notifications/notifyAgentActions'
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000 // 28 min business-layer timeout
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000 // 30 min E2B sandbox timeout
@@ -95,6 +99,7 @@ async function markFailed(
     type: 'agent:failed',
     error: userFriendlyError(code),
   })
+  await notifyAgentFailed(taskId)
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
 
@@ -174,6 +179,9 @@ async function completeAgentRun(params: {
 
   // Dispatch all events after DB writes complete
   await dispatchEvents([...agentEvents, ...taskEvents])
+
+  // Send AGENT_VERIFY inbox notification so the reviewer can confirm or send back
+  await notifyAgentVerify(taskId)
 }
 
 export interface ExecuteAgentOptions {

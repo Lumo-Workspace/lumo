@@ -34,6 +34,7 @@ export const API = {
     list: '/api/notifications',
     markAllRead: '/api/notifications',
     markOne: (id: string) => `/api/notifications/${id}`,
+    respond: (id: string) => `/api/notifications/${id}/respond`,
   },
   github: {
     oauth: (workspaceUrl: string) =>
