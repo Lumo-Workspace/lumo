@@ -10,6 +10,6 @@ export type {
   AgentClarifyPending,
   AgentStep,
   AgentChangedFile,
-  CodingAgentTask,
+  AgentTask,
   AgentLog,
 } from './types'

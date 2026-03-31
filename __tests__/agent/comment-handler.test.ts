@@ -12,7 +12,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 jest.mock('@/lib/actor', () => ({
-  getCodingAgentActor: jest.fn().mockResolvedValue('agent-actor-1'),
+  getAgentActor: jest.fn().mockResolvedValue('agent-actor-1'),
   getHumanActorId: jest.fn().mockResolvedValue('human-actor-1'),
 }))
 jest.mock('@/lib/agent/execute', () => ({
@@ -64,7 +64,7 @@ describe('handleAgentComment', () => {
     const dispatcher = require('@/lib/events/dispatcher')
     dispatcher.dispatchEvents.mockResolvedValue(undefined)
     const actor = require('@/lib/actor')
-    actor.getCodingAgentActor.mockResolvedValue('agent-actor-1')
+    actor.getAgentActor.mockResolvedValue('agent-actor-1')
     actor.getHumanActorId.mockResolvedValue('human-actor-1')
   })
 

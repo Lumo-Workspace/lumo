@@ -19,16 +19,18 @@ export async function getOrCreateHumanActor(
 }
 
 /**
- * Get the CODING agent actor for a workspace.
+ * Get an agent actor for a workspace by type.
+ * Defaults to CODING for backward compatibility.
  */
-export async function getCodingAgentActor(
-  workspaceId: string
+export async function getAgentActor(
+  workspaceId: string,
+  agentType: 'CODING' | 'REVIEW' | 'PLANNER' = 'CODING'
 ): Promise<string | null> {
   const actor = await prisma.actor.findFirst({
     where: {
       workspaceId,
       type: 'AGENT',
-      agent: { type: 'CODING' },
+      agent: { type: agentType },
     },
   })
   return actor?.id ?? null

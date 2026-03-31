@@ -26,9 +26,9 @@ export interface AgentChangedFile {
   status: 'added' | 'modified' | 'deleted'
 }
 
-export interface CodingAgentTask {
+export interface AgentTask {
   id: string
-  assignee?: { type: 'HUMAN' | 'AGENT' } | null
+  assignee?: { type: 'HUMAN' | 'AGENT'; agent?: { name: string } | null } | null
   agentStatus?: string | null
   agentError?: string | null
   branches?: ApiTaskBranch[]

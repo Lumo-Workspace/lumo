@@ -24,7 +24,7 @@ import {
   formatEvent,
 } from './agent'
 import type {
-  CodingAgentTask,
+  AgentTask,
   AgentClarifyPending,
   AgentChangedFile,
   AgentStep,
@@ -32,16 +32,16 @@ import type {
 } from './agent'
 
 // Re-export types for consumers
-export type { CodingAgentTask, AgentClarifyPending, AgentChangedFile }
+export type { AgentTask, AgentClarifyPending, AgentChangedFile }
 
-// ── CodingAgentPanelInner (all hooks here, no early returns above) ──────────
+// ── AgentPanelInner (all hooks here, no early returns above) ─────────────────
 
-function CodingAgentPanelInner({
+function AgentPanelInner({
   task,
   onTaskUpdate,
 }: {
-  task: CodingAgentTask
-  onTaskUpdate?: (updates: Partial<CodingAgentTask>) => void
+  task: AgentTask
+  onTaskUpdate?: (updates: Partial<AgentTask>) => void
 }) {
   const [status, setStatus] = useState(task.agentStatus ?? 'IDLE')
   const [logs, setLogs] = useState<AgentLog[]>([])
@@ -248,7 +248,7 @@ function CodingAgentPanelInner({
       <div className='flex items-center justify-between'>
         <div className='flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400'>
           <Bot size={13} />
-          Coding Agent
+          {task.assignee?.agent?.name ?? 'Agent'}
           {currentRunNumber > 0 && (
             <span className='text-zinc-400 font-normal'>
               · Session #{currentRunNumber}
@@ -398,20 +398,15 @@ function CodingAgentPanelInner({
   )
 }
 
-// ── CodingAgentPanel (public export — renders inner only when agent-assigned) ─
+// ── AgentPanel (public export — renders inner only when agent-assigned) ──────
 
-export function CodingAgentPanel({
+export function AgentPanel({
   task,
   onTaskUpdate,
 }: {
-  task: CodingAgentTask
-  onTaskUpdate?: (updates: Partial<CodingAgentTask>) => void
+  task: AgentTask
+  onTaskUpdate?: (updates: Partial<AgentTask>) => void
 }) {
   if (task.assignee?.type !== 'AGENT') return null
-  return (
-    <CodingAgentPanelInner
-      task={task}
-      {...(onTaskUpdate && { onTaskUpdate })}
-    />
-  )
+  return <AgentPanelInner task={task} {...(onTaskUpdate && { onTaskUpdate })} />
 }

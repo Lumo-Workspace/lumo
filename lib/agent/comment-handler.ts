@@ -3,7 +3,7 @@ import { isSandboxAlive } from './sandbox-health'
 import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
-import { getCodingAgentActor, getHumanActorId } from '@/lib/actor'
+import { getAgentActor, getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
 
@@ -22,12 +22,23 @@ function htmlToText(html: string): string {
     .trim()
 }
 
-export function extractAgentInstruction(commentHtml: string): string {
+/**
+ * Extract the instruction text from a comment that mentions an agent.
+ * Supports dynamic agent names (e.g. "@Coding Agent", "@Review Agent")
+ * as well as the generic "@agent" fallback.
+ */
+export function extractAgentInstruction(
+  commentHtml: string,
+  agentNames: string[] = ['Coding Agent']
+): string {
   const text = htmlToText(commentHtml)
-  // Match both "@agent" (legacy) and "@Coding Agent" (current)
-  const patterns = ['@coding agent', '@agent']
+  const lowerText = text.toLowerCase()
+
+  // Build patterns from agent names + generic fallback
+  const patterns = [...agentNames.map(n => `@${n.toLowerCase()}`), '@agent']
+
   for (const pattern of patterns) {
-    const idx = text.toLowerCase().indexOf(pattern)
+    const idx = lowerText.indexOf(pattern)
     if (idx !== -1) return text.slice(idx + pattern.length).trim()
   }
   return ''
@@ -155,7 +166,7 @@ export async function handleAgentComment({
   const { name: actorName, email: actorEmail } =
     await getClerkUser(actorClerkId)
   const workspaceId = task.project.workspaceId
-  const agentActorId = await getCodingAgentActor(workspaceId)
+  const agentActorId = await getAgentActor(workspaceId)
 
   // ── Guard: Task is Done ──────────────────────────────────────────────────
   if (task.status === 'DONE') {

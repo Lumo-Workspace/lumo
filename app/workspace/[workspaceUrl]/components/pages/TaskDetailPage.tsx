@@ -78,7 +78,7 @@ import { CreateBranchDialog } from '../CreateBranchDialog'
 import { PrStateBadge, CiIcon } from '../pr-helpers'
 import { CommentAvatar } from '../CommentAvatar'
 import { resolveCommentAuthor } from '../comment-utils'
-import { CodingAgentPanel } from '@/components/task/CodingAgentPanel'
+import { AgentPanel } from '@/components/task/AgentPanel'
 import {
   Select,
   SelectContent,
@@ -828,10 +828,10 @@ export function TaskDetailPage({
               </div>
             )}
 
-            {/* Coding Agent */}
+            {/* Agent Panel */}
             {task.assignee?.type === 'AGENT' && (
               <div className='mt-8'>
-                <CodingAgentPanel
+                <AgentPanel
                   task={task}
                   onTaskUpdate={updates =>
                     setTask(prev => ({ ...prev, ...updates }) as TaskDetail)

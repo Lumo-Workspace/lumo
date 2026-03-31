@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDuration } from './utils'
-import type { CodingAgentTask, AgentChangedFile } from './types'
+import type { AgentTask, AgentChangedFile } from './types'
 
 const FILE_STATUS_ICON: Record<
   string,
@@ -44,7 +44,7 @@ export function AgentDoneSummary({
   onRerun,
   running,
 }: {
-  task: CodingAgentTask
+  task: AgentTask
   latestRun: {
     summary?: string | null
     changedFiles?: AgentChangedFile[]

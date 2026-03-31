@@ -37,7 +37,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
 import { Spinner } from '@/components/ui/spinner'
-import { CodingAgentPanel } from '@/components/task/CodingAgentPanel'
+import { AgentPanel } from '@/components/task/AgentPanel'
 import {
   Tooltip,
   TooltipContent,
@@ -753,7 +753,7 @@ export function TaskDetailPanel({
 
         {task.assignee?.type === 'AGENT' && (
           <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-            <CodingAgentPanel
+            <AgentPanel
               task={task}
               onTaskUpdate={updates =>
                 setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
