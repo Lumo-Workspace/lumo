@@ -68,9 +68,11 @@ export async function POST(req: NextRequest) {
 
     // Fire-and-forget: Vercel keeps the function alive until executeAgent resolves
     waitUntil(
-      executeAgent({ taskId, actorClerkId: userId }).catch(err => {
-        console.error(`[agent/execute] Task ${taskId} failed:`, err)
-      })
+      executeAgent({ taskId, actorClerkId: userId, trigger: 'initial' }).catch(
+        err => {
+          console.error(`[agent/execute] Task ${taskId} failed:`, err)
+        }
+      )
     )
 
     return NextResponse.json({ status: 'started', taskId })

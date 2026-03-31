@@ -24,14 +24,20 @@ export async function GET(req: NextRequest) {
       agentStatus: 'PAUSED',
       updatedAt: { lt: cutoff },
     },
-    select: { id: true, sandboxId: true, projectId: true },
+    select: { id: true, projectId: true },
   })
 
   const results = await Promise.allSettled(
     timedOutTasks.map(async task => {
-      if (task.sandboxId) {
+      // Find active AgentRun and kill its sandbox
+      const activeRun = await prisma.agentRun.findFirst({
+        where: { taskId: task.id, status: 'RUNNING' },
+        select: { id: true, sandboxId: true },
+      })
+
+      if (activeRun?.sandboxId) {
         try {
-          const sandbox = await Sandbox.connect(task.sandboxId)
+          const sandbox = await Sandbox.connect(activeRun.sandboxId)
           await sandbox.kill()
         } catch {
           // Sandbox may have already exited
@@ -40,9 +46,20 @@ export async function GET(req: NextRequest) {
 
       await transitionAgentStatus(task.id, task.projectId, 'FAILED', {
         agentError: 'CLARIFY_TIMEOUT',
-        sandboxId: null,
         currentStatus: 'PAUSED',
       })
+      if (activeRun) {
+        await prisma.agentRun.update({
+          where: { id: activeRun.id },
+          data: {
+            status: 'FAILED',
+            errorCode: 'CLARIFY_TIMEOUT',
+            errorMessage:
+              'Agent was waiting for clarification for 24 hours and has been stopped.',
+            finishedAt: new Date(),
+          },
+        })
+      }
 
       await pushAgentEvent(task.id, {
         type: 'agent:failed',

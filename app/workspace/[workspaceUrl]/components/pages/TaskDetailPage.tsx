@@ -1627,24 +1627,52 @@ export function TaskDetailPage({
                   Pull Requests
                 </p>
                 <ul className='space-y-2.5'>
-                  {task.pullRequests.map(pr => (
-                    <li key={pr.id} className='flex items-start gap-2'>
-                      <CiIcon status={pr.ciStatus} />
-                      <div className='min-w-0 flex-1'>
-                        <a
-                          href={pr.url}
-                          target='_blank'
-                          rel='noopener noreferrer'
-                          className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
-                        >
-                          #{pr.number} {pr.title}
-                        </a>
-                        <div className='flex items-center gap-1.5 mt-1'>
-                          <PrStateBadge state={pr.state} />
+                  {task.pullRequests.map(pr => {
+                    // Find the AgentRun that created this PR
+                    const relatedRun = task.agentRuns?.find(
+                      r => r.prNumber === pr.number
+                    )
+                    const runLabel = relatedRun
+                      ? `Session #${relatedRun.runNumber}`
+                      : null
+                    const runStatusLabel =
+                      relatedRun?.status === 'FAILED'
+                        ? '·测试失败'
+                        : relatedRun?.status === 'CANCELLED'
+                          ? '·已取消'
+                          : relatedRun?.errorCode === 'TIMEOUT'
+                            ? '·沙箱超时'
+                            : null
+
+                    return (
+                      <li key={pr.id} className='flex items-start gap-2'>
+                        <CiIcon status={pr.ciStatus} />
+                        <div className='min-w-0 flex-1'>
+                          <a
+                            href={pr.url}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
+                          >
+                            #{pr.number} {pr.title}
+                          </a>
+                          <div className='flex items-center gap-1.5 mt-1'>
+                            <PrStateBadge state={pr.state} />
+                            {runLabel && (
+                              <span className='text-[10px] text-zinc-400'>
+                                {runLabel}
+                                {runStatusLabel && (
+                                  <span className='text-zinc-400'>
+                                    {runStatusLabel}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  ))}
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             )}

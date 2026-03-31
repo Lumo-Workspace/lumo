@@ -114,7 +114,6 @@ export async function POST(request: NextRequest, { params }: Params) {
         select: {
           id: true,
           agentStatus: true,
-          sandboxId: true,
           projectId: true,
           project: { select: { workspaceId: true } },
         },
@@ -133,15 +132,25 @@ export async function POST(request: NextRequest, { params }: Params) {
         data: { actionTakenAt: new Date(), read: true },
       })
 
-      if (task.agentStatus === 'PAUSED' && task.sandboxId) {
+      // Get sandboxId from the active AgentRun
+      const activeRun =
+        task.agentStatus === 'PAUSED'
+          ? await prisma.agentRun.findFirst({
+              where: { taskId, status: 'RUNNING' },
+              select: { sandboxId: true },
+            })
+          : null
+      const sandboxId = activeRun?.sandboxId ?? null
+
+      if (task.agentStatus === 'PAUSED' && sandboxId) {
         // Sandbox still alive — resume in-place
         try {
-          await resumeAgent(taskId, task.projectId, task.sandboxId, data.reply)
+          await resumeAgent(taskId, task.projectId, sandboxId, data.reply)
         } catch {
           // Sandbox expired — fall through to re-run
           await prisma.task.update({
             where: { id: taskId },
-            data: { agentError: null, sandboxId: null },
+            data: { agentError: null },
           })
           // Record clarify reply in DB before re-run
           if (notification.clarifyId) {
@@ -151,7 +160,11 @@ export async function POST(request: NextRequest, { params }: Params) {
             })
           }
           waitUntil(
-            executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+            executeAgent({
+              taskId,
+              actorClerkId: userId,
+              trigger: 'clarify_reply',
+            }).catch(err => {
               console.error(`[notifications/respond] Re-run failed:`, err)
             })
           )
@@ -160,7 +173,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         // Sandbox expired or task not PAUSED — re-run the agent fresh
         await prisma.task.update({
           where: { id: taskId },
-          data: { agentError: null, sandboxId: null },
+          data: { agentError: null },
         })
         if (notification.clarifyId) {
           await prisma.agentClarify.update({
@@ -169,7 +182,11 @@ export async function POST(request: NextRequest, { params }: Params) {
           })
         }
         waitUntil(
-          executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+          executeAgent({
+            taskId,
+            actorClerkId: userId,
+            trigger: 'clarify_reply',
+          }).catch(err => {
             console.error(`[notifications/respond] Re-run failed:`, err)
           })
         )
@@ -192,7 +209,6 @@ export async function POST(request: NextRequest, { params }: Params) {
         select: {
           id: true,
           agentStatus: true,
-          sandboxId: true,
           projectId: true,
           project: { select: { workspaceId: true } },
         },
@@ -211,18 +227,32 @@ export async function POST(request: NextRequest, { params }: Params) {
       })
 
       if (data.action === 'approve') {
+        // Get sandboxId from active AgentRun
+        const activeRun =
+          task.agentStatus === 'PAUSED'
+            ? await prisma.agentRun.findFirst({
+                where: { taskId, status: 'RUNNING' },
+                select: { sandboxId: true },
+              })
+            : null
+        const sandboxId = activeRun?.sandboxId ?? null
+
         // Write approval to sandbox so the agent can continue
         const reply = 'APPROVED'
-        if (task.agentStatus === 'PAUSED' && task.sandboxId) {
+        if (task.agentStatus === 'PAUSED' && sandboxId) {
           try {
-            await resumeAgent(taskId, task.projectId, task.sandboxId, reply)
+            await resumeAgent(taskId, task.projectId, sandboxId, reply)
           } catch {
             await prisma.task.update({
               where: { id: taskId },
-              data: { agentError: null, sandboxId: null },
+              data: { agentError: null },
             })
             waitUntil(
-              executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+              executeAgent({
+                taskId,
+                actorClerkId: userId,
+                trigger: 'clarify_reply',
+              }).catch(err => {
                 console.error(
                   `[notifications/respond] Approve re-run failed:`,
                   err
@@ -233,10 +263,14 @@ export async function POST(request: NextRequest, { params }: Params) {
         } else {
           await prisma.task.update({
             where: { id: taskId },
-            data: { agentError: null, sandboxId: null },
+            data: { agentError: null },
           })
           waitUntil(
-            executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+            executeAgent({
+              taskId,
+              actorClerkId: userId,
+              trigger: 'clarify_reply',
+            }).catch(err => {
               console.error(
                 `[notifications/respond] Approve re-run failed:`,
                 err
@@ -248,7 +282,6 @@ export async function POST(request: NextRequest, { params }: Params) {
         // Deny: fail the agent
         await transitionAgentStatus(taskId, task.projectId, 'FAILED', {
           agentError: 'AUTHORIZATION_DENIED',
-          sandboxId: null,
         })
       }
 
@@ -302,10 +335,14 @@ export async function POST(request: NextRequest, { params }: Params) {
         await clearAgentStatus(taskId, task.projectId)
         await prisma.task.update({
           where: { id: taskId },
-          data: { agentError: null, sandboxId: null },
+          data: { agentError: null },
         })
         waitUntil(
-          executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+          executeAgent({
+            taskId,
+            actorClerkId: userId,
+            trigger: 'send_back',
+          }).catch(err => {
             console.error(
               `[notifications/respond] Send-back re-run failed:`,
               err

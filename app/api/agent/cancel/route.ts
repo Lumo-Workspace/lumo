@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
-        sandboxId: true,
         projectId: true,
         project: { select: { workspaceId: true } },
       },
@@ -51,10 +50,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Kill the sandbox if we have its ID
-    if (verifiedTask.sandboxId) {
+    // Find the active AgentRun and kill its sandbox
+    const activeRun = await prisma.agentRun.findFirst({
+      where: { taskId, status: 'RUNNING' },
+      select: { id: true, sandboxId: true },
+    })
+
+    if (activeRun?.sandboxId) {
       try {
-        const sandbox = await Sandbox.connect(verifiedTask.sandboxId)
+        const sandbox = await Sandbox.connect(activeRun.sandboxId)
         await sandbox.kill()
       } catch {
         // Sandbox may have already exited — not a fatal error
@@ -62,9 +66,15 @@ export async function POST(req: NextRequest) {
     }
 
     await transitionAgentStatus(taskId, verifiedTask.projectId, 'CANCELLED', {
-      sandboxId: null,
       currentStatus: verifiedTask.agentStatus,
     })
+
+    if (activeRun) {
+      await prisma.agentRun.update({
+        where: { id: activeRun.id },
+        data: { status: 'CANCELLED', finishedAt: new Date() },
+      })
+    }
 
     await pushAgentEvent(taskId, {
       type: 'agent:failed',

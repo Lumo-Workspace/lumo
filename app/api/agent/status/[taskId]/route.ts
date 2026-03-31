@@ -31,7 +31,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       select: {
         id: true,
         agentStatus: true,
-        sandboxId: true,
         project: { select: { workspaceId: true } },
       },
     })

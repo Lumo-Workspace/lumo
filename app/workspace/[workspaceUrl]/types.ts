@@ -203,6 +203,25 @@ export interface ApiNotification {
   clarifyContext: string | null
 }
 
+export interface ApiAgentRun {
+  id: string
+  runNumber: number
+  status: AgentStatusValue
+  trigger: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  summary: string | null
+  changedFiles:
+    | { path: string; status: 'added' | 'modified' | 'deleted' }[]
+    | null
+  durationMs: number | null
+  prNumber: number | null
+  prUrl: string | null
+  branchName: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
 export interface ApiAgentClarify {
   id: string
   question: string
@@ -221,6 +240,7 @@ export interface TaskDetail {
   project: {
     id: string
     name: string
+    workspaceId?: string
     defaultReviewerId?: string | null
     repositories?: ApiRepository[]
   }
@@ -239,7 +259,7 @@ export interface TaskDetail {
   branches?: ApiTaskBranch[]
   agentStatus?: string | null
   agentError?: string | null
-  sandboxId?: string | null
   clarifies?: ApiAgentClarify[]
+  agentRuns?: ApiAgentRun[]
   spec?: string | null
 }

@@ -117,6 +117,25 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
           orderBy: { createdAt: 'desc' as const },
         },
+        agentRuns: {
+          select: {
+            id: true,
+            runNumber: true,
+            status: true,
+            trigger: true,
+            errorCode: true,
+            errorMessage: true,
+            summary: true,
+            changedFiles: true,
+            durationMs: true,
+            prNumber: true,
+            prUrl: true,
+            branchName: true,
+            startedAt: true,
+            finishedAt: true,
+          },
+          orderBy: { runNumber: 'desc' as const },
+        },
       },
     })
     if (!task) {
@@ -390,7 +409,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         // Reassigned to human or unassigned — clear agent state
         data.agentStatus = null
         data.agentError = null
-        data.sandboxId = null
       }
     }
     if (reviewerActorId !== undefined) data.reviewerActorId = reviewerActorId

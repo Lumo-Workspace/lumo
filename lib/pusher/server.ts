@@ -24,7 +24,17 @@ export type AgentEvent =
   | { type: 'agent:progress'; message: string }
   | { type: 'agent:clarify'; question: string; context: string | null }
   | { type: 'agent:spec_draft'; spec: string }
-  | { type: 'agent:done'; prUrl: string; prNumber: number }
+  | {
+      type: 'agent:done'
+      prUrl: string
+      prNumber: number
+      summary?: string
+      changedFiles?: {
+        path: string
+        status: 'added' | 'modified' | 'deleted'
+      }[]
+      durationMs?: number
+    }
   | { type: 'agent:failed'; error: string }
 
 export async function pushAgentEvent(

@@ -145,7 +145,6 @@ export async function handleAgentComment({
       id: true,
       status: true,
       agentStatus: true,
-      sandboxId: true,
       projectId: true,
       project: { select: { workspaceId: true } },
     },
@@ -170,20 +169,26 @@ export async function handleAgentComment({
   }
 
   // ── Guard: Agent already running ─────────────────────────────────────────
-  if (task.agentStatus === 'RUNNING' && task.sandboxId) {
-    const alive = await isSandboxAlive(task.sandboxId)
-    if (alive) {
-      await postAgentReply({
-        taskId,
-        parentId: commentId,
-        body: `<p>${mentionChip(actorClerkId, actorName)} Agent is already working on this task. Please wait for it to finish.</p>`,
-        agentActorId,
-      })
-      return
+  if (task.agentStatus === 'RUNNING') {
+    // Check if there's an active sandbox via AgentRun
+    const activeRun = await prisma.agentRun.findFirst({
+      where: { taskId, status: 'RUNNING' },
+      select: { sandboxId: true },
+    })
+    if (activeRun?.sandboxId) {
+      const alive = await isSandboxAlive(activeRun.sandboxId)
+      if (alive) {
+        await postAgentReply({
+          taskId,
+          parentId: commentId,
+          body: `<p>${mentionChip(actorClerkId, actorName)} Agent is already working on this task. Please wait for it to finish.</p>`,
+          agentActorId,
+        })
+        return
+      }
     }
-    // Sandbox is dead — clean up stale state and continue
+    // Sandbox is dead or no run found — clean up stale state and continue
     await transitionAgentStatus(taskId, task.projectId, 'FAILED', {
-      sandboxId: null,
       currentStatus: 'RUNNING',
     })
   }
@@ -250,6 +255,7 @@ export async function handleAgentComment({
       actorClerkId,
       actorName,
       actorEmail,
+      trigger: 'comment',
     })
   } catch (err) {
     console.error('[comment-handler] executeAgent threw:', err)

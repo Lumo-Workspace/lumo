@@ -50,7 +50,6 @@ export class InvalidTransitionError extends Error {
 
 export interface TransitionOptions {
   agentError?: string | null | undefined
-  sandboxId?: string | null | undefined
   spec?: string | undefined
   /** Skip reading current status — use this when you already know it */
   currentStatus?: AgentStatusValue | null | undefined
@@ -94,7 +93,6 @@ export async function transitionAgentStatus(
   // Build update data
   const data: Record<string, unknown> = { agentStatus: to }
   if (opts?.agentError !== undefined) data.agentError = opts.agentError
-  if (opts?.sandboxId !== undefined) data.sandboxId = opts.sandboxId
   if (opts?.spec !== undefined) data.spec = opts.spec
 
   await prisma.task.update({ where: { id: taskId }, data })
@@ -137,7 +135,7 @@ export async function clearAgentStatus(
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { agentStatus: null, agentError: null, sandboxId: null },
+    data: { agentStatus: null, agentError: null },
   })
 
   const events: DomainEvent[] = [

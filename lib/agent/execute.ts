@@ -1,4 +1,5 @@
 import { Sandbox } from '@e2b/code-interpreter'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify } from './clarify-monitor'
@@ -85,21 +86,41 @@ async function createPullRequest({
   return response.json() as Promise<{ html_url: string; number: number }>
 }
 
+async function nextRunNumber(taskId: string): Promise<number> {
+  const last = await prisma.agentRun.findFirst({
+    where: { taskId },
+    orderBy: { runNumber: 'desc' },
+    select: { runNumber: true },
+  })
+  return (last?.runNumber ?? 0) + 1
+}
+
 async function markFailed(
   taskId: string,
   projectId: string,
   code: string,
-  message: string
+  message: string,
+  agentRunId?: string
 ) {
   await transitionAgentStatus(taskId, projectId, 'FAILED', {
     agentError: code,
-    sandboxId: null,
   })
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
     error: userFriendlyError(code),
   })
   await notifyAgentFailed(taskId)
+  if (agentRunId) {
+    await prisma.agentRun.update({
+      where: { id: agentRunId },
+      data: {
+        status: 'FAILED',
+        errorCode: code,
+        errorMessage: userFriendlyError(code),
+        finishedAt: new Date(),
+      },
+    })
+  }
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
 
@@ -118,6 +139,13 @@ async function completeAgentRun(params: {
   taskStatus: string
   branchName: string
   resolvedRepo: string
+  agentRunId?: string
+  agentSummary?: string | null
+  agentChangedFiles?: {
+    path: string
+    status: 'added' | 'modified' | 'deleted'
+  }[]
+  agentDurationMs?: number | null
   prUpsertData?: {
     workspaceId: string
     number: number
@@ -180,8 +208,75 @@ async function completeAgentRun(params: {
   // Dispatch all events after DB writes complete
   await dispatchEvents([...agentEvents, ...taskEvents])
 
+  // Update AgentRun record
+  if (params.agentRunId) {
+    await prisma.agentRun.update({
+      where: { id: params.agentRunId },
+      data: {
+        status: 'DONE',
+        summary: params.agentSummary ?? null,
+        changedFiles: params.agentChangedFiles ?? Prisma.DbNull,
+        durationMs: params.agentDurationMs ?? null,
+        prNumber: params.prUpsertData?.number ?? null,
+        prUrl: params.prUpsertData?.url ?? null,
+        branchName: params.branchName,
+        finishedAt: new Date(),
+      },
+    })
+  }
+
   // Send AGENT_VERIFY inbox notification so the reviewer can confirm or send back
   await notifyAgentVerify(taskId)
+}
+
+/** Collect changed files and commit summary from the sandbox after agent completes. */
+async function collectRunMetadata(
+  sandbox: Sandbox,
+  diffBase: string,
+  branchName: string
+): Promise<{
+  changedFiles: { path: string; status: 'added' | 'modified' | 'deleted' }[]
+  summary: string
+}> {
+  const STATUS_MAP: Record<string, 'added' | 'modified' | 'deleted'> = {
+    A: 'added',
+    M: 'modified',
+    D: 'deleted',
+  }
+
+  // Changed files
+  const diffResult = await sandbox.commands
+    .run(
+      `git -C /home/user/repo diff --name-status ${diffBase}..${branchName} 2>/dev/null`
+    )
+    .catch(() => ({ stdout: '' }))
+  const changedFiles = (diffResult.stdout ?? '')
+    .split('\n')
+    .filter(Boolean)
+    .map(line => {
+      const [statusChar, ...pathParts] = line.split('\t')
+      return {
+        path: pathParts.join('\t'),
+        status: STATUS_MAP[statusChar?.charAt(0) ?? ''] ?? 'modified',
+      }
+    })
+    .filter(f => f.path)
+
+  // Summary from commit messages
+  const logResult = await sandbox.commands
+    .run(
+      `git -C /home/user/repo log --format=%s ${diffBase}..${branchName} 2>/dev/null`
+    )
+    .catch(() => ({ stdout: '' }))
+  const commits = (logResult.stdout ?? '').split('\n').filter(Boolean)
+  const summary =
+    commits.length === 1
+      ? commits[0]!
+      : commits.length > 1
+        ? commits.join('; ')
+        : 'Agent completed successfully'
+
+  return { changedFiles, summary }
 }
 
 export interface ExecuteAgentOptions {
@@ -189,12 +284,14 @@ export interface ExecuteAgentOptions {
   actorClerkId: string
   actorName?: string
   actorEmail?: string
+  trigger?: string
 }
 
 export async function executeAgent({
   taskId,
   actorName,
   actorEmail,
+  trigger,
   // actorClerkId reserved for audit logging
 }: ExecuteAgentOptions): Promise<AgentResult> {
   const task = await prisma.task.findUnique({
@@ -269,6 +366,20 @@ export async function executeAgent({
   const isFollowUp = !!existingBranch
   const taskSpec = task.spec ?? task.description ?? task.title
 
+  const agentStartedAt = Date.now()
+
+  // Create AgentRun record
+  const runNumber = await nextRunNumber(taskId)
+  const agentRun = await prisma.agentRun.create({
+    data: {
+      taskId,
+      runNumber,
+      status: 'RUNNING',
+      trigger: trigger ?? 'initial',
+    },
+  })
+  const currentRunId = agentRun.id
+
   await transitionAgentStatus(taskId, task.project.id, 'RUNNING', {
     agentError: null,
   })
@@ -283,7 +394,8 @@ export async function executeAgent({
       taskId,
       task.project.id,
       'TIMEOUT',
-      'Agent timed out after 28 minutes'
+      'Agent timed out after 28 minutes',
+      currentRunId
     )
     if (sandbox) await sandbox.kill().catch(() => {})
   }, AGENT_TIMEOUT_MS)
@@ -299,8 +411,8 @@ export async function executeAgent({
       )
     })
 
-    await prisma.task.update({
-      where: { id: taskId },
+    await prisma.agentRun.update({
+      where: { id: currentRunId },
       data: { sandboxId: sandbox.sandboxId },
     })
 
@@ -450,6 +562,11 @@ ${taskSpec}
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
 
     if (winner === CLARIFY_SENTINEL) {
+      // Link any unlinked clarifies to this run
+      await prisma.agentClarify.updateMany({
+        where: { taskId, agentRunId: null },
+        data: { agentRunId: currentRunId },
+      })
       const clarify = await prisma.agentClarify.findFirst({
         where: { taskId },
         orderBy: { createdAt: 'desc' },
@@ -489,6 +606,17 @@ ${taskSpec}
         const prUrl =
           existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
         const prNumber = existingPr?.number ?? 0
+        await prisma.agentRun.update({
+          where: { id: currentRunId },
+          data: {
+            status: 'DONE',
+            durationMs: Date.now() - agentStartedAt,
+            prNumber,
+            prUrl,
+            branchName,
+            finishedAt: new Date(),
+          },
+        })
         await pushAgentEvent(taskId, {
           type: 'agent:done',
           prUrl,
@@ -497,6 +625,14 @@ ${taskSpec}
         return { outcome: 'done', prUrl, prNumber }
       }
       await transitionAgentStatus(taskId, task.project.id, 'DONE')
+      await prisma.agentRun.update({
+        where: { id: currentRunId },
+        data: {
+          status: 'DONE',
+          durationMs: Date.now() - agentStartedAt,
+          finishedAt: new Date(),
+        },
+      })
       await pushAgentEvent(taskId, {
         type: 'agent:failed',
         error:
@@ -522,6 +658,10 @@ ${taskSpec}
       throw new AgentError('PUSH_FAILED', `Git push failed: ${push.stderr}`)
     }
 
+    // Collect run metadata from sandbox before proceeding
+    const runMeta = await collectRunMetadata(sandbox, diffBase, branchName)
+    const agentDurationMs = Date.now() - agentStartedAt
+
     // Create or reuse PR
     let prUrl: string
     let prNumber: number
@@ -545,6 +685,10 @@ ${taskSpec}
         taskStatus: task.status,
         branchName,
         resolvedRepo,
+        agentRunId: currentRunId,
+        agentSummary: runMeta.summary,
+        agentChangedFiles: runMeta.changedFiles,
+        agentDurationMs,
       })
     } else {
       await pushAgentEvent(taskId, {
@@ -568,6 +712,10 @@ ${taskSpec}
         taskStatus: task.status,
         branchName,
         resolvedRepo,
+        agentRunId: currentRunId,
+        agentSummary: runMeta.summary,
+        agentChangedFiles: runMeta.changedFiles,
+        agentDurationMs,
         prUpsertData: {
           workspaceId: task.project.workspaceId,
           number: pr.number,
@@ -581,6 +729,9 @@ ${taskSpec}
       type: 'agent:done',
       prUrl,
       prNumber,
+      summary: runMeta.summary,
+      changedFiles: runMeta.changedFiles,
+      durationMs: agentDurationMs,
     })
 
     // Push task-level update so detail page refreshes PR/branch data
@@ -603,16 +754,35 @@ ${taskSpec}
       current?.agentStatus === 'PAUSED' ||
       current?.agentStatus === 'CANCELLED'
     ) {
+      // Update AgentRun for CANCELLED (PAUSED is temporary, leave as RUNNING)
+      if (current.agentStatus === 'CANCELLED') {
+        await prisma.agentRun.update({
+          where: { id: currentRunId },
+          data: { status: 'CANCELLED', finishedAt: new Date() },
+        })
+      }
       return { outcome: 'failed', error: `Agent ${current.agentStatus}` }
     }
 
     if (error instanceof AgentError) {
-      await markFailed(taskId, task.project.id, error.code, error.message)
+      await markFailed(
+        taskId,
+        task.project.id,
+        error.code,
+        error.message,
+        currentRunId
+      )
       return { outcome: 'failed', error: userFriendlyError(error.code) }
     }
 
     const message = error instanceof Error ? error.message : 'Unknown error'
-    await markFailed(taskId, task.project.id, 'UNKNOWN_ERROR', message)
+    await markFailed(
+      taskId,
+      task.project.id,
+      'UNKNOWN_ERROR',
+      message,
+      currentRunId
+    )
     return { outcome: 'failed', error: userFriendlyError('UNKNOWN_ERROR') }
   } finally {
     clearTimeout(timeoutHandle)

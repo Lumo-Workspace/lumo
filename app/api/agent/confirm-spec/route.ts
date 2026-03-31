@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
     })
 
     waitUntil(
-      executeAgent({ taskId, actorClerkId: userId }).catch(err => {
+      executeAgent({
+        taskId,
+        actorClerkId: userId,
+        trigger: 'confirm_spec',
+      }).catch(err => {
         console.error(`[agent/confirm-spec] Task ${taskId} failed:`, err)
       })
     )

@@ -8,6 +8,7 @@ jest.mock('@/lib/db/prisma', () => ({
     gitHubIntegration: { findUnique: jest.fn() },
     notification: { create: jest.fn() },
     actor: { findFirst: jest.fn(), findUnique: jest.fn() },
+    agentRun: { findFirst: jest.fn() },
   },
 }))
 jest.mock('@/lib/actor', () => ({
@@ -72,7 +73,7 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'DONE',
       agentStatus: null,
-      sandboxId: null,
+
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
@@ -102,9 +103,11 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'IN_PROGRESS',
       agentStatus: 'RUNNING',
-      sandboxId: 'sandbox-123',
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
+    })
+    ;(prisma.agentRun.findFirst as jest.Mock).mockResolvedValue({
+      sandboxId: 'sandbox-123',
     })
     mockIsSandboxAlive.mockResolvedValue(true)
 
@@ -131,9 +134,11 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'IN_PROGRESS',
       agentStatus: 'RUNNING',
-      sandboxId: 'sandbox-dead',
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
+    })
+    ;(prisma.agentRun.findFirst as jest.Mock).mockResolvedValue({
+      sandboxId: 'sandbox-dead',
     })
     // Second call: buildAgentSpec's findUnique
     mockTaskFindUnique.mockResolvedValueOnce({
@@ -164,7 +169,6 @@ describe('handleAgentComment', () => {
         where: { id: 'task-1' },
         data: expect.objectContaining({
           agentStatus: 'FAILED',
-          sandboxId: null,
         }),
       })
     )
@@ -176,7 +180,7 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'IN_PROGRESS',
       agentStatus: null,
-      sandboxId: null,
+
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
@@ -204,7 +208,7 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'IN_PROGRESS',
       agentStatus: null,
-      sandboxId: null,
+
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
@@ -234,7 +238,7 @@ describe('handleAgentComment', () => {
       id: 'task-1',
       status: 'IN_PROGRESS',
       agentStatus: null,
-      sandboxId: null,
+
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
@@ -274,6 +278,7 @@ describe('handleAgentComment', () => {
       actorClerkId: 'clerk_vincent',
       actorName: 'Vincent Mou',
       actorEmail: 'vincent@example.com',
+      trigger: 'comment',
     })
 
     // Task should be updated with agent actor as assignee

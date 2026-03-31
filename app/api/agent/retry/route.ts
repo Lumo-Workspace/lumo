@@ -67,16 +67,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Clear error/sandbox (no status change — executeAgent handles FAILED/ERROR/CANCELLED → RUNNING)
+    // Clear error (no status change — executeAgent handles FAILED/ERROR/CANCELLED → RUNNING)
     await prisma.task.update({
       where: { id: taskId },
-      data: { agentError: null, sandboxId: null },
+      data: { agentError: null },
     })
 
     waitUntil(
-      executeAgent({ taskId, actorClerkId: userId }).catch(err => {
-        console.error(`[agent/retry] Task ${taskId} failed:`, err)
-      })
+      executeAgent({ taskId, actorClerkId: userId, trigger: 'retry' }).catch(
+        err => {
+          console.error(`[agent/retry] Task ${taskId} failed:`, err)
+        }
+      )
     )
 
     return NextResponse.json({ status: 'retrying', taskId })
