@@ -1,4 +1,4 @@
-import { loadAnthropic } from './anthropic-loader'
+import Anthropic from '@anthropic-ai/sdk'
 import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
 import { markdownToHtml } from './markdown'
@@ -43,7 +43,6 @@ export async function generateSpecDraft(
     message: 'Generating spec from description…',
   })
 
-  const { default: Anthropic } = await loadAnthropic()
   const client = new Anthropic({ apiKey: anthropicKey })
 
   const userContent = `Task: ${task.title}\n\nDescription:\n${task.description ?? '(no description provided)'}`

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
-import { loadE2B } from '@/lib/agent/e2b-loader'
+import { Sandbox } from '@e2b/code-interpreter'
 
 const CLARIFY_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
 
       if (activeRun?.sandboxId) {
         try {
-          const { Sandbox } = await loadE2B()
           const sandbox = await Sandbox.connect(activeRun.sandboxId)
           await sandbox.kill()
         } catch {

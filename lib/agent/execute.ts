@@ -1,7 +1,6 @@
 import { randomBytes } from 'crypto'
-import type { Sandbox } from '@e2b/code-interpreter'
+import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
-import { loadE2B } from './e2b-loader'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 // clarify-monitor removed — MCP server now communicates via HTTP API
@@ -329,8 +328,7 @@ async function createPullRequest(params: {
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 async function createSandbox(runId: string): Promise<Sandbox> {
-  const { Sandbox: SandboxClass } = await loadE2B()
-  const sandbox = await SandboxClass.create({
+  const sandbox = await Sandbox.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
     throw new AgentError(

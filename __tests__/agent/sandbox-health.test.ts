@@ -2,10 +2,8 @@ import { isSandboxAlive } from '@/lib/agent/sandbox-health'
 
 const mockConnect = jest.fn()
 
-jest.mock('@/lib/agent/e2b-loader', () => ({
-  loadE2B: jest.fn().mockResolvedValue({
-    Sandbox: { connect: (...args: unknown[]) => mockConnect(...args) },
-  }),
+jest.mock('@e2b/code-interpreter', () => ({
+  Sandbox: { connect: (...args: unknown[]) => mockConnect(...args) },
 }))
 
 describe('isSandboxAlive', () => {

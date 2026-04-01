@@ -5,7 +5,7 @@ import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
-import { loadE2B } from '@/lib/agent/e2b-loader'
+import { Sandbox } from '@e2b/code-interpreter'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -58,8 +58,6 @@ export async function POST(req: NextRequest) {
 
     if (activeRun?.sandboxId) {
       try {
-        // Opaque dynamic import — prevents Turbopack from bundling @e2b/code-interpreter
-        const { Sandbox } = await loadE2B()
         const sandbox = await Sandbox.connect(activeRun.sandboxId)
         await sandbox.kill()
       } catch {
