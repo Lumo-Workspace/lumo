@@ -1,6 +1,6 @@
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
-    agentClarify: { create: jest.fn() },
+    agentClarify: { create: jest.fn(), findFirst: jest.fn() },
     task: { findUnique: jest.fn(), update: jest.fn() },
   },
 }))
@@ -22,6 +22,7 @@ import {
 } from '@/lib/agent/clarify-monitor'
 
 const mockCreate = prisma.agentClarify.create as jest.Mock
+const mockFindFirst = prisma.agentClarify.findFirst as jest.Mock
 const mockTransition = transitionAgentStatus as jest.Mock
 const mockNotify = notifyAgentClarify as jest.Mock
 
@@ -51,6 +52,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers()
   mockCreate.mockResolvedValue({ id: 'clarify-1' })
+  mockFindFirst.mockResolvedValue(null) // No existing pending clarify
   mockTransition.mockResolvedValue(undefined)
   mockNotify.mockResolvedValue(undefined)
   // state-machine reads agentStatus before transition

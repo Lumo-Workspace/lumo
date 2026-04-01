@@ -22,6 +22,7 @@ import {
   notifyAgentFailed,
 } from '@/lib/notifications/notifyAgentActions'
 import { htmlToMarkdown } from './markdown'
+import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -464,11 +465,10 @@ ${taskSpec}
 ## Clarification Protocol
 If the spec is ambiguous, missing critical details, or you are unsure how to proceed,
 you MUST ask for clarification instead of guessing. To do so:
-1. Use the Write tool to create \`/tmp/clarify-question.txt\` with this exact JSON format:
-   {"question":"Your specific question here","context":"What you were doing when you got stuck"}
-2. After writing the file, STOP immediately. Do not continue working. Output a short
-   message like "I've requested clarification and stopped." then produce no more tool calls.
-The system will deliver your question to the assignee and restart you with the answer.`
+- Call the \`ask_user\` tool with your question and context.
+- The tool will BLOCK and wait for the user's reply (this may take minutes).
+- Once you receive the reply, continue working based on the answer.
+- Do NOT stop or exit after calling ask_user — just wait for the response.`
 }
 
 async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
@@ -487,11 +487,13 @@ function buildClaudeCommand(anthropicKey: string): string {
   const tools =
     'Read,Write,Edit,' +
     'Bash(git add *),Bash(git commit *),Bash(npm *),Bash(npx *),' +
-    'Bash(ls *),Bash(cat *),Bash(mkdir *)'
+    'Bash(ls *),Bash(cat *),Bash(mkdir *),' +
+    'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
   return (
     `cd /home/user/repo && ANTHROPIC_API_KEY=${anthropicKey} ` +
     `claude -p "$(cat /home/user/task.md)" ` +
     `--allowedTools "${tools}" ` +
+    `--mcp-config ${MCP_CONFIG_PATH} ` +
     `--output-format stream-json --verbose --bare --max-turns 50`
   )
 }
@@ -1109,6 +1111,10 @@ async function setupSandboxAndRepo(
 ): Promise<boolean> {
   await cloneRepo(sandbox, ctx)
   await installClaude(sandbox, ctx.taskId)
+  await installMcpServer(sandbox, {
+    taskId: ctx.taskId,
+    callbackUrl: process.env.NEXT_PUBLIC_APP_URL,
+  })
   const branchExistsOnRemote = await checkoutBranch(sandbox, ctx)
   await writeTaskSpec(sandbox, ctx)
   return branchExistsOnRemote

@@ -17,9 +17,53 @@ interface ClarifyMonitorHandle {
   stop: () => void
 }
 
+interface ClarifyPayload {
+  question: string
+  context?: string | null
+}
+
+function parseClarifyFile(content: string): ClarifyPayload | null {
+  try {
+    const data = JSON.parse(content)
+    if (typeof data.question === 'string') return data as ClarifyPayload
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Create a DB record and transition status when a clarify question is detected.
+ *
+ * Works with both the legacy file-write protocol and the MCP `ask_user` tool —
+ * both write to the same `/tmp/clarify-question.txt` path. In the MCP flow,
+ * the agent stays alive (blocking on `ask_user`), so this just handles the
+ * backend side: DB record, status transition, and user notification.
+ */
+async function recordClarifyRequest(
+  task: MonitorTask,
+  payload: ClarifyPayload
+) {
+  const clarify = await prisma.agentClarify.create({
+    data: {
+      taskId: task.id,
+      question: payload.question,
+      context: payload.context ?? null,
+    },
+  })
+  await transitionAgentStatus(task.id, task.projectId, 'INPUT_REQUIRED', {
+    inputReason: 'clarify',
+  })
+  await notifyAgentClarify(task.id, clarify.id)
+}
+
 /**
  * Poll the sandbox for `/tmp/clarify-question.txt` every `intervalMs` ms.
  * Returns a handle with a promise and a stop function for cleanup.
+ *
+ * In the MCP flow, this serves as a fallback detector — the MCP server's
+ * HTTP callback is the primary notification path. If the callback fails
+ * (e.g. network issue), this polling ensures the clarify is still detected.
  */
 export function monitorForClarify(
   sandbox: Sandbox,
@@ -33,29 +77,25 @@ export function monitorForClarify(
     intervalHandle = setInterval(async () => {
       if (stopped) return
       try {
-        const questionFile = await sandbox.files
+        const content = await sandbox.files
           .read('/tmp/clarify-question.txt')
           .catch(() => null)
 
-        if (!questionFile || stopped) return
+        if (!content || stopped) return
+        const payload = parseClarifyFile(content)
+        if (!payload) return
 
         stopped = true
         if (intervalHandle) clearInterval(intervalHandle)
 
-        const clarifyData = JSON.parse(questionFile)
-
-        const clarify = await prisma.agentClarify.create({
-          data: {
-            taskId: task.id,
-            question: clarifyData.question,
-            context: clarifyData.context ?? null,
-          },
+        // Only record if not already recorded (e.g. by HTTP callback)
+        const existing = await prisma.agentClarify.findFirst({
+          where: { taskId: task.id, reply: null },
+          orderBy: { createdAt: 'desc' },
         })
-
-        await transitionAgentStatus(task.id, task.projectId, 'INPUT_REQUIRED', {
-          inputReason: 'clarify',
-        })
-        await notifyAgentClarify(task.id, clarify.id)
+        if (!existing) {
+          await recordClarifyRequest(task, payload)
+        }
 
         resolve()
       } catch {
@@ -83,26 +123,21 @@ export async function checkForClarifyFile(
   task: MonitorTask
 ): Promise<boolean> {
   try {
-    const questionFile = await sandbox.files
+    const content = await sandbox.files
       .read('/tmp/clarify-question.txt')
       .catch(() => null)
 
-    if (!questionFile) return false
+    if (!content) return false
+    const payload = parseClarifyFile(content)
+    if (!payload) return false
 
-    const clarifyData = JSON.parse(questionFile)
-
-    const clarify = await prisma.agentClarify.create({
-      data: {
-        taskId: task.id,
-        question: clarifyData.question,
-        context: clarifyData.context ?? null,
-      },
+    const existing = await prisma.agentClarify.findFirst({
+      where: { taskId: task.id, reply: null },
+      orderBy: { createdAt: 'desc' },
     })
-
-    await transitionAgentStatus(task.id, task.projectId, 'INPUT_REQUIRED', {
-      inputReason: 'clarify',
-    })
-    await notifyAgentClarify(task.id, clarify.id)
+    if (!existing) {
+      await recordClarifyRequest(task, payload)
+    }
 
     return true
   } catch {
