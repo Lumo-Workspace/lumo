@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Github, Check, Plus, X, Loader2 } from 'lucide-react'
+import { GitBranch, Check, Plus, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -140,7 +140,10 @@ export function GitHubIntegrationCard({
         <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
           <div className='flex items-center gap-3'>
             <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0'>
-              <Github size={18} className='text-zinc-700 dark:text-zinc-300' />
+              <GitBranch
+                size={18}
+                className='text-zinc-700 dark:text-zinc-300'
+              />
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
@@ -289,7 +292,7 @@ export function GitHubIntegrationCard({
                       onClick={() => handleAddRepo(repo.fullName)}
                       className='w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left'
                     >
-                      <Github size={14} className='text-zinc-400 shrink-0' />
+                      <GitBranch size={14} className='text-zinc-400 shrink-0' />
                       <span className='text-sm text-zinc-700 dark:text-zinc-300 font-mono'>
                         {repo.fullName}
                       </span>

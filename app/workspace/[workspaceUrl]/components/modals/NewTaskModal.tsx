@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Github } from 'lucide-react'
+import { GitBranch } from 'lucide-react'
 
 export interface NewTaskFormData {
   title: string
@@ -221,7 +221,7 @@ export function NewTaskModal({
                   }
                 >
                   <SelectTrigger className={triggerClass}>
-                    <Github size={12} className='mr-1 shrink-0' />
+                    <GitBranch size={12} className='mr-1 shrink-0' />
                     <SelectValue placeholder='Repository' />
                   </SelectTrigger>
                   <SelectContent>

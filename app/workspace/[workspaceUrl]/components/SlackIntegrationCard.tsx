@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { Slack, Check, Loader2 } from 'lucide-react'
+import { MessageSquare, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -84,7 +84,10 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
         <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
           <div className='flex items-center gap-3'>
             <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0'>
-              <Slack size={18} className='text-zinc-700 dark:text-zinc-300' />
+              <MessageSquare
+                size={18}
+                className='text-zinc-700 dark:text-zinc-300'
+              />
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>

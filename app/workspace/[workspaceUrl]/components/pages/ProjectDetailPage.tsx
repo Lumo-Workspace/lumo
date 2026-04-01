@@ -6,8 +6,8 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
-  Slack,
-  Github,
+  MessageSquare,
+  GitBranch,
   Star,
   X,
   Loader2,
@@ -284,7 +284,7 @@ export function ProjectDetailPage({
               className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               title='Slack notifications'
             >
-              <Slack size={14} />
+              <MessageSquare size={14} />
             </Button>
           )}
           {onCopyLink && (
@@ -454,7 +454,7 @@ export function ProjectDetailPage({
                           key={repo.id}
                           className='group flex items-start gap-2 rounded-md px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800'
                         >
-                          <Github
+                          <GitBranch
                             size={13}
                             className='text-zinc-400 shrink-0 mt-0.5'
                           />
@@ -574,7 +574,7 @@ export function ProjectDetailPage({
                                         className='text-green-500 shrink-0'
                                       />
                                     ) : (
-                                      <Github
+                                      <GitBranch
                                         size={12}
                                         className='text-zinc-400 shrink-0'
                                       />

@@ -14,7 +14,6 @@ import {
   MoreHorizontal,
   GitPullRequest,
   GitBranch,
-  Github,
 } from 'lucide-react'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -1493,7 +1492,10 @@ export function TaskDetailPage({
                               }
                             >
                               <SelectTrigger className={FIELD_TRIGGER_CLS}>
-                                <Github size={12} className='mr-1 shrink-0' />
+                                <GitBranch
+                                  size={12}
+                                  className='mr-1 shrink-0'
+                                />
                                 <SelectValue placeholder='Repository' />
                               </SelectTrigger>
                               <SelectContent>
