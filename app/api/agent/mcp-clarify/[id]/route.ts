@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { validateMcpToken } from '@/lib/auth/mcp-auth'
 
 /**
  * GET /api/agent/mcp-clarify/:id
@@ -9,7 +10,7 @@ import { prisma } from '@/lib/db/prisma'
  * when available, or `{ status: 'pending' }` otherwise.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -17,10 +18,16 @@ export async function GET(
 
     const clarify = await prisma.agentClarify.findUnique({
       where: { id },
-      select: { reply: true, repliedAt: true },
+      select: { taskId: true, reply: true, repliedAt: true },
     })
 
     if (!clarify) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const authorized = await validateMcpToken(request, clarify.taskId)
+    if (!authorized) {
+      // Return 404 (not 401) to avoid leaking whether this clarify ID exists
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 

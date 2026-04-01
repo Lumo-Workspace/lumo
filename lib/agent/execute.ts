@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
@@ -64,6 +65,7 @@ interface RunContext {
   githubToken: string
   anthropicKey: string
   currentRunId: string
+  mcpToken: string
   agentStartedAt: number
   gitName: string
   gitEmail: string
@@ -203,16 +205,17 @@ async function createAgentRun(
   taskId: string,
   projectId: string,
   trigger: string
-): Promise<string> {
+): Promise<{ id: string; mcpToken: string }> {
   const runNumber = await nextRunNumber(taskId)
+  const mcpToken = randomBytes(32).toString('hex')
   const agentRun = await prisma.agentRun.create({
-    data: { taskId, runNumber, status: 'WORKING', trigger },
+    data: { taskId, runNumber, status: 'WORKING', trigger, mcpToken },
   })
   await transitionAgentStatus(taskId, projectId, 'WORKING', {
     agentError: null,
   })
   fireAgentEvent(taskId, { type: 'agent:started' })
-  return agentRun.id
+  return { id: agentRun.id, mcpToken }
 }
 
 async function markRunCompleted(
@@ -1099,6 +1102,7 @@ async function setupSandboxAndRepo(
   await installMcpServer(sandbox, {
     taskId: ctx.taskId,
     callbackUrl,
+    callbackToken: ctx.mcpToken,
   })
   const branchExistsOnRemote = await checkoutBranch(sandbox, ctx)
   await writeTaskSpec(sandbox, ctx)
@@ -1175,7 +1179,7 @@ async function buildRunContext(
     opts.actorName,
     opts.actorEmail
   )
-  const currentRunId = await createAgentRun(
+  const { id: currentRunId, mcpToken } = await createAgentRun(
     opts.taskId,
     task.project.id,
     opts.trigger ?? 'initial'
@@ -1194,6 +1198,7 @@ async function buildRunContext(
     githubToken,
     anthropicKey,
     currentRunId,
+    mcpToken,
     agentStartedAt: Date.now(),
     gitName,
     gitEmail,
