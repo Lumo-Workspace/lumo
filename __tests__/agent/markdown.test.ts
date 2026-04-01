@@ -94,14 +94,14 @@ describe('markdownToHtml', () => {
 })
 
 describe('htmlToMarkdown', () => {
-  it('returns markdown as-is if input has no HTML tags', () => {
+  it('returns markdown as-is if input has no HTML tags', async () => {
     const md = '## Requirements\n- item 1'
-    expect(htmlToMarkdown(md)).toBe(md)
+    expect(await htmlToMarkdown(md)).toBe(md)
   })
 
-  it('converts HTML input to markdown', () => {
+  it('converts HTML input to markdown', async () => {
     // turndown is CJS and works in Jest, so this actually converts
-    const result = htmlToMarkdown('<h1>Title</h1>')
+    const result = await htmlToMarkdown('<h1>Title</h1>')
     expect(result).toBe('# Title')
   })
 })

@@ -1175,7 +1175,9 @@ async function buildRunContext(
 
   const identifier = `LUM-${task.number}`
   const { branchName, isFollowUp } = resolveBranch(task, identifier)
-  const taskSpec = htmlToMarkdown(task.spec ?? task.description ?? task.title)
+  const taskSpec = await htmlToMarkdown(
+    task.spec ?? task.description ?? task.title
+  )
   const { githubToken, anthropicKey } = await resolveCredentials()
   const { gitName, gitEmail } = resolveGitIdentity(
     opts.actorName,
