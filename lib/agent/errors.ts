@@ -6,6 +6,7 @@ export type AgentErrorCode =
   | 'PR_CREATE_FAILED'
   | 'TIMEOUT'
   | 'CLARIFY_TIMEOUT'
+  | 'CONFIG_ERROR'
   | 'UNKNOWN_ERROR'
 
 export class AgentError extends Error {
@@ -31,6 +32,8 @@ const USER_MESSAGES: Record<AgentErrorCode, string> = {
     'Agent timed out after 28 minutes. The task may be too complex — try breaking it down.',
   CLARIFY_TIMEOUT:
     'Agent was waiting for clarification for 24 hours and has been stopped. Add more details to the spec and retry.',
+  CONFIG_ERROR:
+    'Server configuration error. Please contact your administrator.',
   UNKNOWN_ERROR: 'Something went wrong. Please try again.',
 }
 

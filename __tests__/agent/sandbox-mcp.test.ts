@@ -17,13 +17,12 @@ describe('sandbox-mcp', () => {
         callbackUrl: 'https://app.uselumo.ai',
       })
 
-      // Should write two files
       expect(fakeSandbox.files.write).toHaveBeenCalledTimes(2)
       expect(written['/home/user/mcp-server.mjs']).toBeDefined()
       expect(written['/home/user/mcp-config.json']).toBeDefined()
     })
 
-    it('injects taskId into the server source', async () => {
+    it('injects taskId and callbackUrl into the server source', async () => {
       const written: Record<string, string> = {}
       const fakeSandbox = {
         files: {
@@ -55,6 +54,7 @@ describe('sandbox-mcp', () => {
 
       await installMcpServer(fakeSandbox, {
         taskId: 'task-789',
+        callbackUrl: 'https://example.com',
         callbackToken: 'secret-token-abc',
       })
 
@@ -72,7 +72,10 @@ describe('sandbox-mcp', () => {
         },
       } as any
 
-      await installMcpServer(fakeSandbox, { taskId: 'task-1' })
+      await installMcpServer(fakeSandbox, {
+        taskId: 'task-1',
+        callbackUrl: 'https://example.com',
+      })
 
       const config = JSON.parse(written['/home/user/mcp-config.json']!)
       expect(config.mcpServers['lumo-sandbox'].command).toBe('node')
@@ -91,13 +94,39 @@ describe('sandbox-mcp', () => {
         },
       } as any
 
-      await installMcpServer(fakeSandbox, { taskId: 'task-1' })
+      await installMcpServer(fakeSandbox, {
+        taskId: 'task-1',
+        callbackUrl: 'https://example.com',
+      })
 
       const source = written['/home/user/mcp-server.mjs']!
       expect(source).toContain("name: 'ask_user'")
       expect(source).toContain("name: 'report_progress'")
-      expect(source).toContain('/tmp/clarify-question.txt')
-      expect(source).toContain('/tmp/clarify-reply.txt')
+    })
+
+    it('server source uses HTTP API instead of file I/O', async () => {
+      const written: Record<string, string> = {}
+      const fakeSandbox = {
+        files: {
+          write: jest.fn(async (path: string, content: string) => {
+            written[path] = content
+          }),
+        },
+      } as any
+
+      await installMcpServer(fakeSandbox, {
+        taskId: 'task-1',
+        callbackUrl: 'https://example.com',
+      })
+
+      const source = written['/home/user/mcp-server.mjs']!
+      // Should use HTTP polling, not file polling
+      expect(source).toContain('/api/agent/mcp-clarify')
+      expect(source).toContain('httpGet')
+      expect(source).toContain('httpPost')
+      // Should NOT have file I/O for clarify
+      expect(source).not.toContain('clarify-question.txt')
+      expect(source).not.toContain('clarify-reply.txt')
     })
   })
 

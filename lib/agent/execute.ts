@@ -2,7 +2,7 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
-import { monitorForClarify, checkForClarifyFile } from './clarify-monitor'
+// clarify-monitor removed — MCP server now communicates via HTTP API
 import {
   pushAgentEvent,
   fireAgentEvent,
@@ -32,7 +32,6 @@ const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
 const AGENT_CMD_TIMEOUT_MS = 25 * 60 * 1000
 const PUSH_TIMEOUT_MS = 60 * 1000
-const CLARIFY_SENTINEL = '__clarify__'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -465,10 +464,11 @@ ${taskSpec}
 ## Clarification Protocol
 If the spec is ambiguous, missing critical details, or you are unsure how to proceed,
 you MUST ask for clarification instead of guessing. To do so:
-- Call the \`ask_user\` tool with your question and context.
+- Call the \`mcp__lumo-sandbox__ask_user\` tool with your question and context.
+  IMPORTANT: Use exactly this tool name — do NOT use AskUserQuestion or any other tool.
 - The tool will BLOCK and wait for the user's reply (this may take minutes).
 - Once you receive the reply, continue working based on the answer.
-- Do NOT stop or exit after calling ask_user — just wait for the response.`
+- Do NOT stop or exit after calling mcp__lumo-sandbox__ask_user — just wait for the response.`
 }
 
 async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
@@ -494,7 +494,7 @@ function buildClaudeCommand(anthropicKey: string): string {
     `claude -p "$(cat /home/user/task.md)" ` +
     `--allowedTools "${tools}" ` +
     `--mcp-config ${MCP_CONFIG_PATH} ` +
-    `--output-format stream-json --verbose --bare --max-turns 50`
+    `--output-format stream-json --verbose --max-turns 50`
   )
 }
 
@@ -530,77 +530,55 @@ function createStdoutHandler(taskId: string) {
   }
 }
 
-function buildClarifyMonitorTask(ctx: RunContext) {
-  return {
-    id: ctx.taskId,
-    identifier: ctx.identifier,
-    reviewerId: '',
-    projectId: ctx.task.project.id,
-  }
-}
-
-async function raceAgentWithClarify(
+/**
+ * Run the Claude agent command in the sandbox.
+ *
+ * With the HTTP-based MCP flow, the agent stays alive when `ask_user` is
+ * called (the MCP server blocks on HTTP polling). The command only exits
+ * when the agent is truly done or timed out. The `INPUT_REQUIRED` status
+ * transition is handled by `POST /api/agent/mcp-clarify`.
+ */
+async function runClaude(
   sandbox: Sandbox,
-  ctx: RunContext,
-  clarifyHandle: ReturnType<typeof monitorForClarify>
-) {
-  return Promise.race([
-    sandbox.commands
-      .run(buildClaudeCommand(ctx.anthropicKey), {
-        timeoutMs: AGENT_CMD_TIMEOUT_MS,
-        onStdout: createStdoutHandler(ctx.taskId),
-      })
-      .catch(err => {
-        throw new AgentError(
-          'AGENT_EXECUTION_FAILED',
-          'Agent execution failed',
-          err
-        )
-      }),
-    clarifyHandle.promise.then(() => CLARIFY_SENTINEL),
-  ])
-}
-
-async function handleAgentExit(
-  sandbox: Sandbox,
-  ctx: RunContext,
-  winner: unknown
+  ctx: RunContext
 ): Promise<AgentResult | 'agent_done'> {
-  if (winner === CLARIFY_SENTINEL) {
+  fireAgentEvent(ctx.taskId, {
+    type: 'agent:progress',
+    message: 'Agent is analyzing the codebase...',
+  })
+
+  const result = await sandbox.commands
+    .run(buildClaudeCommand(ctx.anthropicKey), {
+      timeoutMs: AGENT_CMD_TIMEOUT_MS,
+      onStdout: createStdoutHandler(ctx.taskId),
+    })
+    .catch(err => {
+      throw new AgentError(
+        'AGENT_EXECUTION_FAILED',
+        'Agent execution failed',
+        err
+      )
+    })
+
+  // After agent exits, check if there's a pending clarify in the DB
+  // (created by the HTTP callback from the MCP server)
+  const pendingClarify = await prisma.agentClarify.findFirst({
+    where: { taskId: ctx.taskId, reply: null },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (pendingClarify) {
     return finalizeClarify(ctx.taskId, ctx.currentRunId)
   }
-  const monitorTask = buildClarifyMonitorTask(ctx)
-  if (await checkForClarifyFile(sandbox, monitorTask)) {
-    return finalizeClarify(ctx.taskId, ctx.currentRunId)
-  }
-  const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
+
   if (result.exitCode !== 0) {
     throw new AgentError(
       'AGENT_EXECUTION_FAILED',
       `Agent exited with code ${result.exitCode}: ${result.stderr}`
     )
   }
+
   return 'agent_done'
-}
-
-async function runClaudeWithMonitor(
-  sandbox: Sandbox,
-  ctx: RunContext
-): Promise<AgentResult | 'agent_done'> {
-  const monitorTask = buildClarifyMonitorTask(ctx)
-  const clarifyHandle = monitorForClarify(sandbox, monitorTask)
-
-  try {
-    fireAgentEvent(ctx.taskId, {
-      type: 'agent:progress',
-      message: 'Agent is analyzing the codebase...',
-    })
-    const winner = await raceAgentWithClarify(sandbox, ctx, clarifyHandle)
-    clarifyHandle.stop()
-    return handleAgentExit(sandbox, ctx, winner)
-  } finally {
-    clarifyHandle.stop()
-  }
 }
 
 async function finalizeClarify(
@@ -1111,9 +1089,16 @@ async function setupSandboxAndRepo(
 ): Promise<boolean> {
   await cloneRepo(sandbox, ctx)
   await installClaude(sandbox, ctx.taskId)
+  const callbackUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!callbackUrl) {
+    throw new AgentError(
+      'CONFIG_ERROR',
+      'NEXT_PUBLIC_APP_URL is required for MCP server communication'
+    )
+  }
   await installMcpServer(sandbox, {
     taskId: ctx.taskId,
-    callbackUrl: process.env.NEXT_PUBLIC_APP_URL,
+    callbackUrl,
   })
   const branchExistsOnRemote = await checkoutBranch(sandbox, ctx)
   await writeTaskSpec(sandbox, ctx)
@@ -1154,7 +1139,7 @@ export async function executeAgent({
     sandbox = await createSandbox(ctx.currentRunId)
     const branchExistsOnRemote = await setupSandboxAndRepo(sandbox, ctx)
 
-    const agentResult = await runClaudeWithMonitor(sandbox, ctx)
+    const agentResult = await runClaude(sandbox, ctx)
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     if (agentResult !== 'agent_done') return agentResult
 

@@ -54,20 +54,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get sandboxId from the active AgentRun
-    const activeRun = await prisma.agentRun.findFirst({
-      where: { taskId, status: 'WORKING' },
-      select: { sandboxId: true },
-    })
-
-    if (!activeRun?.sandboxId) {
-      return NextResponse.json(
-        { error: 'No sandbox ID on record — cannot resume' },
-        { status: 422 }
-      )
-    }
-
-    await resumeAgent(taskId, task.projectId, activeRun.sandboxId, reply)
+    await resumeAgent(taskId, task.projectId, reply)
 
     return NextResponse.json({ status: 'resumed', taskId })
   } catch (error) {

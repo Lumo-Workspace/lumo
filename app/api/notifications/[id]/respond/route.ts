@@ -132,27 +132,16 @@ export async function POST(request: NextRequest, { params }: Params) {
         data: { actionTakenAt: new Date(), read: true },
       })
 
-      // Get sandboxId from the active AgentRun
-      const activeRun =
-        task.agentStatus === 'INPUT_REQUIRED'
-          ? await prisma.agentRun.findFirst({
-              where: { taskId, status: 'WORKING' },
-              select: { sandboxId: true },
-            })
-          : null
-      const sandboxId = activeRun?.sandboxId ?? null
-
-      if (task.agentStatus === 'INPUT_REQUIRED' && sandboxId) {
-        // Sandbox still alive — resume in-place
+      if (task.agentStatus === 'INPUT_REQUIRED') {
+        // Resume agent — DB update only, MCP server picks up reply via HTTP poll
         try {
-          await resumeAgent(taskId, task.projectId, sandboxId, data.reply)
+          await resumeAgent(taskId, task.projectId, data.reply)
         } catch {
-          // Sandbox expired — fall through to re-run
+          // Resume failed — fall through to re-run
           await prisma.task.update({
             where: { id: taskId },
             data: { agentError: null },
           })
-          // Record clarify reply in DB before re-run
           if (notification.clarifyId) {
             await prisma.agentClarify.update({
               where: { id: notification.clarifyId },
@@ -170,7 +159,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           )
         }
       } else {
-        // Sandbox expired or task not INPUT_REQUIRED — re-run the agent fresh
+        // Task not INPUT_REQUIRED — re-run the agent fresh
         await prisma.task.update({
           where: { id: taskId },
           data: { agentError: null },
@@ -227,21 +216,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       })
 
       if (data.action === 'approve') {
-        // Get sandboxId from active AgentRun
-        const activeRun =
-          task.agentStatus === 'INPUT_REQUIRED'
-            ? await prisma.agentRun.findFirst({
-                where: { taskId, status: 'WORKING' },
-                select: { sandboxId: true },
-              })
-            : null
-        const sandboxId = activeRun?.sandboxId ?? null
-
-        // Write approval to sandbox so the agent can continue
         const reply = 'APPROVED'
-        if (task.agentStatus === 'INPUT_REQUIRED' && sandboxId) {
+        if (task.agentStatus === 'INPUT_REQUIRED') {
           try {
-            await resumeAgent(taskId, task.projectId, sandboxId, reply)
+            await resumeAgent(taskId, task.projectId, reply)
           } catch {
             await prisma.task.update({
               where: { id: taskId },
