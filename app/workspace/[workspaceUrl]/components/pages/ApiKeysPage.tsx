@@ -111,7 +111,7 @@ export function ApiKeysPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-8'>
           API Keys
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
