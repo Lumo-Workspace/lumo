@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { notifyAgentClarify } from '@/lib/notifications/notifyAgentActions'
+import { validateMcpToken } from '@/lib/auth/mcp-auth'
 
 /**
  * POST /api/agent/mcp-clarify
@@ -24,6 +25,11 @@ export async function POST(request: Request) {
         { error: 'taskId and question are required' },
         { status: 400 }
       )
+    }
+
+    const authorized = await validateMcpToken(request, taskId)
+    if (!authorized) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Avoid duplicates — check if there's already a pending clarify
