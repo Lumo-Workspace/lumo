@@ -4,7 +4,14 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
-import { ArrowLeft, Building2, Users, Puzzle, KeyRound } from 'lucide-react'
+import {
+  ArrowLeft,
+  Building2,
+  Users,
+  Puzzle,
+  KeyRound,
+  User,
+} from 'lucide-react'
 import { CACHE_KEY } from '../constants'
 
 interface SettingsShellProps {
@@ -59,6 +66,11 @@ export function SettingsShell({
   ]
 
   const personalItems = [
+    {
+      label: 'Profile',
+      href: `/workspace/${workspaceUrl}/settings/profile`,
+      icon: User,
+    },
     {
       label: 'API Keys',
       href: `/workspace/${workspaceUrl}/settings/api-keys`,
