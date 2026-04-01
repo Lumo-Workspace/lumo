@@ -328,10 +328,15 @@ async function createPullRequest(params: {
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 async function createSandbox(runId: string): Promise<Sandbox> {
-  // Dynamic import to avoid Turbopack bundling mangling the class constructor
-  // and to sidestep the CJS/ESM mismatch in e2b's transitive deps (chalk v5).
-  const { Sandbox: SandboxClass } = await import('@e2b/code-interpreter')
-  const sandbox = await SandboxClass.create({
+  // Use new Function() to create a truly opaque dynamic import that Turbopack
+  // cannot statically analyze or bundle. This avoids two production issues:
+  // 1. Turbopack minification mangles the Sandbox class constructor ("eb is not a constructor")
+  // 2. serverExternalPackages causes ERR_REQUIRE_ESM (e2b → chalk v5 ESM-only)
+
+  const e2b = (await new Function(
+    'return import("@e2b/code-interpreter")'
+  )()) as typeof import('@e2b/code-interpreter')
+  const sandbox = await e2b.Sandbox.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
     throw new AgentError(
