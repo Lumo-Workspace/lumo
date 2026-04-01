@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { Sandbox } from '@e2b/code-interpreter'
+import type { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
@@ -328,7 +328,10 @@ async function createPullRequest(params: {
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 async function createSandbox(runId: string): Promise<Sandbox> {
-  const sandbox = await Sandbox.create({
+  // Dynamic import to avoid Turbopack bundling mangling the class constructor
+  // and to sidestep the CJS/ESM mismatch in e2b's transitive deps (chalk v5).
+  const { Sandbox: SandboxClass } = await import('@e2b/code-interpreter')
+  const sandbox = await SandboxClass.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
     throw new AgentError(
