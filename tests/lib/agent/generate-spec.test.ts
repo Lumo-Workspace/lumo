@@ -74,10 +74,10 @@ beforeEach(() => {
   process.env.ANTHROPIC_API_KEY = 'test-key'
   mockPrismaTaskUpdate.mockResolvedValue({})
   // State machine reads current agentStatus before each transition:
-  // First call: IDLE (for IDLE→RUNNING), Second call: RUNNING (for RUNNING→SPEC_REVIEW or RUNNING→FAILED)
+  // First call: SUBMITTED (for SUBMITTED→WORKING), Second call: WORKING (for WORKING→INPUT_REQUIRED or WORKING→FAILED)
   mockPrismaTaskFindUnique
-    .mockResolvedValueOnce({ agentStatus: 'IDLE' })
-    .mockResolvedValueOnce({ agentStatus: 'RUNNING' })
+    .mockResolvedValueOnce({ agentStatus: 'SUBMITTED' })
+    .mockResolvedValueOnce({ agentStatus: 'WORKING' })
   mockPushAgentEvent.mockResolvedValue(undefined)
 })
 
@@ -102,14 +102,14 @@ describe('generateSpecDraft', () => {
       mockCreate.mockResolvedValue(makeApiResponse(SPEC_TEXT))
     })
 
-    it('sets agentStatus to RUNNING then SPEC_REVIEW', async () => {
+    it('sets agentStatus to WORKING then INPUT_REQUIRED with spec_review reason', async () => {
       await generateSpecDraft(TASK_ID, baseTask)
 
       expect(mockPrismaTaskUpdate).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           where: { id: TASK_ID },
-          data: expect.objectContaining({ agentStatus: 'RUNNING' }),
+          data: expect.objectContaining({ agentStatus: 'WORKING' }),
         })
       )
       // spec is now stored as HTML via markdownToHtml
@@ -119,7 +119,8 @@ describe('generateSpecDraft', () => {
           where: { id: TASK_ID },
           data: expect.objectContaining({
             spec: `<p>${SPEC_TEXT}</p>`,
-            agentStatus: 'SPEC_REVIEW',
+            agentStatus: 'INPUT_REQUIRED',
+            inputReason: 'spec_review',
           }),
         })
       )
@@ -201,7 +202,7 @@ describe('generateSpecDraft', () => {
       )
     })
 
-    it('does NOT transition to spec_review on empty response', async () => {
+    it('does NOT transition to INPUT_REQUIRED on empty response', async () => {
       mockCreate.mockResolvedValue(makeApiResponse(''))
 
       await generateSpecDraft(TASK_ID, baseTask)
@@ -209,7 +210,9 @@ describe('generateSpecDraft', () => {
       const calls: Parameters<typeof mockPrismaTaskUpdate>[] =
         mockPrismaTaskUpdate.mock.calls
       const specReviewCall = calls.find(
-        ([arg]) => arg?.data?.agentStatus === 'SPEC_REVIEW'
+        ([arg]) =>
+          arg?.data?.agentStatus === 'INPUT_REQUIRED' &&
+          arg?.data?.inputReason === 'spec_review'
       )
       expect(specReviewCall).toBeUndefined()
     })

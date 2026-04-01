@@ -1594,8 +1594,8 @@ export function TaskDetailPage({
                     const runStatusLabel =
                       relatedRun?.status === 'FAILED'
                         ? ' · Failed'
-                        : relatedRun?.status === 'CANCELLED'
-                          ? ' · Cancelled'
+                        : relatedRun?.status === 'CANCELED'
+                          ? ' · Canceled'
                           : relatedRun?.errorCode === 'TIMEOUT'
                             ? ' · Timed out'
                             : null

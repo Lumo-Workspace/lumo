@@ -12,15 +12,13 @@ type FromKey = AgentStatusValue | 'null'
 // ── Transition map ──────────────────────────────────────────────────────────
 
 const TRANSITIONS: Record<FromKey, AgentStatusValue[]> = {
-  null: ['IDLE'],
-  IDLE: ['RUNNING'],
-  RUNNING: ['DONE', 'FAILED', 'PAUSED', 'SPEC_REVIEW', 'CANCELLED'],
-  PAUSED: ['RUNNING', 'FAILED', 'CANCELLED'],
-  SPEC_REVIEW: ['RUNNING'],
-  FAILED: ['RUNNING'],
-  ERROR: ['RUNNING'],
-  CANCELLED: ['RUNNING'],
-  DONE: [],
+  null: ['SUBMITTED'],
+  SUBMITTED: ['WORKING'],
+  WORKING: ['COMPLETED', 'FAILED', 'INPUT_REQUIRED', 'CANCELED'],
+  INPUT_REQUIRED: ['WORKING', 'FAILED', 'CANCELED'],
+  FAILED: ['WORKING'],
+  CANCELED: ['WORKING'],
+  COMPLETED: [],
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -51,6 +49,8 @@ export class InvalidTransitionError extends Error {
 export interface TransitionOptions {
   agentError?: string | null | undefined
   spec?: string | undefined
+  /** Why INPUT_REQUIRED: "spec_review" | "clarify" | etc. Cleared on non-INPUT_REQUIRED transitions. */
+  inputReason?: string | null | undefined
   /** Skip reading current status — use this when you already know it */
   currentStatus?: AgentStatusValue | null | undefined
   /** Skip dispatching domain events (broadcast, notifications) */
@@ -94,6 +94,13 @@ export async function transitionAgentStatus(
   const data: Record<string, unknown> = { agentStatus: to }
   if (opts?.agentError !== undefined) data.agentError = opts.agentError
   if (opts?.spec !== undefined) data.spec = opts.spec
+  // Set or clear inputReason based on target status
+  if (opts?.inputReason !== undefined) {
+    data.inputReason = opts.inputReason
+  } else if (to !== 'INPUT_REQUIRED') {
+    // Auto-clear inputReason when leaving INPUT_REQUIRED
+    data.inputReason = null
+  }
 
   await prisma.task.update({ where: { id: taskId }, data })
 

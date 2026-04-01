@@ -5,15 +5,17 @@ import { useState, useEffect } from 'react'
 export function AgentStatusBadge({
   status,
   pausedAt,
+  inputReason,
 }: {
   status: string
   error?: string | null
   pausedAt?: Date | null
+  inputReason?: string | null
 }) {
   const [pausedMins, setPausedMins] = useState<number | null>(null)
 
   useEffect(() => {
-    if (status !== 'PAUSED' || !pausedAt) {
+    if (status !== 'INPUT_REQUIRED' || !pausedAt) {
       setPausedMins(null)
       return
     }
@@ -26,26 +28,27 @@ export function AgentStatusBadge({
 
   const configs: Record<string, { label: string; dot: string; text: string }> =
     {
-      IDLE: { label: 'Idle', dot: 'bg-zinc-400', text: 'text-zinc-500' },
-      RUNNING: {
-        label: 'Running',
+      SUBMITTED: {
+        label: 'Submitted',
+        dot: 'bg-zinc-400',
+        text: 'text-zinc-500',
+      },
+      WORKING: {
+        label: 'Working',
         dot: 'bg-blue-500 animate-pulse',
         text: 'text-blue-600 dark:text-blue-400',
       },
-      PAUSED: {
+      INPUT_REQUIRED: {
         label:
-          pausedMins != null && pausedMins > 0
-            ? `Waiting · paused ${pausedMins}m`
-            : 'Waiting · paused',
+          inputReason === 'spec_review'
+            ? 'Spec review'
+            : pausedMins != null && pausedMins > 0
+              ? `Waiting · paused ${pausedMins}m`
+              : 'Waiting · paused',
         dot: 'bg-amber-500',
         text: 'text-amber-600 dark:text-amber-400',
       },
-      SPEC_REVIEW: {
-        label: 'Spec review',
-        dot: 'bg-amber-500',
-        text: 'text-amber-600 dark:text-amber-400',
-      },
-      DONE: {
+      COMPLETED: {
         label: 'Done',
         dot: 'bg-emerald-500',
         text: 'text-emerald-600 dark:text-emerald-400',
@@ -55,18 +58,13 @@ export function AgentStatusBadge({
         dot: 'bg-red-500',
         text: 'text-red-600 dark:text-red-400',
       },
-      ERROR: {
-        label: 'Error',
-        dot: 'bg-orange-500',
-        text: 'text-orange-600 dark:text-orange-400',
-      },
-      CANCELLED: {
-        label: 'Cancelled',
+      CANCELED: {
+        label: 'Canceled',
         dot: 'bg-zinc-400',
         text: 'text-zinc-500',
       },
     }
-  const cfg = configs[status] ?? configs['IDLE']!
+  const cfg = configs[status] ?? configs['SUBMITTED']!
 
   return (
     <div

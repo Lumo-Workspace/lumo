@@ -27,10 +27,10 @@ const RUN_STATUS_CONFIG: Record<
   string,
   { label: string; color: string; icon: typeof CheckCircle2 }
 > = {
-  DONE: { label: 'Done', color: 'text-emerald-600', icon: CheckCircle2 },
+  COMPLETED: { label: 'Done', color: 'text-emerald-600', icon: CheckCircle2 },
   FAILED: { label: 'Failed', color: 'text-red-600', icon: XCircle },
-  CANCELLED: { label: 'Cancelled', color: 'text-zinc-500', icon: Ban },
-  RUNNING: { label: 'Running', color: 'text-blue-600', icon: Loader2 },
+  CANCELED: { label: 'Canceled', color: 'text-zinc-500', icon: Ban },
+  WORKING: { label: 'Working', color: 'text-blue-600', icon: Loader2 },
 }
 
 export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {

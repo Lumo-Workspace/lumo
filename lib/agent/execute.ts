@@ -132,7 +132,7 @@ export type AgentResult =
   | { outcome: 'no_changes' }
   | { outcome: 'spec_review' }
 
-// ── Complete agent run: set DONE + IN_REVIEW + persist branch/PR ─────────────
+// ── Complete agent run: set COMPLETED + IN_REVIEW + persist branch/PR ────────
 
 async function completeAgentRun(params: {
   taskId: string
@@ -157,9 +157,14 @@ async function completeAgentRun(params: {
   const { taskId, projectId, taskStatus, branchName, resolvedRepo } = params
 
   // Transitions with skipDispatch — dispatch after all DB writes complete
-  const agentEvents = await transitionAgentStatus(taskId, projectId, 'DONE', {
-    skipDispatch: true,
-  })
+  const agentEvents = await transitionAgentStatus(
+    taskId,
+    projectId,
+    'COMPLETED',
+    {
+      skipDispatch: true,
+    }
+  )
 
   let taskEvents: DomainEvent[] = []
   try {
@@ -214,7 +219,7 @@ async function completeAgentRun(params: {
     await prisma.agentRun.update({
       where: { id: params.agentRunId },
       data: {
-        status: 'DONE',
+        status: 'COMPLETED',
         summary: params.agentSummary ?? null,
         changedFiles: params.agentChangedFiles ?? Prisma.DbNull,
         durationMs: params.agentDurationMs ?? null,
@@ -377,13 +382,13 @@ export async function executeAgent({
     data: {
       taskId,
       runNumber,
-      status: 'RUNNING',
+      status: 'WORKING',
       trigger: trigger ?? 'initial',
     },
   })
   const currentRunId = agentRun.id
 
-  await transitionAgentStatus(taskId, task.project.id, 'RUNNING', {
+  await transitionAgentStatus(taskId, task.project.id, 'WORKING', {
     agentError: null,
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
@@ -631,14 +636,14 @@ The system will deliver your question to the assignee and restart you with the a
           where: { taskId, state: 'open' },
           select: { url: true, number: true },
         })
-        await transitionAgentStatus(taskId, task.project.id, 'DONE')
+        await transitionAgentStatus(taskId, task.project.id, 'COMPLETED')
         const prUrl =
           existingPr?.url ?? `https://github.com/${resolvedRepo}/pulls`
         const prNumber = existingPr?.number ?? 0
         await prisma.agentRun.update({
           where: { id: currentRunId },
           data: {
-            status: 'DONE',
+            status: 'COMPLETED',
             durationMs: Date.now() - agentStartedAt,
             prNumber,
             prUrl,
@@ -653,11 +658,11 @@ The system will deliver your question to the assignee and restart you with the a
         })
         return { outcome: 'done', prUrl, prNumber }
       }
-      await transitionAgentStatus(taskId, task.project.id, 'DONE')
+      await transitionAgentStatus(taskId, task.project.id, 'COMPLETED')
       await prisma.agentRun.update({
         where: { id: currentRunId },
         data: {
-          status: 'DONE',
+          status: 'COMPLETED',
           durationMs: Date.now() - agentStartedAt,
           finishedAt: new Date(),
         },
@@ -780,14 +785,14 @@ The system will deliver your question to the assignee and restart you with the a
       select: { agentStatus: true },
     })
     if (
-      current?.agentStatus === 'PAUSED' ||
-      current?.agentStatus === 'CANCELLED'
+      current?.agentStatus === 'INPUT_REQUIRED' ||
+      current?.agentStatus === 'CANCELED'
     ) {
-      // Update AgentRun for CANCELLED (PAUSED is temporary, leave as RUNNING)
-      if (current.agentStatus === 'CANCELLED') {
+      // Update AgentRun for CANCELED (INPUT_REQUIRED is temporary, leave as WORKING)
+      if (current.agentStatus === 'CANCELED') {
         await prisma.agentRun.update({
           where: { id: currentRunId },
-          data: { status: 'CANCELLED', finishedAt: new Date() },
+          data: { status: 'CANCELED', finishedAt: new Date() },
         })
       }
       return { outcome: 'failed', error: `Agent ${current.agentStatus}` }

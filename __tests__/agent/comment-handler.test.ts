@@ -121,7 +121,7 @@ describe('handleAgentComment', () => {
     mockTaskFindUnique.mockResolvedValue({
       id: 'task-1',
       status: 'IN_PROGRESS',
-      agentStatus: 'RUNNING',
+      agentStatus: 'WORKING',
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })
@@ -152,7 +152,7 @@ describe('handleAgentComment', () => {
     mockTaskFindUnique.mockResolvedValueOnce({
       id: 'task-1',
       status: 'IN_PROGRESS',
-      agentStatus: 'RUNNING',
+      agentStatus: 'WORKING',
       projectId: 'proj-1',
       project: { workspaceId: 'ws-1' },
     })

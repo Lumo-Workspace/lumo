@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     const verifiedTask = taskCheck.task
 
     if (
-      verifiedTask.agentStatus !== 'RUNNING' &&
-      verifiedTask.agentStatus !== 'PAUSED'
+      verifiedTask.agentStatus !== 'WORKING' &&
+      verifiedTask.agentStatus !== 'INPUT_REQUIRED'
     ) {
       return NextResponse.json(
         { error: 'Agent is not running' },
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     // Find the active AgentRun and kill its sandbox
     const activeRun = await prisma.agentRun.findFirst({
-      where: { taskId, status: 'RUNNING' },
+      where: { taskId, status: 'WORKING' },
       select: { id: true, sandboxId: true },
     })
 
@@ -65,14 +65,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await transitionAgentStatus(taskId, verifiedTask.projectId, 'CANCELLED', {
+    await transitionAgentStatus(taskId, verifiedTask.projectId, 'CANCELED', {
       currentStatus: verifiedTask.agentStatus,
     })
 
     if (activeRun) {
       await prisma.agentRun.update({
         where: { id: activeRun.id },
-        data: { status: 'CANCELLED', finishedAt: new Date() },
+        data: { status: 'CANCELED', finishedAt: new Date() },
       })
     }
 

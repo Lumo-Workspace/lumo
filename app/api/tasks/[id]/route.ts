@@ -403,7 +403,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       data.assigneeActorId = assigneeActorId
       // Sync agentStatus when assignee type changes
       if (newAssigneeType === 'AGENT') {
-        data.agentStatus = 'IDLE'
+        data.agentStatus = 'SUBMITTED'
         data.agentError = null
       } else {
         // Reassigned to human or unassigned — clear agent state

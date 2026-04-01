@@ -55,7 +55,7 @@ beforeEach(() => {
   mockNotify.mockResolvedValue(undefined)
   // state-machine reads agentStatus before transition
   ;(prisma.task.findUnique as jest.Mock).mockResolvedValue({
-    agentStatus: 'RUNNING',
+    agentStatus: 'WORKING',
   })
   ;(prisma.task.update as jest.Mock).mockResolvedValue({})
 })
@@ -85,7 +85,14 @@ describe('monitorForClarify', () => {
         context: 'Spec mentions persistence but not which DB',
       },
     })
-    expect(mockTransition).toHaveBeenCalledWith('task-1', 'proj-1', 'PAUSED')
+    expect(mockTransition).toHaveBeenCalledWith(
+      'task-1',
+      'proj-1',
+      'INPUT_REQUIRED',
+      {
+        inputReason: 'clarify',
+      }
+    )
     expect(mockNotify).toHaveBeenCalledWith('task-1', 'clarify-1')
   })
 
@@ -140,7 +147,14 @@ describe('checkForClarifyFile', () => {
         context: null,
       },
     })
-    expect(mockTransition).toHaveBeenCalledWith('task-1', 'proj-1', 'PAUSED')
+    expect(mockTransition).toHaveBeenCalledWith(
+      'task-1',
+      'proj-1',
+      'INPUT_REQUIRED',
+      {
+        inputReason: 'clarify',
+      }
+    )
   })
 
   it('returns false when file does not exist', async () => {

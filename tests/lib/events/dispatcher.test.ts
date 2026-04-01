@@ -26,10 +26,10 @@ const agentEvent: DomainEvent = {
   type: 'agent:status_changed',
   taskId: 'task-1',
   projectId: 'proj-1',
-  from: 'IDLE',
-  to: 'RUNNING',
+  from: 'SUBMITTED',
+  to: 'WORKING',
   fields: ['agentStatus'],
-  patch: { agentStatus: 'RUNNING' },
+  patch: { agentStatus: 'WORKING' },
 }
 
 const taskEvent: DomainEvent = {

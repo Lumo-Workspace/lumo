@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const timedOutTasks = await prisma.task.findMany({
     where: {
-      agentStatus: 'PAUSED',
+      agentStatus: 'INPUT_REQUIRED',
       updatedAt: { lt: cutoff },
     },
     select: { id: true, projectId: true },
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     timedOutTasks.map(async task => {
       // Find active AgentRun and kill its sandbox
       const activeRun = await prisma.agentRun.findFirst({
-        where: { taskId: task.id, status: 'RUNNING' },
+        where: { taskId: task.id, status: 'WORKING' },
         select: { id: true, sandboxId: true },
       })
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
       await transitionAgentStatus(task.id, task.projectId, 'FAILED', {
         agentError: 'CLARIFY_TIMEOUT',
-        currentStatus: 'PAUSED',
+        currentStatus: 'INPUT_REQUIRED',
       })
       if (activeRun) {
         await prisma.agentRun.update({

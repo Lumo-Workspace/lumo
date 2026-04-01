@@ -102,14 +102,12 @@ export interface ApiProject {
 }
 
 export type AgentStatusValue =
-  | 'IDLE'
-  | 'RUNNING'
-  | 'PAUSED'
-  | 'DONE'
+  | 'SUBMITTED'
+  | 'WORKING'
+  | 'INPUT_REQUIRED'
+  | 'COMPLETED'
   | 'FAILED'
-  | 'ERROR'
-  | 'CANCELLED'
-  | 'SPEC_REVIEW'
+  | 'CANCELED'
 
 export interface ApiTask {
   id: string

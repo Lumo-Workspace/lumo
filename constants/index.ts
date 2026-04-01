@@ -141,7 +141,7 @@ export const STATUS_COLORS = {
   IN_PROGRESS: '#F59E0B',
   REVIEW: '#8B5CF6',
   DONE: '#10B981',
-  CANCELLED: '#EF4444',
+  CANCELED: '#EF4444',
 } as const
 
 // 优先级颜色映射

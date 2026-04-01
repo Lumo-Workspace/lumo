@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (task.agentStatus !== 'PAUSED') {
+    if (task.agentStatus !== 'INPUT_REQUIRED') {
       return NextResponse.json(
         { error: 'Agent is not paused — nothing to resume' },
         { status: 409 }
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     // Get sandboxId from the active AgentRun
     const activeRun = await prisma.agentRun.findFirst({
-      where: { taskId, status: 'RUNNING' },
+      where: { taskId, status: 'WORKING' },
       select: { sandboxId: true },
     })
 

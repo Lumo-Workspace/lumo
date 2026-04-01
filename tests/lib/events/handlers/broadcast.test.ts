@@ -26,10 +26,10 @@ describe('handleAgentBroadcast', () => {
     type: 'agent:status_changed',
     taskId: 'task-1',
     projectId: 'proj-1',
-    from: 'IDLE',
-    to: 'RUNNING',
+    from: 'SUBMITTED',
+    to: 'WORKING',
     fields: ['agentStatus', 'agentError'],
-    patch: { agentStatus: 'RUNNING' },
+    patch: { agentStatus: 'WORKING' },
   }
 
   it('broadcasts agent status change to project channel', async () => {
@@ -39,7 +39,7 @@ describe('handleAgentBroadcast', () => {
       type: 'task:updated',
       taskId: 'task-1',
       fields: ['agentStatus', 'agentError'],
-      patch: { agentStatus: 'RUNNING' },
+      patch: { agentStatus: 'WORKING' },
     })
   })
 

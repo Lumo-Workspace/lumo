@@ -67,14 +67,12 @@ enum CommentType {
 }
 
 enum AgentStatus {
-  IDLE
-  RUNNING
-  PAUSED
-  DONE
+  SUBMITTED      @map("IDLE")
+  WORKING        @map("RUNNING")
+  INPUT_REQUIRED @map("PAUSED")
+  COMPLETED      @map("DONE")
   FAILED
-  ERROR
-  CANCELLED
-  SPEC_REVIEW
+  CANCELED       @map("CANCELLED")
 }
 
 enum ActorType {
@@ -279,6 +277,7 @@ model Task {
   order            Float        @default(0)
   agentStatus       AgentStatus?
   agentError        String?
+  inputReason       String?       // Why INPUT_REQUIRED: "spec_review" | "clarify" | etc.
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -564,7 +563,7 @@ model AgentRun {
   id            String       @id @default(cuid())
   taskId        String
   runNumber     Int
-  status        AgentStatus  // RUNNING while active, terminal when done
+  status        AgentStatus  // WORKING while active, terminal when done
   trigger       String?      // "initial"|"retry"|"comment"|"confirm_spec"|"clarify_reply"|"send_back"
   errorCode     String?
   errorMessage  String?

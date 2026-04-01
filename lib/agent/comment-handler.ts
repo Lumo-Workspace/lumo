@@ -185,10 +185,10 @@ export async function handleAgentComment({
   }
 
   // ── Guard: Agent already running ─────────────────────────────────────────
-  if (task.agentStatus === 'RUNNING') {
+  if (task.agentStatus === 'WORKING') {
     // Check if there's an active sandbox via AgentRun
     const activeRun = await prisma.agentRun.findFirst({
-      where: { taskId, status: 'RUNNING' },
+      where: { taskId, status: 'WORKING' },
       select: { sandboxId: true },
     })
     if (activeRun?.sandboxId) {
@@ -205,7 +205,7 @@ export async function handleAgentComment({
     }
     // Sandbox is dead or no run found — clean up stale state and continue
     await transitionAgentStatus(taskId, task.projectId, 'FAILED', {
-      currentStatus: 'RUNNING',
+      currentStatus: 'WORKING',
     })
   }
 
@@ -257,7 +257,7 @@ export async function handleAgentComment({
     where: { id: taskId },
     data: {
       assigneeActorId: agentActorId,
-      agentStatus: 'IDLE',
+      agentStatus: 'SUBMITTED',
       agentError: null,
       ...(updatedSpec !== null ? { spec: updatedSpec } : {}),
     },

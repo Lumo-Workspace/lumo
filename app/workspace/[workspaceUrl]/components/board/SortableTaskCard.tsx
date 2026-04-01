@@ -23,30 +23,24 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 // ─── Agent status helpers ──────────────────────────────────────────────────
 
-const NEEDS_YOU_STATUSES: AgentStatusValue[] = [
-  'PAUSED',
-  'SPEC_REVIEW',
-  'ERROR',
-]
+const NEEDS_YOU_STATUSES: AgentStatusValue[] = ['INPUT_REQUIRED', 'FAILED']
 
 function agentStatusLabel(
   status: AgentStatusValue | null | undefined
 ): string | null {
   switch (status) {
-    case 'IDLE':
+    case 'SUBMITTED':
       return 'Ready'
-    case 'RUNNING':
-      return 'Running...'
-    case 'PAUSED':
-    case 'SPEC_REVIEW':
-    case 'ERROR':
+    case 'WORKING':
+      return 'Working...'
+    case 'INPUT_REQUIRED':
       return 'Needs you'
-    case 'DONE':
+    case 'COMPLETED':
       return 'Done'
     case 'FAILED':
       return 'Failed'
-    case 'CANCELLED':
-      return 'Cancelled'
+    case 'CANCELED':
+      return 'Canceled'
     default:
       return null
   }
@@ -56,19 +50,17 @@ function agentBadgeClasses(
   status: AgentStatusValue | null | undefined
 ): string {
   switch (status) {
-    case 'IDLE':
+    case 'SUBMITTED':
       return 'bg-zinc-400'
-    case 'RUNNING':
+    case 'WORKING':
       return 'bg-blue-500 animate-pulse'
-    case 'PAUSED':
-    case 'SPEC_REVIEW':
+    case 'INPUT_REQUIRED':
       return 'bg-yellow-500'
-    case 'DONE':
+    case 'COMPLETED':
       return 'bg-green-500'
     case 'FAILED':
-    case 'ERROR':
       return 'bg-red-500'
-    case 'CANCELLED':
+    case 'CANCELED':
       return 'bg-zinc-400'
     default:
       return 'bg-zinc-400'
@@ -79,19 +71,17 @@ function agentStatusTextClasses(
   status: AgentStatusValue | null | undefined
 ): string {
   switch (status) {
-    case 'IDLE':
+    case 'SUBMITTED':
       return 'text-zinc-400'
-    case 'RUNNING':
+    case 'WORKING':
       return 'text-blue-500 animate-pulse'
-    case 'PAUSED':
-    case 'SPEC_REVIEW':
-    case 'ERROR':
+    case 'INPUT_REQUIRED':
       return 'text-orange-500 font-medium'
-    case 'DONE':
+    case 'COMPLETED':
       return 'text-green-600'
     case 'FAILED':
       return 'text-red-500'
-    case 'CANCELLED':
+    case 'CANCELED':
       return 'text-zinc-400'
     default:
       return 'text-zinc-400'
@@ -190,12 +180,12 @@ export function ProjectTaskCard({
   const isAgent = task.assignee?.type === 'AGENT'
   const label = isAgent ? agentStatusLabel(task.agentStatus) : null
 
-  // Orange border: PAUSED/SPEC_REVIEW → reviewer or owner; ERROR → owner only
+  // Orange border: INPUT_REQUIRED → reviewer or owner
   const needsAttention =
     isAgent &&
     task.agentStatus != null &&
     NEEDS_YOU_STATUSES.includes(task.agentStatus) &&
-    (task.agentStatus === 'ERROR'
+    (task.agentStatus === 'FAILED'
       ? !!isOwner
       : currentActorId === task.reviewerActorId || !!isOwner)
 

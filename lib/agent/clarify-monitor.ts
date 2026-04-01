@@ -52,7 +52,9 @@ export function monitorForClarify(
           },
         })
 
-        await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
+        await transitionAgentStatus(task.id, task.projectId, 'INPUT_REQUIRED', {
+          inputReason: 'clarify',
+        })
         await notifyAgentClarify(task.id, clarify.id)
 
         resolve()
@@ -97,7 +99,9 @@ export async function checkForClarifyFile(
       },
     })
 
-    await transitionAgentStatus(task.id, task.projectId, 'PAUSED')
+    await transitionAgentStatus(task.id, task.projectId, 'INPUT_REQUIRED', {
+      inputReason: 'clarify',
+    })
     await notifyAgentClarify(task.id, clarify.id)
 
     return true

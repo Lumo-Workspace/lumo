@@ -134,15 +134,15 @@ export async function POST(request: NextRequest, { params }: Params) {
 
       // Get sandboxId from the active AgentRun
       const activeRun =
-        task.agentStatus === 'PAUSED'
+        task.agentStatus === 'INPUT_REQUIRED'
           ? await prisma.agentRun.findFirst({
-              where: { taskId, status: 'RUNNING' },
+              where: { taskId, status: 'WORKING' },
               select: { sandboxId: true },
             })
           : null
       const sandboxId = activeRun?.sandboxId ?? null
 
-      if (task.agentStatus === 'PAUSED' && sandboxId) {
+      if (task.agentStatus === 'INPUT_REQUIRED' && sandboxId) {
         // Sandbox still alive — resume in-place
         try {
           await resumeAgent(taskId, task.projectId, sandboxId, data.reply)
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           )
         }
       } else {
-        // Sandbox expired or task not PAUSED — re-run the agent fresh
+        // Sandbox expired or task not INPUT_REQUIRED — re-run the agent fresh
         await prisma.task.update({
           where: { id: taskId },
           data: { agentError: null },
@@ -229,9 +229,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       if (data.action === 'approve') {
         // Get sandboxId from active AgentRun
         const activeRun =
-          task.agentStatus === 'PAUSED'
+          task.agentStatus === 'INPUT_REQUIRED'
             ? await prisma.agentRun.findFirst({
-                where: { taskId, status: 'RUNNING' },
+                where: { taskId, status: 'WORKING' },
                 select: { sandboxId: true },
               })
             : null
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         // Write approval to sandbox so the agent can continue
         const reply = 'APPROVED'
-        if (task.agentStatus === 'PAUSED' && sandboxId) {
+        if (task.agentStatus === 'INPUT_REQUIRED' && sandboxId) {
           try {
             await resumeAgent(taskId, task.projectId, sandboxId, reply)
           } catch {

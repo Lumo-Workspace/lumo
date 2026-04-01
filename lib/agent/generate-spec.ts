@@ -34,7 +34,7 @@ export async function generateSpecDraft(
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-  await transitionAgentStatus(taskId, task.project.id, 'RUNNING', {
+  await transitionAgentStatus(taskId, task.project.id, 'WORKING', {
     agentError: null,
   })
   await pushAgentEvent(taskId, { type: 'agent:started' })
@@ -72,12 +72,13 @@ export async function generateSpecDraft(
   // Convert markdown spec to HTML for rich-text display and storage
   const specHtml = markdownToHtml(specText)
 
-  // Save the generated spec (as HTML) and set status to spec_review
-  await transitionAgentStatus(taskId, task.project.id, 'SPEC_REVIEW', {
+  // Save the generated spec (as HTML) and pause for spec review
+  await transitionAgentStatus(taskId, task.project.id, 'INPUT_REQUIRED', {
     spec: specHtml,
+    inputReason: 'spec_review',
   })
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specHtml })
 
-  // Reviewer notification is handled by domain event handler (agent → SPEC_REVIEW)
+  // Reviewer notification is handled by domain event handler (agent → INPUT_REQUIRED with spec_review reason)
 }

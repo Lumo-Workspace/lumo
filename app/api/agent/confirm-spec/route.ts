@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         agentStatus: true,
+        inputReason: true,
         projectId: true,
         project: { select: { workspaceId: true } },
       },
@@ -40,14 +41,17 @@ export async function POST(req: NextRequest) {
     if (taskCheck instanceof NextResponse) return taskCheck
     const task = taskCheck.task
 
-    if (task.agentStatus !== 'SPEC_REVIEW') {
+    if (
+      task.agentStatus !== 'INPUT_REQUIRED' ||
+      task.inputReason !== 'spec_review'
+    ) {
       return NextResponse.json(
         { error: 'Task is not awaiting spec confirmation' },
         { status: 409 }
       )
     }
 
-    // Save confirmed spec (no status change — executeAgent handles SPEC_REVIEW → RUNNING)
+    // Save confirmed spec (no status change — executeAgent handles INPUT_REQUIRED → WORKING)
     await prisma.task.update({
       where: { id: taskId },
       data: { spec, agentError: null },

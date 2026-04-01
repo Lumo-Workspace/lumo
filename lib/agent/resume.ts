@@ -23,8 +23,8 @@ export async function resumeAgent(
       })
     }
 
-    await transitionAgentStatus(taskId, projectId, 'RUNNING', {
-      currentStatus: 'PAUSED',
+    await transitionAgentStatus(taskId, projectId, 'WORKING', {
+      currentStatus: 'INPUT_REQUIRED',
     })
   } catch {
     // Sandbox has expired — caller is responsible for restarting the agent

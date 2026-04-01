@@ -3,13 +3,20 @@ import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwne
 import type { AgentStatusChangedEvent } from '../types'
 
 /**
- * When agent transitions to SPEC_REVIEW, notify the reviewer
- * (or fallback to workspace owners) that a spec is ready.
+ * When agent transitions to INPUT_REQUIRED with reason 'spec_review',
+ * notify the reviewer (or fallback to workspace owners) that a spec is ready.
  */
 export async function handleNotifySpecReady(
   event: AgentStatusChangedEvent
 ): Promise<void> {
-  if (event.to !== 'SPEC_REVIEW') return
+  if (event.to !== 'INPUT_REQUIRED') return
+
+  // Only notify for spec_review, not clarify or other input reasons
+  const taskForReason = await prisma.task.findUnique({
+    where: { id: event.taskId },
+    select: { inputReason: true },
+  })
+  if (taskForReason?.inputReason !== 'spec_review') return
 
   const task = await prisma.task.findUnique({
     where: { id: event.taskId },

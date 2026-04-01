@@ -230,7 +230,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           status,
           priority,
           assigneeActorId: assigneeActorId ?? null,
-          agentStatus: assigneeIsAgent ? 'IDLE' : null,
+          agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
           reviewerActorId: defaultReviewerActorId,
           parentTaskId: parentTaskId ?? null,
           repositoryId: repositoryId ?? null,

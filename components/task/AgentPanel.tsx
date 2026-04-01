@@ -43,7 +43,7 @@ function AgentPanelInner({
   task: AgentTask
   onTaskUpdate?: (updates: Partial<AgentTask>) => void
 }) {
-  const [status, setStatus] = useState(task.agentStatus ?? 'IDLE')
+  const [status, setStatus] = useState(task.agentStatus ?? 'SUBMITTED')
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [steps, setSteps] = useState<AgentStep[]>([])
   const [clarify, setClarify] = useState<AgentClarifyPending | null>(
@@ -64,10 +64,10 @@ function AgentPanelInner({
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   const isFirstRun = !task.branches?.length
-  const isRunning = status === 'RUNNING'
-  const isPaused = status === 'PAUSED'
-  const isDone = status === 'DONE'
-  const isFailed = status === 'FAILED' || status === 'ERROR'
+  const isRunning = status === 'WORKING'
+  const isPaused = status === 'INPUT_REQUIRED'
+  const isDone = status === 'COMPLETED'
+  const isFailed = status === 'FAILED'
   const activeBranch = task.branches?.[task.branches.length - 1]
   const latestRun = task.agentRuns?.[0]
   const currentRunNumber = latestRun?.runNumber ?? 0
@@ -80,7 +80,7 @@ function AgentPanelInner({
   }
 
   useEffect(() => {
-    setStatus(task.agentStatus ?? 'IDLE')
+    setStatus(task.agentStatus ?? 'SUBMITTED')
     setRealtimeDoneMeta(null)
     setPausedAt(null)
     setSteps([])
@@ -119,8 +119,8 @@ function AgentPanelInner({
         agentStartTimeRef.current = new Date()
         setSteps([])
         setPausedAt(null)
-        setStatus('RUNNING')
-        onTaskUpdate?.({ agentStatus: 'RUNNING' })
+        setStatus('WORKING')
+        onTaskUpdate?.({ agentStatus: 'WORKING' })
       }
       if (event.type === 'agent:progress') {
         setSteps(prev => [
@@ -143,27 +143,27 @@ function AgentPanelInner({
             status: 'paused',
           },
         ])
-        setStatus('PAUSED')
+        setStatus('INPUT_REQUIRED')
         setPausedAt(new Date())
         setClarify({
           id: crypto.randomUUID(),
           question: event.question,
           context: event.context ?? null,
         })
-        onTaskUpdate?.({ agentStatus: 'PAUSED' })
+        onTaskUpdate?.({ agentStatus: 'INPUT_REQUIRED' })
       }
       if (event.type === 'agent:done') {
-        setStatus('DONE')
+        setStatus('COMPLETED')
         setRealtimeDoneMeta({
           summary: event.summary ?? null,
           changedFiles: event.changedFiles ?? [],
           durationMs: event.durationMs ?? null,
         })
-        onTaskUpdate?.({ agentStatus: 'DONE' })
+        onTaskUpdate?.({ agentStatus: 'COMPLETED' })
       }
       if (event.type === 'agent:failed') {
         const isCancelled = event.error === 'Cancelled by user'
-        const next = isCancelled ? 'CANCELLED' : 'FAILED'
+        const next = isCancelled ? 'CANCELED' : 'FAILED'
         if (!isCancelled) {
           setSteps(prev => [
             ...prev,
@@ -201,8 +201,8 @@ function AgentPanelInner({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Request failed' }))
-        setStatus('ERROR')
-        onTaskUpdate?.({ agentStatus: 'ERROR', agentError: data.error })
+        setStatus('FAILED')
+        onTaskUpdate?.({ agentStatus: 'FAILED', agentError: data.error })
         setLogs(prev => [
           ...prev,
           {
@@ -213,8 +213,8 @@ function AgentPanelInner({
         ])
         return
       }
-      setStatus('RUNNING')
-      onTaskUpdate?.({ agentStatus: 'RUNNING' })
+      setStatus('WORKING')
+      onTaskUpdate?.({ agentStatus: 'WORKING' })
     } finally {
       setRunning(false)
     }
@@ -235,9 +235,9 @@ function AgentPanelInner({
 
   const handleClarifyReplied = useCallback(() => {
     setClarify(null)
-    setStatus('RUNNING')
+    setStatus('WORKING')
     setLogs([])
-    onTaskUpdate?.({ agentStatus: 'RUNNING' })
+    onTaskUpdate?.({ agentStatus: 'WORKING' })
   }, [onTaskUpdate])
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ function AgentPanelInner({
             </span>
           )}
         </div>
-        {status !== 'IDLE' && (
+        {status !== 'SUBMITTED' && (
           <AgentStatusBadge
             status={status}
             error={task.agentError ?? null}
