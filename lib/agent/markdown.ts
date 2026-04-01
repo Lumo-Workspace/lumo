@@ -1,8 +1,13 @@
 import { marked } from 'marked'
+import TurndownModule from 'turndown'
 
-const TurndownService = require('turndown') as new (options?: object) => {
-  turndown(html: string): string
-}
+// turndown is CJS (module.exports = class). Webpack/Turbopack CJS interop
+// may wrap it as { default: class } or return the class directly.
+const TurndownService = (
+  typeof TurndownModule === 'function'
+    ? TurndownModule
+    : (TurndownModule as unknown as { default: typeof TurndownModule }).default
+) as new (options?: object) => { turndown(html: string): string }
 
 /**
  * Detect whether a string is likely HTML (as opposed to plain markdown).
