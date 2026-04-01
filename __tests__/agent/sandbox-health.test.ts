@@ -1,24 +1,20 @@
 import { isSandboxAlive } from '@/lib/agent/sandbox-health'
 
-jest.mock('@e2b/code-interpreter', () => ({
-  Sandbox: {
-    connect: jest.fn(),
-  },
+const mockConnect = jest.fn()
+
+jest.mock('@/lib/agent/e2b-loader', () => ({
+  loadE2B: jest.fn().mockResolvedValue({
+    Sandbox: { connect: (...args: unknown[]) => mockConnect(...args) },
+  }),
 }))
-
-import { Sandbox } from '@e2b/code-interpreter'
-
-const mockConnect = Sandbox.connect as jest.MockedFunction<
-  typeof Sandbox.connect
->
 
 describe('isSandboxAlive', () => {
   beforeEach(() => {
-    jest.resetAllMocks()
+    jest.clearAllMocks()
   })
 
   it('returns true when sandbox connects successfully', async () => {
-    mockConnect.mockResolvedValue({} as any)
+    mockConnect.mockResolvedValue({})
     const result = await isSandboxAlive('sandbox-123')
     expect(result).toBe(true)
     expect(mockConnect).toHaveBeenCalledWith('sandbox-123', { timeoutMs: 5000 })

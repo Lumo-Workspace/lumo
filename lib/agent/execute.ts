@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto'
 import type { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
+import { loadE2B } from './e2b-loader'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 // clarify-monitor removed — MCP server now communicates via HTTP API
@@ -328,15 +329,8 @@ async function createPullRequest(params: {
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 async function createSandbox(runId: string): Promise<Sandbox> {
-  // Use new Function() to create a truly opaque dynamic import that Turbopack
-  // cannot statically analyze or bundle. This avoids two production issues:
-  // 1. Turbopack minification mangles the Sandbox class constructor ("eb is not a constructor")
-  // 2. serverExternalPackages causes ERR_REQUIRE_ESM (e2b → chalk v5 ESM-only)
-
-  const e2b = (await new Function(
-    'return import("@e2b/code-interpreter")'
-  )()) as typeof import('@e2b/code-interpreter')
-  const sandbox = await e2b.Sandbox.create({
+  const { Sandbox: SandboxClass } = await loadE2B()
+  const sandbox = await SandboxClass.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
     throw new AgentError(
