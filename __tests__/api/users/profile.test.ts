@@ -143,6 +143,17 @@ describe('POST /api/users/profile/avatar', () => {
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.ok).toBe(true)
-    expect(mockUpdateImage).toHaveBeenCalledWith('user_abc', { file })
+    // FormData round-trip creates a new File instance with a different lastModified,
+    // so compare by properties rather than by reference.
+    expect(mockUpdateImage).toHaveBeenCalledWith(
+      'user_abc',
+      expect.objectContaining({
+        file: expect.objectContaining({
+          name: 'avatar.png',
+          type: 'image/png',
+          size: file.size,
+        }),
+      })
+    )
   })
 })
