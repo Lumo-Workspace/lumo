@@ -3,14 +3,12 @@ import { prisma } from '../db.js'
 import { getContext } from '../context.js'
 
 export function registerWorkspaceTools(server: McpServer) {
-  /**
-   * get_workspace_context
-   * Returns workspace info + all members so the agent can resolve names/IDs.
-   */
-  server.tool(
+  server.registerTool(
     'get_workspace_context',
-    'Get workspace details and member list. Call this first to orient yourself.',
-    {},
+    {
+      description:
+        'Get workspace details and member list. Call this first to orient yourself.',
+    },
     async () => {
       const { workspaceId, memberId } = getContext()
 
@@ -35,12 +33,7 @@ export function registerWorkspaceTools(server: McpServer) {
           {
             type: 'text' as const,
             text: JSON.stringify(
-              {
-                workspace,
-                currentMemberId: memberId,
-                members,
-                teams,
-              },
+              { workspace, currentMemberId: memberId, members, teams },
               null,
               2
             ),

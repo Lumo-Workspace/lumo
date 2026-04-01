@@ -6,10 +6,9 @@ import { getContext } from '../context.js'
 export function registerProjectTools(server: McpServer) {
   // ─── list_projects ────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'list_projects',
-    'List all projects in the workspace.',
-    {},
+    { description: 'List all projects in the workspace.' },
     async () => {
       const { workspaceId } = getContext()
 
@@ -39,12 +38,16 @@ export function registerProjectTools(server: McpServer) {
     }
   )
 
-  // ─── get_project ─────────────────────────────────────────────────────────
+  // ─── get_project ──────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'get_project',
-    'Get a single project by ID.',
-    { projectId: z.string().describe('Project ID') },
+    {
+      description: 'Get a single project by ID.',
+      inputSchema: {
+        projectId: z.string().describe('Project ID'),
+      },
+    },
     async ({ projectId }) => {
       const { workspaceId } = getContext()
 
@@ -59,10 +62,7 @@ export function registerProjectTools(server: McpServer) {
 
       return {
         content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ project }, null, 2),
-          },
+          { type: 'text' as const, text: JSON.stringify({ project }, null, 2) },
         ],
       }
     }
@@ -70,22 +70,23 @@ export function registerProjectTools(server: McpServer) {
 
   // ─── create_project ───────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'create_project',
-    'Create a new project in the workspace.',
     {
-      name: z.string().min(1).describe('Project name'),
-      description: z.string().optional().describe('Optional description'),
-      isIdea: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe('Mark as idea/draft (private)'),
+      description: 'Create a new project in the workspace.',
+      inputSchema: {
+        name: z.string().min(1).describe('Project name'),
+        description: z.string().optional().describe('Optional description'),
+        isIdea: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Mark as idea/draft (private)'),
+      },
     },
     async ({ name, description, isIdea }) => {
       const { workspaceId, memberId } = getContext()
 
-      // Get default team
       const defaultTeam = await prisma.team.findFirst({
         where: { workspaceId, isDefault: true },
         select: { id: true },
@@ -104,7 +105,6 @@ export function registerProjectTools(server: McpServer) {
           },
         })
 
-        // Create default Document view
         await tx.view.create({
           data: {
             workspaceId,
@@ -120,10 +120,7 @@ export function registerProjectTools(server: McpServer) {
 
       return {
         content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ project }, null, 2),
-          },
+          { type: 'text' as const, text: JSON.stringify({ project }, null, 2) },
         ],
       }
     }
@@ -131,18 +128,20 @@ export function registerProjectTools(server: McpServer) {
 
   // ─── update_project ───────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'update_project',
-    'Update a project name, description, or idea status.',
     {
-      projectId: z.string().describe('Project ID'),
-      name: z.string().min(1).optional().describe('New name'),
-      description: z
-        .string()
-        .nullable()
-        .optional()
-        .describe('New description (null to clear)'),
-      isIdea: z.boolean().optional().describe('Toggle idea/draft status'),
+      description: 'Update a project name, description, or idea status.',
+      inputSchema: {
+        projectId: z.string().describe('Project ID'),
+        name: z.string().min(1).optional().describe('New name'),
+        description: z
+          .string()
+          .nullable()
+          .optional()
+          .describe('New description (null to clear)'),
+        isIdea: z.boolean().optional().describe('Toggle idea/draft status'),
+      },
     },
     async ({ projectId, name, description, isIdea }) => {
       const { workspaceId } = getContext()
@@ -164,10 +163,7 @@ export function registerProjectTools(server: McpServer) {
 
       return {
         content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ project }, null, 2),
-          },
+          { type: 'text' as const, text: JSON.stringify({ project }, null, 2) },
         ],
       }
     }

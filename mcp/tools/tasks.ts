@@ -55,22 +55,25 @@ function formatTask(t: {
 export function registerTaskTools(server: McpServer) {
   // ─── list_tasks ───────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'list_tasks',
-    'List tasks. Filter by project, status, priority, or assignee.',
     {
-      projectId: z.string().optional().describe('Filter by project ID'),
-      status: statusEnum.optional(),
-      priority: priorityEnum.optional(),
-      assigneeId: z
-        .string()
-        .optional()
-        .describe('Filter by assignee member ID. Use "me" for yourself.'),
-      includeSubtasks: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe('Include subtasks (default true)'),
+      description:
+        'List tasks. Filter by project, status, priority, or assignee.',
+      inputSchema: {
+        projectId: z.string().optional().describe('Filter by project ID'),
+        status: statusEnum.optional(),
+        priority: priorityEnum.optional(),
+        assigneeId: z
+          .string()
+          .optional()
+          .describe('Filter by assignee member ID. Use "me" for yourself.'),
+        includeSubtasks: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe('Include subtasks (default true)'),
+      },
     },
     async ({ projectId, status, priority, assigneeId, includeSubtasks }) => {
       const { workspaceId, memberId } = getContext()
@@ -79,7 +82,6 @@ export function registerTaskTools(server: McpServer) {
         memberId
       )
 
-      // Build where clause scoped to workspace via team
       const tasks = await prisma.task.findMany({
         where: {
           team: { workspaceId },
@@ -109,11 +111,15 @@ export function registerTaskTools(server: McpServer) {
 
   // ─── get_task ─────────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'get_task',
-    'Get a single task by ID or identifier (e.g. "LUM-7").',
     {
-      taskId: z.string().describe('Task ID (cuid) or identifier like "ENG-12"'),
+      description: 'Get a single task by ID or identifier (e.g. "LUM-7").',
+      inputSchema: {
+        taskId: z
+          .string()
+          .describe('Task ID (cuid) or identifier like "ENG-12"'),
+      },
     },
     async ({ taskId }) => {
       const { workspaceId } = getContext()
@@ -150,23 +156,25 @@ export function registerTaskTools(server: McpServer) {
 
   // ─── create_task ──────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'create_task',
-    'Create a new task in a project.',
     {
-      projectId: z.string().describe('Project ID'),
-      title: z.string().min(1).describe('Task title'),
-      description: z.string().optional().describe('Task description'),
-      status: statusEnum.optional().default('TODO'),
-      priority: priorityEnum.optional().default('MEDIUM'),
-      assigneeId: z
-        .string()
-        .optional()
-        .describe('Assignee member ID. Use "me" for yourself.'),
-      parentTaskId: z
-        .string()
-        .optional()
-        .describe('Parent task ID or identifier for subtasks'),
+      description: 'Create a new task in a project.',
+      inputSchema: {
+        projectId: z.string().describe('Project ID'),
+        title: z.string().min(1).describe('Task title'),
+        description: z.string().optional().describe('Task description'),
+        status: statusEnum.optional().default('TODO'),
+        priority: priorityEnum.optional().default('MEDIUM'),
+        assigneeId: z
+          .string()
+          .optional()
+          .describe('Assignee member ID. Use "me" for yourself.'),
+        parentTaskId: z
+          .string()
+          .optional()
+          .describe('Parent task ID or identifier for subtasks'),
+      },
     },
     async ({
       projectId,
@@ -188,18 +196,13 @@ export function registerTaskTools(server: McpServer) {
       })
       if (!project) throw new Error(`Project ${projectId} not found`)
 
-      // Resolve parentTaskId
       let resolvedParentId: string | null = null
       if (parentTaskId) {
         resolvedParentId = await resolveTaskId(parentTaskId, workspaceId)
       }
 
-      // Calculate order: append at end
       const maxOrderTask = await prisma.task.findFirst({
-        where: {
-          projectId,
-          parentTaskId: resolvedParentId,
-        },
+        where: { projectId, parentTaskId: resolvedParentId },
         orderBy: { order: 'desc' },
         select: { order: true },
       })
@@ -242,26 +245,30 @@ export function registerTaskTools(server: McpServer) {
 
   // ─── update_task ──────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'update_task',
-    'Update task fields: title, description, status, priority, or assignee.',
     {
-      taskId: z.string().describe('Task ID (cuid) or identifier like "ENG-12"'),
-      title: z.string().min(1).optional(),
-      description: z.string().nullable().optional(),
-      status: statusEnum.optional(),
-      priority: priorityEnum.optional(),
-      assigneeId: z
-        .string()
-        .nullable()
-        .optional()
-        .describe('New assignee member ID, "me", or null to unassign'),
+      description:
+        'Update task fields: title, description, status, priority, or assignee.',
+      inputSchema: {
+        taskId: z
+          .string()
+          .describe('Task ID (cuid) or identifier like "ENG-12"'),
+        title: z.string().min(1).optional(),
+        description: z.string().nullable().optional(),
+        status: statusEnum.optional(),
+        priority: priorityEnum.optional(),
+        assigneeId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe('New assignee member ID, "me", or null to unassign'),
+      },
     },
     async ({ taskId, title, description, status, priority, assigneeId }) => {
       const { workspaceId, memberId } = getContext()
       const id = await resolveTaskId(taskId, workspaceId)
 
-      // Verify task belongs to this workspace
       const existing = await prisma.task.findFirst({
         where: { id, team: { workspaceId } },
       })
@@ -298,11 +305,15 @@ export function registerTaskTools(server: McpServer) {
 
   // ─── delete_task ──────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'delete_task',
-    'Delete a task. Subtasks will have their parent cleared.',
     {
-      taskId: z.string().describe('Task ID (cuid) or identifier like "ENG-12"'),
+      description: 'Delete a task. Subtasks will have their parent cleared.',
+      inputSchema: {
+        taskId: z
+          .string()
+          .describe('Task ID (cuid) or identifier like "ENG-12"'),
+      },
     },
     async ({ taskId }) => {
       const { workspaceId } = getContext()
@@ -328,22 +339,26 @@ export function registerTaskTools(server: McpServer) {
 
   // ─── move_task ────────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'move_task',
-    'Move a task to a different project or change its parent.',
     {
-      taskId: z.string().describe('Task ID (cuid) or identifier like "ENG-12"'),
-      projectId: z
-        .string()
-        .optional()
-        .describe('Target project ID to move the task to'),
-      parentTaskId: z
-        .string()
-        .nullable()
-        .optional()
-        .describe(
-          'New parent task ID/identifier, or null to make it a root task'
-        ),
+      description: 'Move a task to a different project or change its parent.',
+      inputSchema: {
+        taskId: z
+          .string()
+          .describe('Task ID (cuid) or identifier like "ENG-12"'),
+        projectId: z
+          .string()
+          .optional()
+          .describe('Target project ID to move the task to'),
+        parentTaskId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'New parent task ID/identifier, or null to make it a root task'
+          ),
+      },
     },
     async ({ taskId, projectId, parentTaskId }) => {
       const { workspaceId } = getContext()

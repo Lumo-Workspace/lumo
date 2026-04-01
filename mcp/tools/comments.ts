@@ -7,11 +7,15 @@ import { resolveTaskId } from '../resolvers.js'
 export function registerCommentTools(server: McpServer) {
   // ─── list_comments ────────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'list_comments',
-    'List all comments on a task.',
     {
-      taskId: z.string().describe('Task ID (cuid) or identifier like "ENG-12"'),
+      description: 'List all comments on a task.',
+      inputSchema: {
+        taskId: z
+          .string()
+          .describe('Task ID (cuid) or identifier like "ENG-12"'),
+      },
     },
     async ({ taskId }) => {
       const { workspaceId } = getContext()
@@ -40,27 +44,30 @@ export function registerCommentTools(server: McpServer) {
 
   // ─── manage_comment ───────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     'manage_comment',
-    'Create, update, or delete a comment. Use action="create" | "update" | "delete".',
     {
-      action: z
-        .enum(['create', 'update', 'delete'])
-        .describe('Operation to perform'),
-      taskId: z
-        .string()
-        .optional()
-        .describe('Task ID or identifier — required for action="create"'),
-      commentId: z
-        .string()
-        .optional()
-        .describe(
-          'Comment ID — required for action="update" or action="delete"'
-        ),
-      body: z
-        .string()
-        .optional()
-        .describe('Comment text — required for action="create" or "update"'),
+      description:
+        'Create, update, or delete a comment. Use action="create" | "update" | "delete".',
+      inputSchema: {
+        action: z
+          .enum(['create', 'update', 'delete'])
+          .describe('Operation to perform'),
+        taskId: z
+          .string()
+          .optional()
+          .describe('Task ID or identifier — required for action="create"'),
+        commentId: z
+          .string()
+          .optional()
+          .describe(
+            'Comment ID — required for action="update" or action="delete"'
+          ),
+        body: z
+          .string()
+          .optional()
+          .describe('Comment text — required for action="create" or "update"'),
+      },
     },
     async ({ action, taskId, commentId, body }) => {
       const { workspaceId, memberId } = getContext()
@@ -76,7 +83,6 @@ export function registerCommentTools(server: McpServer) {
         })
         if (!task) throw new Error(`Task ${taskId} not found`)
 
-        // Resolve memberId → actor for authorActorId
         const actor = await prisma.actor.findUnique({
           where: { memberId },
           select: { id: true },
@@ -102,7 +108,6 @@ export function registerCommentTools(server: McpServer) {
           throw new Error('commentId is required for action="update"')
         if (!body) throw new Error('body is required for action="update"')
 
-        // Verify comment belongs to this workspace
         const existing = await prisma.comment.findUnique({
           where: { id: commentId },
           include: { task: { include: { team: true } } },

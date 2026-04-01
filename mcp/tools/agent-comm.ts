@@ -96,22 +96,24 @@ async function pollForReply(clarifyId: string): Promise<string> {
 // ── Tool registration ─────────────────────────────────────────────────────
 
 export function registerAgentCommTools(server: McpServer) {
-  server.tool(
+  server.registerTool(
     'ask_user',
-    'Ask the user a clarifying question and wait for their reply. ' +
-      'Use when the spec is ambiguous or missing critical details. ' +
-      'Blocks until the user responds (up to 25 minutes).',
     {
-      question: z.string().describe('The question to ask the user'),
-      context: z
-        .string()
-        .optional()
-        .describe('What you were doing when you got stuck'),
+      description:
+        'Ask the user a clarifying question and wait for their reply. ' +
+        'Use when the spec is ambiguous or missing critical details. ' +
+        'Blocks until the user responds (up to 25 minutes).',
+      inputSchema: {
+        question: z.string().describe('The question to ask the user'),
+        context: z
+          .string()
+          .optional()
+          .describe('What you were doing when you got stuck'),
+      },
     },
     async ({ question, context }) => {
       const taskId = getTaskId()
 
-      // Submit question to Lumo backend
       const result = await httpWithRetry(() =>
         httpPost('/api/agent/mcp-clarify', {
           taskId,
@@ -133,17 +135,19 @@ export function registerAgentCommTools(server: McpServer) {
         }
       }
 
-      // Poll until user replies
       const reply = await pollForReply(clarifyId)
       return { content: [{ type: 'text' as const, text: reply }] }
     }
   )
 
-  server.tool(
+  server.registerTool(
     'report_progress',
-    'Report a progress message to the user. Use sparingly for major milestones only.',
     {
-      message: z.string().describe('A short progress update'),
+      description:
+        'Report a progress message to the user. Use sparingly for major milestones only.',
+      inputSchema: {
+        message: z.string().describe('A short progress update'),
+      },
     },
     async ({ message }) => {
       try {
