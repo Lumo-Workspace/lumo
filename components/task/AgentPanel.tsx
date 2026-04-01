@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import type { AgentEvent } from '@/lib/pusher/server'
 import {
   AgentStatusBadge,
@@ -243,7 +244,14 @@ function AgentPanelInner({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: task.id, spec: task.spec ?? '' }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(
+          (data as { error?: string }).error ??
+            `Failed to confirm spec (${res.status})`
+        )
+        return
+      }
       setStatus('WORKING')
       setLogs([])
       setSteps([])
