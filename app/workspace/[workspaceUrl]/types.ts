@@ -257,6 +257,7 @@ export interface TaskDetail {
   branches?: ApiTaskBranch[]
   agentStatus?: string | null
   agentError?: string | null
+  inputReason?: string | null
   clarifies?: ApiAgentClarify[]
   agentRuns?: ApiAgentRun[]
   spec?: string | null

@@ -31,6 +31,8 @@ export interface AgentTask {
   assignee?: { type: 'HUMAN' | 'AGENT'; agent?: { name: string } | null } | null
   agentStatus?: string | null
   agentError?: string | null
+  inputReason?: string | null
+  spec?: string | null
   branches?: ApiTaskBranch[]
   pullRequests?: ApiPullRequest[]
   /** Full clarify records from API — panel only reads id/question/context */

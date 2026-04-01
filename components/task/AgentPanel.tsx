@@ -11,6 +11,7 @@ import {
   GitBranch,
   GitPullRequest,
   ExternalLink,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { AgentEvent } from '@/lib/pusher/server'
@@ -51,6 +52,7 @@ function AgentPanelInner({
   )
   const [cancelling, setCancelling] = useState(false)
   const [running, setRunning] = useState(false)
+  const [confirmingSpec, setConfirmingSpec] = useState(false)
   const [pausedAt, setPausedAt] = useState<Date | null>(null)
 
   // Real-time done metadata from Pusher (overrides agentRuns[0] until next page load)
@@ -233,6 +235,24 @@ function AgentPanelInner({
     }
   }, [task.id])
 
+  const handleConfirmSpec = useCallback(async () => {
+    setConfirmingSpec(true)
+    try {
+      const res = await fetch('/api/agent/confirm-spec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, spec: task.spec ?? '' }),
+      })
+      if (!res.ok) return
+      setStatus('WORKING')
+      setLogs([])
+      setSteps([])
+      onTaskUpdate?.({ agentStatus: 'WORKING' })
+    } finally {
+      setConfirmingSpec(false)
+    }
+  }, [task.id, task.spec, onTaskUpdate])
+
   const handleClarifyReplied = useCallback(() => {
     setClarify(null)
     setStatus('WORKING')
@@ -284,7 +304,7 @@ function AgentPanelInner({
         />
       )}
 
-      {/* ── PAUSED state ── */}
+      {/* ── PAUSED: clarify question ── */}
       {isPaused && clarify && task.project?.workspaceId && (
         <AgentClarifyPanel
           clarify={clarify}
@@ -293,6 +313,28 @@ function AgentPanelInner({
           pausedAt={pausedAt}
           onReplied={handleClarifyReplied}
         />
+      )}
+
+      {/* ── PAUSED: spec review — confirm to start coding ── */}
+      {isPaused && !clarify && task.inputReason === 'spec_review' && (
+        <div className='rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-3 space-y-2'>
+          <p className='text-xs text-indigo-700 dark:text-indigo-300 font-medium'>
+            Spec ready — review it above and confirm to start coding.
+          </p>
+          <Button
+            size='sm'
+            className='w-full h-7 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white'
+            disabled={confirmingSpec || !task.spec}
+            onClick={handleConfirmSpec}
+          >
+            {confirmingSpec ? (
+              <Loader2 size={12} className='animate-spin' />
+            ) : (
+              <CheckCircle2 size={12} />
+            )}
+            {confirmingSpec ? 'Starting…' : 'Confirm Spec & Start Coding'}
+          </Button>
+        </div>
       )}
 
       {/* ── Steps progress list ── */}
