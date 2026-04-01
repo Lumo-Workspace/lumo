@@ -48,6 +48,11 @@ export async function pushAgentEvent(
   }
 }
 
+/** Fire-and-forget version — use for non-critical progress/thinking events. */
+export function fireAgentEvent(taskId: string, event: AgentEvent): void {
+  void pushAgentEvent(taskId, event)
+}
+
 // ── Task events (comments, field changes) ───────────────────────────────────
 
 export type TaskEvent =

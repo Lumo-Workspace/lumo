@@ -18,6 +18,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 jest.mock('@/lib/pusher/server', () => ({
   pushAgentEvent: jest.fn(),
+  fireAgentEvent: jest.fn(),
 }))
 
 jest.mock('@/lib/agent/markdown', () => ({
@@ -46,11 +47,12 @@ jest.mock('@/lib/events/dispatcher', () => ({
 
 // Import mocked modules AFTER jest.mock calls so we get the mock instances
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
 const mockPrismaTaskFindUnique = (prisma as any).task.findUnique as jest.Mock
 const mockPushAgentEvent = pushAgentEvent as jest.Mock
+const mockFireAgentEvent = fireAgentEvent as jest.Mock
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -126,17 +128,17 @@ describe('generateSpecDraft', () => {
       )
     })
 
-    it('pushes agent:started, agent:progress, and agent:spec_draft events', async () => {
+    it('fires agent:started and agent:progress, pushes agent:spec_draft', async () => {
       await generateSpecDraft(TASK_ID, baseTask)
 
-      expect(mockPushAgentEvent).toHaveBeenCalledWith(TASK_ID, {
+      expect(mockFireAgentEvent).toHaveBeenCalledWith(TASK_ID, {
         type: 'agent:started',
       })
-      expect(mockPushAgentEvent).toHaveBeenCalledWith(
+      expect(mockFireAgentEvent).toHaveBeenCalledWith(
         TASK_ID,
         expect.objectContaining({ type: 'agent:progress' })
       )
-      // spec_draft event also uses HTML
+      // spec_draft event uses await (critical event)
       expect(mockPushAgentEvent).toHaveBeenCalledWith(TASK_ID, {
         type: 'agent:spec_draft',
         spec: `<p>${SPEC_TEXT}</p>`,

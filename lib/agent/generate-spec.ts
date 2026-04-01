@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
 import { markdownToHtml } from './markdown'
 
@@ -37,8 +37,8 @@ export async function generateSpecDraft(
   await transitionAgentStatus(taskId, task.project.id, 'WORKING', {
     agentError: null,
   })
-  await pushAgentEvent(taskId, { type: 'agent:started' })
-  await pushAgentEvent(taskId, {
+  fireAgentEvent(taskId, { type: 'agent:started' })
+  fireAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Generating spec from description…',
   })

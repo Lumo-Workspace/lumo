@@ -3,7 +3,11 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import { monitorForClarify, checkForClarifyFile } from './clarify-monitor'
-import { pushAgentEvent, pushTaskEvent } from '@/lib/pusher/server'
+import {
+  pushAgentEvent,
+  fireAgentEvent,
+  pushTaskEvent,
+} from '@/lib/pusher/server'
 import { AgentError, userFriendlyError } from './errors'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'
@@ -27,6 +31,7 @@ const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
 const AGENT_CMD_TIMEOUT_MS = 25 * 60 * 1000
 const PUSH_TIMEOUT_MS = 60 * 1000
+const CLARIFY_SENTINEL = '__clarify__'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +69,8 @@ interface RunContext {
   gitEmail: string
 }
 
+type ChangedFile = { path: string; status: 'added' | 'modified' | 'deleted' }
+
 // ── Pure helpers ───────────────────────────────────────────────────────────
 
 function slugify(title: string): string {
@@ -76,16 +83,33 @@ function slugify(title: string): string {
 
 function summarizeToolInput(tool: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, string>
-  switch (tool) {
-    case 'Read':
-    case 'Write':
-    case 'Edit':
-      return i.file_path ?? ''
-    case 'Bash':
-      return (i.command ?? '').slice(0, 80)
-    default:
-      return ''
-  }
+  if (tool === 'Read' || tool === 'Write' || tool === 'Edit')
+    return i.file_path ?? ''
+  if (tool === 'Bash') return (i.command ?? '').slice(0, 80)
+  return ''
+}
+
+const STATUS_MAP: Record<string, ChangedFile['status']> = {
+  A: 'added',
+  M: 'modified',
+  D: 'deleted',
+}
+
+function parseGitDiffLine(line: string): ChangedFile | null {
+  const [statusChar, ...pathParts] = line.split('\t')
+  const path = pathParts.join('\t')
+  if (!path) return null
+  return { path, status: STATUS_MAP[statusChar?.charAt(0) ?? ''] ?? 'modified' }
+}
+
+function getDiffBase(
+  isFollowUp: boolean,
+  branchExistsOnRemote: boolean,
+  branchName: string
+): string {
+  return isFollowUp && branchExistsOnRemote
+    ? `origin/${branchName}`
+    : 'origin/HEAD'
 }
 
 // ── Data access ───────────────────────────────────────────────────────────
@@ -154,35 +178,41 @@ function resolveBranch(
   }
 }
 
-// ── Status transitions ────────────────────────────────────────────────────
+function resolveGitIdentity(actorName?: string, actorEmail?: string) {
+  return {
+    gitName: actorName ? `${actorName} (via Lumo Agent)` : 'Lumo Agent',
+    gitEmail: actorEmail || 'agent@uselumo.ai',
+  }
+}
 
-async function markFailed(
+async function resolveCredentials(): Promise<{
+  githubToken: string
+  anthropicKey: string
+}> {
+  const githubToken = await getGithubInstallationToken().catch(err => {
+    throw new AgentError('CLONE_FAILED', 'Failed to get GitHub token', err)
+  })
+  const anthropicKey = process.env.ANTHROPIC_API_KEY
+  if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
+  return { githubToken, anthropicKey }
+}
+
+// ── AgentRun lifecycle ───────────────────────────────────────────────────
+
+async function createAgentRun(
   taskId: string,
   projectId: string,
-  code: string,
-  message: string,
-  agentRunId?: string
-) {
-  await transitionAgentStatus(taskId, projectId, 'FAILED', {
-    agentError: code,
+  trigger: string
+): Promise<string> {
+  const runNumber = await nextRunNumber(taskId)
+  const agentRun = await prisma.agentRun.create({
+    data: { taskId, runNumber, status: 'WORKING', trigger },
   })
-  await pushAgentEvent(taskId, {
-    type: 'agent:failed',
-    error: userFriendlyError(code),
+  await transitionAgentStatus(taskId, projectId, 'WORKING', {
+    agentError: null,
   })
-  await notifyAgentFailed(taskId)
-  if (agentRunId) {
-    await prisma.agentRun.update({
-      where: { id: agentRunId },
-      data: {
-        status: 'FAILED',
-        errorCode: code,
-        errorMessage: userFriendlyError(code),
-        finishedAt: new Date(),
-      },
-    })
-  }
-  console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
+  fireAgentEvent(taskId, { type: 'agent:started' })
+  return agentRun.id
 }
 
 async function markRunCompleted(
@@ -209,6 +239,44 @@ async function markRunCompleted(
       branchName: data.branchName ?? null,
       finishedAt: new Date(),
     },
+  })
+}
+
+async function updateFailedRun(agentRunId: string, code: string) {
+  await prisma.agentRun.update({
+    where: { id: agentRunId },
+    data: {
+      status: 'FAILED',
+      errorCode: code,
+      errorMessage: userFriendlyError(code),
+      finishedAt: new Date(),
+    },
+  })
+}
+
+async function markFailed(
+  taskId: string,
+  projectId: string,
+  code: string,
+  message: string,
+  agentRunId?: string
+) {
+  await transitionAgentStatus(taskId, projectId, 'FAILED', {
+    agentError: code,
+  })
+  await pushAgentEvent(taskId, {
+    type: 'agent:failed',
+    error: userFriendlyError(code),
+  })
+  await notifyAgentFailed(taskId)
+  if (agentRunId) await updateFailedRun(agentRunId, code)
+  console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
+}
+
+async function markRunCanceled(runId: string) {
+  await prisma.agentRun.update({
+    where: { id: runId },
+    data: { status: 'CANCELED', finishedAt: new Date() },
   })
 }
 
@@ -273,6 +341,19 @@ async function createSandbox(runId: string): Promise<Sandbox> {
   return sandbox
 }
 
+function buildCloneCommand(
+  ctx: Pick<
+    RunContext,
+    'repoOwner' | 'repoName' | 'githubToken' | 'gitEmail' | 'gitName'
+  >
+) {
+  return (
+    `git clone https://oauth2:${ctx.githubToken}@github.com/${ctx.repoOwner}/${ctx.repoName} /home/user/repo` +
+    ` && git -C /home/user/repo config user.email "${ctx.gitEmail}"` +
+    ` && git -C /home/user/repo config user.name "${ctx.gitName}"`
+  )
+}
+
 async function cloneRepo(
   sandbox: Sandbox,
   ctx: Pick<
@@ -280,17 +361,12 @@ async function cloneRepo(
     'taskId' | 'repoOwner' | 'repoName' | 'githubToken' | 'gitName' | 'gitEmail'
   >
 ) {
-  await pushAgentEvent(ctx.taskId, {
+  fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
     message: `Cloning ${ctx.repoOwner}/${ctx.repoName}...`,
   })
   const clone = await sandbox.commands
-    .run(
-      `git clone https://oauth2:${ctx.githubToken}@github.com/${ctx.repoOwner}/${ctx.repoName} /home/user/repo` +
-        ` && git -C /home/user/repo config user.email "${ctx.gitEmail}"` +
-        ` && git -C /home/user/repo config user.name "${ctx.gitName}"`,
-      { timeoutMs: CLONE_TIMEOUT_MS }
-    )
+    .run(buildCloneCommand(ctx), { timeoutMs: CLONE_TIMEOUT_MS })
     .catch(err => {
       throw new AgentError('CLONE_FAILED', 'Failed to clone repository', err)
     })
@@ -300,7 +376,7 @@ async function cloneRepo(
 }
 
 async function installClaude(sandbox: Sandbox, taskId: string) {
-  await pushAgentEvent(taskId, {
+  fireAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Setting up environment...',
   })
@@ -309,40 +385,59 @@ async function installClaude(sandbox: Sandbox, taskId: string) {
   })
 }
 
+// ── Branch operations ────────────────────────────────────────────────────
+
+async function checkRemoteBranchExists(
+  sandbox: Sandbox,
+  branchName: string
+): Promise<boolean> {
+  const lsRemote = await sandbox.commands
+    .run(`git -C /home/user/repo ls-remote --heads origin ${branchName}`, {
+      timeoutMs: 30 * 1000,
+    })
+    .catch(() => ({ stdout: '' }))
+  return !!(lsRemote.stdout && lsRemote.stdout.trim())
+}
+
+async function fetchAndCheckout(
+  sandbox: Sandbox,
+  taskId: string,
+  branchName: string
+) {
+  fireAgentEvent(taskId, {
+    type: 'agent:progress',
+    message: `Checking out existing branch ${branchName}...`,
+  })
+  await sandbox.commands.run(
+    `git -C /home/user/repo fetch origin ${branchName} && git -C /home/user/repo checkout ${branchName}`,
+    { timeoutMs: PUSH_TIMEOUT_MS }
+  )
+}
+
+async function createBranch(
+  sandbox: Sandbox,
+  taskId: string,
+  branchName: string
+) {
+  fireAgentEvent(taskId, {
+    type: 'agent:progress',
+    message: `Creating branch ${branchName}...`,
+  })
+  await sandbox.commands.run(`git -C /home/user/repo checkout -b ${branchName}`)
+}
+
 async function checkoutBranch(
   sandbox: Sandbox,
   ctx: Pick<RunContext, 'taskId' | 'branchName' | 'isFollowUp'>
 ): Promise<boolean> {
-  let branchExistsOnRemote = false
-  if (ctx.isFollowUp) {
-    const lsRemote = await sandbox.commands
-      .run(
-        `git -C /home/user/repo ls-remote --heads origin ${ctx.branchName}`,
-        { timeoutMs: 30 * 1000 }
-      )
-      .catch(() => ({ stdout: '' }))
-    branchExistsOnRemote = !!(lsRemote.stdout && lsRemote.stdout.trim())
-  }
+  const branchExistsOnRemote =
+    ctx.isFollowUp && (await checkRemoteBranchExists(sandbox, ctx.branchName))
 
   if (branchExistsOnRemote) {
-    await pushAgentEvent(ctx.taskId, {
-      type: 'agent:progress',
-      message: `Checking out existing branch ${ctx.branchName}...`,
-    })
-    await sandbox.commands.run(
-      `git -C /home/user/repo fetch origin ${ctx.branchName} && git -C /home/user/repo checkout ${ctx.branchName}`,
-      { timeoutMs: PUSH_TIMEOUT_MS }
-    )
+    await fetchAndCheckout(sandbox, ctx.taskId, ctx.branchName)
   } else {
-    await pushAgentEvent(ctx.taskId, {
-      type: 'agent:progress',
-      message: `Creating branch ${ctx.branchName}...`,
-    })
-    await sandbox.commands.run(
-      `git -C /home/user/repo checkout -b ${ctx.branchName}`
-    )
+    await createBranch(sandbox, ctx.taskId, ctx.branchName)
   }
-
   return branchExistsOnRemote
 }
 
@@ -401,25 +496,31 @@ function buildClaudeCommand(anthropicKey: string): string {
   )
 }
 
+function processContentBlock(
+  taskId: string,
+  block: { type: string; text?: string; name?: string; input?: unknown }
+) {
+  if (block.type === 'text' && block.text?.trim()) {
+    fireAgentEvent(taskId, {
+      type: 'agent:thinking',
+      message: (block.text as string).slice(0, 120),
+    })
+  } else if (block.type === 'tool_use') {
+    fireAgentEvent(taskId, {
+      type: 'agent:tool',
+      tool: block.name as string,
+      input: summarizeToolInput(block.name as string, block.input),
+    })
+  }
+}
+
 function createStdoutHandler(taskId: string) {
-  return async (data: string) => {
+  return (data: string) => {
     try {
       const msg = JSON.parse(data)
       if (msg.type !== 'assistant') return
       for (const block of msg.message?.content ?? []) {
-        if (block.type === 'text' && block.text?.trim()) {
-          await pushAgentEvent(taskId, {
-            type: 'agent:thinking',
-            message: (block.text as string).slice(0, 120),
-          })
-        }
-        if (block.type === 'tool_use') {
-          await pushAgentEvent(taskId, {
-            type: 'agent:tool',
-            tool: block.name as string,
-            input: summarizeToolInput(block.name as string, block.input),
-          })
-        }
+        processContentBlock(taskId, block)
       }
     } catch {
       // Not JSON — skip
@@ -427,62 +528,74 @@ function createStdoutHandler(taskId: string) {
   }
 }
 
-async function runClaudeWithMonitor(
-  sandbox: Sandbox,
-  ctx: RunContext
-): Promise<AgentResult | 'agent_done'> {
-  const monitorTask = {
+function buildClarifyMonitorTask(ctx: RunContext) {
+  return {
     id: ctx.taskId,
     identifier: ctx.identifier,
     reviewerId: '',
     projectId: ctx.task.project.id,
   }
+}
 
-  const CLARIFY_SENTINEL = '__clarify__'
+async function raceAgentWithClarify(
+  sandbox: Sandbox,
+  ctx: RunContext,
+  clarifyHandle: ReturnType<typeof monitorForClarify>
+) {
+  return Promise.race([
+    sandbox.commands
+      .run(buildClaudeCommand(ctx.anthropicKey), {
+        timeoutMs: AGENT_CMD_TIMEOUT_MS,
+        onStdout: createStdoutHandler(ctx.taskId),
+      })
+      .catch(err => {
+        throw new AgentError(
+          'AGENT_EXECUTION_FAILED',
+          'Agent execution failed',
+          err
+        )
+      }),
+    clarifyHandle.promise.then(() => CLARIFY_SENTINEL),
+  ])
+}
+
+async function handleAgentExit(
+  sandbox: Sandbox,
+  ctx: RunContext,
+  winner: unknown
+): Promise<AgentResult | 'agent_done'> {
+  if (winner === CLARIFY_SENTINEL) {
+    return finalizeClarify(ctx.taskId, ctx.currentRunId)
+  }
+  const monitorTask = buildClarifyMonitorTask(ctx)
+  if (await checkForClarifyFile(sandbox, monitorTask)) {
+    return finalizeClarify(ctx.taskId, ctx.currentRunId)
+  }
+  const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
+  if (result.exitCode !== 0) {
+    throw new AgentError(
+      'AGENT_EXECUTION_FAILED',
+      `Agent exited with code ${result.exitCode}: ${result.stderr}`
+    )
+  }
+  return 'agent_done'
+}
+
+async function runClaudeWithMonitor(
+  sandbox: Sandbox,
+  ctx: RunContext
+): Promise<AgentResult | 'agent_done'> {
+  const monitorTask = buildClarifyMonitorTask(ctx)
   const clarifyHandle = monitorForClarify(sandbox, monitorTask)
 
   try {
-    await pushAgentEvent(ctx.taskId, {
+    fireAgentEvent(ctx.taskId, {
       type: 'agent:progress',
       message: 'Agent is analyzing the codebase...',
     })
-
-    const winner = await Promise.race([
-      sandbox.commands
-        .run(buildClaudeCommand(ctx.anthropicKey), {
-          timeoutMs: AGENT_CMD_TIMEOUT_MS,
-          onStdout: createStdoutHandler(ctx.taskId),
-        })
-        .catch(err => {
-          throw new AgentError(
-            'AGENT_EXECUTION_FAILED',
-            'Agent execution failed',
-            err
-          )
-        }),
-      clarifyHandle.promise.then(() => CLARIFY_SENTINEL),
-    ])
-
+    const winner = await raceAgentWithClarify(sandbox, ctx, clarifyHandle)
     clarifyHandle.stop()
-
-    if (winner === CLARIFY_SENTINEL) {
-      return finalizeClarify(ctx.taskId, ctx.currentRunId)
-    }
-
-    // Fallback: agent exited before monitor polled
-    if (await checkForClarifyFile(sandbox, monitorTask)) {
-      return finalizeClarify(ctx.taskId, ctx.currentRunId)
-    }
-
-    const result = winner as Awaited<ReturnType<typeof sandbox.commands.run>>
-    if (result.exitCode !== 0) {
-      throw new AgentError(
-        'AGENT_EXECUTION_FAILED',
-        `Agent exited with code ${result.exitCode}: ${result.stderr}`
-      )
-    }
-
-    return 'agent_done'
+    return handleAgentExit(sandbox, ctx, winner)
   } finally {
     clarifyHandle.stop()
   }
@@ -521,23 +634,12 @@ async function checkForCommits(
   return !!commitCheck.stdout.trim()
 }
 
-function getDiffBase(
-  isFollowUp: boolean,
-  branchExistsOnRemote: boolean,
-  branchName: string
-): string {
-  return isFollowUp && branchExistsOnRemote
-    ? `origin/${branchName}`
-    : 'origin/HEAD'
-}
-
 async function handleNoCommits(
   ctx: RunContext,
   isFollowUpWithRemote: boolean
 ): Promise<AgentResult> {
-  if (isFollowUpWithRemote) {
-    return handleFollowUpNoChanges(ctx)
-  }
+  if (isFollowUpWithRemote) return handleFollowUpNoChanges(ctx)
+
   await transitionAgentStatus(ctx.taskId, ctx.task.project.id, 'COMPLETED')
   await markRunCompleted(ctx.currentRunId, {
     durationMs: Date.now() - ctx.agentStartedAt,
@@ -550,14 +652,19 @@ async function handleNoCommits(
   return { outcome: 'no_changes' }
 }
 
-async function handleFollowUpNoChanges(ctx: RunContext): Promise<AgentResult> {
+async function findExistingPR(taskId: string, fallbackRepo: string) {
   const existingPr = await prisma.pullRequest.findFirst({
-    where: { taskId: ctx.taskId, state: 'open' },
+    where: { taskId, state: 'open' },
     select: { url: true, number: true },
   })
-  const prUrl =
-    existingPr?.url ?? `https://github.com/${ctx.resolvedRepo}/pulls`
-  const prNumber = existingPr?.number ?? 0
+  return {
+    prUrl: existingPr?.url ?? `https://github.com/${fallbackRepo}/pulls`,
+    prNumber: existingPr?.number ?? 0,
+  }
+}
+
+async function handleFollowUpNoChanges(ctx: RunContext): Promise<AgentResult> {
+  const { prUrl, prNumber } = await findExistingPR(ctx.taskId, ctx.resolvedRepo)
 
   await transitionAgentStatus(ctx.taskId, ctx.task.project.id, 'COMPLETED')
   await markRunCompleted(ctx.currentRunId, {
@@ -575,7 +682,7 @@ async function pushBranch(
   taskId: string,
   branchName: string
 ) {
-  await pushAgentEvent(taskId, {
+  fireAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Pushing branch...',
   })
@@ -591,29 +698,13 @@ async function pushBranch(
   }
 }
 
-async function collectRunMetadata(
-  sandbox: Sandbox,
-  diffBase: string,
-  branchName: string
-): Promise<{
-  changedFiles: { path: string; status: 'added' | 'modified' | 'deleted' }[]
-  summary: string
-}> {
-  const changedFiles = await collectChangedFiles(sandbox, diffBase, branchName)
-  const summary = await collectCommitSummary(sandbox, diffBase, branchName)
-  return { changedFiles, summary }
-}
+// ── Run metadata collection ──────────────────────────────────────────────
 
 async function collectChangedFiles(
   sandbox: Sandbox,
   diffBase: string,
   branchName: string
-) {
-  const STATUS_MAP: Record<string, 'added' | 'modified' | 'deleted'> = {
-    A: 'added',
-    M: 'modified',
-    D: 'deleted',
-  }
+): Promise<ChangedFile[]> {
   const diffResult = await sandbox.commands
     .run(
       `git -C /home/user/repo diff --name-status ${diffBase}..${branchName} 2>/dev/null`
@@ -622,14 +713,8 @@ async function collectChangedFiles(
   return (diffResult.stdout ?? '')
     .split('\n')
     .filter(Boolean)
-    .map(line => {
-      const [statusChar, ...pathParts] = line.split('\t')
-      return {
-        path: pathParts.join('\t'),
-        status: STATUS_MAP[statusChar?.charAt(0) ?? ''] ?? 'modified',
-      }
-    })
-    .filter(f => f.path)
+    .map(parseGitDiffLine)
+    .filter((f): f is ChangedFile => f !== null)
 }
 
 async function collectCommitSummary(
@@ -648,7 +733,54 @@ async function collectCommitSummary(
   return 'Agent completed successfully'
 }
 
+async function collectRunMetadata(
+  sandbox: Sandbox,
+  diffBase: string,
+  branchName: string
+) {
+  const changedFiles = await collectChangedFiles(sandbox, diffBase, branchName)
+  const summary = await collectCommitSummary(sandbox, diffBase, branchName)
+  return { changedFiles, summary }
+}
+
 // ── Complete agent run ────────────────────────────────────────────────────
+
+async function transitionStatuses(
+  taskId: string,
+  projectId: string,
+  taskStatus: string
+): Promise<DomainEvent[]> {
+  const agentEvents = await transitionAgentStatus(
+    taskId,
+    projectId,
+    'COMPLETED',
+    { skipDispatch: true }
+  )
+  const taskEvents = await tryTransitionTaskStatus(
+    taskId,
+    projectId,
+    taskStatus
+  )
+  return [...agentEvents, ...taskEvents]
+}
+
+async function tryTransitionTaskStatus(
+  taskId: string,
+  projectId: string,
+  taskStatus: string
+): Promise<DomainEvent[]> {
+  try {
+    return await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
+      currentStatus: taskStatus as TaskStatusValue,
+      skipDispatch: true,
+    })
+  } catch {
+    console.warn(
+      `[Agent] Skipping task status → IN_REVIEW: invalid from ${taskStatus}`
+    )
+    return []
+  }
+}
 
 async function completeAgentRun(params: {
   taskId: string
@@ -658,10 +790,7 @@ async function completeAgentRun(params: {
   resolvedRepo: string
   agentRunId: string
   agentSummary?: string | null
-  agentChangedFiles?: {
-    path: string
-    status: 'added' | 'modified' | 'deleted'
-  }[]
+  agentChangedFiles?: ChangedFile[]
   agentDurationMs: number
   prUpsertData?: {
     workspaceId: string
@@ -670,7 +799,11 @@ async function completeAgentRun(params: {
     url: string
   }
 }): Promise<void> {
-  const events = await transitionWithTaskStatus(params)
+  const events = await transitionStatuses(
+    params.taskId,
+    params.projectId,
+    params.taskStatus
+  )
   await upsertBranchAndPR(params)
   await dispatchEvents(events)
   await markRunCompleted(params.agentRunId, {
@@ -684,34 +817,44 @@ async function completeAgentRun(params: {
   await notifyAgentVerify(params.taskId)
 }
 
-async function transitionWithTaskStatus(params: {
-  taskId: string
-  projectId: string
-  taskStatus: string
-}): Promise<DomainEvent[]> {
-  const agentEvents = await transitionAgentStatus(
-    params.taskId,
-    params.projectId,
-    'COMPLETED',
-    { skipDispatch: true }
-  )
-  let taskEvents: DomainEvent[] = []
-  try {
-    taskEvents = await transitionTaskStatus(
-      params.taskId,
-      params.projectId,
-      'IN_REVIEW',
-      {
-        currentStatus: params.taskStatus as TaskStatusValue,
-        skipDispatch: true,
-      }
-    )
-  } catch {
-    console.warn(
-      `[Agent] Skipping task status → IN_REVIEW: invalid from ${params.taskStatus}`
-    )
-  }
-  return [...agentEvents, ...taskEvents]
+// ── Branch & PR upsert ──────────────────────────────────────────────────
+
+function buildBranchUpsert(
+  taskId: string,
+  resolvedRepo: string,
+  branchName: string
+) {
+  return prisma.taskBranch.upsert({
+    where: {
+      taskId_repo_branchName: { taskId, repo: resolvedRepo, branchName },
+    },
+    create: { taskId, repo: resolvedRepo, branchName },
+    update: {},
+  })
+}
+
+function buildPRUpsert(
+  taskId: string,
+  resolvedRepo: string,
+  branchName: string,
+  pr: { workspaceId: string; number: number; title: string; url: string }
+) {
+  return prisma.pullRequest.upsert({
+    where: { repo_number: { repo: resolvedRepo, number: pr.number } },
+    create: {
+      workspaceId: pr.workspaceId,
+      taskId,
+      repo: resolvedRepo,
+      number: pr.number,
+      title: pr.title,
+      url: pr.url,
+      state: 'open',
+      authorLogin: 'lumo-agent',
+      headBranch: branchName,
+      baseBranch: 'main',
+    },
+    update: { state: 'open', url: pr.url, taskId },
+  })
 }
 
 async function upsertBranchAndPR(params: {
@@ -725,45 +868,21 @@ async function upsertBranchAndPR(params: {
     url: string
   }
 }) {
-  const branchUpsert = prisma.taskBranch.upsert({
-    where: {
-      taskId_repo_branchName: {
-        taskId: params.taskId,
-        repo: params.resolvedRepo,
-        branchName: params.branchName,
-      },
-    },
-    create: {
-      taskId: params.taskId,
-      repo: params.resolvedRepo,
-      branchName: params.branchName,
-    },
-    update: {},
-  })
-
+  const branchOp = buildBranchUpsert(
+    params.taskId,
+    params.resolvedRepo,
+    params.branchName
+  )
   if (params.prUpsertData) {
-    const { workspaceId, number, title, url } = params.prUpsertData
-    await prisma.$transaction([
-      branchUpsert,
-      prisma.pullRequest.upsert({
-        where: { repo_number: { repo: params.resolvedRepo, number } },
-        create: {
-          workspaceId,
-          taskId: params.taskId,
-          repo: params.resolvedRepo,
-          number,
-          title,
-          url,
-          state: 'open',
-          authorLogin: 'lumo-agent',
-          headBranch: params.branchName,
-          baseBranch: 'main',
-        },
-        update: { state: 'open', url, taskId: params.taskId },
-      }),
-    ])
+    const prOp = buildPRUpsert(
+      params.taskId,
+      params.resolvedRepo,
+      params.branchName,
+      params.prUpsertData
+    )
+    await prisma.$transaction([branchOp, prOp])
   } else {
-    await branchUpsert
+    await branchOp
   }
 }
 
@@ -776,27 +895,18 @@ async function createOrReusePR(
 ): Promise<{ prUrl: string; prNumber: number }> {
   const hasPR =
     ctx.isFollowUp && branchExistsOnRemote && ctx.task.pullRequests[0]
-  if (hasPR) {
-    return reuseExistingPR(ctx, runMeta)
-  }
-  return createNewPR(ctx, runMeta)
+  return hasPR ? reuseExistingPR(ctx, runMeta) : createNewPR(ctx, runMeta)
 }
 
 async function reuseExistingPR(
   ctx: RunContext,
   runMeta: Awaited<ReturnType<typeof collectRunMetadata>>
 ): Promise<{ prUrl: string; prNumber: number }> {
-  await pushAgentEvent(ctx.taskId, {
+  fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
     message: 'Updating existing pull request...',
   })
-  const existingPr = await prisma.pullRequest.findFirst({
-    where: { taskId: ctx.taskId, state: 'open' },
-    select: { url: true, number: true },
-  })
-  const prUrl =
-    existingPr?.url ?? `https://github.com/${ctx.resolvedRepo}/pulls`
-  const prNumber = existingPr?.number ?? 0
+  const { prUrl, prNumber } = await findExistingPR(ctx.taskId, ctx.resolvedRepo)
 
   await completeAgentRun({
     taskId: ctx.taskId,
@@ -809,24 +919,28 @@ async function reuseExistingPR(
     agentChangedFiles: runMeta.changedFiles,
     agentDurationMs: Date.now() - ctx.agentStartedAt,
   })
-
   return { prUrl, prNumber }
+}
+
+function buildPRBody(taskSpec: string, identifier: string): string {
+  return `## Summary\n\n${taskSpec}\n\n---\n_This PR was created by Lumo Agent_\n\nRelated task: ${identifier}`
 }
 
 async function createNewPR(
   ctx: RunContext,
   runMeta: Awaited<ReturnType<typeof collectRunMetadata>>
 ): Promise<{ prUrl: string; prNumber: number }> {
-  await pushAgentEvent(ctx.taskId, {
+  fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
     message: 'Creating pull request...',
   })
+  const prTitle = `${ctx.task.title} [${ctx.identifier}]`
   const pr = await createPullRequest({
     owner: ctx.repoOwner,
     repo: ctx.repoName,
     branch: ctx.branchName,
-    title: `${ctx.task.title} [${ctx.identifier}]`,
-    body: `## Summary\n\n${ctx.taskSpec}\n\n---\n_This PR was created by Lumo Agent_\n\nRelated task: ${ctx.identifier}`,
+    title: prTitle,
+    body: buildPRBody(ctx.taskSpec, ctx.identifier),
     token: ctx.githubToken,
   })
 
@@ -843,36 +957,41 @@ async function createNewPR(
     prUpsertData: {
       workspaceId: ctx.task.project.workspaceId,
       number: pr.number,
-      title: `${ctx.task.title} [${ctx.identifier}]`,
+      title: prTitle,
       url: pr.html_url,
     },
   })
-
   return { prUrl: pr.html_url, prNumber: pr.number }
 }
 
 // ── Error handling ────────────────────────────────────────────────────────
 
+async function checkCurrentStatus(taskId: string) {
+  return prisma.task.findUnique({
+    where: { id: taskId },
+    select: { agentStatus: true },
+  })
+}
+
+async function handleTerminalStatus(
+  status: string,
+  runId: string
+): Promise<AgentResult> {
+  if (status === 'CANCELED') await markRunCanceled(runId)
+  return { outcome: 'failed', error: `Agent ${status}` }
+}
+
 async function handleExecutionError(
   error: unknown,
   ctx: RunContext
 ): Promise<AgentResult> {
-  const current = await prisma.task.findUnique({
-    where: { id: ctx.taskId },
-    select: { agentStatus: true },
-  })
+  const current = await checkCurrentStatus(ctx.taskId)
 
   if (
     current?.agentStatus === 'INPUT_REQUIRED' ||
     current?.agentStatus === 'CANCELED'
   ) {
-    if (current.agentStatus === 'CANCELED') {
-      await prisma.agentRun.update({
-        where: { id: ctx.currentRunId },
-        data: { status: 'CANCELED', finishedAt: new Date() },
-      })
-    }
-    return { outcome: 'failed', error: `Agent ${current.agentStatus}` }
+    return handleTerminalStatus(current.agentStatus, ctx.currentRunId)
   }
 
   if (error instanceof AgentError) {
@@ -897,6 +1016,104 @@ async function handleExecutionError(
   return { outcome: 'failed', error: userFriendlyError('UNKNOWN_ERROR') }
 }
 
+// ── Spec generation shortcut ─────────────────────────────────────────────
+
+async function handleMissingSpec(
+  taskId: string,
+  task: Awaited<ReturnType<typeof loadTask>>
+): Promise<AgentResult> {
+  await generateSpecDraft(taskId, {
+    title: task.title,
+    description: task.description,
+    spec: task.spec,
+    project: { id: task.project.id },
+  })
+  return { outcome: 'spec_review' } as AgentResult
+}
+
+// ── Timeout handler ──────────────────────────────────────────────────────
+
+function setupTimeout(
+  taskId: string,
+  projectId: string,
+  runId: string,
+  onTimeout: () => void
+): NodeJS.Timeout {
+  return setTimeout(async () => {
+    onTimeout()
+    await markFailed(
+      taskId,
+      projectId,
+      'TIMEOUT',
+      'Agent timed out after 28 minutes',
+      runId
+    )
+  }, AGENT_TIMEOUT_MS)
+}
+
+// ── Post-agent pipeline ─────────────────────────────────────────────────
+
+async function processPostAgent(
+  sandbox: Sandbox,
+  ctx: RunContext,
+  branchExistsOnRemote: boolean
+): Promise<AgentResult> {
+  const diffBase = getDiffBase(
+    ctx.isFollowUp,
+    branchExistsOnRemote,
+    ctx.branchName
+  )
+  const hasCommits = await checkForCommits(sandbox, ctx.branchName, diffBase)
+
+  if (!hasCommits) {
+    return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)
+  }
+
+  await pushBranch(sandbox, ctx.taskId, ctx.branchName)
+  const runMeta = await collectRunMetadata(sandbox, diffBase, ctx.branchName)
+  const { prUrl, prNumber } = await createOrReusePR(
+    ctx,
+    branchExistsOnRemote,
+    runMeta
+  )
+
+  await emitDoneEvents(ctx, prUrl, prNumber, runMeta)
+  return { outcome: 'done', prUrl, prNumber }
+}
+
+async function emitDoneEvents(
+  ctx: RunContext,
+  prUrl: string,
+  prNumber: number,
+  runMeta: { summary: string; changedFiles: ChangedFile[] }
+) {
+  await pushAgentEvent(ctx.taskId, {
+    type: 'agent:done',
+    prUrl,
+    prNumber,
+    summary: runMeta.summary,
+    changedFiles: runMeta.changedFiles,
+    durationMs: Date.now() - ctx.agentStartedAt,
+  })
+  await pushTaskEvent(ctx.taskId, {
+    type: 'task:updated',
+    fields: ['status', 'agentStatus', 'pullRequests', 'branches'],
+  })
+}
+
+// ── Sandbox pipeline ────────────────────────────────────────────────────
+
+async function setupSandboxAndRepo(
+  sandbox: Sandbox,
+  ctx: RunContext
+): Promise<boolean> {
+  await cloneRepo(sandbox, ctx)
+  await installClaude(sandbox, ctx.taskId)
+  const branchExistsOnRemote = await checkoutBranch(sandbox, ctx)
+  await writeTaskSpec(sandbox, ctx)
+  return branchExistsOnRemote
+}
+
 // ── Main orchestrator ─────────────────────────────────────────────────────
 
 export async function executeAgent({
@@ -906,17 +1123,7 @@ export async function executeAgent({
   trigger,
 }: ExecuteAgentOptions): Promise<AgentResult> {
   const task = await loadTask(taskId)
-
-  // If no spec yet, generate one and pause for review
-  if (!task.spec?.trim()) {
-    await generateSpecDraft(taskId, {
-      title: task.title,
-      description: task.description,
-      spec: task.spec,
-      project: { id: task.project.id },
-    })
-    return { outcome: 'spec_review' } as AgentResult
-  }
+  if (!task.spec?.trim()) return handleMissingSpec(taskId, task)
 
   const ctx = await buildRunContext(task, {
     taskId,
@@ -924,65 +1131,28 @@ export async function executeAgent({
     actorEmail,
     trigger,
   })
-
   let sandbox: Sandbox | undefined
   let timedOut = false
 
-  const timeoutHandle = setTimeout(async () => {
-    timedOut = true
-    await markFailed(
-      taskId,
-      task.project.id,
-      'TIMEOUT',
-      'Agent timed out after 28 minutes',
-      ctx.currentRunId
-    )
-    if (sandbox) await sandbox.kill().catch(() => {})
-  }, AGENT_TIMEOUT_MS)
+  const timeoutHandle = setupTimeout(
+    taskId,
+    task.project.id,
+    ctx.currentRunId,
+    () => {
+      timedOut = true
+      if (sandbox) sandbox.kill().catch(() => {})
+    }
+  )
 
   try {
     sandbox = await createSandbox(ctx.currentRunId)
-    await cloneRepo(sandbox, ctx)
-    await installClaude(sandbox, taskId)
-    const branchExistsOnRemote = await checkoutBranch(sandbox, ctx)
-    await writeTaskSpec(sandbox, ctx)
+    const branchExistsOnRemote = await setupSandboxAndRepo(sandbox, ctx)
 
     const agentResult = await runClaudeWithMonitor(sandbox, ctx)
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     if (agentResult !== 'agent_done') return agentResult
 
-    const diffBase = getDiffBase(
-      ctx.isFollowUp,
-      branchExistsOnRemote,
-      ctx.branchName
-    )
-    const hasCommits = await checkForCommits(sandbox, ctx.branchName, diffBase)
-    if (!hasCommits) {
-      return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)
-    }
-
-    await pushBranch(sandbox, taskId, ctx.branchName)
-    const runMeta = await collectRunMetadata(sandbox, diffBase, ctx.branchName)
-    const { prUrl, prNumber } = await createOrReusePR(
-      ctx,
-      branchExistsOnRemote,
-      runMeta
-    )
-
-    await pushAgentEvent(taskId, {
-      type: 'agent:done',
-      prUrl,
-      prNumber,
-      summary: runMeta.summary,
-      changedFiles: runMeta.changedFiles,
-      durationMs: Date.now() - ctx.agentStartedAt,
-    })
-    await pushTaskEvent(taskId, {
-      type: 'task:updated',
-      fields: ['status', 'agentStatus', 'pullRequests', 'branches'],
-    })
-
-    return { outcome: 'done', prUrl, prNumber }
+    return processPostAgent(sandbox, ctx, branchExistsOnRemote)
   } catch (error) {
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     return handleExecutionError(error, ctx)
@@ -1008,29 +1178,17 @@ async function buildRunContext(
 
   const identifier = `LUM-${task.number}`
   const { branchName, isFollowUp } = resolveBranch(task, identifier)
-  const rawSpec = task.spec ?? task.description ?? task.title
-  const taskSpec = htmlToMarkdown(rawSpec)
-
-  const githubToken = await getGithubInstallationToken().catch(err => {
-    throw new AgentError('CLONE_FAILED', 'Failed to get GitHub token', err)
-  })
-  const anthropicKey = process.env.ANTHROPIC_API_KEY
-  if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
-  const runNumber = await nextRunNumber(opts.taskId)
-  const agentRun = await prisma.agentRun.create({
-    data: {
-      taskId: opts.taskId,
-      runNumber,
-      status: 'WORKING',
-      trigger: opts.trigger ?? 'initial',
-    },
-  })
-
-  await transitionAgentStatus(opts.taskId, task.project.id, 'WORKING', {
-    agentError: null,
-  })
-  await pushAgentEvent(opts.taskId, { type: 'agent:started' })
+  const taskSpec = htmlToMarkdown(task.spec ?? task.description ?? task.title)
+  const { githubToken, anthropicKey } = await resolveCredentials()
+  const { gitName, gitEmail } = resolveGitIdentity(
+    opts.actorName,
+    opts.actorEmail
+  )
+  const currentRunId = await createAgentRun(
+    opts.taskId,
+    task.project.id,
+    opts.trigger ?? 'initial'
+  )
 
   return {
     taskId: opts.taskId,
@@ -1044,11 +1202,9 @@ async function buildRunContext(
     resolvedRepo,
     githubToken,
     anthropicKey,
-    currentRunId: agentRun.id,
+    currentRunId,
     agentStartedAt: Date.now(),
-    gitName: opts.actorName
-      ? `${opts.actorName} (via Lumo Agent)`
-      : 'Lumo Agent',
-    gitEmail: opts.actorEmail || 'agent@uselumo.ai',
+    gitName,
+    gitEmail,
   }
 }
