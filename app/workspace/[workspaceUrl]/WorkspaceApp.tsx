@@ -567,7 +567,7 @@ export default function DashboardApp() {
           description: description.trim() || undefined,
           status,
           priority,
-          assigneeId: assigneeId || undefined,
+          assigneeActorId: assigneeId || undefined,
           repositoryId: repositoryId ?? undefined,
         },
       })
