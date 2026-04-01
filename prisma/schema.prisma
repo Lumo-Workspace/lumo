@@ -569,7 +569,7 @@ model AgentRun {
   errorCode     String?
   errorMessage  String?
   sandboxId     String?
-  mcpToken      String?      // ephemeral token injected into sandbox; validated by mcp-clarify routes
+  mcpToken      String?      @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
   summary       String?
   changedFiles  Json?
   durationMs    Int?
