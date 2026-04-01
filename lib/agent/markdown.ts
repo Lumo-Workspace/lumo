@@ -1,5 +1,8 @@
 import { marked } from 'marked'
-import { loadTurndown } from './turndown-loader'
+
+const TurndownService = require('turndown') as new (options?: object) => {
+  turndown(html: string): string
+}
 
 /**
  * Detect whether a string is likely HTML (as opposed to plain markdown).
@@ -34,9 +37,8 @@ export function markdownToHtml(md: string): string {
  * Convert HTML back to Markdown.
  * If the input is already Markdown (no HTML tags), returns it as-is.
  */
-export async function htmlToMarkdown(html: string): Promise<string> {
+export function htmlToMarkdown(html: string): string {
   if (!isHtml(html)) return html
-  const TurndownService = await loadTurndown()
   const turndown = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',

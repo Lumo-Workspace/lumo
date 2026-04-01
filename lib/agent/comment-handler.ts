@@ -81,7 +81,7 @@ export async function buildAgentSpec(
 
   if (task.spec) {
     // spec is stored as HTML — convert to markdown, append instruction, convert back
-    const specMd = await htmlToMarkdown(task.spec)
+    const specMd = htmlToMarkdown(task.spec)
     return markdownToHtml(specMd + section)
   }
 
