@@ -27,7 +27,8 @@ export async function GET(
 
     const authorized = await validateMcpToken(request, clarify.taskId)
     if (!authorized) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      // Return 404 (not 401) to avoid leaking whether this clarify ID exists
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     if (clarify.reply != null) {
