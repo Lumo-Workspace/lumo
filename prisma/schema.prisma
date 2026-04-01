@@ -165,6 +165,7 @@ model WorkspaceMember {
   slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
   actor                  Actor?
   agentProfiles          AgentProfile[]
+  apiKeys                ApiKey[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -568,6 +569,7 @@ model AgentRun {
   errorCode     String?
   errorMessage  String?
   sandboxId     String?
+  mcpToken      String?      @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
   summary       String?
   changedFiles  Json?
   durationMs    Int?
@@ -620,4 +622,22 @@ model WorkspaceInvite {
 
   @@unique([workspaceId, email])
   @@map("workspace_invites")
+}
+
+// ─── API Keys (per-user, long-lived, for MCP servers) ───────────────────────
+
+model ApiKey {
+  id                String          @id @default(cuid())
+  workspaceMemberId String
+  label             String          // user-given name, e.g. "My laptop"
+  keyHash           String          @unique // SHA-256(fullKey) as hex
+  keyPrefix         String          // first 16 chars of key, for display ("lum_xxxxxxxx...")
+  createdAt         DateTime        @default(now())
+  lastUsedAt        DateTime?
+  revokedAt         DateTime?
+
+  member WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceMemberId])
+  @@map("api_keys")
 }
