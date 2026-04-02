@@ -1052,7 +1052,17 @@ async function processPostAgent(
   }
 
   await pushBranch(sandbox, ctx.taskId, ctx.branchName)
+
+  fireAgentEvent(ctx.taskId, {
+    type: 'agent:progress',
+    message: 'Collecting run metadata...',
+  })
   const runMeta = await collectRunMetadata(sandbox, diffBase, ctx.branchName)
+
+  fireAgentEvent(ctx.taskId, {
+    type: 'agent:progress',
+    message: 'Creating pull request...',
+  })
   const { prUrl, prNumber } = await createOrReusePR(
     ctx,
     branchExistsOnRemote,

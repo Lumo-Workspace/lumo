@@ -6,6 +6,9 @@ import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
 
+// Pro plan: max 300s for long-running agent execution
+export const maxDuration = 300
+
 const bodySchema = z.object({
   taskId: z.string().min(1),
 })
