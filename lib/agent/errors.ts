@@ -6,6 +6,7 @@ export type AgentErrorCode =
   | 'PR_CREATE_FAILED'
   | 'TIMEOUT'
   | 'CLARIFY_TIMEOUT'
+  | 'SANDBOX_KILLED'
   | 'CONFIG_ERROR'
   | 'UNKNOWN_ERROR'
 
@@ -32,6 +33,8 @@ const USER_MESSAGES: Record<AgentErrorCode, string> = {
     'Agent timed out after 28 minutes. The task may be too complex — try breaking it down.',
   CLARIFY_TIMEOUT:
     'Agent was waiting for clarification for 24 hours and has been stopped. Add more details to the spec and retry.',
+  SANDBOX_KILLED:
+    'The execution environment was shut down unexpectedly. This usually means the task took too long. Try breaking it into smaller steps.',
   CONFIG_ERROR:
     'Server configuration error. Please contact your administrator.',
   UNKNOWN_ERROR: 'Something went wrong. Please try again.',
