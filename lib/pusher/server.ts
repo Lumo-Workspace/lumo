@@ -31,7 +31,7 @@ export type AgentEvent =
       summary?: string
       changedFiles?: {
         path: string
-        status: 'added' | 'modified' | 'deleted'
+        status: 'added' | 'modified' | 'deleted' | 'renamed'
       }[]
       durationMs?: number
     }

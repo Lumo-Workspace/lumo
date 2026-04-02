@@ -72,7 +72,10 @@ interface RunContext {
   gitEmail: string
 }
 
-type ChangedFile = { path: string; status: 'added' | 'modified' | 'deleted' }
+type ChangedFile = {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+}
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
 
@@ -90,29 +93,6 @@ function summarizeToolInput(tool: string, input: unknown): string {
     return i.file_path ?? ''
   if (tool === 'Bash') return (i.command ?? '').slice(0, 80)
   return ''
-}
-
-const STATUS_MAP: Record<string, ChangedFile['status']> = {
-  A: 'added',
-  M: 'modified',
-  D: 'deleted',
-}
-
-function parseGitDiffLine(line: string): ChangedFile | null {
-  const [statusChar, ...pathParts] = line.split('\t')
-  const path = pathParts.join('\t')
-  if (!path) return null
-  return { path, status: STATUS_MAP[statusChar?.charAt(0) ?? ''] ?? 'modified' }
-}
-
-function getDiffBase(
-  isFollowUp: boolean,
-  branchExistsOnRemote: boolean,
-  branchName: string
-): string {
-  return isFollowUp && branchExistsOnRemote
-    ? `origin/${branchName}`
-    : 'origin/HEAD'
 }
 
 // ── Data access ───────────────────────────────────────────────────────────
@@ -468,7 +448,8 @@ ${taskSpec}
 - Branch is already created: ${branchName}
 - Commit your changes when done; include [${identifier}] in the commit message
 - Do NOT add Co-Authored-By or any AI attribution lines to commit messages
-- Do NOT push; do NOT create a PR (handled automatically)
+- Push your branch when done: \`git push origin ${branchName}\`
+- Do NOT create a PR (handled automatically)
 
 ## Clarification Protocol
 If the spec is ambiguous, missing critical details, or you are unsure how to proceed,
@@ -495,7 +476,7 @@ async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
 function buildClaudeCommand(anthropicKey: string): string {
   const tools =
     'Read,Write,Edit,' +
-    'Bash(git add *),Bash(git commit *),Bash(npm *),Bash(npx *),' +
+    'Bash(git add *),Bash(git commit *),Bash(git push *),Bash(npm *),Bash(npx *),' +
     'Bash(ls *),Bash(cat *),Bash(mkdir *),' +
     'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
   return (
@@ -612,17 +593,6 @@ async function finalizeClarify(
 
 // ── Post-execution: commits, push, PR ─────────────────────────────────────
 
-async function checkForCommits(
-  sandbox: Sandbox,
-  branchName: string,
-  diffBase: string
-): Promise<boolean> {
-  const commitCheck = await sandbox.commands.run(
-    `git -C /home/user/repo log --oneline ${diffBase}..${branchName} 2>/dev/null | head -1`
-  )
-  return !!commitCheck.stdout.trim()
-}
-
 async function handleNoCommits(
   ctx: RunContext,
   isFollowUpWithRemote: boolean
@@ -666,69 +636,104 @@ async function handleFollowUpNoChanges(ctx: RunContext): Promise<AgentResult> {
   return { outcome: 'done', prUrl, prNumber }
 }
 
-async function pushBranch(
-  sandbox: Sandbox,
-  taskId: string,
-  branchName: string
-) {
-  fireAgentEvent(taskId, {
-    type: 'agent:progress',
-    message: 'Pushing branch...',
-  })
-  const push = await sandbox.commands
-    .run(`git -C /home/user/repo push origin ${branchName}`, {
-      timeoutMs: PUSH_TIMEOUT_MS,
-    })
-    .catch(err => {
-      throw new AgentError('PUSH_FAILED', 'Failed to push branch', err)
-    })
-  if (push.exitCode !== 0) {
-    throw new AgentError('PUSH_FAILED', `Git push failed: ${push.stderr}`)
+// ── Run metadata collection (via GitHub API) ────────────────────────────
+
+async function collectChangedFilesFromGitHub(
+  owner: string,
+  repo: string,
+  baseBranch: string,
+  headBranch: string,
+  token: string
+): Promise<ChangedFile[]> {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/compare/${baseBranch}...${headBranch}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  ).catch(() => null)
+
+  if (!res || !res.ok) return []
+
+  const data = (await res.json()) as {
+    files?: { filename: string; status: string }[]
+  }
+  return (data.files ?? []).map(f => ({
+    path: f.filename,
+    status: mapGitHubFileStatus(f.status),
+  }))
+}
+
+function mapGitHubFileStatus(
+  status: string
+): 'added' | 'modified' | 'deleted' | 'renamed' {
+  switch (status) {
+    case 'added':
+      return 'added'
+    case 'removed':
+      return 'deleted'
+    case 'renamed':
+      return 'renamed'
+    default:
+      return 'modified'
   }
 }
 
-// ── Run metadata collection ──────────────────────────────────────────────
-
-async function collectChangedFiles(
-  sandbox: Sandbox,
-  diffBase: string,
-  branchName: string
-): Promise<ChangedFile[]> {
-  const diffResult = await sandbox.commands
-    .run(
-      `git -C /home/user/repo diff --name-status ${diffBase}..${branchName} 2>/dev/null`
-    )
-    .catch(() => ({ stdout: '' }))
-  return (diffResult.stdout ?? '')
-    .split('\n')
-    .filter(Boolean)
-    .map(parseGitDiffLine)
-    .filter((f): f is ChangedFile => f !== null)
-}
-
-async function collectCommitSummary(
-  sandbox: Sandbox,
-  diffBase: string,
-  branchName: string
+async function collectCommitSummaryFromGitHub(
+  owner: string,
+  repo: string,
+  baseBranch: string,
+  headBranch: string,
+  token: string
 ): Promise<string> {
-  const logResult = await sandbox.commands
-    .run(
-      `git -C /home/user/repo log --format=%s ${diffBase}..${branchName} 2>/dev/null`
-    )
-    .catch(() => ({ stdout: '' }))
-  const commits = (logResult.stdout ?? '').split('\n').filter(Boolean)
-  if (commits.length === 1) return commits[0]!
-  if (commits.length > 1) return commits.join('; ')
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/compare/${baseBranch}...${headBranch}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  ).catch(() => null)
+
+  if (!res || !res.ok) return 'Agent completed successfully'
+
+  const data = (await res.json()) as {
+    commits?: { commit: { message: string } }[]
+  }
+  const messages = (data.commits ?? []).map(
+    c => c.commit.message.split('\n')[0]!
+  )
+  if (messages.length === 1) return messages[0]!
+  if (messages.length > 1) return messages.join('; ')
   return 'Agent completed successfully'
 }
 
-async function collectRunMetadata(
-  sandbox: Sandbox,
-  diffBase: string,
+async function collectRunMetadata(ctx: {
+  repoOwner: string
+  repoName: string
   branchName: string
-) {
-  const changedFiles = await collectChangedFiles(sandbox, diffBase, branchName)
-  const summary = await collectCommitSummary(sandbox, diffBase, branchName)
+  githubToken: string
+}) {
+  const baseBranch = 'main'
+  const [changedFiles, summary] = await Promise.all([
+    collectChangedFilesFromGitHub(
+      ctx.repoOwner,
+      ctx.repoName,
+      baseBranch,
+      ctx.branchName,
+      ctx.githubToken
+    ),
+    collectCommitSummaryFromGitHub(
+      ctx.repoOwner,
+      ctx.repoName,
+      baseBranch,
+      ctx.branchName,
+      ctx.githubToken
+    ),
+  ])
   return { changedFiles, summary }
 }
 
@@ -1042,29 +1047,39 @@ function setupTimeout(
 
 // ── Post-agent pipeline ─────────────────────────────────────────────────
 
+/**
+ * Post-agent processing — no sandbox required.
+ * Agent is responsible for pushing its branch. We use GitHub API to
+ * verify the push, collect metadata, and create the PR.
+ */
 async function processPostAgent(
-  sandbox: Sandbox,
   ctx: RunContext,
   branchExistsOnRemote: boolean
 ): Promise<AgentResult> {
-  const diffBase = getDiffBase(
-    ctx.isFollowUp,
-    branchExistsOnRemote,
-    ctx.branchName
+  // Check if agent pushed the branch by querying GitHub
+  fireAgentEvent(ctx.taskId, {
+    type: 'agent:progress',
+    message: 'Verifying push...',
+  })
+  const branchOnGitHub = await checkBranchOnGitHub(
+    ctx.repoOwner,
+    ctx.repoName,
+    ctx.branchName,
+    ctx.githubToken
   )
-  const hasCommits = await checkForCommits(sandbox, ctx.branchName, diffBase)
 
-  if (!hasCommits) {
+  if (!branchOnGitHub) {
+    console.warn(
+      `[Agent] Branch ${ctx.branchName} not found on GitHub — agent may not have pushed`
+    )
     return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)
   }
-
-  await pushBranch(sandbox, ctx.taskId, ctx.branchName)
 
   fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
     message: 'Collecting run metadata...',
   })
-  const runMeta = await collectRunMetadata(sandbox, diffBase, ctx.branchName)
+  const runMeta = await collectRunMetadata(ctx)
 
   fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
@@ -1078,6 +1093,24 @@ async function processPostAgent(
 
   await emitDoneEvents(ctx, prUrl, prNumber, runMeta)
   return { outcome: 'done', prUrl, prNumber }
+}
+
+async function checkBranchOnGitHub(
+  owner: string,
+  repo: string,
+  branch: string,
+  token: string
+): Promise<boolean> {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/branches/${branch}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  ).catch(() => null)
+  return res?.ok === true
 }
 
 async function emitDoneEvents(
@@ -1167,19 +1200,12 @@ export async function executeAgent({
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     if (agentResult !== 'agent_done') return agentResult
 
-    // Verify sandbox is still alive before post-processing (push/PR)
-    console.log('[Agent] Checking sandbox liveness...')
-    const alive = await sandbox.commands
-      .run('echo ok', { timeoutMs: 5000 })
-      .catch(() => null)
-    if (!alive || alive.exitCode !== 0) {
-      throw new AgentError(
-        'SANDBOX_KILLED',
-        'Sandbox died after agent completed — code may be lost'
-      )
-    }
-
-    return processPostAgent(sandbox, ctx, branchExistsOnRemote)
+    // Sandbox is no longer needed — agent pushed its own branch.
+    // Post-processing uses GitHub API only.
+    console.log(
+      '[Agent] Agent done, proceeding to post-processing via GitHub API'
+    )
+    return processPostAgent(ctx, branchExistsOnRemote)
   } catch (error) {
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     return handleExecutionError(error, ctx)

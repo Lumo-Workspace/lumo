@@ -23,7 +23,7 @@ export interface AgentStep {
 
 export interface AgentChangedFile {
   path: string
-  status: 'added' | 'modified' | 'deleted'
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
 }
 
 export interface AgentTask {
