@@ -8,6 +8,7 @@ import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
+import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -171,55 +172,72 @@ export async function POST(request: NextRequest, { params }: Params) {
           where: { workspaceId, clerkId: { in: mentionedIds } },
           select: { clerkId: true, actor: { select: { id: true } } },
         })
-        .then(members => {
+        .then(async members => {
           if (members.length === 0) return
-          // Send Slack DM to each mentioned user
           const workspaceSlug = task.project.workspace?.slug ?? ''
-          for (const m of members) {
-            waitUntil(
-              sendDMNotification(workspaceId, m.clerkId, 'comment_mention', {
-                taskId: id,
-                taskTitle: task.title,
-                commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-                taskUrl: buildTaskUrl(
-                  workspaceSlug,
-                  task.team?.identifier ?? '',
-                  task.number
-                ),
-              })
-            )
+          const mentionPayload = {
+            taskId: id,
+            taskTitle: task.title,
+            commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
+            taskUrl: buildTaskUrl(
+              workspaceSlug,
+              task.team?.identifier ?? '',
+              task.number
+            ),
           }
-          // Channel notification for comment_mention (fire-and-forget)
+
+          const recipientActors = members
+            .map(m => m.actor?.id)
+            .filter((actorId): actorId is string => !!actorId)
+
+          // Batch preference checks for inApp and slack channels
+          const [inAppAllowed, slackAllowed] = await Promise.all([
+            shouldNotifyBatch(recipientActors, 'inApp', 'TASK_MENTIONED'),
+            shouldNotifyBatch(recipientActors, 'slack', 'TASK_MENTIONED'),
+          ])
+
+          // Slack DM — only to users who have slack mention enabled
+          for (const m of members) {
+            if (m.actor?.id && slackAllowed.has(m.actor.id)) {
+              waitUntil(
+                sendDMNotification(
+                  workspaceId,
+                  m.clerkId,
+                  'comment_mention',
+                  mentionPayload
+                )
+              )
+            }
+          }
+
+          // Channel notification (project-level, not gated by personal preference)
           waitUntil(
             sendChannelNotification(
               workspaceId,
               'comment_mention',
               {
+                ...mentionPayload,
                 taskId: task.id,
-                taskTitle: task.title,
                 taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
-                taskUrl: buildTaskUrl(
-                  workspaceSlug,
-                  task.team?.identifier ?? '',
-                  task.number
-                ),
-                commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
               },
               task.projectId
             )
           )
-          const recipientActors = members
-            .map(m => m.actor?.id)
-            .filter((actorId): actorId is string => !!actorId)
-          if (recipientActors.length === 0) return
-          // Push real-time notification to each mentioned user
+
+          // Inbox notifications — only for users who have inApp mention enabled
+          const inAppRecipients = recipientActors.filter(id =>
+            inAppAllowed.has(id)
+          )
+          if (inAppRecipients.length === 0) return
+
+          // Push real-time notification for inbox recipients
           for (const m of members) {
-            if (m.clerkId) {
+            if (m.clerkId && m.actor?.id && inAppAllowed.has(m.actor.id)) {
               waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }))
             }
           }
           return prisma.notification.createMany({
-            data: recipientActors.map(recipientActorId => ({
+            data: inAppRecipients.map(recipientActorId => ({
               workspaceId,
               recipientActorId,
               type: 'TASK_MENTIONED' as const,

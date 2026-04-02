@@ -2,6 +2,7 @@ import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { getActorClerkId } from '@/lib/actor'
 import { pushUserEvent } from '@/lib/pusher/server'
+import { shouldNotify } from '@/lib/notifications/preferenceGate'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -34,6 +35,13 @@ async function createAndPush(params: {
   clarifyId?: string | null
   requiresAction?: boolean
 }): Promise<void> {
+  const sendInApp = await shouldNotify(
+    params.recipientActorId,
+    'inApp',
+    params.type
+  )
+  if (!sendInApp) return
+
   await prisma.notification.create({
     data: {
       workspaceId: params.workspaceId,

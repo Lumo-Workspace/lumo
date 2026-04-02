@@ -2,6 +2,7 @@ import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { pushUserEvent } from '@/lib/pusher/server'
+import { shouldNotify } from '@/lib/notifications/preferenceGate'
 import type { SlackEventType, NotificationPayload } from '@/lib/slack/types'
 import type { NotificationType } from '@prisma/client'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
@@ -81,30 +82,43 @@ export async function notifyActor(params: {
     taskUrl: ctx.taskUrl,
   }
 
-  // Inbox notification
-  await prisma.notification.create({
-    data: {
-      workspaceId: ctx.workspaceId,
-      recipientActorId,
-      type: params.notificationType,
-      taskId,
-      commentId: params.commentId ?? null,
-      triggerActorId: ctx.triggerActorId,
-    },
-  })
-
-  // Real-time push
-  waitUntil(pushUserEvent(actor.member.clerkId, { type: 'notification:new' }))
-
-  // Slack DM
-  waitUntil(
-    sendDMNotification(
-      ctx.workspaceId,
-      actor.member.clerkId,
-      slackEventType,
-      payload
-    )
+  // Inbox notification (gated by inApp preference)
+  const sendInApp = await shouldNotify(
+    recipientActorId,
+    'inApp',
+    params.notificationType
   )
+  if (sendInApp) {
+    await prisma.notification.create({
+      data: {
+        workspaceId: ctx.workspaceId,
+        recipientActorId,
+        type: params.notificationType,
+        taskId,
+        commentId: params.commentId ?? null,
+        triggerActorId: ctx.triggerActorId,
+      },
+    })
+    // Real-time push only if inbox notification was created
+    waitUntil(pushUserEvent(actor.member.clerkId, { type: 'notification:new' }))
+  }
+
+  // Slack DM (gated by slack preference)
+  const sendSlack = await shouldNotify(
+    recipientActorId,
+    'slack',
+    params.notificationType
+  )
+  if (sendSlack) {
+    waitUntil(
+      sendDMNotification(
+        ctx.workspaceId,
+        actor.member.clerkId,
+        slackEventType,
+        payload
+      )
+    )
+  }
 }
 
 // ── Send Slack channel notification ─────────────────────────────────────────
