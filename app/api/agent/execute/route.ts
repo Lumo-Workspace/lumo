@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
 
-// Pro plan: max 300s for long-running agent execution
-export const maxDuration = 300
+// Fluid Compute on Pro plan: up to 800s
+export const maxDuration = 800
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -16,7 +15,9 @@ const bodySchema = z.object({
 /**
  * POST /api/agent/execute
  * Triggers the Lumo coding agent for a task.
- * The agent runs asynchronously via waitUntil — this route returns immediately.
+ * The agent runs inside the request handler (up to maxDuration=300s).
+ * Real-time progress is delivered via Pusher; the HTTP response
+ * returns only after the agent finishes.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -69,16 +70,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Fire-and-forget: Vercel keeps the function alive until executeAgent resolves
-    waitUntil(
-      executeAgent({ taskId, actorClerkId: userId, trigger: 'initial' }).catch(
-        err => {
-          console.error(`[agent/execute] Task ${taskId} failed:`, err)
-        }
-      )
-    )
+    // Run agent in the request handler so maxDuration=300 applies.
+    // (waitUntil has a 60s hard limit on Pro plan, too short for agent runs)
+    const result = await executeAgent({
+      taskId,
+      actorClerkId: userId,
+      trigger: 'initial',
+    }).catch(err => {
+      console.error(`[agent/execute] Task ${taskId} failed:`, err)
+      return { outcome: 'failed' as const, error: String(err) }
+    })
 
-    return NextResponse.json({ status: 'started', taskId })
+    return NextResponse.json({ status: result.outcome, taskId })
   } catch (error) {
     console.error('[agent/execute] Unexpected error:', error)
     return NextResponse.json(

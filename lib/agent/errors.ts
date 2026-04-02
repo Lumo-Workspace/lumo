@@ -30,7 +30,7 @@ const USER_MESSAGES: Record<AgentErrorCode, string> = {
   PUSH_FAILED: 'Could not push to GitHub. Check repository permissions.',
   PR_CREATE_FAILED: 'Code was written but PR creation failed. Check GitHub.',
   TIMEOUT:
-    'Agent timed out after 28 minutes. The task may be too complex — try breaking it down.',
+    'Agent timed out after 10 minutes. The task may be too complex — try breaking it down.',
   CLARIFY_TIMEOUT:
     'Agent was waiting for clarification for 24 hours and has been stopped. Add more details to the spec and retry.',
   SANDBOX_KILLED:
