@@ -1158,6 +1158,17 @@ export async function executeAgent({
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     if (agentResult !== 'agent_done') return agentResult
 
+    // Verify sandbox is still alive before post-processing (push/PR)
+    const alive = await sandbox.commands
+      .run('echo ok', { timeoutMs: 5000 })
+      .catch(() => null)
+    if (!alive || alive.exitCode !== 0) {
+      throw new AgentError(
+        'SANDBOX_KILLED',
+        'Sandbox died after agent completed — code may be lost'
+      )
+    }
+
     return processPostAgent(sandbox, ctx, branchExistsOnRemote)
   } catch (error) {
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
