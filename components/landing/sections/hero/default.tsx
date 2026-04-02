@@ -1,4 +1,5 @@
 import { type VariantProps } from 'class-variance-authority'
+import Image from 'next/image'
 import { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -6,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '../../ui/button'
 import Glow from '../../ui/glow'
 import { Mockup, MockupFrame } from '../../ui/mockup'
-import Screenshot from '../../ui/screenshot'
 import { Section } from '../../ui/section'
 
 interface HeroButtonProps {
@@ -29,9 +29,8 @@ export default function Hero({
   title = '@agent, ship it',
   description = 'Project management for AI-native teams.',
   mockup = (
-    <Screenshot
-      srcLight='/screenshot.png'
-      srcDark='/screenshot.png'
+    <Image
+      src='/screenshot.png'
       alt='Lumo board view screenshot'
       width={1516}
       height={780}
