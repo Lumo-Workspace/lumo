@@ -329,6 +329,7 @@ async function createPullRequest(params: {
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 async function createSandbox(runId: string): Promise<Sandbox> {
+  console.log(`[Agent] Creating sandbox (timeout=${SANDBOX_TIMEOUT_MS}ms)...`)
   const sandbox = await Sandbox.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
@@ -338,6 +339,7 @@ async function createSandbox(runId: string): Promise<Sandbox> {
       err
     )
   })
+  console.log(`[Agent] Sandbox created: ${sandbox.sandboxId}`)
   await prisma.agentRun.update({
     where: { id: runId },
     data: { sandboxId: sandbox.sandboxId },
@@ -365,6 +367,7 @@ async function cloneRepo(
     'taskId' | 'repoOwner' | 'repoName' | 'githubToken' | 'gitName' | 'gitEmail'
   >
 ) {
+  console.log(`[Agent] Cloning repo ${ctx.repoOwner}/${ctx.repoName}...`)
   fireAgentEvent(ctx.taskId, {
     type: 'agent:progress',
     message: `Cloning ${ctx.repoOwner}/${ctx.repoName}...`,
@@ -380,6 +383,7 @@ async function cloneRepo(
 }
 
 async function installClaude(sandbox: Sandbox, taskId: string) {
+  console.log('[Agent] Installing Claude Code...')
   fireAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Setting up environment...',
@@ -387,6 +391,7 @@ async function installClaude(sandbox: Sandbox, taskId: string) {
   await sandbox.commands.run('sudo npm install -g @anthropic-ai/claude-code', {
     timeoutMs: INSTALL_TIMEOUT_MS,
   })
+  console.log('[Agent] Claude Code installed')
 }
 
 // ── Branch operations ────────────────────────────────────────────────────
@@ -1153,12 +1158,17 @@ export async function executeAgent({
   try {
     sandbox = await createSandbox(ctx.currentRunId)
     const branchExistsOnRemote = await setupSandboxAndRepo(sandbox, ctx)
+    console.log(`[Agent] Setup complete, starting agent for task ${taskId}`)
 
     const agentResult = await runClaude(sandbox, ctx)
+    console.log(
+      `[Agent] Agent finished with result: ${typeof agentResult === 'string' ? agentResult : agentResult.outcome}`
+    )
     if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
     if (agentResult !== 'agent_done') return agentResult
 
     // Verify sandbox is still alive before post-processing (push/PR)
+    console.log('[Agent] Checking sandbox liveness...')
     const alive = await sandbox.commands
       .run('echo ok', { timeoutMs: 5000 })
       .catch(() => null)
