@@ -23,6 +23,7 @@ import {
 } from '@/lib/notifications/notifyAgentActions'
 import { htmlToMarkdown } from './markdown'
 import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
+import { buildAgentContext } from './context-builder'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -432,42 +433,12 @@ async function checkoutBranch(
 
 // ── Task spec ─────────────────────────────────────────────────────────────
 
-function buildTaskSpecContent(
-  title: string,
-  identifier: string,
-  taskSpec: string,
-  branchName: string
-): string {
-  return `# Task: ${title}
-Task ID: ${identifier}
-
-${taskSpec}
-
-## Instructions
-- Read CLAUDE.md first for project conventions
-- Branch is already created: ${branchName}
-- Commit your changes when done; include [${identifier}] in the commit message
-- Do NOT add Co-Authored-By or any AI attribution lines to commit messages
-- Push your branch when done: \`git push origin ${branchName}\`
-- Do NOT create a PR (handled automatically)
-
-## Clarification Protocol
-If the spec is ambiguous, missing critical details, or you are unsure how to proceed,
-you MUST ask for clarification instead of guessing. To do so:
-- Call the \`mcp__lumo-sandbox__ask_user\` tool with your question and context.
-  IMPORTANT: Use exactly this tool name — do NOT use AskUserQuestion or any other tool.
-- The tool will BLOCK and wait for the user's reply (this may take minutes).
-- Once you receive the reply, continue working based on the answer.
-- Do NOT stop or exit after calling mcp__lumo-sandbox__ask_user — just wait for the response.`
-}
-
 async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
-  const content = buildTaskSpecContent(
-    ctx.task.title,
-    ctx.identifier,
-    ctx.taskSpec,
-    ctx.branchName
-  )
+  const content = await buildAgentContext({
+    taskId: ctx.taskId,
+    branchName: ctx.branchName,
+    identifier: ctx.identifier,
+  })
   await sandbox.files.write('/home/user/task.md', content)
 }
 
