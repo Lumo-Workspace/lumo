@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
@@ -12,7 +11,6 @@ import {
   KeyRound,
   User,
 } from 'lucide-react'
-import { CACHE_KEY } from '../constants'
 
 interface SettingsShellProps {
   workspaceUrl: string
@@ -27,12 +25,6 @@ export function SettingsShell({
   children,
 }: SettingsShellProps) {
   const pathname = usePathname()
-
-  useEffect(() => {
-    // Restore dark mode on direct navigation to settings URL
-    const dark = localStorage.getItem(CACHE_KEY.darkMode) === 'true'
-    document.documentElement.classList.toggle('dark', dark)
-  }, [])
 
   const adminItems = [
     {

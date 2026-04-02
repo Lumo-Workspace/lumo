@@ -56,7 +56,6 @@ import {
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { formatTimestamp, slugifyProjectName, apiFetch } from '../../utils'
-import { useDarkMode } from '../../hooks/useDarkMode'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { copyLink } from '../../utils/copyLink'
 import { useCopyState } from '../../hooks/useCopyState'
@@ -101,9 +100,6 @@ export function TaskDetailPage({
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const router = useRouter()
   const { user } = useCurrentUser()
-
-  // ── Dark mode ──────────────────────────────────────────────────────────────
-  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const { unreadCount } = useRealtimeNotifications()
@@ -614,8 +610,6 @@ export function TaskDetailPage({
       <AppSidebar
         currentPage={'task-detail' as Page}
         onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={handleToggleDarkMode}
         unreadCount={unreadCount}
       />
       <SidebarInset className='overflow-hidden flex flex-col'>
