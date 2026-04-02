@@ -12,13 +12,8 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
 
-  // Redirect unauthenticated users from "/" to sign-in
-  if (!userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/signin', request.url))
-  }
-
-  // Protect all non-public routes
-  if (!isPublicRoute(request)) {
+  // Protect all non-public routes (landing page "/" is always public)
+  if (!isPublicRoute(request) && pathname !== '/') {
     await auth.protect()
   }
 

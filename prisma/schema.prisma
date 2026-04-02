@@ -674,3 +674,16 @@ model UserPreference {
 
   @@map("user_preferences")
 }
+
+// ─── Waitlist ───────────────────────────────────────────────────────────────
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  company   String?
+  teamSize  String?
+  createdAt DateTime @default(now())
+
+  @@map("waitlist_entries")
+}
