@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { motion } from 'motion/react'
 import {
   ArrowLeft,
@@ -27,20 +28,21 @@ export function SettingsShell({
   children,
 }: SettingsShellProps) {
   const pathname = usePathname()
+  const intl = useIntl()
 
   const adminItems = [
     {
-      label: 'Workspace',
+      label: intl.formatMessage({ id: 'settings.workspace' }),
       href: `/workspace/${workspaceUrl}/settings/workspace`,
       icon: Building2,
     },
     {
-      label: 'Members',
+      label: intl.formatMessage({ id: 'settings.members' }),
       href: `/workspace/${workspaceUrl}/settings/members`,
       icon: Users,
     },
     {
-      label: 'Integrations',
+      label: intl.formatMessage({ id: 'settings.integrations' }),
       href: `/workspace/${workspaceUrl}/settings/integrations`,
       icon: Puzzle,
     },
@@ -48,12 +50,12 @@ export function SettingsShell({
 
   const memberItems = [
     {
-      label: 'Members',
+      label: intl.formatMessage({ id: 'settings.members' }),
       href: `/workspace/${workspaceUrl}/settings/members`,
       icon: Users,
     },
     {
-      label: 'Integrations',
+      label: intl.formatMessage({ id: 'settings.integrations' }),
       href: `/workspace/${workspaceUrl}/settings/integrations`,
       icon: Puzzle,
     },
@@ -61,22 +63,22 @@ export function SettingsShell({
 
   const personalItems = [
     {
-      label: 'Profile',
+      label: intl.formatMessage({ id: 'settings.profile' }),
       href: `/workspace/${workspaceUrl}/settings/profile`,
       icon: User,
     },
     {
-      label: 'Preferences',
+      label: intl.formatMessage({ id: 'settings.preferences' }),
       href: `/workspace/${workspaceUrl}/settings/preferences`,
       icon: Settings2,
     },
     {
-      label: 'Notifications',
+      label: intl.formatMessage({ id: 'settings.notifications' }),
       href: `/workspace/${workspaceUrl}/settings/notifications`,
       icon: Bell,
     },
     {
-      label: 'API Keys',
+      label: intl.formatMessage({ id: 'settings.apiKeys' }),
       href: `/workspace/${workspaceUrl}/settings/api-keys`,
       icon: KeyRound,
     },
@@ -84,11 +86,11 @@ export function SettingsShell({
 
   const navItems = [
     {
-      section: 'Administration',
+      section: intl.formatMessage({ id: 'settings.administration' }),
       items: isOwner ? adminItems : memberItems,
     },
     {
-      section: 'Personal',
+      section: intl.formatMessage({ id: 'settings.personal' }),
       items: personalItems,
     },
   ]
@@ -109,7 +111,7 @@ export function SettingsShell({
             className='flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors'
           >
             <ArrowLeft size={14} />
-            Back to app
+            {intl.formatMessage({ id: 'settings.backToApp' })}
           </Link>
         </div>
 

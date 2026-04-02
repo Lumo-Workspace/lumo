@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
+import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
@@ -54,6 +55,7 @@ export function AppSidebar({
   const { signOut } = useClerk()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { isMobile } = useSidebar()
+  const intl = useIntl()
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
@@ -138,13 +140,13 @@ export function AppSidebar({
                 <DropdownMenuItem asChild className='cursor-pointer'>
                   <Link href={`/workspace/${workspaceUrl}/settings/members`}>
                     <Users size={13} />
-                    Manage members
+                    {intl.formatMessage({ id: 'sidebar.manageMembers' })}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className='cursor-pointer'>
                   <Link href={`/workspace/${workspaceUrl}/settings/workspace`}>
                     <Settings size={13} />
-                    Settings
+                    {intl.formatMessage({ id: 'sidebar.settings' })}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -156,7 +158,7 @@ export function AppSidebar({
                   }}
                 >
                   <LogOut size={13} />
-                  Sign out
+                  {intl.formatMessage({ id: 'sidebar.signOut' })}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -174,7 +176,7 @@ export function AppSidebar({
                 <SidebarMenuButton
                   asChild
                   isActive={currentPage === 'my-tasks'}
-                  tooltip='My Tasks'
+                  tooltip={intl.formatMessage({ id: 'sidebar.myTasks' })}
                 >
                   <Link
                     href={`/workspace/${workspaceUrl}/my-tasks`}
@@ -184,7 +186,7 @@ export function AppSidebar({
                     }}
                   >
                     <Home />
-                    <span>My Tasks</span>
+                    <span>{intl.formatMessage({ id: 'sidebar.myTasks' })}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -192,7 +194,7 @@ export function AppSidebar({
                 <SidebarMenuButton
                   asChild
                   isActive={currentPage === 'inbox'}
-                  tooltip='Inbox'
+                  tooltip={intl.formatMessage({ id: 'sidebar.inbox' })}
                 >
                   <Link
                     href={`/workspace/${workspaceUrl}/inbox`}
@@ -202,7 +204,9 @@ export function AppSidebar({
                     }}
                   >
                     <Inbox />
-                    <span className='flex-1'>Inbox</span>
+                    <span className='flex-1'>
+                      {intl.formatMessage({ id: 'sidebar.inbox' })}
+                    </span>
                     {unreadCount > 0 && (
                       <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
                         {unreadCount > 99 ? '99+' : unreadCount}
@@ -217,7 +221,9 @@ export function AppSidebar({
 
         {/* Workspace section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {intl.formatMessage({ id: 'sidebar.workspace' })}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -227,7 +233,7 @@ export function AppSidebar({
                     currentPage === 'projects' ||
                     currentPage === 'project-detail'
                   }
-                  tooltip='Projects'
+                  tooltip={intl.formatMessage({ id: 'sidebar.projects' })}
                 >
                   <Link
                     href={`/workspace/${workspaceUrl}/projects`}
@@ -237,7 +243,9 @@ export function AppSidebar({
                     }}
                   >
                     <Layers />
-                    <span>Projects</span>
+                    <span>
+                      {intl.formatMessage({ id: 'sidebar.projects' })}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

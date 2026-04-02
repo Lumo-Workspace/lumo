@@ -47,9 +47,15 @@ function loadCache(): Preferences {
   }
 }
 
+const PREFS_CHANGED_EVENT = 'lumo:preferences-changed'
+
 function saveCache(prefs: Preferences): void {
   try {
     localStorage.setItem(CACHE_KEY.preferences, JSON.stringify(prefs))
+    // Notify other hook instances in the same tab
+    window.dispatchEvent(
+      new CustomEvent(PREFS_CHANGED_EVENT, { detail: prefs })
+    )
   } catch {
     // localStorage may be full — non-critical
   }
@@ -102,6 +108,32 @@ export function usePreferences() {
     return () => {
       cancelled = true
       mountedRef.current = false
+    }
+  }, [setTheme])
+
+  // Sync across hook instances (same tab via custom event, cross tab via storage)
+  useEffect(() => {
+    function apply(updated: Preferences) {
+      setPrefs(updated)
+      setTheme(updated.theme)
+    }
+    function onCustom(e: Event) {
+      const prefs = (e as CustomEvent<Preferences>).detail
+      if (prefs) apply(prefs)
+    }
+    function onStorage(e: StorageEvent) {
+      if (e.key !== CACHE_KEY.preferences || !e.newValue) return
+      try {
+        apply({ ...DEFAULTS, ...JSON.parse(e.newValue) } as Preferences)
+      } catch {
+        // malformed JSON — ignore
+      }
+    }
+    window.addEventListener(PREFS_CHANGED_EVENT, onCustom)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(PREFS_CHANGED_EVENT, onCustom)
+      window.removeEventListener('storage', onStorage)
     }
   }, [setTheme])
 

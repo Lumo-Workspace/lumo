@@ -128,12 +128,15 @@ export async function shouldNotifyBatch(
     select: { memberId: true, [field]: true },
   })
 
-  const prefByMemberId = new Map(prefs.map(p => [p.memberId, p]))
+  const prefByMemberId = new Map<string, Record<string, unknown>>()
+  for (const p of prefs) {
+    if (p.memberId) prefByMemberId.set(p.memberId, p as Record<string, unknown>)
+  }
 
   for (const [memberId, actorId] of memberIdToActorId) {
     const pref = prefByMemberId.get(memberId)
     // No pref record → defaults (all true); pref exists → check field
-    if (!pref || (pref as Record<string, unknown>)[field] !== false) {
+    if (!pref || pref[field] !== false) {
       result.add(actorId)
     }
   }

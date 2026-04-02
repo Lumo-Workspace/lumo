@@ -1,6 +1,7 @@
 'use client'
 
 import { Sun, Moon, Monitor, Globe, Clock } from 'lucide-react'
+import { useIntl } from 'react-intl'
 import {
   Select,
   SelectContent,
@@ -32,18 +33,6 @@ const COMMON_TIMEZONES = [
   'Pacific/Auckland',
 ] as const
 
-function getTimezoneLabel(tz: string): string {
-  if (tz === 'auto') {
-    try {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
-      return `Auto (${detected})`
-    } catch {
-      return 'Auto (browser)'
-    }
-  }
-  return tz.replace(/_/g, ' ')
-}
-
 function ThemeOption({
   value,
   current,
@@ -73,17 +62,38 @@ function ThemeOption({
   )
 }
 
+function formatTimezoneLabel(
+  tz: string,
+  intl: ReturnType<typeof useIntl>
+): string {
+  if (tz === 'auto') {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+      return intl.formatMessage(
+        { id: 'preferences.timezoneAuto' },
+        { detected }
+      )
+    } catch {
+      return intl.formatMessage({ id: 'preferences.timezoneAutoBrowser' })
+    }
+  }
+  return tz.replace(/_/g, ' ')
+}
+
 export function PreferencesPage() {
   const { prefs, loading, updatePreferences } = usePreferences()
+  const intl = useIntl()
+
+  const getTimezoneLabel = (tz: string) => formatTimezoneLabel(tz, intl)
 
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
-          Preferences
+          {intl.formatMessage({ id: 'preferences.title' })}
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
-          Customize your experience.
+          {intl.formatMessage({ id: 'preferences.subtitle' })}
         </p>
 
         {/* Appearance */}
@@ -93,7 +103,7 @@ export function PreferencesPage() {
             <div className='flex items-center gap-2'>
               <Sun size={14} className='text-zinc-400' />
               <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                Theme
+                {intl.formatMessage({ id: 'preferences.theme' })}
               </p>
             </div>
             <div className='flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5'>
@@ -101,21 +111,21 @@ export function PreferencesPage() {
                 value='light'
                 current={prefs.theme}
                 icon={Sun}
-                label='Light'
+                label={intl.formatMessage({ id: 'preferences.themeLight' })}
                 onSelect={v => updatePreferences({ theme: v })}
               />
               <ThemeOption
                 value='dark'
                 current={prefs.theme}
                 icon={Moon}
-                label='Dark'
+                label={intl.formatMessage({ id: 'preferences.themeDark' })}
                 onSelect={v => updatePreferences({ theme: v })}
               />
               <ThemeOption
                 value='system'
                 current={prefs.theme}
                 icon={Monitor}
-                label='System'
+                label={intl.formatMessage({ id: 'preferences.themeSystem' })}
                 onSelect={v => updatePreferences({ theme: v })}
               />
             </div>
@@ -126,7 +136,7 @@ export function PreferencesPage() {
             <div className='flex items-center gap-2'>
               <Globe size={14} className='text-zinc-400' />
               <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                Language
+                {intl.formatMessage({ id: 'preferences.language' })}
               </p>
             </div>
             <Select
@@ -151,7 +161,7 @@ export function PreferencesPage() {
             <div className='flex items-center gap-2'>
               <Clock size={14} className='text-zinc-400' />
               <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                Timezone
+                {intl.formatMessage({ id: 'preferences.timezone' })}
               </p>
             </div>
             <Select

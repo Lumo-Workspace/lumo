@@ -1,38 +1,39 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import { Switch } from '@/components/ui/switch'
 import { usePreferences } from '../../hooks/usePreferences'
 import type { Preferences } from '../../hooks/usePreferences'
 
 interface NotifyRow {
-  label: string
+  labelId: string
   inAppKey: keyof Preferences
   slackKey: keyof Preferences
 }
 
 const NOTIFY_EVENTS: NotifyRow[] = [
   {
-    label: 'Task assigned to me',
+    labelId: 'notifications.taskAssigned',
     inAppKey: 'notifyInAppAssigned',
     slackKey: 'notifySlackAssigned',
   },
   {
-    label: 'New comment on my tasks',
+    labelId: 'notifications.newComment',
     inAppKey: 'notifyInAppComment',
     slackKey: 'notifySlackComment',
   },
   {
-    label: 'Agent completed / needs review',
+    labelId: 'notifications.agentDone',
     inAppKey: 'notifyInAppAgentDone',
     slackKey: 'notifySlackAgentDone',
   },
   {
-    label: 'Agent waiting for input',
+    labelId: 'notifications.agentInput',
     inAppKey: 'notifyInAppAgentInput',
     slackKey: 'notifySlackAgentInput',
   },
   {
-    label: 'Mentioned in a comment',
+    labelId: 'notifications.mentioned',
     inAppKey: 'notifyInAppMention',
     slackKey: 'notifySlackMention',
   },
@@ -40,20 +41,21 @@ const NOTIFY_EVENTS: NotifyRow[] = [
 
 export function NotificationsPage() {
   const { prefs, loading, updatePreferences } = usePreferences()
+  const intl = useIntl()
 
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
-          Notifications
+          {intl.formatMessage({ id: 'notifications.title' })}
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
-          Choose what you get notified about.
+          {intl.formatMessage({ id: 'notifications.subtitle' })}
         </p>
 
         {/* In-App Notifications */}
         <h2 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2'>
-          In-App Notifications
+          {intl.formatMessage({ id: 'notifications.inApp' })}
         </h2>
         <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900 mb-6'>
           {NOTIFY_EVENTS.map((evt, i) => (
@@ -62,7 +64,7 @@ export function NotificationsPage() {
               className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
             >
               <p className='text-sm text-zinc-700 dark:text-zinc-300'>
-                {evt.label}
+                {intl.formatMessage({ id: evt.labelId })}
               </p>
               <Switch
                 checked={prefs[evt.inAppKey] as boolean}
@@ -75,7 +77,7 @@ export function NotificationsPage() {
 
         {/* Slack Notifications */}
         <h2 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2'>
-          Slack Notifications
+          {intl.formatMessage({ id: 'notifications.slack' })}
         </h2>
         <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900'>
           {NOTIFY_EVENTS.map((evt, i) => (
@@ -84,7 +86,7 @@ export function NotificationsPage() {
               className={`flex items-center justify-between px-4 py-3 ${i < NOTIFY_EVENTS.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}
             >
               <p className='text-sm text-zinc-700 dark:text-zinc-300'>
-                {evt.label}
+                {intl.formatMessage({ id: evt.labelId })}
               </p>
               <Switch
                 checked={prefs[evt.slackKey] as boolean}
