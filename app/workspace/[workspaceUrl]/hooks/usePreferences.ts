@@ -66,6 +66,24 @@ export function usePreferences() {
     mountedRef.current = true
     let cancelled = false
 
+    // One-time migration from old darkMode localStorage key
+    const oldDarkMode = localStorage.getItem('lumo:darkMode')
+    if (oldDarkMode !== null) {
+      localStorage.removeItem('lumo:darkMode')
+      const migrated = oldDarkMode === 'true' ? 'dark' : 'light'
+      setPrefs(prev => {
+        const next = { ...prev, theme: migrated as Preferences['theme'] }
+        saveCache(next)
+        return next
+      })
+      setTheme(migrated)
+      // Fire-and-forget API update
+      apiFetch('/api/users/preferences', {
+        method: 'PATCH',
+        body: { theme: migrated },
+      }).catch(() => {})
+    }
+
     async function fetchPrefs() {
       try {
         const res = await apiFetch('/api/users/preferences')
