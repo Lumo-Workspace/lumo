@@ -11,6 +11,7 @@ import {
   KeyRound,
   User,
   Settings2,
+  Bell,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -68,6 +69,11 @@ export function SettingsShell({
       label: 'Preferences',
       href: `/workspace/${workspaceUrl}/settings/preferences`,
       icon: Settings2,
+    },
+    {
+      label: 'Notifications',
+      href: `/workspace/${workspaceUrl}/settings/notifications`,
+      icon: Bell,
     },
     {
       label: 'API Keys',
