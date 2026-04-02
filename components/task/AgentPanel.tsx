@@ -155,6 +155,23 @@ function AgentPanelInner({
         })
         onTaskUpdate?.({ agentStatus: 'INPUT_REQUIRED' })
       }
+      if (event.type === 'agent:spec_draft') {
+        setSteps(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            text: 'Spec draft ready for review',
+            elapsedMs: elapsed(),
+            status: 'paused',
+          },
+        ])
+        setStatus('INPUT_REQUIRED')
+        setPausedAt(new Date())
+        onTaskUpdate?.({
+          agentStatus: 'INPUT_REQUIRED',
+          inputReason: 'spec_review',
+        })
+      }
       if (event.type === 'agent:done') {
         setStatus('COMPLETED')
         setRealtimeDoneMeta({
