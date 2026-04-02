@@ -42,7 +42,8 @@
   --line-width: 1px;
 }
 
-.dark .landing {
+.dark .landing,
+.landing.dark {
   --brand: oklch(83.6% 0.1177 66.87);
   --brand-foreground: oklch(75.77% 0.159 55.91);
 
