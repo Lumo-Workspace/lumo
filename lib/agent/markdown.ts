@@ -1,13 +1,15 @@
 import { marked } from 'marked'
+
+// @ts-ignore — turndown is CJS; bundler interop may wrap as { default }
 import TurndownModule from 'turndown'
 
-// turndown is CJS (module.exports = class). Webpack/Turbopack CJS interop
-// may wrap it as { default: class } or return the class directly.
-const TurndownService = (
+type TurndownCtor = new (options?: object) => { turndown(html: string): string }
+
+/** Resolve CJS/ESM interop: bundler may deliver the class directly or as { default } */
+const TurndownService: TurndownCtor =
   typeof TurndownModule === 'function'
-    ? TurndownModule
-    : (TurndownModule as unknown as { default: typeof TurndownModule }).default
-) as new (options?: object) => { turndown(html: string): string }
+    ? (TurndownModule as unknown as TurndownCtor)
+    : (TurndownModule as unknown as { default: TurndownCtor }).default
 
 /**
  * Detect whether a string is likely HTML (as opposed to plain markdown).

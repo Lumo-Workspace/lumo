@@ -3,7 +3,6 @@ import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/github/auth'
-// clarify-monitor removed — MCP server now communicates via HTTP API
 import {
   pushAgentEvent,
   fireAgentEvent,
