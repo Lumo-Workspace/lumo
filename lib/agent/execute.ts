@@ -27,7 +27,8 @@ import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const AGENT_TIMEOUT_MS = 28 * 60 * 1000
-const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000
+// Must be longer than AGENT_TIMEOUT_MS + clone/install/push overhead (~5-7 min)
+const SANDBOX_TIMEOUT_MS = 35 * 60 * 1000
 const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
 const AGENT_CMD_TIMEOUT_MS = 25 * 60 * 1000
