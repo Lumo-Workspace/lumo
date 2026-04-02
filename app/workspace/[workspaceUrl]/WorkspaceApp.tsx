@@ -34,7 +34,6 @@ import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
 import { usePusherEvent } from './hooks/usePusher'
-import { useDarkMode } from './hooks/useDarkMode'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -367,9 +366,6 @@ export default function DashboardApp() {
     },
     [openNewTaskModal, currentMemberId]
   )
-
-  // ─── Dark mode ─────────────────────────────────────────────────────────────
-  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ─── Clear stale cache when user or workspace changes ─────────────────────
   useEffect(() => {
@@ -795,8 +791,6 @@ export default function DashboardApp() {
         <AppSidebar
           currentPage={currentPage}
           onNavigate={navigateTo}
-          isDarkMode={isDarkMode}
-          onToggleDarkMode={handleToggleDarkMode}
           unreadCount={unreadCount}
         />
 

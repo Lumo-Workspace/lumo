@@ -68,7 +68,7 @@ export const API = {
 // ─── Local storage / cache keys ───────────────────────────────────────────────
 
 export const CACHE_KEY = {
-  darkMode: 'lumo:darkMode',
+  preferences: 'lumo:preferences',
   tasks: 'lumo:tasks',
   myTasks: 'lumo:myTasks',
   comments: (taskId: string) => `lumo:comments:${taskId}`,

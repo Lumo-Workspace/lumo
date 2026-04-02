@@ -20,7 +20,6 @@ import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
 import { slugifyProjectName, apiFetch } from '../../utils'
-import { useDarkMode } from '../../hooks/useDarkMode'
 import { useCopyState } from '../../hooks/useCopyState'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -36,9 +35,6 @@ export function ProjectDetailStandalonePage({
   workspaceUrl,
 }: Props) {
   const router = useRouter()
-
-  // ── Dark mode ──────────────────────────────────────────────────────────────
-  const { isDarkMode, toggle: handleToggleDarkMode } = useDarkMode()
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const { unreadCount } = useRealtimeNotifications()
@@ -270,8 +266,6 @@ export function ProjectDetailStandalonePage({
       <AppSidebar
         currentPage={'projects' as Page}
         onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={handleToggleDarkMode}
         unreadCount={unreadCount}
       />
 

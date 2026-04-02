@@ -5,8 +5,6 @@ import {
   Home,
   Layers,
   Inbox,
-  Sun,
-  Moon,
   LogOut,
   ChevronsUpDown,
   Users,
@@ -23,7 +21,6 @@ import { Badge } from '@/components/ui/badge'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -45,16 +42,12 @@ import {
 interface AppSidebarProps {
   currentPage: Page
   onNavigate: (page: Page) => void
-  isDarkMode: boolean
-  onToggleDarkMode: () => void
   unreadCount: number
 }
 
 export function AppSidebar({
   currentPage,
   onNavigate,
-  isDarkMode,
-  onToggleDarkMode,
   unreadCount,
 }: AppSidebarProps) {
   const { user } = useCurrentUser()
@@ -252,21 +245,6 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      {/* Footer: dark mode toggle */}
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={onToggleDarkMode}
-              tooltip={isDarkMode ? 'Dark Mode' : 'Light Mode'}
-            >
-              {isDarkMode ? <Moon /> : <Sun />}
-              <span>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
