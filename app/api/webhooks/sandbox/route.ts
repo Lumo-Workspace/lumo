@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { pushAgentEvent } from '@/lib/pusher/server'
@@ -13,41 +14,49 @@ import { userFriendlyError } from '@/lib/agent/errors'
  * complete — the sandbox eventually gets killed by E2B, and this webhook
  * catches that event to clean up stuck WORKING runs.
  *
- * Event: SANDBOX.LIFECYCLE.KILLED
- * Payload: { event: string, sandboxId: string, timestamp: string, ... }
+ * @see https://e2b.dev/docs/sandbox/lifecycle-events-webhooks
  */
 export async function POST(request: NextRequest) {
-  // Verify webhook authenticity via shared secret
-  const authHeader = request.headers.get('x-e2b-signature')
-  const webhookSecret = process.env.E2B_WEBHOOK_SECRET
+  const body = await request.text()
+  const secret = process.env.E2B_SIGNATURE
 
-  if (webhookSecret && authHeader !== webhookSecret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Verify signature: SHA256(secret + body) → base64 (strip trailing =)
+  if (secret) {
+    const sig = request.headers.get('e2b-signature')
+    const expected = crypto
+      .createHash('sha256')
+      .update(secret + body)
+      .digest('base64')
+      .replace(/=+$/, '')
+
+    if (sig !== expected) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   let payload: Record<string, unknown>
   try {
-    payload = (await request.json()) as Record<string, unknown>
+    payload = JSON.parse(body) as Record<string, unknown>
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const event = payload.event as string | undefined
+  const eventType = payload.type as string | undefined
   const sandboxId = payload.sandboxId as string | undefined
 
-  if (!event || !sandboxId) {
+  if (!eventType || !sandboxId) {
     return NextResponse.json({ ok: true, skipped: 'missing fields' })
   }
 
   // Only handle sandbox killed events
-  if (event !== 'SANDBOX.LIFECYCLE.KILLED') {
+  if (eventType !== 'sandbox.lifecycle.killed') {
     return NextResponse.json({ ok: true, skipped: 'unhandled event' })
   }
 
   try {
     await handleSandboxKilled(sandboxId)
   } catch (err) {
-    console.error(`[webhook/sandbox] error handling ${event}:`, err)
+    console.error(`[webhook/sandbox] error handling ${eventType}:`, err)
     // Return 200 to prevent E2B retrying indefinitely
   }
 
@@ -60,7 +69,6 @@ export async function POST(request: NextRequest) {
  * could finish — mark it as failed so the user isn't stuck.
  */
 async function handleSandboxKilled(sandboxId: string) {
-  // Find the AgentRun that used this sandbox
   const run = await prisma.agentRun.findFirst({
     where: { sandboxId },
     select: {
