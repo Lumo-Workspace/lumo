@@ -10,6 +10,7 @@ import {
   Puzzle,
   KeyRound,
   User,
+  Settings2,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -62,6 +63,11 @@ export function SettingsShell({
       label: 'Profile',
       href: `/workspace/${workspaceUrl}/settings/profile`,
       icon: User,
+    },
+    {
+      label: 'Preferences',
+      href: `/workspace/${workspaceUrl}/settings/preferences`,
+      icon: Settings2,
     },
     {
       label: 'API Keys',
