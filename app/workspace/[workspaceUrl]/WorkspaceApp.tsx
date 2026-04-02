@@ -704,6 +704,7 @@ export default function DashboardApp() {
             tasks={myTasks}
             setTasks={setMyTasksForDnD}
             viewId={myTasksViewId}
+            userId={user?.id ?? ''}
             loading={myTasksLoading}
             error={myTasksError}
             onRetry={fetchMyTasks}

@@ -17,6 +17,7 @@ import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { SortableHeader } from '../SortableHeader'
 import { ViewToggle } from '../ViewToggle'
+import { DisplayOptionsMenu } from '../DisplayOptionsMenu'
 import { AsyncContent } from '../AsyncContent'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +37,9 @@ import {
   cmpDate,
 } from '../../hooks/useTableSort'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
+import { useDisplayOptions } from '../../hooks/useDisplayOptions'
+import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
+import { CACHE_KEY } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 
 type MyTaskSortKey = 'title' | 'project' | 'status' | 'priority' | 'updatedAt'
@@ -44,6 +48,7 @@ interface MyTasksPageProps {
   tasks: MyTask[]
   setTasks: React.Dispatch<React.SetStateAction<MyTask[]>>
   viewId: string | null
+  userId: string
   loading: boolean
   error: string | null
   onRetry: () => void
@@ -55,6 +60,7 @@ export function MyTasksPage({
   tasks,
   setTasks,
   viewId,
+  userId,
   loading,
   error,
   onRetry,
@@ -62,6 +68,13 @@ export function MyTasksPage({
   onNewTask,
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const { options, setCompletedFilter } = useDisplayOptions(
+    CACHE_KEY.displayMyTasks(userId)
+  )
+  const filteredTasks = useMemo(
+    () => filterCompletedTasks(tasks, options.completedFilter),
+    [tasks, options.completedFilter]
+  )
 
   const sensors = useBoardSensors()
 
@@ -91,7 +104,11 @@ export function MyTasksPage({
       </header>
 
       {/* Toolbar */}
-      <div className='h-12 flex items-center justify-end px-4 md:px-8 shrink-0 bg-white dark:bg-zinc-950'>
+      <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8 shrink-0 bg-white dark:bg-zinc-950'>
+        <DisplayOptionsMenu
+          completedFilter={options.completedFilter}
+          onCompletedFilterChange={setCompletedFilter}
+        />
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
@@ -100,7 +117,7 @@ export function MyTasksPage({
         <AsyncContent
           loading={loading}
           error={error}
-          empty={tasks.length === 0 && viewMode !== 'board'}
+          empty={filteredTasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
           className='flex-1 flex flex-col overflow-hidden'
           emptyState={
@@ -125,11 +142,11 @@ export function MyTasksPage({
         >
           {viewMode === 'list' ? (
             <div className='flex-1 overflow-auto'>
-              <TaskListTable tasks={tasks} onTaskClick={onTaskClick} />
+              <TaskListTable tasks={filteredTasks} onTaskClick={onTaskClick} />
             </div>
           ) : (
             <BoardView
-              tasks={tasks}
+              tasks={filteredTasks}
               sensors={sensors}
               activeId={activeId}
               onDragStart={onDragStart}

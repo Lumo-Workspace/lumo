@@ -80,6 +80,8 @@ export const CACHE_KEY = {
   workspace: 'lumo:workspace',
   notifications: 'lumo:notifications',
   agentActors: 'lumo:agentActors',
+  displayMyTasks: (userId: string) => `lumo:display:my-tasks:${userId}`,
+  displayProject: (projectId: string) => `lumo:display:project:${projectId}`,
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────

@@ -37,6 +37,10 @@ import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
 import { ViewToggle } from '../ViewToggle'
+import { DisplayOptionsMenu } from '../DisplayOptionsMenu'
+import { useDisplayOptions } from '../../hooks/useDisplayOptions'
+import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
+import { CACHE_KEY } from '../../constants'
 import { AsyncContent } from '../AsyncContent'
 import { Button } from '@/components/ui/button'
 import {
@@ -145,6 +149,13 @@ export function ProjectDetailPage({
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const { options: displayOptions, setCompletedFilter } = useDisplayOptions(
+    CACHE_KEY.displayProject(project.id)
+  )
+  const filteredTasks = useMemo(
+    () => filterCompletedTasks(tasks, displayOptions.completedFilter),
+    [tasks, displayOptions.completedFilter]
+  )
 
   // ── Repositories state ────────────────────────────────────────────────────
   const [repositories, setRepositories] = useState<ApiRepository[]>(
@@ -612,7 +623,11 @@ export function ProjectDetailPage({
       {tab === 'tasks' && (
         <div className='flex-1 flex flex-col overflow-hidden'>
           {/* Toolbar */}
-          <div className='h-12 flex items-center justify-end px-4 md:px-8 shrink-0'>
+          <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8 shrink-0'>
+            <DisplayOptionsMenu
+              completedFilter={displayOptions.completedFilter}
+              onCompletedFilterChange={setCompletedFilter}
+            />
             <ViewToggle value={viewMode} onChange={setViewMode} />
           </div>
 
@@ -620,7 +635,7 @@ export function ProjectDetailPage({
           <AsyncContent
             loading={loading}
             error={error}
-            empty={tasks.length === 0 && viewMode !== 'board'}
+            empty={filteredTasks.length === 0 && viewMode !== 'board'}
             onRetry={onRetry}
             className='flex-1 flex flex-col overflow-hidden'
             emptyState={
@@ -647,13 +662,13 @@ export function ProjectDetailPage({
               <div className='flex-1 overflow-auto'>
                 <DataTable
                   columns={taskColumns}
-                  data={tasks}
+                  data={filteredTasks}
                   onRowClick={onTaskClick}
                 />
               </div>
             ) : (
               <BoardView
-                tasks={tasks}
+                tasks={filteredTasks}
                 sensors={sensors}
                 activeId={activeId}
                 onDragStart={onDragStart}
