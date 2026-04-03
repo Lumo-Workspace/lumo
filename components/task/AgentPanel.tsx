@@ -53,6 +53,7 @@ function AgentPanelInner({
     if (!Array.isArray(persisted) || persisted.length === 0) return []
     return persisted.map(s => ({
       id: crypto.randomUUID(),
+      key: s.key,
       text: s.text,
       elapsedMs: s.elapsedMs,
       status: (s.status as AgentStep['status']) ?? 'done',
@@ -109,6 +110,7 @@ function AgentPanelInner({
       setSteps(
         persisted.map(s => ({
           id: crypto.randomUUID(),
+          key: s.key,
           text: s.text,
           elapsedMs: s.elapsedMs,
           status: (s.status as AgentStep['status']) ?? 'done',
@@ -150,7 +152,16 @@ function AgentPanelInner({
 
       if (event.type === 'agent:started') {
         agentStartTimeRef.current = new Date()
-        setSteps([])
+        // Initialize pipeline steps from the event (all pending)
+        setSteps(
+          (event.steps ?? []).map(s => ({
+            id: crypto.randomUUID(),
+            key: s.key,
+            text: s.text,
+            elapsedMs: 0,
+            status: 'pending' as const,
+          }))
+        )
         setPausedAt(null)
         setRealtimeDoneMeta(null)
         setRealtimeErrorMessage(null)
@@ -159,34 +170,35 @@ function AgentPanelInner({
         onTaskUpdate?.({ agentStatus: 'WORKING' })
       }
       if (event.type === 'agent:progress') {
-        setSteps(prev => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            text: event.message,
-            elapsedMs: elapsed(),
-            status: 'done',
-          },
-        ])
-      }
-      if (event.type === 'agent:tool') {
         setSteps(prev => {
-          const label = formatEvent(event)
-          // Deduplicate consecutive identical tool steps (e.g. repeated TodoWrite)
-          if (prev.length > 0 && prev[prev.length - 1]!.text === label) {
-            return prev
+          if (event.key) {
+            // Update the matching pipeline step by key
+            const idx = prev.findIndex(s => s.key === event.key)
+            if (idx !== -1) {
+              const updated = [...prev]
+              updated[idx] = {
+                ...updated[idx]!,
+                text: event.message,
+                elapsedMs: elapsed(),
+                status: 'done',
+              }
+              return updated
+            }
           }
+          // Fallback: append (for events without key)
           return [
             ...prev,
             {
               id: crypto.randomUUID(),
-              text: label,
+              text: event.message,
               elapsedMs: elapsed(),
-              status: 'done' as const,
+              status: 'done',
             },
           ]
         })
       }
+      // agent:tool events are NOT added to steps — pipeline stages are sufficient.
+      // Tool activity is shown only in the raw log fallback.
       if (event.type === 'agent:clarify') {
         setSteps(prev => [
           ...prev,

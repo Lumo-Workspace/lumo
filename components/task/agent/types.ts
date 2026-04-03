@@ -15,10 +15,11 @@ export interface AgentClarifyPending {
 
 export interface AgentStep {
   id: string
+  key?: string
   text: string
   subText?: string
   elapsedMs: number
-  status: 'done' | 'paused' | 'failed'
+  status: 'pending' | 'done' | 'paused' | 'failed'
 }
 
 export interface AgentChangedFile {

@@ -191,12 +191,23 @@ async function createAgentRun(
   const runNumber = await nextRunNumber(taskId)
   const mcpToken = randomBytes(32).toString('hex')
   const agentRun = await prisma.agentRun.create({
-    data: { taskId, runNumber, status: 'WORKING', trigger, mcpToken },
+    data: {
+      taskId,
+      runNumber,
+      status: 'WORKING',
+      trigger,
+      mcpToken,
+      steps: buildInitialSteps(),
+    },
   })
   await transitionAgentStatus(taskId, projectId, 'WORKING', {
     agentError: null,
   })
-  fireAgentEvent(taskId, { type: 'agent:started', runNumber })
+  fireAgentEvent(taskId, {
+    type: 'agent:started',
+    runNumber,
+    steps: buildInitialSteps(),
+  })
   return { id: agentRun.id, mcpToken }
 }
 
@@ -369,6 +380,7 @@ async function cloneRepo(
   fireProgress(
     ctx.taskId,
     ctx.currentRunId,
+    'clone',
     `Cloning ${ctx.repoOwner}/${ctx.repoName}...`
   )
   const clone = await sandbox.commands
@@ -383,7 +395,7 @@ async function cloneRepo(
 
 async function installClaude(sandbox: Sandbox, taskId: string, runId: string) {
   console.log('[Agent] Installing Claude Code...')
-  fireProgress(taskId, runId, 'Setting up environment...')
+  fireProgress(taskId, runId, 'setup', 'Setting up environment...')
   await sandbox.commands.run('sudo npm install -g @anthropic-ai/claude-code', {
     timeoutMs: INSTALL_TIMEOUT_MS,
   })
@@ -410,7 +422,12 @@ async function fetchAndCheckout(
   runId: string,
   branchName: string
 ) {
-  fireProgress(taskId, runId, `Checking out existing branch ${branchName}...`)
+  fireProgress(
+    taskId,
+    runId,
+    'branch',
+    `Checking out existing branch ${branchName}...`
+  )
   await sandbox.commands.run(
     `git -C /home/user/repo fetch origin ${branchName} && git -C /home/user/repo checkout ${branchName}`,
     { timeoutMs: PUSH_TIMEOUT_MS }
@@ -423,7 +440,7 @@ async function createBranch(
   runId: string,
   branchName: string
 ) {
-  fireProgress(taskId, runId, `Creating branch ${branchName}...`)
+  fireProgress(taskId, runId, 'branch', `Creating branch ${branchName}...`)
   await sandbox.commands.run(`git -C /home/user/repo checkout -b ${branchName}`)
 }
 
@@ -475,27 +492,74 @@ function buildClaudeCommand(anthropicKey: string): string {
   )
 }
 
-/** Atomically append a step to the agentRun.steps JSON array in the DB. */
-function appendRunStep(
-  runId: string,
-  step: { text: string; elapsedMs: number; status: string }
-): void {
-  // Fire-and-forget — don't block event streaming on DB writes
-  prisma.$executeRaw`UPDATE agent_runs SET steps = COALESCE(steps, '[]'::jsonb) || ${JSON.stringify([step])}::jsonb WHERE id = ${runId}`.catch(
-    err => console.error('[Agent] Failed to persist step:', err)
-  )
+// ── Pipeline stages ──────────────────────────────────────────────────────
+
+/** Known pipeline stages — order matters. */
+const PIPELINE_STAGES = [
+  { key: 'clone', label: 'Clone repository' },
+  { key: 'setup', label: 'Set up environment' },
+  { key: 'branch', label: 'Prepare branch' },
+  { key: 'analyze', label: 'Analyze codebase' },
+  { key: 'verify', label: 'Verify changes' },
+  { key: 'metadata', label: 'Collect run metadata' },
+  { key: 'pr', label: 'Create pull request' },
+] as const
+
+type StageKey = (typeof PIPELINE_STAGES)[number]['key']
+
+interface PipelineStep {
+  key: string
+  text: string
+  elapsedMs: number
+  status: 'pending' | 'done'
 }
 
-/** Fire a progress Pusher event AND persist the step to the DB. */
+/** Build the initial steps array with all stages as pending. */
+function buildInitialSteps(): PipelineStep[] {
+  return PIPELINE_STAGES.map(s => ({
+    key: s.key,
+    text: s.label,
+    elapsedMs: 0,
+    status: 'pending' as const,
+  }))
+}
+
+/** Atomically mark a pipeline step as done (by key) in the DB. */
+function markStepDone(
+  runId: string,
+  key: StageKey,
+  text: string,
+  elapsedMs: number
+): void {
+  // Use jsonb_agg to update the matching element in the array
+  prisma.$executeRaw`
+      UPDATE agent_runs
+      SET steps = (
+        SELECT jsonb_agg(
+          CASE WHEN elem->>'key' = ${key}
+          THEN elem || jsonb_build_object('status', 'done', 'text', ${text}, 'elapsedMs', ${elapsedMs})
+          ELSE elem END
+        )
+        FROM jsonb_array_elements(COALESCE(steps, '[]'::jsonb)) elem
+      )
+      WHERE id = ${runId}
+    `.catch(err => console.error('[Agent] Failed to update step:', err))
+}
+
+/**
+ * Fire a progress Pusher event AND mark the pipeline step as done in DB.
+ * `key` identifies which pipeline stage completed.
+ */
 function fireProgress(
   taskId: string,
   runId: string,
+  key: StageKey,
   message: string,
   startTime?: Date
 ): void {
-  fireAgentEvent(taskId, { type: 'agent:progress', message })
+  fireAgentEvent(taskId, { type: 'agent:progress', message, key })
   const elapsedMs = startTime ? Date.now() - startTime.getTime() : 0
-  appendRunStep(runId, { text: message, elapsedMs, status: 'done' })
+  markStepDone(runId, key, message, elapsedMs)
 }
 
 function processContentBlock(
@@ -545,6 +609,7 @@ async function runClaude(
   fireProgress(
     ctx.taskId,
     ctx.currentRunId,
+    'analyze',
     'Agent is analyzing the codebase...'
   )
 
@@ -913,6 +978,7 @@ async function reuseExistingPR(
   fireProgress(
     ctx.taskId,
     ctx.currentRunId,
+    'pr',
     'Updating existing pull request...'
   )
   const { prUrl, prNumber } = await findExistingPR(ctx.taskId, ctx.resolvedRepo)
@@ -939,7 +1005,7 @@ async function createNewPR(
   ctx: RunContext,
   runMeta: Awaited<ReturnType<typeof collectRunMetadata>>
 ): Promise<{ prUrl: string; prNumber: number }> {
-  fireProgress(ctx.taskId, ctx.currentRunId, 'Creating pull request...')
+  fireProgress(ctx.taskId, ctx.currentRunId, 'pr', 'Creating pull request...')
   const prTitle = `${ctx.task.title} [${ctx.identifier}]`
   const pr = await createPullRequest({
     owner: ctx.repoOwner,
@@ -1071,7 +1137,7 @@ async function processPostAgent(
   branchExistsOnRemote: boolean
 ): Promise<AgentResult> {
   // Check if agent pushed the branch by querying GitHub
-  fireProgress(ctx.taskId, ctx.currentRunId, 'Verifying push...')
+  fireProgress(ctx.taskId, ctx.currentRunId, 'verify', 'Verifying push...')
   const branchOnGitHub = await checkBranchOnGitHub(
     ctx.repoOwner,
     ctx.repoName,
@@ -1086,10 +1152,15 @@ async function processPostAgent(
     return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)
   }
 
-  fireProgress(ctx.taskId, ctx.currentRunId, 'Collecting run metadata...')
+  fireProgress(
+    ctx.taskId,
+    ctx.currentRunId,
+    'metadata',
+    'Collecting run metadata...'
+  )
   const runMeta = await collectRunMetadata(ctx)
 
-  fireProgress(ctx.taskId, ctx.currentRunId, 'Creating pull request...')
+  fireProgress(ctx.taskId, ctx.currentRunId, 'pr', 'Creating pull request...')
   const { prUrl, prNumber } = await createOrReusePR(
     ctx,
     branchExistsOnRemote,

@@ -72,6 +72,7 @@ export default async function MyTaskDetailPage({
           errorCode: true,
           errorMessage: true,
           summary: true,
+          steps: true,
           changedFiles: true,
           durationMs: true,
           prNumber: true,
@@ -103,6 +104,9 @@ export default async function MyTaskDetailPage({
       ...r,
       startedAt: r.startedAt.toISOString(),
       finishedAt: r.finishedAt?.toISOString() ?? null,
+      steps: r.steps as
+        | { key: string; text: string; elapsedMs: number; status: string }[]
+        | null,
       changedFiles: r.changedFiles as
         | { path: string; status: 'added' | 'modified' | 'deleted' }[]
         | null,

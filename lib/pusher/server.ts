@@ -18,10 +18,14 @@ function getPusher(): Pusher {
 // ── Agent events (existing) ─────────────────────────────────────────────────
 
 export type AgentEvent =
-  | { type: 'agent:started'; runNumber: number }
+  | {
+      type: 'agent:started'
+      runNumber: number
+      steps?: { key: string; text: string; elapsedMs: number; status: string }[]
+    }
   | { type: 'agent:thinking'; message: string }
   | { type: 'agent:tool'; tool: string; input: string }
-  | { type: 'agent:progress'; message: string }
+  | { type: 'agent:progress'; message: string; key?: string }
   | { type: 'agent:clarify'; question: string; context: string | null }
   | { type: 'agent:spec_draft'; spec: string }
   | {

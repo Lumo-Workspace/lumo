@@ -12,9 +12,16 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
       {steps.map((step, i) => {
         const isFailed = step.status === 'failed'
         const isPausedStep = step.status === 'paused'
+        const isPending = step.status === 'pending'
 
         return (
-          <div key={step.id} className='flex items-start gap-2 py-0.5'>
+          <div
+            key={step.id}
+            className={cn(
+              'flex items-start gap-2 py-0.5',
+              isPending && 'opacity-40'
+            )}
+          >
             {/* Indicator */}
             <div className='mt-1 shrink-0 flex flex-col items-center'>
               <div
@@ -24,7 +31,9 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                     ? 'bg-red-500'
                     : isPausedStep
                       ? 'bg-amber-400'
-                      : 'bg-blue-500'
+                      : isPending
+                        ? 'bg-zinc-300 dark:bg-zinc-600'
+                        : 'bg-blue-500'
                 )}
               />
               {i < steps.length - 1 && (
@@ -42,7 +51,9 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                       ? 'text-red-600 dark:text-red-400 font-medium'
                       : isPausedStep
                         ? 'text-amber-700 dark:text-amber-300 font-medium'
-                        : 'text-zinc-500 dark:text-zinc-400'
+                        : isPending
+                          ? 'text-zinc-400 dark:text-zinc-500'
+                          : 'text-zinc-500 dark:text-zinc-400'
                   )}
                 >
                   {isPausedStep
@@ -55,7 +66,11 @@ export function AgentStepsList({ steps }: { steps: AgentStep[] }) {
                   </span>
                 )}
               </div>
-              {isPausedStep ? (
+              {isPending ? (
+                <span className='shrink-0 text-[10px] text-zinc-400 font-mono mt-0.5'>
+                  —
+                </span>
+              ) : isPausedStep ? (
                 <span className='shrink-0 text-[10px] text-amber-500 font-medium mt-0.5'>
                   Paused
                 </span>
