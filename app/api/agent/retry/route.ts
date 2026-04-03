@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
@@ -69,15 +68,19 @@ export async function POST(req: NextRequest) {
       data: { agentError: null },
     })
 
-    waitUntil(
-      executeAgent({ taskId, actorClerkId: userId, trigger: 'retry' }).catch(
-        err => {
-          console.error(`[agent/retry] Task ${taskId} failed:`, err)
-        }
-      )
-    )
+    const result = await executeAgent({
+      taskId,
+      actorClerkId: userId,
+      trigger: 'retry',
+    }).catch(err => {
+      console.error(`[agent/retry] Task ${taskId} failed:`, err)
+      return { outcome: 'failed' as const, error: String(err) }
+    })
 
-    return NextResponse.json({ status: 'retrying', taskId })
+    return NextResponse.json(
+      { status: result.outcome, taskId },
+      { status: 202 }
+    )
   } catch (error) {
     console.error('[agent/retry] Unexpected error:', error)
     return NextResponse.json(

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
@@ -57,17 +56,19 @@ export async function POST(req: NextRequest) {
       data: { spec, agentError: null },
     })
 
-    waitUntil(
-      executeAgent({
-        taskId,
-        actorClerkId: userId,
-        trigger: 'confirm_spec',
-      }).catch(err => {
-        console.error(`[agent/confirm-spec] Task ${taskId} failed:`, err)
-      })
-    )
+    const result = await executeAgent({
+      taskId,
+      actorClerkId: userId,
+      trigger: 'confirm_spec',
+    }).catch(err => {
+      console.error(`[agent/confirm-spec] Task ${taskId} failed:`, err)
+      return { outcome: 'failed' as const, error: String(err) }
+    })
 
-    return NextResponse.json({ status: 'running', taskId })
+    return NextResponse.json(
+      { status: result.outcome, taskId },
+      { status: 202 }
+    )
   } catch (error) {
     console.error('[agent/confirm-spec] Unexpected error:', error)
     return NextResponse.json(

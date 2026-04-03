@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
@@ -148,15 +147,13 @@ export async function POST(request: NextRequest, { params }: Params) {
               data: { reply: data.reply, repliedAt: new Date() },
             })
           }
-          waitUntil(
-            executeAgent({
-              taskId,
-              actorClerkId: userId,
-              trigger: 'clarify_reply',
-            }).catch(err => {
-              console.error(`[notifications/respond] Re-run failed:`, err)
-            })
-          )
+          await executeAgent({
+            taskId,
+            actorClerkId: userId,
+            trigger: 'clarify_reply',
+          }).catch(err => {
+            console.error(`[notifications/respond] Re-run failed:`, err)
+          })
         }
       } else {
         // Task not INPUT_REQUIRED — re-run the agent fresh
@@ -170,15 +167,13 @@ export async function POST(request: NextRequest, { params }: Params) {
             data: { reply: data.reply, repliedAt: new Date() },
           })
         }
-        waitUntil(
-          executeAgent({
-            taskId,
-            actorClerkId: userId,
-            trigger: 'clarify_reply',
-          }).catch(err => {
-            console.error(`[notifications/respond] Re-run failed:`, err)
-          })
-        )
+        await executeAgent({
+          taskId,
+          actorClerkId: userId,
+          trigger: 'clarify_reply',
+        }).catch(err => {
+          console.error(`[notifications/respond] Re-run failed:`, err)
+        })
       }
 
       return NextResponse.json({ ok: true })
@@ -225,26 +220,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               where: { id: taskId },
               data: { agentError: null },
             })
-            waitUntil(
-              executeAgent({
-                taskId,
-                actorClerkId: userId,
-                trigger: 'clarify_reply',
-              }).catch(err => {
-                console.error(
-                  `[notifications/respond] Approve re-run failed:`,
-                  err
-                )
-              })
-            )
-          }
-        } else {
-          await prisma.task.update({
-            where: { id: taskId },
-            data: { agentError: null },
-          })
-          waitUntil(
-            executeAgent({
+            await executeAgent({
               taskId,
               actorClerkId: userId,
               trigger: 'clarify_reply',
@@ -254,7 +230,19 @@ export async function POST(request: NextRequest, { params }: Params) {
                 err
               )
             })
-          )
+          }
+        } else {
+          await prisma.task.update({
+            where: { id: taskId },
+            data: { agentError: null },
+          })
+          await executeAgent({
+            taskId,
+            actorClerkId: userId,
+            trigger: 'clarify_reply',
+          }).catch(err => {
+            console.error(`[notifications/respond] Approve re-run failed:`, err)
+          })
         }
       } else {
         // Deny: fail the agent
@@ -315,18 +303,13 @@ export async function POST(request: NextRequest, { params }: Params) {
           where: { id: taskId },
           data: { agentError: null },
         })
-        waitUntil(
-          executeAgent({
-            taskId,
-            actorClerkId: userId,
-            trigger: 'send_back',
-          }).catch(err => {
-            console.error(
-              `[notifications/respond] Send-back re-run failed:`,
-              err
-            )
-          })
-        )
+        await executeAgent({
+          taskId,
+          actorClerkId: userId,
+          trigger: 'send_back',
+        }).catch(err => {
+          console.error(`[notifications/respond] Send-back re-run failed:`, err)
+        })
       }
 
       return NextResponse.json({ ok: true })

@@ -27,14 +27,14 @@ import { buildAgentContext } from './context-builder'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-// Fluid Compute on Pro plan: maxDuration=800s (~13 min).
-// The overall AGENT_TIMEOUT_MS is the hard ceiling; individual command
-// timeouts are set higher so the overall timer is what actually fires.
-const AGENT_TIMEOUT_MS = 12 * 60 * 1000
-const SANDBOX_TIMEOUT_MS = 120 * 60 * 1000
+// Agent runs inside an E2B sandbox that lives independently of the Vercel
+// function.  The function only performs setup (~2 min), then the sandbox
+// executes the Claude CLI in the background.  A webhook callback triggers
+// post-processing when the agent finishes.
+const AGENT_TIMEOUT_MS = 30 * 60 * 1000 // hard ceiling enforced via `timeout` in sandbox
+const SANDBOX_TIMEOUT_MS = 55 * 60 * 1000 // E2B sandbox lifetime (max 1h on Base)
 const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
-const AGENT_CMD_TIMEOUT_MS = 14 * 60 * 1000 // higher than AGENT_TIMEOUT_MS — overall timer fires first
 const PUSH_TIMEOUT_MS = 60 * 1000
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -45,6 +45,7 @@ export type AgentResult =
   | { outcome: 'clarify'; question: string }
   | { outcome: 'no_changes' }
   | { outcome: 'spec_review' }
+  | { outcome: 'started' }
 
 export interface ExecuteAgentOptions {
   taskId: string
@@ -87,14 +88,6 @@ function slugify(title: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50)
-}
-
-function summarizeToolInput(tool: string, input: unknown): string {
-  const i = (input ?? {}) as Record<string, string>
-  if (tool === 'Read' || tool === 'Write' || tool === 'Edit')
-    return i.file_path ?? ''
-  if (tool === 'Bash') return (i.command ?? '').slice(0, 80)
-  return ''
 }
 
 // ── Data access ───────────────────────────────────────────────────────────
@@ -198,7 +191,7 @@ async function createAgentRun(
       status: 'WORKING',
       trigger,
       mcpToken,
-      steps: buildInitialSteps(),
+      steps: buildInitialSteps() as unknown as Prisma.InputJsonValue,
     },
   })
   await transitionAgentStatus(taskId, projectId, 'WORKING', {
@@ -209,6 +202,7 @@ async function createAgentRun(
     runNumber,
     steps: buildInitialSteps(),
   })
+  runStepTimers.set(agentRun.id, Date.now())
   return { id: agentRun.id, mcpToken }
 }
 
@@ -397,9 +391,22 @@ async function cloneRepo(
 async function installClaude(sandbox: Sandbox, taskId: string, runId: string) {
   console.log('[Agent] Installing Claude Code...')
   fireProgress(taskId, runId, 'setup', 'Setting up environment...')
-  await sandbox.commands.run('sudo npm install -g @anthropic-ai/claude-code', {
-    timeoutMs: INSTALL_TIMEOUT_MS,
-  })
+  const install = await sandbox.commands
+    .run('sudo npm install -g @anthropic-ai/claude-code', {
+      timeoutMs: INSTALL_TIMEOUT_MS,
+    })
+    .catch(err => {
+      throw new AgentError(
+        'AGENT_EXECUTION_FAILED',
+        `Failed to install Claude Code: ${err.message}`
+      )
+    })
+  if (install.exitCode !== 0) {
+    throw new AgentError(
+      'AGENT_EXECUTION_FAILED',
+      `Failed to install Claude Code (exit ${install.exitCode}): ${install.stderr?.slice(-300) || '(no stderr)'}`
+    )
+  }
   console.log('[Agent] Claude Code installed')
 }
 
@@ -478,20 +485,11 @@ async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
 
 // ── Agent execution ───────────────────────────────────────────────────────
 
-function buildClaudeCommand(anthropicKey: string): string {
-  const tools =
-    'Read,Write,Edit,' +
-    'Bash(git add *),Bash(git commit *),Bash(git push *),Bash(npm *),Bash(npx *),' +
-    'Bash(ls *),Bash(cat *),Bash(mkdir *),' +
-    'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
-  return (
-    `cd /home/user/repo && ANTHROPIC_API_KEY=${anthropicKey} ` +
-    `claude -p "$(cat /home/user/task.md)" ` +
-    `--allowedTools "${tools}" ` +
-    `--mcp-config ${MCP_CONFIG_PATH} ` +
-    `--output-format stream-json --verbose --max-turns 50`
-  )
-}
+const CLAUDE_ALLOWED_TOOLS =
+  'Read,Write,Edit,' +
+  'Bash(git add *),Bash(git commit *),Bash(git push *),Bash(npm *),Bash(npx *),' +
+  'Bash(ls *),Bash(cat *),Bash(mkdir *),' +
+  'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
 
 // ── Pipeline stages ──────────────────────────────────────────────────────
 
@@ -537,119 +535,113 @@ function markStepDone(
     .findUnique({ where: { id: runId }, select: { steps: true } })
     .then(run => {
       if (!run?.steps || !Array.isArray(run.steps)) return
-      const updated = (run.steps as PipelineStep[]).map(s =>
+      const updated = (run.steps as unknown as PipelineStep[]).map(s =>
         s.key === key ? { ...s, status: 'done' as const, text, elapsedMs } : s
       )
       return prisma.agentRun.update({
         where: { id: runId },
-        data: { steps: updated },
+        data: { steps: updated as unknown as Prisma.InputJsonValue },
       })
     })
     .catch(err => console.error('[Agent] Failed to update step:', err))
 }
 
+/** Tracks the timestamp of the last completed step per run. */
+const runStepTimers = new Map<string, number>()
+
 /**
  * Fire a progress Pusher event AND mark the pipeline step as done in DB.
- * `key` identifies which pipeline stage completed.
+ * Elapsed time is automatically computed from the previous step's completion.
  */
 function fireProgress(
   taskId: string,
   runId: string,
   key: StageKey,
-  message: string,
-  startTime?: Date
+  message: string
 ): void {
+  const now = Date.now()
+  const lastTime = runStepTimers.get(runId) ?? now
+  const elapsedMs = now - lastTime
+  runStepTimers.set(runId, now)
+
   fireAgentEvent(taskId, { type: 'agent:progress', message, key })
-  const elapsedMs = startTime ? Date.now() - startTime.getTime() : 0
   markStepDone(runId, key, message, elapsedMs)
 }
 
-function processContentBlock(
-  taskId: string,
-  block: { type: string; text?: string; name?: string; input?: unknown }
-) {
-  if (block.type === 'text' && block.text?.trim()) {
-    fireAgentEvent(taskId, {
-      type: 'agent:thinking',
-      message: (block.text as string).slice(0, 120),
-    })
-  } else if (block.type === 'tool_use') {
-    const tool = block.name as string
-    const input = summarizeToolInput(tool, block.input)
-    fireAgentEvent(taskId, { type: 'agent:tool', tool, input })
-    // tool events are only pushed to Pusher for real-time display;
-    // they are NOT persisted to DB to avoid bloating the steps array.
-  }
-}
-
-function createStdoutHandler(taskId: string) {
-  return (data: string) => {
-    try {
-      const msg = JSON.parse(data)
-      if (msg.type !== 'assistant') return
-      for (const block of msg.message?.content ?? []) {
-        processContentBlock(taskId, block)
-      }
-    } catch {
-      // Not JSON — skip
-    }
-  }
-}
-
 /**
- * Run the Claude agent command in the sandbox.
- *
- * With the HTTP-based MCP flow, the agent stays alive when `ask_user` is
- * called (the MCP server blocks on HTTP polling). The command only exits
- * when the agent is truly done or timed out. The `INPUT_REQUIRED` status
- * transition is handled by `POST /api/agent/mcp-clarify`.
+ * Write the agent runner script and completion callback to the sandbox.
+ * The runner executes Claude CLI with a timeout, then calls our webhook
+ * with the exit code so we can do post-processing from a fresh function.
  */
-async function runClaude(
+async function writeAgentScript(
   sandbox: Sandbox,
-  ctx: RunContext
-): Promise<AgentResult | 'agent_done'> {
-  fireProgress(
-    ctx.taskId,
-    ctx.currentRunId,
-    'analyze',
-    'Agent is analyzing the codebase...'
-  )
+  ctx: RunContext,
+  branchExistsOnRemote: boolean
+): Promise<void> {
+  const callbackUrl = process.env.NEXT_PUBLIC_APP_URL
+  const timeoutSecs = Math.floor(AGENT_TIMEOUT_MS / 1000)
 
-  const stderrChunks: string[] = []
-  const result = await sandbox.commands
-    .run(buildClaudeCommand(ctx.anthropicKey), {
-      timeoutMs: AGENT_CMD_TIMEOUT_MS,
-      onStdout: createStdoutHandler(ctx.taskId),
-      onStderr: (data: string) => stderrChunks.push(data),
-    })
-    .catch(err => {
-      const stderr = stderrChunks.join('').trim()
-      const detail = stderr
-        ? `Agent execution failed (${err.message})\n${stderr.slice(-500)}`
-        : `Agent execution failed (${err.message})`
-      throw new AgentError('AGENT_EXECUTION_FAILED', detail)
-    })
+  const runScript = `#!/bin/bash
+cd /home/user/repo
+export ANTHROPIC_API_KEY="${ctx.anthropicKey}"
 
-  // After agent exits, check if there's a pending clarify in the DB
-  // (created by the HTTP callback from the MCP server)
-  const pendingClarify = await prisma.agentClarify.findFirst({
-    where: { taskId: ctx.taskId, reply: null },
-    orderBy: { createdAt: 'desc' },
-  })
+timeout --signal=TERM ${timeoutSecs} \\
+  claude -p "$(cat /home/user/task.md)" \\
+  --allowedTools "${CLAUDE_ALLOWED_TOOLS}" \\
+  --mcp-config ${MCP_CONFIG_PATH} \\
+  --output-format stream-json --verbose --max-turns 50 \\
+  > /tmp/agent-stdout.log 2>/tmp/agent-stderr.log
 
-  if (pendingClarify) {
-    return finalizeClarify(ctx.taskId, ctx.currentRunId)
-  }
+EXIT_CODE=$?
+python3 /home/user/send-callback.py $EXIT_CODE
+`
 
-  if (result.exitCode !== 0) {
-    const stderr = (result.stderr || stderrChunks.join('')).trim()
-    throw new AgentError(
-      'AGENT_EXECUTION_FAILED',
-      `Agent exited with code ${result.exitCode}\n${stderr.slice(-500) || '(no stderr)'}`
-    )
-  }
+  const callbackPy = `import json, sys, urllib.request
 
-  return 'agent_done'
+exit_code = int(sys.argv[1])
+
+stderr = ""
+try:
+    with open("/tmp/agent-stderr.log") as f:
+        content = f.read()
+        stderr = content[-500:] if content else ""
+except:
+    pass
+
+payload = json.dumps({
+    "runId": ${JSON.stringify(ctx.currentRunId)},
+    "taskId": ${JSON.stringify(ctx.taskId)},
+    "exitCode": exit_code,
+    "timedOut": exit_code == 124,
+    "stderr": stderr,
+    "branchExistsOnRemote": ${JSON.stringify(branchExistsOnRemote)},
+})
+
+req = urllib.request.Request(
+    ${JSON.stringify(`${callbackUrl}/api/agent/sandbox-done`)},
+    data=payload.encode(),
+    headers={
+        "Content-Type": "application/json",
+        "Authorization": ${JSON.stringify(`Bearer ${ctx.mcpToken}`)},
+    },
+    method="POST",
+)
+
+# Retry up to 3 times with backoff
+import time
+for attempt in range(3):
+    try:
+        urllib.request.urlopen(req, timeout=30)
+        print(f"Callback sent successfully (attempt {attempt + 1})")
+        break
+    except Exception as e:
+        print(f"Callback attempt {attempt + 1} failed: {e}", file=sys.stderr)
+        if attempt < 2:
+            time.sleep(2 ** attempt)
+`
+
+  await sandbox.files.write('/home/user/run-agent.sh', runScript)
+  await sandbox.files.write('/home/user/send-callback.py', callbackPy)
 }
 
 async function finalizeClarify(
@@ -1107,26 +1099,6 @@ async function handleMissingSpec(
   return { outcome: 'spec_review' } as AgentResult
 }
 
-// ── Timeout handler ──────────────────────────────────────────────────────
-
-function setupTimeout(
-  taskId: string,
-  projectId: string,
-  runId: string,
-  onTimeout: () => void
-): NodeJS.Timeout {
-  return setTimeout(async () => {
-    onTimeout()
-    await markFailed(
-      taskId,
-      projectId,
-      'TIMEOUT',
-      'Agent timed out after 28 minutes',
-      runId
-    )
-  }, AGENT_TIMEOUT_MS)
-}
-
 // ── Post-agent pipeline ─────────────────────────────────────────────────
 
 /**
@@ -1238,6 +1210,15 @@ async function setupSandboxAndRepo(
 
 // ── Main orchestrator ─────────────────────────────────────────────────────
 
+/**
+ * Phase 1 — Setup.
+ *
+ * Creates an E2B sandbox, clones the repo, installs Claude Code, checks
+ * out the branch, writes the task spec, then starts the Claude CLI in the
+ * background.  The sandbox runs independently — when the CLI finishes,
+ * a callback script POSTs to `/api/agent/sandbox-done` which triggers
+ * Phase 2 (post-processing).
+ */
 export async function executeAgent({
   taskId,
   actorName,
@@ -1254,42 +1235,157 @@ export async function executeAgent({
     trigger,
   })
   let sandbox: Sandbox | undefined
-  let timedOut = false
-
-  const timeoutHandle = setupTimeout(
-    taskId,
-    task.project.id,
-    ctx.currentRunId,
-    () => {
-      timedOut = true
-      if (sandbox) sandbox.kill().catch(() => {})
-    }
-  )
 
   try {
     sandbox = await createSandbox(ctx.currentRunId)
     const branchExistsOnRemote = await setupSandboxAndRepo(sandbox, ctx)
-    console.log(`[Agent] Setup complete, starting agent for task ${taskId}`)
 
-    const agentResult = await runClaude(sandbox, ctx)
-    console.log(
-      `[Agent] Agent finished with result: ${typeof agentResult === 'string' ? agentResult : agentResult.outcome}`
+    // Fire the "analyze" step before handing off to the background
+    fireProgress(
+      ctx.taskId,
+      ctx.currentRunId,
+      'analyze',
+      'Agent is analyzing the codebase...'
     )
-    if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
-    if (agentResult !== 'agent_done') return agentResult
 
-    // Sandbox is no longer needed — agent pushed its own branch.
-    // Post-processing uses GitHub API only.
+    // Write runner + callback scripts, then start in background
+    await writeAgentScript(sandbox, ctx, branchExistsOnRemote)
+    await sandbox.commands.run('bash /home/user/run-agent.sh', {
+      background: true,
+    })
+
     console.log(
-      '[Agent] Agent done, proceeding to post-processing via GitHub API'
+      `[Agent] Agent started in background for task ${taskId}, sandbox ${sandbox.sandboxId}`
     )
-    return processPostAgent(ctx, branchExistsOnRemote)
+    // Do NOT kill sandbox — it runs independently
+    return { outcome: 'started' }
   } catch (error) {
-    if (timedOut) return { outcome: 'failed', error: 'Agent timed out' }
-    return handleExecutionError(error, ctx)
-  } finally {
-    clearTimeout(timeoutHandle)
+    // Setup failed — kill sandbox and report error
+    runStepTimers.delete(ctx.currentRunId)
     if (sandbox) await sandbox.kill().catch(() => {})
+    return handleExecutionError(error, ctx)
+  }
+}
+
+// ── Phase 2: Completion callback ────────────────────────────────────────
+
+/**
+ * Called by `POST /api/agent/sandbox-done` when the sandbox finishes.
+ * Handles post-processing: verify push, collect metadata, create/update PR.
+ */
+export async function processAgentCompletion(params: {
+  runId: string
+  taskId: string
+  exitCode: number
+  timedOut: boolean
+  stderr: string
+  branchExistsOnRemote: boolean
+}): Promise<void> {
+  const { runId, taskId, exitCode, timedOut, stderr, branchExistsOnRemote } =
+    params
+
+  const task = await loadTask(taskId)
+  const run = await prisma.agentRun.findUnique({
+    where: { id: runId },
+    select: { startedAt: true, sandboxId: true },
+  })
+  if (!run) throw new Error(`AgentRun ${runId} not found`)
+
+  // Kill the sandbox now that the agent is done
+  if (run.sandboxId) {
+    Sandbox.connect(run.sandboxId)
+      .then(sb => sb.kill())
+      .catch(() => {})
+  }
+
+  // Check current status — may have been canceled while running
+  const current = await checkCurrentStatus(taskId)
+  if (current?.agentStatus === 'CANCELED') {
+    await markRunCanceled(runId)
+    return
+  }
+
+  // Handle timeout
+  if (timedOut) {
+    await markFailed(
+      taskId,
+      task.project.id,
+      'TIMEOUT',
+      'Agent timed out',
+      runId
+    )
+    return
+  }
+
+  // Check for pending clarify (agent exited after ask_user)
+  const pendingClarify = await prisma.agentClarify.findFirst({
+    where: { taskId, reply: null },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (pendingClarify) {
+    await finalizeClarify(taskId, runId)
+    return
+  }
+
+  // Handle non-zero exit
+  if (exitCode !== 0) {
+    const detail = stderr
+      ? `Agent exited with code ${exitCode}\nstderr: ${stderr}`
+      : `Agent exited with code ${exitCode} (no stderr)`
+    await markFailed(
+      taskId,
+      task.project.id,
+      'AGENT_EXECUTION_FAILED',
+      detail,
+      runId
+    )
+    return
+  }
+
+  // Success — post-processing via GitHub API
+  console.log(
+    `[Agent] Agent done for task ${taskId}, proceeding to post-processing`
+  )
+
+  const resolvedRepo = resolveRepo(task)
+  const [repoOwner, repoName] = resolvedRepo.split('/')
+  if (!repoOwner || !repoName)
+    throw new Error(`Invalid repo format: ${resolvedRepo}`)
+
+  const identifier = `LUM-${task.number}`
+  const { branchName, isFollowUp } = resolveBranch(task, identifier)
+  const taskSpec = htmlToMarkdown(task.spec ?? task.description ?? task.title)
+  const { githubToken } = await resolveCredentials()
+  const { gitName, gitEmail } = resolveGitIdentity()
+
+  const ctx: RunContext = {
+    taskId,
+    task,
+    identifier,
+    branchName,
+    isFollowUp: isFollowUp || branchExistsOnRemote,
+    taskSpec,
+    repoOwner,
+    repoName,
+    resolvedRepo,
+    githubToken,
+    anthropicKey: '',
+    currentRunId: runId,
+    mcpToken: '',
+    agentStartedAt: run.startedAt.getTime(),
+    gitName,
+    gitEmail,
+  }
+
+  // Initialize step timer for post-processing stages
+  runStepTimers.set(runId, Date.now())
+
+  try {
+    await processPostAgent(ctx, branchExistsOnRemote)
+  } catch (error) {
+    await handleExecutionError(error, ctx)
+  } finally {
+    runStepTimers.delete(runId)
   }
 }
 

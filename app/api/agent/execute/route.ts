@@ -5,8 +5,8 @@ import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
 
-// Fluid Compute on Pro plan: up to 800s
-export const maxDuration = 800
+// Setup phase only (clone, install, branch) — typically < 3 min
+export const maxDuration = 300
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -15,9 +15,9 @@ const bodySchema = z.object({
 /**
  * POST /api/agent/execute
  * Triggers the Lumo coding agent for a task.
- * The agent runs inside the request handler (up to maxDuration=300s).
- * Real-time progress is delivered via Pusher; the HTTP response
- * returns only after the agent finishes.
+ * Performs sandbox setup (clone, install, branch), then starts the
+ * Claude CLI in the background. Returns 202 after setup completes.
+ * The sandbox calls POST /api/agent/sandbox-done when the agent finishes.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -70,8 +70,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Run agent in the request handler so maxDuration=300 applies.
-    // (waitUntil has a 60s hard limit on Pro plan, too short for agent runs)
+    // Setup sandbox + start agent in background (returns after setup)
     const result = await executeAgent({
       taskId,
       actorClerkId: userId,
@@ -81,7 +80,10 @@ export async function POST(req: NextRequest) {
       return { outcome: 'failed' as const, error: String(err) }
     })
 
-    return NextResponse.json({ status: result.outcome, taskId })
+    return NextResponse.json(
+      { status: result.outcome, taskId },
+      { status: 202 }
+    )
   } catch (error) {
     console.error('[agent/execute] Unexpected error:', error)
     return NextResponse.json(
