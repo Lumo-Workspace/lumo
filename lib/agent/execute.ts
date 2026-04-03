@@ -356,14 +356,21 @@ async function cloneRepo(
   sandbox: Sandbox,
   ctx: Pick<
     RunContext,
-    'taskId' | 'repoOwner' | 'repoName' | 'githubToken' | 'gitName' | 'gitEmail'
+    | 'taskId'
+    | 'currentRunId'
+    | 'repoOwner'
+    | 'repoName'
+    | 'githubToken'
+    | 'gitName'
+    | 'gitEmail'
   >
 ) {
   console.log(`[Agent] Cloning repo ${ctx.repoOwner}/${ctx.repoName}...`)
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: `Cloning ${ctx.repoOwner}/${ctx.repoName}...`,
-  })
+  fireProgress(
+    ctx.taskId,
+    ctx.currentRunId,
+    `Cloning ${ctx.repoOwner}/${ctx.repoName}...`
+  )
   const clone = await sandbox.commands
     .run(buildCloneCommand(ctx), { timeoutMs: CLONE_TIMEOUT_MS })
     .catch(err => {
@@ -374,12 +381,9 @@ async function cloneRepo(
   }
 }
 
-async function installClaude(sandbox: Sandbox, taskId: string) {
+async function installClaude(sandbox: Sandbox, taskId: string, runId: string) {
   console.log('[Agent] Installing Claude Code...')
-  fireAgentEvent(taskId, {
-    type: 'agent:progress',
-    message: 'Setting up environment...',
-  })
+  fireProgress(taskId, runId, 'Setting up environment...')
   await sandbox.commands.run('sudo npm install -g @anthropic-ai/claude-code', {
     timeoutMs: INSTALL_TIMEOUT_MS,
   })
@@ -403,12 +407,10 @@ async function checkRemoteBranchExists(
 async function fetchAndCheckout(
   sandbox: Sandbox,
   taskId: string,
+  runId: string,
   branchName: string
 ) {
-  fireAgentEvent(taskId, {
-    type: 'agent:progress',
-    message: `Checking out existing branch ${branchName}...`,
-  })
+  fireProgress(taskId, runId, `Checking out existing branch ${branchName}...`)
   await sandbox.commands.run(
     `git -C /home/user/repo fetch origin ${branchName} && git -C /home/user/repo checkout ${branchName}`,
     { timeoutMs: PUSH_TIMEOUT_MS }
@@ -418,26 +420,29 @@ async function fetchAndCheckout(
 async function createBranch(
   sandbox: Sandbox,
   taskId: string,
+  runId: string,
   branchName: string
 ) {
-  fireAgentEvent(taskId, {
-    type: 'agent:progress',
-    message: `Creating branch ${branchName}...`,
-  })
+  fireProgress(taskId, runId, `Creating branch ${branchName}...`)
   await sandbox.commands.run(`git -C /home/user/repo checkout -b ${branchName}`)
 }
 
 async function checkoutBranch(
   sandbox: Sandbox,
-  ctx: Pick<RunContext, 'taskId' | 'branchName' | 'isFollowUp'>
+  ctx: Pick<RunContext, 'taskId' | 'currentRunId' | 'branchName' | 'isFollowUp'>
 ): Promise<boolean> {
   const branchExistsOnRemote =
     ctx.isFollowUp && (await checkRemoteBranchExists(sandbox, ctx.branchName))
 
   if (branchExistsOnRemote) {
-    await fetchAndCheckout(sandbox, ctx.taskId, ctx.branchName)
+    await fetchAndCheckout(
+      sandbox,
+      ctx.taskId,
+      ctx.currentRunId,
+      ctx.branchName
+    )
   } else {
-    await createBranch(sandbox, ctx.taskId, ctx.branchName)
+    await createBranch(sandbox, ctx.taskId, ctx.currentRunId, ctx.branchName)
   }
   return branchExistsOnRemote
 }
@@ -470,6 +475,29 @@ function buildClaudeCommand(anthropicKey: string): string {
   )
 }
 
+/** Atomically append a step to the agentRun.steps JSON array in the DB. */
+function appendRunStep(
+  runId: string,
+  step: { text: string; elapsedMs: number; status: string }
+): void {
+  // Fire-and-forget — don't block event streaming on DB writes
+  prisma.$executeRaw`UPDATE agent_runs SET steps = COALESCE(steps, '[]'::jsonb) || ${JSON.stringify([step])}::jsonb WHERE id = ${runId}`.catch(
+    err => console.error('[Agent] Failed to persist step:', err)
+  )
+}
+
+/** Fire a progress Pusher event AND persist the step to the DB. */
+function fireProgress(
+  taskId: string,
+  runId: string,
+  message: string,
+  startTime?: Date
+): void {
+  fireAgentEvent(taskId, { type: 'agent:progress', message })
+  const elapsedMs = startTime ? Date.now() - startTime.getTime() : 0
+  appendRunStep(runId, { text: message, elapsedMs, status: 'done' })
+}
+
 function processContentBlock(
   taskId: string,
   block: { type: string; text?: string; name?: string; input?: unknown }
@@ -480,11 +508,11 @@ function processContentBlock(
       message: (block.text as string).slice(0, 120),
     })
   } else if (block.type === 'tool_use') {
-    fireAgentEvent(taskId, {
-      type: 'agent:tool',
-      tool: block.name as string,
-      input: summarizeToolInput(block.name as string, block.input),
-    })
+    const tool = block.name as string
+    const input = summarizeToolInput(tool, block.input)
+    fireAgentEvent(taskId, { type: 'agent:tool', tool, input })
+    // tool events are only pushed to Pusher for real-time display;
+    // they are NOT persisted to DB to avoid bloating the steps array.
   }
 }
 
@@ -514,22 +542,25 @@ async function runClaude(
   sandbox: Sandbox,
   ctx: RunContext
 ): Promise<AgentResult | 'agent_done'> {
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Agent is analyzing the codebase...',
-  })
+  fireProgress(
+    ctx.taskId,
+    ctx.currentRunId,
+    'Agent is analyzing the codebase...'
+  )
 
+  const stderrChunks: string[] = []
   const result = await sandbox.commands
     .run(buildClaudeCommand(ctx.anthropicKey), {
       timeoutMs: AGENT_CMD_TIMEOUT_MS,
       onStdout: createStdoutHandler(ctx.taskId),
+      onStderr: (data: string) => stderrChunks.push(data),
     })
     .catch(err => {
-      throw new AgentError(
-        'AGENT_EXECUTION_FAILED',
-        'Agent execution failed',
-        err
-      )
+      const stderr = stderrChunks.join('').trim()
+      const detail = stderr
+        ? `Agent execution failed (${err.message})\n${stderr.slice(-500)}`
+        : `Agent execution failed (${err.message})`
+      throw new AgentError('AGENT_EXECUTION_FAILED', detail)
     })
 
   // After agent exits, check if there's a pending clarify in the DB
@@ -544,9 +575,10 @@ async function runClaude(
   }
 
   if (result.exitCode !== 0) {
+    const stderr = (result.stderr || stderrChunks.join('')).trim()
     throw new AgentError(
       'AGENT_EXECUTION_FAILED',
-      `Agent exited with code ${result.exitCode}: ${result.stderr}`
+      `Agent exited with code ${result.exitCode}\n${stderr.slice(-500) || '(no stderr)'}`
     )
   }
 
@@ -878,10 +910,11 @@ async function reuseExistingPR(
   ctx: RunContext,
   runMeta: Awaited<ReturnType<typeof collectRunMetadata>>
 ): Promise<{ prUrl: string; prNumber: number }> {
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Updating existing pull request...',
-  })
+  fireProgress(
+    ctx.taskId,
+    ctx.currentRunId,
+    'Updating existing pull request...'
+  )
   const { prUrl, prNumber } = await findExistingPR(ctx.taskId, ctx.resolvedRepo)
 
   await completeAgentRun({
@@ -906,10 +939,7 @@ async function createNewPR(
   ctx: RunContext,
   runMeta: Awaited<ReturnType<typeof collectRunMetadata>>
 ): Promise<{ prUrl: string; prNumber: number }> {
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Creating pull request...',
-  })
+  fireProgress(ctx.taskId, ctx.currentRunId, 'Creating pull request...')
   const prTitle = `${ctx.task.title} [${ctx.identifier}]`
   const pr = await createPullRequest({
     owner: ctx.repoOwner,
@@ -1041,10 +1071,7 @@ async function processPostAgent(
   branchExistsOnRemote: boolean
 ): Promise<AgentResult> {
   // Check if agent pushed the branch by querying GitHub
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Verifying push...',
-  })
+  fireProgress(ctx.taskId, ctx.currentRunId, 'Verifying push...')
   const branchOnGitHub = await checkBranchOnGitHub(
     ctx.repoOwner,
     ctx.repoName,
@@ -1059,16 +1086,10 @@ async function processPostAgent(
     return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)
   }
 
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Collecting run metadata...',
-  })
+  fireProgress(ctx.taskId, ctx.currentRunId, 'Collecting run metadata...')
   const runMeta = await collectRunMetadata(ctx)
 
-  fireAgentEvent(ctx.taskId, {
-    type: 'agent:progress',
-    message: 'Creating pull request...',
-  })
+  fireProgress(ctx.taskId, ctx.currentRunId, 'Creating pull request...')
   const { prUrl, prNumber } = await createOrReusePR(
     ctx,
     branchExistsOnRemote,
@@ -1124,7 +1145,7 @@ async function setupSandboxAndRepo(
   ctx: RunContext
 ): Promise<boolean> {
   await cloneRepo(sandbox, ctx)
-  await installClaude(sandbox, ctx.taskId)
+  await installClaude(sandbox, ctx.taskId, ctx.currentRunId)
   const callbackUrl = process.env.NEXT_PUBLIC_APP_URL
   if (!callbackUrl) {
     throw new AgentError(

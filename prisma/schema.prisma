@@ -572,6 +572,7 @@ model AgentRun {
   sandboxId     String?
   mcpToken      String?      @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
   summary       String?
+  steps         Json?        // JSON array of { text, elapsedMs, status } persisted for resume after refresh
   changedFiles  Json?
   durationMs    Int?
   prNumber      Int?

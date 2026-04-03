@@ -126,6 +126,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
             errorCode: true,
             errorMessage: true,
             summary: true,
+            steps: true,
             changedFiles: true,
             durationMs: true,
             prNumber: true,

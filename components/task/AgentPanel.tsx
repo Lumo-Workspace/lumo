@@ -47,7 +47,17 @@ function AgentPanelInner({
 }) {
   const [status, setStatus] = useState(task.agentStatus ?? 'SUBMITTED')
   const [logs, setLogs] = useState<AgentLog[]>([])
-  const [steps, setSteps] = useState<AgentStep[]>([])
+  const [steps, setSteps] = useState<AgentStep[]>(() => {
+    // Restore persisted steps from the latest agentRun (survives page refresh)
+    const persisted = task.agentRuns?.[0]?.steps
+    if (!Array.isArray(persisted) || persisted.length === 0) return []
+    return persisted.map(s => ({
+      id: crypto.randomUUID(),
+      text: s.text,
+      elapsedMs: s.elapsedMs,
+      status: (s.status as AgentStep['status']) ?? 'done',
+    }))
+  })
   const [clarify, setClarify] = useState<AgentClarifyPending | null>(
     task.clarifies?.[0] ?? null
   )
@@ -93,7 +103,20 @@ function AgentPanelInner({
     setRealtimeErrorMessage(null)
     setLocalRunNumber(null)
     setPausedAt(null)
-    setSteps([])
+    // Restore persisted steps from server data (e.g. after prop refresh)
+    const persisted = task.agentRuns?.[0]?.steps
+    if (Array.isArray(persisted) && persisted.length > 0) {
+      setSteps(
+        persisted.map(s => ({
+          id: crypto.randomUUID(),
+          text: s.text,
+          elapsedMs: s.elapsedMs,
+          status: (s.status as AgentStep['status']) ?? 'done',
+        }))
+      )
+    } else {
+      setSteps([])
+    }
   }, [task.agentStatus])
 
   useEffect(() => {
@@ -145,6 +168,24 @@ function AgentPanelInner({
             status: 'done',
           },
         ])
+      }
+      if (event.type === 'agent:tool') {
+        setSteps(prev => {
+          const label = formatEvent(event)
+          // Deduplicate consecutive identical tool steps (e.g. repeated TodoWrite)
+          if (prev.length > 0 && prev[prev.length - 1]!.text === label) {
+            return prev
+          }
+          return [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              text: label,
+              elapsedMs: elapsed(),
+              status: 'done' as const,
+            },
+          ]
+        })
       }
       if (event.type === 'agent:clarify') {
         setSteps(prev => [

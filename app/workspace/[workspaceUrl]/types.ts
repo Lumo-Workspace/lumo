@@ -209,6 +209,7 @@ export interface ApiAgentRun {
   errorCode: string | null
   errorMessage: string | null
   summary: string | null
+  steps: { text: string; elapsedMs: number; status: string }[] | null
   changedFiles:
     | { path: string; status: 'added' | 'modified' | 'deleted' }[]
     | null
