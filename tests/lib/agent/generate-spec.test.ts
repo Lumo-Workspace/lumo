@@ -13,6 +13,7 @@ jest.mock('@anthropic-ai/sdk', () => ({
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { update: jest.fn(), findUnique: jest.fn() },
+    agentRun: { findFirst: jest.fn().mockResolvedValue(null) },
   },
 }))
 
@@ -133,6 +134,7 @@ describe('generateSpecDraft', () => {
 
       expect(mockFireAgentEvent).toHaveBeenCalledWith(TASK_ID, {
         type: 'agent:started',
+        runNumber: 0,
       })
       expect(mockFireAgentEvent).toHaveBeenCalledWith(
         TASK_ID,

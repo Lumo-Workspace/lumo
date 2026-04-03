@@ -66,6 +66,8 @@ function AgentPanelInner({
   const agentStartTimeRef = useRef<Date | null>(null)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
+  const [localRunNumber, setLocalRunNumber] = useState<number | null>(null)
+
   const isFirstRun = !task.branches?.length
   const isRunning = status === 'WORKING'
   const isPaused = status === 'INPUT_REQUIRED'
@@ -73,7 +75,7 @@ function AgentPanelInner({
   const isFailed = status === 'FAILED'
   const activeBranch = task.branches?.[task.branches.length - 1]
   const latestRun = task.agentRuns?.[0]
-  const currentRunNumber = latestRun?.runNumber ?? 0
+  const currentRunNumber = localRunNumber ?? latestRun?.runNumber ?? 0
 
   // Derive done metadata: real-time Pusher data takes priority, then agentRuns[0]
   const doneMeta = realtimeDoneMeta ?? {
@@ -85,6 +87,7 @@ function AgentPanelInner({
   useEffect(() => {
     setStatus(task.agentStatus ?? 'SUBMITTED')
     setRealtimeDoneMeta(null)
+    setLocalRunNumber(null)
     setPausedAt(null)
     setSteps([])
   }, [task.agentStatus])
@@ -122,6 +125,8 @@ function AgentPanelInner({
         agentStartTimeRef.current = new Date()
         setSteps([])
         setPausedAt(null)
+        setRealtimeDoneMeta(null)
+        setLocalRunNumber(event.runNumber)
         setStatus('WORKING')
         onTaskUpdate?.({ agentStatus: 'WORKING' })
       }

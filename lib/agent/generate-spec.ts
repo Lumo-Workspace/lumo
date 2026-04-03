@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from './state-machine'
 import { markdownToHtml } from './markdown'
+import { prisma } from '@/lib/db/prisma'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
 Given a task title and description, produce a concise implementation spec in Markdown.
@@ -37,7 +38,15 @@ export async function generateSpecDraft(
   await transitionAgentStatus(taskId, task.project.id, 'WORKING', {
     agentError: null,
   })
-  fireAgentEvent(taskId, { type: 'agent:started' })
+  const lastRun = await prisma.agentRun.findFirst({
+    where: { taskId },
+    orderBy: { runNumber: 'desc' },
+    select: { runNumber: true },
+  })
+  fireAgentEvent(taskId, {
+    type: 'agent:started',
+    runNumber: lastRun?.runNumber ?? 0,
+  })
   fireAgentEvent(taskId, {
     type: 'agent:progress',
     message: 'Generating spec from description…',

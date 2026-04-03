@@ -196,7 +196,7 @@ async function createAgentRun(
   await transitionAgentStatus(taskId, projectId, 'WORKING', {
     agentError: null,
   })
-  fireAgentEvent(taskId, { type: 'agent:started' })
+  fireAgentEvent(taskId, { type: 'agent:started', runNumber })
   return { id: agentRun.id, mcpToken }
 }
 
