@@ -28,12 +28,13 @@ import { buildAgentContext } from './context-builder'
 // ── Constants ──────────────────────────────────────────────────────────────
 
 // Fluid Compute on Pro plan: maxDuration=800s (~13 min).
-// Budget: clone/install ~2 min + agent 10 min + push/PR ~1 min = ~13 min
-const AGENT_TIMEOUT_MS = 10 * 60 * 1000
+// The overall AGENT_TIMEOUT_MS is the hard ceiling; individual command
+// timeouts are set higher so the overall timer is what actually fires.
+const AGENT_TIMEOUT_MS = 12 * 60 * 1000
 const SANDBOX_TIMEOUT_MS = 15 * 60 * 1000
 const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
-const AGENT_CMD_TIMEOUT_MS = 9 * 60 * 1000
+const AGENT_CMD_TIMEOUT_MS = 14 * 60 * 1000 // higher than AGENT_TIMEOUT_MS — overall timer fires first
 const PUSH_TIMEOUT_MS = 60 * 1000
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -524,26 +525,27 @@ function buildInitialSteps(): PipelineStep[] {
   }))
 }
 
-/** Atomically mark a pipeline step as done (by key) in the DB. */
+/** Mark a pipeline step as done (by key) in the DB. */
 function markStepDone(
   runId: string,
   key: StageKey,
   text: string,
   elapsedMs: number
 ): void {
-  // Use jsonb_agg to update the matching element in the array
-  prisma.$executeRaw`
-      UPDATE agent_runs
-      SET steps = (
-        SELECT jsonb_agg(
-          CASE WHEN elem->>'key' = ${key}
-          THEN elem || jsonb_build_object('status', 'done', 'text', ${text}, 'elapsedMs', ${elapsedMs})
-          ELSE elem END
-        )
-        FROM jsonb_array_elements(COALESCE(steps, '[]'::jsonb)) elem
+  // Read-modify-write: safe because there's only one writer per run
+  prisma.agentRun
+    .findUnique({ where: { id: runId }, select: { steps: true } })
+    .then(run => {
+      if (!run?.steps || !Array.isArray(run.steps)) return
+      const updated = (run.steps as PipelineStep[]).map(s =>
+        s.key === key ? { ...s, status: 'done' as const, text, elapsedMs } : s
       )
-      WHERE id = ${runId}
-    `.catch(err => console.error('[Agent] Failed to update step:', err))
+      return prisma.agentRun.update({
+        where: { id: runId },
+        data: { steps: updated },
+      })
+    })
+    .catch(err => console.error('[Agent] Failed to update step:', err))
 }
 
 /**
