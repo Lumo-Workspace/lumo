@@ -31,7 +31,7 @@ import { buildAgentContext } from './context-builder'
 // The overall AGENT_TIMEOUT_MS is the hard ceiling; individual command
 // timeouts are set higher so the overall timer is what actually fires.
 const AGENT_TIMEOUT_MS = 12 * 60 * 1000
-const SANDBOX_TIMEOUT_MS = 15 * 60 * 1000
+const SANDBOX_TIMEOUT_MS = 120 * 60 * 1000
 const CLONE_TIMEOUT_MS = 2 * 60 * 1000
 const INSTALL_TIMEOUT_MS = 3 * 60 * 1000
 const AGENT_CMD_TIMEOUT_MS = 14 * 60 * 1000 // higher than AGENT_TIMEOUT_MS — overall timer fires first
