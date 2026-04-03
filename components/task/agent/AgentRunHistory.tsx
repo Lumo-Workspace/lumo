@@ -94,9 +94,9 @@ export function AgentRunHistory({ runs }: { runs: ApiAgentRun[] }) {
                       </p>
                     )}
                     {run.errorMessage && (
-                      <p className='text-red-600 dark:text-red-400'>
+                      <pre className='text-red-600 dark:text-red-400 whitespace-pre-wrap break-all font-mono'>
                         {run.errorMessage}
-                      </p>
+                      </pre>
                     )}
                     {run.summary && (
                       <p className='text-zinc-600 dark:text-zinc-300'>

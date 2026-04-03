@@ -62,6 +62,9 @@ function AgentPanelInner({
     changedFiles?: AgentChangedFile[]
     durationMs?: number | null
   } | null>(null)
+  const [realtimeErrorMessage, setRealtimeErrorMessage] = useState<
+    string | null
+  >(null)
 
   const agentStartTimeRef = useRef<Date | null>(null)
   const logsEndRef = useRef<HTMLDivElement>(null)
@@ -87,6 +90,7 @@ function AgentPanelInner({
   useEffect(() => {
     setStatus(task.agentStatus ?? 'SUBMITTED')
     setRealtimeDoneMeta(null)
+    setRealtimeErrorMessage(null)
     setLocalRunNumber(null)
     setPausedAt(null)
     setSteps([])
@@ -126,6 +130,7 @@ function AgentPanelInner({
         setSteps([])
         setPausedAt(null)
         setRealtimeDoneMeta(null)
+        setRealtimeErrorMessage(null)
         setLocalRunNumber(event.runNumber)
         setStatus('WORKING')
         onTaskUpdate?.({ agentStatus: 'WORKING' })
@@ -201,6 +206,7 @@ function AgentPanelInner({
           ])
         }
         setStatus(next)
+        if (!isCancelled) setRealtimeErrorMessage(event.error)
         onTaskUpdate?.({ agentStatus: next })
       }
     })
@@ -328,7 +334,14 @@ function AgentPanelInner({
       {/* ── FAILED state ── */}
       {isFailed && (
         <AgentFailedSummary
-          latestRun={latestRun ?? null}
+          latestRun={
+            realtimeErrorMessage
+              ? {
+                  errorMessage: realtimeErrorMessage,
+                  durationMs: latestRun?.durationMs ?? null,
+                }
+              : (latestRun ?? null)
+          }
           onRerun={handleRun}
           running={running}
         />

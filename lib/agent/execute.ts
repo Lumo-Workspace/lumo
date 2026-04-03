@@ -227,13 +227,17 @@ async function markRunCompleted(
   })
 }
 
-async function updateFailedRun(agentRunId: string, code: string) {
+async function updateFailedRun(
+  agentRunId: string,
+  code: string,
+  detail: string
+) {
   await prisma.agentRun.update({
     where: { id: agentRunId },
     data: {
       status: 'FAILED',
       errorCode: code,
-      errorMessage: userFriendlyError(code),
+      errorMessage: detail,
       finishedAt: new Date(),
     },
   })
@@ -246,15 +250,22 @@ async function markFailed(
   message: string,
   agentRunId?: string
 ) {
+  const friendly = userFriendlyError(code)
+  // Combine friendly message with actual detail for debugging
+  const detail =
+    message && message !== friendly
+      ? `${friendly}\n\nDetail: ${message}`
+      : friendly
+
   await transitionAgentStatus(taskId, projectId, 'FAILED', {
     agentError: code,
   })
   await pushAgentEvent(taskId, {
     type: 'agent:failed',
-    error: userFriendlyError(code),
+    error: detail,
   })
   await notifyAgentFailed(taskId)
-  if (agentRunId) await updateFailedRun(agentRunId, code)
+  if (agentRunId) await updateFailedRun(agentRunId, code, detail)
   console.error(`[Agent] Task ${taskId} failed [${code}]: ${message}`)
 }
 
@@ -960,11 +971,13 @@ async function handleExecutionError(
   }
 
   if (error instanceof AgentError) {
+    const causeMsg = error.cause instanceof Error ? error.cause.message : null
+    const detail = causeMsg ? `${error.message} — ${causeMsg}` : error.message
     await markFailed(
       ctx.taskId,
       ctx.task.project.id,
       error.code,
-      error.message,
+      detail,
       ctx.currentRunId
     )
     return { outcome: 'failed', error: userFriendlyError(error.code) }
