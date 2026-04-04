@@ -364,28 +364,30 @@ export function TaskDetailPanel({
   })
 
   // Re-fetch task detail (used after subtask creation)
-  const refreshDetail = useCallback(() => {
-    fetch(API.tasks.byId(initialTask.id))
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (data?.task) {
-          const t = data.task as TaskDetail
-          setTask(prev => ({
-            ...prev,
-            description: t.description,
-            project: t.project,
-            reviewerActorId: t.reviewerActorId,
-            assignee: t.assignee,
-            reviewer: t.reviewer,
-            number: t.number,
-            teamIdentifier: t.teamIdentifier,
-            pullRequests: t.pullRequests ?? [],
-            branches: t.branches ?? [],
-            children: t.children ?? [],
-          }))
-        }
-      })
-      .catch(console.error)
+  const refreshDetail = useCallback(async () => {
+    try {
+      const res = await fetch(API.tasks.byId(initialTask.id))
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.task) {
+        const t = data.task as TaskDetail
+        setTask(prev => ({
+          ...prev,
+          description: t.description,
+          project: t.project,
+          reviewerActorId: t.reviewerActorId,
+          assignee: t.assignee,
+          reviewer: t.reviewer,
+          number: t.number,
+          teamIdentifier: t.teamIdentifier,
+          pullRequests: t.pullRequests ?? [],
+          branches: t.branches ?? [],
+          children: t.children ?? [],
+        }))
+      }
+    } catch {
+      // Network error — silently ignore, user can refresh manually
+    }
   }, [initialTask.id])
 
   const handlePatch = useCallback(

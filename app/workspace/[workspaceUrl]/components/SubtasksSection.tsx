@@ -153,6 +153,7 @@ export function SubtasksSection({
               />
               <button
                 onClick={() => handleDeleteDraft(draft.id)}
+                aria-label='Remove draft subtask'
                 className='p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
               >
                 <X className='size-3.5' />
