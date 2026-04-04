@@ -117,6 +117,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
           orderBy: { createdAt: 'desc' as const },
         },
+        parent: {
+          select: {
+            id: true,
+            title: true,
+            number: true,
+            team: { select: { identifier: true } },
+          },
+        },
         children: {
           select: { id: true, title: true, number: true },
           orderBy: { order: 'asc' },
@@ -179,6 +187,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
         status: taskStatus,
         pullRequests,
         teamIdentifier: task.team.identifier,
+        parent: task.parent
+          ? {
+              id: task.parent.id,
+              title: task.parent.title,
+              number: task.parent.number,
+              teamIdentifier: task.parent.team.identifier,
+            }
+          : null,
       },
     })
   } catch (error) {

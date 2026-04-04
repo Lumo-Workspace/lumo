@@ -128,6 +128,14 @@ export interface ApiTask {
   teamIdentifier: string
   /** Populated when task is loaded via /api/tasks/me */
   project?: { id: string; name: string }
+  parent?: {
+    id: string
+    number: number
+    teamIdentifier: string
+    title: string
+  } | null
+  _count?: { children: number }
+  childrenDoneCount?: number
 }
 
 export interface ApiPullRequest {
@@ -247,6 +255,12 @@ export interface TaskDetail {
     repositories?: ApiRepository[]
   }
   parentTaskId: string | null
+  parent?: {
+    id: string
+    number: number
+    teamIdentifier: string
+    title: string
+  } | null
   assigneeActorId: string | null
   reviewerActorId: string | null
   repositoryId: string | null

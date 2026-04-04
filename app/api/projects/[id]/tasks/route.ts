@@ -74,6 +74,19 @@ export async function GET(_request: NextRequest, { params }: Params) {
             agent: { select: { id: true, name: true, avatarColor: true } },
           },
         },
+        parent: {
+          select: {
+            id: true,
+            title: true,
+            number: true,
+            team: { select: { identifier: true } },
+          },
+        },
+        _count: { select: { children: true } },
+        children: {
+          where: { status: 'DONE' },
+          select: { id: true },
+        },
       },
       orderBy: { order: 'asc' },
     })
@@ -105,6 +118,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
       ...t,
       teamIdentifier: t.team.identifier,
       viewOrder: orderMap.get(t.id) ?? null,
+      parent: t.parent
+        ? {
+            id: t.parent.id,
+            title: t.parent.title,
+            number: t.parent.number,
+            teamIdentifier: t.parent.team.identifier,
+          }
+        : null,
+      _count: t._count,
+      childrenDoneCount: (t.children as { id: string }[])?.length ?? 0,
     }))
 
     const tree = buildTaskTree(tasksWithOrder)
