@@ -39,6 +39,7 @@ import {
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
+import { sortTasks } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 
@@ -68,12 +69,16 @@ export function MyTasksPage({
   onNewTask,
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
-  const { options, setCompletedFilter } = useDisplayOptions(
+  const { options, setCompletedFilter, setOrdering } = useDisplayOptions(
     CACHE_KEY.displayMyTasks(userId)
   )
   const filteredTasks = useMemo(
-    () => filterCompletedTasks(tasks, options.completedFilter),
-    [tasks, options.completedFilter]
+    () =>
+      sortTasks(
+        filterCompletedTasks(tasks, options.completedFilter),
+        options.ordering
+      ),
+    [tasks, options.completedFilter, options.ordering]
   )
 
   const sensors = useBoardSensors()
@@ -108,6 +113,8 @@ export function MyTasksPage({
         <DisplayOptionsMenu
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}
+          ordering={options.ordering}
+          onOrderingChange={setOrdering}
         />
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>

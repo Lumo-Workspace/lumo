@@ -2,12 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { CompletedFilter } from '../utils/filterCompletedTasks'
+import type { TaskOrdering } from '../utils/sortTasks'
 
 export interface DisplayOptions {
   completedFilter: CompletedFilter
+  ordering: TaskOrdering
 }
 
-const DEFAULT_OPTIONS: DisplayOptions = { completedFilter: 'none' }
+const DEFAULT_OPTIONS: DisplayOptions = {
+  completedFilter: 'none',
+  ordering: 'priority',
+}
 const SYNC_EVENT = 'lumo:display-options-changed'
 
 function read(key: string): DisplayOptions {
@@ -48,5 +53,15 @@ export function useDisplayOptions(storageKey: string) {
     [storageKey]
   )
 
-  return { options, setCompletedFilter }
+  const setOrdering = useCallback(
+    (value: TaskOrdering) => {
+      const next = { ...read(storageKey), ordering: value }
+      localStorage.setItem(storageKey, JSON.stringify(next))
+      setOptions(next)
+      window.dispatchEvent(new Event(SYNC_EVENT))
+    },
+    [storageKey]
+  )
+
+  return { options, setCompletedFilter, setOrdering }
 }

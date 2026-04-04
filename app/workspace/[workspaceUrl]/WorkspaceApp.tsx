@@ -539,6 +539,7 @@ export default function DashboardApp() {
         assigneeActorId: assigneeId ?? null,
         reviewerActorId: null,
         repositoryId: repositoryId ?? null,
+        createdAt: now,
         updatedAt: now,
         viewOrder: null,
         number: 0,

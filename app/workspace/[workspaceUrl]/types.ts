@@ -121,6 +121,7 @@ export interface ApiTask {
   assignee?: ActorInfo | null
   repositoryId: string | null
   agentStatus?: AgentStatusValue | null
+  createdAt: string
   updatedAt: string
   viewOrder: number | null
   number: number
