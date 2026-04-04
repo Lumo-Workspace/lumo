@@ -54,11 +54,18 @@ export function registerExecuteRoute(app: FastifyInstance) {
         .send({ error: 'No GitHub repo configured for this project' })
     }
 
-    const result = await executeAgent(parsed.data).catch(err => {
-      console.error(`[agent/execute] Task ${taskId} failed:`, err)
-      return { outcome: 'failed' as const, error: String(err) }
-    })
+    // Run agent in background — respond 202 immediately
+    // The agent runs synchronously in the server process with real-time log streaming
+    void executeAgent(parsed.data)
+      .then(result => {
+        console.log(
+          `[agent/execute] Task ${taskId} completed: ${result.outcome}`
+        )
+      })
+      .catch(err => {
+        console.error(`[agent/execute] Task ${taskId} failed:`, err)
+      })
 
-    return reply.status(202).send({ status: result.outcome, taskId })
+    return reply.status(202).send({ status: 'started', taskId })
   })
 }

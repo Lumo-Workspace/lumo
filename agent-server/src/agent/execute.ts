@@ -554,15 +554,14 @@ function fireProgress(
 }
 
 /**
- * Write the agent runner script and completion callback to the sandbox.
+ * Write the agent runner script to the sandbox.
+ * No callback script needed — agent-server runs the command in foreground
+ * and handles completion directly.
  */
 async function writeAgentScript(
   sandbox: Sandbox,
-  ctx: RunContext,
-  branchExistsOnRemote: boolean
+  ctx: RunContext
 ): Promise<void> {
-  const callbackUrl =
-    process.env.AGENT_CALLBACK_URL ?? process.env.NEXT_PUBLIC_APP_URL
   const timeoutSecs = Math.floor(AGENT_TIMEOUT_MS / 1000)
 
   const runScript = `#!/bin/bash
@@ -574,60 +573,10 @@ timeout --signal=TERM ${timeoutSecs} \\
   --allowedTools "${CLAUDE_ALLOWED_TOOLS}" \\
   --mcp-config ${MCP_CONFIG_PATH} \\
   --output-format stream-json --verbose --max-turns 50 \\
-  > /tmp/agent-stdout.log 2>/tmp/agent-stderr.log
-
-EXIT_CODE=$?
-echo "Agent finished with exit code $EXIT_CODE" >> /tmp/agent-stderr.log
-python3 /home/user/send-callback.py $EXIT_CODE 2>> /tmp/callback-error.log
-echo $EXIT_CODE > /tmp/agent-exit-code
-`
-
-  const callbackPy = `import json, sys, urllib.request
-
-exit_code = int(sys.argv[1])
-
-stderr = ""
-try:
-    with open("/tmp/agent-stderr.log") as f:
-        content = f.read()
-        stderr = content[-500:] if content else ""
-except:
-    pass
-
-payload = json.dumps({
-    "runId": ${JSON.stringify(ctx.currentRunId)},
-    "taskId": ${JSON.stringify(ctx.taskId)},
-    "exitCode": exit_code,
-    "timedOut": exit_code == 124,
-    "stderr": stderr,
-    "branchExistsOnRemote": ${JSON.stringify(branchExistsOnRemote)},
-})
-
-req = urllib.request.Request(
-    ${JSON.stringify(`${callbackUrl}/api/agent/sandbox-done`)},
-    data=payload.encode(),
-    headers={
-        "Content-Type": "application/json",
-        "Authorization": ${JSON.stringify(`Bearer ${ctx.mcpToken}`)},
-    },
-    method="POST",
-)
-
-# Retry up to 3 times with backoff
-import time
-for attempt in range(3):
-    try:
-        urllib.request.urlopen(req, timeout=30)
-        print(f"Callback sent successfully (attempt {attempt + 1})")
-        break
-    except Exception as e:
-        print(f"Callback attempt {attempt + 1} failed: {e}", file=sys.stderr)
-        if attempt < 2:
-            time.sleep(2 ** attempt)
+  2>&1
 `
 
   await sandbox.files.write('/home/user/run-agent.sh', runScript)
-  await sandbox.files.write('/home/user/send-callback.py', callbackPy)
 }
 
 async function finalizeClarify(
@@ -1222,19 +1171,44 @@ export async function executeAgent({
       'Agent is analyzing the codebase...'
     )
 
-    await writeAgentScript(sandbox, ctx, branchExistsOnRemote)
-    await sandbox.commands.run('bash /home/user/run-agent.sh', {
-      background: true,
-    })
+    await writeAgentScript(sandbox, ctx)
 
     console.log(
-      `[Agent] Agent started in background for task ${taskId}, sandbox ${sandbox.sandboxId}`
+      `[Agent] Running agent in foreground for task ${taskId}, sandbox ${sandbox.sandboxId}`
     )
 
-    // Start polling fallback — if callback fails, we catch it here
-    pollSandboxCompletion(sandbox, ctx, branchExistsOnRemote).catch(err =>
-      console.error(`[Agent] Polling fallback error for task ${taskId}:`, err)
+    // Run in foreground with real-time log streaming
+    const stderrChunks: string[] = []
+    const result = await sandbox.commands.run('bash /home/user/run-agent.sh', {
+      timeoutMs: AGENT_TIMEOUT_MS + 60_000, // extra buffer beyond the script's own timeout
+      onStdout: (data: string) => {
+        console.log(`[Agent][${taskId}] ${data}`)
+      },
+      onStderr: (data: string) => {
+        console.log(`[Agent][${taskId}] ${data}`)
+        stderrChunks.push(data)
+        // Keep only last 50 lines
+        if (stderrChunks.length > 50) stderrChunks.shift()
+      },
+    })
+
+    const exitCode = result.exitCode
+    const timedOut = exitCode === 124
+    const stderr = stderrChunks.slice(-10).join('\n')
+
+    console.log(
+      `[Agent] Agent finished for task ${taskId}, exit code ${exitCode}${timedOut ? ' (timed out)' : ''}`
     )
+
+    // Process completion directly — no callback needed
+    await processAgentCompletion({
+      runId: ctx.currentRunId,
+      taskId: ctx.taskId,
+      exitCode,
+      timedOut,
+      stderr,
+      branchExistsOnRemote,
+    })
 
     return { outcome: 'started' }
   } catch (error) {
@@ -1244,124 +1218,11 @@ export async function executeAgent({
   }
 }
 
-/**
- * Polling fallback: periodically checks if the sandbox agent script has
- * finished by reading /tmp/agent-exit-code. If the callback script failed,
- * this ensures we still process the completion.
- */
-async function pollSandboxCompletion(
-  sandbox: Sandbox,
-  ctx: RunContext,
-  branchExistsOnRemote: boolean
-): Promise<void> {
-  const POLL_INTERVAL_MS = 15_000 // 15 seconds
-  const MAX_POLLS = Math.ceil(AGENT_TIMEOUT_MS / POLL_INTERVAL_MS) + 10
-
-  console.log(
-    `[Agent] Poll: starting polling fallback for task ${ctx.taskId}, sandbox ${sandbox.sandboxId}`
-  )
-
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
-
-    console.log(`[Agent] Poll: check #${i + 1} for task ${ctx.taskId}`)
-
-    // Check if already processed (callback succeeded)
-    const run = await prisma.agentRun.findUnique({
-      where: { id: ctx.currentRunId },
-      select: { status: true },
-    })
-    if (run?.status !== 'WORKING') {
-      console.log(
-        `[Agent] Poll: task ${ctx.taskId} already ${run?.status}, stopping poll`
-      )
-      return
-    }
-
-    // Tail sandbox logs for visibility
-    try {
-      const tail = await sandbox.commands.run(
-        'tail -20 /tmp/agent-stderr.log 2>/dev/null',
-        { timeoutMs: 5000 }
-      )
-      if (tail.stdout.trim()) {
-        console.log(
-          `[Agent] Sandbox logs for task ${ctx.taskId}:\n${tail.stdout.trim()}`
-        )
-      }
-    } catch {
-      // sandbox may not be ready yet
-    }
-
-    // Check if agent script finished
-    try {
-      const result = await sandbox.commands.run(
-        'cat /tmp/agent-exit-code 2>/dev/null',
-        { timeoutMs: 5000 }
-      )
-      if (result.exitCode === 0 && result.stdout.trim() !== '') {
-        const exitCode = parseInt(result.stdout.trim(), 10)
-        console.log(
-          `[Agent] Poll: detected completion for task ${ctx.taskId}, exit code ${exitCode} — callback may have failed, processing now`
-        )
-
-        // Read stderr
-        let stderr = ''
-        try {
-          const stderrResult = await sandbox.commands.run(
-            'tail -c 500 /tmp/agent-stderr.log 2>/dev/null',
-            { timeoutMs: 5000 }
-          )
-          stderr = stderrResult.stdout
-        } catch {
-          // ignore
-        }
-
-        // Read callback error log for debugging
-        try {
-          const cbErr = await sandbox.commands.run(
-            'cat /tmp/callback-error.log 2>/dev/null',
-            { timeoutMs: 5000 }
-          )
-          if (cbErr.stdout.trim()) {
-            console.error(
-              `[Agent] Callback script errors for task ${ctx.taskId}:`,
-              cbErr.stdout
-            )
-          }
-        } catch {
-          // ignore
-        }
-
-        await processAgentCompletion({
-          runId: ctx.currentRunId,
-          taskId: ctx.taskId,
-          exitCode,
-          timedOut: exitCode === 124,
-          stderr,
-          branchExistsOnRemote,
-        })
-        return
-      }
-    } catch {
-      // Sandbox might have been killed — check DB status
-      const recheck = await prisma.agentRun.findUnique({
-        where: { id: ctx.currentRunId },
-        select: { status: true },
-      })
-      if (recheck?.status !== 'WORKING') return
-    }
-  }
-
-  console.error(
-    `[Agent] Poll: max polls reached for task ${ctx.taskId}, giving up`
-  )
-}
-
-// ── Phase 2: Completion callback ────────────────────────────────────────
+// ── Phase 2: Completion ─────────────────────────────────────────────────
 
 /**
- * Called by `POST /api/agent/sandbox-done` when the sandbox finishes.
+ * Called after the sandbox agent finishes (directly from executeAgent,
+ * or from the sandbox-done route as a fallback).
  */
 export async function processAgentCompletion(params: {
   runId: string
