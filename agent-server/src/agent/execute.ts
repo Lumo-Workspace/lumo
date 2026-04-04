@@ -577,7 +577,9 @@ timeout --signal=TERM ${timeoutSecs} \\
   > /tmp/agent-stdout.log 2>/tmp/agent-stderr.log
 
 EXIT_CODE=$?
-python3 /home/user/send-callback.py $EXIT_CODE
+echo "Agent finished with exit code $EXIT_CODE" >> /tmp/agent-stderr.log
+python3 /home/user/send-callback.py $EXIT_CODE 2>> /tmp/callback-error.log
+echo $EXIT_CODE > /tmp/agent-exit-code
 `
 
   const callbackPy = `import json, sys, urllib.request
@@ -1228,12 +1230,111 @@ export async function executeAgent({
     console.log(
       `[Agent] Agent started in background for task ${taskId}, sandbox ${sandbox.sandboxId}`
     )
+
+    // Start polling fallback — if callback fails, we catch it here
+    pollSandboxCompletion(sandbox, ctx, branchExistsOnRemote).catch(err =>
+      console.error(`[Agent] Polling fallback error for task ${taskId}:`, err)
+    )
+
     return { outcome: 'started' }
   } catch (error) {
     runStepTimers.delete(ctx.currentRunId)
     if (sandbox) await sandbox.kill().catch(() => {})
     return handleExecutionError(error, ctx)
   }
+}
+
+/**
+ * Polling fallback: periodically checks if the sandbox agent script has
+ * finished by reading /tmp/agent-exit-code. If the callback script failed,
+ * this ensures we still process the completion.
+ */
+async function pollSandboxCompletion(
+  sandbox: Sandbox,
+  ctx: RunContext,
+  branchExistsOnRemote: boolean
+): Promise<void> {
+  const POLL_INTERVAL_MS = 15_000 // 15 seconds
+  const MAX_POLLS = Math.ceil(AGENT_TIMEOUT_MS / POLL_INTERVAL_MS) + 10
+
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+
+    // Check if already processed (callback succeeded)
+    const run = await prisma.agentRun.findUnique({
+      where: { id: ctx.currentRunId },
+      select: { status: true },
+    })
+    if (run?.status !== 'WORKING') {
+      console.log(
+        `[Agent] Poll: task ${ctx.taskId} already ${run?.status}, stopping poll`
+      )
+      return
+    }
+
+    // Check if agent script finished
+    try {
+      const result = await sandbox.commands.run(
+        'cat /tmp/agent-exit-code 2>/dev/null',
+        { timeoutMs: 5000 }
+      )
+      if (result.exitCode === 0 && result.stdout.trim() !== '') {
+        const exitCode = parseInt(result.stdout.trim(), 10)
+        console.log(
+          `[Agent] Poll: detected completion for task ${ctx.taskId}, exit code ${exitCode} — callback may have failed, processing now`
+        )
+
+        // Read stderr
+        let stderr = ''
+        try {
+          const stderrResult = await sandbox.commands.run(
+            'tail -c 500 /tmp/agent-stderr.log 2>/dev/null',
+            { timeoutMs: 5000 }
+          )
+          stderr = stderrResult.stdout
+        } catch {
+          // ignore
+        }
+
+        // Read callback error log for debugging
+        try {
+          const cbErr = await sandbox.commands.run(
+            'cat /tmp/callback-error.log 2>/dev/null',
+            { timeoutMs: 5000 }
+          )
+          if (cbErr.stdout.trim()) {
+            console.error(
+              `[Agent] Callback script errors for task ${ctx.taskId}:`,
+              cbErr.stdout
+            )
+          }
+        } catch {
+          // ignore
+        }
+
+        await processAgentCompletion({
+          runId: ctx.currentRunId,
+          taskId: ctx.taskId,
+          exitCode,
+          timedOut: exitCode === 124,
+          stderr,
+          branchExistsOnRemote,
+        })
+        return
+      }
+    } catch {
+      // Sandbox might have been killed — check DB status
+      const recheck = await prisma.agentRun.findUnique({
+        where: { id: ctx.currentRunId },
+        select: { status: true },
+      })
+      if (recheck?.status !== 'WORKING') return
+    }
+  }
+
+  console.error(
+    `[Agent] Poll: max polls reached for task ${ctx.taskId}, giving up`
+  )
 }
 
 // ── Phase 2: Completion callback ────────────────────────────────────────
