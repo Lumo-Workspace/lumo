@@ -68,6 +68,7 @@ interface RunContext {
   agentStartedAt: number
   gitName: string
   gitEmail: string
+  actorName?: string
 }
 
 type ChangedFile = {
@@ -920,8 +921,15 @@ async function reuseExistingPR(
   return { prUrl, prNumber }
 }
 
-function buildPRBody(taskSpec: string, identifier: string): string {
-  return `## Summary\n\n${taskSpec}\n\n---\n_This PR was created by Lumo Agent_\n\nRelated task: ${identifier}`
+function buildPRBody(
+  taskSpec: string,
+  identifier: string,
+  triggeredBy?: string
+): string {
+  const attribution = triggeredBy
+    ? `Triggered by **${triggeredBy}** via Lumo Agent`
+    : 'Created by Lumo Agent'
+  return `## Summary\n\n${taskSpec}\n\n---\n_${attribution}_\n\nRelated task: ${identifier}`
 }
 
 async function createNewPR(
@@ -935,7 +943,7 @@ async function createNewPR(
     repo: ctx.repoName,
     branch: ctx.branchName,
     title: prTitle,
-    body: buildPRBody(ctx.taskSpec, ctx.identifier),
+    body: buildPRBody(ctx.taskSpec, ctx.identifier, ctx.actorName),
     token: ctx.githubToken,
   })
 
@@ -1372,5 +1380,6 @@ async function buildRunContext(
     agentStartedAt: Date.now(),
     gitName,
     gitEmail,
+    actorName: opts.actorName,
   }
 }
