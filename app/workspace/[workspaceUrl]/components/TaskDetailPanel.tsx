@@ -10,7 +10,7 @@ import {
   GitPullRequest,
   GitBranch,
 } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
 import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ import {
   SeparatorDot,
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
+import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 import { AgentPanel } from '@/components/task/AgentPanel'
 import {
@@ -174,8 +175,10 @@ export function TaskDetailPanel({
     teamIdentifier: initialTask.teamIdentifier,
     repositoryId:
       'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
+    parent: 'parent' in initialTask ? (initialTask.parent ?? null) : null,
   }))
   const { user } = useCurrentUser()
+  const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
@@ -291,6 +294,7 @@ export function TaskDetailPanel({
             pullRequests: t.pullRequests ?? [],
             branches: t.branches ?? [],
             children: t.children ?? [],
+            parent: t.parent ?? null,
           }))
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
@@ -383,6 +387,7 @@ export function TaskDetailPanel({
           pullRequests: t.pullRequests ?? [],
           branches: t.branches ?? [],
           children: t.children ?? [],
+          parent: t.parent ?? null,
         }))
       }
     } catch {
@@ -630,6 +635,25 @@ export function TaskDetailPanel({
   return (
     <div className='flex-1 overflow-y-auto px-5 py-4'>
       <div className='space-y-1'>
+        {/* Parent breadcrumb */}
+        {task.parent && (
+          <button
+            onClick={() => {
+              const parentIdentifier = `${task.parent!.teamIdentifier}-${task.parent!.number}`
+              const projectSlug = slugifyProjectName(task.project.name)
+              router.push(
+                `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
+              )
+            }}
+            className='flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 mb-1 transition-colors'
+          >
+            <span>↑</span>
+            <span>
+              {task.parent.teamIdentifier}-{task.parent.number}{' '}
+              {task.parent.title}
+            </span>
+          </button>
+        )}
         {/* Title */}
         <TypographyH3
           key={task.id}
@@ -695,6 +719,26 @@ export function TaskDetailPanel({
             onChange={v => handlePatch({ priority: v })}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
+          {task.parent && (
+            <>
+              <SeparatorDot />
+              <button
+                onClick={() => {
+                  const parentIdentifier = `${task.parent!.teamIdentifier}-${task.parent!.number}`
+                  const projectSlug = slugifyProjectName(task.project.name)
+                  router.push(
+                    `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
+                  )
+                }}
+                className={cn(FIELD_TRIGGER_CLS, 'gap-1')}
+              >
+                <span className='text-muted-foreground text-xs'>Parent</span>
+                <span className='text-xs'>
+                  {task.parent.teamIdentifier}-{task.parent.number}
+                </span>
+              </button>
+            </>
+          )}
         </div>
 
         <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
