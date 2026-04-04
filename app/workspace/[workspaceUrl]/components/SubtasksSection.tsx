@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { Sparkles, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { apiFetch } from '../utils'
+import { apiFetch, slugifyProjectName } from '../utils'
 import type { TaskDetail, ApiPriority } from '../types'
 
 interface DraftSubtask {
@@ -20,12 +21,22 @@ export function SubtasksSection({
   task,
   onSubtasksCreated,
 }: SubtasksSectionProps) {
+  const router = useRouter()
+  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [drafts, setDrafts] = useState<DraftSubtask[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const children = task.children ?? []
+
+  function handleChildClick(childNumber: number) {
+    const identifier = `${task.teamIdentifier}-${childNumber}`
+    const projectSlug = slugifyProjectName(task.project.name)
+    router.push(
+      `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${identifier}`
+    )
+  }
   const hasDrafts = drafts.length > 0
 
   async function handleBreakDown() {
@@ -108,7 +119,16 @@ export function SubtasksSection({
           {children.map(child => (
             <li
               key={child.id}
-              className='flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1'
+              role='button'
+              tabIndex={0}
+              onClick={() => handleChildClick(child.number)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleChildClick(child.number)
+                }
+              }}
+              className='flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
             >
               <span className='size-4 rounded border border-zinc-300 dark:border-zinc-600 shrink-0' />
               <span className='truncate'>{child.title}</span>

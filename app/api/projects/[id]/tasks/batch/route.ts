@@ -1,8 +1,10 @@
+import { waitUntil } from '@vercel/functions'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { batchCreateTasksSchema } from '@/lib/validation/schemas'
+import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -95,6 +97,24 @@ export async function POST(request: Request, { params }: Params) {
 
     return created
   })
+
+  // ── Fire-and-forget: Pusher real-time events ─────────────────────────────
+  // Notify parent task detail panels that children changed, plus board-level update
+  const affectedParentIds = [...new Set(taskInputs.map(t => t.parentTaskId))]
+  waitUntil(
+    Promise.all([
+      ...affectedParentIds.map(parentId =>
+        pushTaskEvent(parentId, { type: 'task:updated', fields: ['children'] })
+      ),
+      ...tasks.map(t =>
+        pushProjectEvent(projectId, {
+          type: 'task:updated',
+          taskId: t.id,
+          fields: ['title', 'status', 'priority', 'parentTaskId'],
+        })
+      ),
+    ])
+  )
 
   return NextResponse.json({ tasks }, { status: 201 })
 }
