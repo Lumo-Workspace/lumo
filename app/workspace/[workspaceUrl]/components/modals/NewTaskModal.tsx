@@ -20,6 +20,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
+import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import {
   Select,
   SelectContent,
@@ -63,6 +64,7 @@ export function NewTaskModal({
 }: NewTaskModalProps) {
   const [title, setTitle] = useState('')
   const descriptionRef = useRef<string | null>(null)
+  const [descriptionValue, setDescriptionValue] = useState<string | null>(null)
   const [status, setStatus] = useState<ApiStatus>(defaultStatus ?? 'TODO')
   const [priority, setPriority] = useState<ApiPriority>('MEDIUM')
   const [projectId, setProjectId] = useState(defaultProjectId ?? '')
@@ -109,6 +111,7 @@ export function NewTaskModal({
   const reset = () => {
     setTitle('')
     descriptionRef.current = null
+    setDescriptionValue(null)
     setStatus(defaultStatus ?? 'TODO')
     setPriority('MEDIUM')
     setProjectId(defaultProjectId ?? '')
@@ -175,9 +178,18 @@ export function NewTaskModal({
                 if (isSubmitShortcut(e)) handleSubmit()
               }}
             />
+            <AiDescriptionPrompt
+              title={title}
+              projectId={projectId || defaultProjectId || ''}
+              existingDescription={descriptionRef.current}
+              onAccept={html => {
+                descriptionRef.current = html
+                setDescriptionValue(html)
+              }}
+            />
             <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
               <DescriptionEditor
-                value={null}
+                value={descriptionValue}
                 onCommit={html => {
                   descriptionRef.current = html
                 }}
