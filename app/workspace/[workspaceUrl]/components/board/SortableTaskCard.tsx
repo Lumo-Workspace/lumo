@@ -206,9 +206,31 @@ export function ProjectTaskCard({
         )}
         <PriorityBadge priority={task.priority} />
       </div>
+      {task.parent && (
+        <div className='mb-1'>
+          <span className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded'>
+            ↑ {task.parent.teamIdentifier}-{task.parent.number}
+          </span>
+        </div>
+      )}
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}
       </h4>
+      {(task._count?.children ?? 0) > 0 && (
+        <div className='flex items-center gap-1.5 mt-1.5'>
+          <div className='flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+            <div
+              className='h-full bg-blue-500 rounded-full transition-all'
+              style={{
+                width: `${Math.round(((task.childrenDoneCount ?? 0) / (task._count?.children ?? 1)) * 100)}%`,
+              }}
+            />
+          </div>
+          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums'>
+            {task.childrenDoneCount ?? 0}/{task._count?.children ?? 0}
+          </span>
+        </div>
+      )}
       <div className='flex justify-between items-center'>
         {/* ── Left: avatar + agent badge ── */}
         {isAgent ? (
