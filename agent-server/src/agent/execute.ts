@@ -479,10 +479,6 @@ async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
 
 // ── Agent execution ───────────────────────────────────────────────────────
 
-const CLAUDE_ALLOWED_TOOLS =
-  'Read,Write,Edit,Bash,' +
-  'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
-
 // ── Pipeline stages ──────────────────────────────────────────────────────
 
 const PIPELINE_STAGES = [
@@ -567,8 +563,8 @@ cd /home/user/repo
 export ANTHROPIC_API_KEY="${ctx.anthropicKey}"
 
 timeout --signal=TERM ${timeoutSecs} \\
-  claude -p "$(cat /home/user/task.md)" \\
-  --allowedTools "${CLAUDE_ALLOWED_TOOLS}" \\
+  claude --dangerously-skip-permissions \\
+  -p "$(cat /home/user/task.md)" \\
   --mcp-config ${MCP_CONFIG_PATH} \\
   --output-format stream-json --verbose --max-turns 200 \\
   2>&1
