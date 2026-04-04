@@ -2,7 +2,6 @@
 
 import { List, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 
 export function ViewToggle({
   value,
@@ -12,22 +11,26 @@ export function ViewToggle({
   onChange: (v: 'list' | 'board') => void
 }) {
   return (
-    <div className='flex items-center p-1 bg-zinc-100 dark:bg-zinc-900 rounded-md'>
+    <div className='inline-flex items-center gap-1 rounded-md border border-zinc-200 px-1 py-1 bg-white dark:border-zinc-700 dark:bg-zinc-900'>
       {(['list', 'board'] as const).map(mode => (
-        <Button
+        <button
           key={mode}
-          variant='ghost'
+          type='button'
           onClick={() => onChange(mode)}
           className={cn(
-            'h-auto gap-1.5 text-[11px] font-medium px-3 py-1 rounded capitalize',
+            'inline-flex items-center justify-center h-7 w-7 rounded transition-colors',
             value === mode
-              ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm hover:bg-white dark:hover:bg-zinc-800'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+              ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+              : 'text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300'
           )}
+          aria-label={mode === 'list' ? 'List view' : 'Board view'}
         >
-          {mode === 'list' ? <List size={16} /> : <LayoutGrid size={16} />}
-          {mode.charAt(0).toUpperCase() + mode.slice(1)}
-        </Button>
+          {mode === 'list' ? (
+            <List className='h-4 w-4' />
+          ) : (
+            <LayoutGrid className='h-4 w-4' />
+          )}
+        </button>
       ))}
     </div>
   )
