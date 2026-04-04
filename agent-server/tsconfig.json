@@ -16,7 +16,7 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@lumo/shared": ["../shared/src"]
+      "@lumo/shared": ["../shared/dist"]
     }
   },
   "include": ["src/**/*.ts"],

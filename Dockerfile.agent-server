@@ -47,6 +47,7 @@ RUN npm ci --workspace=shared --workspace=agent-server --omit=dev --ignore-scrip
 RUN npx prisma generate
 
 # Copy built code
+COPY --from=builder /app/shared/dist shared/dist
 COPY --from=builder /app/agent-server/dist agent-server/dist
 
 ENV NODE_ENV=production
