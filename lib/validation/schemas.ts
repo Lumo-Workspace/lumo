@@ -128,6 +128,18 @@ export const batchCreateTasksSchema = z.object({
     .max(10, 'Cannot create more than 10 tasks at once'),
 })
 
+// ─── AI Description Generation ──────────────────────────────────────────────
+
+export const generateDescriptionSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Title must be at least 3 characters')
+    .max(200),
+  projectId: z.string().cuid(),
+  existingDescription: z.string().max(10000).optional(),
+})
+
 // ─── Members ─────────────────────────────────────────────────────────────────
 
 export const updateMemberRoleSchema = z.object({
