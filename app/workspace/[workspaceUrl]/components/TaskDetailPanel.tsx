@@ -26,6 +26,7 @@ import {
   ApiProject,
 } from '../types'
 import { DescriptionEditor } from './DescriptionEditor'
+import { AiDescriptionPrompt } from './AiDescriptionPrompt'
 import { TypographyH3 } from '@/components/ui/typography'
 import {
   StatusSelect,
@@ -862,12 +863,40 @@ export function TaskDetailPanel({
           {descriptionLoading ? (
             <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
           ) : (
-            <DescriptionEditor
-              value={descriptionValue}
-              onCommit={commitDescription}
-              members={mentionableMembers}
-              tasks={tasks}
-            />
+            <>
+              {!task.description && (
+                <div className='mb-2'>
+                  <AiDescriptionPrompt
+                    title={task.title}
+                    projectId={task.projectId}
+                    existingDescription={null}
+                    onAccept={html => {
+                      handlePatch({ description: html })
+                      onDescriptionLoaded?.(task.id, html)
+                    }}
+                  />
+                </div>
+              )}
+              <DescriptionEditor
+                value={descriptionValue}
+                onCommit={commitDescription}
+                members={mentionableMembers}
+                tasks={tasks}
+              />
+              {task.description && (
+                <div className='mt-1 flex justify-end'>
+                  <AiDescriptionPrompt
+                    title={task.title}
+                    projectId={task.projectId}
+                    existingDescription={task.description}
+                    onAccept={html => {
+                      handlePatch({ description: html })
+                      onDescriptionLoaded?.(task.id, html)
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
