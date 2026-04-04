@@ -181,7 +181,7 @@ export function NewTaskModal({
             <AiDescriptionPrompt
               title={title}
               projectId={projectId || defaultProjectId || ''}
-              existingDescription={descriptionRef.current}
+              existingDescription={descriptionValue}
               onAccept={html => {
                 descriptionRef.current = html
                 setDescriptionValue(html)
@@ -195,6 +195,7 @@ export function NewTaskModal({
                 }}
                 onChange={html => {
                   descriptionRef.current = html
+                  setDescriptionValue(html)
                 }}
                 placeholder='Add description…'
               />

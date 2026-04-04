@@ -17,6 +17,36 @@ const descriptionResponseSchema = z.object({
     ),
 })
 
+const ALLOWED_TAGS = new Set([
+  'p',
+  'strong',
+  'em',
+  'code',
+  'ul',
+  'ol',
+  'li',
+  'input',
+  'br',
+])
+
+/** Strip all HTML tags except the allowed set. Removes all attributes except type/checked on input. */
+function sanitizeHtml(html: string): string {
+  return html.replace(
+    /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/?>/g,
+    (match, tag: string) => {
+      const lower = tag.toLowerCase()
+      if (!ALLOWED_TAGS.has(lower)) return ''
+      // For input, only allow type="checkbox" and checked
+      if (lower === 'input') return '<input type="checkbox">'
+      // For closing tags, return as-is
+      if (match.startsWith('</')) return `</${lower}>`
+      // For opening tags, strip all attributes
+      if (match.endsWith('/>')) return `<${lower} />`
+      return `<${lower}>`
+    }
+  )
+}
+
 function buildPrompt({
   title,
   projectName,
@@ -31,14 +61,14 @@ function buildPrompt({
   existingDescription?: string
 }): string {
   const projectContext = projectDescription
-    ? `Project: ${projectName}\nProject description: ${projectDescription}`
-    : `Project: ${projectName}`
+    ? `<project_name>${projectName}</project_name>\n<project_description>${projectDescription}</project_description>`
+    : `<project_name>${projectName}</project_name>`
 
   const recentTasksContext =
     recentTasks.length > 0
-      ? `\nRecent tasks in this project for style reference:\n${recentTasks
+      ? `\n<recent_tasks>\n${recentTasks
           .map(t => `- ${t.title}${t.description ? `: ${t.description}` : ''}`)
-          .join('\n')}`
+          .join('\n')}\n</recent_tasks>`
       : ''
 
   if (existingDescription) {
@@ -46,8 +76,8 @@ function buildPrompt({
 
 ${projectContext}${recentTasksContext}
 
-Task title: ${title}
-Current description: ${existingDescription}
+<task_title>${title}</task_title>
+<current_description>${existingDescription}</current_description>
 
 Output lightweight HTML. You may use: <p>, <strong>, <code>, <ul>/<li>, <input type="checkbox">. Preserve the original intent but make it clearer and more actionable.`
   }
@@ -56,7 +86,7 @@ Output lightweight HTML. You may use: <p>, <strong>, <code>, <ul>/<li>, <input t
 
 ${projectContext}${recentTasksContext}
 
-Task title: ${title}
+<task_title>${title}</task_title>
 
 Output lightweight HTML. You may use: <p>, <strong>, <code>, <ul>/<li> (for steps), <input type="checkbox"> (for checklists). Keep it actionable and concise — focus on HOW to execute, not WHAT the task is (the title already says that).`
 }
@@ -115,7 +145,7 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ description: object.description })
+    return NextResponse.json({ description: sanitizeHtml(object.description) })
   } catch (error) {
     console.error('POST /api/tasks/generate-description error:', error)
     return NextResponse.json(
