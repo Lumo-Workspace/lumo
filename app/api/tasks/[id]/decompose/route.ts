@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
@@ -51,7 +51,7 @@ Rules:
 
   try {
     const { object } = await generateObject({
-      model: openai('gpt-4o-mini'),
+      model: gateway('anthropic/claude-sonnet-4-5-20250514'),
       schema: subtasksSchema,
       prompt,
     })
