@@ -1257,8 +1257,14 @@ async function pollSandboxCompletion(
   const POLL_INTERVAL_MS = 15_000 // 15 seconds
   const MAX_POLLS = Math.ceil(AGENT_TIMEOUT_MS / POLL_INTERVAL_MS) + 10
 
+  console.log(
+    `[Agent] Poll: starting polling fallback for task ${ctx.taskId}, sandbox ${sandbox.sandboxId}`
+  )
+
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+
+    console.log(`[Agent] Poll: check #${i + 1} for task ${ctx.taskId}`)
 
     // Check if already processed (callback succeeded)
     const run = await prisma.agentRun.findUnique({
