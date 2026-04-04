@@ -1278,6 +1278,21 @@ async function pollSandboxCompletion(
       return
     }
 
+    // Tail sandbox logs for visibility
+    try {
+      const tail = await sandbox.commands.run(
+        'tail -20 /tmp/agent-stderr.log 2>/dev/null',
+        { timeoutMs: 5000 }
+      )
+      if (tail.stdout.trim()) {
+        console.log(
+          `[Agent] Sandbox logs for task ${ctx.taskId}:\n${tail.stdout.trim()}`
+        )
+      }
+    } catch {
+      // sandbox may not be ready yet
+    }
+
     // Check if agent script finished
     try {
       const result = await sandbox.commands.run(
