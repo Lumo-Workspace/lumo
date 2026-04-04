@@ -10,6 +10,20 @@ import {
 } from '@/lib/agent/state-machine'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { executeAgent } from '@/lib/agent/execute'
+import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
+
+/** Run agent either via proxy or locally. */
+async function runAgent(opts: {
+  taskId: string
+  actorClerkId: string
+  trigger: string
+}): Promise<void> {
+  if (isAgentServiceEnabled()) {
+    await proxyToAgentService('/api/agent/execute', opts)
+  } else {
+    await executeAgent(opts)
+  }
+}
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -147,7 +161,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               data: { reply: data.reply, repliedAt: new Date() },
             })
           }
-          await executeAgent({
+          await runAgent({
             taskId,
             actorClerkId: userId,
             trigger: 'clarify_reply',
@@ -220,7 +234,7 @@ export async function POST(request: NextRequest, { params }: Params) {
               where: { id: taskId },
               data: { agentError: null },
             })
-            await executeAgent({
+            await runAgent({
               taskId,
               actorClerkId: userId,
               trigger: 'clarify_reply',
@@ -303,7 +317,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           where: { id: taskId },
           data: { agentError: null },
         })
-        await executeAgent({
+        await runAgent({
           taskId,
           actorClerkId: userId,
           trigger: 'send_back',

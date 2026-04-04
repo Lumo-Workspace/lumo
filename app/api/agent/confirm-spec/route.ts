@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
+import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -50,11 +51,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Save confirmed spec (no status change — executeAgent handles INPUT_REQUIRED → WORKING)
+    // Save confirmed spec
     await prisma.task.update({
       where: { id: taskId },
       data: { spec, agentError: null },
     })
+
+    if (isAgentServiceEnabled()) {
+      const { status, data } = await proxyToAgentService('/api/agent/execute', {
+        taskId,
+        actorClerkId: userId,
+        trigger: 'confirm_spec',
+      })
+      return NextResponse.json(data, { status })
+    }
 
     const result = await executeAgent({
       taskId,

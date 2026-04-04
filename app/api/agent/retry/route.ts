@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
+import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -62,11 +63,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Clear error (no status change — executeAgent handles FAILED/CANCELED → WORKING)
     await prisma.task.update({
       where: { id: taskId },
       data: { agentError: null },
     })
+
+    if (isAgentServiceEnabled()) {
+      const { status, data } = await proxyToAgentService('/api/agent/retry', {
+        taskId,
+        actorClerkId: userId,
+      })
+      return NextResponse.json(data, { status })
+    }
 
     const result = await executeAgent({
       taskId,

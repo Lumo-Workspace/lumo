@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { executeAgent } from '@/lib/agent/execute'
+import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
 
 // Setup phase only (clone, install, branch) — typically < 3 min
 export const maxDuration = 300
@@ -15,9 +16,6 @@ const bodySchema = z.object({
 /**
  * POST /api/agent/execute
  * Triggers the Lumo coding agent for a task.
- * Performs sandbox setup (clone, install, branch), then starts the
- * Claude CLI in the background. Returns 202 after setup completes.
- * The sandbox calls POST /api/agent/sandbox-done when the agent finishes.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +28,6 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return zodError(parsed)
     const { taskId } = parsed.data
 
-    // Load task and look up its workspace
     const rawTask = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
@@ -62,7 +59,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Prevent double-execution
     if (task.agentStatus === 'WORKING') {
       return NextResponse.json(
         { error: 'Agent is already running for this task' },
@@ -70,7 +66,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Setup sandbox + start agent in background (returns after setup)
+    // Proxy to agent-server if configured, otherwise run locally
+    if (isAgentServiceEnabled()) {
+      const { status, data } = await proxyToAgentService('/api/agent/execute', {
+        taskId,
+        actorClerkId: userId,
+        trigger: 'initial',
+      })
+      return NextResponse.json(data, { status })
+    }
+
     const result = await executeAgent({
       taskId,
       actorClerkId: userId,
