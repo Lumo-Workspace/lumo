@@ -165,6 +165,7 @@ interface ProjectTaskCardProps {
   /** Whether the current user is a workspace OWNER */
   isOwner?: boolean | undefined
   onClick?: () => void
+  onParentClick?: (parentId: string) => void
 }
 
 export function ProjectTaskCard({
@@ -174,6 +175,7 @@ export function ProjectTaskCard({
   currentActorId,
   isOwner,
   onClick,
+  onParentClick,
 }: ProjectTaskCardProps) {
   const assignee =
     members?.find(m => m.actorId === task.assigneeActorId) ?? null
@@ -208,9 +210,15 @@ export function ProjectTaskCard({
       </div>
       {task.parent && (
         <div className='mb-1'>
-          <span className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded'>
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              onParentClick?.(task.parent!.id)
+            }}
+            className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
+          >
             ↑ {task.parent.teamIdentifier}-{task.parent.number}
-          </span>
+          </button>
         </div>
       )}
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>

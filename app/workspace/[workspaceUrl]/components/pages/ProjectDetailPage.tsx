@@ -717,6 +717,10 @@ export function ProjectDetailPage({
                     currentActorId={currentActorId}
                     isOwner={isOwner}
                     onClick={() => onTaskClick(task)}
+                    onParentClick={parentId => {
+                      const parentTask = tasks.find(t => t.id === parentId)
+                      if (parentTask) onTaskClick(parentTask)
+                    }}
                   />
                 )}
                 onAddTask={onNewTask}
