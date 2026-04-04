@@ -51,7 +51,7 @@ Rules:
 
   try {
     const { object } = await generateObject({
-      model: gateway('anthropic/claude-sonnet-4-5-20250514'),
+      model: gateway('anthropic/claude-sonnet-4.5'),
       schema: subtasksSchema,
       prompt,
     })
