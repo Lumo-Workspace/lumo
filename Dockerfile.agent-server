@@ -10,15 +10,12 @@ COPY package.json package-lock.json ./
 COPY shared/ shared/
 COPY agent-server/ agent-server/
 
-# Copy Prisma schema (needed for prisma generate)
+# Copy Prisma schema BEFORE npm ci (postinstall runs prisma generate)
 COPY prisma/ prisma/
 COPY prisma.config.ts ./
 
 # Install all workspace deps
 RUN npm ci --workspace=shared --workspace=agent-server
-
-# Generate Prisma client
-RUN npx prisma generate
 
 # Build agent-server
 WORKDIR /app/agent-server
@@ -34,13 +31,12 @@ COPY package.json package-lock.json ./
 COPY shared/ shared/
 COPY agent-server/package.json agent-server/package.json
 
-# Install production deps only
-RUN npm ci --workspace=shared --workspace=agent-server --omit=dev
-
-# Copy Prisma schema + generated client
+# Copy Prisma schema BEFORE npm ci (postinstall runs prisma generate)
 COPY prisma/ prisma/
 COPY prisma.config.ts ./
-RUN npx prisma generate
+
+# Install production deps only
+RUN npm ci --workspace=shared --workspace=agent-server --omit=dev
 
 # Copy built code
 COPY --from=builder /app/agent-server/dist agent-server/dist
