@@ -26,16 +26,26 @@ declare module '@tanstack/react-table' {
      */
     stopPropagation?: boolean
   }
+
+  interface TableMeta<TData extends RowData> {
+    expanded?: Set<string>
+    toggleExpand?: (id: string) => void
+    getParentId?: (row: TData) => string | null
+    getChildCount?: (row: TData) => number
+  }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
+interface TreeConfig<TData> {
+  getParentId: (row: TData) => string | null
+  getChildCount: (row: TData) => number
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   onRowClick?: (row: TData) => void
-  getParentId?: (row: TData) => string | null
-  getChildCount?: (row: TData) => number
-  getRowId?: (row: TData) => string
+  treeConfig?: TreeConfig<TData>
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -43,9 +53,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   onRowClick,
-  getParentId,
-  getChildCount,
-  getRowId,
+  treeConfig,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -59,17 +67,17 @@ export function DataTable<TData, TValue>({
     })
   }, [])
 
+  const getParentId = treeConfig?.getParentId
+
   // Filter data to show root tasks + children of expanded parents
   const visibleData = useMemo(() => {
-    if (!getParentId || !getRowId) return data
+    if (!getParentId) return data
     return data.filter(row => {
       const parentId = getParentId(row)
-      // Root tasks (no parent) are always visible
       if (!parentId) return true
-      // Children are visible only if their parent is expanded
       return expanded.has(parentId)
     })
-  }, [data, getParentId, getRowId, expanded])
+  }, [data, getParentId, expanded])
 
   const table = useReactTable({
     data: visibleData,
@@ -78,7 +86,14 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     state: { sorting },
-    meta: { expanded, toggleExpand, getParentId, getChildCount, getRowId },
+    ...(treeConfig && {
+      meta: {
+        expanded,
+        toggleExpand,
+        getParentId: treeConfig.getParentId,
+        getChildCount: treeConfig.getChildCount,
+      },
+    }),
   })
 
   return (

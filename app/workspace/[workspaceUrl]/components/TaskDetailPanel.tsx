@@ -180,6 +180,16 @@ export function TaskDetailPanel({
   const { user } = useCurrentUser()
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const navigateToParent = useCallback(() => {
+    const parent = task.parent
+    if (!parent) return
+    const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
+    const projectSlug = slugifyProjectName(task.project.name)
+    router.push(
+      `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
+    )
+  }, [task.parent, task.project.name, workspaceUrl, router])
+
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
   // Members with actorId (non-null only) for AssigneeSelect / ReviewerSelect
@@ -638,13 +648,7 @@ export function TaskDetailPanel({
         {/* Parent breadcrumb */}
         {task.parent && (
           <button
-            onClick={() => {
-              const parentIdentifier = `${task.parent!.teamIdentifier}-${task.parent!.number}`
-              const projectSlug = slugifyProjectName(task.project.name)
-              router.push(
-                `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
-              )
-            }}
+            onClick={navigateToParent}
             className='flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 mb-1 transition-colors'
           >
             <span>↑</span>
@@ -723,13 +727,7 @@ export function TaskDetailPanel({
             <>
               <SeparatorDot />
               <button
-                onClick={() => {
-                  const parentIdentifier = `${task.parent!.teamIdentifier}-${task.parent!.number}`
-                  const projectSlug = slugifyProjectName(task.project.name)
-                  router.push(
-                    `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
-                  )
-                }}
+                onClick={navigateToParent}
                 className={cn(FIELD_TRIGGER_CLS, 'gap-1')}
               >
                 <span className='text-muted-foreground text-xs'>Parent</span>

@@ -127,7 +127,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
           }
         : null,
       _count: t._count,
-      childrenDoneCount: (t.children as { id: string }[])?.length ?? 0,
+      childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
     }))
 
     const tree = buildTaskTree(tasksWithOrder)

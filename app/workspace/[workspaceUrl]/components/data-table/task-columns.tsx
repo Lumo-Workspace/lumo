@@ -158,14 +158,7 @@ export function createTaskColumns(
       ),
       cell: ({ row, table }) => {
         const task = row.original
-        const meta = table.options.meta as
-          | {
-              expanded?: Set<string>
-              toggleExpand?: (id: string) => void
-              getParentId?: (row: ApiTask) => string | null
-              getChildCount?: (row: ApiTask) => number
-            }
-          | undefined
+        const meta = table.options.meta
         const parentId = meta?.getParentId?.(task)
         const childCount = meta?.getChildCount?.(task) ?? 0
         const isExpanded = meta?.expanded?.has(task.id) ?? false
