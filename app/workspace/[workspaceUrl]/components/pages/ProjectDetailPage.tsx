@@ -40,6 +40,7 @@ import { ViewToggle } from '../ViewToggle'
 import { DisplayOptionsMenu } from '../DisplayOptionsMenu'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
+import { sortTasks } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { AsyncContent } from '../AsyncContent'
 import { Button } from '@/components/ui/button'
@@ -149,12 +150,35 @@ export function ProjectDetailPage({
   const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const { options: displayOptions, setCompletedFilter } = useDisplayOptions(
-    CACHE_KEY.displayProject(project.id)
+  const {
+    options: displayOptions,
+    setCompletedFilter,
+    setOrdering,
+  } = useDisplayOptions(CACHE_KEY.displayProject(project.id))
+
+  const memberNameMap = useMemo(
+    () => new Map(members.map(m => [m.clerkId, m.name])),
+    [members]
   )
+  const getMemberName = useCallback(
+    (clerkId: string) => memberNameMap.get(clerkId),
+    [memberNameMap]
+  )
+
   const filteredTasks = useMemo(
-    () => filterCompletedTasks(tasks, displayOptions.completedFilter),
-    [tasks, displayOptions.completedFilter]
+    () =>
+      sortTasks(
+        filterCompletedTasks(tasks, displayOptions.completedFilter),
+        displayOptions.ordering,
+        undefined,
+        getMemberName
+      ),
+    [
+      tasks,
+      displayOptions.completedFilter,
+      displayOptions.ordering,
+      getMemberName,
+    ]
   )
 
   // ── Repositories state ────────────────────────────────────────────────────
@@ -627,6 +651,8 @@ export function ProjectDetailPage({
             <DisplayOptionsMenu
               completedFilter={displayOptions.completedFilter}
               onCompletedFilterChange={setCompletedFilter}
+              ordering={displayOptions.ordering}
+              onOrderingChange={setOrdering}
             />
             <ViewToggle value={viewMode} onChange={setViewMode} />
           </div>
