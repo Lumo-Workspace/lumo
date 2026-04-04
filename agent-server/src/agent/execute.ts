@@ -480,9 +480,7 @@ async function writeTaskSpec(sandbox: Sandbox, ctx: RunContext) {
 // ── Agent execution ───────────────────────────────────────────────────────
 
 const CLAUDE_ALLOWED_TOOLS =
-  'Read,Write,Edit,' +
-  'Bash(git add *),Bash(git commit *),Bash(git push *),Bash(npm *),Bash(npx *),' +
-  'Bash(ls *),Bash(cat *),Bash(mkdir *),' +
+  'Read,Write,Edit,Bash,' +
   'mcp__lumo-sandbox__ask_user,mcp__lumo-sandbox__report_progress'
 
 // ── Pipeline stages ──────────────────────────────────────────────────────
@@ -572,7 +570,7 @@ timeout --signal=TERM ${timeoutSecs} \\
   claude -p "$(cat /home/user/task.md)" \\
   --allowedTools "${CLAUDE_ALLOWED_TOOLS}" \\
   --mcp-config ${MCP_CONFIG_PATH} \\
-  --output-format stream-json --verbose --max-turns 50 \\
+  --output-format stream-json --verbose --max-turns 200 \\
   2>&1
 `
 
