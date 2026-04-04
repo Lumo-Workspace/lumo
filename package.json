@@ -25,6 +25,7 @@
     "mcp": "tsx mcp/server.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.50",
     "@anthropic-ai/claude-agent-sdk": "^0.2.89",
     "@anthropic-ai/claude-code": "^2.1.89",
     "@chat-adapter/slack": "^4.23.0",
@@ -90,12 +91,14 @@
     "@types/pg": "^8.20.0",
     "@vercel/blob": "^2.3.2",
     "@vercel/functions": "^3.4.3",
+    "ai": "^6.0.146",
     "autoprefixer": "^10.4.27",
     "chat": "^4.23.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "4.1.0",
+    "lodash-es": "^4.18.1",
     "lucide-react": "^1.7.0",
     "marked": "^17.0.5",
     "mermaid": "^11.14.0",
