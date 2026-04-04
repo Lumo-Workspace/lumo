@@ -101,6 +101,33 @@ export const updateTaskSchema = z.object({
   order: z.number().optional(),
 })
 
+// ─── Batch Task Creation ───────────────────────────────────────────────────
+
+export const batchCreateTasksSchema = z.object({
+  tasks: z
+    .array(
+      z.object({
+        title: z
+          .string()
+          .trim()
+          .min(1, 'Title is required')
+          .max(500, 'Title must be at most 500 characters'),
+        status: z
+          .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
+          .optional()
+          .default('TODO'),
+        priority: z
+          .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+          .optional()
+          .default('MEDIUM'),
+        assigneeActorId: z.string().nullable().optional(),
+        parentTaskId: z.string(),
+      })
+    )
+    .min(1, 'At least one task is required')
+    .max(10, 'Cannot create more than 10 tasks at once'),
+})
+
 // ─── Members ─────────────────────────────────────────────────────────────────
 
 export const updateMemberRoleSchema = z.object({
