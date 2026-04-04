@@ -40,7 +40,7 @@ import { ViewToggle } from '../ViewToggle'
 import { DisplayOptionsMenu } from '../DisplayOptionsMenu'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
-import { sortTasks } from '../../utils/sortTasks'
+import { sortTasks, ORDERING_LABELS } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { AsyncContent } from '../AsyncContent'
 import { Button } from '@/components/ui/button'
@@ -700,6 +700,11 @@ export function ProjectDetailPage({
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
+                orderingLabel={
+                  displayOptions.ordering !== 'manual'
+                    ? ORDERING_LABELS[displayOptions.ordering]
+                    : undefined
+                }
                 renderCard={(task, isOverlay) => (
                   <ProjectTaskCard
                     key={task.id}

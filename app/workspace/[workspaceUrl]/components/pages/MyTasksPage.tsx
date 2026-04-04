@@ -39,7 +39,7 @@ import {
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
-import { sortTasks } from '../../utils/sortTasks'
+import { sortTasks, ORDERING_LABELS } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 
@@ -159,6 +159,11 @@ export function MyTasksPage({
               onDragStart={onDragStart}
               onDragOver={onDragOver}
               onDragEnd={onDragEnd}
+              orderingLabel={
+                options.ordering !== 'manual'
+                  ? ORDERING_LABELS[options.ordering]
+                  : undefined
+              }
               renderCard={(task, isOverlay) => (
                 <MyTaskCard
                   key={task.id}

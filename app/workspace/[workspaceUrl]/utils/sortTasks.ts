@@ -1,6 +1,7 @@
 import { cmpString, cmpDate } from '../hooks/useTableSort'
 
 export type TaskOrdering =
+  | 'manual'
   | 'title'
   | 'priority'
   | 'assignee'
@@ -8,6 +9,7 @@ export type TaskOrdering =
   | 'updated'
 
 export const ORDERING_LABELS: Record<TaskOrdering, string> = {
+  manual: 'Manual',
   title: 'Title',
   priority: 'Priority',
   assignee: 'Assignee',
@@ -16,6 +18,7 @@ export const ORDERING_LABELS: Record<TaskOrdering, string> = {
 }
 
 export const ORDERING_OPTIONS: TaskOrdering[] = [
+  'manual',
   'title',
   'priority',
   'assignee',
@@ -26,6 +29,7 @@ export const ORDERING_OPTIONS: TaskOrdering[] = [
 // Fixed default direction per ordering field.
 // Each can be overridden via the optional `direction` param.
 const DEFAULT_DIRECTION: Record<TaskOrdering, 'asc' | 'desc'> = {
+  manual: 'asc',
   title: 'asc',
   priority: 'asc', // URGENT=0 sorts first when ascending
   assignee: 'asc',
@@ -41,6 +45,7 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 }
 
 interface SortableTask {
+  order?: number
   title: string
   priority: string
   assignee?: {
@@ -91,6 +96,10 @@ export function sortTasks<T extends SortableTask>(
     let cmp: number
 
     switch (ordering) {
+      case 'manual':
+        cmp = (a.order ?? 0) - (b.order ?? 0)
+        break
+
       case 'title':
         cmp = cmpString(a.title, b.title)
         break
