@@ -690,6 +690,9 @@ export function ProjectDetailPage({
                   columns={taskColumns}
                   data={filteredTasks}
                   onRowClick={onTaskClick}
+                  getParentId={(task: ApiTask) => task.parentTaskId}
+                  getChildCount={(task: ApiTask) => task._count?.children ?? 0}
+                  getRowId={(task: ApiTask) => task.id}
                 />
               </div>
             ) : (

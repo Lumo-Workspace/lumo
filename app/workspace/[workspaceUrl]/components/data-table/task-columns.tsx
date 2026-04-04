@@ -6,6 +6,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  ChevronRight,
   MoreHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -148,21 +149,62 @@ export function createTaskColumns(
       accessorFn: row => `${row.teamIdentifier}-${row.number}`,
       meta: {
         headerClassName: 'w-24 px-8',
-        cellClassName: 'px-8',
+        cellClassName: 'px-3',
       },
       header: () => (
         <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
           ID
         </span>
       ),
-      cell: ({ row }) =>
-        row.original.number ? (
-          <span className='text-xs font-mono text-muted-foreground'>
-            {row.original.teamIdentifier}-{row.original.number}
-          </span>
-        ) : (
-          <Spinner className='size-3 text-muted-foreground' />
-        ),
+      cell: ({ row, table }) => {
+        const task = row.original
+        const meta = table.options.meta as
+          | {
+              expanded?: Set<string>
+              toggleExpand?: (id: string) => void
+              getParentId?: (row: ApiTask) => string | null
+              getChildCount?: (row: ApiTask) => number
+            }
+          | undefined
+        const parentId = meta?.getParentId?.(task)
+        const childCount = meta?.getChildCount?.(task) ?? 0
+        const isExpanded = meta?.expanded?.has(task.id) ?? false
+        const isChild = !!parentId
+
+        return (
+          <div
+            className={cn('flex items-center gap-1', isChild ? 'pl-7' : 'pl-3')}
+          >
+            {childCount > 0 ? (
+              <button
+                type='button'
+                onClick={e => {
+                  e.stopPropagation()
+                  meta?.toggleExpand?.(task.id)
+                }}
+                className='flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-foreground transition-colors'
+              >
+                <ChevronRight
+                  size={14}
+                  className={cn(
+                    'transition-transform duration-150',
+                    isExpanded && 'rotate-90'
+                  )}
+                />
+              </button>
+            ) : (
+              <span className='size-4 shrink-0' />
+            )}
+            {task.number ? (
+              <span className='text-xs font-mono text-muted-foreground'>
+                {task.teamIdentifier}-{task.number}
+              </span>
+            ) : (
+              <Spinner className='size-3 text-muted-foreground' />
+            )}
+          </div>
+        )
+      },
     },
 
     // ── Title ──────────────────────────────────────────────────────────────
