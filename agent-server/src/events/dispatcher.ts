@@ -1,4 +1,8 @@
-import type { DomainEvent } from '@lumo/shared'
+import type {
+  DomainEvent,
+  AgentEventHandler,
+  TaskEventHandler,
+} from '@lumo/shared'
 import { registry } from './handlers/index.js'
 
 /**
@@ -10,13 +14,17 @@ export async function dispatchEvents(events: DomainEvent[]): Promise<void> {
   for (const event of events) {
     switch (event.type) {
       case 'agent:status_changed': {
-        const handlers = registry['agent:status_changed']
-        await Promise.all(handlers.map(h => runWithRetry(h, event)))
+        const handlers: AgentEventHandler[] = registry['agent:status_changed']
+        await Promise.all(
+          handlers.map((h: AgentEventHandler) => runWithRetry(h, event))
+        )
         break
       }
       case 'task:status_changed': {
-        const handlers = registry['task:status_changed']
-        await Promise.all(handlers.map(h => runWithRetry(h, event)))
+        const handlers: TaskEventHandler[] = registry['task:status_changed']
+        await Promise.all(
+          handlers.map((h: TaskEventHandler) => runWithRetry(h, event))
+        )
         break
       }
     }

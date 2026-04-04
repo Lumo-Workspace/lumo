@@ -20,6 +20,10 @@ RUN npm ci --workspace=shared --workspace=agent-server --ignore-scripts
 # Manually run prisma generate
 RUN npx prisma generate
 
+# Build shared first (agent-server depends on it)
+WORKDIR /app/shared
+RUN npx tsc
+
 # Build agent-server
 WORKDIR /app/agent-server
 RUN npx tsc

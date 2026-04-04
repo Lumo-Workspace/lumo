@@ -13,8 +13,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import type { FastifyInstance } from 'fastify'
+import { z } from 'zod'
 import { prisma } from './db/prisma.js'
-import { validateMcpToken } from './auth/mcp-auth.js'
 
 export function createMcpServer(): McpServer {
   const server = new McpServer({
@@ -27,10 +27,10 @@ export function createMcpServer(): McpServer {
   server.tool(
     'get_task',
     'Get task details by ID',
-    { taskId: { type: 'string', description: 'Task ID' } },
+    { taskId: z.string().describe('Task ID') },
     async ({ taskId }) => {
       const task = await prisma.task.findUnique({
-        where: { id: taskId as string },
+        where: { id: taskId },
         select: {
           id: true,
           title: true,
@@ -59,15 +59,12 @@ export function createMcpServer(): McpServer {
     'list_tasks',
     'List tasks for a project',
     {
-      projectId: { type: 'string', description: 'Project ID' },
-      status: {
-        type: 'string',
-        description: 'Filter by status (optional)',
-      },
+      projectId: z.string().describe('Project ID'),
+      status: z.string().optional().describe('Filter by status (optional)'),
     },
     async ({ projectId, status }) => {
       const where: Record<string, unknown> = {
-        projectId: projectId as string,
+        projectId,
       }
       if (status) where.status = status
       const tasks = await prisma.task.findMany({
