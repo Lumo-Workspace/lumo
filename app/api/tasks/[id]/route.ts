@@ -117,6 +117,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
           orderBy: { createdAt: 'desc' as const },
         },
+        children: {
+          select: { id: true, title: true, number: true },
+          orderBy: { order: 'asc' },
+        },
         agentRuns: {
           select: {
             id: true,

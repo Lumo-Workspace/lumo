@@ -62,6 +62,7 @@ import { CommentAvatar } from './CommentAvatar'
 import { resolveCommentAuthor } from './comment-utils'
 import { usePusherEvent } from '../hooks/usePusher'
 import type { TaskEvent } from '@/lib/pusher/server'
+import { SubtasksSection } from './SubtasksSection'
 
 // ─── Comment editor (key-based clear + Cmd/Ctrl+Enter submit) ────────────────
 
@@ -289,6 +290,7 @@ export function TaskDetailPanel({
             teamIdentifier: t.teamIdentifier,
             pullRequests: t.pullRequests ?? [],
             branches: t.branches ?? [],
+            children: t.children ?? [],
           }))
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
@@ -360,6 +362,31 @@ export function TaskDetailPanel({
         .catch(console.error)
     }
   })
+
+  // Re-fetch task detail (used after subtask creation)
+  const refreshDetail = useCallback(() => {
+    fetch(API.tasks.byId(initialTask.id))
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (data?.task) {
+          const t = data.task as TaskDetail
+          setTask(prev => ({
+            ...prev,
+            description: t.description,
+            project: t.project,
+            reviewerActorId: t.reviewerActorId,
+            assignee: t.assignee,
+            reviewer: t.reviewer,
+            number: t.number,
+            teamIdentifier: t.teamIdentifier,
+            pullRequests: t.pullRequests ?? [],
+            branches: t.branches ?? [],
+            children: t.children ?? [],
+          }))
+        }
+      })
+      .catch(console.error)
+  }, [initialTask.id])
 
   const handlePatch = useCallback(
     async (
@@ -782,6 +809,9 @@ export function TaskDetailPanel({
             }))
           }
         />
+
+        {/* Subtasks */}
+        <SubtasksSection task={task} onSubtasksCreated={refreshDetail} />
 
         {/* Description */}
         <div className='pt-4'>
