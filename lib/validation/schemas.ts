@@ -136,7 +136,7 @@ export const generateDescriptionSchema = z.object({
     .trim()
     .min(3, 'Title must be at least 3 characters')
     .max(200),
-  projectId: z.string().cuid(),
+  projectId: z.string().min(1, 'Project ID is required'),
   existingDescription: z.string().max(10000).optional(),
 })
 

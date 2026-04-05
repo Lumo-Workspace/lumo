@@ -57,7 +57,10 @@ export function DuplicateConfirm({
       {/* Warning banner */}
       <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-700 dark:text-amber-400'>
         <AlertTriangle className='size-4 shrink-0' />
-        <span>发现 {matches.length} 个相似任务，请确认是否重复创建</span>
+        <span>
+          {matches.length} similar {matches.length === 1 ? 'task' : 'tasks'}{' '}
+          found — are you sure you want to create a duplicate?
+        </span>
       </div>
 
       {/* Match list */}
@@ -76,7 +79,7 @@ export function DuplicateConfirm({
                   <span
                     className={`text-xs font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
                   >
-                    相似度 {Math.round(match.score * 100)}%
+                    {Math.round(match.score * 100)}% match
                   </span>
                   <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
                     {match.title}
@@ -104,7 +107,7 @@ export function DuplicateConfirm({
                 onClick={() => window.open(url, '_blank')}
                 className='shrink-0'
               >
-                查看
+                View
                 <ExternalLink className='size-3 ml-1' />
               </Button>
             </div>
@@ -114,9 +117,9 @@ export function DuplicateConfirm({
 
       {/* Actions */}
       <div className='flex items-center gap-3 pt-2'>
-        <Button onClick={onConfirm}>仍然创建</Button>
+        <Button onClick={onConfirm}>Create anyway</Button>
         <Button variant='ghost' onClick={onCancel}>
-          取消
+          Cancel
         </Button>
       </div>
     </div>

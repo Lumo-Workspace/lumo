@@ -34,7 +34,10 @@ export function DuplicateWarning({
         className='w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-700 dark:text-amber-400'
       >
         <AlertTriangle className='size-4 shrink-0' />
-        <span>发现 {matches.length} 个相似任务</span>
+        <span>
+          {matches.length} similar {matches.length === 1 ? 'task' : 'tasks'}{' '}
+          found
+        </span>
         {expanded ? (
           <ChevronUp className='size-4 ml-auto shrink-0' />
         ) : (

@@ -239,7 +239,7 @@ export function NewTaskModal({
                 {phase === 'checking' ? (
                   <>
                     <Loader2 className='size-4 animate-spin mr-1' />
-                    检测中...
+                    Checking...
                   </>
                 ) : (
                   <>Create task {submitModLabel}↵</>
