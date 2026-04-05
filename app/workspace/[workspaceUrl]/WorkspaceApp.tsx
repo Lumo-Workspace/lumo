@@ -869,6 +869,7 @@ export default function DashboardApp() {
               defaultAssigneeId={newTaskDefaultAssigneeId}
               defaultStatus={newTaskDefaultStatus}
               onSubmit={handleCreateTask}
+              tasks={Object.values(taskMap) as ApiTask[]}
             />
           )}
           {isNewProjectModalOpen && (
