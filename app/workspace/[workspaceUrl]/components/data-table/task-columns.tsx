@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ApiTask } from '../../types'
-import { API_STATUS_LABEL } from '../../utils'
+import { API_STATUS_LABEL, formatDueDate, isOverdue } from '../../utils'
 import { StatusIcon } from '../StatusIcon'
 import { PriorityBadge } from '../PriorityBadge'
 import { Button } from '@/components/ui/button'
@@ -287,6 +287,49 @@ export function createTaskColumns(
         />
       ),
       cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
+    },
+
+    // ── Due Date ──────────────────────────────────────────────────────────
+    {
+      accessorKey: 'dueDate',
+      meta: {
+        headerClassName: 'w-28 px-8',
+        cellClassName: 'px-8',
+      },
+      sortingFn: (rowA, rowB) => {
+        const a = rowA.original.dueDate
+          ? new Date(rowA.original.dueDate).getTime()
+          : Infinity
+        const b = rowB.original.dueDate
+          ? new Date(rowB.original.dueDate).getTime()
+          : Infinity
+        return a - b
+      },
+      header: ({ column }) => (
+        <SortableColHeader
+          label='Due Date'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          sorted={column.getIsSorted()}
+        />
+      ),
+      cell: ({ row }) => {
+        const dueDate = row.original.dueDate
+        if (!dueDate) {
+          return <span className='text-xs text-muted-foreground'>—</span>
+        }
+        return (
+          <span
+            className={cn(
+              'text-xs',
+              isOverdue(dueDate)
+                ? 'text-red-500 font-medium'
+                : 'text-muted-foreground'
+            )}
+          >
+            {formatDueDate(dueDate)}
+          </span>
+        )
+      },
     },
 
     // ── Updated At ─────────────────────────────────────────────────────────

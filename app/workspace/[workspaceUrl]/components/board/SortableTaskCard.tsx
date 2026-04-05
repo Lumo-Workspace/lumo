@@ -9,6 +9,7 @@ import {
   MyTask,
   WorkspaceMemberInfo,
 } from '../../types'
+import { formatDueDate, isOverdue } from '../../utils'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../TaskFieldSelects'
 import { getInitials } from '@/lib/utils/getInitials'
@@ -302,8 +303,17 @@ export function ProjectTaskCard({
             {label}
           </span>
         ) : (
-          <span className='text-[10px] text-zinc-400'>
-            Created {new Date(task.updatedAt).toLocaleDateString()}
+          <span
+            className={cn(
+              'text-[10px]',
+              task.dueDate && isOverdue(task.dueDate)
+                ? 'text-red-500 font-medium'
+                : 'text-zinc-400'
+            )}
+          >
+            {task.dueDate
+              ? `Due ${formatDueDate(task.dueDate)}`
+              : `Created ${new Date(task.updatedAt).toLocaleDateString()}`}
           </span>
         )}
       </div>
@@ -367,8 +377,17 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
             {label}
           </span>
         ) : (
-          <span className='text-[10px] text-zinc-400'>
-            {new Date(task.updatedAt).toLocaleDateString()}
+          <span
+            className={cn(
+              'text-[10px]',
+              task.dueDate && isOverdue(task.dueDate)
+                ? 'text-red-500 font-medium'
+                : 'text-zinc-400'
+            )}
+          >
+            {task.dueDate
+              ? `Due ${formatDueDate(task.dueDate)}`
+              : new Date(task.updatedAt).toLocaleDateString()}
           </span>
         )}
       </div>
