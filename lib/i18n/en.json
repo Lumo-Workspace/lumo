@@ -67,6 +67,8 @@
   "dueDate.endOfWeek": "End of this week",
   "dueDate.inOneWeek": "In one week",
   "dueDate.noDueDate": "No due date",
+  "dueDate.removeDueDate": "Remove due date",
+  "dueDate.custom": "Custom...",
   "dueDate.due": "Due {date}",
   "taskColumns.dueDate": "Due Date"
 }

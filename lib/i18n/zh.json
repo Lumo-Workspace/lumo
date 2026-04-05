@@ -67,6 +67,8 @@
   "dueDate.endOfWeek": "本周末",
   "dueDate.inOneWeek": "一周后",
   "dueDate.noDueDate": "无截止日期",
+  "dueDate.removeDueDate": "移除截止日期",
+  "dueDate.custom": "自定义...",
   "dueDate.due": "{date} 截止",
   "taskColumns.dueDate": "截止日期"
 }

@@ -32,7 +32,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
 import { StatusIcon } from './StatusIcon'
 import {
   ApiProject,
@@ -448,6 +447,7 @@ export function DueDatePicker({
 }) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
 
   const selected = value ? new Date(value) : undefined
   const overdue = isOverdue(value)
@@ -459,7 +459,9 @@ export function DueDatePicker({
     setOpen(false)
   }
 
-  function quickPick(offset: 'today' | 'tomorrow' | 'endOfWeek' | 'inOneWeek') {
+  function computeQuickDate(
+    offset: 'today' | 'tomorrow' | 'endOfWeek' | 'inOneWeek'
+  ): Date {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     switch (offset) {
@@ -470,7 +472,7 @@ export function DueDatePicker({
         break
       case 'endOfWeek': {
         const day = d.getDay() // 0=Sun
-        const diff = day === 0 ? 5 : 5 - day // next Friday (or this Friday)
+        const diff = day === 0 ? 5 : 5 - day // nearest Friday
         d.setDate(d.getDate() + (diff <= 0 ? 7 + diff : diff))
         break
       }
@@ -478,12 +480,43 @@ export function DueDatePicker({
         d.setDate(d.getDate() + 7)
         break
     }
-    onChange(d.toISOString())
-    setOpen(false)
+    return d
   }
 
+  function formatShortDate(d: Date): string {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`
+  }
+
+  const quickOptions = [
+    { key: 'today' as const, msgId: 'dueDate.today' },
+    { key: 'tomorrow' as const, msgId: 'dueDate.tomorrow' },
+    { key: 'endOfWeek' as const, msgId: 'dueDate.endOfWeek' },
+    { key: 'inOneWeek' as const, msgId: 'dueDate.inOneWeek' },
+  ]
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={v => {
+        setOpen(v)
+        if (!v) setShowCalendar(false)
+      }}
+    >
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
@@ -505,43 +538,7 @@ export function DueDatePicker({
         </TooltipContent>
       </Tooltip>
       <PopoverContent className='w-auto p-0' align='start'>
-        <div className='flex flex-col'>
-          {/* Quick-pick shortcuts */}
-          <div className='flex flex-col gap-0.5 p-2 border-b border-zinc-200 dark:border-zinc-800'>
-            {(
-              [
-                ['today', 'dueDate.today'],
-                ['tomorrow', 'dueDate.tomorrow'],
-                ['endOfWeek', 'dueDate.endOfWeek'],
-                ['inOneWeek', 'dueDate.inOneWeek'],
-              ] as const
-            ).map(([key, msgId]) => (
-              <Button
-                key={key}
-                variant='ghost'
-                size='sm'
-                className='justify-start h-8 text-xs'
-                onClick={() => quickPick(key)}
-              >
-                {intl.formatMessage({ id: msgId })}
-              </Button>
-            ))}
-            {value && (
-              <Button
-                variant='ghost'
-                size='sm'
-                className='justify-start h-8 text-xs text-red-500 hover:text-red-600'
-                onClick={() => {
-                  onChange(null)
-                  setOpen(false)
-                }}
-              >
-                <X className='size-3 mr-1' />
-                {intl.formatMessage({ id: 'dueDate.noDueDate' })}
-              </Button>
-            )}
-          </div>
-          {/* Calendar */}
+        {showCalendar ? (
           <Calendar
             mode='single'
             selected={selected}
@@ -550,7 +547,53 @@ export function DueDatePicker({
             }}
             defaultMonth={selected ?? new Date()}
           />
-        </div>
+        ) : (
+          <div className='flex flex-col py-1'>
+            {value && (
+              <button
+                type='button'
+                className='flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                onClick={() => {
+                  onChange(null)
+                  setOpen(false)
+                }}
+              >
+                <X className='size-3' />
+                {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
+              </button>
+            )}
+            {value && (
+              <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+            )}
+            <button
+              type='button'
+              className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+              onClick={() => setShowCalendar(true)}
+            >
+              <span className='flex items-center gap-2'>
+                <CalendarDays className='size-3' />
+                {intl.formatMessage({ id: 'dueDate.custom' })}
+              </span>
+            </button>
+            <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+            {quickOptions.map(({ key, msgId }) => {
+              const d = computeQuickDate(key)
+              return (
+                <button
+                  key={key}
+                  type='button'
+                  className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                  onClick={() => pickDate(d)}
+                >
+                  <span>{intl.formatMessage({ id: msgId })}</span>
+                  <span className='text-muted-foreground ml-4'>
+                    {formatShortDate(d)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
