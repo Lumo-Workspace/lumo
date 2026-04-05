@@ -458,6 +458,7 @@ export function DueDatePicker({
   const [open, setOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDate, setDialogDate] = useState<Date | undefined>(undefined)
+  const [dialogMonth, setDialogMonth] = useState<Date>(new Date())
   const [dateInput, setDateInput] = useState('')
 
   const overdue = isOverdue(value)
@@ -534,6 +535,7 @@ export function DueDatePicker({
     setOpen(false)
     const initial = value ? new Date(value) : new Date()
     setDialogDate(initial)
+    setDialogMonth(new Date(initial.getFullYear(), initial.getMonth(), 1))
     setDateInput(formatDateInput(initial))
     setDialogOpen(true)
   }
@@ -554,7 +556,19 @@ export function DueDatePicker({
     const val = e.target.value
     setDateInput(val)
     const parsed = parseDateInput(val)
-    if (parsed) setDialogDate(parsed)
+    if (parsed) {
+      setDialogDate(parsed)
+      setDialogMonth(new Date(parsed.getFullYear(), parsed.getMonth(), 1))
+    }
+  }
+
+  function setDialogPreset(daysFromNow: number) {
+    const d = new Date()
+    d.setDate(d.getDate() + daysFromNow)
+    d.setHours(0, 0, 0, 0)
+    setDialogDate(d)
+    setDialogMonth(new Date(d.getFullYear(), d.getMonth(), 1))
+    setDateInput(formatDateInput(d))
   }
 
   const quickOptions = [
@@ -658,17 +672,46 @@ export function DueDatePicker({
           </div>
           <Calendar
             mode='single'
-            className='[--cell-size:2.5rem]'
+            className='p-0 [--cell-size:--spacing(9.5)]'
             selected={dialogDate}
             onSelect={day => {
               if (day) {
                 setDialogDate(day)
+                setDialogMonth(new Date(day.getFullYear(), day.getMonth(), 1))
                 setDateInput(formatDateInput(day))
               }
             }}
-            defaultMonth={dialogDate ?? new Date()}
-            numberOfMonths={1}
+            month={dialogMonth}
+            onMonthChange={setDialogMonth}
+            fixedWeeks
           />
+          <div className='flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
+            {quickOptions.map(({ key, msgId }) => {
+              const days =
+                key === 'today'
+                  ? 0
+                  : key === 'tomorrow'
+                    ? 1
+                    : key === 'endOfWeek'
+                      ? (() => {
+                          const day = new Date().getDay()
+                          const diff = day === 0 ? 5 : 5 - day
+                          return diff <= 0 ? 7 + diff : diff
+                        })()
+                      : 7
+              return (
+                <Button
+                  key={key}
+                  variant='outline'
+                  size='sm'
+                  className='flex-1'
+                  onClick={() => setDialogPreset(days)}
+                >
+                  {intl.formatMessage({ id: msgId })}
+                </Button>
+              )
+            })}
+          </div>
           <DialogFooter className='sm:justify-between'>
             <Button
               variant='ghost'
