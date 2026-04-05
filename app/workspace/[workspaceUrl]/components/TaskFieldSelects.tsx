@@ -32,6 +32,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { StatusIcon } from './StatusIcon'
 import {
   ApiProject,
@@ -447,15 +456,19 @@ export function DueDatePicker({
 }) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
-  const [showCalendar, setShowCalendar] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogDate, setDialogDate] = useState<Date | undefined>(undefined)
+  const [dateInput, setDateInput] = useState('')
 
-  const selected = value ? new Date(value) : undefined
   const overdue = isOverdue(value)
   const displayText = formatDueDate(value)
 
+  function toDateOnly(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  }
+
   function pickDate(date: Date) {
-    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    onChange(d.toISOString())
+    onChange(toDateOnly(date).toISOString())
     setOpen(false)
   }
 
@@ -502,6 +515,48 @@ export function DueDatePicker({
     return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`
   }
 
+  function formatDateInput(d: Date): string {
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${mm}/${dd}/${d.getFullYear()}`
+  }
+
+  function parseDateInput(s: string): Date | null {
+    const match = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (!match) return null
+    const [, mm, dd, yyyy] = match
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
+    if (isNaN(d.getTime())) return null
+    return d
+  }
+
+  function openDialog() {
+    setOpen(false)
+    const initial = value ? new Date(value) : new Date()
+    setDialogDate(initial)
+    setDateInput(formatDateInput(initial))
+    setDialogOpen(true)
+  }
+
+  function handleDialogSave() {
+    if (dialogDate) {
+      onChange(toDateOnly(dialogDate).toISOString())
+    }
+    setDialogOpen(false)
+  }
+
+  function handleDialogRemove() {
+    onChange(null)
+    setDialogOpen(false)
+  }
+
+  function handleDateInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    setDateInput(val)
+    const parsed = parseDateInput(val)
+    if (parsed) setDialogDate(parsed)
+  }
+
   const quickOptions = [
     { key: 'today' as const, msgId: 'dueDate.today' },
     { key: 'tomorrow' as const, msgId: 'dueDate.tomorrow' },
@@ -510,65 +565,50 @@ export function DueDatePicker({
   ]
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={v => {
-        setOpen(v)
-        if (!v) setShowCalendar(false)
-      }}
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button
-              type='button'
-              className={cn(
-                triggerClassName,
-                'inline-flex items-center gap-1.5',
-                overdue && 'text-red-500'
-              )}
-            >
-              <CalendarDays className='size-3.5 shrink-0' />
-              {displayText && <span>{displayText}</span>}
-            </button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>
-          {intl.formatMessage({ id: 'dueDate.label' })}
-        </TooltipContent>
-      </Tooltip>
-      <PopoverContent className='w-auto p-0' align='start'>
-        {showCalendar ? (
-          <Calendar
-            mode='single'
-            selected={selected}
-            onSelect={day => {
-              if (day) pickDate(day)
-            }}
-            defaultMonth={selected ?? new Date()}
-          />
-        ) : (
-          <div className='flex flex-col py-1'>
-            {value && (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
               <button
                 type='button'
-                className='flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
-                onClick={() => {
-                  onChange(null)
-                  setOpen(false)
-                }}
+                className={cn(
+                  triggerClassName,
+                  'inline-flex items-center gap-1.5',
+                  overdue && 'text-red-500'
+                )}
               >
-                <X className='size-3' />
-                {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
+                <CalendarDays className='size-3.5 shrink-0' />
+                {displayText && <span>{displayText}</span>}
               </button>
-            )}
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            {intl.formatMessage({ id: 'dueDate.label' })}
+          </TooltipContent>
+        </Tooltip>
+        <PopoverContent className='w-auto p-0' align='start'>
+          <div className='flex flex-col py-1'>
             {value && (
-              <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+              <>
+                <button
+                  type='button'
+                  className='flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                  onClick={() => {
+                    onChange(null)
+                    setOpen(false)
+                  }}
+                >
+                  <X className='size-3' />
+                  {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
+                </button>
+                <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
+              </>
             )}
             <button
               type='button'
               className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
-              onClick={() => setShowCalendar(true)}
+              onClick={openDialog}
             >
               <span className='flex items-center gap-2'>
                 <CalendarDays className='size-3' />
@@ -593,8 +633,65 @@ export function DueDatePicker({
               )
             })}
           </div>
-        )}
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+
+      {/* Custom date picker dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className='max-w-fit'>
+          <DialogHeader>
+            <DialogTitle>
+              {intl.formatMessage({ id: 'dueDate.editTitle' })}
+            </DialogTitle>
+            <DialogDescription>
+              {intl.formatMessage({ id: 'dueDate.editDescription' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <input
+              type='text'
+              value={dateInput}
+              onChange={handleDateInputChange}
+              placeholder='MM/DD/YYYY'
+              className='w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
+            />
+          </div>
+          <Calendar
+            mode='single'
+            selected={dialogDate}
+            onSelect={day => {
+              if (day) {
+                setDialogDate(day)
+                setDateInput(formatDateInput(day))
+              }
+            }}
+            defaultMonth={dialogDate ?? new Date()}
+            numberOfMonths={2}
+          />
+          <DialogFooter className='sm:justify-between'>
+            <Button
+              variant='ghost'
+              size='sm'
+              className='text-red-500 hover:text-red-600'
+              onClick={handleDialogRemove}
+            >
+              {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
+            </Button>
+            <div className='flex gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setDialogOpen(false)}
+              >
+                {intl.formatMessage({ id: 'dueDate.cancel' })}
+              </Button>
+              <Button size='sm' onClick={handleDialogSave}>
+                {intl.formatMessage({ id: 'dueDate.save' })}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

@@ -69,6 +69,10 @@
   "dueDate.noDueDate": "No due date",
   "dueDate.removeDueDate": "Remove due date",
   "dueDate.custom": "Custom...",
+  "dueDate.editTitle": "Edit due date",
+  "dueDate.editDescription": "Due date — Task needs to be completed by this date",
+  "dueDate.save": "Save due date",
+  "dueDate.cancel": "Cancel",
   "dueDate.due": "Due {date}",
   "taskColumns.dueDate": "Due Date"
 }
