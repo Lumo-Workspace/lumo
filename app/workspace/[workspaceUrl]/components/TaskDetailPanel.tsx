@@ -34,6 +34,7 @@ import {
   ReviewerSelect,
   ProjectSelect,
   PrioritySelect,
+  DueDatePicker,
   SeparatorDot,
   FIELD_TRIGGER_CLS,
 } from './TaskFieldSelects'
@@ -136,6 +137,7 @@ export interface TaskDetailPanelProps {
       description: string | null
       projectId: string
       priority: ApiPriority
+      dueDate: string | null
     }>
   ) => Promise<void>
   onDescriptionLoaded?:
@@ -173,6 +175,7 @@ export function TaskDetailPanel({
     assignee: initialTask.assignee ?? null,
     reviewer: null,
     description: cachedDescription ?? null,
+    dueDate: initialTask.dueDate ?? null,
     updatedAt: initialTask.updatedAt,
     number: initialTask.number,
     teamIdentifier: initialTask.teamIdentifier,
@@ -215,7 +218,8 @@ export function TaskDetailPanel({
         prev.priority === liveTask.priority &&
         prev.assigneeActorId === liveTask.assigneeActorId &&
         prev.reviewerActorId === liveTask.reviewerActorId &&
-        prev.projectId === liveTask.projectId
+        prev.projectId === liveTask.projectId &&
+        prev.dueDate === (liveTask.dueDate ?? null)
       )
         return prev
       return {
@@ -226,6 +230,7 @@ export function TaskDetailPanel({
         assigneeActorId: liveTask.assigneeActorId,
         reviewerActorId: liveTask.reviewerActorId,
         projectId: liveTask.projectId,
+        dueDate: liveTask.dueDate ?? null,
       }
     })
   }, [liveTask])
@@ -308,6 +313,7 @@ export function TaskDetailPanel({
             branches: t.branches ?? [],
             children: t.children ?? [],
             parent: t.parent ?? null,
+            dueDate: t.dueDate ?? null,
           }))
           setDescriptionValue(t.description ?? null)
           onDescriptionLoaded?.(t.id, t.description ?? null)
@@ -420,6 +426,7 @@ export function TaskDetailPanel({
         description: string | null
         projectId: string
         priority: ApiPriority
+        dueDate: string | null
       }>
     ) => {
       const snapshot = task
@@ -726,6 +733,12 @@ export function TaskDetailPanel({
           <PrioritySelect
             value={task.priority}
             onChange={v => handlePatch({ priority: v })}
+            triggerClassName={FIELD_TRIGGER_CLS}
+          />
+          <SeparatorDot />
+          <DueDatePicker
+            value={task.dueDate ?? null}
+            onChange={v => handlePatch({ dueDate: v })}
             triggerClassName={FIELD_TRIGGER_CLS}
           />
           {task.parent && (
