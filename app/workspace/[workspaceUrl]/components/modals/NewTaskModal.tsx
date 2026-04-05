@@ -20,6 +20,7 @@ import {
   AssigneeSelect,
   ProjectSelect,
   PrioritySelect,
+  DueDatePicker,
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
@@ -44,6 +45,7 @@ export interface NewTaskFormData {
   projectId: string
   assigneeId: string
   repositoryId: string | null
+  dueDate: string | null
 }
 
 interface NewTaskModalProps {
@@ -80,6 +82,7 @@ export function NewTaskModal({
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
   const [repositoryId, setRepositoryId] = useState<string | null>(null)
   const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
+  const [dueDate, setDueDate] = useState<string | null>(null)
 
   // ─── Duplicate detection ────────────────────────────────────────────────
   type ModalPhase = 'editing' | 'checking' | 'confirming'
@@ -139,6 +142,7 @@ export function NewTaskModal({
     setAssigneeId(defaultAssigneeId ?? '')
     setRepositoryId(null)
     setProjectRepos([])
+    setDueDate(null)
     setPhase('editing')
     setAiMatches([])
   }
@@ -157,6 +161,7 @@ export function NewTaskModal({
       projectId: effectiveProjectId,
       assigneeId,
       repositoryId,
+      dueDate,
     }
     reset()
     onClose()
@@ -331,6 +336,11 @@ export function NewTaskModal({
                 <PrioritySelect
                   value={priority}
                   onChange={setPriority}
+                  triggerClassName={triggerClass}
+                />
+                <DueDatePicker
+                  value={dueDate}
+                  onChange={setDueDate}
                   triggerClassName={triggerClass}
                 />
                 {projectRepos.length > 0 && (
