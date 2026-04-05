@@ -85,6 +85,7 @@ export const createTaskSchema = z.object({
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 })
 
 export const updateTaskSchema = z.object({
@@ -99,6 +100,7 @@ export const updateTaskSchema = z.object({
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 })
 
 // ─── Batch Task Creation ───────────────────────────────────────────────────

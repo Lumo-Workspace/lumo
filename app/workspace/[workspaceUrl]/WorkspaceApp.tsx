@@ -271,6 +271,7 @@ export default function DashboardApp() {
         description: string | null
         projectId: string
         priority: ApiPriority
+        dueDate: string | null
       }>
     ) => {
       // Optimistic update — single call to task map

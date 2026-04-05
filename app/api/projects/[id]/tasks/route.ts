@@ -182,6 +182,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       parentTaskId,
       repositoryId,
       order,
+      dueDate,
     } = parsed.data
 
     // Validate parentTaskId belongs to the same project
@@ -258,6 +259,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           parentTaskId: parentTaskId ?? null,
           repositoryId: repositoryId ?? null,
           order: taskOrder,
+          dueDate: dueDate ?? null,
         },
         include: {
           team: { select: { identifier: true } },

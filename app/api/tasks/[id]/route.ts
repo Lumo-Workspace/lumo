@@ -419,6 +419,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (rest.status !== undefined) data.status = rest.status
     if (rest.priority !== undefined) data.priority = rest.priority
     if (rest.order !== undefined) data.order = rest.order
+    if (rest.dueDate !== undefined) data.dueDate = rest.dueDate
     if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
     if (assigneeActorId !== undefined) {
       data.assigneeActorId = assigneeActorId

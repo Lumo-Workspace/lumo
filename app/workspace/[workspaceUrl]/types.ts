@@ -123,6 +123,7 @@ export interface ApiTask {
   agentStatus?: AgentStatusValue | null
   createdAt: string
   updatedAt: string
+  dueDate?: string | null
   viewOrder: number | null
   number: number
   teamIdentifier: string
@@ -268,6 +269,7 @@ export interface TaskDetail {
   reviewer: ActorInfo | null
   description: string | null
   updatedAt: string
+  dueDate?: string | null
   number: number
   teamIdentifier: string
   children?: { id: string; title: string; number: number; status: string }[]
