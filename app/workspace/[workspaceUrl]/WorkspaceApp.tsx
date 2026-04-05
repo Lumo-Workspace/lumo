@@ -840,6 +840,13 @@ export default function DashboardApp() {
                         desc: description,
                       })
                     }}
+                    onTasksChanged={() => {
+                      if (currentPage === 'my-tasks') {
+                        fetchMyTasks()
+                      } else if (selectedProject) {
+                        fetchProjectTasks(selectedProject.id)
+                      }
+                    }}
                   />
                 )
               })()}

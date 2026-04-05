@@ -107,14 +107,14 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     state: { sorting },
-    ...(treeConfig && {
-      meta: {
-        expanded,
-        toggleExpand,
-        getParentId: treeConfig.getParentId,
-        getChildCount: treeConfig.getChildCount,
-      },
-    }),
+    meta: treeConfig
+      ? {
+          expanded,
+          toggleExpand,
+          getParentId: treeConfig.getParentId,
+          getChildCount: treeConfig.getChildCount,
+        }
+      : {},
   })
 
   return (

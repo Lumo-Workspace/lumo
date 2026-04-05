@@ -270,7 +270,7 @@ export interface TaskDetail {
   updatedAt: string
   number: number
   teamIdentifier: string
-  children?: { id: string; title: string; number: number }[]
+  children?: { id: string; title: string; number: number; status: string }[]
   pullRequests?: ApiPullRequest[]
   branches?: ApiTaskBranch[]
   agentStatus?: string | null

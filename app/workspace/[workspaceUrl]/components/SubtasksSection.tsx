@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Sparkles, X, Loader2 } from 'lucide-react'
+import { Sparkles, X, Loader2, Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { apiFetch, slugifyProjectName } from '../utils'
 import type { TaskDetail, ApiPriority } from '../types'
@@ -116,27 +117,43 @@ export function SubtasksSection({
       {/* Existing children */}
       {children.length > 0 && (
         <ul className='space-y-1 mb-2'>
-          {children.map(child => (
-            <li
-              key={child.id}
-              role='button'
-              tabIndex={0}
-              onClick={() => handleChildClick(child.number)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleChildClick(child.number)
-                }
-              }}
-              className='flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
-            >
-              <span className='size-4 rounded border border-zinc-300 dark:border-zinc-600 shrink-0' />
-              <span className='truncate'>{child.title}</span>
-              <span className='text-xs text-zinc-400 dark:text-zinc-500 shrink-0'>
-                #{child.number}
-              </span>
-            </li>
-          ))}
+          {children.map(child => {
+            const isDone = child.status === 'DONE'
+            return (
+              <li
+                key={child.id}
+                role='button'
+                tabIndex={0}
+                onClick={() => handleChildClick(child.number)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleChildClick(child.number)
+                  }
+                }}
+                className='flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+              >
+                {isDone ? (
+                  <span className='size-4 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0'>
+                    <Check className='size-3' strokeWidth={3} />
+                  </span>
+                ) : (
+                  <span className='size-4 rounded border border-zinc-300 dark:border-zinc-600 shrink-0' />
+                )}
+                <span
+                  className={cn(
+                    'truncate',
+                    isDone && 'line-through text-zinc-400 dark:text-zinc-500'
+                  )}
+                >
+                  {child.title}
+                </span>
+                <span className='text-xs text-zinc-400 dark:text-zinc-500 shrink-0'>
+                  #{child.number}
+                </span>
+              </li>
+            )
+          })}
         </ul>
       )}
 

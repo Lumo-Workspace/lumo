@@ -126,8 +126,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
           },
         },
         children: {
-          select: { id: true, title: true, number: true },
-          orderBy: { order: 'asc' },
+          select: { id: true, title: true, number: true, status: true },
+          orderBy: { number: 'asc' },
         },
         agentRuns: {
           select: {

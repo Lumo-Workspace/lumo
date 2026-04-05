@@ -141,6 +141,7 @@ export interface TaskDetailPanelProps {
   onDescriptionLoaded?:
     | ((taskId: string, description: string | null) => void)
     | undefined
+  onTasksChanged?: (() => void) | undefined
   tasks?: ApiTask[]
 }
 
@@ -153,6 +154,7 @@ export function TaskDetailPanel({
   projects,
   onUpdate,
   onDescriptionLoaded,
+  onTasksChanged,
   tasks = [],
 }: TaskDetailPanelProps) {
   const [task, setTask] = useState<TaskDetail>(() => ({
@@ -187,7 +189,7 @@ export function TaskDetailPanel({
     const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
     const projectSlug = slugifyProjectName(task.project.name)
     router.push(
-      `/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
+      `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
     )
   }, [task.parent, task.project.name, workspaceUrl, router])
 
@@ -400,11 +402,13 @@ export function TaskDetailPanel({
           children: t.children ?? [],
           parent: t.parent ?? null,
         }))
+        // Notify parent to refresh the task list so new subtasks appear
+        onTasksChanged?.()
       }
     } catch {
       // Network error — silently ignore, user can refresh manually
     }
-  }, [initialTask.id])
+  }, [initialTask.id, onTasksChanged])
 
   const handlePatch = useCallback(
     async (
@@ -855,9 +859,6 @@ export function TaskDetailPanel({
           }
         />
 
-        {/* Subtasks */}
-        <SubtasksSection task={task} onSubtasksCreated={refreshDetail} />
-
         {/* Description */}
         <div className='pt-4'>
           {descriptionLoading ? (
@@ -899,6 +900,9 @@ export function TaskDetailPanel({
             </>
           )}
         </div>
+
+        {/* Subtasks */}
+        <SubtasksSection task={task} onSubtasksCreated={refreshDetail} />
       </div>
 
       {/* ── Comments ─────────────────────────────────────────────────────────── */}

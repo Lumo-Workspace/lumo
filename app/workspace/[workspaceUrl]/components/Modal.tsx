@@ -55,7 +55,7 @@ export function Modal({
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ duration: 0.2 }}
         style={{ width: '100%', maxWidth: 860 }}
-        className='relative bg-white dark:bg-zinc-950 rounded-t-xl sm:rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col w-full'
+        className='relative bg-white dark:bg-zinc-950 rounded-t-xl sm:rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col w-full max-h-[90vh]'
       >
         {/* Header */}
         <div className='px-6 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-900 shrink-0'>
@@ -87,10 +87,10 @@ export function Modal({
 
         {/* Body — only this section animates height, footer stays put */}
         <motion.div
-          animate={{ height: expanded ? '55vh' : 'auto' }}
+          animate={{ height: expanded ? '70vh' : 'auto' }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className='overflow-hidden'
-          style={{ minHeight: 0 }}
+          className='overflow-y-auto'
+          style={{ minHeight: 0, maxHeight: expanded ? '70vh' : '40vh' }}
           onAnimationComplete={() => {
             if (!expanded) setLayoutExpanded(false)
           }}

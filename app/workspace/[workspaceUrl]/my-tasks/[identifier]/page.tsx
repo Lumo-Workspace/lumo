@@ -61,7 +61,10 @@ export default async function MyTaskDetailPage({
           agent: { select: { id: true, name: true, avatarColor: true } },
         },
       },
-      children: { select: { id: true, title: true, number: true } },
+      children: {
+        select: { id: true, title: true, number: true, status: true },
+        orderBy: { number: 'asc' },
+      },
       team: { select: { identifier: true } },
       agentRuns: {
         select: {

@@ -765,14 +765,25 @@ export function TaskDetailPage({
                   Sub-tasks
                 </p>
                 <div className='space-y-1'>
-                  {initialTask.children!.map(child => (
-                    <div
-                      key={child.id}
-                      className='text-sm text-zinc-600 dark:text-zinc-400 py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900'
-                    >
-                      {task.teamIdentifier}-{child.number} · {child.title}
-                    </div>
-                  ))}
+                  {initialTask.children!.map(child => {
+                    const childIdentifier = `${task.teamIdentifier}-${child.number}`
+                    const projectSlug = slugifyProjectName(task.project.name)
+                    const isDone = child.status === 'DONE'
+                    return (
+                      <button
+                        key={child.id}
+                        type='button'
+                        onClick={() =>
+                          router.push(
+                            `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${childIdentifier}`
+                          )
+                        }
+                        className={`w-full text-left text-sm py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors ${isDone ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-600 dark:text-zinc-400'}`}
+                      >
+                        {childIdentifier} · {child.title}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}

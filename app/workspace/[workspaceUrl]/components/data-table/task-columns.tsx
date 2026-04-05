@@ -216,6 +216,8 @@ export function createTaskColumns(
       ),
       cell: ({ row }) => {
         const task = row.original
+        const childCount = task._count?.children ?? 0
+        const doneCount = task.childrenDoneCount ?? 0
         return (
           <div className='flex items-center gap-2'>
             {task.parentTaskId != null && (
@@ -224,6 +226,19 @@ export function createTaskColumns(
             <span className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
               {task.title}
             </span>
+            {childCount > 0 && (
+              <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0'>
+                <span className='inline-block w-8 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+                  <span
+                    className='block h-full bg-blue-500 rounded-full'
+                    style={{
+                      width: `${Math.round((doneCount / childCount) * 100)}%`,
+                    }}
+                  />
+                </span>
+                {doneCount}/{childCount}
+              </span>
+            )}
           </div>
         )
       },
