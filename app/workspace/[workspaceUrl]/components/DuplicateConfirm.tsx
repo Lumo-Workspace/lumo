@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { slugifyProjectName } from '../utils'
@@ -50,6 +51,7 @@ export function DuplicateConfirm({
   onConfirm,
   onCancel,
 }: DuplicateConfirmProps) {
+  const intl = useIntl()
   const projectSlug = slugifyProjectName(projectName)
 
   return (
@@ -58,8 +60,10 @@ export function DuplicateConfirm({
       <div className='flex items-center gap-2 px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-700 dark:text-amber-400'>
         <AlertTriangle className='size-4 shrink-0' />
         <span>
-          {matches.length} similar {matches.length === 1 ? 'task' : 'tasks'}{' '}
-          found — are you sure you want to create a duplicate?
+          {intl.formatMessage(
+            { id: 'duplicate.confirmMessage' },
+            { count: matches.length }
+          )}
         </span>
       </div>
 
@@ -79,7 +83,10 @@ export function DuplicateConfirm({
                   <span
                     className={`text-xs font-semibold tabular-nums ${scoreBadgeClass(match.score)}`}
                   >
-                    {Math.round(match.score * 100)}% match
+                    {intl.formatMessage(
+                      { id: 'duplicate.match' },
+                      { score: Math.round(match.score * 100) }
+                    )}
                   </span>
                   <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
                     {match.title}
@@ -107,7 +114,7 @@ export function DuplicateConfirm({
                 onClick={() => window.open(url, '_blank')}
                 className='shrink-0'
               >
-                View
+                {intl.formatMessage({ id: 'duplicate.view' })}
                 <ExternalLink className='size-3 ml-1' />
               </Button>
             </div>
@@ -117,9 +124,11 @@ export function DuplicateConfirm({
 
       {/* Actions */}
       <div className='flex items-center gap-3 pt-2'>
-        <Button onClick={onConfirm}>Create anyway</Button>
+        <Button onClick={onConfirm}>
+          {intl.formatMessage({ id: 'duplicate.createAnyway' })}
+        </Button>
         <Button variant='ghost' onClick={onCancel}>
-          Cancel
+          {intl.formatMessage({ id: 'newTask.cancel' })}
         </Button>
       </div>
     </div>

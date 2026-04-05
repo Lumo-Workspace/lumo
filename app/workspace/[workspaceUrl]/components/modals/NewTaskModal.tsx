@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useIntl } from 'react-intl'
 import { AnimatePresence } from 'motion/react'
 import { useParams } from 'next/navigation'
 import { Modal } from '../Modal'
@@ -69,6 +70,7 @@ export function NewTaskModal({
   onSubmit,
   tasks = [],
 }: NewTaskModalProps) {
+  const intl = useIntl()
   const [title, setTitle] = useState('')
   const descriptionRef = useRef<string | null>(null)
   const [descriptionValue, setDescriptionValue] = useState<string | null>(null)
@@ -225,12 +227,12 @@ export function NewTaskModal({
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title='New task'
+        title={intl.formatMessage({ id: 'newTask.title' })}
         footer={
           phase === 'confirming' ? undefined : (
             <div className='flex items-center gap-3 ml-auto'>
               <Button variant='ghost' onClick={handleClose}>
-                Cancel
+                {intl.formatMessage({ id: 'newTask.cancel' })}
               </Button>
               <Button
                 onClick={handleSubmit}
@@ -239,10 +241,13 @@ export function NewTaskModal({
                 {phase === 'checking' ? (
                   <>
                     <Loader2 className='size-4 animate-spin mr-1' />
-                    Checking...
+                    {intl.formatMessage({ id: 'newTask.checking' })}
                   </>
                 ) : (
-                  <>Create task {submitModLabel}↵</>
+                  <>
+                    {intl.formatMessage({ id: 'newTask.create' })}{' '}
+                    {submitModLabel}↵
+                  </>
                 )}
               </Button>
             </div>
@@ -263,7 +268,9 @@ export function NewTaskModal({
               <input
                 autoFocus
                 className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
-                placeholder='Task title'
+                placeholder={intl.formatMessage({
+                  id: 'newTask.titlePlaceholder',
+                })}
                 type='text'
                 value={title}
                 onChange={e => setTitle(e.target.value)}
@@ -295,7 +302,9 @@ export function NewTaskModal({
                     descriptionRef.current = html
                     setDescriptionValue(html)
                   }}
-                  placeholder='Add description…'
+                  placeholder={intl.formatMessage({
+                    id: 'newTask.descriptionPlaceholder',
+                  })}
                 />
               </div>
               <div className='flex flex-wrap items-center gap-2 pt-1'>

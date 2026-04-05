@@ -37,5 +37,18 @@
   "notifications.newComment": "我的任务有新评论",
   "notifications.agentDone": "Agent 完成/需要审核",
   "notifications.agentInput": "Agent 等待输入",
-  "notifications.mentioned": "评论中被提及"
+  "notifications.mentioned": "评论中被提及",
+
+  "newTask.title": "新建任务",
+  "newTask.titlePlaceholder": "任务标题",
+  "newTask.descriptionPlaceholder": "添加描述…",
+  "newTask.cancel": "取消",
+  "newTask.create": "创建任务",
+  "newTask.checking": "检测中...",
+
+  "duplicate.similarFound": "发现 {count} 个相似任务",
+  "duplicate.confirmMessage": "发现 {count} 个相似任务，请确认是否重复创建",
+  "duplicate.match": "相似度 {score}%",
+  "duplicate.view": "查看",
+  "duplicate.createAnyway": "仍然创建"
 }

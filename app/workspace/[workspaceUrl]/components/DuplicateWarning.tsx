@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import {
   AlertTriangle,
   ChevronDown,
@@ -22,6 +23,7 @@ export function DuplicateWarning({
   workspaceUrl,
   projects,
 }: DuplicateWarningProps) {
+  const intl = useIntl()
   const [expanded, setExpanded] = useState(false)
 
   if (matches.length === 0) return null
@@ -35,8 +37,10 @@ export function DuplicateWarning({
       >
         <AlertTriangle className='size-4 shrink-0' />
         <span>
-          {matches.length} similar {matches.length === 1 ? 'task' : 'tasks'}{' '}
-          found
+          {intl.formatMessage(
+            { id: 'duplicate.similarFound' },
+            { count: matches.length }
+          )}
         </span>
         {expanded ? (
           <ChevronUp className='size-4 ml-auto shrink-0' />

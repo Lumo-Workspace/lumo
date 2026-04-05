@@ -37,5 +37,18 @@
   "notifications.newComment": "New comment on my tasks",
   "notifications.agentDone": "Agent completed / needs review",
   "notifications.agentInput": "Agent waiting for input",
-  "notifications.mentioned": "Mentioned in a comment"
+  "notifications.mentioned": "Mentioned in a comment",
+
+  "newTask.title": "New task",
+  "newTask.titlePlaceholder": "Task title",
+  "newTask.descriptionPlaceholder": "Add description…",
+  "newTask.cancel": "Cancel",
+  "newTask.create": "Create task",
+  "newTask.checking": "Checking...",
+
+  "duplicate.similarFound": "{count, plural, one {# similar task found} other {# similar tasks found}}",
+  "duplicate.confirmMessage": "{count, plural, one {# similar task found} other {# similar tasks found}} — are you sure you want to create a duplicate?",
+  "duplicate.match": "{score}% match",
+  "duplicate.view": "View",
+  "duplicate.createAnyway": "Create anyway"
 }
