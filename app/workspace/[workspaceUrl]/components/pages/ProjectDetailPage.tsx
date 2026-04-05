@@ -154,6 +154,7 @@ export function ProjectDetailPage({
     options: displayOptions,
     setCompletedFilter,
     setOrdering,
+    setShowSubtasks,
   } = useDisplayOptions(CACHE_KEY.displayProject(project.id))
 
   const memberNameMap = useMemo(
@@ -165,21 +166,19 @@ export function ProjectDetailPage({
     [memberNameMap]
   )
 
-  const filteredTasks = useMemo(
-    () =>
-      sortTasks(
-        filterCompletedTasks(tasks, displayOptions.completedFilter),
-        displayOptions.ordering,
-        undefined,
-        getMemberName
-      ),
-    [
-      tasks,
-      displayOptions.completedFilter,
-      displayOptions.ordering,
-      getMemberName,
-    ]
-  )
+  const filteredTasks = useMemo(() => {
+    let result = filterCompletedTasks(tasks, displayOptions.completedFilter)
+    if (!displayOptions.showSubtasks) {
+      result = result.filter(t => !t.parentTaskId)
+    }
+    return sortTasks(result, displayOptions.ordering, undefined, getMemberName)
+  }, [
+    tasks,
+    displayOptions.completedFilter,
+    displayOptions.ordering,
+    displayOptions.showSubtasks,
+    getMemberName,
+  ])
 
   // ── Repositories state ────────────────────────────────────────────────────
   const [repositories, setRepositories] = useState<ApiRepository[]>(
@@ -653,6 +652,8 @@ export function ProjectDetailPage({
               onCompletedFilterChange={setCompletedFilter}
               ordering={displayOptions.ordering}
               onOrderingChange={setOrdering}
+              showSubtasks={displayOptions.showSubtasks}
+              onShowSubtasksChange={setShowSubtasks}
             />
             <ViewToggle value={viewMode} onChange={setViewMode} />
           </div>
@@ -690,11 +691,13 @@ export function ProjectDetailPage({
                   columns={taskColumns}
                   data={filteredTasks}
                   onRowClick={onTaskClick}
-                  treeConfig={{
-                    getParentId: (task: ApiTask) => task.parentTaskId,
-                    getChildCount: (task: ApiTask) =>
-                      task._count?.children ?? 0,
-                  }}
+                  {...(displayOptions.showSubtasks && {
+                    treeConfig: {
+                      getParentId: (task: ApiTask) => task.parentTaskId,
+                      getChildCount: (task: ApiTask) =>
+                        task._count?.children ?? 0,
+                    },
+                  })}
                 />
               </div>
             ) : (

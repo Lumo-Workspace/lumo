@@ -69,17 +69,15 @@ export function MyTasksPage({
   onNewTask,
 }: MyTasksPageProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
-  const { options, setCompletedFilter, setOrdering } = useDisplayOptions(
-    CACHE_KEY.displayMyTasks(userId)
-  )
-  const filteredTasks = useMemo(
-    () =>
-      sortTasks(
-        filterCompletedTasks(tasks, options.completedFilter),
-        options.ordering
-      ),
-    [tasks, options.completedFilter, options.ordering]
-  )
+  const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
+    useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
+  const filteredTasks = useMemo(() => {
+    let result = filterCompletedTasks(tasks, options.completedFilter)
+    if (!options.showSubtasks) {
+      result = result.filter(t => !t.parentTaskId)
+    }
+    return sortTasks(result, options.ordering)
+  }, [tasks, options.completedFilter, options.ordering, options.showSubtasks])
 
   const sensors = useBoardSensors()
 
@@ -115,6 +113,8 @@ export function MyTasksPage({
           onCompletedFilterChange={setCompletedFilter}
           ordering={options.ordering}
           onOrderingChange={setOrdering}
+          showSubtasks={options.showSubtasks}
+          onShowSubtasksChange={setShowSubtasks}
         />
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>

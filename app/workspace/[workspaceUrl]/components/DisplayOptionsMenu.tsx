@@ -21,6 +21,7 @@ import {
   ORDERING_OPTIONS,
   type TaskOrdering,
 } from '../utils/sortTasks'
+import { Switch } from '@/components/ui/switch'
 
 const FILTER_OPTIONS: CompletedFilter[] = [
   'all',
@@ -52,6 +53,8 @@ interface DisplayOptionsMenuProps {
   onCompletedFilterChange: (value: CompletedFilter) => void
   ordering: TaskOrdering
   onOrderingChange: (value: TaskOrdering) => void
+  showSubtasks: boolean
+  onShowSubtasksChange: (value: boolean) => void
 }
 
 export function DisplayOptionsMenu({
@@ -59,6 +62,8 @@ export function DisplayOptionsMenu({
   onCompletedFilterChange,
   ordering,
   onOrderingChange,
+  showSubtasks,
+  onShowSubtasksChange,
 }: DisplayOptionsMenuProps) {
   return (
     <Popover>
@@ -154,6 +159,23 @@ export function DisplayOptionsMenu({
             </TooltipContent>
           </Tooltip>
         ))}
+
+        <div className='my-1.5 border-t border-zinc-100 dark:border-zinc-800' />
+
+        <div className='flex items-center gap-1 px-2 py-1.5'>
+          <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
+            Subtasks
+          </p>
+        </div>
+        <label className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer'>
+          <span className='text-zinc-700 dark:text-zinc-300'>
+            Show subtasks
+          </span>
+          <Switch
+            checked={showSubtasks}
+            onCheckedChange={onShowSubtasksChange}
+          />
+        </label>
       </PopoverContent>
     </Popover>
   )
