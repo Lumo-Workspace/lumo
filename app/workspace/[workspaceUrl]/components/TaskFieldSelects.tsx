@@ -666,7 +666,7 @@ export function DueDatePicker({
               }
             }}
             defaultMonth={dialogDate ?? new Date()}
-            numberOfMonths={2}
+            numberOfMonths={1}
           />
           <DialogFooter className='sm:justify-between'>
             <Button
