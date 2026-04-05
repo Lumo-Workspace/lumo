@@ -658,6 +658,7 @@ export function DueDatePicker({
           </div>
           <Calendar
             mode='single'
+            className='[--cell-size:2.5rem]'
             selected={dialogDate}
             onSelect={day => {
               if (day) {
