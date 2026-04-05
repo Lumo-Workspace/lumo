@@ -39,6 +39,7 @@ declare module '@tanstack/react-table' {
 interface TreeConfig<TData> {
   getParentId: (row: TData) => string | null
   getChildCount: (row: TData) => number
+  getRowId: (row: TData) => string
 }
 
 interface DataTableProps<TData, TValue> {
@@ -69,15 +70,35 @@ export function DataTable<TData, TValue>({
 
   const getParentId = treeConfig?.getParentId
 
-  // Filter data to show root tasks + children of expanded parents
+  // Build tree: root tasks in order, children inserted after their parent
   const visibleData = useMemo(() => {
-    if (!getParentId) return data
-    return data.filter(row => {
+    if (!getParentId || !treeConfig) return data
+    const { getRowId } = treeConfig
+    // Group children by parentId
+    const childrenMap = new Map<string, TData[]>()
+    const roots: TData[] = []
+    for (const row of data) {
       const parentId = getParentId(row)
-      if (!parentId) return true
-      return expanded.has(parentId)
-    })
-  }, [data, getParentId, expanded])
+      if (!parentId) {
+        roots.push(row)
+      } else {
+        const siblings = childrenMap.get(parentId)
+        if (siblings) siblings.push(row)
+        else childrenMap.set(parentId, [row])
+      }
+    }
+    // Flatten: root tasks, each followed by children if expanded
+    const result: TData[] = []
+    for (const root of roots) {
+      result.push(root)
+      const id = getRowId(root)
+      if (expanded.has(id)) {
+        const children = childrenMap.get(id)
+        if (children) result.push(...children)
+      }
+    }
+    return result
+  }, [data, getParentId, treeConfig, expanded])
 
   const table = useReactTable({
     data: visibleData,
