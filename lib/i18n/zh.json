@@ -59,5 +59,14 @@
   "duplicate.confirmMessage": "发现 {count} 个相似任务，请确认是否重复创建",
   "duplicate.match": "相似度 {score}%",
   "duplicate.view": "查看",
-  "duplicate.createAnyway": "仍然创建"
+  "duplicate.createAnyway": "仍然创建",
+
+  "dueDate.label": "截止日期",
+  "dueDate.today": "今天",
+  "dueDate.tomorrow": "明天",
+  "dueDate.endOfWeek": "本周末",
+  "dueDate.inOneWeek": "一周后",
+  "dueDate.noDueDate": "无截止日期",
+  "dueDate.due": "{date} 截止",
+  "taskColumns.dueDate": "截止日期"
 }

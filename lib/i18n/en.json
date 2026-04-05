@@ -59,5 +59,14 @@
   "duplicate.confirmMessage": "{count, plural, one {# similar task found} other {# similar tasks found}} — are you sure you want to create a duplicate?",
   "duplicate.match": "{score}% match",
   "duplicate.view": "View",
-  "duplicate.createAnyway": "Create anyway"
+  "duplicate.createAnyway": "Create anyway",
+
+  "dueDate.label": "Due date",
+  "dueDate.today": "Today",
+  "dueDate.tomorrow": "Tomorrow",
+  "dueDate.endOfWeek": "End of this week",
+  "dueDate.inOneWeek": "In one week",
+  "dueDate.noDueDate": "No due date",
+  "dueDate.due": "Due {date}",
+  "taskColumns.dueDate": "Due Date"
 }
