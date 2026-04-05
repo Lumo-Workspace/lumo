@@ -169,3 +169,14 @@ export const sendInvitesSchema = z.object({
     .max(10, 'Cannot send more than 10 invites at once'),
   workspaceId: z.string().min(1),
 })
+
+// ─── Duplicate Detection ────────────────────────────────────────────────────
+
+export const checkDuplicatesSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(500, 'Title must be at most 500 characters'),
+  projectId: z.string().min(1, 'Project ID is required'),
+})
