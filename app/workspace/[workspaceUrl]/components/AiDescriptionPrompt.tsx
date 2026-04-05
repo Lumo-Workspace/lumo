@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useIntl } from 'react-intl'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '../utils'
@@ -20,6 +21,7 @@ export function AiDescriptionPrompt({
   existingDescription,
   onAccept,
 }: AiDescriptionPromptProps) {
+  const intl = useIntl()
   const [state, setState] = useState<PromptState>('idle')
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +80,7 @@ export function AiDescriptionPrompt({
         <div className='flex items-center gap-2.5'>
           <Loader2 className='size-4 animate-spin text-indigo-500' />
           <span className='text-sm text-indigo-600 dark:text-indigo-400'>
-            Generating description...
+            {intl.formatMessage({ id: 'aiDesc.generating' })}
           </span>
         </div>
       </div>
@@ -90,7 +92,7 @@ export function AiDescriptionPrompt({
     return (
       <div className='rounded-lg border border-indigo-300 bg-white p-4 dark:border-indigo-800 dark:bg-zinc-900'>
         <div className='mb-2 text-xs font-semibold text-indigo-500'>
-          ✦ AI Generated Preview
+          ✦ {intl.formatMessage({ id: 'aiDesc.preview' })}
         </div>
         <div
           className='prose prose-sm max-w-none text-zinc-700 dark:prose-invert dark:text-zinc-300'
@@ -102,21 +104,21 @@ export function AiDescriptionPrompt({
             onClick={handleAccept}
             className='rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-600 transition-colors'
           >
-            Use this
+            {intl.formatMessage({ id: 'aiDesc.useThis' })}
           </button>
           <button
             type='button'
             onClick={handleGenerate}
             className='rounded-md border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-500 hover:bg-indigo-50 dark:border-indigo-700 dark:hover:bg-indigo-950/50 transition-colors'
           >
-            ↻ Regenerate
+            ↻ {intl.formatMessage({ id: 'aiDesc.regenerate' })}
           </button>
           <button
             type='button'
             onClick={handleCancel}
             className='rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 transition-colors'
           >
-            Cancel
+            {intl.formatMessage({ id: 'aiDesc.cancel' })}
           </button>
         </div>
       </div>
@@ -141,7 +143,7 @@ export function AiDescriptionPrompt({
           className='flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400 dark:hover:bg-indigo-950/50 transition-colors'
         >
           <span>✦</span>
-          <span>Refine</span>
+          <span>{intl.formatMessage({ id: 'aiDesc.refine' })}</span>
         </button>
       </div>
     )
@@ -165,10 +167,10 @@ export function AiDescriptionPrompt({
         </span>
         <div className='flex-1'>
           <div className='text-sm font-semibold text-indigo-600 dark:text-indigo-400'>
-            AI generate description
+            {intl.formatMessage({ id: 'aiDesc.generate' })}
           </div>
           <div className='text-xs text-zinc-400 dark:text-zinc-500'>
-            Generate 1–2 execution instructions from title + project context
+            {intl.formatMessage({ id: 'aiDesc.generateHint' })}
           </div>
         </div>
         <span className='text-indigo-500'>→</span>

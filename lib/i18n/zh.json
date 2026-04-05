@@ -46,6 +46,15 @@
   "newTask.create": "创建任务",
   "newTask.checking": "检测中...",
 
+  "aiDesc.generating": "正在生成描述...",
+  "aiDesc.preview": "AI 生成预览",
+  "aiDesc.useThis": "使用",
+  "aiDesc.regenerate": "重新生成",
+  "aiDesc.cancel": "取消",
+  "aiDesc.generate": "AI 生成描述",
+  "aiDesc.generateHint": "根据标题和项目上下文生成 1–2 条执行说明",
+  "aiDesc.refine": "优化",
+
   "duplicate.similarFound": "发现 {count} 个相似任务",
   "duplicate.confirmMessage": "发现 {count} 个相似任务，请确认是否重复创建",
   "duplicate.match": "相似度 {score}%",

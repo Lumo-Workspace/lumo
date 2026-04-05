@@ -46,6 +46,15 @@
   "newTask.create": "Create task",
   "newTask.checking": "Checking...",
 
+  "aiDesc.generating": "Generating description...",
+  "aiDesc.preview": "AI Generated Preview",
+  "aiDesc.useThis": "Use this",
+  "aiDesc.regenerate": "Regenerate",
+  "aiDesc.cancel": "Cancel",
+  "aiDesc.generate": "AI generate description",
+  "aiDesc.generateHint": "Generate 1–2 execution instructions from title + project context",
+  "aiDesc.refine": "Refine",
+
   "duplicate.similarFound": "{count, plural, one {# similar task found} other {# similar tasks found}}",
   "duplicate.confirmMessage": "{count, plural, one {# similar task found} other {# similar tasks found}} — are you sure you want to create a duplicate?",
   "duplicate.match": "{score}% match",
