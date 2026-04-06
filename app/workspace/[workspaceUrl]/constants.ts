@@ -50,6 +50,14 @@ export const API = {
     retry: '/api/agent/retry',
     status: (taskId: string) => `/api/agent/status/${taskId}`,
   },
+  documents: {
+    list: '/api/documents',
+    byId: (id: string) => `/api/documents/${id}`,
+    shares: (id: string) => `/api/documents/${id}/shares`,
+    shareById: (id: string, shareId: string) =>
+      `/api/documents/${id}/shares/${shareId}`,
+    move: (id: string) => `/api/documents/${id}/move`,
+  },
   slack: {
     oauth: (workspaceUrl: string) =>
       `/api/slack/oauth?workspaceUrl=${workspaceUrl}`,
@@ -82,6 +90,8 @@ export const CACHE_KEY = {
   agentActors: 'lumo:agentActors',
   displayMyTasks: (userId: string) => `lumo:display:my-tasks:${userId}`,
   displayProject: (projectId: string) => `lumo:display:project:${projectId}`,
+  documents: 'lumo:documents',
+  documentDetail: (docId: string) => `lumo:doc:${docId}`,
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────
