@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   forwardRef,
   useImperativeHandle,
 } from 'react'
@@ -23,10 +24,21 @@ export const SlashCommandList = forwardRef<
   SlashCommandListProps
 >(function SlashCommandList({ items, command }, ref) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
     setSelectedIndex(0)
   }, [items])
+
+  // Scroll selected item into view after selection renders
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const el = itemRefs.current.get(selectedIndex)
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' })
+      }
+    })
+  }, [selectedIndex])
 
   const selectItem = useCallback(
     (index: number) => {
@@ -81,6 +93,10 @@ export const SlashCommandList = forwardRef<
               return (
                 <button
                   key={item.title}
+                  ref={el => {
+                    if (el) itemRefs.current.set(idx, el)
+                    else itemRefs.current.delete(idx)
+                  }}
                   type='button'
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
                     idx === selectedIndex
@@ -90,8 +106,10 @@ export const SlashCommandList = forwardRef<
                   onClick={() => selectItem(idx)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                 >
-                  <span className='w-5 text-center shrink-0'>{item.icon}</span>
-                  <div className='min-w-0'>
+                  <span className='flex w-5 items-center justify-center shrink-0 text-muted-foreground'>
+                    {item.icon}
+                  </span>
+                  <div className='min-w-0 text-left'>
                     <div className='font-medium'>{item.title}</div>
                     <div className='text-[10px] text-muted-foreground truncate'>
                       {item.description}

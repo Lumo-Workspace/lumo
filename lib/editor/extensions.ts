@@ -18,7 +18,7 @@ import type { Extensions } from '@tiptap/core'
 export function getBaseExtensions(): Extensions {
   return [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3] },
+      heading: { levels: [1, 2, 3, 4] },
     }),
     Underline,
     Link.configure({

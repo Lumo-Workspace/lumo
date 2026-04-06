@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
-import { DocumentEditor } from '../DocumentEditor'
+import { DescriptionEditor } from '../DescriptionEditor'
 import { DocumentTOC } from '../document/DocumentTOC'
 import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
@@ -96,11 +96,19 @@ export function DocumentEditorPage({
     [save]
   )
 
-  const handleContentUpdate = useCallback(
-    (content: string) => {
-      debouncedSave({ content })
+  const handleContentChange = useCallback(
+    (html: string | null) => {
+      debouncedSave({ content: html ?? '' })
     },
     [debouncedSave]
+  )
+
+  const handleContentCommit = useCallback(
+    (html: string | null) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      save({ content: html ?? '' })
+    },
+    [save]
   )
 
   const handleTitleChange = useCallback(
@@ -192,9 +200,12 @@ export function DocumentEditorPage({
           </div>
 
           {/* Editor */}
-          <DocumentEditor
-            content={doc.content}
-            onUpdate={handleContentUpdate}
+          <DescriptionEditor
+            value={doc.content}
+            onCommit={handleContentCommit}
+            onChange={handleContentChange}
+            placeholder='Type / for commands…'
+            documentId={doc.id}
           />
         </div>
       </div>

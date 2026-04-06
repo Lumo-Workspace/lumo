@@ -2,14 +2,30 @@ import { Extension } from '@tiptap/core'
 import { Suggestion, type SuggestionOptions } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
 import type React from 'react'
+import {
+  Type,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  ListTodo,
+  ImageIcon,
+  Table2,
+  Code2,
+  Quote,
+  Minus,
+} from 'lucide-react'
 
 export interface SlashCommandItem {
   title: string
   description: string
-  icon: string
+  icon: React.ReactNode
   category: string
   command: (editor: Editor) => void
 }
+
+const ICON_SIZE = 16
 
 export function getSlashCommandItems(): SlashCommandItem[] {
   return [
@@ -17,14 +33,14 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Text',
       description: 'Plain text block',
-      icon: '\u{1F4DD}',
+      icon: <Type size={ICON_SIZE} />,
       category: 'Basic',
       command: editor => editor.chain().focus().setParagraph().run(),
     },
     {
       title: 'Heading 1',
       description: 'Large heading',
-      icon: 'H1',
+      icon: <Heading1 size={ICON_SIZE} />,
       category: 'Basic',
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 1 }).run(),
@@ -32,7 +48,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Heading 2',
       description: 'Medium heading',
-      icon: 'H2',
+      icon: <Heading2 size={ICON_SIZE} />,
       category: 'Basic',
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 2 }).run(),
@@ -40,7 +56,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Heading 3',
       description: 'Small heading',
-      icon: 'H3',
+      icon: <Heading3 size={ICON_SIZE} />,
       category: 'Basic',
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 3 }).run(),
@@ -48,21 +64,21 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Bullet List',
       description: 'Unordered list',
-      icon: '\u2022',
+      icon: <List size={ICON_SIZE} />,
       category: 'Basic',
       command: editor => editor.chain().focus().toggleBulletList().run(),
     },
     {
       title: 'Numbered List',
       description: 'Ordered list',
-      icon: '1.',
+      icon: <ListOrdered size={ICON_SIZE} />,
       category: 'Basic',
       command: editor => editor.chain().focus().toggleOrderedList().run(),
     },
     {
       title: 'Task List',
       description: 'Checklist with checkboxes',
-      icon: '\u2611\uFE0F',
+      icon: <ListTodo size={ICON_SIZE} />,
       category: 'Basic',
       command: editor => editor.chain().focus().toggleTaskList().run(),
     },
@@ -70,7 +86,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Image',
       description: 'Insert an image',
-      icon: '\u{1F5BC}\uFE0F',
+      icon: <ImageIcon size={ICON_SIZE} />,
       category: 'Media',
       command: editor => {
         const url = window.prompt('Image URL')
@@ -81,7 +97,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Table',
       description: 'Insert a table',
-      icon: '\u{1F4CA}',
+      icon: <Table2 size={ICON_SIZE} />,
       category: 'Advanced',
       command: editor =>
         editor
@@ -93,21 +109,21 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Code Block',
       description: 'Code with syntax highlighting',
-      icon: '\u{1F4BB}',
+      icon: <Code2 size={ICON_SIZE} />,
       category: 'Advanced',
       command: editor => editor.chain().focus().toggleCodeBlock().run(),
     },
     {
       title: 'Blockquote',
       description: 'Quoted text',
-      icon: '\u{1F4AC}',
+      icon: <Quote size={ICON_SIZE} />,
       category: 'Advanced',
       command: editor => editor.chain().focus().toggleBlockquote().run(),
     },
     {
       title: 'Divider',
       description: 'Horizontal line',
-      icon: '\u2014',
+      icon: <Minus size={ICON_SIZE} />,
       category: 'Advanced',
       command: editor => editor.chain().focus().setHorizontalRule().run(),
     },
