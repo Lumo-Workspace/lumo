@@ -23,7 +23,7 @@ export function DocumentBreadcrumb({
   const intl = useIntl()
 
   return (
-    <nav className='flex items-center gap-1 text-xs text-muted-foreground mb-4'>
+    <nav className='flex items-center gap-1 text-xs text-muted-foreground'>
       <button
         type='button'
         className='hover:text-foreground transition-colors'

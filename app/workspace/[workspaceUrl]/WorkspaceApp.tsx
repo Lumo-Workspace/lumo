@@ -552,7 +552,8 @@ export default function DashboardApp() {
     if (currentPage === 'projects' || currentPage === 'project-detail')
       fetchProjects()
     if (currentPage === 'documents') fetchDocuments()
-  }, [currentPage, fetchMyTasks, fetchProjects, fetchDocuments])
+    if (currentPage === 'document-editor') fetchMembers()
+  }, [currentPage, fetchMyTasks, fetchProjects, fetchDocuments, fetchMembers])
 
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
@@ -1003,6 +1004,8 @@ export default function DashboardApp() {
               <DocumentEditorPage
                 documentId={selectedDocumentId}
                 onNavigateToDocument={navigateToDocument}
+                members={members}
+                currentMemberId={currentMemberId}
                 onNavigateToDocuments={() => {
                   setCurrentPage('documents')
                   window.history.pushState(
