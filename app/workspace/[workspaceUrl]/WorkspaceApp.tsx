@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { toast } from 'sonner'
 import { useCurrentUser } from './hooks/useCurrentUser'
+import { useIntl } from 'react-intl'
 import {
   Page,
   ApiProject,
@@ -21,6 +22,7 @@ import {
   MyTask,
   ApiStatus,
   ApiPriority,
+  TreeNode,
 } from './types'
 import { API, CACHE_KEY } from './constants'
 import { slugifyProjectName, apiFetch } from './utils'
@@ -35,6 +37,7 @@ import { useMembers } from './hooks/useMembers'
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
 import { usePusherEvent } from './hooks/usePusher'
 import { useDocuments } from './hooks/useDocuments'
+import { useDocumentTree } from './hooks/useDocumentTree'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -52,6 +55,26 @@ import { TaskDrawer } from './components/TaskDrawer'
 import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
+import { GlobalDocTree } from './components/document/GlobalDocTree'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
 
@@ -198,6 +221,113 @@ export default function DashboardApp() {
   } = useDocuments()
 
   const { user } = useCurrentUser()
+  const intl = useIntl()
+
+  // ─── Document tree ──────────────────────────────────────────────────────────
+  const docTree = useDocumentTree(selectedDocumentId)
+
+  // Tree rename/delete dialog state
+  const [treeRenameDoc, setTreeRenameDoc] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+  const [treeRenameValue, setTreeRenameValue] = useState('')
+  const [treeDeleteDoc, setTreeDeleteDoc] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+
+  // Navigate to a document (used by tree and other places)
+  const navigateToDocument = useCallback(
+    (id: string) => {
+      setSelectedDocumentId(id)
+      setCurrentPage('document-editor')
+      docTree.expandPathTo(id)
+      window.history.pushState(
+        null,
+        '',
+        `/workspace/${workspaceUrl}/documents/${id}`
+      )
+    },
+    [workspaceUrl, docTree]
+  )
+
+  // Create a child document via tree (optimistic)
+  const handleTreeCreateChild = useCallback(
+    (parentId: string | null) => {
+      const tempId = `temp-${crypto.randomUUID()}`
+      const node: TreeNode = {
+        id: tempId,
+        title: '',
+        emoji: null,
+        parentId,
+        sortOrder: Date.now(),
+        childCount: 0,
+      }
+      docTree.addNode(parentId, node)
+      // Navigate to new doc
+      setSelectedDocumentId(tempId)
+      setCurrentPage('document-editor')
+      window.history.pushState(
+        null,
+        '',
+        `/workspace/${workspaceUrl}/documents/${tempId}`
+      )
+      // Write optimistic cache for DocumentEditorPage
+      writeCache(CACHE_KEY.documentDetail(tempId), {
+        id: tempId,
+        title: '',
+        emoji: null,
+        parentId,
+        content: null,
+        children: [],
+        shares: [],
+        ancestors: [],
+        visibility: 'PRIVATE',
+        sortOrder: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        projectId: null,
+        project: null,
+        workspaceId: '',
+        createdById: '',
+        createdBy: { id: '', name: '', imageUrl: null },
+      })
+      // Background sync
+      fetch(API.documents.list, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId }),
+      })
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+          if (!data) return
+          const realId = data.document.id as string
+          docTree.replaceNodeId(tempId, realId)
+          writeCache(CACHE_KEY.documentDetail(realId), {
+            ...data.document,
+            ancestors: data.ancestors ?? [],
+          })
+          try {
+            localStorage.removeItem(CACHE_KEY.documentDetail(tempId))
+          } catch {
+            /* */
+          }
+          setSelectedDocumentId(prev => {
+            if (prev === tempId) return realId
+            return prev
+          })
+          if (window.location.pathname.includes(tempId)) {
+            window.history.replaceState(
+              null,
+              '',
+              `/workspace/${workspaceUrl}/documents/${realId}`
+            )
+          }
+        })
+    },
+    [workspaceUrl, docTree]
+  )
 
   // Current user's workspace member info
   const currentMember = useMemo(
@@ -825,113 +955,67 @@ export default function DashboardApp() {
 
       case 'documents':
         return (
-          <DocumentsPage
-            documents={documents}
-            loading={documentsLoading}
-            error={documentsError}
-            onRetry={fetchDocuments}
-            onNewDocument={handleNewDocument}
-            onSelectDocument={doc => {
-              setCurrentPage('document-editor')
-              setSelectedDocumentId(doc.id)
-              window.history.pushState(
-                null,
-                '',
-                `/workspace/${workspaceUrl}/documents/${doc.id}`
-              )
-            }}
-            onDeleteDocument={handleDeleteDocument}
-          />
+          <div className='flex-1 flex overflow-hidden'>
+            <GlobalDocTree
+              roots={docTree.roots}
+              expandedIds={docTree.expandedIds}
+              currentDocId={null}
+              onNavigate={navigateToDocument}
+              onExpandNode={docTree.expandNode}
+              onAddChild={handleTreeCreateChild}
+              onRenameDoc={doc => {
+                setTreeRenameValue(doc.title)
+                setTreeRenameDoc(doc)
+              }}
+              onDeleteDoc={doc => setTreeDeleteDoc(doc)}
+              onMoveNode={docTree.moveNode}
+            />
+            <DocumentsPage
+              documents={documents}
+              loading={documentsLoading}
+              error={documentsError}
+              onRetry={fetchDocuments}
+              onNewDocument={handleNewDocument}
+              onSelectDocument={doc => navigateToDocument(doc.id)}
+              onDeleteDocument={handleDeleteDocument}
+            />
+          </div>
         )
 
       case 'document-editor':
-        return selectedDocumentId ? (
-          <DocumentEditorPage
-            documentId={selectedDocumentId}
-            onNavigateToDocument={id => {
-              setSelectedDocumentId(id)
-              window.history.pushState(
-                null,
-                '',
-                `/workspace/${workspaceUrl}/documents/${id}`
-              )
-            }}
-            onNavigateToDocuments={() => {
-              setCurrentPage('documents')
-              window.history.pushState(
-                null,
-                '',
-                `/workspace/${workspaceUrl}/documents`
-              )
-            }}
-            onCreateChildDocument={parentId => {
-              // Optimistic: generate temp ID, cache, and navigate instantly
-              const tempId = `temp-${crypto.randomUUID()}`
-              const now = new Date().toISOString()
-              const optimisticDoc = {
-                id: tempId,
-                title: '',
-                emoji: null,
-                parentId,
-                projectId: null,
-                project: null,
-                workspaceId: '',
-                createdById: '',
-                createdBy: { id: '', name: '', imageUrl: null },
-                visibility: 'PRIVATE' as const,
-                sortOrder: 0,
-                createdAt: now,
-                updatedAt: now,
-                content: null,
-                children: [],
-                shares: [],
-                ancestors: [],
-              }
-              writeCache(CACHE_KEY.documentDetail(tempId), optimisticDoc)
-              setSelectedDocumentId(tempId)
-              window.history.pushState(
-                null,
-                '',
-                `/workspace/${workspaceUrl}/documents/${tempId}`
-              )
-
-              // Background sync: create on server, then replace temp ID
-              fetch(API.documents.list, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parentId }),
-              })
-                .then(res => (res.ok ? res.json() : null))
-                .then(data => {
-                  if (!data) return
-                  const realId = data.document.id as string
-                  // Update cache: write real doc, remove temp
-                  writeCache(CACHE_KEY.documentDetail(realId), {
-                    ...optimisticDoc,
-                    ...data.document,
-                    ancestors: data.ancestors ?? [],
-                  })
-                  try {
-                    localStorage.removeItem(CACHE_KEY.documentDetail(tempId))
-                  } catch {
-                    /* ignore */
-                  }
-                  // Swap to real ID if user is still on the temp doc
-                  setSelectedDocumentId(prev => {
-                    if (prev === tempId) {
-                      window.history.replaceState(
-                        null,
-                        '',
-                        `/workspace/${workspaceUrl}/documents/${realId}`
-                      )
-                      return realId
-                    }
-                    return prev
-                  })
-                })
-            }}
-          />
-        ) : null
+        return (
+          <div className='flex-1 flex overflow-hidden'>
+            <GlobalDocTree
+              roots={docTree.roots}
+              expandedIds={docTree.expandedIds}
+              currentDocId={selectedDocumentId}
+              onNavigate={navigateToDocument}
+              onExpandNode={docTree.expandNode}
+              onAddChild={handleTreeCreateChild}
+              onRenameDoc={doc => {
+                setTreeRenameValue(doc.title)
+                setTreeRenameDoc(doc)
+              }}
+              onDeleteDoc={doc => setTreeDeleteDoc(doc)}
+              onMoveNode={docTree.moveNode}
+            />
+            {selectedDocumentId ? (
+              <DocumentEditorPage
+                documentId={selectedDocumentId}
+                onNavigateToDocument={navigateToDocument}
+                onNavigateToDocuments={() => {
+                  setCurrentPage('documents')
+                  window.history.pushState(
+                    null,
+                    '',
+                    `/workspace/${workspaceUrl}/documents`
+                  )
+                }}
+                onTitleChanged={(id, title) => docTree.renameNode(id, title)}
+              />
+            ) : null}
+          </div>
+        )
 
       case 'inbox':
         return (
@@ -1070,6 +1154,130 @@ export default function DashboardApp() {
             workspaceUrl={workspaceUrl}
           />
         )}
+
+        {/* Tree Rename Dialog */}
+        <Dialog
+          open={treeRenameDoc !== null}
+          onOpenChange={open => {
+            if (!open) setTreeRenameDoc(null)
+          }}
+        >
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader>
+              <DialogTitle>
+                {intl.formatMessage({
+                  id: 'documentToc.rename',
+                  defaultMessage: 'Rename',
+                })}
+              </DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                if (!treeRenameDoc || treeRenameValue === treeRenameDoc.title) {
+                  setTreeRenameDoc(null)
+                  return
+                }
+                const renamedId = treeRenameDoc.id
+                docTree.renameNode(renamedId, treeRenameValue)
+                fetch(API.documents.byId(renamedId), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: treeRenameValue }),
+                })
+                setTreeRenameDoc(null)
+              }}
+            >
+              <Input
+                value={treeRenameValue}
+                onChange={e => setTreeRenameValue(e.target.value)}
+                autoFocus
+                placeholder={intl.formatMessage({
+                  id: 'documents.untitled',
+                  defaultMessage: 'Untitled',
+                })}
+              />
+              <DialogFooter className='mt-4'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setTreeRenameDoc(null)}
+                >
+                  {intl.formatMessage({
+                    id: 'common.cancel',
+                    defaultMessage: 'Cancel',
+                  })}
+                </Button>
+                <Button type='submit'>
+                  {intl.formatMessage({
+                    id: 'common.save',
+                    defaultMessage: 'Save',
+                  })}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Tree Delete Confirm Dialog */}
+        <AlertDialog
+          open={treeDeleteDoc !== null}
+          onOpenChange={open => {
+            if (!open) setTreeDeleteDoc(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {intl.formatMessage({
+                  id: 'documentToc.deleteConfirmTitle',
+                  defaultMessage: 'Delete document',
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {intl.formatMessage(
+                  {
+                    id: 'documentToc.deleteConfirmDesc',
+                    defaultMessage:
+                      'Are you sure you want to delete "{title}"? This action cannot be undone.',
+                  },
+                  { title: treeDeleteDoc?.title || 'Untitled' }
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {intl.formatMessage({
+                  id: 'common.cancel',
+                  defaultMessage: 'Cancel',
+                })}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                onClick={() => {
+                  if (!treeDeleteDoc) return
+                  const deletedId = treeDeleteDoc.id
+                  setTreeDeleteDoc(null)
+                  docTree.removeNode(deletedId)
+                  if (selectedDocumentId === deletedId) {
+                    setCurrentPage('documents')
+                    window.history.pushState(
+                      null,
+                      '',
+                      `/workspace/${workspaceUrl}/documents`
+                    )
+                  }
+                  fetch(API.documents.byId(deletedId), { method: 'DELETE' })
+                }}
+              >
+                {intl.formatMessage({
+                  id: 'documentToc.delete',
+                  defaultMessage: 'Delete',
+                })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SidebarProvider>
     </motion.div>
   )

@@ -1,0 +1,113 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db/prisma'
+import { requireAuth } from '@/lib/auth'
+import { requireUserWorkspace } from '@/lib/api/helpers'
+
+const TREE_SELECT = {
+  id: true,
+  title: true,
+  emoji: true,
+  parentId: true,
+  sortOrder: true,
+  _count: { select: { children: true } },
+} as const
+
+interface RawNode {
+  id: string
+  title: string
+  emoji: string | null
+  parentId: string | null
+  sortOrder: number
+  _count: { children: number }
+}
+
+interface TreeNodeResponse {
+  id: string
+  title: string
+  emoji: string | null
+  parentId: string | null
+  sortOrder: number
+  childCount: number
+  children?: TreeNodeResponse[] | undefined
+}
+
+function toTreeNode(
+  raw: RawNode,
+  children?: TreeNodeResponse[]
+): TreeNodeResponse {
+  const result: TreeNodeResponse = {
+    id: raw.id,
+    title: raw.title,
+    emoji: raw.emoji,
+    parentId: raw.parentId,
+    sortOrder: raw.sortOrder,
+    childCount: raw._count.children,
+  }
+  if (children) {
+    result.children = children
+  }
+  return result
+}
+
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const { userId } = authResult
+
+  const ws = await requireUserWorkspace(userId)
+  if (ws instanceof NextResponse) return ws
+
+  const expandedDocId = request.nextUrl.searchParams.get('expandedDocId')
+
+  // 1. Build the expanded path (ancestors of expandedDocId)
+  const expandedPath = new Set<string>()
+  if (expandedDocId) {
+    let currentId: string | null = expandedDocId
+    const visited = new Set<string>()
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId)
+      const doc: { id: string; parentId: string | null } | null =
+        await prisma.document.findUnique({
+          where: { id: currentId },
+          select: { id: true, parentId: true },
+        })
+      if (!doc) break
+      expandedPath.add(doc.id)
+      currentId = doc.parentId
+    }
+  }
+
+  // 2. Fetch root documents
+  const roots = await prisma.document.findMany({
+    where: { workspaceId: ws.workspaceId, parentId: null },
+    orderBy: { sortOrder: 'asc' },
+    select: TREE_SELECT,
+  })
+
+  // 3. Build tree with depth 2 + expanded path
+  async function buildNode(
+    raw: RawNode,
+    depth: number
+  ): Promise<TreeNodeResponse> {
+    const shouldExpand = depth < 2 || expandedPath.has(raw.id)
+    if (!shouldExpand || raw._count.children === 0) {
+      return toTreeNode(raw)
+    }
+
+    const childDocs = await prisma.document.findMany({
+      where: { parentId: raw.id },
+      orderBy: { sortOrder: 'asc' },
+      select: TREE_SELECT,
+    })
+
+    const children = await Promise.all(
+      childDocs.map(child => buildNode(child, depth + 1))
+    )
+
+    return toTreeNode(raw, children)
+  }
+
+  const tree = await Promise.all(roots.map(root => buildNode(root, 0)))
+
+  return NextResponse.json({ roots: tree })
+}

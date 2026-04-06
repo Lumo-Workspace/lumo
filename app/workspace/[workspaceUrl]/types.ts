@@ -319,6 +319,17 @@ export interface ApiDocumentAncestor {
   }[]
 }
 
+export interface TreeNode {
+  id: string
+  title: string
+  emoji: string | null
+  parentId: string | null
+  sortOrder: number
+  childCount: number
+  children?: TreeNode[]
+  isLoading?: boolean
+}
+
 export interface ApiDocumentDetail extends ApiDocument {
   content: string | null
   children: ApiDocument[]

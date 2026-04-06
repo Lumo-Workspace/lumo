@@ -57,6 +57,7 @@ export const API = {
     shareById: (id: string, shareId: string) =>
       `/api/documents/${id}/shares/${shareId}`,
     move: (id: string) => `/api/documents/${id}/move`,
+    tree: '/api/documents/tree',
   },
   slack: {
     oauth: (workspaceUrl: string) =>
@@ -92,6 +93,8 @@ export const CACHE_KEY = {
   displayProject: (projectId: string) => `lumo:display:project:${projectId}`,
   documents: 'lumo:documents',
   documentDetail: (docId: string) => `lumo:doc:${docId}`,
+  documentTree: 'lumo:document-tree',
+  treeExpanded: 'lumo:tree-expanded',
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────

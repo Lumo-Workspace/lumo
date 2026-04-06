@@ -113,5 +113,8 @@
   "documentToc.deleteConfirmDesc": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
   "documentEditor.visibility": "Visibility",
   "documentEditor.share": "Share",
-  "documentEditor.project": "Project"
+  "documentEditor.project": "Project",
+
+  "documentTree.empty": "No documents yet",
+  "documentTree.newDoc": "New document"
 }

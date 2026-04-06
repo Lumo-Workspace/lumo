@@ -113,5 +113,8 @@
   "documentToc.deleteConfirmDesc": "确定要删除「{title}」吗？此操作无法撤销。",
   "documentEditor.visibility": "可见性",
   "documentEditor.share": "分享",
-  "documentEditor.project": "项目"
+  "documentEditor.project": "项目",
+
+  "documentTree.empty": "暂无文档",
+  "documentTree.newDoc": "新建文档"
 }
