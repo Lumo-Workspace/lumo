@@ -34,6 +34,7 @@ import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
 import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
 import { usePusherEvent } from './hooks/usePusher'
+import { useDocuments } from './hooks/useDocuments'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -49,6 +50,8 @@ import {
 } from './components/modals/NewProjectModal'
 import { TaskDrawer } from './components/TaskDrawer'
 import { ProjectSlackDialog } from './components/ProjectSlackDialog'
+import { DocumentsPage } from './components/pages/DocumentsPage'
+import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
 
@@ -69,6 +72,10 @@ function pageToPath(
       return project
         ? `${base}/projects/${slugifyProjectName(project.name)}`
         : `${base}/projects`
+    case 'documents':
+      return `${base}/documents`
+    case 'document-editor':
+      return `${base}/documents/${project?.id ?? ''}`
     default:
       return `${base}/my-tasks`
   }
@@ -81,6 +88,11 @@ function pathToPage(
   const base = `/workspace/${workspaceUrl}`
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : ''
 
+  if (rest.startsWith('/documents/')) {
+    const docId = rest.slice('/documents/'.length).split('/')[0]
+    return { page: 'document-editor', projectSlug: docId }
+  }
+  if (rest.startsWith('/documents')) return { page: 'documents' }
   if (rest.startsWith('/inbox')) return { page: 'inbox' }
   if (rest.startsWith('/projects/')) {
     const projectSlug = rest.slice('/projects/'.length).split('/')[0]
@@ -110,6 +122,18 @@ export default function DashboardApp() {
     if (typeof window === 'undefined') return undefined
     return pathToPage(window.location.pathname, workspaceUrl).projectSlug
   })
+
+  // ─── Documents ─────────────────────────────────────────────────────────────
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
+    () => {
+      if (typeof window === 'undefined') return null
+      const { page, projectSlug } = pathToPage(
+        window.location.pathname,
+        workspaceUrl
+      )
+      return page === 'document-editor' && projectSlug ? projectSlug : null
+    }
+  )
 
   // ─── Slack ─────────────────────────────────────────────────────────────────
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
@@ -165,6 +189,14 @@ export default function DashboardApp() {
     markAllRead,
     respondToNotification,
   } = useRealtimeNotifications()
+  const {
+    documents,
+    setDocuments,
+    loading: documentsLoading,
+    error: documentsError,
+    fetchDocuments,
+  } = useDocuments()
+
   const { user } = useCurrentUser()
 
   // Current user's workspace member info
@@ -389,7 +421,8 @@ export default function DashboardApp() {
     }
     if (currentPage === 'projects' || currentPage === 'project-detail')
       fetchProjects()
-  }, [currentPage, fetchMyTasks, fetchProjects])
+    if (currentPage === 'documents') fetchDocuments()
+  }, [currentPage, fetchMyTasks, fetchProjects, fetchDocuments])
 
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
@@ -424,6 +457,11 @@ export default function DashboardApp() {
           p => slugifyProjectName(p.name) === projectSlug
         )
         if (match) setSelectedProject(match)
+      }
+      if (page === 'document-editor' && projectSlug) {
+        setSelectedDocumentId(projectSlug)
+      } else if (page !== 'document-editor') {
+        setSelectedDocumentId(null)
       }
     }
     window.addEventListener('popstate', onPopState)
@@ -697,6 +735,38 @@ export default function DashboardApp() {
     [selectedProject, setProjects]
   )
 
+  // ─── Document handlers ─────────────────────────────────────────────────────
+  const handleNewDocument = useCallback(async () => {
+    try {
+      const res = await fetch(API.documents.list, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setDocuments(prev => [data.document, ...prev])
+        setCurrentPage('document-editor')
+        setSelectedDocumentId(data.document.id)
+        window.history.pushState(
+          null,
+          '',
+          `/workspace/${workspaceUrl}/documents/${data.document.id}`
+        )
+      }
+    } catch {}
+  }, [workspaceUrl, setDocuments])
+
+  const handleDeleteDocument = useCallback(
+    async (id: string) => {
+      try {
+        await fetch(API.documents.byId(id), { method: 'DELETE' })
+        setDocuments(prev => prev.filter(d => d.id !== id))
+      } catch {}
+    },
+    [setDocuments]
+  )
+
   // ─── Render current page ───────────────────────────────────────────────────
   const renderPage = () => {
     switch (currentPage) {
@@ -752,6 +822,66 @@ export default function DashboardApp() {
             workspaceUrl={workspaceUrl}
           />
         )
+
+      case 'documents':
+        return (
+          <DocumentsPage
+            documents={documents}
+            loading={documentsLoading}
+            error={documentsError}
+            onRetry={fetchDocuments}
+            onNewDocument={handleNewDocument}
+            onSelectDocument={doc => {
+              setCurrentPage('document-editor')
+              setSelectedDocumentId(doc.id)
+              window.history.pushState(
+                null,
+                '',
+                `/workspace/${workspaceUrl}/documents/${doc.id}`
+              )
+            }}
+            onDeleteDocument={handleDeleteDocument}
+          />
+        )
+
+      case 'document-editor':
+        return selectedDocumentId ? (
+          <DocumentEditorPage
+            documentId={selectedDocumentId}
+            onNavigateToDocument={id => {
+              setSelectedDocumentId(id)
+              window.history.pushState(
+                null,
+                '',
+                `/workspace/${workspaceUrl}/documents/${id}`
+              )
+            }}
+            onNavigateToDocuments={() => {
+              setCurrentPage('documents')
+              window.history.pushState(
+                null,
+                '',
+                `/workspace/${workspaceUrl}/documents`
+              )
+            }}
+            onCreateChildDocument={async parentId => {
+              const res = await fetch(API.documents.list, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parentId }),
+              })
+              if (res.ok) {
+                const data = await res.json()
+                setSelectedDocumentId(data.document.id)
+                window.history.pushState(
+                  null,
+                  '',
+                  `/workspace/${workspaceUrl}/documents/${data.document.id}`
+                )
+              }
+            }}
+          />
+        ) : null
 
       case 'inbox':
         return (

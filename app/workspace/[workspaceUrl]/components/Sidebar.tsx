@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   Home,
   FolderKanban,
+  FileText,
   Inbox,
   LogOut,
   ChevronsUpDown,
@@ -245,6 +246,29 @@ export function AppSidebar({
                     <FolderKanban />
                     <span>
                       {intl.formatMessage({ id: 'sidebar.projects' })}
+                    </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    currentPage === 'documents' ||
+                    currentPage === 'document-editor'
+                  }
+                  tooltip={intl.formatMessage({ id: 'sidebar.documents' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/documents`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('documents')
+                    }}
+                  >
+                    <FileText />
+                    <span>
+                      {intl.formatMessage({ id: 'sidebar.documents' })}
                     </span>
                   </Link>
                 </SidebarMenuButton>

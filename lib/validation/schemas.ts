@@ -190,7 +190,7 @@ export const createDocumentSchema = z.object({
   emoji: z.string().max(10).nullable().optional(),
   parentId: z.string().cuid().nullable().optional(),
   projectId: z.string().cuid().nullable().optional(),
-  workspaceId: z.string().cuid(),
+  workspaceId: z.string().cuid().optional(),
   visibility: z
     .enum(['PRIVATE', 'SHARED', 'WORKSPACE'])
     .optional()
