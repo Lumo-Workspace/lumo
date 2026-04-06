@@ -719,6 +719,7 @@ model Document {
   parent      Document?     @relation("DocTree", fields: [parentId], references: [id])
   children    Document[]    @relation("DocTree")
   sortOrder   Float         @default(0)
+  publicToken String?       @unique
 
   projectId   String?
   project     Project?      @relation(fields: [projectId], references: [id])
