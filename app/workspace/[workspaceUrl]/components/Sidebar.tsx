@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home,
-  Layers,
+  FolderKanban,
   Inbox,
   LogOut,
   ChevronsUpDown,
@@ -242,7 +242,7 @@ export function AppSidebar({
                       onNavigate('projects')
                     }}
                   >
-                    <Layers />
+                    <FolderKanban />
                     <span>
                       {intl.formatMessage({ id: 'sidebar.projects' })}
                     </span>

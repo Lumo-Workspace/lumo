@@ -22,7 +22,7 @@ export default function Stats({
     },
     {
       label: 'under',
-      value: '5',
+      value: '1',
       suffix: 's',
       description: 'from assigned to agent in motion',
     },
