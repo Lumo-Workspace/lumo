@@ -61,6 +61,8 @@ export type Page =
   | 'project-detail'
   | 'inbox'
   | 'task-detail'
+  | 'documents'
+  | 'document-editor'
 
 export interface WorkspaceMemberInfo {
   id: string
@@ -281,4 +283,40 @@ export interface TaskDetail {
   clarifies?: ApiAgentClarify[]
   agentRuns?: ApiAgentRun[]
   spec?: string | null
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────
+
+export type DocVisibility = 'PRIVATE' | 'SHARED' | 'WORKSPACE'
+export type DocShareRole = 'VIEWER' | 'EDITOR' | 'MANAGER'
+
+export interface ApiDocument {
+  id: string
+  title: string
+  emoji: string | null
+  parentId: string | null
+  projectId: string | null
+  project?: { id: string; name: string } | null
+  workspaceId: string
+  createdById: string
+  createdBy: { id: string; name: string; imageUrl: string | null }
+  visibility: DocVisibility
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  _count?: { children: number }
+}
+
+export interface ApiDocumentDetail extends ApiDocument {
+  content: string | null
+  children: ApiDocument[]
+  shares: ApiDocumentShare[]
+}
+
+export interface ApiDocumentShare {
+  id: string
+  memberId: string
+  member: { id: string; name: string; imageUrl: string | null }
+  role: DocShareRole
+  createdAt: string
 }

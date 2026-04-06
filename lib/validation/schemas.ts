@@ -182,3 +182,40 @@ export const checkDuplicatesSchema = z.object({
     .max(500, 'Title must be at most 500 characters'),
   projectId: z.string().min(1, 'Project ID is required'),
 })
+
+// ── Documents ─────────────────────────────────────────────────────────────
+
+export const createDocumentSchema = z.object({
+  title: z.string().trim().max(500).optional().default('Untitled'),
+  emoji: z.string().max(10).nullable().optional(),
+  parentId: z.string().cuid().nullable().optional(),
+  projectId: z.string().cuid().nullable().optional(),
+  workspaceId: z.string().cuid(),
+  visibility: z
+    .enum(['PRIVATE', 'SHARED', 'WORKSPACE'])
+    .optional()
+    .default('PRIVATE'),
+})
+
+export const updateDocumentSchema = z.object({
+  title: z.string().trim().min(1).max(500).optional(),
+  content: z.string().max(500000).nullable().optional(),
+  emoji: z.string().max(10).nullable().optional(),
+  visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
+  projectId: z.string().cuid().nullable().optional(),
+  sortOrder: z.number().optional(),
+})
+
+export const moveDocumentSchema = z.object({
+  parentId: z.string().cuid().nullable(),
+  sortOrder: z.number(),
+})
+
+export const createDocumentShareSchema = z.object({
+  memberId: z.string().cuid(),
+  role: z.enum(['VIEWER', 'EDITOR', 'MANAGER']),
+})
+
+export const updateDocumentShareSchema = z.object({
+  role: z.enum(['VIEWER', 'EDITOR', 'MANAGER']),
+})
