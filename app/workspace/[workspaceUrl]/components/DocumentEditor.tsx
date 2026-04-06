@@ -34,6 +34,7 @@ export function DocumentEditor({
   const slashListRef = useRef<SlashCommandListRef | null>(null)
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       ...getBaseExtensions(),
       Placeholder.configure({
