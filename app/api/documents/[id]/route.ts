@@ -220,10 +220,21 @@ export async function PATCH(
     updateData.sortOrder = parsed.data.sortOrder
 
   const updated = await prisma.$transaction(async tx => {
-    const updatedDoc = await tx.document.update({
-      where: { id },
-      data: updateData,
-    })
+    const updatedDoc =
+      Object.keys(updateData).length > 0
+        ? await tx.document.update({ where: { id }, data: updateData })
+        : await tx.document.findUniqueOrThrow({ where: { id } })
+
+    // Reorder children if childOrder is provided
+    if (parsed.data.childOrder) {
+      const childOrder = parsed.data.childOrder
+      for (let i = 0; i < childOrder.length; i++) {
+        await tx.document.update({
+          where: { id: childOrder[i]! },
+          data: { sortOrder: i },
+        })
+      }
+    }
 
     // Sync DocumentMention if content was updated
     if (parsed.data.content) {

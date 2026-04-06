@@ -141,15 +141,25 @@ export async function POST(request: NextRequest) {
   const parsed = createDocumentSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
+  // Calculate sortOrder: place new doc at the end of its siblings
+  const parentId = parsed.data.parentId ?? null
+  const maxSibling = await prisma.document.findFirst({
+    where: { parentId, workspaceId: ws.workspaceId },
+    orderBy: { sortOrder: 'desc' },
+    select: { sortOrder: true },
+  })
+  const sortOrder = (maxSibling?.sortOrder ?? 0) + 1
+
   const document = await prisma.document.create({
     data: {
       title: parsed.data.title,
       emoji: parsed.data.emoji ?? null,
-      parentId: parsed.data.parentId ?? null,
+      parentId,
       projectId: parsed.data.projectId ?? null,
       workspaceId: ws.workspaceId,
       createdById: ws.member.id,
       visibility: parsed.data.visibility,
+      sortOrder,
     },
     include: {
       project: { select: { id: true, name: true } },

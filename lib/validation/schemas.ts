@@ -204,6 +204,7 @@ export const updateDocumentSchema = z.object({
   visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
   projectId: z.string().cuid().nullable().optional(),
   sortOrder: z.number().optional(),
+  childOrder: z.array(z.string()).optional(),
 })
 
 export const moveDocumentSchema = z.object({
