@@ -50,7 +50,6 @@ interface DropTarget {
 
 function TreeItemRow({
   node,
-  depth,
   isExpanded,
   isCurrent,
   draggedId,
@@ -66,7 +65,6 @@ function TreeItemRow({
   onDrop,
 }: {
   node: TreeNode
-  depth: number
   isExpanded: boolean
   isCurrent: boolean
   draggedId: string | null
@@ -135,21 +133,14 @@ function TreeItemRow({
         isDragging && 'opacity-40',
         isDropInside && 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20'
       )}
-      style={{ paddingLeft: depth * 16 + 8 }}
       onClick={onClick}
     >
       {/* Drop indicator lines */}
       {isDropBefore && (
-        <div
-          className='absolute left-0 right-0 top-0 h-0.5 bg-blue-500'
-          style={{ marginLeft: depth * 16 + 8 }}
-        />
+        <div className='absolute left-0 right-0 top-0 h-0.5 bg-blue-500' />
       )}
       {isDropAfter && (
-        <div
-          className='absolute left-0 right-0 bottom-0 h-0.5 bg-blue-500'
-          style={{ marginLeft: depth * 16 + 8 }}
-        />
+        <div className='absolute left-0 right-0 bottom-0 h-0.5 bg-blue-500' />
       )}
 
       {/* Expand/collapse */}
@@ -276,14 +267,13 @@ function TreeNodeGroup({
   onDrop: () => void
 }) {
   return (
-    <div className={cn(depth > 0 && 'ml-3 border-l border-border pl-0.5')}>
+    <div className={cn(depth > 0 && 'ml-2 border-l border-border pl-1')}>
       {nodes.map(node => {
         const isExpanded = expandedIds.has(node.id)
         return (
           <div key={node.id}>
             <TreeItemRow
               node={node}
-              depth={depth}
               isExpanded={isExpanded}
               isCurrent={node.id === currentDocId}
               draggedId={draggedId}
