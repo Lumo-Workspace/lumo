@@ -116,5 +116,21 @@
   "documentEditor.project": "项目",
 
   "documentTree.empty": "暂无文档",
-  "documentTree.newDoc": "新建文档"
+  "documentTree.newDoc": "新建文档",
+
+  "share.title": "分享文档",
+  "share.searchPlaceholder": "搜索成员...",
+  "share.invite": "邀请",
+  "share.sharedWith": "已分享",
+  "share.owner": "所有者",
+  "share.creator": "创建者",
+  "share.viewer": "可查看",
+  "share.editor": "可编辑",
+  "share.manager": "管理者",
+  "share.remove": "移除",
+  "share.publicLink": "公开链接",
+  "share.publicLinkDesc": "任何人可通过链接查看",
+  "share.copyLink": "复制链接",
+  "share.copied": "已复制",
+  "share.button": "分享"
 }

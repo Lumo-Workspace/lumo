@@ -116,5 +116,21 @@
   "documentEditor.project": "Project",
 
   "documentTree.empty": "No documents yet",
-  "documentTree.newDoc": "New document"
+  "documentTree.newDoc": "New document",
+
+  "share.title": "Share document",
+  "share.searchPlaceholder": "Search members...",
+  "share.invite": "Invite",
+  "share.sharedWith": "Shared with",
+  "share.owner": "Owner",
+  "share.creator": "Creator",
+  "share.viewer": "Can view",
+  "share.editor": "Can edit",
+  "share.manager": "Manager",
+  "share.remove": "Remove",
+  "share.publicLink": "Public link",
+  "share.publicLinkDesc": "Anyone with the link can view",
+  "share.copyLink": "Copy link",
+  "share.copied": "Copied",
+  "share.button": "Share"
 }
