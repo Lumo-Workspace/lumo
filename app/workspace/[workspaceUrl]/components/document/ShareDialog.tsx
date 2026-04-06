@@ -333,7 +333,7 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-md'>
+      <DialogContent className='sm:max-w-md !grid-rows-[auto_1fr] max-h-[85vh]'>
         <DialogHeader>
           <DialogTitle>{intl.formatMessage({ id: 'share.title' })}</DialogTitle>
           <p className='flex items-center gap-1 text-sm text-muted-foreground'>
@@ -342,104 +342,24 @@ export function ShareDialog({
           </p>
         </DialogHeader>
 
-        {/* ── Invite section ─────────────────────────────────────────── */}
-        <div className='relative'>
-          <div className='flex items-center gap-2'>
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={intl.formatMessage({
-                id: 'share.searchPlaceholder',
-              })}
-              className='flex-1'
-            />
-            <Select
-              value={inviteRole}
-              onValueChange={v => setInviteRole(v as DocShareRole)}
-            >
-              <SelectTrigger className='w-[120px]'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='VIEWER'>{roleLabel('VIEWER')}</SelectItem>
-                <SelectItem value='EDITOR'>{roleLabel('EDITOR')}</SelectItem>
-                <SelectItem value='MANAGER'>{roleLabel('MANAGER')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Search dropdown */}
-          {searchResults.length > 0 && (
-            <div className='absolute left-0 right-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto'>
-              {searchResults.map(m => (
-                <button
-                  key={m.id}
-                  type='button'
-                  className='flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left'
-                  onClick={() => handleInvite(m)}
-                >
-                  <MemberAvatar name={m.name} imageUrl={m.imageUrl} size={24} />
-                  <div className='flex-1 min-w-0'>
-                    <div className='truncate font-medium'>{m.name}</div>
-                    {m.email && (
-                      <div className='truncate text-xs text-muted-foreground'>
-                        {m.email}
-                      </div>
-                    )}
-                  </div>
-                  <span className='text-xs text-muted-foreground shrink-0'>
-                    {intl.formatMessage({ id: 'share.invite' })}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── Current shares ─────────────────────────────────────────── */}
-        <div className='space-y-1'>
-          <div className='text-xs font-medium text-muted-foreground px-1 mb-2'>
-            {intl.formatMessage({ id: 'share.sharedWith' })}
-          </div>
-
-          {/* Owner row */}
-          <div className='flex items-center gap-2 px-1 py-1.5'>
-            <MemberAvatar
-              name={owner.name}
-              imageUrl={owner.imageUrl}
-              size={28}
-            />
-            <div className='flex-1 min-w-0'>
-              <div className='text-sm truncate'>{owner.name}</div>
-            </div>
-            <span className='text-xs text-muted-foreground'>
-              {intl.formatMessage({ id: 'share.owner' })}
-            </span>
-          </div>
-
-          {/* Share rows */}
-          {shares.map(share => (
-            <div key={share.id} className='flex items-center gap-2 px-1 py-1.5'>
-              <MemberAvatar
-                name={share.member.name}
-                imageUrl={share.member.imageUrl}
-                size={28}
+        <div className='overflow-y-auto space-y-4'>
+          {/* ── Invite section ─────────────────────────────────────────── */}
+          <div className='relative'>
+            <div className='flex items-center gap-2'>
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={intl.formatMessage({
+                  id: 'share.searchPlaceholder',
+                })}
+                className='flex-1'
               />
-              <div className='flex-1 min-w-0'>
-                <div className='text-sm truncate'>{share.member.name}</div>
-              </div>
               <Select
-                value={share.role}
-                onValueChange={v => {
-                  if (v === '__remove__') {
-                    handleRemove(share.id)
-                  } else {
-                    handleRoleChange(share.id, v as DocShareRole)
-                  }
-                }}
+                value={inviteRole}
+                onValueChange={v => setInviteRole(v as DocShareRole)}
               >
-                <SelectTrigger className='w-[120px] h-8 text-xs'>
-                  <SelectValue>{roleLabel(share.role)}</SelectValue>
+                <SelectTrigger className='w-[120px]'>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='VIEWER'>{roleLabel('VIEWER')}</SelectItem>
@@ -447,64 +367,159 @@ export function ShareDialog({
                   <SelectItem value='MANAGER'>
                     {roleLabel('MANAGER')}
                   </SelectItem>
-                  <SelectSeparator />
-                  <SelectItem value='__remove__' className='text-destructive'>
-                    {intl.formatMessage({ id: 'share.remove' })}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          ))}
-        </div>
 
-        {/* ── Public link section ────────────────────────────────────── */}
-        <div className='border-t pt-4 mt-2'>
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-2'>
-              <Globe className='h-4 w-4 text-muted-foreground' />
-              <div>
-                <div className='text-sm font-medium'>
-                  {intl.formatMessage({ id: 'share.publicLink' })}
-                </div>
-                <div className='text-xs text-muted-foreground'>
-                  {intl.formatMessage({ id: 'share.publicLinkDesc' })}
-                </div>
+            {/* Search dropdown */}
+            {searchResults.length > 0 && (
+              <div className='absolute left-0 right-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto'>
+                {searchResults.map(m => (
+                  <button
+                    key={m.id}
+                    type='button'
+                    className='flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left'
+                    onClick={() => handleInvite(m)}
+                  >
+                    <MemberAvatar
+                      name={m.name}
+                      imageUrl={m.imageUrl}
+                      size={24}
+                    />
+                    <div className='flex-1 min-w-0'>
+                      <div className='truncate font-medium'>{m.name}</div>
+                      {m.email && (
+                        <div className='truncate text-xs text-muted-foreground'>
+                          {m.email}
+                        </div>
+                      )}
+                    </div>
+                    <span className='text-xs text-muted-foreground shrink-0'>
+                      {intl.formatMessage({ id: 'share.invite' })}
+                    </span>
+                  </button>
+                ))}
               </div>
-            </div>
-            <Switch
-              checked={!!publicToken}
-              onCheckedChange={handlePublicToggle}
-            />
+            )}
           </div>
 
-          {publicToken && (
-            <div className='flex items-center gap-2 mt-3'>
-              <div className='flex-1 flex items-center gap-2 bg-muted rounded-md px-3 py-1.5 text-xs text-muted-foreground truncate'>
-                <Link2 className='h-3 w-3 shrink-0' />
-                <span className='truncate'>
-                  {window.location.origin}/share/{publicToken}
-                </span>
-              </div>
-              <Button
-                variant='outline'
-                size='sm'
-                className='shrink-0'
-                onClick={handleCopyLink}
-              >
-                {copied ? (
-                  <>
-                    <Check className='h-3.5 w-3.5 mr-1' />
-                    {intl.formatMessage({ id: 'share.copied' })}
-                  </>
-                ) : (
-                  <>
-                    <Copy className='h-3.5 w-3.5 mr-1' />
-                    {intl.formatMessage({ id: 'share.copyLink' })}
-                  </>
-                )}
-              </Button>
+          {/* ── Current shares ─────────────────────────────────────────── */}
+          <div className='space-y-1'>
+            <div className='text-xs font-medium text-muted-foreground px-1 mb-2'>
+              {intl.formatMessage({ id: 'share.sharedWith' })}
             </div>
-          )}
+
+            {/* Owner row */}
+            <div className='flex items-center gap-2 px-1 py-1.5'>
+              <MemberAvatar
+                name={owner.name}
+                imageUrl={owner.imageUrl}
+                size={28}
+              />
+              <div className='flex-1 min-w-0'>
+                <div className='text-sm truncate'>{owner.name}</div>
+              </div>
+              <span className='text-xs text-muted-foreground'>
+                {intl.formatMessage({ id: 'share.owner' })}
+              </span>
+            </div>
+
+            {/* Share rows */}
+            {shares.map(share => (
+              <div
+                key={share.id}
+                className='flex items-center gap-2 px-1 py-1.5'
+              >
+                <MemberAvatar
+                  name={share.member.name}
+                  imageUrl={share.member.imageUrl}
+                  size={28}
+                />
+                <div className='flex-1 min-w-0'>
+                  <div className='text-sm truncate'>{share.member.name}</div>
+                </div>
+                <Select
+                  value={share.role}
+                  onValueChange={v => {
+                    if (v === '__remove__') {
+                      handleRemove(share.id)
+                    } else {
+                      handleRoleChange(share.id, v as DocShareRole)
+                    }
+                  }}
+                >
+                  <SelectTrigger className='w-[120px] h-8 text-xs'>
+                    <SelectValue>{roleLabel(share.role)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='VIEWER'>
+                      {roleLabel('VIEWER')}
+                    </SelectItem>
+                    <SelectItem value='EDITOR'>
+                      {roleLabel('EDITOR')}
+                    </SelectItem>
+                    <SelectItem value='MANAGER'>
+                      {roleLabel('MANAGER')}
+                    </SelectItem>
+                    <SelectSeparator />
+                    <SelectItem value='__remove__' className='text-destructive'>
+                      {intl.formatMessage({ id: 'share.remove' })}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Public link section ────────────────────────────────────── */}
+          <div className='border-t pt-4 mt-2'>
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <Globe className='h-4 w-4 text-muted-foreground' />
+                <div>
+                  <div className='text-sm font-medium'>
+                    {intl.formatMessage({ id: 'share.publicLink' })}
+                  </div>
+                  <div className='text-xs text-muted-foreground'>
+                    {intl.formatMessage({ id: 'share.publicLinkDesc' })}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={!!publicToken}
+                onCheckedChange={handlePublicToggle}
+              />
+            </div>
+
+            {publicToken && (
+              <div className='flex items-center gap-2 mt-3'>
+                <div className='flex-1 flex items-center gap-2 bg-muted rounded-md px-3 py-1.5 text-xs text-muted-foreground truncate'>
+                  <Link2 className='h-3 w-3 shrink-0' />
+                  <span className='truncate'>
+                    {window.location.origin}/share/{publicToken}
+                  </span>
+                </div>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='shrink-0'
+                  onClick={handleCopyLink}
+                >
+                  {copied ? (
+                    <>
+                      <Check className='h-3.5 w-3.5 mr-1' />
+                      {intl.formatMessage({ id: 'share.copied' })}
+                    </>
+                  ) : (
+                    <>
+                      <Copy className='h-3.5 w-3.5 mr-1' />
+                      {intl.formatMessage({ id: 'share.copyLink' })}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
