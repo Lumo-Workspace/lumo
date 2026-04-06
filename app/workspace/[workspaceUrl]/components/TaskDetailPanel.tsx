@@ -257,6 +257,9 @@ export function TaskDetailPanel({
   )
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [createBranchOpen, setCreateBranchOpen] = useState(false)
+  const [relatedDocs, setRelatedDocs] = useState<
+    { id: string; title: string; emoji: string | null; updatedAt: string }[]
+  >([])
   // ─── Comment threads (replies) ──────────────────────────────────────────────
   const [highlightedCommentId, setHighlightedCommentId] = useState<
     string | null
@@ -338,6 +341,15 @@ export function TaskDetailPanel({
     // cachedComments intentionally omitted — stable ref from mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTask.id])
+
+  // ── Related documents ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!task?.id) return
+    fetch(`/api/tasks/${task.id}/documents`)
+      .then(res => res.json())
+      .then(data => setRelatedDocs(data.documents ?? []))
+      .catch(() => {})
+  }, [task?.id])
 
   // ── Pusher: real-time task & comment updates ──────────────────────────────
   usePusherEvent<TaskEvent>(`task-${initialTask.id}`, 'task-update', event => {
@@ -916,6 +928,30 @@ export function TaskDetailPanel({
 
         {/* Subtasks */}
         <SubtasksSection task={task} onSubtasksCreated={refreshDetail} />
+
+        {/* Related Documents */}
+        {relatedDocs.length > 0 && (
+          <div className='mt-4 pt-4 border-t'>
+            <div className='text-xs font-medium text-muted-foreground mb-2'>
+              Related Documents
+            </div>
+            <div className='space-y-1'>
+              {relatedDocs.map(doc => (
+                <button
+                  key={doc.id}
+                  type='button'
+                  className='flex items-center gap-2 w-full text-left text-xs py-1 px-2 rounded hover:bg-muted transition-colors'
+                  onClick={() => {
+                    window.location.href = `/workspace/${workspaceUrl}/documents/${doc.id}`
+                  }}
+                >
+                  <span>{doc.emoji ?? '📄'}</span>
+                  <span className='truncate'>{doc.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Comments ─────────────────────────────────────────────────────────── */}

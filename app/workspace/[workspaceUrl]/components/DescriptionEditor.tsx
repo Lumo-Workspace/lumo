@@ -3,21 +3,21 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import Link from '@tiptap/extension-link'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import Mention from '@tiptap/extension-mention'
-import Image from '@tiptap/extension-image'
-import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableHeader } from '@tiptap/extension-table-header'
-import { TableCell } from '@tiptap/extension-table-cell'
 import { mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
+import { getBaseExtensions } from '@/lib/editor/extensions'
+import {
+  SlashCommandExtension,
+  buildSlashCommandSuggestion,
+  type SlashCommandPopupState,
+} from '@/lib/editor/slash-command'
+import {
+  SlashCommandList,
+  type SlashCommandListRef,
+} from '@/lib/editor/slash-command-list'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
@@ -1023,6 +1023,10 @@ export function DescriptionEditor({
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
     null
   )
+  const [slashPopup, setSlashPopup] = useState<SlashCommandPopupState | null>(
+    null
+  )
+  const slashListRef = useRef<SlashCommandListRef | null>(null)
 
   // Stable DOM element for the bubble menu (created once, never changes)
   const [menuElement] = useState<HTMLDivElement | null>(() =>
@@ -1032,17 +1036,16 @@ export function DescriptionEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
-      Underline,
-      Link.configure({ openOnClick: false, autolink: true }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      Image.configure({ inline: false, allowBase64: false }),
+      ...getBaseExtensions(),
       Placeholder.configure({ placeholder }),
+      SlashCommandExtension.configure({
+        suggestion: buildSlashCommandSuggestion(
+          state => setSlashPopup(state),
+          state => setSlashPopup(state),
+          () => setSlashPopup(null),
+          slashListRef
+        ),
+      }),
       MentionWithType.configure({
         suggestion: buildMentionSuggestion(
           members,
@@ -1266,6 +1269,24 @@ export function DescriptionEditor({
               ref={mentionListRef}
               items={mentionPopup.items}
               command={mentionPopup.command}
+            />
+          </div>,
+          document.body
+        )}
+      {slashPopup &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: slashPopup.rect.left,
+              top: slashPopup.rect.bottom + 4,
+              zIndex: 9999,
+            }}
+          >
+            <SlashCommandList
+              ref={slashListRef}
+              items={slashPopup.items}
+              command={slashPopup.command}
             />
           </div>,
           document.body
