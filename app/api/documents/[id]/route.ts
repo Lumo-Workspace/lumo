@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateDocumentSchema } from '@/lib/validation/schemas'
+
+function resolveClerkName(
+  u:
+    | {
+        firstName: string | null
+        lastName: string | null
+        emailAddresses: { emailAddress: string }[]
+      }
+    | undefined,
+  fallback: string
+): string {
+  if (!u) return fallback
+  return (
+    `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+    u.emailAddresses[0]?.emailAddress ||
+    fallback
+  )
+}
 
 async function getDocumentWithPermission(
   documentId: string,
@@ -70,7 +89,42 @@ export async function GET(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
   }
 
-  return NextResponse.json({ document: doc })
+  // Batch-fetch Clerk user profiles
+  const allClerkIds = new Set<string>()
+  allClerkIds.add(doc.createdBy.clerkId)
+  for (const s of doc.shares) {
+    allClerkIds.add(s.member.clerkId)
+  }
+
+  const client = await clerkClient()
+  const clerkUsers = await client.users.getUserList({
+    userId: [...allClerkIds],
+    limit: 100,
+  })
+  const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+
+  const creatorUser = userMap.get(doc.createdBy.clerkId)
+  const shaped = {
+    ...doc,
+    createdBy: {
+      id: doc.createdBy.id,
+      name: resolveClerkName(creatorUser, doc.createdBy.clerkId),
+      imageUrl: creatorUser?.imageUrl ?? null,
+    },
+    shares: doc.shares.map(s => {
+      const shareUser = userMap.get(s.member.clerkId)
+      return {
+        ...s,
+        member: {
+          id: s.member.id,
+          name: resolveClerkName(shareUser, s.member.clerkId),
+          imageUrl: shareUser?.imageUrl ?? null,
+        },
+      }
+    }),
+  }
+
+  return NextResponse.json({ document: shaped })
 }
 
 export async function PATCH(

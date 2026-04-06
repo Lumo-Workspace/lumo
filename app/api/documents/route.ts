@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createDocumentSchema } from '@/lib/validation/schemas'
+
+function resolveClerkName(
+  u:
+    | {
+        firstName: string | null
+        lastName: string | null
+        emailAddresses: { emailAddress: string }[]
+      }
+    | undefined,
+  fallback: string
+): string {
+  if (!u) return fallback
+  return (
+    `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+    u.emailAddresses[0]?.emailAddress ||
+    fallback
+  )
+}
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth()
@@ -65,7 +84,49 @@ export async function GET(request: NextRequest) {
     orderBy: [{ updatedAt: 'desc' }],
   })
 
-  return NextResponse.json({ documents })
+  // Batch-fetch Clerk user profiles for all members referenced
+  const allClerkIds = new Set<string>()
+  for (const doc of documents) {
+    allClerkIds.add(doc.createdBy.clerkId)
+    for (const s of doc.shares) {
+      allClerkIds.add(s.member.clerkId)
+    }
+  }
+
+  const client = await clerkClient()
+  const clerkUsers =
+    allClerkIds.size > 0
+      ? await client.users.getUserList({
+          userId: [...allClerkIds],
+          limit: 100,
+        })
+      : { data: [] }
+  const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
+
+  const shaped = documents.map(doc => {
+    const creatorUser = userMap.get(doc.createdBy.clerkId)
+    return {
+      ...doc,
+      createdBy: {
+        id: doc.createdBy.id,
+        name: resolveClerkName(creatorUser, doc.createdBy.clerkId),
+        imageUrl: creatorUser?.imageUrl ?? null,
+      },
+      shares: doc.shares.map(s => {
+        const shareUser = userMap.get(s.member.clerkId)
+        return {
+          ...s,
+          member: {
+            id: s.member.id,
+            name: resolveClerkName(shareUser, s.member.clerkId),
+            imageUrl: shareUser?.imageUrl ?? null,
+          },
+        }
+      }),
+    }
+  })
+
+  return NextResponse.json({ documents: shaped })
 }
 
 export async function POST(request: NextRequest) {
@@ -97,5 +158,22 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  return NextResponse.json({ document }, { status: 201 })
+  // Resolve creator name
+  const client = await clerkClient()
+  const clerkUsers = await client.users.getUserList({
+    userId: [document.createdBy.clerkId],
+    limit: 1,
+  })
+  const creatorUser = clerkUsers.data[0]
+
+  const shaped = {
+    ...document,
+    createdBy: {
+      id: document.createdBy.id,
+      name: resolveClerkName(creatorUser, document.createdBy.clerkId),
+      imageUrl: creatorUser?.imageUrl ?? null,
+    },
+  }
+
+  return NextResponse.json({ document: shaped }, { status: 201 })
 }
