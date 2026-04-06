@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { enUS, zhCN } from 'date-fns/locale'
 import { getInitials } from '@/lib/utils/getInitials'
 import {
   UserCircle2,
@@ -455,6 +456,7 @@ export function DueDatePicker({
   triggerClassName?: string
 }) {
   const intl = useIntl()
+  const calendarLocale = intl.locale === 'zh' ? zhCN : enUS
   const [open, setOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDate, setDialogDate] = useState<Date | undefined>(undefined)
@@ -607,7 +609,7 @@ export function DueDatePicker({
               <>
                 <button
                   type='button'
-                  className='flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                  className='flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
                   onClick={() => {
                     onChange(null)
                     setOpen(false)
@@ -652,7 +654,7 @@ export function DueDatePicker({
 
       {/* Custom date picker dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className='max-w-fit'>
+        <DialogContent className='max-w-xs'>
           <DialogHeader>
             <DialogTitle>
               {intl.formatMessage({ id: 'dueDate.editTitle' })}
@@ -670,21 +672,25 @@ export function DueDatePicker({
               className='w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
             />
           </div>
-          <Calendar
-            mode='single'
-            className='p-0 [--cell-size:--spacing(9.5)]'
-            selected={dialogDate}
-            onSelect={day => {
-              if (day) {
-                setDialogDate(day)
-                setDialogMonth(new Date(day.getFullYear(), day.getMonth(), 1))
-                setDateInput(formatDateInput(day))
-              }
-            }}
-            month={dialogMonth}
-            onMonthChange={setDialogMonth}
-            fixedWeeks
-          />
+          <div>
+            <Calendar
+              mode='single'
+              className='w-full [&_[data-slot=calendar]]:w-full'
+              style={{ '--cell-size': '2.25rem' } as React.CSSProperties}
+              selected={dialogDate}
+              onSelect={day => {
+                if (day) {
+                  setDialogDate(day)
+                  setDialogMonth(new Date(day.getFullYear(), day.getMonth(), 1))
+                  setDateInput(formatDateInput(day))
+                }
+              }}
+              month={dialogMonth}
+              onMonthChange={setDialogMonth}
+              locale={calendarLocale}
+              fixedWeeks
+            />
+          </div>
           <div className='flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
             {quickOptions.map(({ key, msgId }) => {
               const days =
@@ -716,7 +722,7 @@ export function DueDatePicker({
             <Button
               variant='ghost'
               size='sm'
-              className='text-red-500 hover:text-red-600'
+              className=''
               onClick={handleDialogRemove}
             >
               {intl.formatMessage({ id: 'dueDate.removeDueDate' })}
