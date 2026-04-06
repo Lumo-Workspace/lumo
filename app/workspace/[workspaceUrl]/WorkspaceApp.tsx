@@ -864,21 +864,71 @@ export default function DashboardApp() {
                 `/workspace/${workspaceUrl}/documents`
               )
             }}
-            onCreateChildDocument={async parentId => {
-              const res = await fetch(API.documents.list, {
+            onCreateChildDocument={parentId => {
+              // Optimistic: generate temp ID, cache, and navigate instantly
+              const tempId = `temp-${crypto.randomUUID()}`
+              const now = new Date().toISOString()
+              const optimisticDoc = {
+                id: tempId,
+                title: '',
+                emoji: null,
+                parentId,
+                projectId: null,
+                project: null,
+                workspaceId: '',
+                createdById: '',
+                createdBy: { id: '', name: '', imageUrl: null },
+                visibility: 'PRIVATE' as const,
+                sortOrder: 0,
+                createdAt: now,
+                updatedAt: now,
+                content: null,
+                children: [],
+                shares: [],
+                ancestors: [],
+              }
+              writeCache(CACHE_KEY.documentDetail(tempId), optimisticDoc)
+              setSelectedDocumentId(tempId)
+              window.history.pushState(
+                null,
+                '',
+                `/workspace/${workspaceUrl}/documents/${tempId}`
+              )
+
+              // Background sync: create on server, then replace temp ID
+              fetch(API.documents.list, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ parentId }),
               })
-              if (res.ok) {
-                const data = await res.json()
-                setSelectedDocumentId(data.document.id)
-                window.history.pushState(
-                  null,
-                  '',
-                  `/workspace/${workspaceUrl}/documents/${data.document.id}`
-                )
-              }
+                .then(res => (res.ok ? res.json() : null))
+                .then(data => {
+                  if (!data) return
+                  const realId = data.document.id as string
+                  // Update cache: write real doc, remove temp
+                  writeCache(CACHE_KEY.documentDetail(realId), {
+                    ...optimisticDoc,
+                    ...data.document,
+                    ancestors: data.ancestors ?? [],
+                  })
+                  try {
+                    localStorage.removeItem(CACHE_KEY.documentDetail(tempId))
+                  } catch {
+                    /* ignore */
+                  }
+                  // Swap to real ID if user is still on the temp doc
+                  setSelectedDocumentId(prev => {
+                    if (prev === tempId) {
+                      window.history.replaceState(
+                        null,
+                        '',
+                        `/workspace/${workspaceUrl}/documents/${realId}`
+                      )
+                      return realId
+                    }
+                    return prev
+                  })
+                })
             }}
           />
         ) : null

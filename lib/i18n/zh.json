@@ -1,4 +1,7 @@
 {
+  "common.cancel": "取消",
+  "common.save": "保存",
+
   "sidebar.myTasks": "我的任务",
   "sidebar.inbox": "收件箱",
   "sidebar.workspace": "工作区",
@@ -99,9 +102,15 @@
   "documentEditor.saved": "已保存",
   "documentEditor.savedAgo": "已保存 {time}",
   "documentEditor.slashPlaceholder": "输入 '/' 打开命令菜单...",
+  "documentEditor.pages": "页面",
   "documentEditor.tocTitle": "目录",
   "documentEditor.childDocs": "子文档",
   "documentEditor.addChildDoc": "添加子文档",
+  "documentToc.addSubPage": "添加子页面",
+  "documentToc.rename": "重命名",
+  "documentToc.delete": "删除",
+  "documentToc.deleteConfirmTitle": "删除文档",
+  "documentToc.deleteConfirmDesc": "确定要删除「{title}」吗？此操作无法撤销。",
   "documentEditor.visibility": "可见性",
   "documentEditor.share": "分享",
   "documentEditor.project": "项目"

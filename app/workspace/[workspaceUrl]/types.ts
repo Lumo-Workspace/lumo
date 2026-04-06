@@ -307,10 +307,23 @@ export interface ApiDocument {
   _count?: { children: number }
 }
 
+export interface ApiDocumentAncestor {
+  id: string
+  title: string
+  emoji: string | null
+  children?: {
+    id: string
+    title: string
+    emoji: string | null
+    _count: { children: number }
+  }[]
+}
+
 export interface ApiDocumentDetail extends ApiDocument {
   content: string | null
   children: ApiDocument[]
   shares: ApiDocumentShare[]
+  ancestors?: ApiDocumentAncestor[]
 }
 
 export interface ApiDocumentShare {

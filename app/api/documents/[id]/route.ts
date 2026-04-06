@@ -47,8 +47,10 @@ async function getDocumentWithPermission(
           id: true,
           title: true,
           emoji: true,
+          parentId: true,
           sortOrder: true,
           updatedAt: true,
+          _count: { select: { children: true } },
         },
       },
       shares: {
@@ -103,6 +105,50 @@ export async function GET(
   })
   const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
 
+  // Walk up the parent chain to build ancestors (with sibling info at each level)
+  const ancestors: {
+    id: string
+    title: string
+    emoji: string | null
+    children: {
+      id: string
+      title: string
+      emoji: string | null
+      _count: { children: number }
+    }[]
+  }[] = []
+  let currentParentId = doc.parentId
+  const visitedIds = new Set<string>()
+  while (currentParentId && !visitedIds.has(currentParentId)) {
+    visitedIds.add(currentParentId)
+    const parent = await prisma.document.findUnique({
+      where: { id: currentParentId },
+      select: {
+        id: true,
+        title: true,
+        emoji: true,
+        parentId: true,
+        children: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            emoji: true,
+            _count: { select: { children: true } },
+          },
+        },
+      },
+    })
+    if (!parent) break
+    ancestors.unshift({
+      id: parent.id,
+      title: parent.title,
+      emoji: parent.emoji,
+      children: parent.children,
+    })
+    currentParentId = parent.parentId
+  }
+
   const creatorUser = userMap.get(doc.createdBy.clerkId)
   const shaped = {
     ...doc,
@@ -124,7 +170,7 @@ export async function GET(
     }),
   }
 
-  return NextResponse.json({ document: shaped })
+  return NextResponse.json({ document: shaped, ancestors })
 }
 
 export async function PATCH(
@@ -216,12 +262,31 @@ export async function DELETE(
   }
 
   await prisma.$transaction(async tx => {
-    // Re-parent children to null (become root-level)
-    await tx.document.updateMany({
-      where: { parentId: id },
-      data: { parentId: null },
+    // Recursively collect all descendant IDs
+    const toDelete: string[] = [id]
+    let currentIds = [id]
+    while (currentIds.length > 0) {
+      const children = await tx.document.findMany({
+        where: { parentId: { in: currentIds } },
+        select: { id: true },
+      })
+      const childIds = children.map(c => c.id)
+      toDelete.push(...childIds)
+      currentIds = childIds
+    }
+
+    // Delete all mentions, shares, then documents (deepest first)
+    await tx.documentMention.deleteMany({
+      where: { documentId: { in: toDelete } },
     })
-    await tx.document.delete({ where: { id } })
+    await tx.documentShare.deleteMany({
+      where: { documentId: { in: toDelete } },
+    })
+    // Delete in reverse order (children before parents) to respect FK
+    for (let i = toDelete.length - 1; i >= 0; i--) {
+      const deleteId = toDelete[i]!
+      await tx.document.delete({ where: { id: deleteId } })
+    }
   })
 
   return NextResponse.json({ success: true })

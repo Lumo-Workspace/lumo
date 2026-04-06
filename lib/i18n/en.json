@@ -1,4 +1,7 @@
 {
+  "common.cancel": "Cancel",
+  "common.save": "Save",
+
   "sidebar.myTasks": "My Tasks",
   "sidebar.inbox": "Inbox",
   "sidebar.workspace": "Workspace",
@@ -99,9 +102,15 @@
   "documentEditor.saved": "Saved",
   "documentEditor.savedAgo": "Saved {time}",
   "documentEditor.slashPlaceholder": "Type '/' for commands...",
+  "documentEditor.pages": "Pages",
   "documentEditor.tocTitle": "Table of Contents",
   "documentEditor.childDocs": "Sub-documents",
   "documentEditor.addChildDoc": "Add sub-document",
+  "documentToc.addSubPage": "Add sub-page",
+  "documentToc.rename": "Rename",
+  "documentToc.delete": "Delete",
+  "documentToc.deleteConfirmTitle": "Delete document",
+  "documentToc.deleteConfirmDesc": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
   "documentEditor.visibility": "Visibility",
   "documentEditor.share": "Share",
   "documentEditor.project": "Project"
