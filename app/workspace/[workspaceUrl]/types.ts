@@ -332,6 +332,7 @@ export interface TreeNode {
 
 export interface ApiDocumentDetail extends ApiDocument {
   content: string | null
+  publicToken?: string | null | undefined
   children: ApiDocument[]
   shares: ApiDocumentShare[]
   ancestors?: ApiDocumentAncestor[]

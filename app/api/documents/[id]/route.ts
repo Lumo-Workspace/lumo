@@ -207,6 +207,14 @@ export async function PATCH(
     )
   }
 
+  // Only owner can change publicToken
+  if (parsed.data.publicToken !== undefined && role !== 'OWNER') {
+    return NextResponse.json(
+      { error: 'Only the owner can change public link' },
+      { status: 403 }
+    )
+  }
+
   const updateData: Record<string, unknown> = {}
   if (parsed.data.title !== undefined) updateData.title = parsed.data.title
   if (parsed.data.content !== undefined)
@@ -218,6 +226,8 @@ export async function PATCH(
     updateData.projectId = parsed.data.projectId
   if (parsed.data.sortOrder !== undefined)
     updateData.sortOrder = parsed.data.sortOrder
+  if (parsed.data.publicToken !== undefined)
+    updateData.publicToken = parsed.data.publicToken
 
   const updated = await prisma.$transaction(async tx => {
     const updatedDoc =
