@@ -91,7 +91,7 @@ export function ShareDialog({
   open,
   onOpenChange,
   documentId,
-  documentTitle: _documentTitle,
+  documentTitle,
   documentEmoji,
   visibility,
   publicToken,
@@ -335,10 +335,11 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle className='flex items-center gap-2'>
+          <DialogTitle>{intl.formatMessage({ id: 'share.title' })}</DialogTitle>
+          <p className='flex items-center gap-1 text-sm text-muted-foreground'>
             {documentEmoji && <span>{documentEmoji}</span>}
-            {intl.formatMessage({ id: 'share.title' })}
-          </DialogTitle>
+            {documentTitle || 'Untitled'}
+          </p>
         </DialogHeader>
 
         {/* ── Invite section ─────────────────────────────────────────── */}
