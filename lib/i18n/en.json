@@ -74,5 +74,35 @@
   "dueDate.save": "Save due date",
   "dueDate.cancel": "Cancel",
   "dueDate.due": "Due {date}",
-  "taskColumns.dueDate": "Due Date"
+  "taskColumns.dueDate": "Due Date",
+
+  "sidebar.documents": "Documents",
+
+  "documents.title": "Documents",
+  "documents.subtitle": "Create and share docs with your team",
+  "documents.newDocument": "New Document",
+  "documents.filterAll": "All",
+  "documents.filterPersonal": "Personal",
+  "documents.filterShared": "Shared",
+  "documents.filterWorkspace": "Workspace",
+  "documents.untitled": "Untitled",
+  "documents.search": "Search documents...",
+  "documents.empty": "No documents yet",
+  "documents.emptyFiltered": "No documents match this filter",
+  "documents.delete": "Delete",
+  "documents.deleteConfirm": "Are you sure you want to delete this document?",
+  "documents.duplicate": "Duplicate",
+  "documents.copyLink": "Copy link",
+  "documents.sharedWith": "Shared with {count} members",
+
+  "documentEditor.saving": "Saving...",
+  "documentEditor.saved": "Saved",
+  "documentEditor.savedAgo": "Saved {time}",
+  "documentEditor.slashPlaceholder": "Type '/' for commands...",
+  "documentEditor.tocTitle": "Table of Contents",
+  "documentEditor.childDocs": "Sub-documents",
+  "documentEditor.addChildDoc": "Add sub-document",
+  "documentEditor.visibility": "Visibility",
+  "documentEditor.share": "Share",
+  "documentEditor.project": "Project"
 }

@@ -74,5 +74,35 @@
   "dueDate.save": "保存截止日期",
   "dueDate.cancel": "取消",
   "dueDate.due": "{date} 截止",
-  "taskColumns.dueDate": "截止日期"
+  "taskColumns.dueDate": "截止日期",
+
+  "sidebar.documents": "文档",
+
+  "documents.title": "文档",
+  "documents.subtitle": "创建和分享团队文档",
+  "documents.newDocument": "新建文档",
+  "documents.filterAll": "全部",
+  "documents.filterPersonal": "个人",
+  "documents.filterShared": "已分享",
+  "documents.filterWorkspace": "工作区",
+  "documents.untitled": "无标题",
+  "documents.search": "搜索文档...",
+  "documents.empty": "暂无文档",
+  "documents.emptyFiltered": "没有匹配的文档",
+  "documents.delete": "删除",
+  "documents.deleteConfirm": "确定要删除此文档吗？",
+  "documents.duplicate": "复制",
+  "documents.copyLink": "复制链接",
+  "documents.sharedWith": "已分享给 {count} 位成员",
+
+  "documentEditor.saving": "保存中...",
+  "documentEditor.saved": "已保存",
+  "documentEditor.savedAgo": "已保存 {time}",
+  "documentEditor.slashPlaceholder": "输入 '/' 打开命令菜单...",
+  "documentEditor.tocTitle": "目录",
+  "documentEditor.childDocs": "子文档",
+  "documentEditor.addChildDoc": "添加子文档",
+  "documentEditor.visibility": "可见性",
+  "documentEditor.share": "分享",
+  "documentEditor.project": "项目"
 }

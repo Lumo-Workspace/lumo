@@ -47,6 +47,18 @@ enum InviteStatus {
   REVOKED
 }
 
+enum DocVisibility {
+  PRIVATE
+  SHARED
+  WORKSPACE
+}
+
+enum DocShareRole {
+  VIEWER
+  EDITOR
+  MANAGER
+}
+
 enum NotificationType {
   TASK_IN_REVIEW    // task moved to IN_REVIEW — sent to reviewer / OWNERs
   TASK_MENTIONED    // someone @mentioned you in a comment
@@ -106,6 +118,7 @@ model Workspace {
   slackIntegration   SlackIntegration?
   actors             Actor[]
   agentProfiles      AgentProfile[]
+  documents          Document[]
 
   @@map("workspaces")
 }
@@ -167,6 +180,8 @@ model WorkspaceMember {
   agentProfiles          AgentProfile[]
   apiKeys                ApiKey[]
   preference             UserPreference?
+  createdDocuments       Document[]      @relation("DocumentCreator")
+  documentShares         DocumentShare[] @relation("DocumentShareMember")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -237,6 +252,7 @@ model Project {
   views           View[]
   slackChannels   SlackChannel[]
   repositories    ProjectRepository[]
+  documents       Document[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -299,6 +315,7 @@ model Task {
   clarifies      AgentClarify[]
   agentRuns      AgentRun[]
   activities     TaskActivity[]
+  documentMentions DocumentMention[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -688,4 +705,62 @@ model WaitlistEntry {
   createdAt DateTime @default(now())
 
   @@map("waitlist_entries")
+}
+
+// ─── Documents ──────────────────────────────────────────────────────────────
+
+model Document {
+  id          String        @id @default(cuid())
+  title       String        @default("Untitled")
+  content     String?       @db.Text
+  emoji       String?
+
+  parentId    String?
+  parent      Document?     @relation("DocTree", fields: [parentId], references: [id])
+  children    Document[]    @relation("DocTree")
+  sortOrder   Float         @default(0)
+
+  projectId   String?
+  project     Project?      @relation(fields: [projectId], references: [id])
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  createdById String
+  createdBy   WorkspaceMember @relation("DocumentCreator", fields: [createdById], references: [id])
+
+  visibility  DocVisibility @default(PRIVATE)
+  shares      DocumentShare[]
+  mentions    DocumentMention[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([workspaceId])
+  @@index([parentId])
+  @@index([projectId])
+  @@index([createdById])
+}
+
+model DocumentShare {
+  id          String       @id @default(cuid())
+  documentId  String
+  document    Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      WorkspaceMember @relation("DocumentShareMember", fields: [memberId], references: [id])
+  role        DocShareRole @default(VIEWER)
+
+  createdAt   DateTime     @default(now())
+
+  @@unique([documentId, memberId])
+}
+
+model DocumentMention {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([documentId, taskId])
 }
