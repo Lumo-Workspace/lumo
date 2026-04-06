@@ -23,11 +23,12 @@ export function getBaseExtensions(): Extensions {
     Underline,
     Link.configure({
       openOnClick: false,
+      autolink: true,
       HTMLAttributes: { class: 'text-blue-500 underline cursor-pointer' },
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    Image,
+    Image.configure({ inline: false, allowBase64: false }),
     Table.configure({ resizable: true }),
     TableRow,
     TableHeader,
