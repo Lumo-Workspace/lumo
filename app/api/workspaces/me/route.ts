@@ -52,7 +52,8 @@ export async function PATCH(request: NextRequest) {
     const parsed = createWorkspaceSchema.partial().safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const { name, slug } = parsed.data
+    const { name, slug, summaryEnabled, summaryFrequency, summaryLocale } =
+      parsed.data
 
     // Check slug uniqueness if changing
     if (slug && slug !== ws.workspace.slug) {
@@ -69,7 +70,13 @@ export async function PATCH(request: NextRequest) {
 
     const updated = await prisma.workspace.update({
       where: { id: ws.workspaceId },
-      data: { ...(name && { name }), ...(slug && { slug }) },
+      data: {
+        ...(name && { name }),
+        ...(slug && { slug }),
+        ...(summaryEnabled !== undefined && { summaryEnabled }),
+        ...(summaryFrequency && { summaryFrequency }),
+        ...(summaryLocale && { summaryLocale }),
+      },
     })
 
     return NextResponse.json({ workspace: updated })

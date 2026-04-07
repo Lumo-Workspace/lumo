@@ -1,0 +1,72 @@
+'use client'
+
+import { useIntl } from 'react-intl'
+import { cn } from '@/lib/utils'
+import type { TaskSummaryStats } from '@/types/summary'
+
+interface StatsCardRowProps {
+  stats: TaskSummaryStats
+}
+
+interface StatCardProps {
+  label: string
+  value: string | number
+  valueClassName?: string
+}
+
+function StatCard({ label, value, valueClassName }: StatCardProps) {
+  return (
+    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 flex flex-col gap-1'>
+      <span
+        className={cn(
+          'text-2xl font-bold',
+          valueClassName ?? 'text-zinc-900 dark:text-zinc-100'
+        )}
+      >
+        {value}
+      </span>
+      <span className='text-xs text-zinc-500 dark:text-zinc-400'>{label}</span>
+    </div>
+  )
+}
+
+export function StatsCardRow({ stats }: StatsCardRowProps) {
+  const intl = useIntl()
+
+  const completed = stats.statusDistribution['DONE'] ?? 0
+  const overdue = stats.overdueTasks.count
+
+  const avgCompletionValue =
+    stats.avgCompletionTime !== null
+      ? intl.formatMessage(
+          { id: 'summary.hours' },
+          { count: stats.avgCompletionTime }
+        )
+      : 'N/A'
+
+  return (
+    <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
+      <StatCard
+        label={intl.formatMessage({ id: 'summary.totalTasks' })}
+        value={stats.totalTasks}
+      />
+      <StatCard
+        label={intl.formatMessage({ id: 'summary.completed' })}
+        value={completed}
+        valueClassName='text-green-500'
+      />
+      <StatCard
+        label={intl.formatMessage({ id: 'summary.overdue' })}
+        value={overdue}
+        valueClassName={
+          overdue > 0 ? 'text-amber-500' : 'text-zinc-900 dark:text-zinc-100'
+        }
+      />
+      <StatCard
+        label={intl.formatMessage({ id: 'summary.avgCompletion' })}
+        value={avgCompletionValue}
+        valueClassName='text-indigo-400'
+      />
+    </div>
+  )
+}

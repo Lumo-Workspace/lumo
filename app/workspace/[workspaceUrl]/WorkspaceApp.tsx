@@ -62,6 +62,7 @@ import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
 import { DraftsPage } from './components/DraftsPage'
+import { DashboardPage } from './components/pages/DashboardPage'
 import { GlobalDocTree } from './components/document/GlobalDocTree'
 import {
   Dialog,
@@ -92,6 +93,8 @@ function pageToPath(
 ): string {
   const base = `/workspace/${workspaceUrl}`
   switch (page) {
+    case 'dashboard':
+      return `${base}/dashboard`
     case 'my-tasks':
       return `${base}/my-tasks`
     case 'inbox':
@@ -125,6 +128,7 @@ function pathToPage(
     return { page: 'document-editor', projectSlug: docId }
   }
   if (rest.startsWith('/documents')) return { page: 'documents' }
+  if (rest.startsWith('/dashboard')) return { page: 'dashboard' }
   if (rest.startsWith('/inbox')) return { page: 'inbox' }
   if (rest.startsWith('/projects/')) {
     const projectSlug = rest.slice('/projects/'.length).split('/')[0]
@@ -1014,6 +1018,18 @@ export default function DashboardApp() {
   // ─── Render current page ───────────────────────────────────────────────────
   const renderPage = () => {
     switch (currentPage) {
+      case 'dashboard':
+        return (
+          <DashboardPage
+            onNavigateToProject={projectId => {
+              const project = projects.find(p => p.id === projectId)
+              if (project) {
+                navigateTo('project-detail', project)
+              }
+            }}
+          />
+        )
+
       case 'my-tasks':
         return (
           <MyTasksPage
