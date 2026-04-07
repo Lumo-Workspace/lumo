@@ -182,6 +182,7 @@ model WorkspaceMember {
   preference             UserPreference?
   createdDocuments       Document[]      @relation("DocumentCreator")
   documentShares         DocumentShare[] @relation("DocumentShareMember")
+  documentEdits          DocumentEditor[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -720,6 +721,8 @@ model Document {
   children    Document[]    @relation("DocTree")
   sortOrder   Float         @default(0)
   publicToken String?       @unique
+  tags         String[]  @default([])
+  editors      DocumentEditor[]
 
   projectId   String?
   project     Project?      @relation(fields: [projectId], references: [id])
@@ -764,4 +767,15 @@ model DocumentMention {
   createdAt   DateTime @default(now())
 
   @@unique([documentId, taskId])
+}
+
+model DocumentEditor {
+  id           String          @id @default(cuid())
+  document     Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId   String
+  member       WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId     String
+  lastEditedAt DateTime        @default(now())
+
+  @@unique([documentId, memberId])
 }
