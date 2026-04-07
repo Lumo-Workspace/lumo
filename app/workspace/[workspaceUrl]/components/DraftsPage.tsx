@@ -26,7 +26,6 @@ export function DraftsPage({
   onRestoreProjectDraft,
   onOpenIdeaProject,
   onDeleteDraft,
-  loading,
 }: DraftsPageProps) {
   const intl = useIntl()
   const [activeTab, setActiveTab] = useState<'tasks' | 'projects'>('tasks')
@@ -46,10 +45,9 @@ export function DraftsPage({
 
   // Reset confirm state after 3 seconds
   useEffect(() => {
-    if (confirmDeleteId) {
-      const timer = setTimeout(() => setConfirmDeleteId(null), 3000)
-      return () => clearTimeout(timer)
-    }
+    if (!confirmDeleteId) return
+    const timer = setTimeout(() => setConfirmDeleteId(null), 3000)
+    return () => clearTimeout(timer)
   }, [confirmDeleteId])
 
   const tabCls = (active: boolean) =>
