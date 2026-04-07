@@ -142,16 +142,40 @@ function getTagColor(tag: string) {
 
 ## Collaborator Avatars
 
-Display document share members as stacked circular avatars:
+Display people who have actually edited the document, not just share members.
 
-- Source: `document.shares` → member info (name, imageUrl)
+### Data Model
+
+Add a many-to-many relation to track editors:
+
+```prisma
+model Document {
+  // ... existing fields
+  editors        DocumentEditor[]
+}
+
+model DocumentEditor {
+  id           String          @id @default(cuid())
+  document     Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId   String
+  member       WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId     String
+  lastEditedAt DateTime        @default(now())
+
+  @@unique([documentId, memberId])
+}
+```
+
+When a document is saved (PATCH content), upsert into `DocumentEditor` with the current member and update `lastEditedAt`. This gives us the list of everyone who has ever edited the document.
+
+### Display
+
+- Source: `document.editors` → member info (name, imageUrl)
 - Avatar: 22px circle, image or initials fallback
 - Stacked with -6px negative margin overlap
 - Max 3 visible, "+N" counter badge for overflow
-- Owner is NOT shown in collaborator list (they're the current user in most cases)
+- Ordered by `lastEditedAt` desc (most recent editor first)
 - Tooltip on hover shows full name list
-
-This data is already available: the document list API can include share member info with a Prisma `include`.
 
 ## API Changes
 
@@ -160,7 +184,7 @@ This data is already available: the document list API can include share member i
 Add to the Prisma query:
 
 - `select` the new `tags` field
-- `include` shares with member name/imageUrl (limited fields via `select`)
+- `include` editors with member name/imageUrl (limited fields via `select`)
 
 Response shape change per document:
 
@@ -169,8 +193,9 @@ Response shape change per document:
   // ... existing fields
   tags: string[]
   createdAt: string    // already returned
-  shares: Array<{
+  editors: Array<{
     member: { id: string; name: string; imageUrl: string | null }
+    lastEditedAt: string
   }>
 }
 ```
@@ -228,7 +253,20 @@ documents.moreTags: "+{count}" / "+{count}"
 ## Migration
 
 ```sql
+-- Add tags array to Document
 ALTER TABLE "Document" ADD COLUMN "tags" TEXT[] DEFAULT ARRAY[]::TEXT[];
+
+-- Create DocumentEditor table for tracking editors
+CREATE TABLE "DocumentEditor" (
+    "id" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "lastEditedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "DocumentEditor_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "DocumentEditor_documentId_memberId_key" ON "DocumentEditor"("documentId", "memberId");
+ALTER TABLE "DocumentEditor" ADD CONSTRAINT "DocumentEditor_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE CASCADE;
+ALTER TABLE "DocumentEditor" ADD CONSTRAINT "DocumentEditor_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "WorkspaceMember"("id") ON DELETE CASCADE;
 ```
 
 ## Out of Scope
