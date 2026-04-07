@@ -248,3 +248,14 @@ export const priorityOverrideSchema = z.object({
   taskTitle: z.string().min(1).max(500),
   taskDescription: z.string().max(10000).optional(),
 })
+
+// ─── Quick Dispatch ─────────────────────────────────────────────────────────
+
+export const quickDispatchSchema = z.object({
+  input: z
+    .string()
+    .trim()
+    .min(1, 'Input is required')
+    .max(500, 'Input must be at most 500 characters'),
+  workspaceUrl: z.string().min(1, 'Workspace URL is required'),
+})
