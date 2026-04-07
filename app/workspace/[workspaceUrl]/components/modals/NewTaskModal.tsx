@@ -19,13 +19,14 @@ import {
   StatusSelect,
   AssigneeSelect,
   ProjectSelect,
-  PrioritySelect,
+  AiPrioritySelect,
   DueDatePicker,
   FIELD_TRIGGER_CLS,
 } from '../TaskFieldSelects'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
+import { usePrioritySuggestion } from '../../hooks/usePrioritySuggestion'
 import { DuplicateWarning } from '../DuplicateWarning'
 import { DuplicateConfirm, DuplicateMatch } from '../DuplicateConfirm'
 import {
@@ -46,6 +47,7 @@ export interface NewTaskFormData {
   assigneeId: string
   repositoryId: string | null
   dueDate: string | null
+  aiSuggestedPriority?: ApiPriority | null
 }
 
 interface NewTaskModalProps {
@@ -84,6 +86,12 @@ export function NewTaskModal({
   const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
   const [dueDate, setDueDate] = useState<string | null>(null)
 
+  // ─── AI priority suggestion ────────────────────────────────────────────
+  const [userHasOverriddenPriority, setUserHasOverriddenPriority] =
+    useState(false)
+  const [overrideRecorded, setOverrideRecorded] = useState(false)
+  const aiSuggestedRef = useRef<ApiPriority | null>(null)
+
   // ─── Duplicate detection ────────────────────────────────────────────────
   type ModalPhase = 'editing' | 'checking' | 'confirming'
   const [phase, setPhase] = useState<ModalPhase>('editing')
@@ -92,6 +100,25 @@ export function NewTaskModal({
 
   const effectiveProjectId = projectId || defaultProjectId || ''
   const { clientMatches } = useDuplicateCheck(title, tasks, effectiveProjectId)
+
+  const {
+    suggestion: prioritySuggestion,
+    isLoading: isPriorityLoading,
+    onTitleChange: onTitleChangePriority,
+    onDescriptionChange: onDescriptionChangePriority,
+    reset: resetPrioritySuggestion,
+  } = usePrioritySuggestion({
+    projectId: effectiveProjectId,
+    userHasOverridden: userHasOverriddenPriority,
+  })
+
+  // Auto-apply AI suggestion when it arrives
+  useEffect(() => {
+    if (prioritySuggestion && !userHasOverriddenPriority) {
+      setPriority(prioritySuggestion.priority)
+      aiSuggestedRef.current = prioritySuggestion.priority
+    }
+  }, [prioritySuggestion, userHasOverriddenPriority])
 
   const projectName =
     projects.find(p => p.id === effectiveProjectId)?.name ?? ''
@@ -145,6 +172,10 @@ export function NewTaskModal({
     setDueDate(null)
     setPhase('editing')
     setAiMatches([])
+    setUserHasOverriddenPriority(false)
+    setOverrideRecorded(false)
+    aiSuggestedRef.current = null
+    resetPrioritySuggestion()
   }
 
   const handleClose = () => {
@@ -152,8 +183,16 @@ export function NewTaskModal({
     onClose()
   }
 
+  const handlePriorityChange = (v: ApiPriority) => {
+    setPriority(v)
+    setUserHasOverriddenPriority(true)
+    if (aiSuggestedRef.current && v !== aiSuggestedRef.current) {
+      setOverrideRecorded(true)
+    }
+  }
+
   const doCreate = () => {
-    const data = {
+    const data: NewTaskFormData = {
       title: title.trim(),
       description: descriptionRef.current ?? '',
       status,
@@ -162,6 +201,7 @@ export function NewTaskModal({
       assigneeId,
       repositoryId,
       dueDate,
+      aiSuggestedPriority: aiSuggestedRef.current,
     }
     reset()
     onClose()
@@ -278,7 +318,10 @@ export function NewTaskModal({
                 })}
                 type='text'
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => {
+                  setTitle(e.target.value)
+                  onTitleChangePriority(e.target.value)
+                }}
                 onKeyDown={e => {
                   if (isSubmitShortcut(e)) handleSubmit()
                 }}
@@ -306,6 +349,7 @@ export function NewTaskModal({
                   onChange={html => {
                     descriptionRef.current = html
                     setDescriptionValue(html)
+                    onDescriptionChangePriority(title, html ?? '')
                   }}
                   placeholder={intl.formatMessage({
                     id: 'newTask.descriptionPlaceholder',
@@ -333,10 +377,13 @@ export function NewTaskModal({
                   )}
                   triggerClassName={triggerClass}
                 />
-                <PrioritySelect
+                <AiPrioritySelect
                   value={priority}
-                  onChange={setPriority}
+                  onChange={handlePriorityChange}
                   triggerClassName={triggerClass}
+                  suggestion={prioritySuggestion}
+                  isLoadingSuggestion={isPriorityLoading}
+                  overrideRecorded={overrideRecorded}
                 />
                 <DueDatePicker
                   value={dueDate}
