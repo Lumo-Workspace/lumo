@@ -611,6 +611,7 @@ export function TaskDetailPage({
         currentPage={'task-detail' as Page}
         onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
         unreadCount={unreadCount}
+        draftCount={0}
       />
       <SidebarInset className='overflow-hidden flex flex-col'>
         {/* Breadcrumb */}

@@ -119,6 +119,7 @@ model Workspace {
   actors             Actor[]
   agentProfiles      AgentProfile[]
   documents          Document[]
+  drafts             Draft[]
 
   @@map("workspaces")
 }
@@ -799,4 +800,20 @@ model PriorityOverride {
 
   @@index([memberId, projectId])
   @@map("priority_overrides")
+}
+
+// ─── Drafts ─────────────────────────────────────────────────────────────────
+
+model Draft {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creatorId   String   // actorId — drafts are private to creator
+  type        String   // "TASK" | "PROJECT"
+  data        Json     // serialized form field snapshot
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId, creatorId])
+  @@map("drafts")
 }

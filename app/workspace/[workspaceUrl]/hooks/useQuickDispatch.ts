@@ -49,7 +49,7 @@ export function useQuickDispatch() {
         const data: QuickDispatchResponse = await res.json()
         setResult(data)
 
-        if (data.titleTooVague || data.missingProject) {
+        if (data.titleTooVague) {
           setPhase('input')
         } else {
           setPhase('preview')

@@ -19,6 +19,7 @@ import {
   Page,
   ApiProject,
   ApiTask,
+  ApiDraft,
   MyTask,
   ApiStatus,
   ApiPriority,
@@ -38,6 +39,7 @@ import { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
 import { usePusherEvent } from './hooks/usePusher'
 import { useDocuments } from './hooks/useDocuments'
 import { useDocumentTree } from './hooks/useDocumentTree'
+import { useDrafts } from './hooks/useDrafts'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -59,6 +61,7 @@ import { TaskDrawer } from './components/TaskDrawer'
 import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
+import { DraftsPage } from './components/DraftsPage'
 import { GlobalDocTree } from './components/document/GlobalDocTree'
 import {
   Dialog,
@@ -103,6 +106,8 @@ function pageToPath(
       return `${base}/documents`
     case 'document-editor':
       return `${base}/documents/${project?.id ?? ''}`
+    case 'drafts':
+      return `${base}/drafts`
     default:
       return `${base}/my-tasks`
   }
@@ -126,6 +131,7 @@ function pathToPage(
     return { page: 'project-detail', projectSlug }
   }
   if (rest.startsWith('/projects')) return { page: 'projects' }
+  if (rest.startsWith('/drafts')) return { page: 'drafts' }
   // Default: /my-tasks or bare /workspace/[slug]
   return { page: 'my-tasks' }
 }
@@ -413,6 +419,16 @@ export default function DashboardApp() {
     QuickDispatchParsedFields | undefined
   >(undefined)
 
+  // ─── Drafts ────────────────────────────────────────────────────────────────
+  const { drafts, draftCount, fetchDrafts, saveDraft, deleteDraft } =
+    useDrafts()
+
+  const [restoringDraftId, setRestoringDraftId] = useState<string | undefined>()
+  const [projectDraftPreFill, setProjectDraftPreFill] = useState<
+    { name: string; description: string } | undefined
+  >()
+  const [projectDraftId, setProjectDraftId] = useState<string | undefined>()
+
   // ─── Task drawer ───────────────────────────────────────────────────────────
   const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
     null
@@ -542,6 +558,53 @@ export default function DashboardApp() {
     []
   )
 
+  // ─── Draft handlers ─────────────────────────────────────────────────────
+  // Fetch drafts on mount for sidebar badge
+  useEffect(() => {
+    fetchDrafts()
+  }, [fetchDrafts])
+
+  const handleRestoreTaskDraft = useCallback((draft: ApiDraft) => {
+    const data = draft.data as Record<string, unknown>
+    setNewTaskPreFill({
+      title: (data.title as string) ?? '',
+      description: (data.description as string) ?? '',
+      status: (data.status as ApiStatus) ?? 'TODO',
+      priority: (data.priority as ApiPriority) ?? 'MEDIUM',
+      projectId: (data.projectId as string) ?? '',
+      assigneeId: (data.assigneeId as string) ?? '',
+      dueDate: (data.dueDate as string) ?? null,
+    })
+    setRestoringDraftId(draft.id)
+    setNewTaskDefaultAssigneeId((data.assigneeId as string) ?? undefined)
+    setNewTaskDefaultStatus((data.status as ApiStatus) ?? undefined)
+    setIsNewTaskModalOpen(true)
+  }, [])
+
+  const handleRestoreProjectDraft = useCallback((draft: ApiDraft) => {
+    const data = draft.data as Record<string, unknown>
+    setProjectDraftPreFill({
+      name: (data.name as string) ?? '',
+      description: (data.description as string) ?? '',
+    })
+    setProjectDraftId(draft.id)
+    setIsNewProjectModalOpen(true)
+  }, [])
+
+  const handleSaveDraft = useCallback(
+    async (type: 'TASK' | 'PROJECT', data: Record<string, unknown>) => {
+      await saveDraft(type, data)
+    },
+    [saveDraft]
+  )
+
+  const handleDeleteDraft = useCallback(
+    async (id: string) => {
+      await deleteDraft(id)
+    },
+    [deleteDraft]
+  )
+
   const openNewTaskModalForMe = useCallback(
     (status?: ApiStatus) => {
       openNewTaskModal(currentMemberId, status)
@@ -588,10 +651,11 @@ export default function DashboardApp() {
     (page: Page, project?: ApiProject) => {
       setCurrentPage(page)
       if (project) setSelectedProject(project)
+      if (page === 'drafts') fetchDrafts()
       const path = pageToPath(workspaceUrl, page, project)
       window.history.pushState(null, '', path)
     },
-    [workspaceUrl]
+    [workspaceUrl, fetchDrafts]
   )
 
   // Browser back/forward → sync currentPage from URL
@@ -1069,6 +1133,21 @@ export default function DashboardApp() {
           </div>
         )
 
+      case 'drafts':
+        return (
+          <DraftsPage
+            drafts={drafts}
+            ideaProjects={projects.filter(p => p.isIdea)}
+            onRestoreTaskDraft={handleRestoreTaskDraft}
+            onRestoreProjectDraft={handleRestoreProjectDraft}
+            onOpenIdeaProject={project => {
+              setSelectedProject(project)
+              navigateTo('project-detail', project)
+            }}
+            onDeleteDraft={handleDeleteDraft}
+          />
+        )
+
       case 'inbox':
         return (
           <InboxPage
@@ -1111,6 +1190,7 @@ export default function DashboardApp() {
           currentPage={currentPage}
           onNavigate={navigateTo}
           unreadCount={unreadCount}
+          draftCount={draftCount}
         />
 
         <SidebarInset className='overflow-hidden flex flex-col'>
@@ -1180,6 +1260,7 @@ export default function DashboardApp() {
                 setNewTaskDefaultAssigneeId(undefined)
                 setNewTaskDefaultStatus(undefined)
                 setNewTaskPreFill(undefined)
+                setRestoringDraftId(undefined)
               }}
               projects={projects}
               members={members}
@@ -1191,6 +1272,9 @@ export default function DashboardApp() {
               preFill={newTaskPreFill}
               onSubmit={handleCreateTask}
               tasks={Object.values(taskMap) as ApiTask[]}
+              draftId={restoringDraftId}
+              onSaveDraft={handleSaveDraft}
+              onDeleteDraft={handleDeleteDraft}
             />
           )}
           {isQuickDispatchOpen && (
@@ -1200,13 +1284,22 @@ export default function DashboardApp() {
               members={members}
               onSubmit={handleCreateTask}
               onEdit={handleQuickDispatchEdit}
+              onSaveDraft={handleSaveDraft}
             />
           )}
           {isNewProjectModalOpen && (
             <NewProjectModal
               isOpen={isNewProjectModalOpen}
-              onClose={() => setIsNewProjectModalOpen(false)}
+              onClose={() => {
+                setIsNewProjectModalOpen(false)
+                setProjectDraftPreFill(undefined)
+                setProjectDraftId(undefined)
+              }}
               onSubmit={handleCreateProject}
+              preFill={projectDraftPreFill}
+              draftId={projectDraftId}
+              onSaveDraft={handleSaveDraft}
+              onDeleteDraft={handleDeleteDraft}
             />
           )}
         </AnimatePresence>
