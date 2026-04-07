@@ -515,6 +515,13 @@ body {
 .animation-delay-2000 { animation-delay: 2s; }
 .animation-delay-4000 { animation-delay: 4s; }
 
+@keyframes fade-out {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-fade-out { animation: fade-out 2s ease-out forwards; }
+
 .hover\:shadow-purple-500\/25:hover {
   box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.25);
 }

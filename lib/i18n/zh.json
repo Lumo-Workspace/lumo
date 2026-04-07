@@ -49,6 +49,11 @@
   "newTask.create": "创建任务",
   "newTask.checking": "检测中...",
 
+  "priority.aiRecommended": "AI 推荐",
+  "priority.preferenceRecorded": "已记录偏好",
+  "priority.recommended": "推荐: {priority}",
+  "priority.similarTasks": "{count} 个类似任务:",
+
   "aiDesc.generating": "正在生成描述...",
   "aiDesc.preview": "AI 生成预览",
   "aiDesc.useThis": "使用",

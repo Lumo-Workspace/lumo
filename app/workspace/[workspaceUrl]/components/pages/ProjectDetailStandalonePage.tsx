@@ -198,6 +198,7 @@ export function ProjectDetailStandalonePage({
       status,
       priority,
       assigneeId,
+      aiSuggestedPriority,
     }: NewTaskFormData) => {
       const res = await apiFetch(API.projects.tasks(project.id), {
         method: 'POST',
@@ -217,6 +218,23 @@ export function ProjectDetailStandalonePage({
       const { task } = (await res.json()) as { task: ApiTask }
       setTasks(prev => [...prev, task])
       toast.success('Task created')
+
+      // Record AI priority override if user changed the suggestion
+      if (aiSuggestedPriority && aiSuggestedPriority !== priority) {
+        apiFetch('/api/tasks/priority-override', {
+          method: 'POST',
+          body: {
+            taskId: task.id,
+            projectId: project.id,
+            aiSuggested: aiSuggestedPriority,
+            userChosen: priority,
+            taskTitle: title,
+            taskDescription: description || undefined,
+          },
+        }).catch(() => {
+          // Silent failure — override recording is non-critical
+        })
+      }
     },
     [project.id]
   )
