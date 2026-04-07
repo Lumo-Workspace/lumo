@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { AnimatePresence } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '../Modal'
@@ -30,6 +31,9 @@ interface QuickDispatchModalProps {
   onSubmit: (data: NewTaskFormData) => Promise<void>
   /** Called when user clicks "Edit" — parent should open NewTaskModal with these fields pre-filled. */
   onEdit: (fields: QuickDispatchParsedFields) => void
+  onSaveDraft?:
+    | ((type: 'TASK', data: Record<string, unknown>) => Promise<void>)
+    | undefined
 }
 
 export function QuickDispatchModal({
@@ -38,6 +42,7 @@ export function QuickDispatchModal({
   members,
   onSubmit,
   onEdit,
+  onSaveDraft,
 }: QuickDispatchModalProps) {
   const intl = useIntl()
   const { phase, input, setInput, result, error, parse, reset, backToInput } =
@@ -66,6 +71,26 @@ export function QuickDispatchModal({
     onClose()
     onSubmit(data).catch(() => {})
   }, [result, reset, onClose, onSubmit])
+
+  const handleSaveDraft = useCallback(() => {
+    if (!result || !onSaveDraft) return
+
+    const formData: Record<string, unknown> = {
+      title: result.title,
+      description: result.description,
+      status: result.status,
+      priority: result.priority,
+    }
+    if (result.projectId) formData.projectId = result.projectId
+    if (result.assigneeActorId) formData.assigneeId = result.assigneeActorId
+    if (result.dueDate) formData.dueDate = result.dueDate
+
+    reset()
+    onClose()
+    onSaveDraft('TASK', formData)
+      .then(() => toast.success('Draft saved'))
+      .catch(() => {})
+  }, [result, onSaveDraft, reset, onClose])
 
   const handleEdit = useCallback(() => {
     if (!result) return
@@ -132,6 +157,11 @@ export function QuickDispatchModal({
               <Button variant='outline' onClick={handleEdit}>
                 {intl.formatMessage({ id: 'quickDispatch.edit' })}
               </Button>
+              {onSaveDraft && (
+                <Button variant='outline' onClick={handleSaveDraft}>
+                  {intl.formatMessage({ id: 'drafts.saveDraft' })}
+                </Button>
+              )}
               <Button onClick={handleSubmit} disabled={!result?.projectId}>
                 {intl.formatMessage({ id: 'quickDispatch.confirm' })}
               </Button>
