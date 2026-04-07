@@ -95,6 +95,8 @@ export const CACHE_KEY = {
   documentDetail: (docId: string) => `lumo:doc:${docId}`,
   documentTree: 'lumo:document-tree',
   treeExpanded: 'lumo:tree-expanded',
+  docViewMode: 'lumo:doc-view-mode',
+  docSort: 'lumo:doc-sort',
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────
