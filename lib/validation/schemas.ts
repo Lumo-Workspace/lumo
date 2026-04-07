@@ -284,3 +284,15 @@ export const upsertDraftSchema = z.object({
   type: z.enum(['TASK', 'PROJECT']),
   data: z.record(z.string(), z.unknown()),
 })
+
+// ─── Summaries ────────────────────────────────────────────────────────────────
+
+export const generateSummarySchema = z.object({
+  workspaceId: z.string().optional(),
+  secret: z.string().min(1, 'Secret is required'),
+})
+
+export const getSummarySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(1),
+  before: z.string().datetime().optional(),
+})
