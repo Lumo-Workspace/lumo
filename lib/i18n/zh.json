@@ -11,6 +11,7 @@
   "drafts.recovery": "检测到上次未完成的内容",
   "drafts.restore": "恢复",
   "drafts.saveDraft": "保存草稿",
+  "drafts.saveFailed": "保存草稿失败",
   "drafts.saved": "草稿已保存",
   "drafts.tabProjects": "项目",
   "drafts.tabTasks": "任务",

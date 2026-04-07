@@ -89,7 +89,7 @@ export function QuickDispatchModal({
     onClose()
     onSaveDraft('TASK', formData)
       .then(() => toast.success(intl.formatMessage({ id: 'drafts.saved' })))
-      .catch(() => {})
+      .catch(() => toast.error(intl.formatMessage({ id: 'drafts.saveFailed' })))
   }, [result, onSaveDraft, reset, onClose, intl])
 
   const handleEdit = useCallback(() => {

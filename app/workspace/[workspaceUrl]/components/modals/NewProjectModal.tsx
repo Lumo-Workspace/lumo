@@ -98,11 +98,15 @@ export function NewProjectModal({
     const formData: Record<string, unknown> = {}
     if (name.trim()) formData.name = name.trim()
     if (description) formData.description = description
-    await onSaveDraft('PROJECT', formData)
-    recovery.clear()
-    reset()
-    onClose()
-    toast.success(intl.formatMessage({ id: 'drafts.saved' }))
+    try {
+      await onSaveDraft('PROJECT', formData)
+      recovery.clear()
+      reset()
+      onClose()
+      toast.success(intl.formatMessage({ id: 'drafts.saved' }))
+    } catch {
+      toast.error(intl.formatMessage({ id: 'drafts.saveFailed' }))
+    }
   }
 
   return (

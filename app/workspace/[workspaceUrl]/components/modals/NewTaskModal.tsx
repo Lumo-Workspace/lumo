@@ -283,11 +283,15 @@ export function NewTaskModal({
     if (assigneeId) formData.assigneeId = assigneeId
     if (repositoryId) formData.repositoryId = repositoryId
     if (dueDate) formData.dueDate = dueDate
-    await onSaveDraft('TASK', formData)
-    recovery.clear()
-    reset()
-    onClose()
-    toast.success(intl.formatMessage({ id: 'drafts.saved' }))
+    try {
+      await onSaveDraft('TASK', formData)
+      recovery.clear()
+      reset()
+      onClose()
+      toast.success(intl.formatMessage({ id: 'drafts.saved' }))
+    } catch {
+      toast.error(intl.formatMessage({ id: 'drafts.saveFailed' }))
+    }
   }
 
   const handleClose = () => {
