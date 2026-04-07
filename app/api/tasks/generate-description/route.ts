@@ -5,7 +5,7 @@ import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { loadProjectAndMember, requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 import { generateDescriptionSchema } from '@/lib/validation/schemas'
 
@@ -15,6 +15,22 @@ const descriptionResponseSchema = z.object({
     .describe(
       'Generated HTML description using lightweight rich text tags: <p>, <strong>, <code>, <ul>/<li>, <input type="checkbox">'
     ),
+})
+
+const descriptionWithProjectSchema = z.object({
+  description: z
+    .string()
+    .describe(
+      'Generated HTML description using lightweight rich text tags: <p>, <strong>, <code>, <ul>/<li>, <input type="checkbox">'
+    ),
+  suggestedProjectId: z
+    .string()
+    .describe(
+      'The ID of the most relevant project for this task, chosen from the provided project list'
+    ),
+  suggestedProjectReason: z
+    .string()
+    .describe('A brief reason why this project was suggested'),
 })
 
 const ALLOWED_TAGS = new Set([
@@ -91,6 +107,48 @@ ${projectContext}${recentTasksContext}
 Output lightweight HTML. You may use: <p>, <strong>, <code>, <ul>/<li> (for steps), <input type="checkbox"> (for checklists). Keep it actionable and concise — focus on HOW to execute, not WHAT the task is (the title already says that).`
 }
 
+function buildPromptWithoutProject({
+  title,
+  projects,
+  existingDescription,
+}: {
+  title: string
+  projects: { id: string; name: string; description: string | null }[]
+  existingDescription?: string
+}): string {
+  const projectList = projects
+    .map(
+      p =>
+        `- id="${p.id}" name="${p.name}"${p.description ? ` description="${p.description}"` : ''}`
+    )
+    .join('\n')
+
+  if (existingDescription) {
+    return `You are a project management assistant. Improve the following task description — make it more actionable, specific, and well-structured.
+
+<task_title>${title}</task_title>
+<current_description>${existingDescription}</current_description>
+
+Also, based on the task title and description, suggest the most relevant project from this list:
+<projects>
+${projectList}
+</projects>
+
+Output lightweight HTML for the description. You may use: <p>, <strong>, <code>, <ul>/<li>, <input type="checkbox">. Preserve the original intent but make it clearer and more actionable. Also output the suggestedProjectId and a brief reason.`
+  }
+
+  return `You are a project management assistant. Generate a concise task description (1–2 sentences of execution instructions) for the following task.
+
+<task_title>${title}</task_title>
+
+Also, based on the task title, suggest the most relevant project from this list:
+<projects>
+${projectList}
+</projects>
+
+Output lightweight HTML for the description. You may use: <p>, <strong>, <code>, <ul>/<li> (for steps), <input type="checkbox"> (for checklists). Keep it actionable and concise — focus on HOW to execute, not WHAT the task is (the title already says that). Also output the suggestedProjectId and a brief reason.`
+}
+
 export async function POST(request: Request) {
   try {
     const authResult = await requireAuth()
@@ -109,32 +167,74 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, projectId, existingDescription } = parsed.data
+    const { title, projectId, workspaceUrl, existingDescription } = parsed.data
 
-    // Fetch project + verify membership (also serves as authorization)
-    const projectResult = await loadProjectAndMember(projectId, userId)
-    if (projectResult instanceof NextResponse) return projectResult
-    const { project } = projectResult
+    // ── With project: generate description with project context ──────────
+    if (projectId) {
+      const projectResult = await loadProjectAndMember(projectId, userId)
+      if (projectResult instanceof NextResponse) return projectResult
+      const { project } = projectResult
 
-    // Fetch recent tasks for context
-    const recentTasks = await prisma.task.findMany({
-      where: { projectId },
-      select: { title: true, description: true },
+      const recentTasks = await prisma.task.findMany({
+        where: { projectId },
+        select: { title: true, description: true },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      })
+
+      const prompt = buildPrompt({
+        title,
+        projectName: project.name,
+        projectDescription: project.description ?? null,
+        recentTasks,
+        ...(existingDescription !== undefined ? { existingDescription } : {}),
+      })
+
+      const { object } = await generateObject({
+        model: gateway('anthropic/claude-sonnet-4.5'),
+        schema: descriptionResponseSchema,
+        prompt,
+      })
+
+      if (!object.description) {
+        return NextResponse.json(
+          { error: 'Failed to generate description' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        description: sanitizeHtml(object.description),
+      })
+    }
+
+    // ── Without project: generate description + suggest project ──────────
+    const wsResult = await requireWorkspaceByUrl(userId, workspaceUrl ?? null)
+    if (wsResult instanceof NextResponse) return wsResult
+
+    const workspaceId = wsResult.workspace.id
+    const projects = await prisma.project.findMany({
+      where: { workspaceId, isIdea: false },
+      select: { id: true, name: true, description: true },
       orderBy: { createdAt: 'desc' },
-      take: 10,
     })
 
-    const prompt = buildPrompt({
+    if (projects.length === 0) {
+      return NextResponse.json(
+        { error: 'No projects found in workspace' },
+        { status: 400 }
+      )
+    }
+
+    const prompt = buildPromptWithoutProject({
       title,
-      projectName: project.name,
-      projectDescription: project.description ?? null,
-      recentTasks,
+      projects,
       ...(existingDescription !== undefined ? { existingDescription } : {}),
     })
 
     const { object } = await generateObject({
       model: gateway('anthropic/claude-sonnet-4.5'),
-      schema: descriptionResponseSchema,
+      schema: descriptionWithProjectSchema,
       prompt,
     })
 
@@ -145,7 +245,21 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ description: sanitizeHtml(object.description) })
+    // Verify the suggested project ID is valid
+    const suggestedProject = projects.find(
+      p => p.id === object.suggestedProjectId
+    )
+
+    return NextResponse.json({
+      description: sanitizeHtml(object.description),
+      ...(suggestedProject && {
+        suggestedProject: {
+          id: suggestedProject.id,
+          name: suggestedProject.name,
+          reason: object.suggestedProjectReason,
+        },
+      }),
+    })
   } catch (error) {
     console.error('POST /api/tasks/generate-description error:', error)
     return NextResponse.json(

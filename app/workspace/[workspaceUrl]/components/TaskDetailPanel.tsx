@@ -895,6 +895,7 @@ export function TaskDetailPanel({
                   <AiDescriptionPrompt
                     title={task.title}
                     projectId={task.projectId}
+                    workspaceUrl={workspaceUrl}
                     existingDescription={null}
                     onAccept={html => {
                       handlePatch({ description: html })
@@ -914,6 +915,7 @@ export function TaskDetailPanel({
                   <AiDescriptionPrompt
                     title={task.title}
                     projectId={task.projectId}
+                    workspaceUrl={workspaceUrl}
                     existingDescription={task.description}
                     onAccept={html => {
                       handlePatch({ description: html })

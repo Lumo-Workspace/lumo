@@ -21,7 +21,7 @@ export interface PrioritySuggestion {
 }
 
 interface UsePrioritySuggestionOptions {
-  projectId: string
+  projectId?: string
 }
 
 const TITLE_DEBOUNCE_MS = 500
@@ -49,7 +49,7 @@ export function usePrioritySuggestion({
 
   const fetchSuggestion = useCallback(
     async (title: string, description?: string) => {
-      if (!projectId || title.trim().length < MIN_TITLE_LENGTH) return
+      if (title.trim().length < MIN_TITLE_LENGTH) return
 
       // Abort previous request
       abortRef.current?.abort()
@@ -66,7 +66,7 @@ export function usePrioritySuggestion({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: title.trim(),
-            projectId,
+            ...(projectId ? { projectId } : {}),
             ...(description ? { description } : {}),
           }),
           signal: controller.signal,

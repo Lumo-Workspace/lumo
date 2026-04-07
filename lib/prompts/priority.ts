@@ -60,7 +60,7 @@ interface OverrideRecord {
 interface BuildPromptParams {
   title: string
   description?: string
-  projectName: string
+  projectName?: string | undefined
   historicalTasks: HistoricalTask[]
   overrides: OverrideRecord[]
 }
@@ -98,11 +98,11 @@ export function buildPriorityPrompt({
   return `## Current Task
 Title: ${title}
 Description: ${description || 'Not provided'}
-Project: ${projectName}
+${projectName ? `Project: ${projectName}` : 'Project: Not yet assigned'}
 
-## User's Preference Records in This Project (recent ${MAX_OVERRIDES} overrides)
+## User's Preference Records${projectName ? ` in This Project` : ''} (recent ${MAX_OVERRIDES} overrides)
 ${overrideLines}
 
-## Project Historical Tasks (recent ${MAX_HISTORICAL_TASKS})
+## ${projectName ? 'Project ' : ''}Historical Tasks (recent ${MAX_HISTORICAL_TASKS})
 ${taskLines}`
 }

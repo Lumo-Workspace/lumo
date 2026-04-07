@@ -132,15 +132,20 @@ export const batchCreateTasksSchema = z.object({
 
 // ─── AI Description Generation ──────────────────────────────────────────────
 
-export const generateDescriptionSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Title must be at least 3 characters')
-    .max(200),
-  projectId: z.string().min(1, 'Project ID is required'),
-  existingDescription: z.string().max(10000).optional(),
-})
+export const generateDescriptionSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, 'Title must be at least 3 characters')
+      .max(200),
+    projectId: z.string().min(1).optional(),
+    workspaceUrl: z.string().min(1).optional(),
+    existingDescription: z.string().max(10000).optional(),
+  })
+  .refine(data => data.projectId || data.workspaceUrl, {
+    message: 'Either projectId or workspaceUrl is required',
+  })
 
 // ─── Members ─────────────────────────────────────────────────────────────────
 
@@ -231,7 +236,7 @@ export const suggestPrioritySchema = z.object({
     .trim()
     .min(4, 'Title must be at least 4 characters')
     .max(500),
-  projectId: z.string().min(1, 'Project ID is required'),
+  projectId: z.string().min(1).optional(),
   description: z.string().max(10000).optional(),
 })
 

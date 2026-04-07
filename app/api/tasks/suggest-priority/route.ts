@@ -32,28 +32,45 @@ export async function POST(request: Request) {
 
     const { title, projectId, description } = parsed.data
 
-    const projectResult = await loadProjectAndMember(projectId, userId)
-    if (projectResult instanceof NextResponse) return projectResult
-    const { project } = projectResult
+    let projectName: string | undefined
+    let historicalTasks: {
+      id: string
+      number: number
+      title: string
+      priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+    }[] = []
+    let overrides: {
+      taskTitle: string
+      aiSuggested: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+      userChosen: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+    }[] = []
 
-    const historicalTasks = await prisma.task.findMany({
-      where: { projectId },
-      select: { id: true, number: true, title: true, priority: true },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
+    if (projectId) {
+      const projectResult = await loadProjectAndMember(projectId, userId)
+      if (projectResult instanceof NextResponse) return projectResult
+      const { project } = projectResult
 
-    const overrides = await prisma.priorityOverride.findMany({
-      where: { memberId: userId, projectId },
-      select: { taskTitle: true, aiSuggested: true, userChosen: true },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-    })
+      projectName = project.name
+
+      historicalTasks = await prisma.task.findMany({
+        where: { projectId },
+        select: { id: true, number: true, title: true, priority: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+
+      overrides = await prisma.priorityOverride.findMany({
+        where: { memberId: userId, projectId },
+        select: { taskTitle: true, aiSuggested: true, userChosen: true },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      })
+    }
 
     const prompt = buildPriorityPrompt({
       title,
       ...(description ? { description } : {}),
-      projectName: project.name,
+      projectName,
       historicalTasks,
       overrides,
     })

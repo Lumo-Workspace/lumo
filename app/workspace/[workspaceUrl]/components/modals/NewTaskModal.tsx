@@ -333,10 +333,16 @@ export function NewTaskModal({
               <AiDescriptionPrompt
                 title={title}
                 projectId={projectId || defaultProjectId || ''}
+                workspaceUrl={workspaceUrl}
                 existingDescription={descriptionValue}
                 onAccept={html => {
                   descriptionRef.current = html
                   setDescriptionValue(html)
+                }}
+                onProjectSuggested={suggested => {
+                  if (!projectId && !defaultProjectId) {
+                    setProjectId(suggested.id)
+                  }
                 }}
               />
               <div className={expanded ? 'flex-1 min-h-0 overflow-y-auto' : ''}>

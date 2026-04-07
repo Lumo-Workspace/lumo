@@ -8,18 +8,28 @@ import { apiFetch } from '../utils'
 
 type PromptState = 'idle' | 'loading' | 'preview'
 
+interface SuggestedProject {
+  id: string
+  name: string
+  reason: string
+}
+
 interface AiDescriptionPromptProps {
   title: string
   projectId: string
+  workspaceUrl: string
   existingDescription: string | null
   onAccept: (html: string) => void
+  onProjectSuggested?: (project: SuggestedProject) => void
 }
 
 export function AiDescriptionPrompt({
   title,
   projectId,
+  workspaceUrl,
   existingDescription,
   onAccept,
+  onProjectSuggested,
 }: AiDescriptionPromptProps) {
   const intl = useIntl()
   const [state, setState] = useState<PromptState>('idle')
@@ -37,7 +47,7 @@ export function AiDescriptionPrompt({
         method: 'POST',
         body: {
           title: title.trim(),
-          projectId,
+          ...(projectId ? { projectId } : { workspaceUrl }),
           ...(existingDescription && { existingDescription }),
         },
       })
@@ -51,11 +61,16 @@ export function AiDescriptionPrompt({
       }
       setPreview(data.description)
       setState('preview')
+
+      // Notify parent about suggested project
+      if (data.suggestedProject && onProjectSuggested) {
+        onProjectSuggested(data.suggestedProject)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setState('idle')
     }
-  }, [title, projectId, existingDescription])
+  }, [title, projectId, workspaceUrl, existingDescription, onProjectSuggested])
 
   const handleAccept = useCallback(() => {
     if (preview) {
