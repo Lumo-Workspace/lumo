@@ -63,6 +63,15 @@ export type Page =
   | 'task-detail'
   | 'documents'
   | 'document-editor'
+  | 'drafts'
+
+export interface ApiDraft {
+  id: string
+  type: 'TASK' | 'PROJECT'
+  data: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
 
 export interface WorkspaceMemberInfo {
   id: string
