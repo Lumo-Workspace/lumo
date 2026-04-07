@@ -119,7 +119,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ draft }, { status: id ? 200 : 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/drafts]', err)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
