@@ -47,6 +47,7 @@ import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
 import { InboxPage } from './components/pages/InboxPage'
 import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal'
+import { QuickDispatchModal } from './components/modals/QuickDispatchModal'
 import {
   NewProjectModal,
   NewProjectFormData,
@@ -397,6 +398,7 @@ export default function DashboardApp() {
 
   // ─── Modal state ───────────────────────────────────────────────────────────
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
+  const [isQuickDispatchOpen, setIsQuickDispatchOpen] = useState(false)
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
   const [newTaskDefaultAssigneeId, setNewTaskDefaultAssigneeId] = useState<
     string | undefined
@@ -624,6 +626,20 @@ export default function DashboardApp() {
       if (match) setSelectedProject(match)
     }
   }, [pendingProjectSlug, currentPage, selectedProject, projects])
+
+  // ─── Global keyboard shortcut: Cmd+K → Quick Dispatch ──────────────────────
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        fetchMembers()
+        fetchProjects()
+        setIsQuickDispatchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [fetchMembers, fetchProjects])
 
   const handleSelectProject = useCallback(
     (p: ApiProject) => {
@@ -1156,6 +1172,15 @@ export default function DashboardApp() {
               defaultStatus={newTaskDefaultStatus}
               onSubmit={handleCreateTask}
               tasks={Object.values(taskMap) as ApiTask[]}
+            />
+          )}
+          {isQuickDispatchOpen && (
+            <QuickDispatchModal
+              isOpen={isQuickDispatchOpen}
+              onClose={() => setIsQuickDispatchOpen(false)}
+              projects={projects}
+              members={members}
+              onSubmit={handleCreateTask}
             />
           )}
           {isNewProjectModalOpen && (
