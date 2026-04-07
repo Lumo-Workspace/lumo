@@ -72,6 +72,10 @@ export const API = {
     createChannel: (workspaceUrl: string) =>
       `/api/slack/create-channel?workspaceUrl=${workspaceUrl}`,
   },
+  drafts: {
+    list: '/api/drafts',
+    byId: (id: string) => `/api/drafts/${id}`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
@@ -97,6 +101,10 @@ export const CACHE_KEY = {
   treeExpanded: 'lumo:tree-expanded',
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',
+  drafts: 'lumo:drafts',
+  formRecoveryNewTask: 'lumo:form-recovery:new-task',
+  formRecoveryNewProject: 'lumo:form-recovery:new-project',
+  formRecoveryQuickDispatch: 'lumo:form-recovery:quick-dispatch',
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────

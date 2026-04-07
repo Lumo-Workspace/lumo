@@ -10,6 +10,7 @@ import {
   ChevronsUpDown,
   Users,
   Settings,
+  FileEdit,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
@@ -45,12 +46,14 @@ interface AppSidebarProps {
   currentPage: Page
   onNavigate: (page: Page) => void
   unreadCount: number
+  draftCount: number
 }
 
 export function AppSidebar({
   currentPage,
   onNavigate,
   unreadCount,
+  draftCount,
 }: AppSidebarProps) {
   const { user } = useCurrentUser()
   const { signOut } = useClerk()
@@ -211,6 +214,31 @@ export function AppSidebar({
                     {unreadCount > 0 && (
                       <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-blue-500 hover:bg-blue-500 text-white rounded-full justify-center'>
                         {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPage === 'drafts'}
+                  tooltip={intl.formatMessage({ id: 'sidebar.drafts' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/drafts`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('drafts')
+                    }}
+                  >
+                    <FileEdit />
+                    <span className='flex-1'>
+                      {intl.formatMessage({ id: 'sidebar.drafts' })}
+                    </span>
+                    {draftCount > 0 && (
+                      <Badge className='ml-auto h-4 min-w-4 px-1 text-[10px] font-bold bg-zinc-400 hover:bg-zinc-400 text-white rounded-full justify-center'>
+                        {draftCount > 99 ? '99+' : draftCount}
                       </Badge>
                     )}
                   </Link>

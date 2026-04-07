@@ -259,3 +259,28 @@ export const quickDispatchSchema = z.object({
     .max(500, 'Input must be at most 500 characters'),
   workspaceUrl: z.string().min(1, 'Workspace URL is required'),
 })
+
+// ─── Drafts ────────────────────────────────────────────────────────────────
+
+export const taskDraftDataSchema = z.object({
+  title: z.string().max(500).optional(),
+  description: z.string().max(10000).optional(),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  projectId: z.string().optional(),
+  assigneeId: z.string().optional(),
+  repositoryId: z.string().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+})
+
+export const projectDraftDataSchema = z.object({
+  name: z.string().max(200).optional(),
+  description: z.string().max(2000).optional(),
+})
+
+export const upsertDraftSchema = z.object({
+  id: z.string().cuid().optional(),
+  workspaceUrl: z.string().min(1, 'Workspace URL is required'),
+  type: z.enum(['TASK', 'PROJECT']),
+  data: z.record(z.string(), z.unknown()),
+})
