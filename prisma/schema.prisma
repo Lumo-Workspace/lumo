@@ -249,11 +249,12 @@ model Project {
   team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy       WorkspaceMember     @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
   defaultReviewer WorkspaceMember?    @relation("ProjectDefaultReviewer", fields: [defaultReviewerId], references: [id], onDelete: SetNull)
-  tasks           Task[]
-  views           View[]
-  slackChannels   SlackChannel[]
-  repositories    ProjectRepository[]
-  documents       Document[]
+  tasks             Task[]
+  views             View[]
+  slackChannels     SlackChannel[]
+  repositories      ProjectRepository[]
+  documents         Document[]
+  priorityOverrides PriorityOverride[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -316,7 +317,8 @@ model Task {
   clarifies      AgentClarify[]
   agentRuns      AgentRun[]
   activities     TaskActivity[]
-  documentMentions DocumentMention[]
+  documentMentions  DocumentMention[]
+  priorityOverrides PriorityOverride[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -778,4 +780,22 @@ model DocumentEditor {
   lastEditedAt DateTime        @default(now())
 
   @@unique([documentId, memberId])
+}
+
+// ─── Priority Overrides ──────────────────────────────────────────────────────
+
+model PriorityOverride {
+  id              String       @id @default(cuid())
+  taskId          String
+  task            Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  memberId        String
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  aiSuggested     TaskPriority
+  userChosen      TaskPriority
+  taskTitle       String
+  taskDescription String?
+  createdAt       DateTime     @default(now())
+
+  @@index([memberId, projectId])
 }
