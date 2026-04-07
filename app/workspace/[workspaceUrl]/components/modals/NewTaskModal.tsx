@@ -27,6 +27,10 @@ import { DescriptionEditor } from '../DescriptionEditor'
 import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import { usePrioritySuggestion } from '../../hooks/usePrioritySuggestion'
+import { useFormRecovery } from '../../hooks/useFormRecovery'
+import { FormRecoveryBanner } from '../FormRecoveryBanner'
+import { CACHE_KEY } from '../../constants'
+import { toast } from 'sonner'
 import { DuplicateWarning } from '../DuplicateWarning'
 import { DuplicateConfirm, DuplicateMatch } from '../DuplicateConfirm'
 import {
@@ -74,6 +78,14 @@ interface NewTaskModalProps {
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
   onSubmit: (data: NewTaskFormData) => Promise<void>
   tasks?: ApiTask[]
+  /** When restoring from a DB draft, pass the draft ID so it can be deleted on submit. */
+  draftId?: string | undefined
+  /** Called when user clicks "Save Draft". */
+  onSaveDraft?:
+    | ((type: 'TASK', data: Record<string, unknown>) => Promise<void>)
+    | undefined
+  /** Called to delete a draft after successful submit from a draft. */
+  onDeleteDraft?: ((id: string) => Promise<void>) | undefined
 }
 
 export function NewTaskModal({
@@ -87,6 +99,9 @@ export function NewTaskModal({
   preFill,
   onSubmit,
   tasks = [],
+  draftId,
+  onSaveDraft,
+  onDeleteDraft,
 }: NewTaskModalProps) {
   const intl = useIntl()
   const [title, setTitle] = useState(preFill?.title ?? '')
@@ -111,6 +126,15 @@ export function NewTaskModal({
   const [dueDate, setDueDate] = useState<string | null>(
     preFill?.dueDate ?? null
   )
+
+  // ─── Form recovery (localStorage) ────────────────────────────────────────
+  const isFromDraft = !!draftId
+  const recovery = useFormRecovery<Record<string, unknown>>({
+    cacheKey: CACHE_KEY.formRecoveryNewTask,
+    disabled: isFromDraft || !!preFill,
+    isEmpty: data =>
+      !data.title && !data.description && !data.projectId && !data.assigneeId,
+  })
 
   // ─── AI priority suggestion ────────────────────────────────────────────
   const [userHasOverriddenPriority, setUserHasOverriddenPriority] =
@@ -203,6 +227,68 @@ export function NewTaskModal({
     resetPrioritySuggestion()
   }
 
+  // Auto-save to localStorage on form changes
+  useEffect(() => {
+    if (!isOpen) return
+    const formData: Record<string, unknown> = {}
+    if (title) formData.title = title
+    if (descriptionValue) formData.description = descriptionValue
+    if (status !== 'TODO') formData.status = status
+    if (priority !== 'MEDIUM') formData.priority = priority
+    if (projectId) formData.projectId = projectId
+    if (assigneeId) formData.assigneeId = assigneeId
+    if (repositoryId) formData.repositoryId = repositoryId
+    if (dueDate) formData.dueDate = dueDate
+    recovery.save(formData)
+  }, [
+    isOpen,
+    title,
+    descriptionValue,
+    status,
+    priority,
+    projectId,
+    assigneeId,
+    repositoryId,
+    dueDate,
+    recovery,
+  ])
+
+  const handleRestore = () => {
+    const data = recovery.acceptRecovery()
+    if (!data) return
+    if (data.title && typeof data.title === 'string') setTitle(data.title)
+    if (data.description && typeof data.description === 'string') {
+      descriptionRef.current = data.description
+      setDescriptionValue(data.description)
+    }
+    if (data.status) setStatus(data.status as ApiStatus)
+    if (data.priority) setPriority(data.priority as ApiPriority)
+    if (data.projectId && typeof data.projectId === 'string')
+      setProjectId(data.projectId)
+    if (data.assigneeId && typeof data.assigneeId === 'string')
+      setAssigneeId(data.assigneeId)
+    if (data.dueDate && typeof data.dueDate === 'string')
+      setDueDate(data.dueDate)
+  }
+
+  const handleSaveDraft = async () => {
+    if (!onSaveDraft) return
+    const formData: Record<string, unknown> = {}
+    if (title.trim()) formData.title = title.trim()
+    if (descriptionRef.current) formData.description = descriptionRef.current
+    if (status !== 'TODO') formData.status = status
+    if (priority !== 'MEDIUM') formData.priority = priority
+    if (effectiveProjectId) formData.projectId = effectiveProjectId
+    if (assigneeId) formData.assigneeId = assigneeId
+    if (repositoryId) formData.repositoryId = repositoryId
+    if (dueDate) formData.dueDate = dueDate
+    await onSaveDraft('TASK', formData)
+    recovery.clear()
+    reset()
+    onClose()
+    toast.success(intl.formatMessage({ id: 'drafts.saved' }))
+  }
+
   const handleClose = () => {
     reset()
     onClose()
@@ -228,6 +314,8 @@ export function NewTaskModal({
       dueDate,
       aiSuggestedPriority: aiSuggestedRef.current,
     }
+    recovery.clear()
+    if (draftId && onDeleteDraft) onDeleteDraft(draftId).catch(() => {})
     reset()
     onClose()
     onSubmit(data).catch(console.error)
@@ -301,6 +389,11 @@ export function NewTaskModal({
         footer={
           phase === 'confirming' ? undefined : (
             <div className='flex items-center gap-3 ml-auto'>
+              {onSaveDraft && (
+                <Button variant='ghost' onClick={handleSaveDraft}>
+                  {intl.formatMessage({ id: 'drafts.saveDraft' })}
+                </Button>
+              )}
               <Button variant='ghost' onClick={handleClose}>
                 {intl.formatMessage({ id: 'newTask.cancel' })}
               </Button>
@@ -335,6 +428,12 @@ export function NewTaskModal({
             />
           ) : (
             <div className='space-y-4 h-full flex flex-col'>
+              {recovery.recovered && (
+                <FormRecoveryBanner
+                  onRestore={handleRestore}
+                  onDiscard={recovery.discardRecovery}
+                />
+              )}
               <input
                 autoFocus
                 className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
