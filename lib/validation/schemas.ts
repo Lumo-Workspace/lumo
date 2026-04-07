@@ -222,3 +222,24 @@ export const createDocumentShareSchema = z.object({
 export const updateDocumentShareSchema = z.object({
   role: z.enum(['VIEWER', 'EDITOR', 'MANAGER']),
 })
+
+// ─── AI Priority Suggestion ────────────────────────────────────────────────
+
+export const suggestPrioritySchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(4, 'Title must be at least 4 characters')
+    .max(500),
+  projectId: z.string().min(1, 'Project ID is required'),
+  description: z.string().max(10000).optional(),
+})
+
+export const priorityOverrideSchema = z.object({
+  taskId: z.string().min(1, 'Task ID is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  aiSuggested: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+  userChosen: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+  taskTitle: z.string().min(1).max(500),
+  taskDescription: z.string().max(10000).optional(),
+})
