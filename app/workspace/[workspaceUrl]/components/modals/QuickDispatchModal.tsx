@@ -230,7 +230,15 @@ export function QuickDispatchModal({
                     id: 'quickDispatch.fieldProject',
                   })}
                 >
-                  <span>{result.projectName ?? '—'}</span>
+                  {result.projectName ? (
+                    <span>{result.projectName}</span>
+                  ) : (
+                    <span className='text-amber-600 dark:text-amber-400'>
+                      {intl.formatMessage({
+                        id: 'quickDispatch.missingProject',
+                      })}
+                    </span>
+                  )}
                 </FieldRow>
                 <FieldRow
                   label={intl.formatMessage({
