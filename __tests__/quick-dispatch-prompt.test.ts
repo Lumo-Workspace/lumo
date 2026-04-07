@@ -3,6 +3,7 @@ import {
   QuickDispatchResponseSchema,
   buildQuickDispatchPrompt,
 } from '@/lib/prompts/quick-dispatch'
+import { quickDispatchSchema } from '@/lib/validation/schemas'
 
 describe('QUICK_DISPATCH_SYSTEM_PROMPT', () => {
   it('includes priority mapping keywords', () => {
@@ -137,5 +138,30 @@ describe('QuickDispatchResponseSchema', () => {
       missingProject: false,
     }
     expect(QuickDispatchResponseSchema.safeParse(invalid).success).toBe(false)
+  })
+})
+
+describe('quickDispatchSchema', () => {
+  it('accepts valid input', () => {
+    const valid = {
+      input: '帮 Chao 做一个 P1 的 OAuth 集成，明天截止',
+      workspaceUrl: 'my-workspace',
+    }
+    expect(quickDispatchSchema.safeParse(valid).success).toBe(true)
+  })
+
+  it('rejects empty input', () => {
+    const invalid = { input: '', workspaceUrl: 'my-workspace' }
+    expect(quickDispatchSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('rejects missing workspaceUrl', () => {
+    const invalid = { input: 'some task' }
+    expect(quickDispatchSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('rejects input over 500 chars', () => {
+    const invalid = { input: 'a'.repeat(501), workspaceUrl: 'ws' }
+    expect(quickDispatchSchema.safeParse(invalid).success).toBe(false)
   })
 })
