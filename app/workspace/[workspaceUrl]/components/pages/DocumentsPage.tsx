@@ -268,13 +268,13 @@ export function DocumentsPage({
               </th>
               <th className='text-left py-2 px-3'>
                 {renderSortableHeader(
-                  intl.formatMessage({ id: 'documents.colCreated' }),
+                  intl.formatMessage({ id: 'documents.colCreatedAt' }),
                   'createdAt'
                 )}
               </th>
               <th className='text-left py-2 px-3'>
                 {renderSortableHeader(
-                  intl.formatMessage({ id: 'documents.colUpdated' }),
+                  intl.formatMessage({ id: 'documents.colUpdatedAt' }),
                   'updatedAt'
                 )}
               </th>
