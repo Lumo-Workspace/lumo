@@ -1,11 +1,13 @@
 ---
 name: clerk-setup
-description: Add Clerk authentication to any project by following the official quickstart guides.
+description:
+  Add Clerk authentication to any project by following the official quickstart
+  guides.
 license: MIT
 allowed-tools: WebFetch
 metadata:
   author: clerk
-  version: '2.1.0'
+  version: 2.3.0
 ---
 
 # Adding Clerk
@@ -23,7 +25,7 @@ This skill sets up Clerk for authentication by following the official quickstart
 | 3. Follow instructions | Execute steps; create `proxy.ts` (Next.js <=15: `middleware.ts`)                  |
 | 4. Get API keys        | From [dashboard.clerk.com](https://dashboard.clerk.com/last-active?path=api-keys) |
 
-> If the project has `components.json` (shadcn/ui), apply the shadcn theme after setup. See `custom-ui/` → shadcn Theme.
+> If the project has `components.json` (shadcn/ui), apply the shadcn theme after setup. See `clerk-custom-ui` skill → shadcn Theme.
 
 ## Framework Detection
 
@@ -64,7 +66,7 @@ User Request: "Add Clerk" / "Add authentication"
     ├─ Identify framework → WebFetch quickstart → Follow instructions
     │   └─ Next.js? → Create proxy.ts (Next.js <=15: middleware.ts)
     │
-    └─ components.json exists? → YES → Apply shadcn theme (see custom-ui/)
+    └─ components.json exists? → YES → Apply shadcn theme (see clerk-custom-ui)
 ```
 
 ## Setup Process
@@ -92,9 +94,9 @@ Execute each step from the quickstart guide:
 - Create sign-in/sign-up routes if needed
 - Test the integration
 
-> **Next.js:** Create `proxy.ts` (Next.js <=15: `middleware.ts`). See `nextjs-patterns/references/middleware-strategies.md`.
+> **Next.js:** Create `proxy.ts` (Next.js <=15: `middleware.ts`). See the `clerk-nextjs-patterns` skill for middleware strategies.
 
-> **shadcn/ui detected** (`components.json` exists): ALWAYS apply the shadcn theme. See `custom-ui/` → shadcn Theme section.
+> **shadcn/ui detected** (`components.json` exists): ALWAYS apply the shadcn theme. See `clerk-custom-ui` skill → shadcn Theme section.
 
 ### 4. Get API Keys
 
@@ -247,11 +249,22 @@ Also import the shadcn CSS in your global styles:
 
 ## See Also
 
-- `custom-ui/` - Custom sign-in/up components
-- `webhooks/` - Webhook → database sync
-- `orgs/` - B2B multi-tenant organizations
-- `testing/` - E2E testing setup
-- `nextjs-patterns/` - Advanced Next.js patterns
+- `clerk-custom-ui` - Custom sign-in/up components
+- `clerk-nextjs-patterns` - Advanced Next.js patterns
+- `clerk-react-patterns` - React SPA patterns
+- `clerk-react-router-patterns` - React Router patterns
+- `clerk-vue-patterns` - Vue patterns
+- `clerk-nuxt-patterns` - Nuxt patterns
+- `clerk-astro-patterns` - Astro patterns
+- `clerk-tanstack-patterns` - TanStack Start patterns
+- `clerk-expo-patterns` - Expo patterns
+- `clerk-chrome-extension-patterns` - Chrome Extension patterns
+- `clerk-orgs` - B2B multi-tenant organizations
+- `clerk-webhooks` - Webhook → database sync
+- `clerk-testing` - E2E testing setup
+- `clerk-swift` - Native iOS auth
+- `clerk-android` - Native Android auth
+- `clerk-backend-api` - Backend REST API explorer
 
 ## Documentation
 
