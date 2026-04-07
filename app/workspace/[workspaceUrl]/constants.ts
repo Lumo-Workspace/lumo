@@ -76,6 +76,11 @@ export const API = {
     list: '/api/drafts',
     byId: (id: string) => `/api/drafts/${id}`,
   },
+  summaries: {
+    generate: '/api/summaries/generate',
+    project: (projectId: string) => `/api/summaries/project/${projectId}`,
+    workspace: '/api/summaries/workspace',
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
@@ -102,6 +107,8 @@ export const CACHE_KEY = {
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',
   drafts: 'lumo:drafts',
+  projectSummary: (projectId: string) => `lumo:summary:project:${projectId}`,
+  workspaceSummary: 'lumo:summary:workspace',
   formRecoveryNewTask: 'lumo:form-recovery:new-task',
   formRecoveryNewProject: 'lumo:form-recovery:new-project',
   formRecoveryQuickDispatch: 'lumo:form-recovery:quick-dispatch',

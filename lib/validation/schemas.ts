@@ -43,6 +43,9 @@ export const createWorkspaceSchema = z.object({
     )
     .refine(s => !RESERVED_SLUGS.includes(s), 'This slug is reserved')
     .optional(),
+  summaryEnabled: z.boolean().optional(),
+  summaryFrequency: z.enum(['DAILY', 'EVERY_TWO_DAYS', 'WEEKLY']).optional(),
+  summaryLocale: z.string().max(10).optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────
@@ -283,4 +286,16 @@ export const upsertDraftSchema = z.object({
   workspaceUrl: z.string().min(1, 'Workspace URL is required'),
   type: z.enum(['TASK', 'PROJECT']),
   data: z.record(z.string(), z.unknown()),
+})
+
+// ─── Summaries ────────────────────────────────────────────────────────────────
+
+export const generateSummarySchema = z.object({
+  workspaceId: z.string().optional(),
+  secret: z.string().min(1, 'Secret is required'),
+})
+
+export const getSummarySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(1),
+  before: z.string().datetime().optional(),
 })

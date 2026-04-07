@@ -32,6 +32,7 @@ import {
   WorkspaceMemberInfo,
 } from '../../types'
 import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
+import { ProjectSummaryTab } from '../summary/ProjectSummaryTab'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
@@ -147,7 +148,7 @@ export function ProjectDetailPage({
   copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
-  const [tab, setTab] = useState<'overview' | 'tasks'>('overview')
+  const [tab, setTab] = useState<'overview' | 'tasks' | 'summary'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const {
@@ -381,7 +382,7 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(['overview', 'tasks'] as const).map(t => (
+        {(['overview', 'tasks', 'summary'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -643,6 +644,12 @@ export function ProjectDetailPage({
       )}
 
       {/* ── Tasks tab ── */}
+      {tab === 'summary' && (
+        <div className='flex-1 overflow-y-auto'>
+          <ProjectSummaryTab projectId={project.id} />
+        </div>
+      )}
+
       {tab === 'tasks' && (
         <div className='flex-1 flex flex-col overflow-hidden'>
           {/* Toolbar */}
