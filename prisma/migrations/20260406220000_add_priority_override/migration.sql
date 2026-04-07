@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "PriorityOverride" (
+CREATE TABLE "priority_overrides" (
     "id" TEXT NOT NULL,
     "taskId" TEXT NOT NULL,
     "memberId" TEXT NOT NULL,
@@ -10,14 +10,14 @@ CREATE TABLE "PriorityOverride" (
     "taskDescription" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "PriorityOverride_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "priority_overrides_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX "PriorityOverride_memberId_projectId_idx" ON "PriorityOverride"("memberId", "projectId");
+CREATE INDEX "priority_overrides_memberId_projectId_idx" ON "priority_overrides"("memberId", "projectId");
 
 -- AddForeignKey
-ALTER TABLE "PriorityOverride" ADD CONSTRAINT "PriorityOverride_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "tasks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "priority_overrides" ADD CONSTRAINT "priority_overrides_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "tasks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PriorityOverride" ADD CONSTRAINT "PriorityOverride_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "priority_overrides" ADD CONSTRAINT "priority_overrides_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
