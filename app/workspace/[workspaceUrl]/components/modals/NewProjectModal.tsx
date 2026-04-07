@@ -56,13 +56,14 @@ export function NewProjectModal({
   })
 
   // Auto-save to localStorage on form changes
+  const { save: recoverySave } = recovery
   useEffect(() => {
     if (!isOpen) return
     const formData: Record<string, unknown> = {}
     if (name) formData.name = name
     if (description) formData.description = description
-    recovery.save(formData)
-  }, [isOpen, name, description, recovery])
+    recoverySave(formData)
+  }, [isOpen, name, description, recoverySave])
 
   const handleRestore = () => {
     const data = recovery.acceptRecovery()

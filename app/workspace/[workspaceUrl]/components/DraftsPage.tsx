@@ -16,7 +16,6 @@ interface DraftsPageProps {
   onRestoreProjectDraft: (draft: ApiDraft) => void
   onOpenIdeaProject: (project: ApiProject) => void
   onDeleteDraft: (id: string) => void
-  loading: boolean
 }
 
 export function DraftsPage({
@@ -158,7 +157,7 @@ export function DraftsPage({
                         {project.name}
                       </p>
                       <p className='text-xs text-amber-600 dark:text-amber-400 mt-0.5'>
-                        Idea project
+                        {intl.formatMessage({ id: 'drafts.ideaProject' })}
                       </p>
                     </div>
                   </div>

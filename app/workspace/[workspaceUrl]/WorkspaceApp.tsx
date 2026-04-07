@@ -1145,7 +1145,6 @@ export default function DashboardApp() {
               navigateTo('project-detail', project)
             }}
             onDeleteDraft={handleDeleteDraft}
-            loading={false}
           />
         )
 

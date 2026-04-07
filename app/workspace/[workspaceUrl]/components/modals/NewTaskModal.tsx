@@ -228,6 +228,7 @@ export function NewTaskModal({
   }
 
   // Auto-save to localStorage on form changes
+  const { save: recoverySave } = recovery
   useEffect(() => {
     if (!isOpen) return
     const formData: Record<string, unknown> = {}
@@ -239,7 +240,7 @@ export function NewTaskModal({
     if (assigneeId) formData.assigneeId = assigneeId
     if (repositoryId) formData.repositoryId = repositoryId
     if (dueDate) formData.dueDate = dueDate
-    recovery.save(formData)
+    recoverySave(formData)
   }, [
     isOpen,
     title,
@@ -250,7 +251,7 @@ export function NewTaskModal({
     assigneeId,
     repositoryId,
     dueDate,
-    recovery,
+    recoverySave,
   ])
 
   const handleRestore = () => {

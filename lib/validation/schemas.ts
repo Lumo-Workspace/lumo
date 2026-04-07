@@ -279,7 +279,7 @@ export const projectDraftDataSchema = z.object({
 })
 
 export const upsertDraftSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().cuid().optional(),
   workspaceUrl: z.string().min(1, 'Workspace URL is required'),
   type: z.enum(['TASK', 'PROJECT']),
   data: z.record(z.string(), z.unknown()),

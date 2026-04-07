@@ -36,6 +36,11 @@ export function useFormRecovery<T extends Record<string, unknown>>({
   })
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Store isEmpty in a ref so `save` callback stays stable across renders
+  const isEmptyRef = useRef(isEmpty)
+  useEffect(() => {
+    isEmptyRef.current = isEmpty
+  })
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -49,14 +54,14 @@ export function useFormRecovery<T extends Record<string, unknown>>({
       if (disabled) return
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {
-        if (isEmpty(data)) {
+        if (isEmptyRef.current(data)) {
           localStorage.removeItem(cacheKey)
         } else {
           writeCache(cacheKey, data)
         }
       }, 500)
     },
-    [cacheKey, disabled, isEmpty]
+    [cacheKey, disabled]
   )
 
   const clear = useCallback(() => {
