@@ -1,0 +1,87 @@
+'use client'
+
+import { useIntl } from 'react-intl'
+
+interface StatusDistributionChartProps {
+  distribution: Record<string, number>
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  TODO: 'bg-zinc-400',
+  IN_PROGRESS: 'bg-blue-500',
+  IN_REVIEW: 'bg-purple-500',
+  DONE: 'bg-green-400',
+}
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+  TODO: 'bg-zinc-400',
+  IN_PROGRESS: 'bg-blue-500',
+  IN_REVIEW: 'bg-purple-500',
+  DONE: 'bg-green-400',
+}
+
+const STATUS_KEYS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+
+export function StatusDistributionChart({
+  distribution,
+}: StatusDistributionChartProps) {
+  const intl = useIntl()
+
+  const STATUS_LABELS: Record<string, string> = {
+    TODO: intl.formatMessage({ id: 'summary.todo' }),
+    IN_PROGRESS: intl.formatMessage({ id: 'summary.inProgress' }),
+    IN_REVIEW: intl.formatMessage({ id: 'summary.inReview' }),
+    DONE: intl.formatMessage({ id: 'summary.done' }),
+  }
+
+  const total = STATUS_KEYS.reduce(
+    (sum, key) => sum + (distribution[key] ?? 0),
+    0
+  )
+
+  return (
+    <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 space-y-3'>
+      <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+        {intl.formatMessage({ id: 'summary.statusDistribution' })}
+      </p>
+
+      {total > 0 ? (
+        <div className='flex rounded-full overflow-hidden h-3'>
+          {STATUS_KEYS.map(key => {
+            const count = distribution[key] ?? 0
+            if (count === 0) return null
+            return (
+              <div
+                key={key}
+                className={STATUS_COLORS[key]}
+                style={{ flex: count }}
+                title={`${STATUS_LABELS[key]}: ${count}`}
+              />
+            )
+          })}
+        </div>
+      ) : (
+        <div className='h-3 rounded-full bg-zinc-200 dark:bg-zinc-800' />
+      )}
+
+      <div className='flex flex-wrap gap-x-4 gap-y-1.5'>
+        {STATUS_KEYS.map(key => {
+          const count = distribution[key] ?? 0
+          return (
+            <div key={key} className='flex items-center gap-1.5'>
+              <span
+                className={`inline-block size-2 rounded-full ${STATUS_DOT_COLORS[key]}`}
+              />
+              <span className='text-xs text-zinc-600 dark:text-zinc-400'>
+                {STATUS_LABELS[key]}
+              </span>
+              <span className='text-xs font-medium text-zinc-800 dark:text-zinc-200'>
+                {count}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
