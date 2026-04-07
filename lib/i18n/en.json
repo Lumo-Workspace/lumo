@@ -49,6 +49,11 @@
   "newTask.create": "Create task",
   "newTask.checking": "Checking...",
 
+  "priority.aiRecommended": "AI Recommended",
+  "priority.preferenceRecorded": "Preference recorded",
+  "priority.recommended": "Recommended: {priority}",
+  "priority.similarTasks": "{count} similar tasks:",
+
   "aiDesc.generating": "Generating description...",
   "aiDesc.preview": "AI Generated Preview",
   "aiDesc.useThis": "Use this",
