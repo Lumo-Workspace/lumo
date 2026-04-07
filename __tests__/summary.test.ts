@@ -102,6 +102,6 @@ describe('ApiWorkspaceSummary', () => {
       },
     }
     expect(summary.stats.projectBreakdown).toHaveLength(1)
-    expect(summary.stats.projectBreakdown[0].projectName).toBe('Alpha')
+    expect(summary.stats.projectBreakdown?.[0]?.projectName).toBe('Alpha')
   })
 })
