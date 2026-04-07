@@ -83,6 +83,8 @@ export async function POST(request: Request) {
         try {
           const stats = await aggregateProjectStats(project.id)
           const { tldr, report } = await generateProjectReport(stats, {
+            projectName: project.name,
+            projectDescription: project.description ?? null,
             locale: workspace.summaryLocale,
           })
 
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
 
       const workspaceStats = await aggregateWorkspaceStats(workspace.id)
       const { tldr, report } = await generateWorkspaceReport(workspaceStats, {
+        workspaceName: workspace.name,
         locale: workspace.summaryLocale,
       })
 
