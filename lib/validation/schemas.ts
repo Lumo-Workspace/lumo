@@ -43,6 +43,9 @@ export const createWorkspaceSchema = z.object({
     )
     .refine(s => !RESERVED_SLUGS.includes(s), 'This slug is reserved')
     .optional(),
+  summaryEnabled: z.boolean().optional(),
+  summaryFrequency: z.enum(['DAILY', 'EVERY_TWO_DAYS', 'WEEKLY']).optional(),
+  summaryLocale: z.string().max(10).optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────

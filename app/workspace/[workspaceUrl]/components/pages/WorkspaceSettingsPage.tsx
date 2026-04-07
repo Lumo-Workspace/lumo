@@ -20,11 +20,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+type SummaryFrequency = 'DAILY' | 'EVERY_TWO_DAYS' | 'WEEKLY'
+
 interface Workspace {
   id: string
   name: string
   slug: string
   logoUrl?: string | null
+  summaryEnabled?: boolean
+  summaryFrequency?: SummaryFrequency
+  summaryLocale?: string
 }
 
 type WorkspaceCache = {
@@ -63,6 +68,13 @@ export function WorkspaceSettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
+  // Summary settings
+  const [summaryEnabled, setSummaryEnabled] = useState(true)
+  const [summaryFrequency, setSummaryFrequency] =
+    useState<SummaryFrequency>('DAILY')
+  const [summaryLocale, setSummaryLocale] = useState('en')
+  const [savingSummary, setSavingSummary] = useState(false)
+
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
     const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
@@ -96,6 +108,9 @@ export function WorkspaceSettingsPage() {
       setIsOwner(owner)
       setName(data.workspace.name)
       setSlug(data.workspace.slug)
+      setSummaryEnabled(data.workspace.summaryEnabled ?? true)
+      setSummaryFrequency(data.workspace.summaryFrequency ?? 'DAILY')
+      setSummaryLocale(data.workspace.summaryLocale ?? 'en')
 
       // Persist to cache (merge — don't overwrite logoUrl from Sidebar)
       patchWorkspaceCache({
@@ -172,6 +187,38 @@ export function WorkspaceSettingsPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to update URL')
     } finally {
       setSavingSlug(false)
+    }
+  }
+
+  // ─── Save summary settings ────────────────────────────────────────────────
+  const handleSaveSummarySettings = async () => {
+    if (!assertOwner()) return
+    setSavingSummary(true)
+    try {
+      const res = await apiFetch(API.workspaces.me, {
+        method: 'PATCH',
+        body: { summaryEnabled, summaryFrequency, summaryLocale },
+      })
+      const data = await res.json()
+      if (!res.ok)
+        throw new Error(data.error ?? 'Failed to update summary settings')
+      setWorkspace(prev =>
+        prev
+          ? {
+              ...prev,
+              summaryEnabled: data.workspace.summaryEnabled,
+              summaryFrequency: data.workspace.summaryFrequency,
+              summaryLocale: data.workspace.summaryLocale,
+            }
+          : prev
+      )
+      toast.success('Summary settings updated')
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to update summary settings'
+      )
+    } finally {
+      setSavingSummary(false)
     }
   }
 
@@ -293,6 +340,94 @@ export function WorkspaceSettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* Summary settings */}
+        {isOwner && (
+          <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-8'>
+            <div className='px-5 py-3 border-b border-zinc-100 dark:border-zinc-800'>
+              <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
+                Summary Settings
+              </p>
+            </div>
+
+            {/* Enable toggle */}
+            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
+              <div>
+                <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                  Enable Summary
+                </p>
+                <p className='text-xs text-zinc-400 mt-0.5'>
+                  Automatically generate periodic project and workspace
+                  summaries
+                </p>
+              </div>
+              <button
+                type='button'
+                role='switch'
+                aria-checked={summaryEnabled}
+                onClick={() => setSummaryEnabled(v => !v)}
+                disabled={savingSummary}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+                  summaryEnabled
+                    ? 'bg-zinc-900 dark:bg-zinc-100'
+                    : 'bg-zinc-200 dark:bg-zinc-700'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow-lg transition-transform ${
+                    summaryEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Frequency selector */}
+            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
+              <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                Generation Frequency
+              </label>
+              <select
+                value={summaryFrequency}
+                onChange={e =>
+                  setSummaryFrequency(e.target.value as SummaryFrequency)
+                }
+                disabled={savingSummary || !summaryEnabled}
+                className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
+              >
+                <option value='DAILY'>Daily</option>
+                <option value='EVERY_TWO_DAYS'>Every Two Days</option>
+                <option value='WEEKLY'>Weekly</option>
+              </select>
+            </div>
+
+            {/* Language selector */}
+            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
+              <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                Report Language
+              </label>
+              <select
+                value={summaryLocale}
+                onChange={e => setSummaryLocale(e.target.value)}
+                disabled={savingSummary || !summaryEnabled}
+                className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
+              >
+                <option value='en'>English</option>
+                <option value='zh'>Chinese</option>
+              </select>
+            </div>
+
+            {/* Save button */}
+            <div className='flex justify-end px-5 py-4'>
+              <Button
+                size='sm'
+                onClick={handleSaveSummarySettings}
+                disabled={savingSummary}
+              >
+                {savingSummary ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Danger zone */}
         {isOwner && (
