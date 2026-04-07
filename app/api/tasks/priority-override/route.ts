@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         aiSuggested,
         userChosen,
         taskTitle,
-        taskDescription,
+        taskDescription: taskDescription ?? null,
       },
     })
 

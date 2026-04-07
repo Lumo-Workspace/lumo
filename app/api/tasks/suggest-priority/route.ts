@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     const prompt = buildPriorityPrompt({
       title,
-      description,
+      ...(description ? { description } : {}),
       projectName: project.name,
       historicalTasks,
       overrides,

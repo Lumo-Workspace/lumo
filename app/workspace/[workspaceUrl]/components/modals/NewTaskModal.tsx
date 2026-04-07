@@ -109,7 +109,6 @@ export function NewTaskModal({
     reset: resetPrioritySuggestion,
   } = usePrioritySuggestion({
     projectId: effectiveProjectId,
-    userHasOverridden: userHasOverriddenPriority,
   })
 
   // Auto-apply AI suggestion when it arrives

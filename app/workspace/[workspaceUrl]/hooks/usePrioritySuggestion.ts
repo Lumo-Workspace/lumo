@@ -22,8 +22,6 @@ export interface PrioritySuggestion {
 
 interface UsePrioritySuggestionOptions {
   projectId: string
-  /** Whether the user has manually changed the priority */
-  userHasOverridden: boolean
 }
 
 const TITLE_DEBOUNCE_MS = 500
@@ -33,7 +31,6 @@ const TIMEOUT_MS = 5000
 
 export function usePrioritySuggestion({
   projectId,
-  userHasOverridden,
 }: UsePrioritySuggestionOptions) {
   const [suggestion, setSuggestion] = useState<PrioritySuggestion | null>(null)
   const [isLoading, setIsLoading] = useState(false)
