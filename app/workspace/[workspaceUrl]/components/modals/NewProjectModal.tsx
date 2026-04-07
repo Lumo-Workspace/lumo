@@ -1,13 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
+import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { Modal } from '../Modal'
+import { FormRecoveryBanner } from '../FormRecoveryBanner'
 import { isSubmitShortcut, submitModLabel } from '../../utils'
+import { useFormRecovery } from '../../hooks/useFormRecovery'
+import { CACHE_KEY } from '../../constants'
 import { Button } from '@/components/ui/button'
 
 export interface NewProjectFormData {
+  name: string
+  description: string
+}
+
+export interface NewProjectPreFill {
   name: string
   description: string
 }
@@ -17,15 +27,51 @@ interface NewProjectModalProps {
   onClose: () => void
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
   onSubmit: (data: NewProjectFormData) => Promise<void>
+  preFill?: NewProjectPreFill | undefined
+  draftId?: string | undefined
+  onSaveDraft?:
+    | ((type: 'PROJECT', data: Record<string, unknown>) => Promise<void>)
+    | undefined
+  onDeleteDraft?: ((id: string) => Promise<void>) | undefined
 }
 
 export function NewProjectModal({
   isOpen,
   onClose,
   onSubmit,
+  preFill,
+  draftId,
+  onSaveDraft,
+  onDeleteDraft,
 }: NewProjectModalProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+  const intl = useIntl()
+  const [name, setName] = useState(preFill?.name ?? '')
+  const [description, setDescription] = useState(preFill?.description ?? '')
+
+  const isFromDraft = !!draftId
+  const recovery = useFormRecovery<Record<string, unknown>>({
+    cacheKey: CACHE_KEY.formRecoveryNewProject,
+    disabled: isFromDraft || !!preFill,
+    isEmpty: data => !data.name && !data.description,
+  })
+
+  // Auto-save to localStorage on form changes
+  useEffect(() => {
+    if (!isOpen) return
+    const formData: Record<string, unknown> = {}
+    if (name) formData.name = name
+    if (description) formData.description = description
+    recovery.save(formData)
+  }, [isOpen, name, description, recovery])
+
+  const handleRestore = () => {
+    const data = recovery.acceptRecovery()
+    if (!data) return
+    if (data.name && typeof data.name === 'string') setName(data.name)
+    if (data.description && typeof data.description === 'string')
+      setDescription(data.description)
+  }
+
   const reset = () => {
     setName('')
     setDescription('')
@@ -39,10 +85,23 @@ export function NewProjectModal({
   const handleSubmit = () => {
     const trimmedName = name.trim()
     if (!trimmedName) return
-
+    recovery.clear()
+    if (draftId && onDeleteDraft) onDeleteDraft(draftId).catch(() => {})
     reset()
     onClose()
     onSubmit({ name: trimmedName, description }).catch(console.error)
+  }
+
+  const handleSaveDraft = async () => {
+    if (!onSaveDraft) return
+    const formData: Record<string, unknown> = {}
+    if (name.trim()) formData.name = name.trim()
+    if (description) formData.description = description
+    await onSaveDraft('PROJECT', formData)
+    recovery.clear()
+    reset()
+    onClose()
+    toast.success(intl.formatMessage({ id: 'drafts.saved' }))
   }
 
   return (
@@ -53,6 +112,11 @@ export function NewProjectModal({
         title='New project'
         footer={
           <div className='flex items-center gap-3 ml-auto'>
+            {onSaveDraft && (
+              <Button variant='ghost' onClick={handleSaveDraft}>
+                {intl.formatMessage({ id: 'drafts.saveDraft' })}
+              </Button>
+            )}
             <Button variant='ghost' onClick={handleClose}>
               Cancel
             </Button>
@@ -64,6 +128,12 @@ export function NewProjectModal({
       >
         {expanded => (
           <div className='space-y-4 h-full flex flex-col'>
+            {recovery.recovered && (
+              <FormRecoveryBanner
+                onRestore={handleRestore}
+                onDiscard={recovery.discardRecovery}
+              />
+            )}
             <input
               autoFocus
               className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
