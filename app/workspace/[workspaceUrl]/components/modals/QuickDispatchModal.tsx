@@ -6,55 +6,42 @@ import { AnimatePresence } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { Modal } from '../Modal'
 import { Button } from '@/components/ui/button'
-import {
-  StatusSelect,
-  ProjectSelect,
-  AssigneeSelect,
-  PrioritySelect,
-  DueDatePicker,
-  PRIORITY_CONFIG,
-  FIELD_TRIGGER_CLS,
-} from '../TaskFieldSelects'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { PRIORITY_CONFIG } from '../TaskFieldSelects'
 import { useQuickDispatch } from '../../hooks/useQuickDispatch'
 import type { NewTaskFormData } from './NewTaskModal'
-import type {
-  ApiProject,
-  ApiPriority,
-  ApiStatus,
-  WorkspaceMemberInfo,
-} from '../../types'
+import type { ApiPriority, ApiStatus, WorkspaceMemberInfo } from '../../types'
 import { isSubmitShortcut } from '../../utils'
+
+/** Parsed fields passed to the edit callback so NewTaskModal can be pre-filled. */
+export interface QuickDispatchParsedFields {
+  title: string
+  description: string
+  status: ApiStatus
+  priority: ApiPriority
+  projectId: string
+  assigneeId: string
+  dueDate: string | null
+}
 
 interface QuickDispatchModalProps {
   isOpen: boolean
   onClose: () => void
-  projects: ApiProject[]
   members: WorkspaceMemberInfo[]
   onSubmit: (data: NewTaskFormData) => Promise<void>
+  /** Called when user clicks "Edit" — parent should open NewTaskModal with these fields pre-filled. */
+  onEdit: (fields: QuickDispatchParsedFields) => void
 }
 
 export function QuickDispatchModal({
   isOpen,
   onClose,
-  projects,
   members,
   onSubmit,
+  onEdit,
 }: QuickDispatchModalProps) {
   const intl = useIntl()
-  const {
-    phase,
-    input,
-    setInput,
-    result,
-    error,
-    parse,
-    enterEditMode,
-    exitEditMode,
-    updateField,
-    reset,
-    backToInput,
-  } = useQuickDispatch()
+  const { phase, input, setInput, result, error, parse, reset, backToInput } =
+    useQuickDispatch()
 
   const handleClose = useCallback(() => {
     reset()
@@ -80,6 +67,24 @@ export function QuickDispatchModal({
     onSubmit(data).catch(() => {})
   }, [result, reset, onClose, onSubmit])
 
+  const handleEdit = useCallback(() => {
+    if (!result) return
+
+    const fields: QuickDispatchParsedFields = {
+      title: result.title,
+      description: result.description,
+      status: result.status as ApiStatus,
+      priority: result.priority as ApiPriority,
+      projectId: result.projectId ?? '',
+      assigneeId: result.assigneeActorId ?? '',
+      dueDate: result.dueDate,
+    }
+
+    reset()
+    onClose()
+    onEdit(fields)
+  }, [result, reset, onClose, onEdit])
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (phase === 'input' && e.key === 'Enter' && !e.shiftKey) {
@@ -91,16 +96,14 @@ export function QuickDispatchModal({
         handleSubmit()
       }
       if (e.key === 'Escape') {
-        if (phase === 'editing') {
-          exitEditMode()
-        } else if (phase === 'preview') {
+        if (phase === 'preview') {
           backToInput()
         } else {
           handleClose()
         }
       }
     },
-    [phase, input, parse, handleSubmit, exitEditMode, backToInput, handleClose]
+    [phase, input, parse, handleSubmit, backToInput, handleClose]
   )
 
   const priorityConfig =
@@ -121,22 +124,14 @@ export function QuickDispatchModal({
         title={intl.formatMessage({ id: 'quickDispatch.title' })}
         expandable={false}
         footer={
-          phase === 'preview' || phase === 'editing' ? (
+          phase === 'preview' ? (
             <div className='flex items-center gap-3 ml-auto'>
-              {phase === 'editing' ? (
-                <Button variant='ghost' onClick={exitEditMode}>
-                  {intl.formatMessage({ id: 'quickDispatch.back' })}
-                </Button>
-              ) : (
-                <>
-                  <Button variant='ghost' onClick={backToInput}>
-                    {intl.formatMessage({ id: 'quickDispatch.back' })}
-                  </Button>
-                  <Button variant='outline' onClick={enterEditMode}>
-                    {intl.formatMessage({ id: 'quickDispatch.edit' })}
-                  </Button>
-                </>
-              )}
+              <Button variant='ghost' onClick={backToInput}>
+                {intl.formatMessage({ id: 'quickDispatch.back' })}
+              </Button>
+              <Button variant='outline' onClick={handleEdit}>
+                {intl.formatMessage({ id: 'quickDispatch.edit' })}
+              </Button>
               <Button onClick={handleSubmit} disabled={!result?.projectId}>
                 {intl.formatMessage({ id: 'quickDispatch.confirm' })}
               </Button>
@@ -256,63 +251,6 @@ export function QuickDispatchModal({
                     />
                   </FieldRow>
                 )}
-              </div>
-            )}
-
-            {/* ── Editing Phase ─────────────────────────── */}
-            {phase === 'editing' && result && (
-              <div className='space-y-4'>
-                <input
-                  className='w-full bg-transparent border-none p-0 text-lg font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
-                  type='text'
-                  value={result.title}
-                  onChange={e => updateField('title', e.target.value)}
-                />
-                <DescriptionEditor
-                  value={result.description || null}
-                  onCommit={html => updateField('description', html ?? '')}
-                  onChange={html => updateField('description', html ?? '')}
-                />
-                <div className='flex flex-wrap items-center gap-2 pt-1'>
-                  <StatusSelect
-                    value={result.status as ApiStatus}
-                    onChange={v => updateField('status', v)}
-                    triggerClassName={FIELD_TRIGGER_CLS}
-                  />
-                  <ProjectSelect
-                    value={result.projectId ?? ''}
-                    onChange={v => {
-                      updateField('projectId', v)
-                      const p = projects.find(proj => proj.id === v)
-                      updateField('projectName', p?.name ?? null)
-                    }}
-                    projects={projects}
-                    triggerClassName={FIELD_TRIGGER_CLS}
-                  />
-                  <AssigneeSelect
-                    value={result.assigneeActorId ?? null}
-                    onChange={v => {
-                      updateField('assigneeActorId', v ?? null)
-                      const m = members.find(mem => mem.actorId === v)
-                      updateField('assigneeName', m?.name ?? null)
-                    }}
-                    members={members.filter(
-                      (m): m is WorkspaceMemberInfo & { actorId: string } =>
-                        m.actorId !== null
-                    )}
-                    triggerClassName={FIELD_TRIGGER_CLS}
-                  />
-                  <PrioritySelect
-                    value={result.priority as ApiPriority}
-                    onChange={v => updateField('priority', v)}
-                    triggerClassName={FIELD_TRIGGER_CLS}
-                  />
-                  <DueDatePicker
-                    value={result.dueDate}
-                    onChange={v => updateField('dueDate', v)}
-                    triggerClassName={FIELD_TRIGGER_CLS}
-                  />
-                </div>
               </div>
             )}
           </div>

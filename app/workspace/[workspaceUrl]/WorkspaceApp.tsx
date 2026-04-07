@@ -47,7 +47,10 @@ import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
 import { InboxPage } from './components/pages/InboxPage'
 import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal'
-import { QuickDispatchModal } from './components/modals/QuickDispatchModal'
+import {
+  QuickDispatchModal,
+  QuickDispatchParsedFields,
+} from './components/modals/QuickDispatchModal'
 import {
   NewProjectModal,
   NewProjectFormData,
@@ -406,6 +409,9 @@ export default function DashboardApp() {
   const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<
     ApiStatus | undefined
   >(undefined)
+  const [newTaskPreFill, setNewTaskPreFill] = useState<
+    QuickDispatchParsedFields | undefined
+  >(undefined)
 
   // ─── Task drawer ───────────────────────────────────────────────────────────
   const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
@@ -520,9 +526,20 @@ export default function DashboardApp() {
         typeof assigneeId === 'string' ? assigneeId : undefined
       )
       setNewTaskDefaultStatus(status)
-      setIsNewTaskModalOpen(true)
+      setNewTaskPreFill(undefined)
+      setIsQuickDispatchOpen(true)
     },
     [fetchMembers, fetchProjects]
+  )
+
+  const handleQuickDispatchEdit = useCallback(
+    (fields: QuickDispatchParsedFields) => {
+      setNewTaskPreFill(fields)
+      setNewTaskDefaultAssigneeId(fields.assigneeId || undefined)
+      setNewTaskDefaultStatus(fields.status)
+      setIsNewTaskModalOpen(true)
+    },
+    []
   )
 
   const openNewTaskModalForMe = useCallback(
@@ -632,14 +649,12 @@ export default function DashboardApp() {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        fetchMembers()
-        fetchProjects()
-        setIsQuickDispatchOpen(true)
+        openNewTaskModal()
       }
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [fetchMembers, fetchProjects])
+  }, [openNewTaskModal])
 
   const handleSelectProject = useCallback(
     (p: ApiProject) => {
@@ -1164,12 +1179,16 @@ export default function DashboardApp() {
                 setIsNewTaskModalOpen(false)
                 setNewTaskDefaultAssigneeId(undefined)
                 setNewTaskDefaultStatus(undefined)
+                setNewTaskPreFill(undefined)
               }}
               projects={projects}
               members={members}
-              defaultProjectId={selectedProject?.id}
+              defaultProjectId={
+                newTaskPreFill?.projectId || selectedProject?.id
+              }
               defaultAssigneeId={newTaskDefaultAssigneeId}
               defaultStatus={newTaskDefaultStatus}
+              preFill={newTaskPreFill}
               onSubmit={handleCreateTask}
               tasks={Object.values(taskMap) as ApiTask[]}
             />
@@ -1178,9 +1197,9 @@ export default function DashboardApp() {
             <QuickDispatchModal
               isOpen={isQuickDispatchOpen}
               onClose={() => setIsQuickDispatchOpen(false)}
-              projects={projects}
               members={members}
               onSubmit={handleCreateTask}
+              onEdit={handleQuickDispatchEdit}
             />
           )}
           {isNewProjectModalOpen && (

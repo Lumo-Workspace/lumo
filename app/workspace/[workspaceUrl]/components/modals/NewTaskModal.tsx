@@ -50,6 +50,17 @@ export interface NewTaskFormData {
   aiSuggestedPriority?: ApiPriority | null
 }
 
+/** Pre-filled fields from Quick Dispatch. */
+export interface NewTaskPreFill {
+  title: string
+  description: string
+  status: ApiStatus
+  priority: ApiPriority
+  projectId: string
+  assigneeId: string
+  dueDate: string | null
+}
+
 interface NewTaskModalProps {
   isOpen: boolean
   onClose: () => void
@@ -58,6 +69,8 @@ interface NewTaskModalProps {
   defaultProjectId?: string | undefined
   defaultAssigneeId?: string | undefined
   defaultStatus?: ApiStatus | undefined
+  /** Pre-filled fields from Quick Dispatch AI parsing. */
+  preFill?: NewTaskPreFill | undefined
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
   onSubmit: (data: NewTaskFormData) => Promise<void>
   tasks?: ApiTask[]
@@ -71,20 +84,33 @@ export function NewTaskModal({
   defaultProjectId,
   defaultAssigneeId,
   defaultStatus,
+  preFill,
   onSubmit,
   tasks = [],
 }: NewTaskModalProps) {
   const intl = useIntl()
-  const [title, setTitle] = useState('')
-  const descriptionRef = useRef<string | null>(null)
-  const [descriptionValue, setDescriptionValue] = useState<string | null>(null)
-  const [status, setStatus] = useState<ApiStatus>(defaultStatus ?? 'TODO')
-  const [priority, setPriority] = useState<ApiPriority>('MEDIUM')
-  const [projectId, setProjectId] = useState(defaultProjectId ?? '')
-  const [assigneeId, setAssigneeId] = useState(defaultAssigneeId ?? '')
+  const [title, setTitle] = useState(preFill?.title ?? '')
+  const descriptionRef = useRef<string | null>(preFill?.description ?? null)
+  const [descriptionValue, setDescriptionValue] = useState<string | null>(
+    preFill?.description ?? null
+  )
+  const [status, setStatus] = useState<ApiStatus>(
+    preFill?.status ?? defaultStatus ?? 'TODO'
+  )
+  const [priority, setPriority] = useState<ApiPriority>(
+    preFill?.priority ?? 'MEDIUM'
+  )
+  const [projectId, setProjectId] = useState(
+    preFill?.projectId ?? defaultProjectId ?? ''
+  )
+  const [assigneeId, setAssigneeId] = useState(
+    preFill?.assigneeId ?? defaultAssigneeId ?? ''
+  )
   const [repositoryId, setRepositoryId] = useState<string | null>(null)
   const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
-  const [dueDate, setDueDate] = useState<string | null>(null)
+  const [dueDate, setDueDate] = useState<string | null>(
+    preFill?.dueDate ?? null
+  )
 
   // ─── AI priority suggestion ────────────────────────────────────────────
   const [userHasOverriddenPriority, setUserHasOverriddenPriority] =
