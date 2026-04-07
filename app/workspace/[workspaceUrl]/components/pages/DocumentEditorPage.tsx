@@ -8,6 +8,7 @@ import { DescriptionEditor } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
+import { TagInput } from '../document/TagInput'
 import type {
   ApiDocumentDetail,
   ApiDocumentAncestor,
@@ -50,6 +51,7 @@ export function DocumentEditorPage({
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [tags, setTags] = useState<string[]>(initialCache?.tags ?? [])
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -63,6 +65,7 @@ export function DocumentEditorPage({
       setDoc(cached)
       setTitle(cached.title)
       setAncestors(cached.ancestors ?? [])
+      setTags(cached.tags ?? [])
     }
     setLoading(!cached)
 
@@ -79,6 +82,7 @@ export function DocumentEditorPage({
           setDoc(docWithAncestors)
           setTitle(data.document.title)
           setAncestors(data.ancestors ?? [])
+          setTags(data.document.tags ?? [])
           writeCache(CACHE_KEY.documentDetail(documentId), docWithAncestors)
         }
       } catch {
@@ -168,6 +172,22 @@ export function DocumentEditorPage({
       save({ emoji })
     },
     [save]
+  )
+
+  const handleTagsChange = useCallback(
+    async (newTags: string[]) => {
+      setTags(newTags)
+      try {
+        await fetch(API.documents.byId(documentId), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags }),
+        })
+      } catch {
+        setTags(doc?.tags ?? [])
+      }
+    },
+    [documentId, doc?.tags]
   )
 
   function getSaveStatusText(): string {
@@ -268,6 +288,11 @@ export function DocumentEditorPage({
               {doc.visibility}
             </button>
             {saveStatus !== 'idle' && <span>{getSaveStatusText()}</span>}
+          </div>
+
+          {/* Tags */}
+          <div className='mb-4'>
+            <TagInput tags={tags} onChange={handleTagsChange} />
           </div>
 
           {/* Editor */}
