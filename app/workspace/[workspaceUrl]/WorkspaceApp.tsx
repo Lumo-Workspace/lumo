@@ -695,6 +695,7 @@ export default function DashboardApp() {
       projectId,
       assigneeId,
       repositoryId,
+      aiSuggestedPriority,
     }: NewTaskFormData) => {
       const tempId = `optimistic-task-${Date.now()}`
       const now = new Date().toISOString()
@@ -764,6 +765,23 @@ export default function DashboardApp() {
       toast.success('Task created', {
         description: `${task.teamIdentifier}-${task.number} - ${task.title}`,
       })
+
+      // Record AI priority override if user changed the suggestion
+      if (aiSuggestedPriority && aiSuggestedPriority !== priority) {
+        apiFetch('/api/tasks/priority-override', {
+          method: 'POST',
+          body: {
+            taskId: task.id,
+            projectId,
+            aiSuggested: aiSuggestedPriority,
+            userChosen: priority,
+            taskTitle: title,
+            taskDescription: description || undefined,
+          },
+        }).catch(() => {
+          // Silent failure — override recording is non-critical
+        })
+      }
     },
     [
       selectedProject?.id,
