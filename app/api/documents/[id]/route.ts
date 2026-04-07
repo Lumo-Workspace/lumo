@@ -228,6 +228,7 @@ export async function PATCH(
     updateData.sortOrder = parsed.data.sortOrder
   if (parsed.data.publicToken !== undefined)
     updateData.publicToken = parsed.data.publicToken
+  if (parsed.data.tags !== undefined) updateData.tags = parsed.data.tags
 
   const updated = await prisma.$transaction(async tx => {
     const updatedDoc =
@@ -253,6 +254,22 @@ export async function PATCH(
 
     return updatedDoc
   })
+
+  if (parsed.data.content !== undefined) {
+    await prisma.documentEditor.upsert({
+      where: {
+        documentId_memberId: {
+          documentId: id,
+          memberId: ws.member.id,
+        },
+      },
+      update: { lastEditedAt: new Date() },
+      create: {
+        documentId: id,
+        memberId: ws.member.id,
+      },
+    })
+  }
 
   return NextResponse.json({ document: updated })
 }

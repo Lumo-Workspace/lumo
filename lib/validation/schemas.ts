@@ -206,6 +206,7 @@ export const updateDocumentSchema = z.object({
   sortOrder: z.number().optional(),
   childOrder: z.array(z.string()).optional(),
   publicToken: z.string().max(30).nullable().optional(),
+  tags: z.array(z.string().max(30)).max(20).optional(),
 })
 
 export const moveDocumentSchema = z.object({

@@ -79,6 +79,14 @@ export async function GET(request: NextRequest) {
           member: { select: { id: true, clerkId: true } },
         },
       },
+      editors: {
+        select: {
+          member: { select: { id: true, clerkId: true } },
+          lastEditedAt: true,
+        },
+        orderBy: { lastEditedAt: 'desc' },
+        take: 5,
+      },
       _count: { select: { children: true } },
     },
     orderBy: [{ updatedAt: 'desc' }],
@@ -90,6 +98,9 @@ export async function GET(request: NextRequest) {
     allClerkIds.add(doc.createdBy.clerkId)
     for (const s of doc.shares) {
       allClerkIds.add(s.member.clerkId)
+    }
+    for (const e of doc.editors) {
+      allClerkIds.add(e.member.clerkId)
     }
   }
 
@@ -123,6 +134,17 @@ export async function GET(request: NextRequest) {
           },
         }
       }),
+      editors: doc.editors.map(e => ({
+        member: {
+          id: e.member.id,
+          name: resolveClerkName(
+            userMap.get(e.member.clerkId),
+            e.member.clerkId
+          ),
+          imageUrl: userMap.get(e.member.clerkId)?.imageUrl ?? null,
+        },
+        lastEditedAt: e.lastEditedAt.toISOString(),
+      })),
     }
   })
 

@@ -305,6 +305,11 @@ export interface ApiDocument {
   createdAt: string
   updatedAt: string
   _count?: { children: number }
+  tags?: string[]
+  editors?: Array<{
+    member: { id: string; name: string; imageUrl: string | null }
+    lastEditedAt: string
+  }>
 }
 
 export interface ApiDocumentAncestor {
