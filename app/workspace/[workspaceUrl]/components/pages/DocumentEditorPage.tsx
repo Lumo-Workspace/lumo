@@ -36,14 +36,15 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  const diffMins = Math.floor(diffSec / 60)
+  if (diffMins < 60) return rtf.format(-diffMins, 'minute')
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffHours < 24) return rtf.format(-diffHours, 'hour')
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 7) return rtf.format(-diffDays, 'day')
   return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
