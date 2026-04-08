@@ -129,7 +129,7 @@ export function ShareDialog({
   const sharedMemberIds = useMemo(() => {
     const ids = new Set<string>()
     ids.add(owner.id)
-    for (const s of shares) {
+    for (const s of shares ?? []) {
       ids.add(s.memberId)
     }
     return ids
@@ -425,7 +425,7 @@ export function ShareDialog({
             </div>
 
             {/* Share rows */}
-            {shares.map(share => (
+            {(shares ?? []).map(share => (
               <div
                 key={share.id}
                 className='flex items-center gap-2 px-1 py-1.5'

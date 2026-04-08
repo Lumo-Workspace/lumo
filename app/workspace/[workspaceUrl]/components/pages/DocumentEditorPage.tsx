@@ -24,6 +24,7 @@ interface DocumentEditorPageProps {
   onNavigateToDocument: (id: string) => void
   onNavigateToDocuments: () => void
   onTitleChanged?: (id: string, title: string) => void
+  onEmojiChanged?: (id: string, emoji: string | null) => void
   members: WorkspaceMemberInfo[]
   currentMemberId: string | undefined
 }
@@ -35,6 +36,7 @@ export function DocumentEditorPage({
   onNavigateToDocument,
   onNavigateToDocuments,
   onTitleChanged,
+  onEmojiChanged,
   members,
   currentMemberId,
 }: DocumentEditorPageProps) {
@@ -170,8 +172,9 @@ export function DocumentEditorPage({
     (emoji: string | null) => {
       setDoc(prev => (prev ? { ...prev, emoji } : prev))
       save({ emoji })
+      onEmojiChanged?.(documentId, emoji)
     },
-    [save]
+    [save, onEmojiChanged, documentId]
   )
 
   const handleTagsChange = useCallback(

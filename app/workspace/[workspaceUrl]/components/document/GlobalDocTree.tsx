@@ -3,12 +3,12 @@
 import { useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
 import {
-  FileText,
   Plus,
   ChevronRight,
   Pencil,
   Trash2,
   Loader2,
+  MoreHorizontal,
 } from 'lucide-react'
 import type { TreeNode } from '../../types'
 import { cn } from '@/lib/utils'
@@ -20,6 +20,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface GlobalDocTreeProps {
   roots: TreeNode[]
@@ -50,6 +57,7 @@ interface DropTarget {
 
 function TreeItemRow({
   node,
+  depth,
   isExpanded,
   isCurrent,
   draggedId,
@@ -65,6 +73,7 @@ function TreeItemRow({
   onDrop,
 }: {
   node: TreeNode
+  depth: number
   isExpanded: boolean
   isCurrent: boolean
   draggedId: string | null
@@ -125,74 +134,112 @@ function TreeItemRow({
         onDrop()
       }}
       onDragEnd={onDragEnd}
+      style={{ paddingLeft: `${depth * 4 + 8}px`, paddingRight: '6px' }}
       className={cn(
-        'group relative flex items-center gap-1 w-full rounded-md px-1.5 py-1.5 text-xs transition-colors cursor-pointer',
+        'group relative flex items-center gap-1.5 w-full rounded-sm py-1 text-[13px] transition-colors cursor-pointer select-none',
         isCurrent
           ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          : 'text-foreground/70 hover:bg-accent/50 hover:text-foreground',
         isDragging && 'opacity-40',
-        isDropInside && 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20'
+        isDropInside && 'ring-1 ring-blue-400 bg-blue-50 dark:bg-blue-900/20'
       )}
       onClick={onClick}
     >
       {/* Drop indicator lines */}
       {isDropBefore && (
-        <div className='absolute left-0 right-0 top-0 h-0.5 bg-blue-500' />
+        <div className='absolute left-2 right-2 top-0 h-0.5 bg-blue-500 rounded-full' />
       )}
       {isDropAfter && (
-        <div className='absolute left-0 right-0 bottom-0 h-0.5 bg-blue-500' />
+        <div className='absolute left-2 right-2 bottom-0 h-0.5 bg-blue-500 rounded-full' />
       )}
 
       {/* Expand/collapse */}
       {hasChildren ? (
         <button
           type='button'
-          className='shrink-0 p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors'
+          className='shrink-0 flex items-center justify-center w-5 h-5 hover:bg-black/5 dark:hover:bg-white/10 rounded-sm transition-colors'
           onClick={e => {
             e.stopPropagation()
             onToggleExpand()
           }}
         >
           {node.isLoading ? (
-            <Loader2 size={12} className='animate-spin' />
+            <Loader2 size={12} className='animate-spin text-muted-foreground' />
           ) : (
             <ChevronRight
               size={12}
-              className={cn('transition-transform', isExpanded && 'rotate-90')}
+              className={cn(
+                'text-muted-foreground transition-transform duration-150',
+                isExpanded && 'rotate-90'
+              )}
             />
           )}
         </button>
       ) : (
-        <span className='w-[16px] shrink-0' />
+        <span className='w-5 shrink-0' />
       )}
 
-      {/* Icon */}
-      <FileText size={13} className='shrink-0' />
+      {/* Emoji */}
+      <span className='shrink-0 text-[13px]'>{node.emoji || '📄'}</span>
 
       {/* Label */}
-      <span className='truncate flex-1'>
-        {node.emoji ? `${node.emoji} ` : ''}
-        {node.title || 'Untitled'}
-      </span>
+      <span className='truncate flex-1'>{node.title || 'Untitled'}</span>
 
-      {/* Badge: child count when collapsed */}
-      {hasChildren && !isExpanded && (
-        <span className='shrink-0 text-[10px] text-muted-foreground bg-muted rounded-full px-1.5'>
-          {node.childCount}
-        </span>
-      )}
+      {/* Hover actions */}
+      <div className='shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+        {/* More menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              className='flex items-center justify-center w-5 h-5 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+              onClick={e => e.stopPropagation()}
+            >
+              <MoreHorizontal size={13} className='text-muted-foreground' />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='start' className='w-40'>
+            <DropdownMenuItem onClick={onAddChild}>
+              <Plus size={14} className='mr-2' />
+              {intl.formatMessage({
+                id: 'documentToc.addSubPage',
+                defaultMessage: 'Add sub-page',
+              })}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onRename}>
+              <Pencil size={14} className='mr-2' />
+              {intl.formatMessage({
+                id: 'documentToc.rename',
+                defaultMessage: 'Rename',
+              })}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onDelete}
+              className='text-destructive focus:text-destructive'
+            >
+              <Trash2 size={14} className='mr-2' />
+              {intl.formatMessage({
+                id: 'documentToc.delete',
+                defaultMessage: 'Delete',
+              })}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {/* Add child button */}
-      <button
-        type='button'
-        className='shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all'
-        onClick={e => {
-          e.stopPropagation()
-          onAddChild()
-        }}
-      >
-        <Plus size={12} />
-      </button>
+        {/* Add child */}
+        <button
+          type='button'
+          className='flex items-center justify-center w-5 h-5 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+          onClick={e => {
+            e.stopPropagation()
+            onAddChild()
+          }}
+        >
+          <Plus size={13} className='text-muted-foreground' />
+        </button>
+      </div>
     </div>
   )
 
@@ -267,13 +314,14 @@ function TreeNodeGroup({
   onDrop: () => void
 }) {
   return (
-    <div className={cn(depth > 0 && 'ml-2 border-l border-border pl-1')}>
+    <div>
       {nodes.map(node => {
         const isExpanded = expandedIds.has(node.id)
         return (
           <div key={node.id}>
             <TreeItemRow
               node={node}
+              depth={depth}
               isExpanded={isExpanded}
               isCurrent={node.id === currentDocId}
               draggedId={draggedId}
@@ -338,7 +386,6 @@ export function GlobalDocTree({
       return
     }
 
-    // Find the target node to determine new parentId and sortOrder
     const findInRoots = (
       nodes: TreeNode[],
       id: string
@@ -385,11 +432,9 @@ export function GlobalDocTree({
     let sortOrder: number
 
     if (dropTarget.position === 'inside') {
-      // Drop inside: become child of target
       newParentId = dropTarget.nodeId
       sortOrder = target.node.children?.length ?? 0
     } else {
-      // Drop before/after: become sibling
       newParentId = target.parent?.id ?? null
       const targetIdx = target.siblings.findIndex(
         s => s.id === dropTarget.nodeId
@@ -413,7 +458,6 @@ export function GlobalDocTree({
 
     onMoveNode(draggedId, newParentId, sortOrder)
 
-    // Background: call move API
     fetch(`${API.documents.move(draggedId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -425,16 +469,9 @@ export function GlobalDocTree({
   }, [draggedId, dropTarget, roots, onMoveNode])
 
   return (
-    <div className='w-56 shrink-0 border-r overflow-y-auto py-3 px-2 text-xs'>
-      <div className='text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 mb-1.5'>
-        {intl.formatMessage({
-          id: 'documentEditor.pages',
-          defaultMessage: 'Pages',
-        })}
-      </div>
-
+    <div className='w-56 shrink-0 border-r overflow-y-auto py-1.5 px-1.5'>
       {roots.length === 0 ? (
-        <div className='px-2 py-4 text-center text-muted-foreground'>
+        <div className='px-2 py-8 text-center text-[13px] text-muted-foreground'>
           {intl.formatMessage({
             id: 'documentTree.empty',
             defaultMessage: 'No documents yet',
@@ -463,13 +500,14 @@ export function GlobalDocTree({
         />
       )}
 
-      {/* Add root document button */}
+      {/* Add root document */}
       <button
         type='button'
-        className='flex items-center gap-1.5 w-full rounded-md px-2 py-1.5 mt-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+        className='flex items-center gap-1.5 w-full rounded-sm py-1 mt-0.5 text-[13px] text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
+        style={{ paddingLeft: '8px' }}
         onClick={() => onAddChild(null)}
       >
-        <Plus size={13} />
+        <Plus size={14} />
         <span>
           {intl.formatMessage({
             id: 'documentTree.newDoc',

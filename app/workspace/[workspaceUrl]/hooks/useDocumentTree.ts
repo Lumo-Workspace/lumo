@@ -244,6 +244,20 @@ export function useDocumentTree(currentDocId: string | null) {
     [cacheTree]
   )
 
+  const updateNodeEmoji = useCallback(
+    (nodeId: string, emoji: string | null) => {
+      setRoots(prev => {
+        const updated = updateNodeInTree(prev, nodeId, node => ({
+          ...node,
+          emoji,
+        }))
+        cacheTree(updated)
+        return updated
+      })
+    },
+    [cacheTree]
+  )
+
   const moveNode = useCallback(
     (nodeId: string, newParentId: string | null, sortOrder: number) => {
       setRoots(prev => {
@@ -316,6 +330,7 @@ export function useDocumentTree(currentDocId: string | null) {
     addNode,
     removeNode,
     renameNode,
+    updateNodeEmoji,
     moveNode,
     replaceNodeId,
     refresh,

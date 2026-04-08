@@ -1144,6 +1144,9 @@ export default function DashboardApp() {
                   )
                 }}
                 onTitleChanged={(id, title) => docTree.renameNode(id, title)}
+                onEmojiChanged={(id, emoji) =>
+                  docTree.updateNodeEmoji(id, emoji)
+                }
               />
             ) : null}
           </div>
