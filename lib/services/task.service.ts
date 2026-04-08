@@ -15,18 +15,18 @@ interface PrStatusUpdate {
 }
 
 export interface UpdateTaskInput {
-  title?: string
-  description?: string
-  spec?: string
-  status?: string
-  priority?: string
-  order?: number
-  dueDate?: string
-  parentTaskId?: string | null
-  assigneeActorId?: string | null
-  reviewerActorId?: string | null
-  projectId?: string
-  repositoryId?: string | null
+  title?: string | undefined
+  description?: string | null | undefined
+  spec?: string | null | undefined
+  status?: string | undefined
+  priority?: string | undefined
+  order?: number | undefined
+  dueDate?: string | null | undefined
+  parentTaskId?: string | null | undefined
+  assigneeActorId?: string | null | undefined
+  reviewerActorId?: string | null | undefined
+  projectId?: string | undefined
+  repositoryId?: string | null | undefined
 }
 
 export interface TaskUpdateResult {
