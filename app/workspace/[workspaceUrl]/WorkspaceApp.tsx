@@ -5,36 +5,24 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
   Dispatch,
   SetStateAction,
 } from 'react'
 import { useParams } from 'next/navigation'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
-import { toast } from 'sonner'
 import { useCurrentUser } from './hooks/useCurrentUser'
-import { useIntl } from 'react-intl'
 import {
   Page,
   ApiProject,
   ApiTask,
-  ApiDocument,
   ApiDraft,
   MyTask,
   ApiStatus,
   ApiPriority,
-  TreeNode,
 } from './types'
-import { CACHE_KEY } from './constants'
 import { slugifyProjectName } from './utils'
-import {
-  apiFetchQuiet,
-  tasksClient,
-  projectsClient,
-  documentsClient,
-} from '@/lib/api-client'
-import { clearCache, readCache, writeCache } from './cache'
+import { clearCache } from './cache'
 
 // Hooks
 import { useTaskStore } from './hooks/useTaskStore'
@@ -47,6 +35,9 @@ import { usePusherEvent } from './hooks/usePusher'
 import { useDocuments } from './hooks/useDocuments'
 import { useDocumentTree } from './hooks/useDocumentTree'
 import { useDrafts } from './hooks/useDrafts'
+import { useWorkspaceTaskHandlers } from './hooks/useWorkspaceTaskHandlers'
+import { useWorkspaceProjectHandlers } from './hooks/useWorkspaceProjectHandlers'
+import { useWorkspaceDocumentHandlers } from './hooks/useWorkspaceDocumentHandlers'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -55,41 +46,13 @@ import { ProjectsPage } from './components/pages/ProjectsPage'
 import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
 import { MyTasksPage } from './components/pages/MyTasksPage'
 import { InboxPage } from './components/pages/InboxPage'
-import { NewTaskModal, NewTaskFormData } from './components/modals/NewTaskModal'
-import {
-  QuickDispatchModal,
-  QuickDispatchParsedFields,
-} from './components/modals/QuickDispatchModal'
-import {
-  NewProjectModal,
-  NewProjectFormData,
-} from './components/modals/NewProjectModal'
-import { TaskDrawer } from './components/TaskDrawer'
-import { ProjectSlackDialog } from './components/ProjectSlackDialog'
 import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
 import { DraftsPage } from './components/DraftsPage'
 import { DashboardPage } from './components/pages/DashboardPage'
 import { GlobalDocTree } from './components/document/GlobalDocTree'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { WorkspaceModals } from './components/WorkspaceModals'
+import type { QuickDispatchParsedFields } from './components/modals/QuickDispatchModal'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
 
@@ -143,7 +106,6 @@ function pathToPage(
   }
   if (rest.startsWith('/projects')) return { page: 'projects' }
   if (rest.startsWith('/drafts')) return { page: 'drafts' }
-  // Default: /my-tasks or bare /workspace/[slug]
   return { page: 'my-tasks' }
 }
 
@@ -153,7 +115,6 @@ export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
   // ─── Navigation ────────────────────────────────────────────────────────────
-  // Initialise currentPage from the current URL
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     if (typeof window === 'undefined') return 'my-tasks'
     return pathToPage(window.location.pathname, workspaceUrl).page
@@ -161,7 +122,6 @@ export default function DashboardApp() {
   const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
     null
   )
-  // Track the initial project slug from the URL so we can resolve it after projects load
   const [pendingProjectSlug] = useState<string | undefined>(() => {
     if (typeof window === 'undefined') return undefined
     return pathToPage(window.location.pathname, workspaceUrl).projectSlug
@@ -182,7 +142,7 @@ export default function DashboardApp() {
   // ─── Slack ─────────────────────────────────────────────────────────────────
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
-  // ─── Normalized task store (single source of truth) ───────────────────────
+  // ─── Normalized task store ─────────────────────────────────────────────────
   const {
     taskMap,
     upsertTasks,
@@ -192,7 +152,7 @@ export default function DashboardApp() {
     replaceTempId,
   } = useTaskStore()
 
-  // ─── Data ──────────────────────────────────────────────────────────────────
+  // ─── Data hooks ────────────────────────────────────────────────────────────
   const {
     taskIds: myTaskIds,
     setTaskIds: setMyTaskIds,
@@ -242,7 +202,6 @@ export default function DashboardApp() {
   } = useDocuments()
 
   const { user } = useCurrentUser()
-  const intl = useIntl()
 
   // ─── Document tree ──────────────────────────────────────────────────────────
   const docTree = useDocumentTree(selectedDocumentId)
@@ -258,93 +217,6 @@ export default function DashboardApp() {
     title: string
   } | null>(null)
 
-  // Navigate to a document (used by tree and other places)
-  const navigateToDocument = useCallback(
-    (id: string) => {
-      setSelectedDocumentId(id)
-      setCurrentPage('document-editor')
-      docTree.expandPathTo(id)
-      window.history.pushState(
-        null,
-        '',
-        `/workspace/${workspaceUrl}/documents/${id}`
-      )
-    },
-    [workspaceUrl, docTree]
-  )
-
-  // Create a child document via tree (optimistic)
-  const handleTreeCreateChild = useCallback(
-    (parentId: string | null) => {
-      const tempId = `temp-${crypto.randomUUID()}`
-      const node: TreeNode = {
-        id: tempId,
-        title: '',
-        emoji: null,
-        parentId,
-        sortOrder: Date.now(),
-        childCount: 0,
-      }
-      docTree.addNode(parentId, node)
-      // Navigate to new doc
-      setSelectedDocumentId(tempId)
-      setCurrentPage('document-editor')
-      window.history.pushState(
-        null,
-        '',
-        `/workspace/${workspaceUrl}/documents/${tempId}`
-      )
-      // Write optimistic cache for DocumentEditorPage
-      writeCache(CACHE_KEY.documentDetail(tempId), {
-        id: tempId,
-        title: '',
-        emoji: null,
-        parentId,
-        content: null,
-        children: [],
-        shares: [],
-        ancestors: [],
-        visibility: 'PRIVATE',
-        sortOrder: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        projectId: null,
-        project: null,
-        workspaceId: '',
-        createdById: '',
-        createdBy: { id: '', name: '', imageUrl: null },
-      })
-      // Background sync
-      documentsClient
-        .create<{ document: ApiDocument; ancestors?: unknown[] }>({ parentId })
-        .then(data => {
-          const realId = data.document.id as string
-          docTree.replaceNodeId(tempId, realId)
-          writeCache(CACHE_KEY.documentDetail(realId), {
-            ...data.document,
-            ancestors: data.ancestors ?? [],
-          })
-          try {
-            localStorage.removeItem(CACHE_KEY.documentDetail(tempId))
-          } catch {
-            /* */
-          }
-          setSelectedDocumentId(prev => {
-            if (prev === tempId) return realId
-            return prev
-          })
-          if (window.location.pathname.includes(tempId)) {
-            window.history.replaceState(
-              null,
-              '',
-              `/workspace/${workspaceUrl}/documents/${realId}`
-            )
-          }
-        })
-    },
-    [workspaceUrl, docTree]
-  )
-
   // Current user's workspace member info
   const currentMember = useMemo(
     () => members.find(m => m.clerkId === user?.id),
@@ -354,61 +226,9 @@ export default function DashboardApp() {
   const currentActorId = currentMember?.actorId ?? null
   const isOwner = currentMember?.role === 'OWNER'
 
-  // ─── Derive task arrays from normalized store ──────────────────────────────
-  const myTasks = useMemo(
-    () => myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[],
-    [myTaskIds, taskMap]
-  )
-
-  const projectTasks = useMemo(
-    () => projectTaskIds.map(id => taskMap[id]).filter(Boolean) as ApiTask[],
-    [projectTaskIds, taskMap]
-  )
-
-  // ─── Real-time board updates via project channel ──────────────────────────
-  usePusherEvent<{
-    taskId: string
-    fields: string[]
-    patch?: Record<string, unknown>
-  }>(
-    selectedProject ? `project-${selectedProject.id}` : null,
-    'project-update',
-    useCallback(
-      event => {
-        if (event.patch) {
-          updateTask(event.taskId, event.patch)
-        }
-      },
-      [updateTask]
-    )
-  )
-
-  // ─── DnD setTasks wrappers (bridge Dispatch<SetStateAction<T[]>> to store) ─
-  // These are passed to Board/List views which call setTasks for drag operations.
-  const setMyTasksForDnD = useCallback<Dispatch<SetStateAction<MyTask[]>>>(
-    action => {
-      const prev = myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[]
-      const next = typeof action === 'function' ? action(prev) : action
-      const changed = next.filter(t => taskMap[t.id] !== t)
-      if (changed.length > 0) upsertTasks(changed)
-      setMyTaskIds(next.map(t => t.id))
-    },
-    [myTaskIds, taskMap, upsertTasks, setMyTaskIds]
-  )
-
-  const setProjectTasksForDnD = useCallback<
-    Dispatch<SetStateAction<ApiTask[]>>
-  >(
-    action => {
-      const prev = projectTaskIds
-        .map(id => taskMap[id])
-        .filter(Boolean) as ApiTask[]
-      const next = typeof action === 'function' ? action(prev) : action
-      const changed = next.filter(t => taskMap[t.id] !== t)
-      if (changed.length > 0) upsertTasks(changed)
-      setProjectTaskIds(next.map(t => t.id))
-    },
-    [projectTaskIds, taskMap, upsertTasks, setProjectTaskIds]
+  // ─── Task drawer ───────────────────────────────────────────────────────────
+  const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
+    null
   )
 
   // ─── Modal state ───────────────────────────────────────────────────────────
@@ -435,112 +255,99 @@ export default function DashboardApp() {
   >()
   const [projectDraftId, setProjectDraftId] = useState<string | undefined>()
 
-  // ─── Task drawer ───────────────────────────────────────────────────────────
-  const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
-    null
-  )
-  // description cache: taskId → description html (populated after first fetch)
-  const descriptionCache = useRef<Map<string, string | null>>(new Map())
+  // ─── Extracted handler hooks ───────────────────────────────────────────────
+  const taskHandlers = useWorkspaceTaskHandlers({
+    taskMap,
+    upsertTasks,
+    updateTask,
+    removeTask,
+    removeTasks,
+    replaceTempId,
+    myTaskIds,
+    setMyTaskIds,
+    projectTaskIds,
+    setProjectTaskIds,
+    members,
+    currentMemberId,
+    fetchMembers,
+    projects,
+    setProjects,
+    selectedProject,
+    fetchProjects,
+  })
 
+  // ─── Navigation ────────────────────────────────────────────────────────────
+  const navigateTo = useCallback(
+    (page: Page, project?: ApiProject) => {
+      setCurrentPage(page)
+      if (project) setSelectedProject(project)
+      if (page === 'drafts') fetchDrafts()
+      const path = pageToPath(workspaceUrl, page, project)
+      window.history.pushState(null, '', path)
+    },
+    [workspaceUrl, fetchDrafts]
+  )
+
+  const projectHandlers = useWorkspaceProjectHandlers({
+    setProjects,
+    setSelectedProject,
+    navigateTo,
+    onDeleteProjectTasks: taskHandlers.handleDeleteProjectTasks,
+    setSelectedTask: setSelectedTask as Dispatch<SetStateAction<unknown>>,
+  })
+
+  const documentHandlers = useWorkspaceDocumentHandlers({
+    workspaceUrl,
+    setDocuments,
+    setCurrentPage: setCurrentPage as Dispatch<SetStateAction<string>>,
+    setSelectedDocumentId,
+    docTree,
+  })
+
+  // ─── Derived task arrays ──────────────────────────────────────────────────
+  const myTasks = useMemo(
+    () => myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[],
+    [myTaskIds, taskMap]
+  )
+
+  const projectTasks = useMemo(
+    () => projectTaskIds.map(id => taskMap[id]).filter(Boolean) as ApiTask[],
+    [projectTaskIds, taskMap]
+  )
+
+  // ─── Real-time board updates ──────────────────────────────────────────────
+  usePusherEvent<{
+    taskId: string
+    fields: string[]
+    patch?: Record<string, unknown>
+  }>(
+    selectedProject ? `project-${selectedProject.id}` : null,
+    'project-update',
+    useCallback(
+      event => {
+        if (event.patch) {
+          updateTask(event.taskId, event.patch)
+        }
+      },
+      [updateTask]
+    )
+  )
+
+  // ─── Task drawer handlers ────────────────────────────────────────────────
   const handleOpenTask = useCallback(
     (task: ApiTask | MyTask) => {
-      fetchMembers()
+      taskHandlers.handleOpenTask(task)
       setSelectedTask(task)
     },
-    [fetchMembers]
+    [taskHandlers]
   )
 
   const handleCloseTask = useCallback(() => setSelectedTask(null), [])
 
-  const handleUpdateTask = useCallback(
-    async (
-      taskId: string,
-      data: Partial<{
-        title: string
-        status: ApiStatus
-        assigneeActorId: string | null
-        reviewerActorId: string | null
-        description: string | null
-        projectId: string
-        priority: ApiPriority
-        dueDate: string | null
-      }>
-    ) => {
-      // Optimistic update — single call to task map
-      updateTask(taskId, data)
-
-      // Sync ID lists if the task moves out of the current project
-      if ('projectId' in data && data.projectId !== selectedProject?.id) {
-        setProjectTaskIds(prev => prev.filter(id => id !== taskId))
-      }
-
-      // Sync my-tasks ID list if assignee changed
-      // currentMemberId is a WorkspaceMember.id; we compare against task.assigneeActorId
-      // by looking up the member's actorId
-      const currentMemberActorId = members.find(
-        m => m.id === currentMemberId
-      )?.actorId
-      if ('assigneeActorId' in data && currentMemberActorId) {
-        const nowMine = data.assigneeActorId === currentMemberActorId
-        const wasMine = myTaskIds.includes(taskId)
-        if (wasMine && !nowMine)
-          setMyTaskIds(prev => prev.filter(id => id !== taskId))
-        if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
-      }
-
-      try {
-        const { task: updated } = await tasksClient.update<{ task: ApiTask }>(
-          taskId,
-          data
-        )
-        // Reconcile with server response (preserves project field via upsertTasks merge)
-        upsertTasks([updated])
-        // Re-check assignee after server confirms
-        if (currentMemberActorId) {
-          const nowMine = updated.assigneeActorId === currentMemberActorId
-          const wasMine = myTaskIds.includes(taskId)
-          if (wasMine && !nowMine)
-            setMyTaskIds(prev => prev.filter(id => id !== taskId))
-          if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
-        }
-      } catch (err) {
-        throw err
-      }
-    },
-    [
-      updateTask,
-      upsertTasks,
-      selectedProject?.id,
-      currentMemberId,
-      members,
-      myTaskIds,
-      setProjectTaskIds,
-      setMyTaskIds,
-    ]
-  )
-
-  const handleDeleteTask = useCallback(
-    async (taskId: string) => {
-      // Optimistic removal
-      removeTask(taskId)
-      setMyTaskIds(prev => prev.filter(id => id !== taskId))
-      setProjectTaskIds(prev => prev.filter(id => id !== taskId))
-      // Close drawer if this task is open
-      setSelectedTask(prev => (prev?.id === taskId ? null : prev))
-
-      try {
-        await tasksClient.delete(taskId)
-      } catch {
-        // silently ignore — optimistic removal already applied
-      }
-    },
-    [removeTask, setMyTaskIds, setProjectTaskIds]
-  )
-
+  // ─── Modal openers ────────────────────────────────────────────────────────
   const openNewTaskModal = useCallback(
     (assigneeId?: string, status?: ApiStatus) => {
-      fetchMembers()
-      fetchProjects()
+      taskHandlers.openNewTaskModal(assigneeId, status)
       setNewTaskDefaultAssigneeId(
         typeof assigneeId === 'string' ? assigneeId : undefined
       )
@@ -548,7 +355,7 @@ export default function DashboardApp() {
       setNewTaskPreFill(undefined)
       setIsQuickDispatchOpen(true)
     },
-    [fetchMembers, fetchProjects]
+    [taskHandlers]
   )
 
   const handleQuickDispatchEdit = useCallback(
@@ -561,8 +368,14 @@ export default function DashboardApp() {
     []
   )
 
+  const openNewTaskModalForMe = useCallback(
+    (status?: ApiStatus) => {
+      openNewTaskModal(currentMemberId, status)
+    },
+    [openNewTaskModal, currentMemberId]
+  )
+
   // ─── Draft handlers ─────────────────────────────────────────────────────
-  // Fetch drafts on mount for sidebar badge
   useEffect(() => {
     fetchDrafts()
   }, [fetchDrafts])
@@ -608,14 +421,7 @@ export default function DashboardApp() {
     [deleteDraft]
   )
 
-  const openNewTaskModalForMe = useCallback(
-    (status?: ApiStatus) => {
-      openNewTaskModal(currentMemberId, status)
-    },
-    [openNewTaskModal, currentMemberId]
-  )
-
-  // ─── Clear stale cache when user or workspace changes ─────────────────────
+  // ─── Clear stale cache ────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id || !workspaceUrl) return
     const context = `${user.id}:${workspaceUrl}`
@@ -625,8 +431,6 @@ export default function DashboardApp() {
     }
     localStorage.setItem('lumo:context', context)
   }, [user?.id, workspaceUrl])
-
-  // (notifications mount + pusher handled by useRealtimeNotifications)
 
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
@@ -649,19 +453,7 @@ export default function DashboardApp() {
     }
   }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
-  // ─── URL sync: push URL when navigating, listen for back/forward ─────────
-  const navigateTo = useCallback(
-    (page: Page, project?: ApiProject) => {
-      setCurrentPage(page)
-      if (project) setSelectedProject(project)
-      if (page === 'drafts') fetchDrafts()
-      const path = pageToPath(workspaceUrl, page, project)
-      window.history.pushState(null, '', path)
-    },
-    [workspaceUrl, fetchDrafts]
-  )
-
-  // Browser back/forward → sync currentPage from URL
+  // ─── URL sync ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const onPopState = () => {
       const { page, projectSlug } = pathToPage(
@@ -685,7 +477,6 @@ export default function DashboardApp() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [workspaceUrl, projects])
 
-  // Replace bare /workspace/[slug] URL with /workspace/[slug]/my-tasks
   useEffect(() => {
     const base = `/workspace/${workspaceUrl}`
     if (
@@ -696,7 +487,6 @@ export default function DashboardApp() {
     }
   }, [workspaceUrl])
 
-  // Resolve pending project slug once projects have loaded
   useEffect(() => {
     if (
       pendingProjectSlug &&
@@ -723,287 +513,6 @@ export default function DashboardApp() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [openNewTaskModal])
 
-  const handleSelectProject = useCallback(
-    (p: ApiProject) => {
-      navigateTo('project-detail', p)
-    },
-    [navigateTo]
-  )
-  const handleBack = useCallback(() => {
-    navigateTo('projects')
-  }, [navigateTo])
-  const openNewProject = useCallback(() => setIsNewProjectModalOpen(true), [])
-
-  // ─── Optimistic: create project ────────────────────────────────────────────
-  const handleCreateProject = useCallback(
-    async ({ name, description }: NewProjectFormData) => {
-      const tempId = `optimistic-${Date.now()}`
-      const now = new Date().toISOString()
-      const optimistic: ApiProject = {
-        id: tempId,
-        name,
-        description: description.trim() || null,
-        isIdea: false,
-        defaultReviewerId: null,
-        createdAt: now,
-        updatedAt: now,
-        _count: { tasks: 0 },
-        inProgressCount: 0,
-      }
-
-      setProjects(prev => [optimistic, ...prev])
-      navigateTo('project-detail', optimistic)
-
-      let project: ApiProject
-      try {
-        const data = await projectsClient.create<{ project: ApiProject }>({
-          name,
-          description: description.trim() || undefined,
-        })
-        project = data.project
-      } catch (err) {
-        setProjects(prev => prev.filter(p => p.id !== tempId))
-        navigateTo('projects')
-        const message =
-          err instanceof Error ? err.message : 'Failed to create project'
-        toast.error(
-          message ?? intl.formatMessage({ id: 'task.projectCreateFailed' })
-        )
-        throw err
-      }
-      const confirmed: ApiProject = {
-        ...project,
-        _count: { tasks: 0 },
-        inProgressCount: 0,
-      }
-      setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
-      setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
-      toast.success(intl.formatMessage({ id: 'task.projectCreateSuccess' }), {
-        description: `${project.name}`,
-      })
-    },
-    [setProjects, navigateTo]
-  )
-
-  // ─── Optimistic: create task ───────────────────────────────────────────────
-  const handleCreateTask = useCallback(
-    async ({
-      title,
-      description,
-      status,
-      priority,
-      projectId,
-      assigneeId,
-      repositoryId,
-      aiSuggestedPriority,
-    }: NewTaskFormData) => {
-      const tempId = `optimistic-task-${Date.now()}`
-      const now = new Date().toISOString()
-      const project = projects.find(p => p.id === projectId)
-      const optimistic: ApiTask = {
-        id: tempId,
-        title,
-        status,
-        priority,
-        projectId,
-        parentTaskId: null,
-        assigneeActorId: assigneeId ?? null,
-        reviewerActorId: null,
-        repositoryId: repositoryId ?? null,
-        createdAt: now,
-        updatedAt: now,
-        viewOrder: null,
-        number: 0,
-        teamIdentifier: '',
-        ...(project ? { project: { id: projectId, name: project.name } } : {}),
-      }
-
-      upsertTasks([optimistic])
-
-      if (projectId === selectedProject?.id) {
-        setProjectTaskIds(prev => [...prev, tempId])
-      }
-
-      if (assigneeId && assigneeId === currentMemberId) {
-        setMyTaskIds(prev => [...prev, tempId])
-      }
-
-      let task: ApiTask
-      try {
-        const data = await projectsClient.createTask<{ task: ApiTask }>(
-          projectId,
-          {
-            title,
-            description: description.trim() || undefined,
-            status,
-            priority,
-            assigneeActorId: assigneeId || undefined,
-            repositoryId: repositoryId ?? undefined,
-          }
-        )
-        task = data.task
-      } catch (err) {
-        removeTask(tempId)
-        setProjectTaskIds(prev => prev.filter(id => id !== tempId))
-        setMyTaskIds(prev => prev.filter(id => id !== tempId))
-        const message =
-          err instanceof Error ? err.message : 'Failed to create task'
-        toast.error(message ?? intl.formatMessage({ id: 'task.createFailed' }))
-        throw err
-      }
-      // Merge real task (preserving project field via replaceTempId)
-      replaceTempId(tempId, {
-        ...task,
-        ...(project ? { project: { id: projectId, name: project.name } } : {}),
-      })
-      setProjectTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
-      setMyTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
-      setProjects(prev =>
-        prev.map(p =>
-          p.id === projectId
-            ? { ...p, _count: { tasks: p._count.tasks + 1 } }
-            : p
-        )
-      )
-      toast.success(intl.formatMessage({ id: 'task.createSuccess' }), {
-        description: `${task.teamIdentifier}-${task.number} - ${task.title}`,
-      })
-
-      // Record AI priority override if user changed the suggestion
-      if (aiSuggestedPriority && aiSuggestedPriority !== priority) {
-        apiFetchQuiet('/api/tasks/priority-override', {
-          method: 'POST',
-          body: {
-            taskId: task.id,
-            projectId,
-            aiSuggested: aiSuggestedPriority,
-            userChosen: priority,
-            taskTitle: title,
-            taskDescription: description || undefined,
-          },
-        })
-      }
-    },
-    [
-      selectedProject?.id,
-      upsertTasks,
-      replaceTempId,
-      removeTask,
-      setProjectTaskIds,
-      setMyTaskIds,
-      setProjects,
-      projects,
-      currentMemberId,
-    ]
-  )
-
-  // ─── Delete / update project ───────────────────────────────────────────────
-  const handleDeleteProject = useCallback(
-    async (projectId: string) => {
-      // Evict description cache for all tasks under this project
-      const deletedIds = projectTaskIds.filter(
-        id => taskMap[id]?.projectId === projectId
-      )
-      deletedIds.forEach(id => descriptionCache.current.delete(id))
-
-      setSelectedProject(null)
-      setSelectedTask(prev =>
-        prev && 'projectId' in prev && prev.projectId === projectId
-          ? null
-          : prev
-      )
-      removeTasks(deletedIds)
-      setProjectTaskIds([])
-      setMyTaskIds(prev =>
-        prev.filter(id => taskMap[id]?.projectId !== projectId)
-      )
-      setProjects(prev => prev.filter(p => p.id !== projectId))
-      navigateTo('projects')
-
-      await projectsClient.delete(projectId)
-    },
-    [
-      navigateTo,
-      projectTaskIds,
-      taskMap,
-      descriptionCache,
-      removeTasks,
-      setProjectTaskIds,
-      setMyTaskIds,
-      setProjects,
-    ]
-  )
-
-  const handleUpdateProject = useCallback(
-    async (
-      id: string,
-      data: {
-        name?: string
-        description?: string
-        defaultReviewerId?: string | null
-      }
-    ) => {
-      const { project: updated } = await projectsClient.update<{
-        project: ApiProject
-      }>(id, data)
-      setProjects(prev =>
-        prev.map(p => (p.id === id ? { ...p, ...updated } : p))
-      )
-      setSelectedProject(prev =>
-        prev?.id === id ? { ...prev, ...updated } : prev
-      )
-    },
-    [setProjects, setSelectedProject]
-  )
-
-  // ─── Sync inProgressCount after drag-and-drop status change ───────────────
-  const handleProjectTaskStatusChanged = useCallback(
-    (_taskId: string, oldStatus: string, newStatus: string) => {
-      if (!selectedProject) return
-      const delta =
-        (newStatus === 'IN_PROGRESS' ? 1 : 0) -
-        (oldStatus === 'IN_PROGRESS' ? 1 : 0)
-      if (delta !== 0) {
-        setProjects(prev =>
-          prev.map(p =>
-            p.id === selectedProject.id
-              ? {
-                  ...p,
-                  inProgressCount: Math.max(0, p.inProgressCount + delta),
-                }
-              : p
-          )
-        )
-      }
-    },
-    [selectedProject, setProjects]
-  )
-
-  // ─── Document handlers ─────────────────────────────────────────────────────
-  const handleNewDocument = useCallback(async () => {
-    try {
-      const data = await documentsClient.create<{ document: ApiDocument }>({})
-      setDocuments(prev => [data.document, ...prev])
-      setCurrentPage('document-editor')
-      setSelectedDocumentId(data.document.id)
-      window.history.pushState(
-        null,
-        '',
-        `/workspace/${workspaceUrl}/documents/${data.document.id}`
-      )
-    } catch {}
-  }, [workspaceUrl, setDocuments])
-
-  const handleDeleteDocument = useCallback(
-    async (id: string) => {
-      try {
-        await documentsClient.delete(id)
-        setDocuments(prev => prev.filter(d => d.id !== id))
-      } catch {}
-    },
-    [setDocuments]
-  )
-
   // ─── Render current page ───────────────────────────────────────────────────
   const renderPage = () => {
     switch (currentPage) {
@@ -1023,7 +532,7 @@ export default function DashboardApp() {
         return (
           <MyTasksPage
             tasks={myTasks}
-            setTasks={setMyTasksForDnD}
+            setTasks={taskHandlers.setMyTasksForDnD}
             viewId={myTasksViewId}
             userId={user?.id ?? ''}
             loading={myTasksLoading}
@@ -1041,8 +550,8 @@ export default function DashboardApp() {
             loading={projectsLoading}
             error={projectsError}
             onRetry={fetchProjects}
-            onSelectProject={handleSelectProject}
-            onNewProject={openNewProject}
+            onSelectProject={projectHandlers.handleSelectProject}
+            onNewProject={() => setIsNewProjectModalOpen(true)}
           />
         )
 
@@ -1052,18 +561,18 @@ export default function DashboardApp() {
           <ProjectDetailPage
             project={selectedProject}
             tasks={projectTasks}
-            setTasks={setProjectTasksForDnD}
+            setTasks={taskHandlers.setProjectTasksForDnD}
             viewId={kanbanViewId}
             loading={projectTasksLoading}
             error={projectTasksError}
             onRetry={() => fetchProjectTasks(selectedProject.id)}
-            onBack={handleBack}
+            onBack={projectHandlers.handleBack}
             onNewTask={status => openNewTaskModal(undefined, status)}
             onTaskClick={handleOpenTask}
-            onDeleteTask={handleDeleteTask}
-            onTaskStatusChanged={handleProjectTaskStatusChanged}
-            onUpdateProject={handleUpdateProject}
-            onDeleteProject={handleDeleteProject}
+            onDeleteTask={taskHandlers.handleDeleteTask}
+            onTaskStatusChanged={taskHandlers.handleProjectTaskStatusChanged}
+            onUpdateProject={projectHandlers.handleUpdateProject}
+            onDeleteProject={projectHandlers.handleDeleteProject}
             members={members}
             currentActorId={currentActorId}
             isOwner={isOwner}
@@ -1079,9 +588,9 @@ export default function DashboardApp() {
               roots={docTree.roots}
               expandedIds={docTree.expandedIds}
               currentDocId={null}
-              onNavigate={navigateToDocument}
+              onNavigate={documentHandlers.navigateToDocument}
               onExpandNode={docTree.expandNode}
-              onAddChild={handleTreeCreateChild}
+              onAddChild={documentHandlers.handleTreeCreateChild}
               onRenameDoc={doc => {
                 setTreeRenameValue(doc.title)
                 setTreeRenameDoc(doc)
@@ -1094,9 +603,11 @@ export default function DashboardApp() {
               loading={documentsLoading}
               error={documentsError}
               onRetry={fetchDocuments}
-              onNewDocument={handleNewDocument}
-              onSelectDocument={doc => navigateToDocument(doc.id)}
-              onDeleteDocument={handleDeleteDocument}
+              onNewDocument={documentHandlers.handleNewDocument}
+              onSelectDocument={doc =>
+                documentHandlers.navigateToDocument(doc.id)
+              }
+              onDeleteDocument={documentHandlers.handleDeleteDocument}
             />
           </div>
         )
@@ -1108,9 +619,9 @@ export default function DashboardApp() {
               roots={docTree.roots}
               expandedIds={docTree.expandedIds}
               currentDocId={selectedDocumentId}
-              onNavigate={navigateToDocument}
+              onNavigate={documentHandlers.navigateToDocument}
               onExpandNode={docTree.expandNode}
-              onAddChild={handleTreeCreateChild}
+              onAddChild={documentHandlers.handleTreeCreateChild}
               onRenameDoc={doc => {
                 setTreeRenameValue(doc.title)
                 setTreeRenameDoc(doc)
@@ -1121,7 +632,7 @@ export default function DashboardApp() {
             {selectedDocumentId ? (
               <DocumentEditorPage
                 documentId={selectedDocumentId}
-                onNavigateToDocument={navigateToDocument}
+                onNavigateToDocument={documentHandlers.navigateToDocument}
                 members={members}
                 currentMemberId={currentMemberId}
                 onNavigateToDocuments={() => {
@@ -1171,13 +682,13 @@ export default function DashboardApp() {
             onMarkAllRead={markAllRead}
             onRespondToNotification={respondToNotification}
             onUpdateTaskStatus={async (taskId, status) => {
-              await handleUpdateTask(taskId, { status })
+              await taskHandlers.handleUpdateTask(taskId, { status })
             }}
             members={members}
             projects={projects}
             taskMap={taskMap}
             upsertTasks={upsertTasks}
-            onUpdate={handleUpdateTask}
+            onUpdate={taskHandlers.handleUpdateTask}
           />
         )
 
@@ -1209,237 +720,60 @@ export default function DashboardApp() {
           </div>
         </SidebarInset>
 
-        <AnimatePresence>
-          {selectedTask && (
-            <>
-              {(() => {
-                const drawerSource: 'my-tasks' | `project-${string}` =
-                  currentPage === 'my-tasks'
-                    ? 'my-tasks'
-                    : selectedProject
-                      ? `project-${selectedProject.id}`
-                      : 'my-tasks'
-                return (
-                  <TaskDrawer
-                    initialTask={selectedTask}
-                    source={drawerSource}
-                    {...(taskMap[selectedTask.id]
-                      ? { liveTask: taskMap[selectedTask.id] }
-                      : {})}
-                    cachedDescription={
-                      descriptionCache.current.has(selectedTask.id)
-                        ? descriptionCache.current.get(selectedTask.id)
-                        : readCache<{ desc: string | null }>(
-                            CACHE_KEY.description(selectedTask.id)
-                          )?.desc
-                    }
-                    onClose={handleCloseTask}
-                    members={members}
-                    agentActors={agentActors}
-                    projects={projects}
-                    tasks={Object.values(taskMap)}
-                    onUpdate={handleUpdateTask}
-                    onDescriptionLoaded={(taskId, description) => {
-                      descriptionCache.current.set(taskId, description)
-                      writeCache(CACHE_KEY.description(taskId), {
-                        desc: description,
-                      })
-                    }}
-                    onTasksChanged={() => {
-                      if (currentPage === 'my-tasks') {
-                        fetchMyTasks()
-                      } else if (selectedProject) {
-                        fetchProjectTasks(selectedProject.id)
-                      }
-                    }}
-                  />
-                )
-              })()}
-            </>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isNewTaskModalOpen && (
-            <NewTaskModal
-              isOpen={isNewTaskModalOpen}
-              onClose={() => {
-                setIsNewTaskModalOpen(false)
-                setNewTaskDefaultAssigneeId(undefined)
-                setNewTaskDefaultStatus(undefined)
-                setNewTaskPreFill(undefined)
-                setRestoringDraftId(undefined)
-              }}
-              projects={projects}
-              members={members}
-              defaultProjectId={
-                newTaskPreFill?.projectId || selectedProject?.id
-              }
-              defaultAssigneeId={newTaskDefaultAssigneeId}
-              defaultStatus={newTaskDefaultStatus}
-              preFill={newTaskPreFill}
-              onSubmit={handleCreateTask}
-              tasks={Object.values(taskMap) as ApiTask[]}
-              draftId={restoringDraftId}
-              onSaveDraft={handleSaveDraft}
-              onDeleteDraft={handleDeleteDraft}
-            />
-          )}
-          {isQuickDispatchOpen && (
-            <QuickDispatchModal
-              isOpen={isQuickDispatchOpen}
-              onClose={() => setIsQuickDispatchOpen(false)}
-              members={members}
-              onSubmit={handleCreateTask}
-              onEdit={handleQuickDispatchEdit}
-              onSaveDraft={handleSaveDraft}
-            />
-          )}
-          {isNewProjectModalOpen && (
-            <NewProjectModal
-              isOpen={isNewProjectModalOpen}
-              onClose={() => {
-                setIsNewProjectModalOpen(false)
-                setProjectDraftPreFill(undefined)
-                setProjectDraftId(undefined)
-              }}
-              onSubmit={handleCreateProject}
-              preFill={projectDraftPreFill}
-              draftId={projectDraftId}
-              onSaveDraft={handleSaveDraft}
-              onDeleteDraft={handleDeleteDraft}
-            />
-          )}
-        </AnimatePresence>
-        {selectedProject && (
-          <ProjectSlackDialog
-            isOpen={slackDialogOpen}
-            onClose={() => setSlackDialogOpen(false)}
-            projectId={selectedProject.id}
-            projectName={selectedProject.name}
-            workspaceUrl={workspaceUrl}
-          />
-        )}
-
-        {/* Tree Rename Dialog */}
-        <Dialog
-          open={treeRenameDoc !== null}
-          onOpenChange={open => {
-            if (!open) setTreeRenameDoc(null)
+        <WorkspaceModals
+          selectedTask={selectedTask}
+          taskMap={taskMap}
+          descriptionCache={taskHandlers.descriptionCache}
+          members={members}
+          agentActors={agentActors}
+          projects={projects}
+          currentPage={currentPage}
+          selectedProject={selectedProject}
+          onCloseTask={handleCloseTask}
+          onUpdateTask={taskHandlers.handleUpdateTask}
+          onTasksChanged={() => {
+            if (currentPage === 'my-tasks') {
+              fetchMyTasks()
+            } else if (selectedProject) {
+              fetchProjectTasks(selectedProject.id)
+            }
           }}
-        >
-          <DialogContent className='sm:max-w-md'>
-            <DialogHeader>
-              <DialogTitle>
-                {intl.formatMessage({
-                  id: 'documentToc.rename',
-                  defaultMessage: 'Rename',
-                })}
-              </DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={e => {
-                e.preventDefault()
-                if (!treeRenameDoc || treeRenameValue === treeRenameDoc.title) {
-                  setTreeRenameDoc(null)
-                  return
-                }
-                const renamedId = treeRenameDoc.id
-                docTree.renameNode(renamedId, treeRenameValue)
-                documentsClient.update(renamedId, { title: treeRenameValue })
-                setTreeRenameDoc(null)
-              }}
-            >
-              <Input
-                value={treeRenameValue}
-                onChange={e => setTreeRenameValue(e.target.value)}
-                autoFocus
-                placeholder={intl.formatMessage({
-                  id: 'documents.untitled',
-                  defaultMessage: 'Untitled',
-                })}
-              />
-              <DialogFooter className='mt-4'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  onClick={() => setTreeRenameDoc(null)}
-                >
-                  {intl.formatMessage({
-                    id: 'common.cancel',
-                    defaultMessage: 'Cancel',
-                  })}
-                </Button>
-                <Button type='submit'>
-                  {intl.formatMessage({
-                    id: 'common.save',
-                    defaultMessage: 'Save',
-                  })}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Tree Delete Confirm Dialog */}
-        <AlertDialog
-          open={treeDeleteDoc !== null}
-          onOpenChange={open => {
-            if (!open) setTreeDeleteDoc(null)
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {intl.formatMessage({
-                  id: 'documentToc.deleteConfirmTitle',
-                  defaultMessage: 'Delete document',
-                })}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {intl.formatMessage(
-                  {
-                    id: 'documentToc.deleteConfirmDesc',
-                    defaultMessage:
-                      'Are you sure you want to delete "{title}"? This action cannot be undone.',
-                  },
-                  { title: treeDeleteDoc?.title || 'Untitled' }
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {intl.formatMessage({
-                  id: 'common.cancel',
-                  defaultMessage: 'Cancel',
-                })}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                onClick={() => {
-                  if (!treeDeleteDoc) return
-                  const deletedId = treeDeleteDoc.id
-                  setTreeDeleteDoc(null)
-                  docTree.removeNode(deletedId)
-                  if (selectedDocumentId === deletedId) {
-                    setCurrentPage('documents')
-                    window.history.pushState(
-                      null,
-                      '',
-                      `/workspace/${workspaceUrl}/documents`
-                    )
-                  }
-                  documentsClient.delete(deletedId)
-                }}
-              >
-                {intl.formatMessage({
-                  id: 'documentToc.delete',
-                  defaultMessage: 'Delete',
-                })}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          isNewTaskModalOpen={isNewTaskModalOpen}
+          setIsNewTaskModalOpen={setIsNewTaskModalOpen}
+          newTaskDefaultAssigneeId={newTaskDefaultAssigneeId}
+          setNewTaskDefaultAssigneeId={setNewTaskDefaultAssigneeId}
+          newTaskDefaultStatus={newTaskDefaultStatus}
+          setNewTaskDefaultStatus={setNewTaskDefaultStatus}
+          newTaskPreFill={newTaskPreFill}
+          setNewTaskPreFill={setNewTaskPreFill}
+          onCreateTask={taskHandlers.handleCreateTask}
+          restoringDraftId={restoringDraftId}
+          setRestoringDraftId={setRestoringDraftId}
+          isQuickDispatchOpen={isQuickDispatchOpen}
+          setIsQuickDispatchOpen={setIsQuickDispatchOpen}
+          onQuickDispatchEdit={handleQuickDispatchEdit}
+          isNewProjectModalOpen={isNewProjectModalOpen}
+          setIsNewProjectModalOpen={setIsNewProjectModalOpen}
+          onCreateProject={projectHandlers.handleCreateProject}
+          projectDraftPreFill={projectDraftPreFill}
+          setProjectDraftPreFill={setProjectDraftPreFill}
+          projectDraftId={projectDraftId}
+          setProjectDraftId={setProjectDraftId}
+          onSaveDraft={handleSaveDraft}
+          onDeleteDraft={handleDeleteDraft}
+          slackDialogOpen={slackDialogOpen}
+          setSlackDialogOpen={setSlackDialogOpen}
+          workspaceUrl={workspaceUrl}
+          treeRenameDoc={treeRenameDoc}
+          setTreeRenameDoc={setTreeRenameDoc}
+          treeRenameValue={treeRenameValue}
+          setTreeRenameValue={setTreeRenameValue}
+          treeDeleteDoc={treeDeleteDoc}
+          setTreeDeleteDoc={setTreeDeleteDoc}
+          docTree={docTree}
+          selectedDocumentId={selectedDocumentId}
+          setCurrentPage={setCurrentPage as Dispatch<SetStateAction<string>>}
+        />
       </SidebarProvider>
     </motion.div>
   )
