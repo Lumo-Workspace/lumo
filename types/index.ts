@@ -139,23 +139,6 @@ export interface Page {
 export type PageType = 'document' | 'note' | 'template'
 export type PageStatus = 'draft' | 'published' | 'archived'
 
-export interface Block {
-  id: string
-  type: BlockType
-  content: string
-  metadata?: Record<string, any>
-  order: number
-}
-
-export type BlockType =
-  | 'text'
-  | 'heading'
-  | 'list'
-  | 'code'
-  | 'image'
-  | 'quote'
-  | 'divider'
-
 // AI 相关类型
 export interface Agent {
   id: string
@@ -181,30 +164,6 @@ export type AgentStatus =
   | 'idle'
   | 'offline'
 
-export interface AgentRecommendation {
-  agentId: string
-  reason: string
-  confidence: number // 0-100
-  taskType: string
-}
-
-// 质量检查类型
-export interface QualityCheck {
-  id: string
-  name: string
-  description: string
-  required: boolean
-  passed: boolean
-  message?: string
-  category: QualityCategory
-}
-
-export type QualityCategory =
-  | 'completeness'
-  | 'clarity'
-  | 'feasibility'
-  | 'consistency'
-
 // API 响应类型
 export interface ApiResponse<T = any> {
   success: boolean
@@ -221,65 +180,6 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
     totalPages: number
   }
 }
-
-// 表单和验证类型
-export interface ValidationError {
-  field: string
-  message: string
-}
-
-export interface FormState<T = any> {
-  data: T
-  errors: ValidationError[]
-  isSubmitting: boolean
-  isValid: boolean
-}
-
-// 事件类型
-export interface BaseEvent {
-  id: string
-  type: string
-  timestamp: Date
-  userId?: string
-}
-
-export interface PageEvent extends BaseEvent {
-  type: 'page.created' | 'page.updated' | 'page.deleted'
-  pageId: string
-}
-
-export interface StoryEvent extends BaseEvent {
-  type:
-    | 'story.created'
-    | 'story.updated'
-    | 'story.deleted'
-    | 'story.status-changed'
-  storyId: string
-  epicId?: string
-}
-
-export interface TaskEvent extends BaseEvent {
-  type: 'task.created' | 'task.updated' | 'task.deleted' | 'task.status-changed'
-  taskId: string
-  storyId?: string
-}
-
-export type AppEvent = PageEvent | StoryEvent | TaskEvent
-
-// 通知类型
-export interface Notification {
-  id: string
-  type: NotificationType
-  title: string
-  message: string
-  read: boolean
-  userId: string
-  relatedId?: string
-  relatedType?: string
-  createdAt: Date
-}
-
-export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 
 // 搜索和过滤类型
 export interface SearchFilters {
@@ -298,24 +198,4 @@ export interface SearchFilters {
 export interface SortOptions {
   field: string
   direction: 'asc' | 'desc'
-}
-
-// UI 相关类型
-export type ViewType = 'editor' | 'inbox' | 'shared' | 'teams'
-export type ViewMode = 'list' | 'grid' | 'kanban' | 'document'
-export type TeamViewMode = 'document' | 'kanban'
-
-export interface ContextMenuState {
-  show: boolean
-  x: number
-  y: number
-  pageId: string
-}
-
-// 导出所有类型的联合类型
-export type EntityId = string
-export type Timestamp = Date
-export type EntityWithTimestamps = {
-  createdAt: Timestamp
-  updatedAt: Timestamp
 }
