@@ -17,7 +17,7 @@ export interface CreateDocumentInput {
 
 export interface UpdateDocumentInput {
   title?: string
-  content?: string
+  content?: string | null
   emoji?: string | null
   visibility?: string
   projectId?: string | null
