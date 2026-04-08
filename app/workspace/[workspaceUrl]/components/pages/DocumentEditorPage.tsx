@@ -9,6 +9,8 @@ import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
 import { TagInput } from '../document/TagInput'
+import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
+import { getInitials } from '@/lib/utils/getInitials'
 import type {
   ApiDocumentDetail,
   ApiDocumentAncestor,
@@ -31,6 +33,24 @@ interface DocumentEditorPageProps {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  const diffMins = Math.floor(diffSec / 60)
+  if (diffMins < 60) return rtf.format(-diffMins, 'minute')
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return rtf.format(-diffHours, 'hour')
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return rtf.format(-diffDays, 'day')
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 export function DocumentEditorPage({
   documentId,
   onNavigateToDocument,
@@ -50,6 +70,7 @@ export function DocumentEditorPage({
   )
   const [loading, setLoading] = useState(!initialCache)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
@@ -119,6 +140,8 @@ export function DocumentEditorPage({
         })
         if (res.ok) {
           setSaveStatus('saved')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
           const data = await res.json()
           setDoc(prev => {
             const updated = prev ? { ...prev, ...data.document } : prev
@@ -281,21 +304,67 @@ export function DocumentEditorPage({
           </div>
 
           {/* Metadata */}
-          <div className='flex items-center gap-3 text-xs text-muted-foreground mb-6'>
-            {doc.project && <span>{doc.project.name}</span>}
-            <button
-              type='button'
-              className='bg-muted rounded px-2 py-0.5 hover:bg-muted/80 transition-colors'
-              onClick={() => setShareDialogOpen(true)}
-            >
-              {doc.visibility}
-            </button>
-            {saveStatus !== 'idle' && <span>{getSaveStatusText()}</span>}
-          </div>
+          <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-4 flex-wrap'>
+            {/* Creator */}
+            <span className='flex items-center gap-1.5 shrink-0'>
+              <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                {doc.createdBy.imageUrl ? (
+                  <img
+                    src={doc.createdBy.imageUrl}
+                    alt={doc.createdBy.name}
+                    className='w-full h-full object-cover'
+                  />
+                ) : (
+                  <span className='text-[9px] font-medium'>
+                    {getInitials(doc.createdBy.name)}
+                  </span>
+                )}
+              </span>
+              <span>{doc.createdBy.name}</span>
+            </span>
 
-          {/* Tags */}
-          <div className='mb-4'>
-            <TagInput tags={tags} onChange={handleTagsChange} />
+            <span className='text-border'>·</span>
+
+            {/* Updated time / Save status (save status temporarily replaces updated time) */}
+            <span className='shrink-0'>
+              {saveStatus === 'saving' || saveStatus === 'saved'
+                ? getSaveStatusText()
+                : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt)}`}
+            </span>
+
+            {/* Project badge (if linked) */}
+            {doc.project && (
+              <>
+                <span className='text-border'>·</span>
+                <span className='border border-border rounded px-2 py-0.5 shrink-0'>
+                  {doc.project.name}
+                </span>
+              </>
+            )}
+
+            {/* Editor avatars (if any) */}
+            {doc.editors && doc.editors.length > 0 && (
+              <>
+                <span className='text-border'>·</span>
+                <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
+              </>
+            )}
+
+            {/* Tags */}
+            {tags.length > 0 && <span className='text-border'>·</span>}
+            <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
+              <TagInput tags={tags} onChange={handleTagsChange} />
+            </div>
+
+            {/* Save error */}
+            {saveStatus === 'error' && (
+              <>
+                <span className='text-border'>·</span>
+                <span className='italic text-destructive'>
+                  {getSaveStatusText()}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Editor */}
