@@ -321,10 +321,11 @@ export function DocumentEditorPage({
 
             <span className='text-border'>·</span>
 
-            {/* Updated time */}
+            {/* Updated time / Save status (save status temporarily replaces updated time) */}
             <span className='shrink-0'>
-              {intl.formatMessage({ id: 'documentEditor.updated' })}{' '}
-              {formatRelativeTime(doc.updatedAt)}
+              {saveStatus === 'saving' || saveStatus === 'saved'
+                ? getSaveStatusText()
+                : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt)}`}
             </span>
 
             {/* Project badge (if linked) */}
@@ -351,11 +352,13 @@ export function DocumentEditorPage({
               <TagInput tags={tags} onChange={handleTagsChange} />
             </div>
 
-            {/* Save status */}
-            {saveStatus !== 'idle' && (
+            {/* Save error */}
+            {saveStatus === 'error' && (
               <>
                 <span className='text-border'>·</span>
-                <span className='italic'>{getSaveStatusText()}</span>
+                <span className='italic text-destructive'>
+                  {getSaveStatusText()}
+                </span>
               </>
             )}
           </div>
