@@ -300,7 +300,7 @@ export function DocumentEditorPage({
           </div>
 
           {/* Metadata */}
-          <div className='border-t border-b border-border py-2.5 mb-4'>
+          <div className='py-2.5 mb-4'>
             {/* Row 1: Creator · Updated · Project · Editors · Save status */}
             <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-1.5 flex-wrap'>
               {/* Creator */}
