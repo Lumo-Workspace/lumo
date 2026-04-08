@@ -88,8 +88,8 @@ async function syncPullRequestStatus(
 
       updates.set(pr.id, { state: newState, mergedAt })
     }
-  } catch (err) {
-    console.error('[sync-pr] Failed to sync PR status:', err)
+  } catch (_err) {
+    // Non-critical: PR state may be slightly stale
   }
   return updates
 }
@@ -239,6 +239,7 @@ export const taskService = {
     if (reviewerActorId !== undefined && reviewerActorId !== null) {
       const actor = await prisma.actor.findUnique({
         where: { id: reviewerActorId },
+        select: { workspaceId: true },
       })
       if (!actor || actor.workspaceId !== task.project.workspaceId) {
         throw Object.assign(
