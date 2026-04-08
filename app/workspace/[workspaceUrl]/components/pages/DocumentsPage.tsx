@@ -1,5 +1,6 @@
 'use client'
 
+import { getInitials } from '@/lib/utils/getInitials'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
@@ -208,6 +209,41 @@ export function DocumentsPage({
                 {getSubtitle(doc)}
               </div>
             </div>
+            {/* Creator */}
+            <span className='flex items-center gap-1.5 shrink-0 hidden sm:flex'>
+              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                {doc.createdBy.imageUrl ? (
+                  <img
+                    src={doc.createdBy.imageUrl}
+                    alt={doc.createdBy.name}
+                    className='w-full h-full object-cover'
+                  />
+                ) : (
+                  <span className='text-[8px] font-medium text-muted-foreground'>
+                    {getInitials(doc.createdBy.name)}
+                  </span>
+                )}
+              </span>
+              <span className='text-xs text-muted-foreground'>
+                {doc.createdBy.name}
+              </span>
+            </span>
+            {/* Creator avatar only on mobile */}
+            <span className='shrink-0 sm:hidden'>
+              <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden'>
+                {doc.createdBy.imageUrl ? (
+                  <img
+                    src={doc.createdBy.imageUrl}
+                    alt={doc.createdBy.name}
+                    className='w-full h-full object-cover'
+                  />
+                ) : (
+                  <span className='text-[8px] font-medium text-muted-foreground'>
+                    {getInitials(doc.createdBy.name)}
+                  </span>
+                )}
+              </span>
+            </span>
             {doc.tags && doc.tags.length > 0 && (
               <div className='shrink-0 hidden sm:block'>
                 <TagList tags={doc.tags} max={2} />
