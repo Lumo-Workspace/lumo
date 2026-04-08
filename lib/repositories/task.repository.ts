@@ -181,4 +181,65 @@ export const taskRepository = {
   async findStatus(id: string) {
     return prisma.task.findUnique({ where: { id }, select: { status: true } })
   },
+
+  /** Find a task with agent-related fields and workspace check. Used by cancel, resume, status, confirm-spec, and respond routes. */
+  async findForAgent(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        agentStatus: true,
+        inputReason: true,
+        projectId: true,
+        project: { select: { workspaceId: true } },
+      },
+    })
+  },
+
+  /** Find a task with agent + repo fields. Used by execute and retry routes. */
+  async findForAgentExecute(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        agentStatus: true,
+        repositoryId: true,
+        project: {
+          select: {
+            workspaceId: true,
+            repositories: {
+              where: { isDefault: true },
+              select: { fullName: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    })
+  },
+
+  /** Find only the projectId for a task. Used by mcp-clarify. */
+  async findProjectId(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: { projectId: true },
+    })
+  },
+
+  /** Clear agentError on a task. */
+  async clearAgentError(id: string) {
+    return prisma.task.update({
+      where: { id },
+      data: { agentError: null },
+    })
+  },
+
+  /** Save a confirmed spec and clear agentError. */
+  async updateSpec(id: string, spec: string) {
+    return prisma.task.update({
+      where: { id },
+      data: { spec, agentError: null },
+    })
+  },
 }

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent } from '@/lib/pusher/server'
-import { transitionAgentStatus } from '@/lib/agent/state-machine'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { agentService } from '@/lib/services/agent.service'
 import { Sandbox } from '@e2b/code-interpreter'
 
 const bodySchema = z.object({
@@ -26,15 +25,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return zodError(parsed)
     const { taskId } = parsed.data
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        agentStatus: true,
-        projectId: true,
-        project: { select: { workspaceId: true } },
-      },
-    })
+    const task = await taskRepository.findForAgent(taskId)
 
     const taskCheck = await requireTaskMember(task, userId)
     if (taskCheck instanceof NextResponse) return taskCheck
@@ -50,12 +41,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Find the active AgentRun and kill its sandbox
-    const activeRun = await prisma.agentRun.findFirst({
-      where: { taskId, status: 'WORKING' },
-      select: { id: true, sandboxId: true },
-    })
+    const activeRun = await agentService.cancelAgent(
+      taskId,
+      verifiedTask.projectId,
+      verifiedTask.agentStatus
+    )
 
+    // Kill E2B sandbox if one exists
     if (activeRun?.sandboxId) {
       try {
         const sandbox = await Sandbox.connect(activeRun.sandboxId)
@@ -64,22 +56,6 @@ export async function POST(req: NextRequest) {
         // Sandbox may have already exited — not a fatal error
       }
     }
-
-    await transitionAgentStatus(taskId, verifiedTask.projectId, 'CANCELED', {
-      currentStatus: verifiedTask.agentStatus,
-    })
-
-    if (activeRun) {
-      await prisma.agentRun.update({
-        where: { id: activeRun.id },
-        data: { status: 'CANCELED', finishedAt: new Date() },
-      })
-    }
-
-    await pushAgentEvent(taskId, {
-      type: 'agent:failed',
-      error: 'Cancelled by user',
-    })
 
     return NextResponse.json({ status: 'cancelled', taskId })
   } catch (error) {

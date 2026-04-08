@@ -1,3 +1,4 @@
+import type { AgentStatus } from '@prisma/client'
 import { agentRepository } from '@/lib/repositories/agent.repository'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
 import { pushAgentEvent } from '@/lib/pusher/server'
@@ -9,7 +10,11 @@ export const agentService = {
    * and marks the run as canceled.
    * Returns the active run (with sandboxId) so the caller can kill the sandbox.
    */
-  async cancelAgent(taskId: string, projectId: string, currentStatus: string) {
+  async cancelAgent(
+    taskId: string,
+    projectId: string,
+    currentStatus: AgentStatus | null
+  ) {
     const activeRun = await agentRepository.findActiveRun(taskId)
 
     await transitionAgentStatus(taskId, projectId, 'CANCELED', {

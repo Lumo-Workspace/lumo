@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { notificationRepository } from '@/lib/repositories/notification.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 type Params = { params: Promise<{ taskId: string }> }
 
@@ -26,14 +28,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const memberResult = await requireWorkspaceMember(workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        agentStatus: true,
-        project: { select: { workspaceId: true } },
-      },
-    })
+    const task = await taskRepository.findForAgent(taskId)
 
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -44,14 +39,8 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     const [pendingClarify, activePr] = await Promise.all([
-      prisma.agentClarify.findFirst({
-        where: { taskId, reply: null },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.pullRequest.findFirst({
-        where: { taskId, state: 'open' },
-        orderBy: { createdAt: 'desc' },
-      }),
+      notificationRepository.findPendingClarify(taskId),
+      pullRequestRepository.findActivePr(taskId),
     ])
 
     return NextResponse.json({

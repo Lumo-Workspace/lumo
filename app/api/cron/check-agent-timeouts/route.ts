@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent } from '@/lib/pusher/server'
-import { transitionAgentStatus } from '@/lib/agent/state-machine'
+import { agentService } from '@/lib/services/agent.service'
 import { Sandbox } from '@e2b/code-interpreter'
-
-const CLARIFY_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 /**
  * GET /api/cron/check-agent-timeouts
@@ -17,24 +13,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const cutoff = new Date(Date.now() - CLARIFY_TIMEOUT_MS)
-
-  const timedOutTasks = await prisma.task.findMany({
-    where: {
-      agentStatus: 'INPUT_REQUIRED',
-      updatedAt: { lt: cutoff },
-    },
-    select: { id: true, projectId: true },
-  })
+  const timedOutTasks = await agentService.findTimedOutTasks()
 
   const results = await Promise.allSettled(
     timedOutTasks.map(async task => {
-      // Find active AgentRun and kill its sandbox
-      const activeRun = await prisma.agentRun.findFirst({
-        where: { taskId: task.id, status: 'WORKING' },
-        select: { id: true, sandboxId: true },
-      })
+      const activeRun = await agentService.timeoutTask(task.id, task.projectId)
 
+      // Kill E2B sandbox if one exists
       if (activeRun?.sandboxId) {
         try {
           const sandbox = await Sandbox.connect(activeRun.sandboxId)
@@ -43,29 +28,6 @@ export async function GET(req: NextRequest) {
           // Sandbox may have already exited
         }
       }
-
-      await transitionAgentStatus(task.id, task.projectId, 'FAILED', {
-        agentError: 'CLARIFY_TIMEOUT',
-        currentStatus: 'INPUT_REQUIRED',
-      })
-      if (activeRun) {
-        await prisma.agentRun.update({
-          where: { id: activeRun.id },
-          data: {
-            status: 'FAILED',
-            errorCode: 'CLARIFY_TIMEOUT',
-            errorMessage:
-              'Agent was waiting for clarification for 24 hours and has been stopped.',
-            finishedAt: new Date(),
-          },
-        })
-      }
-
-      await pushAgentEvent(task.id, {
-        type: 'agent:failed',
-        error:
-          'Agent was waiting for clarification for 24 hours and has been stopped. Add more details to the spec and retry.',
-      })
     })
   )
 

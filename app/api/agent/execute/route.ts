@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { executeAgent } from '@/lib/agent/execute'
 import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
 
@@ -28,24 +28,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return zodError(parsed)
     const { taskId } = parsed.data
 
-    const rawTask = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        agentStatus: true,
-        repositoryId: true,
-        project: {
-          select: {
-            workspaceId: true,
-            repositories: {
-              where: { isDefault: true },
-              select: { fullName: true },
-              take: 1,
-            },
-          },
-        },
-      },
-    })
+    const rawTask = await taskRepository.findForAgentExecute(taskId)
 
     const taskCheck = await requireTaskMember(rawTask, userId)
     if (taskCheck instanceof NextResponse) return taskCheck

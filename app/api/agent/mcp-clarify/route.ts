@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { notificationRepository } from '@/lib/repositories/notification.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { notifyAgentClarify } from '@/lib/notifications/notifyAgentActions'
@@ -33,28 +34,20 @@ export async function POST(request: Request) {
     }
 
     // Avoid duplicates — check if there's already a pending clarify
-    const existing = await prisma.agentClarify.findFirst({
-      where: { taskId, reply: null },
-      orderBy: { createdAt: 'desc' },
-    })
+    const existing = await notificationRepository.findPendingClarify(taskId)
     if (existing) {
       return NextResponse.json({ ok: true, clarifyId: existing.id })
     }
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { projectId: true },
-    })
+    const task = await taskRepository.findProjectId(taskId)
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    const clarify = await prisma.agentClarify.create({
-      data: {
-        taskId,
-        question,
-        context: context ?? null,
-      },
+    const clarify = await notificationRepository.createClarify({
+      taskId,
+      question,
+      context: context ?? null,
     })
 
     await transitionAgentStatus(taskId, task.projectId, 'INPUT_REQUIRED', {
