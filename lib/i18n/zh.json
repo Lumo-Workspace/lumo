@@ -123,6 +123,7 @@
   "documents.colTags": "标签",
   "documents.colCollaborators": "协作者",
   "documents.colCreatedAt": "创建时间",
+  "documents.colCreator": "创建者",
   "documents.colUpdatedAt": "更新时间",
   "documents.tagPlaceholder": "添加标签...",
   "documents.delete": "删除",
@@ -131,6 +132,7 @@
   "documents.copyLink": "复制链接",
   "documents.sharedWith": "已分享给 {count} 位成员",
 
+  "documentEditor.updated": "更新于",
   "documentEditor.saving": "保存中...",
   "documentEditor.saved": "已保存",
   "documentEditor.savedAgo": "已保存 {time}",
