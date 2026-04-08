@@ -77,9 +77,21 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const memberId = ws.member.id
+
+  // Permission filter: only docs the user owns, workspace-visible, or shared with them
+  const permissionFilter = {
+    workspaceId: ws.workspaceId,
+    OR: [
+      { createdById: memberId },
+      { visibility: 'WORKSPACE' as const },
+      { shares: { some: { memberId } } },
+    ],
+  }
+
   // 2. Fetch root documents
   const roots = await prisma.document.findMany({
-    where: { workspaceId: ws.workspaceId, parentId: null },
+    where: { ...permissionFilter, parentId: null },
     orderBy: { sortOrder: 'asc' },
     select: TREE_SELECT,
   })
@@ -95,7 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     const childDocs = await prisma.document.findMany({
-      where: { parentId: raw.id },
+      where: { ...permissionFilter, parentId: raw.id },
       orderBy: { sortOrder: 'asc' },
       select: TREE_SELECT,
     })
