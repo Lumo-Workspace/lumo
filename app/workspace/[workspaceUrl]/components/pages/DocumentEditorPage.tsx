@@ -300,68 +300,69 @@ export function DocumentEditorPage({
           </div>
 
           {/* Metadata */}
-          <div className='py-2.5 mb-4'>
-            {/* Row 1: Creator · Updated · Project · Editors · Save status */}
-            <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-1.5 flex-wrap'>
-              {/* Creator */}
-              <span className='flex items-center gap-1.5 shrink-0'>
-                <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                  {doc.createdBy.imageUrl ? (
-                    <img
-                      src={doc.createdBy.imageUrl}
-                      alt={doc.createdBy.name}
-                      className='w-full h-full object-cover'
-                    />
-                  ) : (
-                    <span className='text-[9px] font-medium'>
-                      {getInitials(doc.createdBy.name)}
-                    </span>
-                  )}
-                </span>
-                <span>{doc.createdBy.name}</span>
-              </span>
-
-              <span className='text-border'>·</span>
-
-              {/* Updated time */}
-              <span className='shrink-0'>
-                {intl.formatMessage({ id: 'documentEditor.updated' })}{' '}
-                {formatRelativeTime(doc.updatedAt)}
-              </span>
-
-              {/* Project badge (if linked) */}
-              {doc.project && (
-                <>
-                  <span className='text-border'>·</span>
-                  <span className='border border-border rounded px-2 py-0.5 shrink-0'>
-                    {doc.project.name}
-                  </span>
-                </>
-              )}
-
-              {/* Editor avatars (if any) */}
-              {doc.editors && doc.editors.length > 0 && (
-                <>
-                  <span className='text-border'>·</span>
-                  <CollaboratorAvatars
-                    editors={doc.editors}
-                    max={3}
-                    size={22}
+          <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-4 flex-wrap'>
+            {/* Creator */}
+            <span className='flex items-center gap-1.5 shrink-0'>
+              <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                {doc.createdBy.imageUrl ? (
+                  <img
+                    src={doc.createdBy.imageUrl}
+                    alt={doc.createdBy.name}
+                    className='w-full h-full object-cover'
                   />
-                </>
-              )}
+                ) : (
+                  <span className='text-[9px] font-medium'>
+                    {getInitials(doc.createdBy.name)}
+                  </span>
+                )}
+              </span>
+              <span>{doc.createdBy.name}</span>
+            </span>
 
-              {/* Save status */}
-              {saveStatus !== 'idle' && (
-                <>
-                  <span className='text-border'>·</span>
-                  <span className='italic'>{getSaveStatusText()}</span>
-                </>
-              )}
-            </div>
+            <span className='text-border'>·</span>
 
-            {/* Row 2: Tags */}
-            <TagInput tags={tags} onChange={handleTagsChange} />
+            {/* Updated time */}
+            <span className='shrink-0'>
+              {intl.formatMessage({ id: 'documentEditor.updated' })}{' '}
+              {formatRelativeTime(doc.updatedAt)}
+            </span>
+
+            {/* Project badge (if linked) */}
+            {doc.project && (
+              <>
+                <span className='text-border'>·</span>
+                <span className='border border-border rounded px-2 py-0.5 shrink-0'>
+                  {doc.project.name}
+                </span>
+              </>
+            )}
+
+            {/* Editor avatars (if any) */}
+            {doc.editors && doc.editors.length > 0 && (
+              <>
+                <span className='text-border'>·</span>
+                <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
+              </>
+            )}
+
+            {/* Tags */}
+            {tags.length > 0 && (
+              <>
+                <span className='text-border'>·</span>
+                <TagInput tags={tags} onChange={handleTagsChange} />
+              </>
+            )}
+            {tags.length === 0 && (
+              <TagInput tags={tags} onChange={handleTagsChange} />
+            )}
+
+            {/* Save status */}
+            {saveStatus !== 'idle' && (
+              <>
+                <span className='text-border'>·</span>
+                <span className='italic'>{getSaveStatusText()}</span>
+              </>
+            )}
           </div>
 
           {/* Editor */}
