@@ -1,0 +1,89 @@
+import { prisma } from '@/lib/db/prisma'
+import { generateIdentifier } from '@/lib/team'
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export interface CreateWorkspaceData {
+  name: string
+  slug: string
+  clerkId: string
+}
+
+// ── Workspace Repository ────────────────────────────────────────────────────
+
+export const workspaceRepository = {
+  /** Create workspace with default team, owner member, human + agent actors in a transaction. */
+  async create(data: CreateWorkspaceData) {
+    return prisma.$transaction(async tx => {
+      const workspace = await tx.workspace.create({
+        data: { name: data.name, slug: data.slug },
+      })
+
+      const team = await tx.team.create({
+        data: {
+          workspaceId: workspace.id,
+          name: data.name,
+          identifier: generateIdentifier(data.name),
+          isDefault: true,
+        },
+      })
+
+      const member = await tx.workspaceMember.create({
+        data: {
+          workspaceId: workspace.id,
+          clerkId: data.clerkId,
+          role: 'OWNER',
+        },
+      })
+
+      // Add owner to the default team
+      await tx.teamMember.create({
+        data: { teamId: team.id, memberId: member.id },
+      })
+
+      // Create human actor for the owner
+      await tx.actor.create({
+        data: { workspaceId: workspace.id, type: 'HUMAN', memberId: member.id },
+      })
+
+      // Create Coding Agent profile + actor
+      const agentProfile = await tx.agentProfile.create({
+        data: {
+          workspaceId: workspace.id,
+          name: 'Coding Agent',
+          type: 'CODING',
+        },
+      })
+      await tx.actor.create({
+        data: {
+          workspaceId: workspace.id,
+          type: 'AGENT',
+          agentId: agentProfile.id,
+        },
+      })
+
+      return { workspace, member }
+    })
+  },
+
+  /** Update workspace fields. */
+  async update(id: string, data: Record<string, unknown>) {
+    return prisma.workspace.update({ where: { id }, data })
+  },
+
+  /** Delete workspace (cascades). */
+  async delete(id: string) {
+    await prisma.workspace.delete({ where: { id } })
+  },
+
+  /** Check if slug is unique, optionally excluding a specific workspace. */
+  async isSlugUnique(slug: string, excludeId?: string) {
+    const existing = await prisma.workspace.findFirst({
+      where: {
+        slug,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    })
+    return !existing
+  },
+}

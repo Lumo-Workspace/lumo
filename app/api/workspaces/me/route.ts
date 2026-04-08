@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createWorkspaceSchema } from '@/lib/validation/schemas'
+import { workspaceService } from '@/lib/services'
 
 /**
  * GET /api/workspaces/me — Get the current user's workspace.
@@ -20,8 +20,7 @@ export async function GET() {
       workspace: result.workspace,
       role: result.member.role,
     })
-  } catch (error) {
-    console.error('GET /api/workspaces/me error:', error)
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -41,47 +40,26 @@ export async function PATCH(request: NextRequest) {
 
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
-    if (ws.member.role !== 'OWNER') {
-      return NextResponse.json(
-        { error: 'Only admins can update workspace settings' },
-        { status: 403 }
-      )
-    }
 
     const body = await request.json()
     const parsed = createWorkspaceSchema.partial().safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const { name, slug, summaryEnabled, summaryFrequency, summaryLocale } =
+    const updated = await workspaceService.updateWorkspace(
+      ws.workspaceId,
+      ws.member.role,
+      ws.workspace.slug,
       parsed.data
-
-    // Check slug uniqueness if changing
-    if (slug && slug !== ws.workspace.slug) {
-      const existing = await prisma.workspace.findFirst({
-        where: { slug, id: { not: ws.workspaceId } },
-      })
-      if (existing) {
-        return NextResponse.json(
-          { error: 'This URL is already taken' },
-          { status: 409 }
-        )
-      }
-    }
-
-    const updated = await prisma.workspace.update({
-      where: { id: ws.workspaceId },
-      data: {
-        ...(name && { name }),
-        ...(slug && { slug }),
-        ...(summaryEnabled !== undefined && { summaryEnabled }),
-        ...(summaryFrequency && { summaryFrequency }),
-        ...(summaryLocale && { summaryLocale }),
-      },
-    })
+    )
 
     return NextResponse.json({ workspace: updated })
   } catch (error) {
-    console.error('PATCH /api/workspaces/me error:', error)
+    if (error instanceof Error && 'status' in error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
+    }
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -101,18 +79,17 @@ export async function DELETE() {
 
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
-    if (ws.member.role !== 'OWNER') {
-      return NextResponse.json(
-        { error: 'Only admins can delete a workspace' },
-        { status: 403 }
-      )
-    }
 
-    await prisma.workspace.delete({ where: { id: ws.workspaceId } })
+    await workspaceService.deleteWorkspace(ws.workspaceId, ws.member.role)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('DELETE /api/workspaces/me error:', error)
+    if (error instanceof Error && 'status' in error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
+    }
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

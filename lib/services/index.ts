@@ -8,3 +8,5 @@ export type {
   CreateDocumentInput,
   UpdateDocumentInput,
 } from './document.service'
+export { workspaceService } from './workspace.service'
+export type { UpdateWorkspaceInput } from './workspace.service'
