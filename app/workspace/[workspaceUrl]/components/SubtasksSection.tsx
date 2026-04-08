@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import { useRouter, useParams } from 'next/navigation'
 import { Sparkles, X, Loader2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ export function SubtasksSection({
   task,
   onSubtasksCreated,
 }: SubtasksSectionProps) {
+  const intl = useIntl()
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [drafts, setDrafts] = useState<DraftSubtask[]>([])
@@ -170,7 +172,7 @@ export function SubtasksSection({
               />
               <button
                 onClick={() => handleDeleteDraft(draft.id)}
-                aria-label='Remove draft subtask'
+                aria-label={intl.formatMessage({ id: 'subtask.removeDraft' })}
                 className='p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
               >
                 <X className='size-3.5' />
@@ -191,7 +193,7 @@ export function SubtasksSection({
                   Creating...
                 </>
               ) : (
-                'Add all'
+                intl.formatMessage({ id: 'subtask.addAll' })
               )}
             </Button>
             <Button

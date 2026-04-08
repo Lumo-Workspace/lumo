@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import {
   Send,
   Pencil,
@@ -84,6 +85,7 @@ function CommentEditor({
   tasks?: ApiTask[]
   agentActors?: { actorId: string; name: string; avatarColor: string }[]
 }) {
+  const intl = useIntl()
   const [key, setKey] = useState(0)
 
   useEffect(() => {
@@ -106,7 +108,7 @@ function CommentEditor({
         value={null}
         onCommit={onCommit}
         onChange={onCommit}
-        placeholder='Add a comment…'
+        placeholder={intl.formatMessage({ id: 'task.commentPlaceholder' })}
         {...(members ? { members } : {})}
         {...(tasks ? { tasks } : {})}
         {...(agentActors ? { agentActors } : {})}
@@ -183,6 +185,7 @@ export function TaskDetailPanel({
       'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
     parent: 'parent' in initialTask ? (initialTask.parent ?? null) : null,
   }))
+  const intl = useIntl()
   const { user } = useCurrentUser()
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -1041,7 +1044,9 @@ export function TaskDetailPanel({
                               value={comment.body}
                               onCommit={html => setEditCommentBody(html)}
                               onChange={html => setEditCommentBody(html)}
-                              placeholder='Edit comment…'
+                              placeholder={intl.formatMessage({
+                                id: 'task.editCommentPlaceholder',
+                              })}
                               members={mentionableMembers}
                               tasks={tasks}
                               agentActors={agentActors ?? []}
@@ -1057,7 +1062,7 @@ export function TaskDetailPanel({
                                 setEditCommentBody(null)
                               }}
                             >
-                              Cancel
+                              {intl.formatMessage({ id: 'common.cancel' })}
                             </Button>
                             <Button
                               size='sm'
@@ -1137,7 +1142,9 @@ export function TaskDetailPanel({
                                   <Pencil size={12} />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>Edit</TooltipContent>
+                              <TooltipContent>
+                                {intl.formatMessage({ id: 'common.edit' })}
+                              </TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1153,7 +1160,9 @@ export function TaskDetailPanel({
                                   )}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>Delete</TooltipContent>
+                              <TooltipContent>
+                                {intl.formatMessage({ id: 'common.delete' })}
+                              </TooltipContent>
                             </Tooltip>
                           </>
                         )}
@@ -1231,7 +1240,9 @@ export function TaskDetailPanel({
                                       onChange={html =>
                                         setEditCommentBody(html)
                                       }
-                                      placeholder='Edit reply…'
+                                      placeholder={intl.formatMessage({
+                                        id: 'task.editReplyPlaceholder',
+                                      })}
                                       members={mentionableMembers}
                                       tasks={tasks}
                                       agentActors={agentActors ?? []}
@@ -1247,7 +1258,9 @@ export function TaskDetailPanel({
                                         setEditCommentBody(null)
                                       }}
                                     >
-                                      Cancel
+                                      {intl.formatMessage({
+                                        id: 'common.cancel',
+                                      })}
                                     </Button>
                                     <Button
                                       size='sm'
@@ -1380,7 +1393,11 @@ export function TaskDetailPanel({
                                           <Pencil size={12} />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Edit</TooltipContent>
+                                      <TooltipContent>
+                                        {intl.formatMessage({
+                                          id: 'common.edit',
+                                        })}
+                                      </TooltipContent>
                                     </Tooltip>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -1398,7 +1415,11 @@ export function TaskDetailPanel({
                                           )}
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Delete</TooltipContent>
+                                      <TooltipContent>
+                                        {intl.formatMessage({
+                                          id: 'common.delete',
+                                        })}
+                                      </TooltipContent>
                                     </Tooltip>
                                   </>
                                 )}
@@ -1466,7 +1487,7 @@ export function TaskDetailPanel({
                               setReplyingToComment(null)
                             }}
                           >
-                            Cancel
+                            {intl.formatMessage({ id: 'common.cancel' })}
                           </button>
                           <Button
                             size='sm'
@@ -1549,13 +1570,17 @@ export function TaskDetailPanel({
           }}
         >
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'task.deleteCommentTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone.
+              {intl.formatMessage({ id: 'task.deleteCommentDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
               onClick={() => {
@@ -1563,7 +1588,7 @@ export function TaskDetailPanel({
                 setConfirmDeleteId(null)
               }}
             >
-              Delete
+              {intl.formatMessage({ id: 'common.delete' })}
               <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
             </AlertDialogAction>
           </AlertDialogFooter>

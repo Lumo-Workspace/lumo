@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import {
   Send,
@@ -98,6 +99,7 @@ export function TaskDetailPage({
   source: sourceProp,
 }: TaskDetailPageProps) {
   // ── Hooks ──────────────────────────────────────────────────────────────────
+  const intl = useIntl()
   const router = useRouter()
   const { user } = useCurrentUser()
 
@@ -886,7 +888,9 @@ export function TaskDetailPage({
                                   value={comment.body}
                                   onCommit={html => setEditCommentBody(html)}
                                   onChange={html => setEditCommentBody(html)}
-                                  placeholder='Edit comment…'
+                                  placeholder={intl.formatMessage({
+                                    id: 'task.editCommentPlaceholder',
+                                  })}
                                   members={mentionableMembers}
                                 />
                               </div>
@@ -900,7 +904,7 @@ export function TaskDetailPage({
                                     setEditCommentBody(null)
                                   }}
                                 >
-                                  Cancel
+                                  {intl.formatMessage({ id: 'common.cancel' })}
                                 </Button>
                                 <Button
                                   size='sm'
@@ -980,7 +984,9 @@ export function TaskDetailPage({
                                       <Pencil size={12} />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Edit</TooltipContent>
+                                  <TooltipContent>
+                                    {intl.formatMessage({ id: 'common.edit' })}
+                                  </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -998,7 +1004,11 @@ export function TaskDetailPage({
                                       )}
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Delete</TooltipContent>
+                                  <TooltipContent>
+                                    {intl.formatMessage({
+                                      id: 'common.delete',
+                                    })}
+                                  </TooltipContent>
                                 </Tooltip>
                               </>
                             )}
@@ -1076,7 +1086,9 @@ export function TaskDetailPage({
                                           onChange={html =>
                                             setEditCommentBody(html)
                                           }
-                                          placeholder='Edit reply…'
+                                          placeholder={intl.formatMessage({
+                                            id: 'task.editReplyPlaceholder',
+                                          })}
                                           members={mentionableMembers}
                                         />
                                       </div>
@@ -1090,7 +1102,9 @@ export function TaskDetailPage({
                                             setEditCommentBody(null)
                                           }}
                                         >
-                                          Cancel
+                                          {intl.formatMessage({
+                                            id: 'common.cancel',
+                                          })}
                                         </Button>
                                         <Button
                                           size='sm'
@@ -1232,7 +1246,11 @@ export function TaskDetailPage({
                                               <Pencil size={12} />
                                             </button>
                                           </TooltipTrigger>
-                                          <TooltipContent>Edit</TooltipContent>
+                                          <TooltipContent>
+                                            {intl.formatMessage({
+                                              id: 'common.edit',
+                                            })}
+                                          </TooltipContent>
                                         </Tooltip>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -1251,7 +1269,9 @@ export function TaskDetailPage({
                                             </button>
                                           </TooltipTrigger>
                                           <TooltipContent>
-                                            Delete
+                                            {intl.formatMessage({
+                                              id: 'common.delete',
+                                            })}
                                           </TooltipContent>
                                         </Tooltip>
                                       </>
@@ -1323,7 +1343,9 @@ export function TaskDetailPage({
                                 value={null}
                                 onCommit={html => setReplyBody(html)}
                                 onChange={html => setReplyBody(html)}
-                                placeholder='Add a reply…'
+                                placeholder={intl.formatMessage({
+                                  id: 'task.replyPlaceholder',
+                                })}
                                 members={mentionableMembers}
                               />
                             </div>
@@ -1336,7 +1358,7 @@ export function TaskDetailPage({
                                   setReplyingToComment(null)
                                 }}
                               >
-                                Cancel
+                                {intl.formatMessage({ id: 'common.cancel' })}
                               </button>
                               <Button
                                 size='sm'
@@ -1387,7 +1409,9 @@ export function TaskDetailPage({
                     value={null}
                     onCommit={setCommentBody}
                     onChange={setCommentBody}
-                    placeholder='Add a comment…'
+                    placeholder={intl.formatMessage({
+                      id: 'task.commentPlaceholder',
+                    })}
                     members={mentionableMembers}
                     agentActors={agentActors}
                   />
@@ -1552,7 +1576,9 @@ export function TaskDetailPage({
                           handleCopyBranch(branch.id, branch.branchName)
                         }
                         className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                        title='Copy branch name'
+                        title={intl.formatMessage({
+                          id: 'task.copyBranchName',
+                        })}
                       >
                         {copiedBranchId === branch.id ? (
                           <Check size={12} className='text-emerald-500' />
@@ -1677,13 +1703,17 @@ export function TaskDetailPage({
           }}
         >
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'task.deleteCommentTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone.
+              {intl.formatMessage({ id: 'task.deleteCommentDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
               onClick={() => {
@@ -1691,7 +1721,7 @@ export function TaskDetailPage({
                 setConfirmDeleteId(null)
               }}
             >
-              Delete
+              {intl.formatMessage({ id: 'common.delete' })}
               <kbd className='ml-1.5 text-[10px] opacity-60 font-sans'>↵</kbd>
             </AlertDialogAction>
           </AlertDialogFooter>
