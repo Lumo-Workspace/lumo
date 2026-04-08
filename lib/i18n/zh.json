@@ -131,6 +131,7 @@
   "documents.copyLink": "复制链接",
   "documents.sharedWith": "已分享给 {count} 位成员",
 
+  "documentEditor.updated": "更新于",
   "documentEditor.saving": "保存中...",
   "documentEditor.saved": "已保存",
   "documentEditor.savedAgo": "已保存 {time}",

@@ -9,6 +9,8 @@ import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
 import { TagInput } from '../document/TagInput'
+import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
+import { getInitials } from '@/lib/utils/getInitials'
 import type {
   ApiDocumentDetail,
   ApiDocumentAncestor,
@@ -30,6 +32,23 @@ interface DocumentEditorPageProps {
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+}
 
 export function DocumentEditorPage({
   documentId,
@@ -281,20 +300,67 @@ export function DocumentEditorPage({
           </div>
 
           {/* Metadata */}
-          <div className='flex items-center gap-3 text-xs text-muted-foreground mb-6'>
-            {doc.project && <span>{doc.project.name}</span>}
-            <button
-              type='button'
-              className='bg-muted rounded px-2 py-0.5 hover:bg-muted/80 transition-colors'
-              onClick={() => setShareDialogOpen(true)}
-            >
-              {doc.visibility}
-            </button>
-            {saveStatus !== 'idle' && <span>{getSaveStatusText()}</span>}
-          </div>
+          <div className='border-t border-b border-border py-2.5 mb-4'>
+            {/* Row 1: Creator · Updated · Project · Editors · Save status */}
+            <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-1.5 flex-wrap'>
+              {/* Creator */}
+              <span className='flex items-center gap-1.5 shrink-0'>
+                <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                  {doc.createdBy.imageUrl ? (
+                    <img
+                      src={doc.createdBy.imageUrl}
+                      alt={doc.createdBy.name}
+                      className='w-full h-full object-cover'
+                    />
+                  ) : (
+                    <span className='text-[9px] font-medium'>
+                      {getInitials(doc.createdBy.name)}
+                    </span>
+                  )}
+                </span>
+                <span>{doc.createdBy.name}</span>
+              </span>
 
-          {/* Tags */}
-          <div className='mb-4'>
+              <span className='text-border'>·</span>
+
+              {/* Updated time */}
+              <span className='shrink-0'>
+                {intl.formatMessage({ id: 'documentEditor.updated' })}{' '}
+                {formatRelativeTime(doc.updatedAt)}
+              </span>
+
+              {/* Project badge (if linked) */}
+              {doc.project && (
+                <>
+                  <span className='text-border'>·</span>
+                  <span className='border border-border rounded px-2 py-0.5 shrink-0'>
+                    {doc.project.name}
+                  </span>
+                </>
+              )}
+
+              {/* Editor avatars (if any) */}
+              {doc.editors && doc.editors.length > 0 && (
+                <>
+                  <span className='text-border'>·</span>
+                  <CollaboratorAvatars
+                    editors={doc.editors}
+                    max={3}
+                    size={22}
+                  />
+                </>
+              )}
+
+              {/* Save status */}
+              {saveStatus !== 'idle' && (
+                <>
+                  <span className='text-border'>·</span>
+                  <span className='italic'>{getSaveStatusText()}</span>
+                </>
+              )}
+            </div>
+
+            {/* Row 2: Tags */}
             <TagInput tags={tags} onChange={handleTagsChange} />
           </div>
 

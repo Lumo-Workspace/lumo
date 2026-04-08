@@ -131,6 +131,7 @@
   "documents.copyLink": "Copy link",
   "documents.sharedWith": "Shared with {count} members",
 
+  "documentEditor.updated": "Updated",
   "documentEditor.saving": "Saving...",
   "documentEditor.saved": "Saved",
   "documentEditor.savedAgo": "Saved {time}",
