@@ -24,6 +24,7 @@ import { useCopyState } from '../../hooks/useCopyState'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 
 interface Props {
   initialProject: ApiProject
@@ -34,6 +35,7 @@ export function ProjectDetailStandalonePage({
   initialProject,
   workspaceUrl,
 }: Props) {
+  const intl = useIntl()
   const router = useRouter()
 
   // ── Notifications ─────────────────────────────────────────────────────────
@@ -212,12 +214,14 @@ export function ProjectDetailStandalonePage({
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
-        toast.error(err.error ?? 'Failed to create task')
+        toast.error(
+          err.error ?? intl.formatMessage({ id: 'task.createFailed' })
+        )
         return
       }
       const { task } = (await res.json()) as { task: ApiTask }
       setTasks(prev => [...prev, task])
-      toast.success('Task created')
+      toast.success(intl.formatMessage({ id: 'task.createSuccess' }))
 
       // Record AI priority override if user changed the suggestion
       if (aiSuggestedPriority && aiSuggestedPriority !== priority) {

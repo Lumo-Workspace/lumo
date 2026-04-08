@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { API } from '../../constants'
@@ -15,6 +16,7 @@ export interface GitHubStatus {
 }
 
 export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
+  const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,14 +25,14 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     // Handle error redirect from OAuth callback
     const params = new URLSearchParams(window.location.search)
     if (params.get('github_error')) {
-      toast.error('GitHub connection failed. Please try again.')
+      toast.error(intl.formatMessage({ id: 'github.connectFailed' }))
       window.history.replaceState({}, '', window.location.pathname)
     }
 
     fetch(`${API.github.integration}?workspaceUrl=${workspaceUrl}`)
       .then(r => r.json())
       .then(setGhStatus)
-      .catch(() => toast.error('Failed to load integrations'))
+      .catch(() => toast.error(intl.formatMessage({ id: 'github.loadFailed' })))
       .finally(() => setLoading(false))
   }, [workspaceUrl])
 
