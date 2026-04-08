@@ -2,6 +2,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import { useIntl } from 'react-intl'
 import { useUser } from '@clerk/nextjs'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { apiFetch } from '../../utils'
 
 export function ProfilePage() {
+  const intl = useIntl()
   const { user, isLoaded } = useUser()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -34,12 +36,12 @@ export function ProfilePage() {
     e.target.value = ''
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('File must be 2 MB or smaller')
+      toast.error(intl.formatMessage({ id: 'profile.fileTooLarge' }))
       return
     }
     const allowed = ['image/jpeg', 'image/png', 'image/webp']
     if (!allowed.includes(file.type)) {
-      toast.error('Only JPG, PNG, and WebP are allowed')
+      toast.error(intl.formatMessage({ id: 'profile.invalidType' }))
       return
     }
 
@@ -54,12 +56,19 @@ export function ProfilePage() {
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error((data as { error?: string }).error ?? 'Upload failed')
+        throw new Error(
+          (data as { error?: string }).error ??
+            intl.formatMessage({ id: 'profile.uploadFailed' })
+        )
       }
       await user?.reload()
-      toast.success('Avatar updated')
+      toast.success(intl.formatMessage({ id: 'profile.avatarUpdated' }))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'profile.uploadFailed' })
+      )
     } finally {
       setUploading(false)
     }
@@ -74,12 +83,19 @@ export function ProfilePage() {
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error((data as { error?: string }).error ?? 'Save failed')
+        throw new Error(
+          (data as { error?: string }).error ??
+            intl.formatMessage({ id: 'profile.saveFailed' })
+        )
       }
       await user?.reload()
-      toast.success('Name updated')
+      toast.success(intl.formatMessage({ id: 'profile.nameUpdated' }))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'profile.saveFailed' })
+      )
     } finally {
       setSavingName(false)
     }
@@ -95,10 +111,10 @@ export function ProfilePage() {
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
-          Profile
+          {intl.formatMessage({ id: 'profile.title' })}
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
-          Manage your personal information.
+          {intl.formatMessage({ id: 'profile.subtitle' })}
         </p>
 
         <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900'>
@@ -108,7 +124,7 @@ export function ProfilePage() {
               {isLoaded && user?.imageUrl ? (
                 <img
                   src={user.imageUrl}
-                  alt='Avatar'
+                  alt={intl.formatMessage({ id: 'profile.avatar' })}
                   className='w-9 h-9 rounded-full object-cover'
                 />
               ) : (
@@ -118,10 +134,10 @@ export function ProfilePage() {
               )}
               <div>
                 <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                  Avatar
+                  {intl.formatMessage({ id: 'profile.avatar' })}
                 </p>
                 <p className='text-xs text-zinc-400'>
-                  JPG, PNG or WebP. Max 2 MB
+                  {intl.formatMessage({ id: 'profile.avatarHint' })}
                 </p>
               </div>
             </div>
@@ -143,27 +159,27 @@ export function ProfilePage() {
               ) : (
                 <Upload size={14} className='mr-1.5' />
               )}
-              Upload
+              {intl.formatMessage({ id: 'profile.upload' })}
             </Button>
           </div>
 
           {/* Name row */}
           <div className='flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800'>
             <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 shrink-0 mr-4'>
-              Name
+              {intl.formatMessage({ id: 'profile.name' })}
             </p>
             <div className='flex items-center gap-2'>
               <Input
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
-                placeholder='First name'
+                placeholder={intl.formatMessage({ id: 'profile.firstName' })}
                 className='w-28 h-8 text-sm'
                 disabled={savingName || !isLoaded}
               />
               <Input
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
-                placeholder='Last name'
+                placeholder={intl.formatMessage({ id: 'profile.lastName' })}
                 className='w-28 h-8 text-sm'
                 disabled={savingName || !isLoaded}
               />
@@ -175,7 +191,7 @@ export function ProfilePage() {
                 {savingName ? (
                   <Loader2 size={14} className='animate-spin' />
                 ) : (
-                  'Save'
+                  intl.formatMessage({ id: 'common.save' })
                 )}
               </Button>
             </div>
@@ -184,7 +200,7 @@ export function ProfilePage() {
           {/* Email row (read-only) */}
           <div className='flex items-center justify-between px-4 py-3'>
             <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-              Email
+              {intl.formatMessage({ id: 'profile.email' })}
             </p>
             <p className='text-sm text-zinc-400'>
               {isLoaded ? (user?.emailAddresses[0]?.emailAddress ?? '—') : '…'}

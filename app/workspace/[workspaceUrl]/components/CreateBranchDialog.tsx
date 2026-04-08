@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { GitBranch, Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ export function CreateBranchDialog({
   workspaceUrl,
   onBranchCreated,
 }: CreateBranchDialogProps) {
+  const intl = useIntl()
   const [state, setState] = useState<DialogState>({ phase: 'idle' })
   const [branchName, setBranchName] = useState('')
   const [selectedRepo, setSelectedRepo] = useState('')
@@ -120,10 +122,10 @@ export function CreateBranchDialog({
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
-      toast.success('Branch name copied')
+      toast.success(intl.formatMessage({ id: 'task.branchNameCopied' }))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Failed to copy')
+      toast.error(intl.formatMessage({ id: 'task.copyFailed' }))
     }
   }
 
@@ -214,7 +216,9 @@ export function CreateBranchDialog({
                 {state.phase === 'creating' ? (
                   <Loader2 size={14} className='animate-spin mr-2' />
                 ) : null}
-                {state.phase === 'creating' ? 'Creating…' : 'Create branch'}
+                {state.phase === 'creating'
+                  ? intl.formatMessage({ id: 'common.creating' })
+                  : intl.formatMessage({ id: 'branch.createBranch' })}
               </Button>
             </>
           )}
@@ -258,7 +262,7 @@ export function CreateBranchDialog({
                 <button
                   onClick={() => handleCopy(state.branchName)}
                   className='text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shrink-0'
-                  title='Copy branch name'
+                  title={intl.formatMessage({ id: 'task.copyBranchName' })}
                 >
                   {copied ? (
                     <Check size={13} className='text-emerald-500' />

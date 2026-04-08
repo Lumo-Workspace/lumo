@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache, clearCache } from '../../cache'
@@ -49,6 +50,7 @@ function patchWorkspaceCache(patch: Partial<WorkspaceCache>) {
 export function WorkspaceSettingsPage() {
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const intl = useIntl()
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -135,7 +137,7 @@ export function WorkspaceSettingsPage() {
   // ─── Permission guard (client-side; server also enforces 403) ────────────
   function assertOwner(): boolean {
     if (!isOwner) {
-      toast.error("You don't have permission to modify workspace settings.")
+      toast.error(intl.formatMessage({ id: 'workspaceSettings.noPermission' }))
       return false
     }
     return true
@@ -152,15 +154,23 @@ export function WorkspaceSettingsPage() {
         body: { name: name.trim() },
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to update name')
+      if (!res.ok)
+        throw new Error(
+          data.error ??
+            intl.formatMessage({ id: 'workspaceSettings.nameUpdateFailed' })
+        )
       setWorkspace(prev =>
         prev ? { ...prev, name: data.workspace.name } : prev
       )
       patchWorkspaceCache({ name: data.workspace.name })
-      toast.success('Workspace name updated')
+      toast.success(intl.formatMessage({ id: 'workspaceSettings.nameUpdated' }))
     } catch (err) {
       setName(workspace?.name ?? '')
-      toast.error(err instanceof Error ? err.message : 'Failed to update name')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'workspaceSettings.nameUpdateFailed' })
+      )
     } finally {
       setSavingName(false)
     }
@@ -178,13 +188,21 @@ export function WorkspaceSettingsPage() {
         body: { slug: trimmed },
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to update URL')
+      if (!res.ok)
+        throw new Error(
+          data.error ??
+            intl.formatMessage({ id: 'workspaceSettings.urlUpdateFailed' })
+        )
       patchWorkspaceCache({ slug: data.workspace.slug })
-      toast.success('Workspace URL updated')
+      toast.success(intl.formatMessage({ id: 'workspaceSettings.urlUpdated' }))
       router.push(`/workspace/${data.workspace.slug}/settings/workspace`)
     } catch (err) {
       setSlug(workspace?.slug ?? '')
-      toast.error(err instanceof Error ? err.message : 'Failed to update URL')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'workspaceSettings.urlUpdateFailed' })
+      )
     } finally {
       setSavingSlug(false)
     }
@@ -201,7 +219,10 @@ export function WorkspaceSettingsPage() {
       })
       const data = await res.json()
       if (!res.ok)
-        throw new Error(data.error ?? 'Failed to update summary settings')
+        throw new Error(
+          data.error ??
+            intl.formatMessage({ id: 'workspaceSettings.summaryUpdateFailed' })
+        )
       setWorkspace(prev =>
         prev
           ? {
@@ -212,10 +233,14 @@ export function WorkspaceSettingsPage() {
             }
           : prev
       )
-      toast.success('Summary settings updated')
+      toast.success(
+        intl.formatMessage({ id: 'workspaceSettings.summaryUpdated' })
+      )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to update summary settings'
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'workspaceSettings.summaryUpdateFailed' })
       )
     } finally {
       setSavingSummary(false)
@@ -229,12 +254,18 @@ export function WorkspaceSettingsPage() {
     try {
       const res = await fetch(API.workspaces.me, { method: 'DELETE' })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to delete workspace')
+      if (!res.ok)
+        throw new Error(
+          data.error ??
+            intl.formatMessage({ id: 'workspaceSettings.deleteFailed' })
+        )
       clearCache()
       window.location.href = '/onboarding'
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to delete workspace'
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'workspaceSettings.deleteFailed' })
       )
       setDeleting(false)
       setDeleteOpen(false)
@@ -299,7 +330,9 @@ export function WorkspaceSettingsPage() {
                   onClick={handleSaveName}
                   disabled={savingName || !name.trim()}
                 >
-                  {savingName ? 'Saving…' : 'Save'}
+                  {savingName
+                    ? intl.formatMessage({ id: 'common.saving' })
+                    : intl.formatMessage({ id: 'common.save' })}
                 </Button>
               )}
             </div>
@@ -334,7 +367,9 @@ export function WorkspaceSettingsPage() {
                   onClick={handleSaveSlug}
                   disabled={savingSlug || !slug.trim()}
                 >
-                  {savingSlug ? 'Saving…' : 'Save'}
+                  {savingSlug
+                    ? intl.formatMessage({ id: 'common.saving' })
+                    : intl.formatMessage({ id: 'common.save' })}
                 </Button>
               )}
             </div>
@@ -423,7 +458,9 @@ export function WorkspaceSettingsPage() {
                 onClick={handleSaveSummarySettings}
                 disabled={savingSummary}
               >
-                {savingSummary ? 'Saving…' : 'Save'}
+                {savingSummary
+                  ? intl.formatMessage({ id: 'common.saving' })
+                  : intl.formatMessage({ id: 'common.save' })}
               </Button>
             </div>
           </div>
@@ -453,7 +490,9 @@ export function WorkspaceSettingsPage() {
                 onClick={() => setDeleteOpen(true)}
                 className='shrink-0 ml-4'
               >
-                Delete workspace
+                {intl.formatMessage({
+                  id: 'workspaceSettings.deleteWorkspace',
+                })}
               </Button>
             </div>
           </div>
@@ -502,7 +541,11 @@ export function WorkspaceSettingsPage() {
               onClick={handleDelete}
               disabled={deleting || deleteConfirm !== workspace?.name}
             >
-              {deleting ? 'Deleting…' : 'Delete workspace'}
+              {deleting
+                ? intl.formatMessage({ id: 'common.deleting' })
+                : intl.formatMessage({
+                    id: 'workspaceSettings.deleteWorkspace',
+                  })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

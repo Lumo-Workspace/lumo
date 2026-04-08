@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useIntl } from 'react-intl'
 import { createPortal } from 'react-dom'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -410,6 +411,7 @@ function BubbleMenuBar({
   openLinkInputRef: React.MutableRefObject<(() => void) | null>
   onInsertImage: () => void
 }) {
+  const intl = useIntl()
   const [styleOpen, setStyleOpen] = useState(false)
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
@@ -510,33 +512,33 @@ function BubbleMenuBar({
       <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
         <ToolbarButton
           onClick={() => editor.chain().focus().addRowBefore().run()}
-          title='Add row above'
+          title={intl.formatMessage({ id: 'table.addRowAbove' })}
         >
           <span className='text-[10px] font-semibold leading-none'>↑</span>
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().addRowAfter().run()}
-          title='Add row below'
+          title={intl.formatMessage({ id: 'table.addRowBelow' })}
         >
           <span className='text-[10px] font-semibold leading-none'>↓</span>
         </ToolbarButton>
         <Divider />
         <ToolbarButton
           onClick={() => editor.chain().focus().addColumnBefore().run()}
-          title='Add column left'
+          title={intl.formatMessage({ id: 'table.addColLeft' })}
         >
           <span className='text-[10px] font-semibold leading-none'>←</span>
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().addColumnAfter().run()}
-          title='Add column right'
+          title={intl.formatMessage({ id: 'table.addColRight' })}
         >
           <span className='text-[10px] font-semibold leading-none'>→</span>
         </ToolbarButton>
         <Divider />
         <ToolbarButton
           onClick={() => editor.chain().focus().deleteRow().run()}
-          title='Delete row'
+          title={intl.formatMessage({ id: 'table.deleteRow' })}
         >
           <span className='text-[10px] font-semibold leading-none text-zinc-500'>
             −R
@@ -544,7 +546,7 @@ function BubbleMenuBar({
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().deleteColumn().run()}
-          title='Delete column'
+          title={intl.formatMessage({ id: 'table.deleteCol' })}
         >
           <span className='text-[10px] font-semibold leading-none text-zinc-500'>
             −C
@@ -553,7 +555,7 @@ function BubbleMenuBar({
         <Divider />
         <ToolbarButton
           onClick={() => editor.chain().focus().deleteTable().run()}
-          title='Delete table'
+          title={intl.formatMessage({ id: 'table.deleteTable' })}
         >
           <Trash2 size={13} />
         </ToolbarButton>
@@ -936,7 +938,8 @@ async function insertImageWithUpload(
   file: File,
   documentId: string | undefined,
   getEditor: () => import('@tiptap/core').Editor | null,
-  insertPos?: number
+  insertPos?: number,
+  errorMessage?: string
 ): Promise<void> {
   const tempUrl = URL.createObjectURL(file)
   const ed = getEditor()
@@ -993,7 +996,7 @@ async function insertImageWithUpload(
         return true
       })
     }
-    toast.error('Image upload failed')
+    toast.error(errorMessage ?? 'Image upload failed')
   } finally {
     URL.revokeObjectURL(tempUrl)
   }
@@ -1003,12 +1006,18 @@ export function DescriptionEditor({
   value,
   onCommit,
   onChange,
-  placeholder = 'Add a description…',
+  placeholder: placeholderProp,
   members = [],
   tasks = [],
   agentActors = [],
   documentId,
 }: DescriptionEditorProps) {
+  const intl = useIntl()
+  const placeholder =
+    placeholderProp ?? intl.formatMessage({ id: 'task.descriptionPlaceholder' })
+  const imageUploadFailedMsg = intl.formatMessage({
+    id: 'task.imageUploadFailed',
+  })
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
   const mentionListRef = useRef<MentionListRef | null>(null)
@@ -1095,15 +1104,19 @@ export function DescriptionEditor({
         if (!img) return false
         event.preventDefault()
         pendingUploadsRef.current++
-        insertImageWithUpload(img, documentId, () => editorRef.current).finally(
-          () => {
-            pendingUploadsRef.current--
-            if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-              pendingCommitRef.current()
-              pendingCommitRef.current = null
-            }
+        insertImageWithUpload(
+          img,
+          documentId,
+          () => editorRef.current,
+          undefined,
+          imageUploadFailedMsg
+        ).finally(() => {
+          pendingUploadsRef.current--
+          if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+            pendingCommitRef.current()
+            pendingCommitRef.current = null
           }
-        )
+        })
         return true
       },
     },
@@ -1173,7 +1186,8 @@ export function DescriptionEditor({
         img,
         documentId,
         () => editorRef.current,
-        insertPos
+        insertPos,
+        imageUploadFailedMsg
       ).finally(() => {
         pendingUploadsRef.current--
         if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
@@ -1200,15 +1214,19 @@ export function DescriptionEditor({
       // Reset so the same file can be picked again
       e.target.value = ''
       pendingUploadsRef.current++
-      insertImageWithUpload(file, documentId, () => editorRef.current).finally(
-        () => {
-          pendingUploadsRef.current--
-          if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-            pendingCommitRef.current()
-            pendingCommitRef.current = null
-          }
+      insertImageWithUpload(
+        file,
+        documentId,
+        () => editorRef.current,
+        undefined,
+        imageUploadFailedMsg
+      ).finally(() => {
+        pendingUploadsRef.current--
+        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+          pendingCommitRef.current()
+          pendingCommitRef.current = null
         }
-      )
+      })
     },
     [documentId]
   )

@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { MessageSquare, Check, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -15,67 +13,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { API } from '../constants'
-
-interface SlackStatus {
-  connected: boolean
-  slackTeamName?: string
-  slackUserId?: string
-  slackTeamId?: string
-}
+import { useSlackIntegration } from '../hooks/useSlackIntegration'
 
 export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
-  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-  const [status, setStatus] = useState<SlackStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [disconnectOpen, setDisconnectOpen] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch(API.slack.integration(workspaceUrl))
-      if (res.ok) setStatus(await res.json())
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false)
-    }
-  }, [workspaceUrl])
-
-  useEffect(() => {
-    fetchStatus()
-  }, [fetchStatus])
-
-  // Handle ?slack_connected=1 and ?slack_error=1
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('slack_connected') === '1') {
-      toast.success('Slack connected successfully')
-      fetchStatus()
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-    if (params.get('slack_error') === '1') {
-      toast.error('Failed to connect Slack')
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-  }, [fetchStatus])
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      const res = await fetch(API.slack.integration(workspaceUrl), {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error()
-      setStatus({ connected: false })
-      toast.success('Slack disconnected')
-    } catch {
-      toast.error('Failed to disconnect Slack')
-    } finally {
-      setDisconnecting(false)
-      setDisconnectOpen(false)
-    }
-  }
+  const intl = useIntl()
+  const {
+    status,
+    loading,
+    disconnectOpen,
+    setDisconnectOpen,
+    disconnecting,
+    handleConnect,
+    handleDisconnect,
+  } = useSlackIntegration()
 
   return (
     <>
@@ -91,10 +41,10 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                Slack
+                {intl.formatMessage({ id: 'slack.title' })}
               </p>
               <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                Send notifications and manage tasks from Slack.
+                {intl.formatMessage({ id: 'slack.description' })}
               </p>
             </div>
           </div>
@@ -104,16 +54,11 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
           ) : status?.connected ? (
             <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
               <Check size={12} />
-              Connected
+              {intl.formatMessage({ id: 'slack.connected' })}
             </span>
           ) : isOwner ? (
-            <Button
-              size='sm'
-              onClick={() => {
-                window.open(API.slack.oauth(workspaceUrl), '_blank')
-              }}
-            >
-              Connect Slack
+            <Button size='sm' onClick={handleConnect}>
+              {intl.formatMessage({ id: 'slack.connectSlack' })}
             </Button>
           ) : null}
         </div>
@@ -122,14 +67,20 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
         {status?.connected && (
           <div className='border-t border-zinc-100 dark:border-zinc-800 px-6 py-5 bg-zinc-50 dark:bg-zinc-900/50 space-y-4'>
             <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-              Connected to workspace:{' '}
-              <span className='font-medium text-zinc-700 dark:text-zinc-300'>
-                {status.slackTeamName}
-              </span>
+              {intl.formatMessage(
+                { id: 'slack.connectedTo' },
+                {
+                  teamName: (
+                    <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+                      {status.slackTeamName}
+                    </span>
+                  ),
+                }
+              )}
             </p>
 
             <p className='text-xs text-zinc-400 dark:text-zinc-500'>
-              Channel notifications are configured per project.
+              {intl.formatMessage({ id: 'slack.channelNote' })}
             </p>
 
             {isOwner && (
@@ -140,7 +91,7 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
                   className='text-zinc-400 hover:text-destructive'
                   onClick={() => setDisconnectOpen(true)}
                 >
-                  Disconnect
+                  {intl.formatMessage({ id: 'common.disconnect' })}
                 </Button>
               </div>
             )}
@@ -152,14 +103,17 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
       <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <AlertDialogContent size='sm'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Slack?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'slack.disconnectTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              All channel subscriptions will be removed. You can reconnect at
-              any time.
+              {intl.formatMessage({ id: 'slack.disconnectDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={handleDisconnect}
@@ -168,7 +122,7 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
               {disconnecting ? (
                 <Loader2 size={14} className='animate-spin' />
               ) : (
-                'Disconnect'
+                intl.formatMessage({ id: 'common.disconnect' })
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

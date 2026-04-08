@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, MoreHorizontal, RefreshCw, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, MoreHorizontal, RefreshCw } from 'lucide-react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
-import { readCache, writeCache, clearCache } from '../../cache'
-import { API, CACHE_KEY } from '../../constants'
+import { useInvites } from '../../hooks/useInvites'
+import { clearCache } from '../../cache'
+import { API } from '../../constants'
 import { apiFetch } from '../../utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,16 +43,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { getInitials } from '@/lib/utils/getInitials'
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface PendingInvite {
-  id: string
-  token: string
-  email: string
-  inviterName: string
-  expiresAt: string
-  createdAt: string
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,28 +56,36 @@ function formatDate(iso: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MembersPage() {
+  const intl = useIntl()
   const { user } = useCurrentUser()
   const { members, setMembers, fetchMembers } = useMembers()
-  const [invites, setInvites] = useState<PendingInvite[]>([])
-  const [loadingInvites, setLoadingInvites] = useState(true)
+
+  const {
+    invites,
+    loadingInvites,
+    inviteOpen,
+    setInviteOpen,
+    emailInputs,
+    setEmailInputs,
+    sending,
+    revokeToken,
+    setRevokeToken,
+    revoking,
+    resendingToken,
+    fetchInvites,
+    handleSendInvites,
+    handleRevoke,
+    handleResend,
+    addEmailField,
+    updateEmail,
+    removeEmail,
+  } = useInvites()
 
   // Current user's role
   const currentMember = members.find(m => m.clerkId === user?.id)
   const isOwner = currentMember?.role === 'OWNER'
   const ownerCount = members.filter(m => m.role === 'OWNER').length
   const canLeave = !(isOwner && ownerCount <= 1)
-
-  // Invite dialog
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [emailInputs, setEmailInputs] = useState([''])
-  const [sending, setSending] = useState(false)
-
-  // Revoke confirm
-  const [revokeToken, setRevokeToken] = useState<string | null>(null)
-  const [revoking, setRevoking] = useState(false)
-
-  // Resend
-  const [resendingToken, setResendingToken] = useState<string | null>(null)
 
   // Role update
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null)
@@ -93,104 +94,10 @@ export function MembersPage() {
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
-  // ─── Fetch invites ──────────────────────────────────────────────────────────
-  const fetchInvites = useCallback(async () => {
-    // Seed from cache immediately (stale-while-revalidate)
-    const cached = readCache<PendingInvite[]>(CACHE_KEY.invites)
-    if (cached) {
-      setInvites(cached)
-      setLoadingInvites(false)
-    }
-    try {
-      const res = await fetch(API.invites.list)
-      if (res.ok) {
-        const data = (await res.json()) as { invites: PendingInvite[] }
-        setInvites(data.invites)
-        writeCache(CACHE_KEY.invites, data.invites)
-      }
-    } finally {
-      setLoadingInvites(false)
-    }
-  }, [])
-
   useEffect(() => {
     fetchMembers()
     fetchInvites()
   }, [fetchMembers, fetchInvites])
-
-  // ─── Send invites ───────────────────────────────────────────────────────────
-  const handleSendInvites = async () => {
-    const emails = emailInputs.map(e => e.trim()).filter(Boolean)
-    if (emails.length === 0) return
-
-    setSending(true)
-    try {
-      // Get workspaceId from the members API (any member has it via the workspace)
-      const wsRes = await fetch('/api/workspaces/me')
-      if (!wsRes.ok) throw new Error('Could not fetch workspace')
-      const wsData = await wsRes.json()
-      const workspaceId = wsData.workspace.id
-
-      const res = await apiFetch(API.invites.list, {
-        method: 'POST',
-        body: { emails, workspaceId },
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to send invites')
-
-      toast.success(
-        `${data.sent} invite${data.sent !== 1 ? 's' : ''} sent`,
-        data.failed?.length
-          ? { description: `Failed: ${data.failed.join(', ')}` }
-          : undefined
-      )
-      setInviteOpen(false)
-      setEmailInputs([''])
-      await fetchInvites()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send invites')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  // ─── Revoke invite ──────────────────────────────────────────────────────────
-  const handleRevoke = async () => {
-    if (!revokeToken) return
-    setRevoking(true)
-    try {
-      const res = await fetch(API.invites.byToken(revokeToken), {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error('Failed to revoke invite')
-      setInvites(prev => {
-        const next = prev.filter(i => i.token !== revokeToken)
-        writeCache(CACHE_KEY.invites, next)
-        return next
-      })
-      toast.success('Invite revoked')
-    } catch {
-      toast.error('Failed to revoke invite')
-    } finally {
-      setRevoking(false)
-      setRevokeToken(null)
-    }
-  }
-
-  // ─── Resend invite ──────────────────────────────────────────────────────────
-  const handleResend = async (token: string) => {
-    setResendingToken(token)
-    try {
-      const res = await fetch(API.invites.resend(token), { method: 'POST' })
-      if (!res.ok) throw new Error('Failed to resend invite')
-      toast.success('Invite resent')
-      await fetchInvites()
-    } catch {
-      toast.error('Failed to resend invite')
-    } finally {
-      setResendingToken(null)
-    }
-  }
 
   // ─── Role update ────────────────────────────────────────────────────────────
   const handleRoleChange = async (
@@ -211,14 +118,21 @@ export function MembersPage() {
         body: { role: newRole },
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to update role')
-      toast.success('Role updated')
+      if (!res.ok)
+        throw new Error(
+          data.error ?? intl.formatMessage({ id: 'members.roleUpdateFailed' })
+        )
+      toast.success(intl.formatMessage({ id: 'members.roleUpdated' }))
     } catch (err) {
       // Rollback
       setMembers(ms =>
         ms.map(m => (m.id === memberId ? { ...m, role: prev.role } : m))
       )
-      toast.error(err instanceof Error ? err.message : 'Failed to update role')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'members.roleUpdateFailed' })
+      )
     } finally {
       setUpdatingRoleId(null)
     }
@@ -232,30 +146,20 @@ export function MembersPage() {
         method: 'DELETE',
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to leave workspace')
+      if (!res.ok)
+        throw new Error(
+          data.error ?? intl.formatMessage({ id: 'members.leaveFailed' })
+        )
       clearCache()
       window.location.href = '/onboarding'
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to leave workspace'
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({ id: 'members.leaveFailed' })
       )
       setLeaving(false)
       setLeaveOpen(false)
-    }
-  }
-
-  // ─── Email input helpers ────────────────────────────────────────────────────
-  const addEmailField = () => {
-    if (emailInputs.length < 10) setEmailInputs(prev => [...prev, ''])
-  }
-  const updateEmail = (index: number, value: string) => {
-    setEmailInputs(prev => prev.map((e, i) => (i === index ? value : e)))
-  }
-  const removeEmail = (index: number) => {
-    if (emailInputs.length === 1) {
-      setEmailInputs([''])
-    } else {
-      setEmailInputs(prev => prev.filter((_, i) => i !== index))
     }
   }
 
@@ -266,7 +170,7 @@ export function MembersPage() {
         {/* Header */}
         <div className='flex items-center justify-between mb-8'>
           <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
-            Members
+            {intl.formatMessage({ id: 'members.title' })}
           </h1>
           <Button
             size='sm'
@@ -274,7 +178,7 @@ export function MembersPage() {
             onClick={() => setInviteOpen(true)}
           >
             <Plus size={14} />
-            Invite
+            {intl.formatMessage({ id: 'common.invite' })}
           </Button>
         </div>
 
@@ -282,7 +186,7 @@ export function MembersPage() {
         <section className='mb-8'>
           <div className='flex items-center gap-2 mb-3'>
             <span className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
-              Active
+              {intl.formatMessage({ id: 'members.active' })}
             </span>
             <span className='text-xs text-zinc-400'>{members.length}</span>
           </div>
@@ -290,16 +194,24 @@ export function MembersPage() {
           <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
             {/* Table header */}
             <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800'>
-              <span className='text-xs font-medium text-zinc-500'>Name</span>
-              <span className='text-xs font-medium text-zinc-500'>Email</span>
-              <span className='text-xs font-medium text-zinc-500'>Role</span>
-              <span className='text-xs font-medium text-zinc-500'>Joined</span>
+              <span className='text-xs font-medium text-zinc-500'>
+                {intl.formatMessage({ id: 'members.colName' })}
+              </span>
+              <span className='text-xs font-medium text-zinc-500'>
+                {intl.formatMessage({ id: 'members.colEmail' })}
+              </span>
+              <span className='text-xs font-medium text-zinc-500'>
+                {intl.formatMessage({ id: 'members.colRole' })}
+              </span>
+              <span className='text-xs font-medium text-zinc-500'>
+                {intl.formatMessage({ id: 'members.colJoined' })}
+              </span>
               <span />
             </div>
 
             {members.length === 0 ? (
               <div className='px-4 py-6 text-sm text-zinc-400 text-center'>
-                Loading...
+                {intl.formatMessage({ id: 'common.loading' })}
               </div>
             ) : (
               members.map(m => (
@@ -348,10 +260,10 @@ export function MembersPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value='OWNER' className='text-xs'>
-                        Admin
+                        {intl.formatMessage({ id: 'members.roleAdmin' })}
                       </SelectItem>
                       <SelectItem value='MEMBER' className='text-xs'>
-                        Member
+                        {intl.formatMessage({ id: 'members.roleMember' })}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -378,7 +290,7 @@ export function MembersPage() {
                           className='cursor-pointer text-destructive focus:text-destructive'
                           onClick={() => setLeaveOpen(true)}
                         >
-                          Leave workspace
+                          {intl.formatMessage({ id: 'members.leaveWorkspace' })}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -396,7 +308,7 @@ export function MembersPage() {
           <section>
             <div className='flex items-center gap-2 mb-3'>
               <span className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
-                Invited
+                {intl.formatMessage({ id: 'members.invited' })}
               </span>
               <span className='text-xs text-zinc-400'>{invites.length}</span>
             </div>
@@ -404,16 +316,24 @@ export function MembersPage() {
             <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
               {/* Table header — same columns as Active */}
               <div className='grid grid-cols-[1fr_1fr_96px_96px_32px] gap-4 px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800'>
-                <span className='text-xs font-medium text-zinc-500'>Name</span>
-                <span className='text-xs font-medium text-zinc-500'>Email</span>
-                <span className='text-xs font-medium text-zinc-500'>Role</span>
-                <span className='text-xs font-medium text-zinc-500'>Sent</span>
+                <span className='text-xs font-medium text-zinc-500'>
+                  {intl.formatMessage({ id: 'members.colName' })}
+                </span>
+                <span className='text-xs font-medium text-zinc-500'>
+                  {intl.formatMessage({ id: 'members.colEmail' })}
+                </span>
+                <span className='text-xs font-medium text-zinc-500'>
+                  {intl.formatMessage({ id: 'members.colRole' })}
+                </span>
+                <span className='text-xs font-medium text-zinc-500'>
+                  {intl.formatMessage({ id: 'members.colSent' })}
+                </span>
                 <span />
               </div>
 
               {loadingInvites && invites.length === 0 ? (
                 <div className='px-4 py-6 text-sm text-zinc-400 text-center'>
-                  Loading...
+                  {intl.formatMessage({ id: 'common.loading' })}
                 </div>
               ) : (
                 invites.map(inv => (
@@ -443,7 +363,7 @@ export function MembersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value='MEMBER' className='text-xs'>
-                          Member
+                          {intl.formatMessage({ id: 'members.roleMember' })}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -474,13 +394,13 @@ export function MembersPage() {
                           className='cursor-pointer'
                           onClick={() => handleResend(inv.token)}
                         >
-                          Resend invite
+                          {intl.formatMessage({ id: 'members.resendInvite' })}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className='cursor-pointer text-destructive focus:text-destructive'
                           onClick={() => setRevokeToken(inv.token)}
                         >
-                          Revoke invite
+                          {intl.formatMessage({ id: 'members.revokeInvite' })}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -502,7 +422,9 @@ export function MembersPage() {
       >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle>Invite teammates</DialogTitle>
+            <DialogTitle>
+              {intl.formatMessage({ id: 'members.inviteTitle' })}
+            </DialogTitle>
           </DialogHeader>
 
           <div className='space-y-2 py-2'>
@@ -510,7 +432,9 @@ export function MembersPage() {
               <div key={i} className='flex gap-2'>
                 <input
                   type='email'
-                  placeholder='colleague@company.com'
+                  placeholder={intl.formatMessage({
+                    id: 'members.emailPlaceholder',
+                  })}
                   value={email}
                   onChange={e => updateEmail(i, e.target.value)}
                   onKeyDown={e => {
@@ -543,7 +467,7 @@ export function MembersPage() {
                 className='text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1 mt-1 transition-colors'
               >
                 <Plus size={12} />
-                Add another
+                {intl.formatMessage({ id: 'members.addAnother' })}
               </button>
             )}
           </div>
@@ -556,13 +480,15 @@ export function MembersPage() {
                 setEmailInputs([''])
               }}
             >
-              Cancel
+              {intl.formatMessage({ id: 'common.cancel' })}
             </Button>
             <Button
               onClick={handleSendInvites}
               disabled={sending || emailInputs.every(e => e.trim() === '')}
             >
-              {sending ? 'Sending…' : 'Send invites'}
+              {sending
+                ? intl.formatMessage({ id: 'common.sending' })
+                : intl.formatMessage({ id: 'members.sendInvites' })}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -577,20 +503,25 @@ export function MembersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave workspace?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'members.leaveTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              You will lose access to all projects and tasks in this workspace.
-              You can only rejoin via a new invite.
+              {intl.formatMessage({ id: 'members.leaveDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={leaving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={leaving}>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               onClick={handleLeave}
               disabled={leaving}
             >
-              {leaving ? 'Leaving…' : 'Leave workspace'}
+              {leaving
+                ? intl.formatMessage({ id: 'common.leaving' })
+                : intl.formatMessage({ id: 'members.leaveWorkspace' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -605,20 +536,25 @@ export function MembersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke invite?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'members.revokeTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This invite link will stop working immediately. You can send a new
-              invite later.
+              {intl.formatMessage({ id: 'members.revokeDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={revoking}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={revoking}>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               onClick={handleRevoke}
               disabled={revoking}
             >
-              {revoking ? 'Revoking…' : 'Revoke'}
+              {revoking
+                ? intl.formatMessage({ id: 'common.revoking' })
+                : intl.formatMessage({ id: 'common.revoke' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

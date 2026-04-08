@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export function ProjectSlackDialog({
   projectName,
   workspaceUrl,
 }: ProjectSlackDialogProps) {
+  const intl = useIntl()
   const [loadState, setLoadState] = useState<LoadState>({ phase: 'loading' })
   const [enabled, setEnabled] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState('')
@@ -198,7 +200,7 @@ export function ProjectSlackDialog({
         if (res.status === 409) {
           // Concurrent POST — re-fetch and switch to PATCH path
           await load()
-          toast.info('Configuration refreshed from server')
+          toast.info(intl.formatMessage({ id: 'slack.configRefreshed' }))
           return
         }
         if (!res.ok) {
@@ -224,7 +226,7 @@ export function ProjectSlackDialog({
           throw new Error(data.error ?? 'Failed to save')
         }
       }
-      toast.success('Slack notifications updated')
+      toast.success(intl.formatMessage({ id: 'slack.notificationsUpdated' }))
       onClose()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Something went wrong')
@@ -273,7 +275,12 @@ export function ProjectSlackDialog({
       }
       setShowCreate(false)
       setNewChannelName('')
-      toast.success(`#${name.toLowerCase()} created and selected`)
+      toast.success(
+        intl.formatMessage(
+          { id: 'slack.channelCreated' },
+          { name: name.toLowerCase() }
+        )
+      )
     } catch {
       setCreateError('Something went wrong. Please try again.')
     } finally {
@@ -285,7 +292,12 @@ export function ProjectSlackDialog({
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>Slack notifications for {projectName}</DialogTitle>
+          <DialogTitle>
+            {intl.formatMessage(
+              { id: 'slack.notificationsFor' },
+              { projectName }
+            )}
+          </DialogTitle>
           <DialogDescription>
             Send notifications to a Slack channel when events occur in this
             project.
@@ -414,7 +426,7 @@ export function ProjectSlackDialog({
                             {creating ? (
                               <Loader2 size={12} className='animate-spin' />
                             ) : (
-                              'Create'
+                              intl.formatMessage({ id: 'common.create' })
                             )}
                           </Button>
                           <Button
@@ -496,7 +508,9 @@ export function ProjectSlackDialog({
                   {saving ? (
                     <Loader2 size={14} className='animate-spin mr-2' />
                   ) : null}
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving
+                    ? intl.formatMessage({ id: 'common.saving' })
+                    : intl.formatMessage({ id: 'common.save' })}
                 </Button>
               </>
             )}
