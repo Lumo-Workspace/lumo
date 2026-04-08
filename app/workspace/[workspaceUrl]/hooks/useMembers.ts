@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { WorkspaceMemberInfo } from '../types'
 import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { workspacesClient } from '@/lib/api-client'
 
 export interface AgentActor {
   actorId: string
@@ -30,12 +31,10 @@ export function useMembers() {
     if (fetching.current) return
     fetching.current = true
     try {
-      const res = await fetch(API.workspaces.members)
-      if (!res.ok) return
-      const data = (await res.json()) as {
+      const data = await workspacesClient.listMembers<{
         members: WorkspaceMemberInfo[]
         agentActors?: AgentActor[]
-      }
+      }>()
       setMembers(data.members)
       writeCache(CACHE_KEY.members, data.members)
       if (data.agentActors) {

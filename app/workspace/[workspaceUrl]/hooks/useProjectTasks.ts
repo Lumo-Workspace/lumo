@@ -4,7 +4,8 @@ import { useState, useRef, useCallback } from 'react'
 import { ApiTask } from '../types'
 import { readCache, writeCache } from '../cache'
 import { flattenTasks } from '../utils'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { projectsClient } from '@/lib/api-client'
 
 type NewFormat = { taskIds: string[]; kanbanViewId: string | null }
 type LegacyFull = { tasks: ApiTask[]; kanbanViewId: string | null }
@@ -57,12 +58,10 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
       setError(null)
       if (!seeded.current) setLoading(true)
       try {
-        const res = await fetch(API.projects.tasks(projectId))
-        if (!res.ok) throw new Error('Failed to load tasks')
-        const data = (await res.json()) as {
+        const data = await projectsClient.listTasks<{
           tasks: (ApiTask & { children?: ApiTask[] })[]
           kanbanViewId: string
-        }
+        }>(projectId)
         const flat = flattenTasks(data.tasks)
         upsertTasks(flat)
         const ids = flat.map(t => t.id)
