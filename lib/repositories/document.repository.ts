@@ -184,6 +184,59 @@ export const documentRepository = {
     })
   },
 
+  /** Update document with optional child reordering and mention sync, all in a single transaction. */
+  async updateWithChildrenAndMentions(
+    id: string,
+    updateData: Record<string, unknown>,
+    childOrder: string[] | undefined,
+    mentionTaskIds: string[] | undefined
+  ) {
+    return prisma.$transaction(async tx => {
+      const updatedDoc =
+        Object.keys(updateData).length > 0
+          ? await tx.document.update({ where: { id }, data: updateData })
+          : await tx.document.findUniqueOrThrow({ where: { id } })
+
+      // Reorder children if childOrder is provided
+      if (childOrder) {
+        for (let i = 0; i < childOrder.length; i++) {
+          await tx.document.update({
+            where: { id: childOrder[i]! },
+            data: { sortOrder: i },
+          })
+        }
+      }
+
+      // Sync mentions if mentionTaskIds is provided
+      if (mentionTaskIds !== undefined) {
+        const existing = await tx.documentMention.findMany({
+          where: { documentId: id },
+          select: { taskId: true },
+        })
+        const existingIds = new Set(existing.map(m => m.taskId))
+        const newIds = new Set(mentionTaskIds)
+
+        // Delete removed mentions
+        const toDelete = [...existingIds].filter(mid => !newIds.has(mid))
+        if (toDelete.length > 0) {
+          await tx.documentMention.deleteMany({
+            where: { documentId: id, taskId: { in: toDelete } },
+          })
+        }
+
+        // Create new mentions
+        const toCreate = [...newIds].filter(mid => !existingIds.has(mid))
+        if (toCreate.length > 0) {
+          await tx.documentMention.createMany({
+            data: toCreate.map(taskId => ({ documentId: id, taskId })),
+          })
+        }
+      }
+
+      return updatedDoc
+    })
+  },
+
   /** Delete document and all descendants recursively in a transaction. */
   async deleteWithDescendants(id: string, _workspaceId: string) {
     await prisma.$transaction(async tx => {

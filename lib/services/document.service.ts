@@ -1,5 +1,4 @@
 import { clerkClient } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
 import {
   documentRepository,
   type DocumentFilters,
@@ -261,29 +260,16 @@ export const documentService = {
       updateData.publicToken = data.publicToken
     if (data.tags !== undefined) updateData.tags = data.tags
 
-    const updated = await prisma.$transaction(async tx => {
-      const updatedDoc =
-        Object.keys(updateData).length > 0
-          ? await tx.document.update({ where: { id }, data: updateData })
-          : await tx.document.findUniqueOrThrow({ where: { id } })
+    const mentionTaskIds = data.content
+      ? this.extractTaskMentionIds(data.content)
+      : undefined
 
-      // Reorder children if childOrder is provided
-      if (data.childOrder) {
-        for (let i = 0; i < data.childOrder.length; i++) {
-          await tx.document.update({
-            where: { id: data.childOrder[i]! },
-            data: { sortOrder: i },
-          })
-        }
-      }
-
-      // Sync mentions if content was updated
-      if (data.content) {
-        await this.syncDocumentMentions(id, data.content, tx)
-      }
-
-      return updatedDoc
-    })
+    const updated = await documentRepository.updateWithChildrenAndMentions(
+      id,
+      updateData,
+      data.childOrder,
+      mentionTaskIds
+    )
 
     // Track editor if content was updated
     if (data.content !== undefined) {
@@ -344,36 +330,14 @@ export const documentService = {
     }
   },
 
-  /** Sync document mentions based on content. Accepts optional transaction client. */
-  async syncDocumentMentions(
-    documentId: string,
-    content: unknown,
-    tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-  ) {
-    const db = tx ?? prisma
+  /** Sync document mentions based on content. Delegates to repository. */
+  async syncDocumentMentions(documentId: string, content: unknown) {
     const taskIds = this.extractTaskMentionIds(content)
-
-    const existing = await db.documentMention.findMany({
-      where: { documentId },
-      select: { taskId: true },
-    })
-    const existingIds = new Set(existing.map(m => m.taskId))
-    const newIds = new Set(taskIds)
-
-    // Delete removed mentions
-    const toDelete = [...existingIds].filter(id => !newIds.has(id))
-    if (toDelete.length > 0) {
-      await db.documentMention.deleteMany({
-        where: { documentId, taskId: { in: toDelete } },
-      })
-    }
-
-    // Create new mentions
-    const toCreate = [...newIds].filter(id => !existingIds.has(id))
-    if (toCreate.length > 0) {
-      await db.documentMention.createMany({
-        data: toCreate.map(taskId => ({ documentId, taskId })),
-      })
-    }
+    await documentRepository.updateWithChildrenAndMentions(
+      documentId,
+      {},
+      undefined,
+      taskIds
+    )
   },
 }

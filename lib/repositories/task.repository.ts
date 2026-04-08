@@ -411,6 +411,14 @@ export const taskRepository = {
     })
   },
 
+  /** Find a task by ID with only id and projectId (for lightweight validation). */
+  async findProjectIdById(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: { id: true, projectId: true },
+    })
+  },
+
   /** Find an actor by ID (for assignee validation). */
   async findActorById(actorId: string) {
     return prisma.actor.findUnique({
