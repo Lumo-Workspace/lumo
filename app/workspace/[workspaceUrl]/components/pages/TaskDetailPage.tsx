@@ -47,9 +47,6 @@ import { Spinner } from '@/components/ui/spinner'
 import {
   TaskDetail,
   ApiTask,
-  ApiComment,
-  ApiStatus,
-  ApiPriority,
   WorkspaceMemberInfo,
   ApiProject,
   Page,
@@ -84,6 +81,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useTaskComments } from '../../hooks/useTaskComments'
+import { useTaskMutation } from '../../hooks/useTaskMutation'
+import { useTaskDescription } from '../../hooks/useTaskDescription'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -122,23 +122,6 @@ export function TaskDetailPage({
 
   // ── Task state ─────────────────────────────────────────────────────────────
   const [task, setTask] = useState<TaskDetail>(initialTask)
-  const [descriptionValue, setDescriptionValue] = useState<string | null>(
-    initialTask.description ?? null
-  )
-  const [descriptionLoading, setDescriptionLoading] = useState(
-    initialTask.description === undefined
-  )
-  // Hydrate description from localStorage after mount to avoid SSR mismatch
-  useEffect(() => {
-    if (initialTask.description !== undefined) return
-    const cached = readCache<{ desc: string | null }>(
-      CACHE_KEY.description(initialTask.id)
-    )
-    if (cached) {
-      setDescriptionValue(cached.desc)
-      setDescriptionLoading(false)
-    }
-  }, [initialTask.id, initialTask.description])
 
   // ── Branch copy ────────────────────────────────────────────────────────────
   const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null)
@@ -190,48 +173,36 @@ export function TaskDetailPage({
     if (cachedProjects) setProjects(cachedProjects)
   }, [])
 
-  // ── Comments state ─────────────────────────────────────────────────────────
-  // Always start with loading=true to avoid SSR/client hydration mismatch
-  // (localStorage is not available on the server)
-  const [comments, setComments] = useState<ApiComment[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(true)
-  const hydratedComments = useRef(false)
+  // ── Extracted hooks ────────────────────────────────────────────────────────
+  const currentMember = members.find(m => m.clerkId === user?.id)
+
+  const tc = useTaskComments({
+    taskId: task.id,
+    currentActorId: currentMember?.actorId ?? null,
+  })
+
+  const { handlePatch } = useTaskMutation({
+    task,
+    setTask,
+    projects,
+  })
+
+  const desc = useTaskDescription({
+    taskId: initialTask.id,
+    initialDescription: initialTask.description,
+  })
+
+  // Anchor scroll: fire once when comments first load
+  const hasScrolled = useRef(false)
   useEffect(() => {
-    if (hydratedComments.current) return
-    hydratedComments.current = true
-    const cached = readCache<ApiComment[]>(CACHE_KEY.comments(initialTask.id))
-    if (cached) {
-      setComments(cached)
-      setCommentsLoading(false)
-    }
-  }, [initialTask.id])
-  const [commentBody, setCommentBody] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const clearCommentRef = useRef<(() => void) | null>(null)
-  const [commentKey, setCommentKey] = useState(0)
-
-  // ── Comment edit / delete ──────────────────────────────────────────────────
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
-  const [editCommentBody, setEditCommentBody] = useState<string | null>(null)
-  const [savingComment, setSavingComment] = useState(false)
-  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
-    null
-  )
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
-  // ── Comment threads (replies) ──────────────────────────────────────────────
-  const [highlightedCommentId, setHighlightedCommentId] = useState<
-    string | null
-  >(null)
-  const [replyingToId, setReplyingToId] = useState<string | null>(null)
-  const [replyingToComment, setReplyingToComment] = useState<{
-    id: string
-    authorName: string
-    body: string
-  } | null>(null)
-  const [replyBody, setReplyBody] = useState<string | null>(null)
-  const [submittingReply, setSubmittingReply] = useState(false)
-  const clearReplyRef = useRef<(() => void) | null>(null)
+    if (hasScrolled.current) return
+    if (!tc.comments.length) return
+    const hash = window.location.hash // e.g. "#comment-cm4abc123"
+    if (!hash.startsWith('#comment-')) return
+    const commentId = hash.slice('#comment-'.length)
+    hasScrolled.current = true
+    tc.scrollToComment(commentId)
+  }, [tc.comments, tc.scrollToComment])
 
   // ── Parallel fetch on mount ────────────────────────────────────────────────
   useEffect(() => {
@@ -251,21 +222,16 @@ export function TaskDetailPage({
       projectsClient
         .list<{ projects: ApiProject[] }>()
         .catch(() => ({ projects: [] as ApiProject[] })),
-      tasksClient
-        .listComments<{ comments: ApiComment[] }>(initialTask.id)
-        .catch(() => ({ comments: [] as ApiComment[] })),
+      tc.fetchComments(),
     ])
-      .then(([taskData, membersData, projectsData, commentsData]) => {
+      .then(([taskData, membersData, projectsData]) => {
         if (taskData.task) {
           const t = taskData.task as TaskDetail
           setTask(prev => ({ ...prev, ...t }))
-          setDescriptionValue(t.description ?? null)
+          desc.setDescriptionFromFetch(t.description ?? null)
           const taskMap =
             readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
           writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
-          writeCache(CACHE_KEY.description(t.id), {
-            desc: t.description ?? null,
-          })
         }
         const freshMembers: WorkspaceMemberInfo[] = membersData.members ?? []
         if (freshMembers.length > 0) {
@@ -281,14 +247,10 @@ export function TaskDetailPage({
           setProjects(freshProjects)
           writeCache(CACHE_KEY.projects, freshProjects)
         }
-        const freshComments: ApiComment[] = commentsData.comments ?? []
-        setComments(freshComments)
-        writeCache(CACHE_KEY.comments(initialTask.id), freshComments)
       })
       .catch(() => {})
       .finally(() => {
-        setDescriptionLoading(false)
-        setCommentsLoading(false)
+        desc.finishLoading()
       })
   }, [initialTask.id])
 
@@ -299,14 +261,7 @@ export function TaskDetailPage({
       event.type === 'comment:updated' ||
       event.type === 'comment:deleted'
     ) {
-      // Refetch comments
-      tasksClient
-        .listComments<{ comments: ApiComment[] }>(initialTask.id)
-        .then(data => {
-          setComments(data.comments)
-          writeCache(CACHE_KEY.comments(initialTask.id), data.comments)
-        })
-        .catch(() => {})
+      tc.fetchComments()
     }
     if (event.type === 'task:updated') {
       // Refetch task data and sync cache
@@ -316,14 +271,11 @@ export function TaskDetailPage({
           if (data?.task) {
             const t = data.task as TaskDetail
             setTask(prev => ({ ...prev, ...t }))
-            setDescriptionValue(t.description ?? null)
+            desc.setDescriptionFromFetch(t.description ?? null)
             // Write back to cache so list pages reflect the update
             const taskMap =
               readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
             writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
-            writeCache(CACHE_KEY.description(t.id), {
-              desc: t.description ?? null,
-            })
           }
         })
         .catch(() => {})
@@ -331,59 +283,6 @@ export function TaskDetailPage({
   })
 
   // ── Field mutations ────────────────────────────────────────────────────────
-  const onUpdate = useCallback(
-    async (
-      taskId: string,
-      data: Partial<{
-        title: string
-        status: ApiStatus
-        assigneeActorId: string | null
-        reviewerActorId: string | null
-        description: string | null
-        projectId: string
-        priority: ApiPriority
-        spec: string | null
-      }>
-    ) => {
-      await tasksClient.update(taskId, data)
-    },
-    []
-  )
-
-  const handlePatch = useCallback(
-    async (
-      data: Partial<{
-        title: string
-        status: ApiStatus
-        assigneeActorId: string | null
-        reviewerActorId: string | null
-        repositoryId: string | null
-        description: string | null
-        spec: string | null
-        projectId: string
-        priority: ApiPriority
-      }>
-    ) => {
-      const snapshot = task
-      const localUpdate = { ...task, ...data }
-      if (data.projectId) {
-        const newProject = projects.find(p => p.id === data.projectId)
-        if (newProject)
-          localUpdate.project = { id: newProject.id, name: newProject.name }
-      }
-      setTask(localUpdate)
-      const taskMap = readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-      writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: localUpdate })
-      try {
-        await onUpdate(task.id, data)
-      } catch {
-        setTask(snapshot)
-        writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: snapshot })
-      }
-    },
-    [task, onUpdate, projects]
-  )
-
   const commitDescription = useCallback(
     (html: string | null) => {
       const next = html?.trim() || null
@@ -402,200 +301,10 @@ export function TaskDetailPage({
     [task.spec, handlePatch]
   )
 
-  // ── Comment handlers ───────────────────────────────────────────────────────
-  const mapCommentTree = useCallback(
-    (
-      prev: ApiComment[],
-      id: string,
-      transform: (c: ApiComment) => ApiComment | null
-    ): ApiComment[] =>
-      prev.flatMap(c => {
-        if (c.id === id) {
-          const updated = transform(c)
-          return updated ? [updated] : []
-        }
-        if (c.replies?.length) {
-          const newReplies = c.replies.flatMap(r => {
-            if (r.id === id) {
-              const updated = transform(r)
-              return updated ? [updated] : []
-            }
-            return [r]
-          })
-          return [{ ...c, replies: newReplies }]
-        }
-        return [c]
-      }),
-    []
+  const mentionableMembers = useMemo(
+    () => members.filter(m => m.clerkId !== user?.id),
+    [members, user?.id]
   )
-
-  const scrollToComment = useCallback((commentId: string) => {
-    const el = document.getElementById(`comment-${commentId}`)
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setHighlightedCommentId(commentId)
-    setTimeout(() => setHighlightedCommentId(null), 1500)
-  }, [])
-
-  // Anchor scroll: fire once when comments first load
-  const hasScrolled = useRef(false)
-  useEffect(() => {
-    if (hasScrolled.current) return
-    if (!comments.length) return
-    const hash = window.location.hash // e.g. "#comment-cm4abc123"
-    if (!hash.startsWith('#comment-')) return
-    const commentId = hash.slice('#comment-'.length)
-    hasScrolled.current = true
-    scrollToComment(commentId)
-  }, [comments, scrollToComment])
-
-  const submitComment = useCallback(async () => {
-    const body = commentBody?.trim()
-    if (!body || submitting) return
-    setSubmitting(true)
-
-    const tempId = `optimistic-${Date.now()}`
-    const optimistic: ApiComment = {
-      id: tempId,
-      taskId: task.id,
-      authorActorId: members.find(m => m.clerkId === user?.id)?.actorId ?? null,
-      body,
-      parentId: null,
-      quotedCommentId: null,
-      type: 'USER',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setComments(prev => [...prev, optimistic])
-    setCommentBody(null)
-    clearCommentRef.current?.()
-    setCommentKey(k => k + 1)
-
-    try {
-      const { comment } = await tasksClient.createComment<{
-        comment: ApiComment
-      }>(task.id, { body })
-      setComments(prev => {
-        const next = prev.map(c => (c.id === tempId ? comment : c))
-        writeCache(CACHE_KEY.comments(task.id), next)
-        return next
-      })
-    } catch {
-      setComments(prev => prev.filter(c => c.id !== tempId))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [commentBody, submitting, task.id, user?.id, members])
-
-  const submitReply = useCallback(
-    async (parentId: string) => {
-      const body = replyBody?.trim()
-      if (!body || submittingReply) return
-      setSubmittingReply(true)
-
-      const quotedCommentId = replyingToComment?.id ?? null
-      const tempId = `optimistic-reply-${Date.now()}`
-      const optimistic: ApiComment = {
-        id: tempId,
-        taskId: task.id,
-        authorActorId:
-          members.find(m => m.clerkId === user?.id)?.actorId ?? null,
-        body,
-        parentId,
-        quotedCommentId,
-        type: 'USER',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-      setComments(prev => {
-        const next = prev.map(c =>
-          c.id === parentId
-            ? { ...c, replies: [...(c.replies ?? []), optimistic] }
-            : c
-        )
-        writeCache(CACHE_KEY.comments(task.id), next)
-        return next
-      })
-      setReplyBody(null)
-      clearReplyRef.current?.()
-      setReplyingToId(null)
-      setReplyingToComment(null)
-
-      try {
-        const { comment } = await tasksClient.createComment<{
-          comment: ApiComment
-        }>(task.id, { body, parentId, quotedCommentId })
-        setComments(prev => {
-          const next = mapCommentTree(prev, tempId, () => comment)
-          writeCache(CACHE_KEY.comments(task.id), next)
-          return next
-        })
-      } catch {
-        setComments(prev => {
-          const next = mapCommentTree(prev, tempId, () => null)
-          writeCache(CACHE_KEY.comments(task.id), next)
-          return next
-        })
-      } finally {
-        setSubmittingReply(false)
-      }
-    },
-    [
-      replyBody,
-      submittingReply,
-      task.id,
-      user?.id,
-      mapCommentTree,
-      replyingToComment,
-      members,
-    ]
-  )
-
-  const saveEditComment = useCallback(
-    async (commentId: string) => {
-      const body = editCommentBody?.trim()
-      if (!body || savingComment) return
-      setSavingComment(true)
-      try {
-        const { comment } = await tasksClient.updateComment<{
-          comment: ApiComment
-        }>(task.id, commentId, { body })
-        setComments(prev => {
-          const next = mapCommentTree(prev, commentId, () => comment)
-          writeCache(CACHE_KEY.comments(task.id), next)
-          return next
-        })
-        setEditingCommentId(null)
-        setEditCommentBody(null)
-      } catch {
-        // keep editing state so the user can retry
-      } finally {
-        setSavingComment(false)
-      }
-    },
-    [editCommentBody, savingComment, task.id, mapCommentTree]
-  )
-
-  const deleteComment = useCallback(
-    async (commentId: string) => {
-      setDeletingCommentId(commentId)
-      try {
-        await tasksClient.deleteComment(task.id, commentId)
-        setComments(prev => {
-          const next = mapCommentTree(prev, commentId, () => null)
-          writeCache(CACHE_KEY.comments(task.id), next)
-          return next
-        })
-      } catch {
-        // silently keep the comment on failure
-      } finally {
-        setDeletingCommentId(null)
-      }
-    },
-    [task.id, mapCommentTree]
-  )
-
-  const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -724,11 +433,11 @@ export function TaskDetailPage({
             </h1>
 
             {/* Description */}
-            {descriptionLoading ? (
+            {desc.descriptionLoading ? (
               <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
             ) : (
               <DescriptionEditor
-                value={descriptionValue}
+                value={desc.descriptionValue}
                 onCommit={commitDescription}
                 members={mentionableMembers}
               />
@@ -800,7 +509,7 @@ export function TaskDetailPage({
             </p>
 
             {/* Skeleton while loading */}
-            {commentsLoading && comments.length === 0 ? (
+            {tc.commentsLoading && tc.comments.length === 0 ? (
               <div className='space-y-3'>
                 {[1, 2].map(i => (
                   <div key={i} className='flex gap-2.5'>
@@ -814,28 +523,25 @@ export function TaskDetailPage({
               </div>
             ) : (
               <div className='space-y-5'>
-                {comments.map(comment => {
+                {tc.comments.map(comment => {
                   const ca = resolveCommentAuthor(comment, members, agentActors)
-                  const currentMember = members.find(
-                    m => m.clerkId === user?.id
-                  )
                   const isAuthor =
                     !ca.isAgent &&
                     comment.authorActorId === currentMember?.actorId
-                  const isEditing = editingCommentId === comment.id
-                  const isDeleting = deletingCommentId === comment.id
+                  const isEditing = tc.editingCommentId === comment.id
+                  const isDeleting = tc.deletingCommentId === comment.id
                   const wasEdited =
                     new Date(comment.updatedAt).getTime() -
                       new Date(comment.createdAt).getTime() >
                     1000
-                  const isReplying = replyingToId === comment.id
+                  const isReplying = tc.replyingToId === comment.id
 
                   return (
                     <div key={comment.id}>
                       {/* ── Top-level comment ── */}
                       <div
                         id={`comment-${comment.id}`}
-                        className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                        className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                       >
                         <CommentAvatar
                           isAgent={ca.isAgent}
@@ -866,19 +572,18 @@ export function TaskDetailPage({
                                     e.key === 'Enter'
                                   ) {
                                     e.preventDefault()
-                                    saveEditComment(comment.id)
+                                    tc.saveEditComment(comment.id)
                                   }
                                   if (e.key === 'Escape') {
-                                    setEditingCommentId(null)
-                                    setEditCommentBody(null)
+                                    tc.cancelEditing()
                                   }
                                 }}
                               >
                                 <DescriptionEditor
                                   key={`edit-${comment.id}`}
                                   value={comment.body}
-                                  onCommit={html => setEditCommentBody(html)}
-                                  onChange={html => setEditCommentBody(html)}
+                                  onCommit={html => tc.setEditCommentBody(html)}
+                                  onChange={html => tc.setEditCommentBody(html)}
                                   placeholder={intl.formatMessage({
                                     id: 'task.editCommentPlaceholder',
                                   })}
@@ -891,8 +596,7 @@ export function TaskDetailPage({
                                   variant='ghost'
                                   className='h-7 text-xs'
                                   onClick={() => {
-                                    setEditingCommentId(null)
-                                    setEditCommentBody(null)
+                                    tc.cancelEditing()
                                   }}
                                 >
                                   {intl.formatMessage({ id: 'common.cancel' })}
@@ -901,9 +605,10 @@ export function TaskDetailPage({
                                   size='sm'
                                   className='h-7 text-xs'
                                   disabled={
-                                    !editCommentBody?.trim() || savingComment
+                                    !tc.editCommentBody?.trim() ||
+                                    tc.savingComment
                                   }
-                                  onClick={() => saveEditComment(comment.id)}
+                                  onClick={() => tc.saveEditComment(comment.id)}
                                 >
                                   Save
                                 </Button>
@@ -943,15 +648,9 @@ export function TaskDetailPage({
                                   className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                   onClick={() => {
                                     if (isReplying) {
-                                      setReplyingToId(null)
-                                      setReplyingToComment(null)
+                                      tc.cancelReply()
                                     } else {
-                                      setReplyingToId(comment.id)
-                                      setReplyingToComment({
-                                        id: comment.id,
-                                        authorName: ca.name,
-                                        body: comment.body,
-                                      })
+                                      tc.startReply(comment, ca.name)
                                     }
                                   }}
                                 >
@@ -967,10 +666,7 @@ export function TaskDetailPage({
                                   <TooltipTrigger asChild>
                                     <button
                                       className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                      onClick={() => {
-                                        setEditingCommentId(comment.id)
-                                        setEditCommentBody(comment.body)
-                                      }}
+                                      onClick={() => tc.startEditing(comment)}
                                     >
                                       <Pencil size={12} />
                                     </button>
@@ -985,7 +681,7 @@ export function TaskDetailPage({
                                       className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
                                       disabled={isDeleting}
                                       onClick={() =>
-                                        setConfirmDeleteId(comment.id)
+                                        tc.setConfirmDeleteId(comment.id)
                                       }
                                     >
                                       {isDeleting ? (
@@ -1019,8 +715,9 @@ export function TaskDetailPage({
                             const rIsAuthor =
                               !ra.isAgent &&
                               reply.authorActorId === currentMember?.actorId
-                            const rIsEditing = editingCommentId === reply.id
-                            const rIsDeleting = deletingCommentId === reply.id
+                            const rIsEditing = tc.editingCommentId === reply.id
+                            const rIsDeleting =
+                              tc.deletingCommentId === reply.id
                             const rWasEdited =
                               new Date(reply.updatedAt).getTime() -
                                 new Date(reply.createdAt).getTime() >
@@ -1029,7 +726,7 @@ export function TaskDetailPage({
                               <div
                                 key={reply.id}
                                 id={`comment-${reply.id}`}
-                                className={`group flex gap-2 rounded-md transition-colors duration-300 ${highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
+                                className={`group flex gap-2 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
                               >
                                 <CommentAvatar
                                   isAgent={ra.isAgent}
@@ -1060,11 +757,10 @@ export function TaskDetailPage({
                                             e.key === 'Enter'
                                           ) {
                                             e.preventDefault()
-                                            saveEditComment(reply.id)
+                                            tc.saveEditComment(reply.id)
                                           }
                                           if (e.key === 'Escape') {
-                                            setEditingCommentId(null)
-                                            setEditCommentBody(null)
+                                            tc.cancelEditing()
                                           }
                                         }}
                                       >
@@ -1072,10 +768,10 @@ export function TaskDetailPage({
                                           key={`edit-reply-${reply.id}`}
                                           value={reply.body}
                                           onCommit={html =>
-                                            setEditCommentBody(html)
+                                            tc.setEditCommentBody(html)
                                           }
                                           onChange={html =>
-                                            setEditCommentBody(html)
+                                            tc.setEditCommentBody(html)
                                           }
                                           placeholder={intl.formatMessage({
                                             id: 'task.editReplyPlaceholder',
@@ -1088,10 +784,7 @@ export function TaskDetailPage({
                                           size='sm'
                                           variant='ghost'
                                           className='h-7 text-xs'
-                                          onClick={() => {
-                                            setEditingCommentId(null)
-                                            setEditCommentBody(null)
-                                          }}
+                                          onClick={() => tc.cancelEditing()}
                                         >
                                           {intl.formatMessage({
                                             id: 'common.cancel',
@@ -1101,11 +794,11 @@ export function TaskDetailPage({
                                           size='sm'
                                           className='h-7 text-xs'
                                           disabled={
-                                            !editCommentBody?.trim() ||
-                                            savingComment
+                                            !tc.editCommentBody?.trim() ||
+                                            tc.savingComment
                                           }
                                           onClick={() =>
-                                            saveEditComment(reply.id)
+                                            tc.saveEditComment(reply.id)
                                           }
                                         >
                                           Save
@@ -1156,7 +849,7 @@ export function TaskDetailPage({
                                             <button
                                               type='button'
                                               onClick={() =>
-                                                scrollToComment(
+                                                tc.scrollToComment(
                                                   reply.quotedCommentId!
                                                 )
                                               }
@@ -1204,16 +897,12 @@ export function TaskDetailPage({
                                         <button
                                           className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                           onClick={() => {
-                                            if (replyingToId === comment.id) {
-                                              setReplyingToId(null)
-                                              setReplyingToComment(null)
+                                            if (
+                                              tc.replyingToId === comment.id
+                                            ) {
+                                              tc.cancelReply()
                                             } else {
-                                              setReplyingToId(comment.id)
-                                              setReplyingToComment({
-                                                id: reply.id,
-                                                authorName: ra.name,
-                                                body: reply.body,
-                                              })
+                                              tc.startReply(reply, ra.name)
                                             }
                                           }}
                                         >
@@ -1229,10 +918,9 @@ export function TaskDetailPage({
                                           <TooltipTrigger asChild>
                                             <button
                                               className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                              onClick={() => {
-                                                setEditingCommentId(reply.id)
-                                                setEditCommentBody(reply.body)
-                                              }}
+                                              onClick={() =>
+                                                tc.startEditing(reply)
+                                              }
                                             >
                                               <Pencil size={12} />
                                             </button>
@@ -1249,7 +937,7 @@ export function TaskDetailPage({
                                               className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
                                               disabled={rIsDeleting}
                                               onClick={() =>
-                                                setConfirmDeleteId(reply.id)
+                                                tc.setConfirmDeleteId(reply.id)
                                               }
                                             >
                                               {rIsDeleting ? (
@@ -1286,29 +974,29 @@ export function TaskDetailPage({
                           </Avatar>
                           <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
                             {/* Quote block */}
-                            {replyingToComment && (
+                            {tc.replyingToComment && (
                               <button
                                 type='button'
                                 onClick={() =>
-                                  scrollToComment(replyingToComment.id)
+                                  tc.scrollToComment(tc.replyingToComment!.id)
                                 }
                                 className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
                               >
                                 <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
-                                  {replyingToComment.authorName}
+                                  {tc.replyingToComment.authorName}
                                 </p>
                                 <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
                                   {typeof document !== 'undefined'
                                     ? (() => {
                                         const d = document.createElement('div')
-                                        d.innerHTML = replyingToComment.body
+                                        d.innerHTML = tc.replyingToComment.body
                                         return (
                                           (d.textContent ?? d.innerText ?? '')
                                             .trim()
                                             .slice(0, 120) || '…'
                                         )
                                       })()
-                                    : replyingToComment.body
+                                    : tc.replyingToComment.body
                                         .replace(/<[^>]+>/g, '')
                                         .slice(0, 120)}
                                 </p>
@@ -1325,15 +1013,15 @@ export function TaskDetailPage({
                                   e.key === 'Enter'
                                 ) {
                                   e.preventDefault()
-                                  submitReply(comment.id)
+                                  tc.submitReply(comment.id)
                                 }
                               }}
                             >
                               <DescriptionEditor
                                 key={`reply-${comment.id}`}
                                 value={null}
-                                onCommit={html => setReplyBody(html)}
-                                onChange={html => setReplyBody(html)}
+                                onCommit={html => tc.setReplyBody(html)}
+                                onChange={html => tc.setReplyBody(html)}
                                 placeholder={intl.formatMessage({
                                   id: 'task.replyPlaceholder',
                                 })}
@@ -1343,19 +1031,17 @@ export function TaskDetailPage({
                             <div className='flex items-center justify-between px-2 pb-2'>
                               <button
                                 className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                                onClick={() => {
-                                  setReplyingToId(null)
-                                  setReplyBody(null)
-                                  setReplyingToComment(null)
-                                }}
+                                onClick={() => tc.cancelReply()}
                               >
                                 {intl.formatMessage({ id: 'common.cancel' })}
                               </button>
                               <Button
                                 size='sm'
                                 className='h-7 text-xs gap-1.5'
-                                disabled={!replyBody?.trim() || submittingReply}
-                                onClick={() => submitReply(comment.id)}
+                                disabled={
+                                  !tc.replyBody?.trim() || tc.submittingReply
+                                }
+                                onClick={() => tc.submitReply(comment.id)}
                               >
                                 <Send size={12} />
                                 Reply
@@ -1391,15 +1077,15 @@ export function TaskDetailPage({
                     const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
                     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
                       e.preventDefault()
-                      submitComment()
+                      tc.submitComment()
                     }
                   }}
                 >
                   <DescriptionEditor
-                    key={commentKey}
+                    key={tc.commentKey}
                     value={null}
-                    onCommit={setCommentBody}
-                    onChange={setCommentBody}
+                    onCommit={tc.setCommentBody}
+                    onChange={tc.setCommentBody}
                     placeholder={intl.formatMessage({
                       id: 'task.commentPlaceholder',
                     })}
@@ -1411,8 +1097,8 @@ export function TaskDetailPage({
                   <Button
                     size='sm'
                     className='h-7 text-xs gap-1.5'
-                    disabled={!commentBody?.trim() || submitting}
-                    onClick={submitComment}
+                    disabled={!tc.commentBody?.trim() || tc.submitting}
+                    onClick={tc.submitComment}
                   >
                     <Send size={12} />
                     Comment
@@ -1678,9 +1364,9 @@ export function TaskDetailPage({
 
       {/* Delete-comment confirmation dialog */}
       <AlertDialog
-        open={confirmDeleteId !== null}
+        open={tc.confirmDeleteId !== null}
         onOpenChange={open => {
-          if (!open) setConfirmDeleteId(null)
+          if (!open) tc.setConfirmDeleteId(null)
         }}
       >
         <AlertDialogContent
@@ -1688,8 +1374,8 @@ export function TaskDetailPage({
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              if (confirmDeleteId) deleteComment(confirmDeleteId)
-              setConfirmDeleteId(null)
+              if (tc.confirmDeleteId) tc.deleteComment(tc.confirmDeleteId)
+              tc.setConfirmDeleteId(null)
             }
           }}
         >
@@ -1708,8 +1394,8 @@ export function TaskDetailPage({
             <AlertDialogAction
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
               onClick={() => {
-                if (confirmDeleteId) deleteComment(confirmDeleteId)
-                setConfirmDeleteId(null)
+                if (tc.confirmDeleteId) tc.deleteComment(tc.confirmDeleteId)
+                tc.setConfirmDeleteId(null)
               }}
             >
               {intl.formatMessage({ id: 'common.delete' })}
