@@ -23,7 +23,7 @@ import {
   AiPrioritySelect,
   DueDatePicker,
   FIELD_TRIGGER_CLS,
-} from '../TaskFieldSelects'
+} from '../fields'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { AiDescriptionPrompt } from '../AiDescriptionPrompt'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'

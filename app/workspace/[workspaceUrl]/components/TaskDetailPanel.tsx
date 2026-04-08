@@ -38,7 +38,7 @@ import {
   DueDatePicker,
   SeparatorDot,
   FIELD_TRIGGER_CLS,
-} from './TaskFieldSelects'
+} from './fields'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 import { AgentPanel } from '@/components/task/AgentPanel'

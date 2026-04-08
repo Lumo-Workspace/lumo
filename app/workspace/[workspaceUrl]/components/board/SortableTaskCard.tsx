@@ -11,7 +11,7 @@ import {
 } from '../../types'
 import { formatDueDate, isOverdue } from '../../utils'
 import { PriorityBadge } from '../PriorityBadge'
-import { MemberAvatar } from '../TaskFieldSelects'
+import { MemberAvatar } from '../fields'
 import { getInitials } from '@/lib/utils/getInitials'
 import { UserCircle2, Bot } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'

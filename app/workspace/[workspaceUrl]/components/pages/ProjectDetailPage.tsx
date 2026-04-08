@@ -32,7 +32,7 @@ import {
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
-import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
+import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../fields'
 import { ProjectSummaryTab } from '../summary/ProjectSummaryTab'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { BoardView } from '../board/BoardView'

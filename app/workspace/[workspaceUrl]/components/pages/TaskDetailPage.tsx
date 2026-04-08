@@ -68,7 +68,7 @@ import {
   ProjectSelect,
   PrioritySelect,
   FIELD_TRIGGER_CLS,
-} from '../TaskFieldSelects'
+} from '../fields'
 import { CreateBranchDialog } from '../CreateBranchDialog'
 import { PrStateBadge, CiIcon } from '../pr-helpers'
 import { CommentAvatar } from '../CommentAvatar'
