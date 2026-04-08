@@ -1,4 +1,4 @@
-import { type DocVisibility } from '@prisma/client'
+import { type DocVisibility, type DocShareRole } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -265,6 +265,130 @@ export const documentRepository = {
     }
 
     return ancestors
+  },
+
+  /** Find a document node by ID (for tree traversal, parentId only). */
+  async findParentId(id: string) {
+    return prisma.document.findUnique({
+      where: { id },
+      select: { id: true, parentId: true },
+    })
+  },
+
+  /** Find tree nodes (documents matching a filter, for sidebar tree). */
+  async findTreeNodes(filter: Record<string, unknown>) {
+    return prisma.document.findMany({
+      where: filter,
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        emoji: true,
+        parentId: true,
+        sortOrder: true,
+        _count: { select: { children: true } },
+      },
+    })
+  },
+
+  /** Find a document the member can manage (owner or MANAGER share). */
+  async findManageable(id: string, memberId: string, workspaceId: string) {
+    return prisma.document.findFirst({
+      where: {
+        id,
+        workspaceId,
+        OR: [
+          { createdById: memberId },
+          { shares: { some: { memberId, role: 'MANAGER' } } },
+        ],
+      },
+    })
+  },
+
+  /** Find a document the member can edit (owner, WORKSPACE visibility, or EDITOR/MANAGER share). */
+  async findEditable(id: string, memberId: string, workspaceId: string) {
+    return prisma.document.findFirst({
+      where: {
+        id,
+        workspaceId,
+        OR: [
+          { createdById: memberId },
+          { visibility: 'WORKSPACE' },
+          {
+            shares: {
+              some: {
+                memberId,
+                role: { in: ['EDITOR', 'MANAGER'] },
+              },
+            },
+          },
+        ],
+      },
+    })
+  },
+
+  /** Find all shares for a document with member info. */
+  async findSharesByDocument(documentId: string) {
+    return prisma.documentShare.findMany({
+      where: { documentId },
+      include: {
+        member: {
+          select: { id: true, clerkId: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  },
+
+  /** Create or update a document share in a transaction (auto-sets visibility to SHARED if PRIVATE). */
+  async upsertShareTransaction(
+    documentId: string,
+    memberId: string,
+    role: DocShareRole,
+    currentVisibility: string
+  ) {
+    return prisma.$transaction(async tx => {
+      if (currentVisibility === 'PRIVATE') {
+        await tx.document.update({
+          where: { id: documentId },
+          data: { visibility: 'SHARED' },
+        })
+      }
+
+      return tx.documentShare.upsert({
+        where: {
+          documentId_memberId: { documentId, memberId },
+        },
+        create: { documentId, memberId, role },
+        update: { role },
+        include: {
+          member: {
+            select: { id: true, clerkId: true },
+          },
+        },
+      })
+    })
+  },
+
+  /** Update a document share's role. */
+  async updateShare(shareId: string, role: DocShareRole) {
+    return prisma.documentShare.update({
+      where: { id: shareId },
+      data: { role },
+    })
+  },
+
+  /** Delete a document share. */
+  async deleteShare(shareId: string) {
+    return prisma.documentShare.delete({ where: { id: shareId } })
+  },
+
+  /** Move a document (update parentId and sortOrder). */
+  async move(id: string, parentId: string | null, sortOrder: number) {
+    return prisma.document.update({
+      where: { id },
+      data: { parentId, sortOrder },
+    })
   },
 
   /** Upsert document editor tracking. */

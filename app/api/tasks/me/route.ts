@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { getHumanActorId } from '@/lib/actor'
+import { taskRepository, viewRepository } from '@/lib/repositories'
 
 /**
  * GET /api/tasks/me
@@ -19,57 +19,20 @@ export async function GET() {
     if (ws instanceof NextResponse) return ws
 
     const actorId = await getHumanActorId(ws.member.id)
-
-    const tasks = await prisma.task.findMany({
-      where: { assigneeActorId: actorId },
-      include: {
-        project: { select: { id: true, name: true } },
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { id: true, clerkId: true } },
-            agent: { select: { id: true, name: true, avatarColor: true } },
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            title: true,
-            number: true,
-            team: { select: { identifier: true } },
-          },
-        },
-        _count: { select: { children: true } },
-        children: {
-          where: { status: 'DONE' },
-          select: { id: true },
-        },
-      },
-      orderBy: { order: 'asc' },
-    })
-
-    // Lazy-create personal KANBAN view for this member
-    let myView = await prisma.view.findFirst({
-      where: { memberId: ws.member.id, type: 'KANBAN' },
-    })
-    if (!myView) {
-      myView = await prisma.view.create({
-        data: {
-          workspaceId: ws.member.workspaceId,
-          memberId: ws.member.id,
-          name: 'My Tasks',
-          type: 'KANBAN',
-          isDefault: false,
-        },
-      })
+    if (!actorId) {
+      return NextResponse.json({ tasks: [], myTasksViewId: null })
     }
 
+    const tasks = await taskRepository.findAssignedTasks(actorId)
+
+    // Lazy-create personal KANBAN view for this member
+    const myView = await viewRepository.findOrCreateMemberKanban(
+      ws.member.workspaceId,
+      ws.member.id
+    )
+
     // Build viewOrder map
-    const taskOrders = await prisma.viewTaskOrder.findMany({
-      where: { viewId: myView.id },
-    })
+    const taskOrders = await viewRepository.findTaskOrders(myView.id)
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     return NextResponse.json({

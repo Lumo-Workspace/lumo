@@ -215,6 +215,23 @@ export const githubRepository = {
     })
   },
 
+  /** Create a task branch record. */
+  async createTaskBranch(taskId: string, repo: string, branchName: string) {
+    return prisma.taskBranch.create({
+      data: { taskId, repo, branchName },
+    })
+  },
+
+  /** Find integration by workspace that has a specific repo authorized. */
+  async findIntegrationByRepo(workspaceId: string, repo: string) {
+    return prisma.gitHubIntegration.findFirst({
+      where: {
+        workspaceId,
+        repositories: { has: repo },
+      },
+    })
+  },
+
   // ── Task lookup (used by webhook handlers) ────────────────────────────
 
   /** Find a task by team identifier + number within a workspace. */

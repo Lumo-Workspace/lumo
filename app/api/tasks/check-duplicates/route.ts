@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { checkDuplicatesSchema } from '@/lib/validation/schemas'
+import { taskRepository } from '@/lib/repositories'
 
 const matchSchema = z.object({
   matches: z.array(
@@ -34,26 +34,7 @@ export async function POST(request: Request) {
     // Fetch tasks for this project (limit to 200 most recent)
     // TODO: When projects exceed 200 tasks, consider pre-filtering
     //       with full-text search before sending to AI
-    const tasks = await prisma.task.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        title: true,
-        number: true,
-        status: true,
-        priority: true,
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            type: true,
-            member: { select: { clerkId: true } },
-            agent: { select: { name: true } },
-          },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 200,
-    })
+    const tasks = await taskRepository.findForDuplicateCheck(projectId)
 
     if (tasks.length === 0) {
       return NextResponse.json({ matches: [] })

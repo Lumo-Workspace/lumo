@@ -5,13 +5,13 @@ import { clerkClient } from '@clerk/nextjs/server'
 
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
 import { quickDispatchSchema } from '@/lib/validation/schemas'
 import {
   QUICK_DISPATCH_SYSTEM_PROMPT,
   QuickDispatchResponseSchema,
   buildQuickDispatchPrompt,
 } from '@/lib/prompts/quick-dispatch'
+import { projectRepository, memberRepository } from '@/lib/repositories'
 
 export async function POST(request: Request) {
   try {
@@ -40,17 +40,8 @@ export async function POST(request: Request) {
 
     // Fetch projects and members in parallel
     const [projects, memberRows] = await Promise.all([
-      prisma.project.findMany({
-        where: { workspaceId, isIdea: false },
-        select: { id: true, name: true, description: true },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.workspaceMember.findMany({
-        where: { workspaceId },
-        include: {
-          actor: { select: { id: true } },
-        },
-      }),
+      projectRepository.findByWorkspaceNonIdea(workspaceId),
+      memberRepository.findByWorkspace(workspaceId),
     ])
 
     // Fetch member names from Clerk

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { moveDocumentSchema } from '@/lib/validation/schemas'
+import { documentRepository } from '@/lib/repositories'
 
 export async function PATCH(
   request: NextRequest,
@@ -16,24 +16,11 @@ export async function PATCH(
   if (ws instanceof NextResponse) return ws
 
   const { id } = await params
-  const doc = await prisma.document.findFirst({
-    where: {
-      id,
-      workspaceId: ws.workspaceId,
-      OR: [
-        { createdById: ws.member.id },
-        { visibility: 'WORKSPACE' },
-        {
-          shares: {
-            some: {
-              memberId: ws.member.id,
-              role: { in: ['EDITOR', 'MANAGER'] },
-            },
-          },
-        },
-      ],
-    },
-  })
+  const doc = await documentRepository.findEditable(
+    id,
+    ws.member.id,
+    ws.workspaceId
+  )
   if (!doc) {
     return NextResponse.json(
       { error: 'Not found or no permission' },
@@ -55,22 +42,16 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      const parent: { parentId: string | null } | null =
-        await prisma.document.findUnique({
-          where: { id: current },
-          select: { parentId: true },
-        })
+      const parent = await documentRepository.findParentId(current)
       current = parent?.parentId ?? null
     }
   }
 
-  const updated = await prisma.document.update({
-    where: { id },
-    data: {
-      parentId: parsed.data.parentId,
-      sortOrder: parsed.data.sortOrder,
-    },
-  })
+  const updated = await documentRepository.move(
+    id,
+    parsed.data.parentId,
+    parsed.data.sortOrder
+  )
 
   return NextResponse.json({ document: updated })
 }

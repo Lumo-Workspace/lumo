@@ -77,4 +77,85 @@ export const projectRepository = {
   async delete(id: string) {
     await prisma.project.delete({ where: { id } })
   },
+
+  /** Find project by ID (simple, no includes). */
+  async findByIdSimple(id: string) {
+    return prisma.project.findUnique({ where: { id } })
+  },
+
+  /** Find project by ID with default reviewer and workspace slug. */
+  async findByIdWithDefaults(id: string) {
+    return prisma.project.findUnique({
+      where: { id },
+      include: {
+        defaultReviewer: { select: { id: true } },
+        workspace: { select: { slug: true } },
+      },
+    })
+  },
+
+  /** Find all non-idea projects in a workspace (for AI context). */
+  async findByWorkspaceNonIdea(workspaceId: string) {
+    return prisma.project.findMany({
+      where: { workspaceId, isIdea: false },
+      select: { id: true, name: true, description: true },
+      orderBy: { createdAt: 'desc' },
+    })
+  },
+
+  // ── ProjectRepository (linked repos) ──────────────────────────────────
+
+  /** Find all linked repositories for a project. */
+  async findRepositories(projectId: string) {
+    return prisma.projectRepository.findMany({
+      where: { projectId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    })
+  },
+
+  /** Find a project repository by ID with project workspace info. */
+  async findRepositoryById(repoId: string) {
+    return prisma.projectRepository.findUnique({
+      where: { id: repoId },
+      include: { project: { select: { workspaceId: true } } },
+    })
+  },
+
+  /** Clear default flag on all repos in a project. */
+  async clearDefaultRepositories(projectId: string) {
+    return prisma.projectRepository.updateMany({
+      where: { projectId, isDefault: true },
+      data: { isDefault: false },
+    })
+  },
+
+  /** Count repositories linked to a project. */
+  async countRepositories(projectId: string) {
+    return prisma.projectRepository.count({
+      where: { projectId },
+    })
+  },
+
+  /** Create a project repository link. */
+  async createRepository(data: {
+    projectId: string
+    fullName: string
+    name: string
+    isDefault: boolean
+  }) {
+    return prisma.projectRepository.create({ data })
+  },
+
+  /** Update a project repository. */
+  async updateRepository(repoId: string, data: { isDefault?: boolean }) {
+    return prisma.projectRepository.update({
+      where: { id: repoId },
+      data,
+    })
+  },
+
+  /** Delete a project repository link. */
+  async deleteRepository(repoId: string) {
+    return prisma.projectRepository.delete({ where: { id: repoId } })
+  },
 }

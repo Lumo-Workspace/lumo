@@ -1,26 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateDocumentShareSchema } from '@/lib/validation/schemas'
-
-async function checkManagePermission(
-  documentId: string,
-  memberId: string,
-  workspaceId: string
-) {
-  const doc = await prisma.document.findFirst({
-    where: {
-      id: documentId,
-      workspaceId,
-      OR: [
-        { createdById: memberId },
-        { shares: { some: { memberId, role: 'MANAGER' } } },
-      ],
-    },
-  })
-  return doc
-}
+import { documentRepository } from '@/lib/repositories'
 
 export async function PATCH(
   request: NextRequest,
@@ -34,7 +16,11 @@ export async function PATCH(
   if (ws instanceof NextResponse) return ws
 
   const { id, shareId } = await params
-  const doc = await checkManagePermission(id, ws.member.id, ws.workspaceId)
+  const doc = await documentRepository.findManageable(
+    id,
+    ws.member.id,
+    ws.workspaceId
+  )
   if (!doc) {
     return NextResponse.json(
       { error: 'Not found or no permission' },
@@ -46,10 +32,10 @@ export async function PATCH(
   const parsed = updateDocumentShareSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
-  const updated = await prisma.documentShare.update({
-    where: { id: shareId },
-    data: { role: parsed.data.role },
-  })
+  const updated = await documentRepository.updateShare(
+    shareId,
+    parsed.data.role
+  )
 
   return NextResponse.json({ share: updated })
 }
@@ -66,7 +52,11 @@ export async function DELETE(
   if (ws instanceof NextResponse) return ws
 
   const { id, shareId } = await params
-  const doc = await checkManagePermission(id, ws.member.id, ws.workspaceId)
+  const doc = await documentRepository.findManageable(
+    id,
+    ws.member.id,
+    ws.workspaceId
+  )
   if (!doc) {
     return NextResponse.json(
       { error: 'Not found or no permission' },
@@ -74,7 +64,7 @@ export async function DELETE(
     )
   }
 
-  await prisma.documentShare.delete({ where: { id: shareId } })
+  await documentRepository.deleteShare(shareId)
 
   return NextResponse.json({ success: true })
 }

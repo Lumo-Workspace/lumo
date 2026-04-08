@@ -4,13 +4,13 @@ import { gateway } from '@ai-sdk/gateway'
 
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
 import { suggestPrioritySchema } from '@/lib/validation/schemas'
 import {
   PRIORITY_SYSTEM_PROMPT,
   PrioritySuggestionSchema,
   buildPriorityPrompt,
 } from '@/lib/prompts/priority'
+import { taskRepository, miscRepository } from '@/lib/repositories'
 
 export async function POST(request: Request) {
   try {
@@ -52,19 +52,16 @@ export async function POST(request: Request) {
 
       projectName = project.name
 
-      historicalTasks = await prisma.task.findMany({
-        where: { projectId },
-        select: { id: true, number: true, title: true, priority: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      })
+      historicalTasks = await taskRepository.findHistoricalByProject(
+        projectId,
+        50
+      )
 
-      overrides = await prisma.priorityOverride.findMany({
-        where: { memberId: userId, projectId },
-        select: { taskTitle: true, aiSuggested: true, userChosen: true },
-        orderBy: { createdAt: 'desc' },
-        take: 30,
-      })
+      overrides = await miscRepository.findPriorityOverrides(
+        userId,
+        projectId,
+        30
+      )
     }
 
     const prompt = buildPriorityPrompt({

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { TaskStatus, TaskPriority, AgentStatus } from '@prisma/client'
 
 /** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */
 const TASK_DETAIL_INCLUDE = {
@@ -241,5 +242,341 @@ export const taskRepository = {
       where: { id },
       data: { spec, agentError: null },
     })
+  },
+
+  /** Find all tasks assigned to an actor, with project/team/parent/children details. */
+  async findAssignedTasks(actorId: string) {
+    return prisma.task.findMany({
+      where: { assigneeActorId: actorId },
+      include: {
+        project: { select: { id: true, name: true } },
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+        parent: {
+          select: {
+            id: true,
+            title: true,
+            number: true,
+            team: { select: { identifier: true } },
+          },
+        },
+        _count: { select: { children: true } },
+        children: {
+          where: { status: 'DONE' },
+          select: { id: true },
+        },
+      },
+      orderBy: { order: 'asc' },
+    })
+  },
+
+  /** Find tasks for duplicate checking (recent 200 tasks in a project). */
+  async findForDuplicateCheck(projectId: string) {
+    return prisma.task.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        title: true,
+        number: true,
+        status: true,
+        priority: true,
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            type: true,
+            member: { select: { clerkId: true } },
+            agent: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+    })
+  },
+
+  /** Find recent tasks in a project (for AI context). */
+  async findRecentByProject(projectId: string, take: number) {
+    return prisma.task.findMany({
+      where: { projectId },
+      select: { title: true, description: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
+  /** Find historical tasks with priority info (for AI priority suggestion). */
+  async findHistoricalByProject(projectId: string, take: number) {
+    return prisma.task.findMany({
+      where: { projectId },
+      select: { id: true, number: true, title: true, priority: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
+  /** Find a task by ID with only project workspaceId (for auth checks). */
+  async findWithProjectWorkspaceId(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      include: { project: { select: { workspaceId: true } } },
+    })
+  },
+
+  /** Find a task by ID for decompose (title, description, project workspaceId). */
+  async findForDecompose(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        project: { select: { workspaceId: true } },
+      },
+    })
+  },
+
+  /** Find a task with comment-creation fields (id, projectId, number, title, team, project workspace). */
+  async findForComment(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        projectId: true,
+        number: true,
+        title: true,
+        team: { select: { identifier: true } },
+        project: {
+          select: {
+            workspaceId: true,
+            workspace: { select: { slug: true } },
+          },
+        },
+      },
+    })
+  },
+
+  /** Find all tasks for a project with full list details (for project task list). */
+  async findByProjectWithDetails(projectId: string) {
+    return prisma.task.findMany({
+      where: { projectId },
+      include: {
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+        parent: {
+          select: {
+            id: true,
+            title: true,
+            number: true,
+            team: { select: { identifier: true } },
+          },
+        },
+        _count: { select: { children: true } },
+        children: {
+          where: { status: 'DONE' },
+          select: { id: true },
+        },
+      },
+      orderBy: { order: 'asc' },
+    })
+  },
+
+  /** Find tasks by IDs within a project (for batch parent validation). */
+  async findByIds(ids: string[], projectId: string) {
+    return prisma.task.findMany({
+      where: { id: { in: ids }, projectId },
+      select: { id: true },
+    })
+  },
+
+  /** Find the max order among sibling tasks. */
+  async findMaxOrder(projectId: string, parentTaskId: string | null) {
+    return prisma.task.findFirst({
+      where: { projectId, parentTaskId },
+      orderBy: { order: 'desc' },
+      select: { order: true },
+    })
+  },
+
+  /** Find an actor by ID (for assignee validation). */
+  async findActorById(actorId: string) {
+    return prisma.actor.findUnique({
+      where: { id: actorId },
+      select: { type: true, workspaceId: true },
+    })
+  },
+
+  /** Find an actor by ID with member clerkId (for notification). */
+  async findActorWithMember(actorId: string) {
+    return prisma.actor.findUnique({
+      where: { id: actorId },
+      select: { type: true, member: { select: { clerkId: true } } },
+    })
+  },
+
+  /** Create a task in a transaction (with team seq increment). Returns the created task with team + assignee. */
+  async createWithSequence(data: {
+    projectId: string
+    teamId: string
+    title: string
+    description: string | null
+    status: TaskStatus
+    priority: TaskPriority
+    assigneeActorId: string | null
+    agentStatus: AgentStatus | null
+    reviewerActorId: string | null
+    parentTaskId: string | null
+    repositoryId: string | null
+    order: number | undefined
+    dueDate: Date | string | null
+    defaultReviewerMemberId: string | null
+  }) {
+    const taskId = await prisma.$transaction(async tx => {
+      const { taskSeq } = await tx.team.update({
+        where: { id: data.teamId },
+        data: { taskSeq: { increment: 1 } },
+        select: { taskSeq: true },
+      })
+
+      // Resolve default reviewer to actor
+      let defaultReviewerActorId: string | null = null
+      if (data.defaultReviewerMemberId) {
+        const reviewerActor = await tx.actor.findUnique({
+          where: { memberId: data.defaultReviewerMemberId },
+        })
+        defaultReviewerActorId = reviewerActor?.id ?? null
+      }
+
+      const task = await tx.task.create({
+        data: {
+          projectId: data.projectId,
+          teamId: data.teamId,
+          number: taskSeq,
+          title: data.title,
+          description: data.description,
+          status: data.status,
+          priority: data.priority,
+          assigneeActorId: data.assigneeActorId,
+          agentStatus: data.agentStatus,
+          reviewerActorId: defaultReviewerActorId,
+          parentTaskId: data.parentTaskId,
+          repositoryId: data.repositoryId,
+          ...(data.order !== undefined ? { order: data.order } : {}),
+          dueDate: data.dueDate,
+        },
+      })
+
+      return task.id
+    })
+
+    // Re-fetch with includes outside transaction for proper type inference
+    const task = await prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      include: {
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+      },
+    })
+
+    return {
+      ...task,
+      teamIdentifier: task.team.identifier,
+    }
+  },
+
+  /** Batch-create tasks in a transaction (with team seq increment). */
+  async batchCreateWithSequence(
+    projectId: string,
+    teamId: string,
+    taskInputs: {
+      title: string
+      status: TaskStatus
+      priority: TaskPriority
+      assigneeActorId?: string | null | undefined
+      parentTaskId: string
+    }[]
+  ) {
+    const createdIds = await prisma.$transaction(async tx => {
+      const { taskSeq } = await tx.team.update({
+        where: { id: teamId },
+        data: { taskSeq: { increment: taskInputs.length } },
+        select: { taskSeq: true },
+      })
+
+      const parentIds = [...new Set(taskInputs.map(t => t.parentTaskId))]
+      const siblingCounts = new Map<string, number>()
+      for (const parentId of parentIds) {
+        const count = await tx.task.count({
+          where: { parentTaskId: parentId },
+        })
+        siblingCounts.set(parentId, count)
+      }
+
+      const ids: string[] = []
+      for (let i = 0; i < taskInputs.length; i++) {
+        const input = taskInputs[i]!
+        const siblingCount = siblingCounts.get(input.parentTaskId) ?? 0
+
+        const task = await tx.task.create({
+          data: {
+            projectId,
+            teamId,
+            number: taskSeq - taskInputs.length + 1 + i,
+            title: input.title,
+            status: input.status,
+            priority: input.priority,
+            assigneeActorId: input.assigneeActorId ?? null,
+            parentTaskId: input.parentTaskId,
+            order: siblingCount + i,
+          },
+        })
+
+        ids.push(task.id)
+        siblingCounts.set(input.parentTaskId, siblingCount + i + 1)
+      }
+
+      return ids
+    })
+
+    // Re-fetch with includes outside transaction for proper type inference
+    const tasks = await prisma.task.findMany({
+      where: { id: { in: createdIds } },
+      include: {
+        team: { select: { identifier: true } },
+        assignee: {
+          select: {
+            id: true,
+            type: true,
+            member: { select: { id: true, clerkId: true } },
+            agent: { select: { id: true, name: true, avatarColor: true } },
+          },
+        },
+      },
+    })
+
+    return tasks.map(task => ({
+      ...task,
+      teamIdentifier: task.team.identifier,
+    }))
   },
 }

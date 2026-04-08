@@ -1,8 +1,8 @@
 // app/api/tasks/[id]/branch/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { decrypt } from '@/lib/crypto'
+import { taskRepository, githubRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -46,10 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     // Load task + workspace membership check
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: { project: { select: { id: true, workspaceId: true } } },
-    })
+    const task = await taskRepository.findWithProjectWorkspaceId(taskId)
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
@@ -61,12 +58,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (memberResult instanceof NextResponse) return memberResult
 
     // Find a GitHub integration for this workspace that has the repo authorized
-    const integration = await prisma.gitHubIntegration.findFirst({
-      where: {
-        workspaceId: task.project.workspaceId,
-        repositories: { has: repo },
-      },
-    })
+    const integration = await githubRepository.findIntegrationByRepo(
+      task.project.workspaceId,
+      repo
+    )
     if (!integration) {
       return NextResponse.json(
         { error: 'Repository not connected. Add it in Integrations settings.' },
@@ -125,9 +120,11 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
-    const createdBranch = await prisma.taskBranch.create({
-      data: { taskId, repo, branchName },
-    })
+    const createdBranch = await githubRepository.createTaskBranch(
+      taskId,
+      repo,
+      branchName
+    )
 
     const url = `https://github.com/${repo}/tree/${branchName}`
     return NextResponse.json(

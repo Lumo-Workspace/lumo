@@ -1,21 +1,29 @@
 import { waitUntil } from '@vercel/functions'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
+import {
+  taskRepository,
+  projectRepository,
+  viewRepository,
+  notificationRepository,
+} from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }
 
 // ─── Tree builder ───────────────────────────────────────────────────────────
 
-type TaskNode = Omit<
-  Awaited<ReturnType<typeof prisma.task.findMany>>[number],
-  'team'
-> & { viewOrder: number | null; teamIdentifier: string }
+interface TaskNode {
+  id: string
+  parentTaskId: string | null
+  viewOrder: number | null
+  teamIdentifier: string
+  [key: string]: unknown
+}
 type TaskWithChildren = TaskNode & { children: TaskWithChildren[] }
 
 function buildTaskTree(tasks: TaskNode[]): TaskWithChildren[] {
@@ -51,7 +59,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const project = await prisma.project.findUnique({ where: { id } })
+    const project = await projectRepository.findByIdSimple(id)
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
@@ -62,55 +70,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const tasks = await prisma.task.findMany({
-      where: { projectId: id },
-      include: {
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { id: true, clerkId: true } },
-            agent: { select: { id: true, name: true, avatarColor: true } },
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            title: true,
-            number: true,
-            team: { select: { identifier: true } },
-          },
-        },
-        _count: { select: { children: true } },
-        children: {
-          where: { status: 'DONE' },
-          select: { id: true },
-        },
-      },
-      orderBy: { order: 'asc' },
-    })
+    const tasks = await taskRepository.findByProjectWithDetails(id)
 
     // Lazy-create KANBAN view for this project
-    let kanbanView = await prisma.view.findFirst({
-      where: { projectId: id, type: 'KANBAN' },
-    })
-    if (!kanbanView) {
-      kanbanView = await prisma.view.create({
-        data: {
-          workspaceId: project.workspaceId,
-          projectId: id,
-          name: 'Board',
-          type: 'KANBAN',
-          isDefault: false,
-        },
-      })
-    }
+    const kanbanView = await viewRepository.findOrCreateProjectKanban(
+      project.workspaceId,
+      id
+    )
 
     // Build viewOrder map
-    const taskOrders = await prisma.viewTaskOrder.findMany({
-      where: { viewId: kanbanView.id },
-    })
+    const taskOrders = await viewRepository.findTaskOrders(kanbanView.id)
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     // Merge viewOrder into tasks
@@ -152,13 +121,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        defaultReviewer: { select: { id: true } },
-        workspace: { select: { slug: true } },
-      },
-    })
+    const project = await projectRepository.findByIdWithDefaults(id)
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
@@ -187,9 +150,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     // Validate parentTaskId belongs to the same project
     if (parentTaskId) {
-      const parent = await prisma.task.findUnique({
-        where: { id: parentTaskId },
-      })
+      const parent = await taskRepository.findWithProject(parentTaskId)
       if (!parent || parent.projectId !== id) {
         return NextResponse.json(
           { error: 'Parent task not found in this project' },
@@ -201,24 +162,17 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Auto-calculate order if not provided
     let taskOrder = order
     if (taskOrder === undefined) {
-      const maxOrderTask = await prisma.task.findFirst({
-        where: {
-          projectId: id,
-          parentTaskId: parentTaskId ?? null,
-        },
-        orderBy: { order: 'desc' },
-        select: { order: true },
-      })
+      const maxOrderTask = await taskRepository.findMaxOrder(
+        id,
+        parentTaskId ?? null
+      )
       taskOrder = (maxOrderTask?.order ?? 0) + 1
     }
 
     // Validate assigneeActorId belongs to the same workspace
     let assigneeIsAgent = false
     if (assigneeActorId) {
-      const actor = await prisma.actor.findUnique({
-        where: { id: assigneeActorId },
-        select: { type: true, workspaceId: true },
-      })
+      const actor = await taskRepository.findActorById(assigneeActorId)
       if (!actor || actor.workspaceId !== project.workspaceId) {
         return NextResponse.json(
           { error: 'Assignee is not part of this workspace' },
@@ -228,63 +182,30 @@ export async function POST(request: NextRequest, { params }: Params) {
       assigneeIsAgent = actor.type === 'AGENT'
     }
 
-    const task = await prisma.$transaction(async tx => {
-      const { taskSeq } = await tx.team.update({
-        where: { id: project.teamId },
-        data: { taskSeq: { increment: 1 } },
-        select: { taskSeq: true },
-      })
-
-      // Resolve default reviewer to actor
-      let defaultReviewerActorId: string | null = null
-      if (project.defaultReviewer?.id) {
-        const reviewerActor = await tx.actor.findUnique({
-          where: { memberId: project.defaultReviewer.id },
-        })
-        defaultReviewerActorId = reviewerActor?.id ?? null
-      }
-
-      return tx.task.create({
-        data: {
-          projectId: id,
-          teamId: project.teamId,
-          number: taskSeq,
-          title,
-          description: description ?? null,
-          status,
-          priority,
-          assigneeActorId: assigneeActorId ?? null,
-          agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
-          reviewerActorId: defaultReviewerActorId,
-          parentTaskId: parentTaskId ?? null,
-          repositoryId: repositoryId ?? null,
-          order: taskOrder,
-          dueDate: dueDate ?? null,
-        },
-        include: {
-          team: { select: { identifier: true } },
-          assignee: {
-            select: {
-              id: true,
-              type: true,
-              member: { select: { id: true, clerkId: true } },
-              agent: { select: { id: true, name: true, avatarColor: true } },
-            },
-          },
-        },
-      })
+    const task = await taskRepository.createWithSequence({
+      projectId: id,
+      teamId: project.teamId,
+      title,
+      description: description ?? null,
+      status,
+      priority,
+      assigneeActorId: assigneeActorId ?? null,
+      agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
+      reviewerActorId: null,
+      parentTaskId: parentTaskId ?? null,
+      repositoryId: repositoryId ?? null,
+      order: taskOrder,
+      dueDate: dueDate ?? null,
+      defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
     })
 
-    const taskWithId = { ...task, teamIdentifier: task.team.identifier }
+    const taskWithId = task
 
     // ── Fire-and-forget: task_created Slack channel notification ─────────────
-    const taskIdentifier = buildTaskIdentifier(
-      task.team.identifier,
-      task.number
-    )
+    const taskIdentifier = buildTaskIdentifier(task.teamIdentifier, task.number)
     const taskUrl = buildTaskUrl(
       project.workspace?.slug ?? '',
-      task.team.identifier,
+      task.teamIdentifier,
       task.number
     )
     waitUntil(
@@ -305,24 +226,17 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (assigneeActorId) {
       getHumanActorId(memberResult.id)
         .then(triggerActorId =>
-          prisma.actor
-            .findUnique({
-              where: { id: assigneeActorId },
-              select: { type: true, member: { select: { clerkId: true } } },
+          taskRepository.findActorWithMember(assigneeActorId).then(actor => {
+            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+            if (actor.member.clerkId === userId) return
+            return notificationRepository.create({
+              workspaceId: project.workspaceId,
+              recipientActorId: assigneeActorId,
+              type: 'TASK_ASSIGNED' as const,
+              taskId: task.id,
+              triggerActorId,
             })
-            .then(actor => {
-              if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-              if (actor.member.clerkId === userId) return
-              return prisma.notification.create({
-                data: {
-                  workspaceId: project.workspaceId,
-                  recipientActorId: assigneeActorId,
-                  type: 'TASK_ASSIGNED' as const,
-                  taskId: task.id,
-                  triggerActorId,
-                },
-              })
-            })
+          })
         )
         .catch(err =>
           console.error('[notify] TASK_ASSIGNED (create) failed:', err)

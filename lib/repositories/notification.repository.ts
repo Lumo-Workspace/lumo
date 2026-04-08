@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { NotificationType } from '@prisma/client'
 
 /** Include clause for trigger actor details — used when fetching notifications for display. */
 const TRIGGER_INCLUDE = {
@@ -71,6 +72,32 @@ export const notificationRepository = {
   /** Delete a single notification. */
   async deleteById(id: string) {
     return prisma.notification.delete({ where: { id } })
+  },
+
+  /** Create a single notification. */
+  async create(data: {
+    workspaceId: string
+    recipientActorId: string
+    type: NotificationType
+    taskId: string
+    triggerActorId: string | null
+    commentId?: string
+  }) {
+    return prisma.notification.create({ data })
+  },
+
+  /** Create many notifications at once. */
+  async createMany(
+    data: {
+      workspaceId: string
+      recipientActorId: string
+      type: NotificationType
+      taskId: string
+      triggerActorId: string | null
+      commentId?: string
+    }[]
+  ) {
+    return prisma.notification.createMany({ data })
   },
 
   // ── AgentClarify operations ───────────────────────────────────────────────

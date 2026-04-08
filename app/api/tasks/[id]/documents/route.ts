@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
+import { miscRepository } from '@/lib/repositories'
 
 export async function GET(
   _request: NextRequest,
@@ -17,29 +17,11 @@ export async function GET(
   const { id: taskId } = await params
   const memberId = ws.member.id
 
-  const mentions = await prisma.documentMention.findMany({
-    where: {
-      taskId,
-      document: {
-        workspaceId: ws.workspaceId,
-        OR: [
-          { createdById: memberId },
-          { visibility: 'WORKSPACE' },
-          { shares: { some: { memberId } } },
-        ],
-      },
-    },
-    include: {
-      document: {
-        select: {
-          id: true,
-          title: true,
-          emoji: true,
-          updatedAt: true,
-        },
-      },
-    },
-  })
+  const mentions = await miscRepository.findDocumentMentionsByTask(
+    taskId,
+    ws.workspaceId,
+    memberId
+  )
 
   const documents = mentions.map(m => m.document)
 

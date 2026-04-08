@@ -109,6 +109,20 @@ export const miscRepository = {
     return prisma.priorityOverride.create({ data })
   },
 
+  /** Find priority overrides for a member in a project. */
+  async findPriorityOverrides(
+    memberId: string,
+    projectId: string,
+    take: number
+  ) {
+    return prisma.priorityOverride.findMany({
+      where: { memberId, projectId },
+      select: { taskTitle: true, aiSuggested: true, userChosen: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
   // ── DocumentMention ───────────────────────────────────────────────────
 
   /** Find document mentions for a task, filtered by workspace access. */

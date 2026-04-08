@@ -87,6 +87,14 @@ export const memberRepository = {
     })
   },
 
+  /** Find workspace members by clerkIds within a workspace. */
+  async findByWorkspaceAndClerkIds(workspaceId: string, clerkIds: string[]) {
+    return prisma.workspaceMember.findMany({
+      where: { workspaceId, clerkId: { in: clerkIds } },
+      select: { clerkId: true, actor: { select: { id: true } } },
+    })
+  },
+
   /** Create a coding agent profile + actor for a workspace. */
   async createCodingAgent(workspaceId: string) {
     const profile = await prisma.agentProfile.create({

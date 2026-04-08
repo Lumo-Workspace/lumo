@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import {
   isPrismaUniqueError,
   loadProjectAndMember,
   zodError,
 } from '@/lib/api/helpers'
+import { projectRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -31,10 +31,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const result = await loadProjectAndMember(id, userId)
     if (result instanceof NextResponse) return result
 
-    const repositories = await prisma.projectRepository.findMany({
-      where: { projectId: id },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-    })
+    const repositories = await projectRepository.findRepositories(id)
 
     return NextResponse.json({ repositories })
   } catch (error) {
@@ -68,24 +65,17 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // If this is being set as default, clear existing defaults first
     if (isDefault) {
-      await prisma.projectRepository.updateMany({
-        where: { projectId: id, isDefault: true },
-        data: { isDefault: false },
-      })
+      await projectRepository.clearDefaultRepositories(id)
     }
 
     // If no repos exist yet, make first one default automatically
-    const existingCount = await prisma.projectRepository.count({
-      where: { projectId: id },
-    })
+    const existingCount = await projectRepository.countRepositories(id)
 
-    const repository = await prisma.projectRepository.create({
-      data: {
-        projectId: id,
-        fullName,
-        name,
-        isDefault: isDefault ?? existingCount === 0,
-      },
+    const repository = await projectRepository.createRepository({
+      projectId: id,
+      fullName,
+      name,
+      isDefault: isDefault ?? existingCount === 0,
     })
 
     return NextResponse.json({ repository }, { status: 201 })

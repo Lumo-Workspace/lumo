@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
+import { documentRepository } from '@/lib/repositories'
 
-const TREE_SELECT = {
-  id: true,
-  title: true,
-  emoji: true,
-  parentId: true,
-  sortOrder: true,
-  _count: { select: { children: true } },
-} as const
-
-interface RawNode {
-  id: string
-  title: string
-  emoji: string | null
-  parentId: string | null
-  sortOrder: number
-  _count: { children: number }
-}
+type RawNode = Awaited<
+  ReturnType<typeof documentRepository.findTreeNodes>
+>[number]
 
 interface TreeNodeResponse {
   id: string
@@ -66,11 +52,7 @@ export async function GET(request: NextRequest) {
     const visited = new Set<string>()
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId)
-      const doc: { id: string; parentId: string | null } | null =
-        await prisma.document.findUnique({
-          where: { id: currentId },
-          select: { id: true, parentId: true },
-        })
+      const doc = await documentRepository.findParentId(currentId)
       if (!doc) break
       expandedPath.add(doc.id)
       currentId = doc.parentId
@@ -86,10 +68,9 @@ export async function GET(request: NextRequest) {
   }
 
   // 2. Fetch root documents
-  const roots = await prisma.document.findMany({
-    where: { ...permissionFilter, parentId: null },
-    orderBy: { sortOrder: 'asc' },
-    select: TREE_SELECT,
+  const roots = await documentRepository.findTreeNodes({
+    ...permissionFilter,
+    parentId: null,
   })
 
   // 3. Build tree with depth 2 + expanded path
@@ -102,10 +83,9 @@ export async function GET(request: NextRequest) {
       return toTreeNode(raw)
     }
 
-    const childDocs = await prisma.document.findMany({
-      where: { ...permissionFilter, parentId: raw.id },
-      orderBy: { sortOrder: 'asc' },
-      select: TREE_SELECT,
+    const childDocs = await documentRepository.findTreeNodes({
+      ...permissionFilter,
+      parentId: raw.id,
     })
 
     const children = await Promise.all(
