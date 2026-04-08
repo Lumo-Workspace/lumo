@@ -29,6 +29,14 @@ export interface UpdateSlackChannelData {
 // ── Slack Repository ────────────────────────────────────────────────────────
 
 export const slackRepository = {
+  /** Find integration by Slack team ID (for webhook routing). */
+  async findIntegrationByTeamId(teamId: string) {
+    return prisma.slackIntegration.findFirst({
+      where: { slackTeamId: teamId },
+      select: { id: true, workspaceId: true, accessToken: true },
+    })
+  },
+
   /** Find integration by workspace id (status fields only). */
   async findIntegrationStatus(workspaceId: string) {
     return prisma.slackIntegration.findUnique({

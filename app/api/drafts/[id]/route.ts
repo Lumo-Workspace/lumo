@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { draftService } from '@/lib/services/draft.service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -19,19 +20,20 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     const { member } = wsResult
 
-    const actor = await prisma.actor.findUnique({
-      where: { memberId: member.id },
-    })
+    const actor = await memberRepository.findActorByMemberId(member.id)
     if (!actor) {
       return NextResponse.json({ error: 'Actor not found' }, { status: 404 })
     }
 
-    const draft = await prisma.draft.findUnique({ where: { id } })
-    if (!draft || draft.creatorId !== actor.id) {
-      return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
+    try {
+      await draftService.deleteDraft(id, actor.id)
+    } catch (err) {
+      const error = err as Error & { status?: number }
+      if (error.status === 404) {
+        return NextResponse.json({ error: error.message }, { status: 404 })
+      }
+      throw err
     }
-
-    await prisma.draft.delete({ where: { id } })
 
     return NextResponse.json({ success: true })
   } catch {

@@ -48,6 +48,20 @@ export const memberRepository = {
     })
   },
 
+  /** Find the first member for a clerk user (any workspace). */
+  async findFirstByClerkId(clerkId: string) {
+    return prisma.workspaceMember.findFirst({
+      where: { clerkId },
+    })
+  },
+
+  /** Find the actor record for a given member. */
+  async findActorByMemberId(memberId: string) {
+    return prisma.actor.findUnique({
+      where: { memberId },
+    })
+  },
+
   /** Delete a member by ID. */
   async delete(memberId: string) {
     return prisma.workspaceMember.delete({

@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { agentRepository } from '@/lib/repositories/agent.repository'
 import { pushAgentEvent } from '@/lib/pusher/server'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
 import { notifyAgentFailed } from '@/lib/notifications/notifyAgentActions'
@@ -69,20 +69,7 @@ export async function POST(request: NextRequest) {
  * could finish — mark it as failed so the user isn't stuck.
  */
 async function handleSandboxKilled(sandboxId: string) {
-  const run = await prisma.agentRun.findFirst({
-    where: { sandboxId },
-    select: {
-      id: true,
-      status: true,
-      task: {
-        select: {
-          id: true,
-          projectId: true,
-          agentStatus: true,
-        },
-      },
-    },
-  })
+  const run = await agentRepository.findRunBySandboxId(sandboxId)
 
   if (!run) {
     console.log(
@@ -108,14 +95,11 @@ async function handleSandboxKilled(sandboxId: string) {
   )
 
   // Update AgentRun
-  await prisma.agentRun.update({
-    where: { id: run.id },
-    data: {
-      status: 'FAILED',
-      errorCode,
-      errorMessage: userFriendlyError(errorCode),
-      finishedAt: new Date(),
-    },
+  await agentRepository.updateRun(run.id, {
+    status: 'FAILED',
+    errorCode,
+    errorMessage: userFriendlyError(errorCode),
+    finishedAt: new Date(),
   })
 
   // Transition task status if still WORKING

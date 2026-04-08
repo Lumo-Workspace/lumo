@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { Prisma } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -6,12 +7,12 @@ interface CreateDraftData {
   workspaceId: string
   creatorId: string
   type: string
-  data: Record<string, unknown>
+  data: Prisma.InputJsonValue
 }
 
 interface UpdateDraftData {
   type: string
-  data: Record<string, unknown>
+  data: Prisma.InputJsonValue
 }
 
 const DRAFT_SELECT = {

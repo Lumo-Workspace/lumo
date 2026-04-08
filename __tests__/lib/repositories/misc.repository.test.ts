@@ -186,8 +186,8 @@ describe('miscRepository.createPriorityOverride', () => {
       taskId: 't1',
       memberId: 'm1',
       projectId: 'p1',
-      aiSuggested: 'HIGH',
-      userChosen: 'LOW',
+      aiSuggested: 'HIGH' as const,
+      userChosen: 'LOW' as const,
       taskTitle: 'Fix bug',
       taskDescription: null,
     }

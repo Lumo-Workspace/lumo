@@ -1,13 +1,14 @@
+import { Prisma } from '@prisma/client'
 import { draftRepository } from '@/lib/repositories/draft.repository'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
 interface UpsertDraftInput {
-  id?: string
+  id?: string | undefined
   workspaceId: string
   creatorId: string
   type: string
-  data: Record<string, unknown>
+  data: Prisma.InputJsonValue
 }
 
 // ── Draft Service ───────────────────────────────────────────────────────────

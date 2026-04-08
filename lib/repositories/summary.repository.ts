@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client'
 
 interface FindSummariesOptions {
   limit: number
-  before?: string
+  before?: string | undefined
 }
 
 interface CreateProjectSummaryData {

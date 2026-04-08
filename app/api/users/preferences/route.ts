@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 
 const VALID_THEMES = ['light', 'dark', 'system'] as const
 const VALID_LOCALES = ['en', 'zh'] as const
@@ -56,9 +56,7 @@ export async function GET(_request: Request) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 403 })
     }
 
-    const pref = await prisma.userPreference.findUnique({
-      where: { memberId: member.id },
-    })
+    const pref = await miscRepository.findUserPreference(member.id)
 
     return NextResponse.json(pref ? toResponse(pref) : DEFAULTS)
   } catch (error) {
@@ -125,11 +123,7 @@ export async function PATCH(request: Request) {
       )
     }
 
-    const pref = await prisma.userPreference.upsert({
-      where: { memberId: member.id },
-      update,
-      create: { memberId: member.id, ...update },
-    })
+    const pref = await miscRepository.upsertUserPreference(member.id, update)
 
     return NextResponse.json(toResponse(pref))
   } catch (error) {

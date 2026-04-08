@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl, zodError } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { draftService } from '@/lib/services/draft.service'
 import {
   upsertDraftSchema,
   taskDraftDataSchema,
@@ -20,27 +21,15 @@ export async function GET(request: NextRequest) {
 
     const { member } = wsResult
 
-    const actor = await prisma.actor.findUnique({
-      where: { memberId: member.id },
-    })
+    const actor = await memberRepository.findActorByMemberId(member.id)
     if (!actor) {
       return NextResponse.json({ drafts: [] })
     }
 
-    const drafts = await prisma.draft.findMany({
-      where: {
-        workspaceId: wsResult.workspace.id,
-        creatorId: actor.id,
-      },
-      orderBy: { updatedAt: 'desc' },
-      select: {
-        id: true,
-        type: true,
-        data: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    const drafts = await draftService.listDrafts(
+      wsResult.workspace.id,
+      actor.id
+    )
 
     return NextResponse.json({ drafts })
   } catch {
@@ -74,51 +63,27 @@ export async function POST(request: NextRequest) {
 
     const { member } = wsResult
 
-    const actor = await prisma.actor.findUnique({
-      where: { memberId: member.id },
-    })
+    const actor = await memberRepository.findActorByMemberId(member.id)
     if (!actor) {
       return NextResponse.json({ error: 'Actor not found' }, { status: 404 })
     }
 
-    let draft
-    if (id) {
-      // Update existing draft — verify ownership
-      const existing = await prisma.draft.findUnique({ where: { id } })
-      if (!existing || existing.creatorId !== actor.id) {
-        return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
+    try {
+      const draft = await draftService.upsertDraft({
+        id,
+        workspaceId: wsResult.workspace.id,
+        creatorId: actor.id,
+        type,
+        data: dataParsed.data,
+      })
+      return NextResponse.json({ draft }, { status: id ? 200 : 201 })
+    } catch (err) {
+      const error = err as Error & { status?: number }
+      if (error.status === 404) {
+        return NextResponse.json({ error: error.message }, { status: 404 })
       }
-      draft = await prisma.draft.update({
-        where: { id },
-        data: { data: dataParsed.data, type },
-        select: {
-          id: true,
-          type: true,
-          data: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
-    } else {
-      // Create new draft
-      draft = await prisma.draft.create({
-        data: {
-          workspaceId: wsResult.workspace.id,
-          creatorId: actor.id,
-          type,
-          data: dataParsed.data,
-        },
-        select: {
-          id: true,
-          type: true,
-          data: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
+      throw err
     }
-
-    return NextResponse.json({ draft }, { status: id ? 200 : 201 })
   } catch (err) {
     console.error('[POST /api/drafts]', err)
     return NextResponse.json(

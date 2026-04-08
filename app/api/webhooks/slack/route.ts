@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
 import { handleCommand, CommandResult } from '@/lib/slack/commands'
 import { createHmac, timingSafeEqual } from 'crypto'
@@ -56,10 +56,7 @@ export async function POST(request: NextRequest) {
     const teamId: string = payload.team_id ?? payload.team?.id ?? ''
     if (!teamId) return new NextResponse(null, { status: 200 })
 
-    const integration = await prisma.slackIntegration.findFirst({
-      where: { slackTeamId: teamId },
-      select: { id: true, workspaceId: true, accessToken: true },
-    })
+    const integration = await slackRepository.findIntegrationByTeamId(teamId)
     if (!integration) return new NextResponse(null, { status: 200 })
 
     const token = decrypt(integration.accessToken)

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { summaryService } from '@/lib/services/summary.service'
 import { getSummarySchema } from '@/lib/validation/schemas'
 
 export async function GET(
@@ -35,13 +35,9 @@ export async function GET(
 
     const { limit, before } = parsed.data
 
-    const summaries = await prisma.projectSummary.findMany({
-      where: {
-        projectId,
-        ...(before ? { generatedAt: { lt: new Date(before) } } : {}),
-      },
-      orderBy: { generatedAt: 'desc' },
-      take: limit,
+    const summaries = await summaryService.getProjectSummaries(projectId, {
+      limit,
+      before,
     })
 
     return NextResponse.json({ summaries })

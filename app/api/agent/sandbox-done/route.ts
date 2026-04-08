@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
+import { agentRepository } from '@/lib/repositories/agent.repository'
 import { processAgentCompletion } from '@/lib/agent/execute'
 
 const bodySchema = z.object({
@@ -38,10 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify mcpToken matches the run
-    const run = await prisma.agentRun.findUnique({
-      where: { id: parsed.data.runId },
-      select: { mcpToken: true, status: true },
-    })
+    const run = await agentRepository.findRunById(parsed.data.runId)
     if (!run || run.mcpToken !== token) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
     }

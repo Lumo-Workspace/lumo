@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { prisma } from '@/lib/db/prisma'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 
 export async function POST(request: Request) {
   try {
@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     }
 
     // Check if already on waitlist
-    const existing = await prisma.waitlistEntry.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    })
+    const existing = await miscRepository.findWaitlistEntryByEmail(
+      email.toLowerCase().trim()
+    )
 
     if (existing) {
       return NextResponse.json(
@@ -32,13 +32,11 @@ export async function POST(request: Request) {
       )
     }
 
-    await prisma.waitlistEntry.create({
-      data: {
-        email: email.toLowerCase().trim(),
-        name: name?.trim() || null,
-        company: company?.trim() || null,
-        teamSize: teamSize || null,
-      },
+    await miscRepository.createWaitlistEntry({
+      email: email.toLowerCase().trim(),
+      name: name?.trim() || null,
+      company: company?.trim() || null,
+      teamSize: teamSize || null,
     })
 
     return NextResponse.json(

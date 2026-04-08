@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { put, del } from '@vercel/blob'
-import { prisma } from '@/lib/db/prisma'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -76,10 +76,7 @@ export async function POST(request: NextRequest) {
     })
 
     // ── Persist ───────────────────────────────────────────────────────────────
-    await prisma.workspace.update({
-      where: { id: ws.workspaceId },
-      data: { logoUrl: blob.url },
-    })
+    await workspaceRepository.update(ws.workspaceId, { logoUrl: blob.url })
 
     return NextResponse.json({ logoUrl: blob.url })
   } catch (error) {

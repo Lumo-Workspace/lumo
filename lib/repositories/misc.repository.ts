@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { TaskPriority } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,8 +21,8 @@ interface CreatePriorityOverrideData {
   taskId: string
   memberId: string
   projectId: string
-  aiSuggested: string
-  userChosen: string
+  aiSuggested: TaskPriority
+  userChosen: TaskPriority
   taskTitle: string
   taskDescription: string | null
 }

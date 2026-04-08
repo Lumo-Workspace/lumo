@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { randomBytes, createHash } from 'crypto'
-import { prisma } from '@/lib/db/prisma'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 /**
@@ -19,17 +19,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
     }
 
-    const keys = await prisma.apiKey.findMany({
-      where: { workspaceMemberId: ws.member.id, revokedAt: null },
-      select: {
-        id: true,
-        label: true,
-        keyPrefix: true,
-        createdAt: true,
-        lastUsedAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const keys = await miscRepository.findActiveApiKeys(ws.member.id)
 
     return NextResponse.json({ keys })
   } catch (error) {
@@ -69,14 +59,11 @@ export async function POST(request: Request) {
     const keyHash = createHash('sha256').update(key).digest('hex')
     const keyPrefix = key.slice(0, 16) // "lum_xxxxxxxxxxxx"
 
-    const created = await prisma.apiKey.create({
-      data: {
-        workspaceMemberId: ws.member.id,
-        label,
-        keyHash,
-        keyPrefix,
-      },
-      select: { id: true, label: true, keyPrefix: true, createdAt: true },
+    const created = await miscRepository.createApiKey({
+      workspaceMemberId: ws.member.id,
+      label,
+      keyHash,
+      keyPrefix,
     })
 
     // Return the full key only on creation

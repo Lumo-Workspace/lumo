@@ -5,7 +5,7 @@ import { summaryRepository } from '@/lib/repositories/summary.repository'
 
 interface GetSummariesOptions {
   limit: number
-  before?: string
+  before?: string | undefined
 }
 
 // ── Summary Service ─────────────────────────────────────────────────────────

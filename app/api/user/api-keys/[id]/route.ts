@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 /**
@@ -22,10 +22,7 @@ export async function DELETE(
 
     const { id } = await params
 
-    const existing = await prisma.apiKey.findUnique({
-      where: { id },
-      select: { workspaceMemberId: true, revokedAt: true },
-    })
+    const existing = await miscRepository.findApiKeyById(id)
 
     if (!existing || existing.workspaceMemberId !== ws.member.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -35,10 +32,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Already revoked' }, { status: 409 })
     }
 
-    await prisma.apiKey.update({
-      where: { id },
-      data: { revokedAt: new Date() },
-    })
+    await miscRepository.revokeApiKey(id)
 
     return NextResponse.json({ ok: true })
   } catch (error) {

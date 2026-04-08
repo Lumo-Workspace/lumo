@@ -126,6 +126,18 @@ export const documentRepository = {
     })
   },
 
+  /** Find a publicly shared document by its public token. */
+  async findByPublicToken(token: string) {
+    return prisma.document.findUnique({
+      where: { publicToken: token },
+      select: {
+        title: true,
+        emoji: true,
+        content: true,
+      },
+    })
+  },
+
   /** Find document for basic existence check. */
   async findById(id: string, workspaceId: string) {
     return prisma.document.findFirst({
