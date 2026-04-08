@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 
 export interface ApiKeyRecord {
   id: string
@@ -49,9 +49,9 @@ export function useApiKeys(): UseApiKeysReturn {
   const loadKeys = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiFetch('/api/user/api-keys')
-      if (!res.ok) throw new Error('Failed to load API keys')
-      const data = (await res.json()) as { keys: ApiKeyRecord[] }
+      const data = await apiFetch<{ keys: ApiKeyRecord[] }>(
+        '/api/user/api-keys'
+      )
       setKeys(data.keys)
     } catch {
       toast.error(intl.formatMessage({ id: 'apiKeys.loadFailed' }))
@@ -68,12 +68,10 @@ export function useApiKeys(): UseApiKeysReturn {
     if (!label.trim()) return
     setCreating(true)
     try {
-      const res = await apiFetch('/api/user/api-keys', {
+      const result = await apiFetch<NewKeyResult>('/api/user/api-keys', {
         method: 'POST',
         body: { label: label.trim() },
       })
-      if (!res.ok) throw new Error('Failed to create API key')
-      const result = (await res.json()) as NewKeyResult
       setNewKey(result)
       setLabel('')
       setKeys(prev => [result, ...prev])
@@ -88,10 +86,9 @@ export function useApiKeys(): UseApiKeysReturn {
     if (!revokeTarget) return
     setRevoking(true)
     try {
-      const res = await apiFetch(`/api/user/api-keys/${revokeTarget.id}`, {
+      await apiFetch<void>(`/api/user/api-keys/${revokeTarget.id}`, {
         method: 'DELETE',
       })
-      if (!res.ok) throw new Error('Failed to revoke key')
       setKeys(prev => prev.filter(k => k.id !== revokeTarget.id))
       toast.success(intl.formatMessage({ id: 'apiKeys.revokeSuccess' }))
       setRevokeTarget(null)

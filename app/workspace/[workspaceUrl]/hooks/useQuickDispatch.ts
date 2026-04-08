@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import type { QuickDispatchResponse } from '@/lib/prompts/quick-dispatch'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 
 type DispatchPhase = 'input' | 'loading' | 'preview' | 'editing'
 
@@ -34,19 +34,17 @@ export function useQuickDispatch() {
       setPhase('loading')
 
       try {
-        const res = await apiFetch('/api/tasks/parse-quick-dispatch', {
-          method: 'POST',
-          body: { input: trimmed, workspaceUrl },
-        })
+        const data = await apiFetch<QuickDispatchResponse>(
+          '/api/tasks/parse-quick-dispatch',
+          {
+            method: 'POST',
+            body: { input: trimmed, workspaceUrl },
+            signal: controller.signal,
+          }
+        )
 
         if (controller.signal.aborted) return
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error ?? 'Failed to parse input')
-        }
-
-        const data: QuickDispatchResponse = await res.json()
         setResult(data)
 
         if (data.titleTooVague) {

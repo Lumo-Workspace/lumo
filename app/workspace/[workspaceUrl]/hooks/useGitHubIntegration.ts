@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { API } from '../constants'
+import { apiFetch } from '@/lib/api-client'
 import type { GitHubStatus } from '../components/pages/IntegrationsPage'
 
 interface GhRepo {
@@ -46,11 +47,10 @@ export function useGitHubIntegration(
   const handleDisconnect = async () => {
     setDisconnecting(true)
     try {
-      const res = await fetch(
+      await apiFetch<void>(
         `${API.github.integration}?workspaceUrl=${workspaceUrl}`,
         { method: 'DELETE' }
       )
-      if (!res.ok) throw new Error()
       onStatusChange({ connected: false })
       toast.success(intl.formatMessage({ id: 'github.disconnectSuccess' }))
     } catch {
@@ -65,15 +65,10 @@ export function useGitHubIntegration(
     if (!status?.repositories) return
     const updated = status.repositories.filter(r => r !== repo)
     try {
-      const res = await fetch(
-        `${API.github.repos}?workspaceUrl=${workspaceUrl}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repositories: updated }),
-        }
-      )
-      if (!res.ok) throw new Error()
+      await apiFetch<void>(`${API.github.repos}?workspaceUrl=${workspaceUrl}`, {
+        method: 'PATCH',
+        body: { repositories: updated },
+      })
       onStatusChange({ ...status, repositories: updated })
     } catch {
       toast.error(intl.formatMessage({ id: 'github.removeRepoFailed' }))
@@ -84,11 +79,9 @@ export function useGitHubIntegration(
     setAddRepoOpen(true)
     setLoadingRepos(true)
     try {
-      const res = await fetch(
+      const data = await apiFetch<{ repos?: GhRepo[] }>(
         `${API.github.repos}?workspaceUrl=${workspaceUrl}`
       )
-      if (!res.ok) throw new Error()
-      const data = await res.json()
       setAvailableRepos(data.repos ?? [])
     } catch {
       toast.error(intl.formatMessage({ id: 'github.loadReposFailed' }))
@@ -104,15 +97,10 @@ export function useGitHubIntegration(
     if (current.includes(fullName)) return
     const updated = [...current, fullName]
     try {
-      const res = await fetch(
-        `${API.github.repos}?workspaceUrl=${workspaceUrl}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repositories: updated }),
-        }
-      )
-      if (!res.ok) throw new Error()
+      await apiFetch<void>(`${API.github.repos}?workspaceUrl=${workspaceUrl}`, {
+        method: 'PATCH',
+        body: { repositories: updated },
+      })
       onStatusChange({ ...status, repositories: updated })
       setAddRepoOpen(false)
       toast.success(

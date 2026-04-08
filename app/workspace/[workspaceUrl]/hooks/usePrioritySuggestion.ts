@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { tasksClient } from '@/lib/api-client'
 import type { ApiPriority } from '../types'
 
 interface SimilarTask {
@@ -61,23 +62,18 @@ export function usePrioritySuggestion({
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
       try {
-        const res = await fetch('/api/tasks/suggest-priority', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const data = await tasksClient.suggestPriority<PrioritySuggestion>(
+          {
             title: title.trim(),
             ...(projectId ? { projectId } : {}),
             ...(description ? { description } : {}),
-          }),
-          signal: controller.signal,
-        })
+          },
+          controller.signal
+        )
 
         clearTimeout(timeoutId)
 
-        if (res.ok) {
-          const data: PrioritySuggestion = await res.json()
-          setSuggestion(data)
-        }
+        setSuggestion(data)
       } catch {
         // Silent failure — AbortError or network error
       } finally {

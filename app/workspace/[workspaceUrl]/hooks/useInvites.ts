@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { readCache, writeCache } from '../cache'
 import { API, CACHE_KEY } from '../constants'
-import { apiFetch } from '../utils'
+import { apiFetch, workspacesClient } from '@/lib/api-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,12 +46,13 @@ export function useInvites() {
       setLoadingInvites(false)
     }
     try {
-      const res = await fetch(API.invites.list)
-      if (res.ok) {
-        const data = (await res.json()) as { invites: PendingInvite[] }
-        setInvites(data.invites)
-        writeCache(CACHE_KEY.invites, data.invites)
-      }
+      const data = await apiFetch<{ invites: PendingInvite[] }>(
+        API.invites.list
+      )
+      setInvites(data.invites)
+      writeCache(CACHE_KEY.invites, data.invites)
+    } catch {
+      // fetch failed — keep stale cache
     } finally {
       setLoadingInvites(false)
     }
@@ -64,20 +65,18 @@ export function useInvites() {
 
     setSending(true)
     try {
-      const wsRes = await fetch('/api/workspaces/me')
-      if (!wsRes.ok) throw new Error('Could not fetch workspace')
-      const wsData = await wsRes.json()
+      const wsData = await workspacesClient.getMe<{
+        workspace: { id: string }
+      }>()
       const workspaceId = wsData.workspace.id
 
-      const res = await apiFetch(API.invites.list, {
-        method: 'POST',
-        body: { emails, workspaceId },
-      })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ?? intl.formatMessage({ id: 'members.inviteFailed' })
-        )
+      const data = await apiFetch<{ sent: number; failed?: string[] }>(
+        API.invites.list,
+        {
+          method: 'POST',
+          body: { emails, workspaceId },
+        }
+      )
 
       toast.success(
         intl.formatMessage({ id: 'members.invitesSent' }, { count: data.sent }),
@@ -104,11 +103,9 @@ export function useInvites() {
     if (!revokeToken) return
     setRevoking(true)
     try {
-      const res = await fetch(API.invites.byToken(revokeToken), {
+      await apiFetch<void>(API.invites.byToken(revokeToken), {
         method: 'DELETE',
       })
-      if (!res.ok)
-        throw new Error(intl.formatMessage({ id: 'members.revokeFailed' }))
       setInvites(prev => {
         const next = prev.filter(i => i.token !== revokeToken)
         writeCache(CACHE_KEY.invites, next)
@@ -127,9 +124,7 @@ export function useInvites() {
   const handleResend = async (token: string) => {
     setResendingToken(token)
     try {
-      const res = await fetch(API.invites.resend(token), { method: 'POST' })
-      if (!res.ok)
-        throw new Error(intl.formatMessage({ id: 'members.resendFailed' }))
+      await apiFetch<void>(API.invites.resend(token), { method: 'POST' })
       toast.success(intl.formatMessage({ id: 'members.resendSuccess' }))
       await fetchInvites()
     } catch {

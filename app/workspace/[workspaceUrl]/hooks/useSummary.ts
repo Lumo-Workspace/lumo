@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import type { ApiProjectSummary, ApiWorkspaceSummary } from '@/types/summary'
@@ -41,36 +41,41 @@ export function useProjectSummary(
   const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    apiFetch(API.summaries.project(projectId))
-      .then(async res => {
-        if (res.ok) {
-          const data = await res.json()
-          const fetched: ApiProjectSummary = data.summary
-          setSummary(fetched)
-          writeCache(cacheKey, fetched)
-        } else {
-          setError('Failed to load summary')
-        }
-      })
-      .catch(() => setError('Failed to load summary'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await apiFetch<{ summary: ApiProjectSummary }>(
+          API.summaries.project(projectId)
+        )
+        if (cancelled) return
+        setSummary(data.summary)
+        writeCache(cacheKey, data.summary)
+      } catch {
+        if (!cancelled) setError('Failed to load summary')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [projectId, cacheKey])
 
-  const loadHistory = useCallback(() => {
+  const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
-    apiFetch(`${API.summaries.project(projectId)}?limit=30`)
-      .then(async res => {
-        if (res.ok) {
-          const data = await res.json()
-          setHistory(data.summaries ?? [])
-        }
-      })
-      .catch(() => {
-        // silently ignore history load failure
-      })
-      .finally(() => setHistoryLoading(false))
+    try {
+      const data = await apiFetch<{ summaries?: ApiProjectSummary[] }>(
+        `${API.summaries.project(projectId)}?limit=30`
+      )
+      setHistory(data.summaries ?? [])
+    } catch {
+      // silently ignore history load failure
+    } finally {
+      setHistoryLoading(false)
+    }
   }, [projectId])
 
   return { summary, history, loading, error, loadHistory, historyLoading }
@@ -89,39 +94,46 @@ export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {
   const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    apiFetch(API.summaries.workspace)
-      .then(async res => {
-        if (res.ok) {
-          const data = await res.json()
-          const candidate = data.summary ?? data.summaries?.[0]
-          const fetched = isValidSummary(candidate)
-            ? (candidate as ApiWorkspaceSummary)
-            : null
-          setSummary(fetched)
-          if (fetched) writeCache(cacheKey, fetched)
-        } else {
-          setError('Failed to load summary')
-        }
-      })
-      .catch(() => setError('Failed to load summary'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await apiFetch<{
+          summary?: ApiWorkspaceSummary
+          summaries?: ApiWorkspaceSummary[]
+        }>(API.summaries.workspace)
+        if (cancelled) return
+        const candidate = data.summary ?? data.summaries?.[0]
+        const fetched = isValidSummary(candidate)
+          ? (candidate as ApiWorkspaceSummary)
+          : null
+        setSummary(fetched)
+        if (fetched) writeCache(cacheKey, fetched)
+      } catch {
+        if (!cancelled) setError('Failed to load summary')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [cacheKey])
 
-  const loadHistory = useCallback(() => {
+  const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
-    apiFetch(`${API.summaries.workspace}?limit=30`)
-      .then(async res => {
-        if (res.ok) {
-          const data = await res.json()
-          setHistory(data.summaries ?? [])
-        }
-      })
-      .catch(() => {
-        // silently ignore history load failure
-      })
-      .finally(() => setHistoryLoading(false))
+    try {
+      const data = await apiFetch<{ summaries?: ApiWorkspaceSummary[] }>(
+        `${API.summaries.workspace}?limit=30`
+      )
+      setHistory(data.summaries ?? [])
+    } catch {
+      // silently ignore history load failure
+    } finally {
+      setHistoryLoading(false)
+    }
   }, [])
 
   return { summary, history, loading, error, loadHistory, historyLoading }
