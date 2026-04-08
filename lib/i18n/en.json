@@ -361,6 +361,8 @@
   "apiKeys.revokeDesc": "This key will stop working immediately. This cannot be undone.",
   "apiKeys.newKeyTitle": "API key created",
   "apiKeys.newKeyDesc": "Copy this key now — it won't be shown again.",
+  "apiKeys.empty": "No API keys yet",
+  "apiKeys.lastUsed": "last used {date}",
 
   "task.createFailed": "Failed to create task",
   "task.createSuccess": "Task created",

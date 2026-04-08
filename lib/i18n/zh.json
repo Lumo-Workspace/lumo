@@ -361,6 +361,8 @@
   "apiKeys.revokeDesc": "此密钥将立即失效。此操作无法撤销。",
   "apiKeys.newKeyTitle": "API 密钥已创建",
   "apiKeys.newKeyDesc": "请立即复制此密钥——它不会再次显示。",
+  "apiKeys.empty": "暂无 API 密钥",
+  "apiKeys.lastUsed": "最后使用于 {date}",
 
   "task.createFailed": "创建任务失败",
   "task.createSuccess": "任务已创建",

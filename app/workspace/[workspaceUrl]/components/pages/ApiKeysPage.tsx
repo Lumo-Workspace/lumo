@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useIntl } from 'react-intl'
 import { Copy, Trash2, Plus, Key, Loader2, Check } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,114 +14,41 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { apiFetch } from '../../utils'
-
-interface ApiKeyRecord {
-  id: string
-  label: string
-  keyPrefix: string
-  createdAt: string
-  lastUsedAt: string | null
-}
-
-interface NewKeyResult extends ApiKeyRecord {
-  key: string // full key, shown once
-}
+import { useApiKeys } from '../../hooks/useApiKeys'
 
 export function ApiKeysPage() {
-  const [keys, setKeys] = useState<ApiKeyRecord[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Create form
-  const [label, setLabel] = useState('')
-  const [creating, setCreating] = useState(false)
-
-  // Newly created key modal
-  const [newKey, setNewKey] = useState<NewKeyResult | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  // Revoke confirmation
-  const [revokeTarget, setRevokeTarget] = useState<ApiKeyRecord | null>(null)
-  const [revoking, setRevoking] = useState(false)
-
-  const loadKeys = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await apiFetch('/api/user/api-keys')
-      if (!res.ok) throw new Error('Failed to load API keys')
-      const data = (await res.json()) as { keys: ApiKeyRecord[] }
-      setKeys(data.keys)
-    } catch {
-      toast.error('Failed to load API keys')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadKeys()
-  }, [loadKeys])
-
-  const handleCreate = async () => {
-    if (!label.trim()) return
-    setCreating(true)
-    try {
-      const res = await apiFetch('/api/user/api-keys', {
-        method: 'POST',
-        body: { label: label.trim() },
-      })
-      if (!res.ok) throw new Error('Failed to create API key')
-      const result = (await res.json()) as NewKeyResult
-      setNewKey(result)
-      setLabel('')
-      setKeys(prev => [result, ...prev])
-    } catch {
-      toast.error('Failed to create API key')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const handleRevoke = async () => {
-    if (!revokeTarget) return
-    setRevoking(true)
-    try {
-      const res = await apiFetch(`/api/user/api-keys/${revokeTarget.id}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error('Failed to revoke key')
-      setKeys(prev => prev.filter(k => k.id !== revokeTarget.id))
-      toast.success('API key revoked')
-      setRevokeTarget(null)
-    } catch {
-      toast.error('Failed to revoke key')
-    } finally {
-      setRevoking(false)
-    }
-  }
-
-  const handleCopy = async () => {
-    if (!newKey) return
-    await navigator.clipboard.writeText(newKey.key)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const intl = useIntl()
+  const {
+    keys,
+    loading,
+    label,
+    setLabel,
+    creating,
+    newKey,
+    setNewKey,
+    copied,
+    revokeTarget,
+    setRevokeTarget,
+    revoking,
+    handleCreate,
+    handleRevoke,
+    handleCopy,
+  } = useApiKeys()
 
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
-          API Keys
+          {intl.formatMessage({ id: 'apiKeys.title' })}
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
-          Use API keys to authenticate local MCP servers (Claude Code). Keys are
-          scoped to your user and workspace.
+          {intl.formatMessage({ id: 'apiKeys.subtitle' })}
         </p>
 
         {/* Create form */}
         <div className='flex gap-2 mb-8'>
           <Input
-            placeholder='Key label, e.g. "My laptop"'
+            placeholder={intl.formatMessage({ id: 'apiKeys.labelPlaceholder' })}
             value={label}
             onChange={e => setLabel(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && void handleCreate()}
@@ -137,7 +63,7 @@ export function ApiKeysPage() {
             ) : (
               <Plus size={14} className='mr-1.5' />
             )}
-            Generate key
+            {intl.formatMessage({ id: 'common.create' })}
           </Button>
         </div>
 
@@ -145,12 +71,14 @@ export function ApiKeysPage() {
         {loading ? (
           <div className='flex items-center gap-2 text-sm text-zinc-400'>
             <Loader2 size={14} className='animate-spin' />
-            Loading…
+            {intl.formatMessage({ id: 'common.loading' })}
           </div>
         ) : keys.length === 0 ? (
           <div className='flex flex-col items-center gap-2 py-12 text-zinc-400'>
             <Key size={28} />
-            <p className='text-sm'>No API keys yet</p>
+            <p className='text-sm'>
+              {intl.formatMessage({ id: 'apiKeys.empty' })}
+            </p>
           </div>
         ) : (
           <ul className='space-y-2'>
@@ -167,7 +95,10 @@ export function ApiKeysPage() {
                     {k.keyPrefix}…
                     {k.lastUsedAt && (
                       <span className='font-sans ml-3'>
-                        last used {new Date(k.lastUsedAt).toLocaleDateString()}
+                        {intl.formatMessage(
+                          { id: 'apiKeys.lastUsed' },
+                          { date: new Date(k.lastUsedAt).toLocaleDateString() }
+                        )}
                       </span>
                     )}
                   </p>
@@ -192,9 +123,11 @@ export function ApiKeysPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>API key created</AlertDialogTitle>
+              <AlertDialogTitle>
+                {intl.formatMessage({ id: 'apiKeys.newKeyTitle' })}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                Copy this key now — it will not be shown again.
+                {intl.formatMessage({ id: 'apiKeys.newKeyDesc' })}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -213,7 +146,7 @@ export function ApiKeysPage() {
 
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setNewKey(null)}>
-                Done
+                {intl.formatMessage({ id: 'common.close' })}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -227,14 +160,16 @@ export function ApiKeysPage() {
           <AlertDialogContent size='sm'>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Revoke &ldquo;{revokeTarget?.label}&rdquo;?
+                {intl.formatMessage({ id: 'apiKeys.revokeTitle' })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Any MCP server using this key will stop working immediately.
+                {intl.formatMessage({ id: 'apiKeys.revokeDesc' })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>
+                {intl.formatMessage({ id: 'common.cancel' })}
+              </AlertDialogCancel>
               <AlertDialogAction
                 variant='destructive'
                 onClick={() => void handleRevoke()}
@@ -243,7 +178,7 @@ export function ApiKeysPage() {
                 {revoking ? (
                   <Loader2 size={14} className='animate-spin' />
                 ) : (
-                  'Revoke'
+                  intl.formatMessage({ id: 'common.revoke' })
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
