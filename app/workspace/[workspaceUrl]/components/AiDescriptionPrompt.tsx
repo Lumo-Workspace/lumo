@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 
 type PromptState = 'idle' | 'loading' | 'preview'
 
@@ -43,7 +43,10 @@ export function AiDescriptionPrompt({
     setError(null)
     setState('loading')
     try {
-      const res = await apiFetch('/api/tasks/generate-description', {
+      const data = await apiFetch<{
+        description?: string
+        suggestedProject?: SuggestedProject
+      }>('/api/tasks/generate-description', {
         method: 'POST',
         body: {
           title: title.trim(),
@@ -51,11 +54,6 @@ export function AiDescriptionPrompt({
           ...(existingDescription && { existingDescription }),
         },
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Failed to generate description')
-      }
-      const data = await res.json()
       if (!data.description) {
         throw new Error('Failed to generate description')
       }

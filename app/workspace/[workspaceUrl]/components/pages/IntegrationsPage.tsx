@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { API } from '../../constants'
+import { apiFetch } from '@/lib/api-client'
 
 export interface GitHubStatus {
   connected: boolean
@@ -29,11 +30,19 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
       window.history.replaceState({}, '', window.location.pathname)
     }
 
-    fetch(`${API.github.integration}?workspaceUrl=${workspaceUrl}`)
-      .then(r => r.json())
-      .then(setGhStatus)
-      .catch(() => toast.error(intl.formatMessage({ id: 'github.loadFailed' })))
-      .finally(() => setLoading(false))
+    const loadStatus = async () => {
+      try {
+        const data = await apiFetch<GitHubStatus>(
+          `${API.github.integration}?workspaceUrl=${workspaceUrl}`
+        )
+        setGhStatus(data)
+      } catch {
+        toast.error(intl.formatMessage({ id: 'github.loadFailed' }))
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadStatus()
   }, [workspaceUrl])
 
   return (

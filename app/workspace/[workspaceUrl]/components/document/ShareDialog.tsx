@@ -26,7 +26,7 @@ import type {
   DocVisibility,
   WorkspaceMemberInfo,
 } from '../../types'
-import { API } from '../../constants'
+import { documentsClient } from '@/lib/api-client'
 
 // ─── Helper: avatar with image or initials fallback ─────────────────────────
 
@@ -167,31 +167,19 @@ export function ShareDialog({
       // Auto-upgrade visibility to SHARED if currently PRIVATE
       if (visibility === 'PRIVATE') {
         onVisibilityChange('SHARED')
-        fetch(API.documents.byId(documentId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visibility: 'SHARED' }),
-        }).catch(() => {
-          /* best-effort */
-        })
+        documentsClient
+          .update(documentId, { visibility: 'SHARED' })
+          .catch(() => {
+            /* best-effort */
+          })
       }
 
       try {
-        const res = await fetch(API.documents.shares(documentId), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ memberId: member.id, role: inviteRole }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          // Replace temp share with real one
-          onSharesChange(
-            nextShares.map(s => (s.id === tempId ? data.share : s))
-          )
-        } else {
-          // Rollback
-          onSharesChange(shares)
-        }
+        const data = await documentsClient.createShare<{
+          share: ApiDocumentShare
+        }>(documentId, { memberId: member.id, role: inviteRole })
+        // Replace temp share with real one
+        onSharesChange(nextShares.map(s => (s.id === tempId ? data.share : s)))
       } catch {
         onSharesChange(shares)
       }
@@ -216,14 +204,9 @@ export function ShareDialog({
       )
 
       try {
-        const res = await fetch(API.documents.shareById(documentId, shareId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: newRole }),
+        await documentsClient.updateShare(documentId, shareId, {
+          role: newRole,
         })
-        if (!res.ok) {
-          onSharesChange(prev)
-        }
       } catch {
         onSharesChange(prev)
       }
@@ -249,22 +232,15 @@ export function ShareDialog({
       // If removing last share, downgrade to PRIVATE
       if (nextShares.length === 0 && visibility === 'SHARED') {
         onVisibilityChange('PRIVATE')
-        fetch(API.documents.byId(documentId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visibility: 'PRIVATE' }),
-        }).catch(() => {
-          /* best-effort */
-        })
+        documentsClient
+          .update(documentId, { visibility: 'PRIVATE' })
+          .catch(() => {
+            /* best-effort */
+          })
       }
 
       try {
-        const res = await fetch(API.documents.shareById(documentId, shareId), {
-          method: 'DELETE',
-        })
-        if (!res.ok) {
-          onSharesChange(prev)
-        }
+        await documentsClient.deleteShare(documentId, shareId)
       } catch {
         onSharesChange(prev)
       }
@@ -291,11 +267,7 @@ export function ShareDialog({
       onPublicTokenChange(token)
 
       try {
-        await fetch(API.documents.byId(documentId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ publicToken: token }),
-        })
+        await documentsClient.update(documentId, { publicToken: token })
       } catch {
         // Rollback
         onPublicTokenChange(enabled ? null : (publicToken ?? null))

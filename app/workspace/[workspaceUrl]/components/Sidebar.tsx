@@ -19,7 +19,8 @@ import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { useParams } from 'next/navigation'
 import { Page } from '../types'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { workspacesClient } from '@/lib/api-client'
 import { clearCache, readCache, writeCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -76,16 +77,21 @@ export function AppSidebar({
   }, [])
 
   useEffect(() => {
-    fetch(API.workspaces.me)
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        const name: string | undefined = data?.workspace?.name
-        const logoUrl: string | null | undefined = data?.workspace?.logoUrl
+    const loadWorkspace = async () => {
+      try {
+        const data = await workspacesClient.getMe<{
+          workspace?: { name?: string; logoUrl?: string | null }
+        }>()
+        const name = data?.workspace?.name
+        const logoUrl = data?.workspace?.logoUrl
         if (name) setWorkspaceName(name)
         setWorkspaceLogoUrl(logoUrl ?? null)
         writeCache(CACHE_KEY.workspace, { name, logoUrl })
-      })
-      .catch(() => {})
+      } catch {
+        // ignore
+      }
+    }
+    loadWorkspace()
   }, [])
 
   const initials = user?.initials ?? '?'

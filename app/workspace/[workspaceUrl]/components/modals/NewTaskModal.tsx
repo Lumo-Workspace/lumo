@@ -13,7 +13,8 @@ import {
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
-import { apiFetch, isSubmitShortcut, submitModLabel } from '../../utils'
+import { isSubmitShortcut, submitModLabel } from '../../utils'
+import { apiFetch } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
   StatusSelect,
@@ -193,19 +194,22 @@ export function NewTaskModal({
       setRepositoryId(null)
       return
     }
-    fetch(`/api/projects/${pid}/repositories`)
-      .then(r => r.json())
-      .then(data => {
+    const loadRepos = async () => {
+      try {
+        const data = await apiFetch<{ repositories?: ApiRepository[] }>(
+          `/api/projects/${pid}/repositories`
+        )
         const repos: ApiRepository[] = data.repositories ?? []
         setProjectRepos(repos)
         // Auto-select the default repo
         const def = repos.find(r => r.isDefault)
         setRepositoryId(def?.id ?? null)
-      })
-      .catch(() => {
+      } catch {
         setProjectRepos([])
         setRepositoryId(null)
-      })
+      }
+    }
+    loadRepos()
   }, [projectId, defaultProjectId])
 
   const reset = () => {
@@ -339,41 +343,40 @@ export function NewTaskModal({
     // Phase 2: AI semantic matching on submit
     setPhase('checking')
     try {
-      const res = await apiFetch('/api/tasks/check-duplicates', {
-        method: 'POST',
-        body: { title: trimmedTitle, projectId: effectiveProjectId },
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        const matches: DuplicateMatch[] = data.matches ?? []
-
-        if (matches.length > 0) {
-          // Merge with client matches (dedup by taskId, AI score wins)
-          const aiIds = new Set(matches.map(m => m.taskId))
-          const clientOnly = clientMatches
-            .filter(cm => !aiIds.has(cm.task.id))
-            .map(cm => ({
-              taskId: cm.task.id,
-              title: cm.task.title,
-              number: cm.task.number,
-              teamIdentifier: cm.task.teamIdentifier,
-              status: cm.task.status,
-              score: cm.score,
-              assigneeName: null,
-              priority: cm.task.priority,
-            }))
-
-          const merged = [...matches, ...clientOnly]
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5)
-
-          setAiMatches(merged)
-          setPhase('confirming')
-          return
+      const data = await apiFetch<{ matches?: DuplicateMatch[] }>(
+        '/api/tasks/check-duplicates',
+        {
+          method: 'POST',
+          body: { title: trimmedTitle, projectId: effectiveProjectId },
         }
+      )
+      const matches: DuplicateMatch[] = data.matches ?? []
+
+      if (matches.length > 0) {
+        // Merge with client matches (dedup by taskId, AI score wins)
+        const aiIds = new Set(matches.map(m => m.taskId))
+        const clientOnly = clientMatches
+          .filter(cm => !aiIds.has(cm.task.id))
+          .map(cm => ({
+            taskId: cm.task.id,
+            title: cm.task.title,
+            number: cm.task.number,
+            teamIdentifier: cm.task.teamIdentifier,
+            status: cm.task.status,
+            score: cm.score,
+            assigneeName: null,
+            priority: cm.task.priority,
+          }))
+
+        const merged = [...matches, ...clientOnly]
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5)
+
+        setAiMatches(merged)
+        setPhase('confirming')
+        return
       }
-      // No matches or API error → proceed with creation
+      // No matches → proceed with creation
       doCreate()
     } catch {
       // API error → skip detection, proceed with creation
