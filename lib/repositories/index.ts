@@ -6,3 +6,15 @@ export { documentRepository } from './document.repository'
 export type { CreateDocumentData, DocumentFilters } from './document.repository'
 export { workspaceRepository } from './workspace.repository'
 export type { CreateWorkspaceData } from './workspace.repository'
+export { githubRepository } from './github.repository'
+export type {
+  UpsertIntegrationData,
+  UpsertPullRequestData,
+  UpsertTaskBranchData,
+} from './github.repository'
+export { slackRepository } from './slack.repository'
+export type {
+  UpsertSlackIntegrationData,
+  CreateSlackChannelData,
+  UpdateSlackChannelData,
+} from './slack.repository'

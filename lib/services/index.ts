@@ -10,3 +10,5 @@ export type {
 } from './document.service'
 export { workspaceService } from './workspace.service'
 export type { UpdateWorkspaceInput } from './workspace.service'
+export { githubService } from './github.service'
+export { slackService } from './slack.service'
