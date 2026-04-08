@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { currentUser } from '@clerk/nextjs/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
@@ -7,6 +6,8 @@ import { sendInvitesSchema } from '@/lib/validation/schemas'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
 import { inviteExpiresAt } from '@/lib/utils/invite'
+import { inviteService } from '@/lib/services/invite.service'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,10 +39,7 @@ export async function POST(request: NextRequest) {
     const inviterEmail = clerkUser?.emailAddresses[0]?.emailAddress ?? ''
 
     // Get workspace name and slug
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { name: true, slug: true },
-    })
+    const workspace = await workspaceRepository.findNameAndSlug(workspaceId)
     if (!workspace) {
       return NextResponse.json(
         { error: 'Workspace not found' },
@@ -53,26 +51,17 @@ export async function POST(request: NextRequest) {
     const expiresAt = inviteExpiresAt()
     const resend = getResend()
 
+    const inviteResults = await inviteService.createInvites(
+      workspaceId,
+      emails,
+      inviterName,
+      member.id,
+      expiresAt
+    )
+
     const results: { email: string; status: 'sent' | 'failed' }[] = []
 
-    for (const rawEmail of emails) {
-      const email = rawEmail.toLowerCase()
-
-      // Upsert: delete any existing pending invite for this email+workspace, then create fresh
-      await prisma.workspaceInvite.deleteMany({
-        where: { workspaceId, email, status: 'PENDING' },
-      })
-
-      const invite = await prisma.workspaceInvite.create({
-        data: {
-          workspaceId,
-          email,
-          inviterName,
-          invitedById: member.id,
-          expiresAt,
-        },
-      })
-
+    for (const { email, invite } of inviteResults) {
       const inviteUrl = `${appUrl}/invite/${invite.token}`
       const { subject, html } = buildInviteEmail({
         workspaceName: workspace.name,
@@ -117,18 +106,7 @@ export async function GET() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    const invites = await prisma.workspaceInvite.findMany({
-      where: { workspaceId: ws.workspaceId, status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        token: true,
-        email: true,
-        inviterName: true,
-        expiresAt: true,
-        createdAt: true,
-      },
-    })
+    const invites = await inviteService.listPendingInvites(ws.workspaceId)
 
     return NextResponse.json({ invites })
   } catch (error) {

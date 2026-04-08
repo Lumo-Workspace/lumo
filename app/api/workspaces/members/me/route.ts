@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
+import { memberService } from '@/lib/services/member.service'
 
 /**
  * DELETE /api/workspaces/members/me
@@ -17,28 +17,18 @@ export async function DELETE() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    // Block if this user is the last OWNER
-    if (ws.member.role === 'OWNER') {
-      const ownerCount = await prisma.workspaceMember.count({
-        where: { workspaceId: ws.workspaceId, role: 'OWNER' },
-      })
-      if (ownerCount <= 1) {
-        return NextResponse.json(
-          {
-            error:
-              'Cannot leave — you are the last admin. Transfer admin to someone else first.',
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    await prisma.workspaceMember.delete({
-      where: { id: ws.member.id },
-    })
+    await memberService.leaveWorkspace(
+      ws.member.id,
+      ws.member.role,
+      ws.workspaceId
+    )
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('DELETE /api/workspaces/members/me error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

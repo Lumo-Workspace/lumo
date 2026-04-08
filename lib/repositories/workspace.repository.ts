@@ -66,6 +66,14 @@ export const workspaceRepository = {
     })
   },
 
+  /** Find workspace name and slug by ID. */
+  async findNameAndSlug(id: string) {
+    return prisma.workspace.findUnique({
+      where: { id },
+      select: { name: true, slug: true },
+    })
+  },
+
   /** Update workspace fields. */
   async update(id: string, data: Record<string, unknown>) {
     return prisma.workspace.update({ where: { id }, data })

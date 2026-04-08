@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { getResend } from '@/lib/email/resend'
 import { buildInviteEmail } from '@/lib/email/templates/invite'
 import { inviteExpiresAt } from '@/lib/utils/invite'
+import { inviteService } from '@/lib/services/invite.service'
+import { inviteRepository } from '@/lib/repositories/invite.repository'
 
 export async function POST(
   _request: NextRequest,
@@ -20,35 +21,11 @@ export async function POST(
 
     const { token } = await params
 
-    const invite = await prisma.workspaceInvite.findUnique({
-      where: { token },
-      select: {
-        id: true,
-        workspaceId: true,
-        status: true,
-        email: true,
-        inviterName: true,
-        workspace: { select: { name: true, slug: true } },
-      },
-    })
-
-    if (!invite || invite.workspaceId !== ws.workspaceId) {
-      return NextResponse.json({ error: 'Invite not found' }, { status: 404 })
-    }
-
-    if (invite.status !== 'PENDING') {
-      return NextResponse.json(
-        { error: 'Only PENDING invites can be resent' },
-        { status: 400 }
-      )
-    }
+    const invite = await inviteService.resendInvite(token, ws.workspaceId)
 
     // Reset expiry
     const expiresAt = inviteExpiresAt()
-    await prisma.workspaceInvite.update({
-      where: { id: invite.id },
-      data: { expiresAt },
-    })
+    await inviteRepository.resetExpiry(invite.id, expiresAt)
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
     const inviteUrl = `${appUrl}/invite/${token}`
@@ -75,6 +52,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('POST /api/invites/[token]/resend error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

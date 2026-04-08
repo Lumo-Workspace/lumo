@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { WorkspaceRole } from '@prisma/client'
 
 // ── Member Repository ──────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ export const memberRepository = {
   },
 
   /** Update a member's role. */
-  async updateRole(memberId: string, role: string) {
+  async updateRole(memberId: string, role: WorkspaceRole) {
     return prisma.workspaceMember.update({
       where: { id: memberId },
       data: { role },

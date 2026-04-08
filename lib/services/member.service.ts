@@ -1,4 +1,5 @@
 import { memberRepository } from '@/lib/repositories/member.repository'
+import type { WorkspaceRole } from '@prisma/client'
 
 // ── Member Service ─────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ export const memberService = {
   /** Update a member's role. Only OWNER callers can do this. */
   async updateMemberRole(
     memberId: string,
-    newRole: string,
+    newRole: WorkspaceRole,
     callerMemberId: string,
     callerRole: string,
     callerWorkspaceId: string

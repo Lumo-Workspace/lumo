@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { InviteStatus } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ export const inviteRepository = {
   /** Update invite status (e.g. REVOKED, ACCEPTED). */
   async updateStatus(
     id: string,
-    status: string,
+    status: InviteStatus,
     extra?: { acceptedAt?: Date }
   ) {
     return prisma.workspaceInvite.update({
