@@ -15,16 +15,28 @@ interface UseSummaryReturn<T> {
   historyLoading: boolean
 }
 
+function isValidSummary(v: unknown): boolean {
+  return (
+    v != null &&
+    typeof v === 'object' &&
+    'generatedAt' in v &&
+    'tldr' in v &&
+    typeof (v as Record<string, unknown>).generatedAt === 'string' &&
+    !isNaN(Date.parse((v as Record<string, unknown>).generatedAt as string))
+  )
+}
+
 export function useProjectSummary(
   projectId: string
 ): UseSummaryReturn<ApiProjectSummary> {
   const cacheKey = CACHE_KEY.projectSummary(projectId)
 
-  const [summary, setSummary] = useState<ApiProjectSummary | null>(() =>
-    readCache<ApiProjectSummary>(cacheKey)
-  )
+  const [summary, setSummary] = useState<ApiProjectSummary | null>(() => {
+    const cached = readCache<ApiProjectSummary>(cacheKey)
+    return isValidSummary(cached) ? cached : null
+  })
   const [history, setHistory] = useState<ApiProjectSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -67,11 +79,12 @@ export function useProjectSummary(
 export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {
   const cacheKey = CACHE_KEY.workspaceSummary
 
-  const [summary, setSummary] = useState<ApiWorkspaceSummary | null>(() =>
-    readCache<ApiWorkspaceSummary>(cacheKey)
-  )
+  const [summary, setSummary] = useState<ApiWorkspaceSummary | null>(() => {
+    const cached = readCache<ApiWorkspaceSummary>(cacheKey)
+    return isValidSummary(cached) ? cached : null
+  })
   const [history, setHistory] = useState<ApiWorkspaceSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -82,9 +95,12 @@ export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {
       .then(async res => {
         if (res.ok) {
           const data = await res.json()
-          const fetched: ApiWorkspaceSummary = data.summary
+          const candidate = data.summary ?? data.summaries?.[0]
+          const fetched = isValidSummary(candidate)
+            ? (candidate as ApiWorkspaceSummary)
+            : null
           setSummary(fetched)
-          writeCache(cacheKey, fetched)
+          if (fetched) writeCache(cacheKey, fetched)
         } else {
           setError('Failed to load summary')
         }
