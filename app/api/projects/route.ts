@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createProjectSchema } from '@/lib/validation/schemas'
-import { getDefaultTeam } from '@/lib/team'
+import { projectService } from '@/lib/services'
 
 /**
  * GET /api/projects
@@ -19,39 +18,13 @@ export async function GET() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    const projects = await prisma.project.findMany({
-      where: {
-        workspaceId: ws.workspaceId,
-        OR: [
-          { isIdea: false },
-          { isIdea: true, createdByMemberId: ws.member.id },
-        ],
-      },
-      include: {
-        _count: { select: { tasks: true } },
-        // Count in-progress tasks without an extra query
-        tasks: {
-          where: { status: 'IN_PROGRESS' },
-          select: { id: true },
-        },
-        repositories: {
-          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
+    const projects = await projectService.listProjects(
+      ws.workspaceId,
+      ws.member.id
+    )
 
-    // defaultReviewerId is already in the project rows — no extra query needed
-
-    // Shape response: replace raw tasks array with inProgressCount
-    const shaped = projects.map(({ tasks, ...p }) => ({
-      ...p,
-      inProgressCount: tasks.length,
-    }))
-
-    return NextResponse.json({ projects: shaped })
-  } catch (error) {
-    console.error('GET /api/projects error:', error)
+    return NextResponse.json({ projects })
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -75,37 +48,14 @@ export async function POST(request: NextRequest) {
     const parsed = createProjectSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const defaultTeam = await getDefaultTeam(ws.workspaceId)
+    const project = await projectService.createProject(
+      ws.workspaceId,
+      ws.member.id,
+      parsed.data
+    )
 
-    const result = await prisma.$transaction(async tx => {
-      const project = await tx.project.create({
-        data: {
-          workspaceId: ws.workspaceId,
-          teamId: defaultTeam!.id,
-          createdByMemberId: ws.member.id,
-          name: parsed.data.name,
-          description: parsed.data.description ?? null,
-          isIdea: parsed.data.isIdea,
-        },
-      })
-
-      // Create default Document view for every new project
-      await tx.view.create({
-        data: {
-          workspaceId: ws.workspaceId,
-          projectId: project.id,
-          name: 'Document',
-          type: 'DOCUMENT',
-          isDefault: true,
-        },
-      })
-
-      return project
-    })
-
-    return NextResponse.json({ project: result }, { status: 201 })
-  } catch (error) {
-    console.error('POST /api/projects error:', error)
+    return NextResponse.json({ project }, { status: 201 })
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

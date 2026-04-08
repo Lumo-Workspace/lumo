@@ -5,10 +5,10 @@ import { getDefaultTeam } from '@/lib/team'
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface UpdateProjectInput {
-  name?: string
-  description?: string | null
-  isIdea?: boolean
-  defaultReviewerId?: string | null
+  name?: string | undefined
+  description?: string | null | undefined
+  isIdea?: boolean | undefined
+  defaultReviewerId?: string | null | undefined
 }
 
 // ── Project Service ─────────────────────────────────────────────────────────
@@ -45,7 +45,11 @@ export const projectService = {
   async createProject(
     workspaceId: string,
     memberId: string,
-    data: { name: string; description?: string; isIdea?: boolean }
+    data: {
+      name: string
+      description?: string | undefined
+      isIdea?: boolean | undefined
+    }
   ) {
     const defaultTeam = await getDefaultTeam(workspaceId)
 
