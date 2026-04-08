@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import type { ApiDraft } from '../types'
@@ -36,17 +36,12 @@ export function useDrafts(): UseDraftsReturn {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch(
+      const data = await apiFetch<{ drafts?: ApiDraft[] }>(
         `${API.drafts.list}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`
       )
-      if (res.ok) {
-        const data = await res.json()
-        const serverDrafts: ApiDraft[] = data.drafts ?? []
-        setDrafts(serverDrafts)
-        writeCache(CACHE_KEY.drafts, serverDrafts)
-      } else {
-        setError('Failed to load drafts')
-      }
+      const serverDrafts: ApiDraft[] = data.drafts ?? []
+      setDrafts(serverDrafts)
+      writeCache(CACHE_KEY.drafts, serverDrafts)
     } catch {
       setError('Failed to load drafts')
     } finally {
@@ -79,24 +74,24 @@ export function useDrafts(): UseDraftsReturn {
       })
 
       // Then sync to server
-      const res = await apiFetch(API.drafts.list, {
-        method: 'POST',
-        body: { id, workspaceUrl, type, data },
-      })
-      if (!res.ok) {
+      let result: { draft: ApiDraft }
+      try {
+        result = await apiFetch<{ draft: ApiDraft }>(API.drafts.list, {
+          method: 'POST',
+          body: { id, workspaceUrl, type, data },
+        })
+      } catch (err) {
         // Rollback optimistic update
         setDrafts(prev => {
           const rolled = prev.filter(d => d.id !== optimisticDraft.id)
           writeCache(CACHE_KEY.drafts, rolled)
           return rolled
         })
-        const err = await res.json().catch(() => ({}))
         throw new Error(
-          (err as { error?: string }).error ?? 'Failed to save draft'
+          err instanceof Error ? err.message : 'Failed to save draft'
         )
       }
 
-      const result = await res.json()
       const serverDraft: ApiDraft = result.draft
 
       // Replace optimistic draft with server version (real id, timestamps)
@@ -126,21 +121,10 @@ export function useDrafts(): UseDraftsReturn {
       })
 
       try {
-        const res = await apiFetch(
+        await apiFetch<void>(
           `${API.drafts.byId(id)}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
           { method: 'DELETE' }
         )
-        if (!res.ok) {
-          // Rollback: re-add draft
-          if (removed) {
-            setDrafts(prev => {
-              const next = [removed!, ...prev]
-              writeCache(CACHE_KEY.drafts, next)
-              return next
-            })
-          }
-          return false
-        }
         return true
       } catch {
         // Rollback on network error

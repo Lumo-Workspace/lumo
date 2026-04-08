@@ -503,7 +503,6 @@ export function isPublicEmailDomain(domain: string): boolean {
 }
 
 // 导出所有工具函数
-export * from './api'
 export * from './validation'
 export * from './dom'
 export * from './performance'

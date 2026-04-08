@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { API } from '../constants'
-import { apiFetch } from '../utils'
+import { apiFetch, ApiClientError } from '@/lib/api-client'
 import {
   ALL_SLACK_EVENTS,
   SLACK_EVENT_LABELS,
@@ -81,26 +81,29 @@ export function ProjectSlackDialog({
     if (!isOpen) return
     setLoadState({ phase: 'loading' })
     try {
-      const [channelRes, availableRes] = await Promise.all([
-        fetch(API.slack.channels(workspaceUrl, projectId)),
-        fetch(API.slack.availableChannels(workspaceUrl)),
-      ])
-      // If available-channels returns 404, Slack is not connected
-      if (availableRes.status === 404) {
-        setLoadState({
-          phase: 'ready',
-          savedChannel: null,
-          availableChannels: [],
-        })
-        setEnabled(false)
-        return
-      }
-      if (!channelRes.ok || !availableRes.ok) throw new Error()
-      const channelData = (await channelRes.json()) as {
-        channel: SavedChannel | null
-      }
-      const availableData = (await availableRes.json()) as {
-        channels: AvailableChannel[]
+      let channelData: { channel: SavedChannel | null }
+      let availableData: { channels: AvailableChannel[] }
+      try {
+        ;[channelData, availableData] = await Promise.all([
+          apiFetch<{ channel: SavedChannel | null }>(
+            API.slack.channels(workspaceUrl, projectId)
+          ),
+          apiFetch<{ channels: AvailableChannel[] }>(
+            API.slack.availableChannels(workspaceUrl)
+          ),
+        ])
+      } catch (err) {
+        // If available-channels returns 404, Slack is not connected
+        if (err instanceof ApiClientError && err.status === 404) {
+          setLoadState({
+            phase: 'ready',
+            savedChannel: null,
+            availableChannels: [],
+          })
+          setEnabled(false)
+          return
+        }
+        throw err
       }
       const saved = channelData.channel
 
@@ -179,39 +182,36 @@ export function ProjectSlackDialog({
     try {
       if (!enabled && savedChannel) {
         // Toggle OFF → DELETE
-        const res = await fetch(API.slack.channelById(savedChannel.id), {
+        await apiFetch<void>(API.slack.channelById(savedChannel.id), {
           method: 'DELETE',
         })
-        if (!res.ok) throw new Error('Failed to remove channel')
       } else if (enabled && !savedChannel) {
         // New config → POST
-        const res = await apiFetch(
-          `/api/slack/channels?workspaceUrl=${workspaceUrl}`,
-          {
-            method: 'POST',
-            body: {
-              channelId: selectedChannelId,
-              channelName: selectedChannelName,
-              events: selectedEvents,
-              projectId,
-            },
+        try {
+          await apiFetch<void>(
+            `/api/slack/channels?workspaceUrl=${workspaceUrl}`,
+            {
+              method: 'POST',
+              body: {
+                channelId: selectedChannelId,
+                channelName: selectedChannelName,
+                events: selectedEvents,
+                projectId,
+              },
+            }
+          )
+        } catch (err) {
+          if (err instanceof ApiClientError && err.status === 409) {
+            // Concurrent POST — re-fetch and switch to PATCH path
+            await load()
+            toast.info(intl.formatMessage({ id: 'slack.configRefreshed' }))
+            return
           }
-        )
-        if (res.status === 409) {
-          // Concurrent POST — re-fetch and switch to PATCH path
-          await load()
-          toast.info(intl.formatMessage({ id: 'slack.configRefreshed' }))
-          return
-        }
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string
-          }
-          throw new Error(data.error ?? 'Failed to save')
+          throw err
         }
       } else if (enabled && savedChannel) {
         // Update → PATCH
-        const res = await apiFetch(API.slack.channelById(savedChannel.id), {
+        await apiFetch<void>(API.slack.channelById(savedChannel.id), {
           method: 'PATCH',
           body: {
             channelId: selectedChannelId,
@@ -219,12 +219,6 @@ export function ProjectSlackDialog({
             events: selectedEvents,
           },
         })
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string
-          }
-          throw new Error(data.error ?? 'Failed to save')
-        }
       }
       toast.success(intl.formatMessage({ id: 'slack.notificationsUpdated' }))
       onClose()
@@ -241,18 +235,12 @@ export function ProjectSlackDialog({
     setCreating(true)
     setCreateError(null)
     try {
-      const res = await apiFetch(API.slack.createChannel(workspaceUrl), {
+      const data = await apiFetch<{
+        channel?: AvailableChannel
+      }>(API.slack.createChannel(workspaceUrl), {
         method: 'POST',
         body: { name },
       })
-      const data = (await res.json()) as {
-        channel?: AvailableChannel
-        error?: string
-      }
-      if (!res.ok) {
-        setCreateError(data.error ?? 'Failed to create channel')
-        return
-      }
       if (!data.channel) {
         setCreateError('Unexpected response from server')
         return
@@ -281,8 +269,12 @@ export function ProjectSlackDialog({
           { name: name.toLowerCase() }
         )
       )
-    } catch {
-      setCreateError('Something went wrong. Please try again.')
+    } catch (err) {
+      setCreateError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Something went wrong. Please try again.'
+      )
     } finally {
       setCreating(false)
     }

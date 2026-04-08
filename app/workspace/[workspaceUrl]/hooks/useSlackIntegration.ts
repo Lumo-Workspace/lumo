@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { API } from '../constants'
+import { apiFetch } from '@/lib/api-client'
 
 interface SlackStatus {
   connected: boolean
@@ -33,8 +34,10 @@ export function useSlackIntegration(): UseSlackIntegrationReturn {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(API.slack.integration(workspaceUrl))
-      if (res.ok) setStatus(await res.json())
+      const data = await apiFetch<SlackStatus>(
+        API.slack.integration(workspaceUrl)
+      )
+      setStatus(data)
     } catch {
       /* ignore */
     } finally {
@@ -66,10 +69,9 @@ export function useSlackIntegration(): UseSlackIntegrationReturn {
   const handleDisconnect = async () => {
     setDisconnecting(true)
     try {
-      const res = await fetch(API.slack.integration(workspaceUrl), {
+      await apiFetch<void>(API.slack.integration(workspaceUrl), {
         method: 'DELETE',
       })
-      if (!res.ok) throw new Error()
       setStatus({ connected: false })
       toast.success(intl.formatMessage({ id: 'slack.disconnectSuccess' }))
     } catch {

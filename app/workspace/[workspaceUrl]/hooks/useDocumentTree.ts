@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { TreeNode } from '../types'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
+import { apiFetch } from '@/lib/api-client'
 
 function readExpandedIds(): Set<string> {
   try {
@@ -50,34 +51,38 @@ export function useDocumentTree(currentDocId: string | null) {
     fetchedRef.current = true
 
     const params = currentDocId ? `?expandedDocId=${currentDocId}` : ''
-    fetch(`${API.documents.tree}${params}`)
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (data?.roots) {
-          setRoots(data.roots)
-          cacheTree(data.roots)
+    ;(async () => {
+      try {
+        const data = await apiFetch<{ roots: TreeNode[] }>(
+          `${API.documents.tree}${params}`
+        )
+        setRoots(data.roots)
+        cacheTree(data.roots)
 
-          // Auto-expand the path to current doc
-          if (currentDocId) {
-            setExpandedIds(prev => {
-              const next = new Set(prev)
-              function findPath(nodes: TreeNode[]): boolean {
-                for (const node of nodes) {
-                  if (node.id === currentDocId) return true
-                  if (node.children && findPath(node.children)) {
-                    next.add(node.id)
-                    return true
-                  }
+        // Auto-expand the path to current doc
+        if (currentDocId) {
+          setExpandedIds(prev => {
+            const next = new Set(prev)
+            function findPath(nodes: TreeNode[]): boolean {
+              for (const node of nodes) {
+                if (node.id === currentDocId) return true
+                if (node.children && findPath(node.children)) {
+                  next.add(node.id)
+                  return true
                 }
-                return false
               }
-              findPath(data.roots)
-              return next
-            })
-          }
+              return false
+            }
+            findPath(data.roots)
+            return next
+          })
         }
-      })
-      .finally(() => setLoading(false))
+      } catch {
+        // Non-critical — tree keeps cached data
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [currentDocId, cacheTree])
 
   // Toggle expand/collapse
@@ -102,9 +107,16 @@ export function useDocumentTree(currentDocId: string | null) {
       )
 
       try {
-        const res = await fetch(`${API.documents.list}?parentId=${nodeId}`)
-        if (!res.ok) return
-        const data = await res.json()
+        const data = await apiFetch<{
+          documents: {
+            id: string
+            title: string
+            emoji: string | null
+            parentId: string | null
+            sortOrder: number
+            _count?: { children: number }
+          }[]
+        }>(`${API.documents.list}?parentId=${nodeId}`)
         const children: TreeNode[] = (data.documents ?? []).map(
           (d: {
             id: string
@@ -301,13 +313,15 @@ export function useDocumentTree(currentDocId: string | null) {
 
   // Refresh tree from server
   const refresh = useCallback(async () => {
-    const params = currentDocId ? `?expandedDocId=${currentDocId}` : ''
-    const res = await fetch(`${API.documents.tree}${params}`)
-    if (!res.ok) return
-    const data = await res.json()
-    if (data?.roots) {
+    try {
+      const params = currentDocId ? `?expandedDocId=${currentDocId}` : ''
+      const data = await apiFetch<{ roots: TreeNode[] }>(
+        `${API.documents.tree}${params}`
+      )
       setRoots(data.roots)
       cacheTree(data.roots)
+    } catch {
+      // Non-critical — tree keeps current data
     }
   }, [currentDocId, cacheTree])
 

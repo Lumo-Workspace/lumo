@@ -5,7 +5,7 @@ import { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { API_STATUS_LABEL } from '../utils'
 import { API } from '../constants'
-import { apiFetch } from '../utils'
+import { apiFetch, tasksClient } from '@/lib/api-client'
 
 const API_STATUSES = Object.keys(API_STATUS_LABEL)
 
@@ -122,7 +122,7 @@ export function useBoardDrag<
         )
 
         try {
-          const res = await apiFetch(API.views.taskOrders(viewId), {
+          await apiFetch<void>(API.views.taskOrders(viewId), {
             method: 'PATCH',
             body: {
               taskId: id,
@@ -130,7 +130,6 @@ export function useBoardDrag<
               order: newOrder,
             },
           })
-          if (!res.ok) throw new Error('Failed to update order')
         } catch {
           setTasks(prevTasks)
           toast.error('Failed to reorder task')
@@ -178,42 +177,27 @@ export function useBoardDrag<
         )
 
         try {
-          const requests: Promise<Response>[] = [
-            fetch(API.tasks.byId(id), {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: newStatus }),
-            }),
+          const requests: Promise<unknown>[] = [
+            tasksClient.update(id, { status: newStatus }),
           ]
 
           if (viewId) {
             requests.push(
-              fetch(API.views.taskOrders(viewId), {
+              apiFetch<void>(API.views.taskOrders(viewId), {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+                body: {
                   taskId: id,
                   groupKey: newStatus,
                   order: newOrder,
-                }),
+                },
               })
             )
           }
 
-          const results = await Promise.all(requests)
-          if (!results[0]?.ok) {
-            const errText = await results[0]?.text()
-            console.error(
-              '[useBoardDrag] PATCH failed:',
-              results[0]?.status,
-              errText
-            )
-            throw new Error('Failed to update task')
-          }
+          await Promise.all(requests)
 
           onStatusChanged?.(id, originalStatus, newStatus)
-        } catch (err) {
-          console.error('[useBoardDrag] cross-column error, rolling back:', err)
+        } catch {
           // Rollback both status and viewOrder
           setTasks(
             prevTasks.map(t =>

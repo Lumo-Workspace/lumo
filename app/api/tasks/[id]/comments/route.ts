@@ -9,6 +9,7 @@ import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
+import { commentService } from '@/lib/services'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -36,11 +37,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const comments = await prisma.comment.findMany({
-      where: { taskId: id, parentId: null },
-      include: { replies: { orderBy: { createdAt: 'asc' } } },
-      orderBy: { createdAt: 'asc' },
-    })
+    const comments = await commentService.getComments(id)
 
     return NextResponse.json({ comments })
   } catch (error) {
@@ -100,33 +97,12 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const { body: commentBody, parentId, quotedCommentId } = parsed.data
 
-    // Validate parentId — must be a top-level comment on this task
-    if (parentId) {
-      const parent = await prisma.comment.findUnique({
-        where: { id: parentId },
-      })
-      if (!parent || parent.taskId !== id) {
-        return NextResponse.json(
-          { error: 'Parent comment not found' },
-          { status: 404 }
-        )
-      }
-      if (parent.parentId !== null) {
-        return NextResponse.json(
-          { error: 'Cannot reply to a reply' },
-          { status: 400 }
-        )
-      }
-    }
-
-    const comment = await prisma.comment.create({
-      data: {
-        taskId: id,
-        authorActorId,
-        body: commentBody,
-        parentId: parentId ?? null,
-        quotedCommentId: quotedCommentId ?? null,
-      },
+    const comment = await commentService.createComment({
+      taskId: id,
+      authorActorId,
+      body: commentBody,
+      parentId: parentId ?? null,
+      quotedCommentId: quotedCommentId ?? null,
     })
 
     // Push real-time comment event to task viewers
@@ -135,7 +111,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     )
 
     // Handle @agent mention — delegate to orchestrator
-    if (commentBody.includes('data-id="__agent__"')) {
+    if (commentService.hasAgentMention(commentBody)) {
       const { handleAgentComment } = await import('@/lib/agent/comment-handler')
       waitUntil(
         handleAgentComment({
@@ -150,20 +126,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     // Fire-and-forget: TASK_MENTIONED notifications for @mention chips
-    const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
-    const mentionedIds: string[] = []
-    let match: RegExpExecArray | null
-    while ((match = mentionRegex.exec(commentBody)) !== null) {
-      const clerkId = match[1]
-      if (
-        clerkId &&
-        clerkId !== userId &&
-        clerkId !== '__agent__' &&
-        !mentionedIds.includes(clerkId)
-      ) {
-        mentionedIds.push(clerkId)
-      }
-    }
+    const mentionedIds = commentService.parseMentionedClerkIds(
+      commentBody,
+      userId
+    )
 
     if (mentionedIds.length > 0) {
       const workspaceId = task.project.workspaceId
@@ -252,6 +218,12 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ comment }, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && 'status' in error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
+    }
     console.error('POST /api/tasks/[id]/comments error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

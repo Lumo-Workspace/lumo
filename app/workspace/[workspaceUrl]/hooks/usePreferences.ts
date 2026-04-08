@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from 'next-themes'
-import { apiFetch } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 import { CACHE_KEY } from '../constants'
 import { toast } from 'sonner'
 
@@ -92,13 +92,13 @@ export function usePreferences() {
 
     async function fetchPrefs() {
       try {
-        const res = await apiFetch('/api/users/preferences')
-        if (!res.ok) return
-        const data = (await res.json()) as Preferences
+        const data = await apiFetch<Preferences>('/api/users/preferences')
         if (cancelled) return
         setPrefs(data)
         saveCache(data)
         setTheme(data.theme)
+      } catch {
+        // Failed to load preferences — keep defaults
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -151,14 +151,10 @@ export function usePreferences() {
       saveCache(next)
 
       try {
-        const res = await apiFetch('/api/users/preferences', {
+        await apiFetch<void>('/api/users/preferences', {
           method: 'PATCH',
           body: patch,
         })
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error((data as { error?: string }).error ?? 'Save failed')
-        }
       } catch (err) {
         // Revert on failure
         setPrefs(prev)

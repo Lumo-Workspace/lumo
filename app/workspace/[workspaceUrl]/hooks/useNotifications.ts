@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiNotification } from '../types'
 import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
-import { apiFetch } from '../utils'
+import { CACHE_KEY } from '../constants'
+import { notificationsClient } from '@/lib/api-client'
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
@@ -33,12 +33,10 @@ export function useNotifications() {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const res = await fetch(API.notifications.list)
-      if (!res.ok) throw new Error('Failed to load notifications')
-      const data = (await res.json()) as {
+      const data = await notificationsClient.list<{
         notifications: ApiNotification[]
         unreadCount: number
-      }
+      }>()
       setNotifications(data.notifications)
       setUnreadCount(data.unreadCount)
       writeCache(CACHE_KEY.notifications, data)
@@ -58,10 +56,7 @@ export function useNotifications() {
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
       try {
-        const res = await fetch(API.notifications.markOne(id), {
-          method: 'PATCH',
-        })
-        if (!res.ok) throw new Error()
+        await notificationsClient.markOne(id)
       } catch {
         fetchNotifications()
       }
@@ -76,11 +71,7 @@ export function useNotifications() {
       )
       setUnreadCount(prev => prev + 1)
       try {
-        const res = await apiFetch(API.notifications.markOne(id), {
-          method: 'PATCH',
-          body: { read: false },
-        })
-        if (!res.ok) throw new Error()
+        await notificationsClient.markOne(id, { read: false })
       } catch {
         fetchNotifications()
       }
@@ -96,10 +87,7 @@ export function useNotifications() {
       setNotifications(prev => prev.filter(n => n.id !== id))
       if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
       try {
-        const res = await fetch(API.notifications.markOne(id), {
-          method: 'DELETE',
-        })
-        if (!res.ok) throw new Error()
+        await notificationsClient.deleteOne(id)
       } catch {
         setNotifications(snapshot)
         setUnreadCount(snapshotCount)
@@ -123,11 +111,10 @@ export function useNotifications() {
         )
       )
       try {
-        const res = await apiFetch(API.notifications.respond(id), {
-          method: 'POST',
-          body: action === 'reply' ? { action, reply } : { action },
-        })
-        if (!res.ok) throw new Error()
+        await notificationsClient.respond(
+          id,
+          action === 'reply' ? { action, reply } : { action }
+        )
         // Refresh to get up-to-date server state
         await fetchNotifications()
       } catch {
@@ -144,10 +131,7 @@ export function useNotifications() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     setUnreadCount(0)
     try {
-      const res = await fetch(API.notifications.markAllRead, {
-        method: 'PATCH',
-      })
-      if (!res.ok) throw new Error()
+      await notificationsClient.markAllRead()
     } catch {
       setNotifications(snapshot)
       setUnreadCount(snapshotCount)

@@ -63,13 +63,35 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - Never pass Hooks as values or props — always call them directly inline
 - Never dynamically create or wrap Hooks at runtime; define static versions upfront
 
+## Layered Architecture
+
+数据流: `Component → API Client → API Route → Service → Repository → Prisma/DB`
+
+| 层             | 位置                | 职责                                            | 禁止                           |
+| -------------- | ------------------- | ----------------------------------------------- | ------------------------------ |
+| **Repository** | `lib/repositories/` | 封装 Prisma 查询，返回领域模型                  | 不含业务逻辑、不做权限校验     |
+| **Service**    | `lib/services/`     | 业务逻辑编排：状态机、校验、通知触发            | 不直接访问 Prisma，不处理 HTTP |
+| **API Route**  | `app/api/`          | 参数解析、Zod 校验、调用 Service、返回 Response | 不含业务逻辑，不含 Prisma 查询 |
+| **API Client** | `lib/api-client/`   | 封装 fetch()，统一错误处理，类型安全            | 不含 UI 逻辑                   |
+| **Component**  | `components/`       | 渲染 UI、调用 API Client、管理 UI 状态          | 不直接 fetch，不含业务逻辑     |
+
+- API routes should be thin (~50-100 lines): auth check → validate input → call service → return response
+- Services throw errors with `Object.assign(new Error(msg), { status })` pattern
+- Repositories return Prisma query results, use `select` to fetch only needed fields
+- New domain logic goes in `lib/services/`, never in API routes or components
+
 ## Project Structure
 
 - app/ → Next.js App Router pages and API routes
 - components/ → Shared UI components (shadcn/ui based)
 - lib/ → Server-side utilities, auth helpers, DB queries
+  - lib/repositories/ → Data access layer (Prisma queries)
+  - lib/services/ → Business logic layer
+  - lib/api-client/ → Frontend API client
+  - lib/validation/ → Zod schemas (per domain)
 - prisma/ → Schema and migrations
 - types/ → Shared TypeScript types
+- shared/ → Cross-project types, errors, constants (used by main app + agent-server)
 
 ## Forbidden
 

@@ -1,0 +1,95 @@
+/**
+ * @jest-environment node
+ */
+
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    project: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  },
+}))
+
+import { prisma } from '@/lib/db/prisma'
+import { projectRepository } from '@/lib/repositories/project.repository'
+
+const mockFindMany = prisma.project.findMany as jest.Mock
+const mockFindUnique = prisma.project.findUnique as jest.Mock
+
+beforeEach(() => jest.clearAllMocks())
+
+// ── findByWorkspace ────────────────────────────────────────────────────────
+
+describe('findByWorkspace', () => {
+  it('returns filtered projects for workspace and member', async () => {
+    const mockProjects = [
+      {
+        id: 'p1',
+        name: 'Public Project',
+        isIdea: false,
+        _count: { tasks: 5 },
+        tasks: [{ id: 't1' }],
+        repositories: [],
+      },
+      {
+        id: 'p2',
+        name: 'My Idea',
+        isIdea: true,
+        createdByMemberId: 'member-1',
+        _count: { tasks: 2 },
+        tasks: [],
+        repositories: [],
+      },
+    ]
+    mockFindMany.mockResolvedValue(mockProjects)
+
+    const result = await projectRepository.findByWorkspace('ws-1', 'member-1')
+
+    expect(result).toEqual(mockProjects)
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          workspaceId: 'ws-1',
+          OR: [
+            { isIdea: false },
+            { isIdea: true, createdByMemberId: 'member-1' },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+    )
+  })
+})
+
+// ── findById ───────────────────────────────────────────────────────────────
+
+describe('findById', () => {
+  it('returns project with task and view counts', async () => {
+    const mockProject = {
+      id: 'p1',
+      name: 'Test Project',
+      _count: { tasks: 3, views: 2 },
+    }
+    mockFindUnique.mockResolvedValue(mockProject)
+
+    const result = await projectRepository.findById('p1')
+
+    expect(result).toEqual(mockProject)
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      include: { _count: { select: { tasks: true, views: true } } },
+    })
+  })
+
+  it('returns null when project not found', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    const result = await projectRepository.findById('nonexistent')
+
+    expect(result).toBeNull()
+  })
+})

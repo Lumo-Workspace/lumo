@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { generateBranchName } from '@/lib/github/branch'
 import { API } from '../constants'
-import { apiFetch } from '../utils'
+import { apiFetch, tasksClient, ApiClientError } from '@/lib/api-client'
 import type { ApiTaskBranch } from '../types'
 
 interface CreateBranchDialogProps {
@@ -73,9 +73,11 @@ export function CreateBranchDialog({
     setBranchName(generateBranchName(identifier, title))
     setState({ phase: 'loading_repos' })
 
-    fetch(`${API.github.authorizedRepos}?workspaceUrl=${workspaceUrl}`)
-      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((data: { repos: GhRepo[] }) => {
+    const loadRepos = async () => {
+      try {
+        const data = await apiFetch<{ repos: GhRepo[] }>(
+          `${API.github.authorizedRepos}?workspaceUrl=${workspaceUrl}`
+        )
         const repos = data.repos ?? []
         if (repos.length === 0) {
           setState({ phase: 'no_repos' })
@@ -88,8 +90,11 @@ export function CreateBranchDialog({
         setSelectedRepo(preselect)
         reposRef.current = repos
         setState({ phase: 'ready', repos })
-      })
-      .catch(() => setState({ phase: 'no_repos' }))
+      } catch {
+        setState({ phase: 'no_repos' })
+      }
+    }
+    loadRepos()
   }, [isOpen, identifier, title, defaultRepo, workspaceUrl])
 
   const handleCreate = async () => {
@@ -97,24 +102,21 @@ export function CreateBranchDialog({
     setState({ phase: 'creating' })
 
     try {
-      const res = await apiFetch(API.tasks.branch(taskId), {
-        method: 'POST',
-        body: { repo: selectedRepo, branchName },
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setState({
-          phase: 'error',
-          message: data.error ?? 'Failed to create branch',
-        })
-        return
-      }
+      const data = await tasksClient.createBranch<{
+        branch?: ApiTaskBranch
+        branchName: string
+        url: string
+      }>(taskId, { repo: selectedRepo, branchName })
       if (data.branch) {
-        onBranchCreated?.(data.branch as ApiTaskBranch)
+        onBranchCreated?.(data.branch)
       }
       setState({ phase: 'success', branchName: data.branchName, url: data.url })
-    } catch {
-      setState({ phase: 'error', message: 'Network error. Please try again.' })
+    } catch (err) {
+      const message =
+        err instanceof ApiClientError
+          ? err.message
+          : 'Network error. Please try again.'
+      setState({ phase: 'error', message })
     }
   }
 

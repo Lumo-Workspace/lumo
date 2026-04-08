@@ -24,6 +24,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { cn } from '@/lib/utils'
+import { apiFetch } from '@/lib/api-client'
 import {
   ApiProject,
   ApiRepository,
@@ -31,7 +32,7 @@ import {
   ApiStatus,
   WorkspaceMemberInfo,
 } from '../../types'
-import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../TaskFieldSelects'
+import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../fields'
 import { ProjectSummaryTab } from '../summary/ProjectSummaryTab'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { BoardView } from '../board/BoardView'
@@ -201,8 +202,9 @@ export function ProjectDetailPage({
   useEffect(() => {
     if (!pickerOpen) return
     setReposLoading(true)
-    fetch(`/api/github/repos?workspaceUrl=${workspaceUrl}`)
-      .then(r => r.json())
+    apiFetch<{ repos?: { fullName: string; private: boolean }[] }>(
+      `/api/github/repos?workspaceUrl=${workspaceUrl}`
+    )
       .then(data => {
         if (data.repos) {
           setAvailableRepos(data.repos)
@@ -222,14 +224,14 @@ export function ProjectDetailPage({
       if (linkedFullNames.has(fullName)) return
       setAddingRepo(fullName)
       try {
-        const res = await fetch(`/api/projects/${project.id}/repositories`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fullName }),
-        })
-        const data = await res.json()
-        if (!res.ok) return
-        setRepositories(prev => [...prev, data.repository as ApiRepository])
+        const data = await apiFetch<{ repository: ApiRepository }>(
+          `/api/projects/${project.id}/repositories`,
+          {
+            method: 'POST',
+            body: { fullName },
+          }
+        )
+        setRepositories(prev => [...prev, data.repository])
         setPickerOpen(false)
       } finally {
         setAddingRepo(null)
@@ -242,15 +244,10 @@ export function ProjectDetailPage({
   const handleSetDefault = useCallback(
     async (repoId: string) => {
       try {
-        const res = await fetch(
-          `/api/projects/${project.id}/repositories/${repoId}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ isDefault: true }),
-          }
-        )
-        if (!res.ok) return
+        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
+          method: 'PATCH',
+          body: { isDefault: true },
+        })
         setRepositories(prev =>
           prev.map(r => ({ ...r, isDefault: r.id === repoId }))
         )
@@ -264,11 +261,9 @@ export function ProjectDetailPage({
   const handleRemoveRepo = useCallback(
     async (repoId: string) => {
       try {
-        const res = await fetch(
-          `/api/projects/${project.id}/repositories/${repoId}`,
-          { method: 'DELETE' }
-        )
-        if (!res.ok) return
+        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
+          method: 'DELETE',
+        })
         setRepositories(prev => prev.filter(r => r.id !== repoId))
       } catch {
         // ignore

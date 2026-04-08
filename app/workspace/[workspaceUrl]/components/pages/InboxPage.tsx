@@ -23,6 +23,7 @@ import {
   ApiPriority,
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
+import { apiFetch } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -603,11 +604,12 @@ export function InboxPage({
       }
 
       try {
-        const res = await fetch(API.tasks.byId(n.taskId), {
-          signal: controller.signal,
-        })
-        if (!res.ok) return
-        const { task } = (await res.json()) as { task: ApiTask }
+        const { task } = await apiFetch<{ task: ApiTask }>(
+          API.tasks.byId(n.taskId),
+          {
+            signal: controller.signal,
+          }
+        )
         // Ignore stale responses if the user has already moved on
         if (activeNotifIdRef.current !== n.id) return
         setPanelTask(task)

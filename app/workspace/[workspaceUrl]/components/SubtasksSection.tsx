@@ -6,7 +6,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { Sparkles, X, Loader2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { apiFetch, slugifyProjectName } from '../utils'
+import { slugifyProjectName } from '../utils'
+import { apiFetch } from '@/lib/api-client'
 import type { TaskDetail, ApiPriority } from '../types'
 
 interface DraftSubtask {
@@ -46,14 +47,12 @@ export function SubtasksSection({
     setError(null)
     setIsGenerating(true)
     try {
-      const res = await apiFetch(`/api/tasks/${task.id}/decompose`, {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Failed to generate subtasks')
-      }
-      const data = await res.json()
+      const data = await apiFetch<{ subtasks: { title: string }[] }>(
+        `/api/tasks/${task.id}/decompose`,
+        {
+          method: 'POST',
+        }
+      )
       setDrafts(
         data.subtasks.map((s: { title: string }, i: number) => ({
           id: `draft-${i}`,
@@ -82,25 +81,18 @@ export function SubtasksSection({
     setIsCreating(true)
     setError(null)
     try {
-      const res = await apiFetch(
-        `/api/projects/${task.projectId}/tasks/batch`,
-        {
-          method: 'POST',
-          body: {
-            tasks: validDrafts.map(d => ({
-              title: d.title.trim(),
-              status: 'TODO' as const,
-              priority: task.priority as ApiPriority,
-              assigneeActorId: task.assigneeActorId,
-              parentTaskId: task.id,
-            })),
-          },
-        }
-      )
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Failed to create subtasks')
-      }
+      await apiFetch<void>(`/api/projects/${task.projectId}/tasks/batch`, {
+        method: 'POST',
+        body: {
+          tasks: validDrafts.map(d => ({
+            title: d.title.trim(),
+            status: 'TODO' as const,
+            priority: task.priority as ApiPriority,
+            assigneeActorId: task.assigneeActorId,
+            parentTaskId: task.id,
+          })),
+        },
+      })
       setDrafts([])
       onSubtasksCreated()
     } catch (err) {

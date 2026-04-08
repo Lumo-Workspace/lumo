@@ -13,13 +13,19 @@ import {
   WorkspaceMemberInfo,
   Page,
 } from '../../types'
-import { API, CACHE_KEY } from '../../constants'
+import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '../../utils/copyLink'
-import { slugifyProjectName, apiFetch } from '../../utils'
+import { slugifyProjectName } from '../../utils'
+import {
+  apiFetchQuiet,
+  tasksClient,
+  projectsClient,
+  workspacesClient,
+} from '@/lib/api-client'
 import { useCopyState } from '../../hooks/useCopyState'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -135,12 +141,10 @@ export function ProjectDetailStandalonePage({
     try {
       setLoading(true)
       setError(null)
-      const res = await fetch(API.projects.tasks(project.id))
-      if (!res.ok) throw new Error()
-      const data = (await res.json()) as {
+      const data = await projectsClient.listTasks<{
         tasks: ApiTask[]
         kanbanViewId: string | null
-      }
+      }>(project.id)
       setTasks(data.tasks)
       setKanbanViewId(data.kanbanViewId)
       writeCache(CACHE_KEY.projectTasks(project.id), {
@@ -158,9 +162,16 @@ export function ProjectDetailStandalonePage({
   // ── Mount: background fetch (state already seeded from cache in initializers) ──
   useEffect(() => {
     Promise.all([
-      fetch(API.workspaces.members).then(r => (r.ok ? r.json() : null)),
-      fetch(API.projects.tasks(project.id)).then(r => (r.ok ? r.json() : null)),
-      fetch(API.projects.list).then(r => (r.ok ? r.json() : null)),
+      workspacesClient
+        .listMembers<{ members: WorkspaceMemberInfo[] }>()
+        .catch(() => null),
+      projectsClient
+        .listTasks<{
+          tasks: ApiTask[]
+          kanbanViewId: string | null
+        }>(project.id)
+        .catch(() => null),
+      projectsClient.list<{ projects: ApiProject[] }>().catch(() => null),
     ])
       .then(([membersData, tasksData, projectsData]) => {
         if (membersData?.members) {
@@ -182,7 +193,11 @@ export function ProjectDetailStandalonePage({
             (p: ApiProject) => p.id === project.id
           )
           if (fresh?.repositories) {
-            setProject(prev => ({ ...prev, repositories: fresh.repositories }))
+            setProject(prev => {
+              const updated = { ...prev }
+              if (fresh.repositories) updated.repositories = fresh.repositories
+              return updated as ApiProject
+            })
           }
         }
         setLoading(false)
@@ -202,30 +217,33 @@ export function ProjectDetailStandalonePage({
       assigneeId,
       aiSuggestedPriority,
     }: NewTaskFormData) => {
-      const res = await apiFetch(API.projects.tasks(project.id), {
-        method: 'POST',
-        body: {
-          title,
-          description: description?.trim() || undefined,
-          status,
-          priority,
-          assigneeId: assigneeId || undefined,
-        },
-      })
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string }
-        toast.error(
-          err.error ?? intl.formatMessage({ id: 'task.createFailed' })
+      let task: ApiTask
+      try {
+        const data = await projectsClient.createTask<{ task: ApiTask }>(
+          project.id,
+          {
+            title,
+            description: description?.trim() || undefined,
+            status,
+            priority,
+            assigneeId: assigneeId || undefined,
+          }
         )
+        task = data.task
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : intl.formatMessage({ id: 'task.createFailed' })
+        toast.error(message)
         return
       }
-      const { task } = (await res.json()) as { task: ApiTask }
       setTasks(prev => [...prev, task])
       toast.success(intl.formatMessage({ id: 'task.createSuccess' }))
 
       // Record AI priority override if user changed the suggestion
       if (aiSuggestedPriority && aiSuggestedPriority !== priority) {
-        apiFetch('/api/tasks/priority-override', {
+        apiFetchQuiet('/api/tasks/priority-override', {
           method: 'POST',
           body: {
             taskId: task.id,
@@ -235,8 +253,6 @@ export function ProjectDetailStandalonePage({
             taskTitle: title,
             taskDescription: description || undefined,
           },
-        }).catch(() => {
-          // Silent failure — override recording is non-critical
         })
       }
     },
@@ -245,7 +261,7 @@ export function ProjectDetailStandalonePage({
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     setTasks(prev => prev.filter(t => t.id !== taskId))
-    await fetch(API.tasks.byId(taskId), { method: 'DELETE' })
+    await tasksClient.delete(taskId)
   }, [])
 
   const handleTaskStatusChanged = useCallback(
@@ -264,12 +280,9 @@ export function ProjectDetailStandalonePage({
         defaultReviewerId?: string | null
       }
     ) => {
-      const res = await apiFetch(API.projects.byId(id), {
-        method: 'PATCH',
-        body: data,
-      })
-      if (!res.ok) throw new Error('Failed to update project')
-      const { project: updated } = await res.json()
+      const { project: updated } = await projectsClient.update<{
+        project: ApiProject
+      }>(id, data)
       setProject(prev => ({ ...prev, ...updated }))
     },
     []
@@ -277,7 +290,7 @@ export function ProjectDetailStandalonePage({
 
   const handleDeleteProject = useCallback(
     async (id: string) => {
-      await fetch(API.projects.byId(id), { method: 'DELETE' })
+      await projectsClient.delete(id)
       router.push(`/workspace/${workspaceUrl}`)
     },
     [router, workspaceUrl]

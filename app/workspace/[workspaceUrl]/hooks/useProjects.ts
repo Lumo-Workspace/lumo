@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiProject } from '../types'
 import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { projectsClient } from '@/lib/api-client'
 
 export function useProjects() {
   const [projects, setProjects] = useState<ApiProject[]>([])
@@ -23,9 +24,7 @@ export function useProjects() {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const res = await fetch(API.projects.list)
-      if (!res.ok) throw new Error('Failed to load projects')
-      const data = (await res.json()) as { projects: ApiProject[] }
+      const data = await projectsClient.list<{ projects: ApiProject[] }>()
       setProjects(data.projects)
       writeCache(CACHE_KEY.projects, data.projects)
       seeded.current = true

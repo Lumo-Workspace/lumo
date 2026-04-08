@@ -9,8 +9,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
 import { useInvites } from '../../hooks/useInvites'
 import { clearCache } from '../../cache'
-import { API } from '../../constants'
-import { apiFetch } from '../../utils'
+import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -113,15 +112,7 @@ export function MembersPage() {
     )
     setUpdatingRoleId(memberId)
     try {
-      const res = await apiFetch(API.workspaces.memberById(memberId), {
-        method: 'PATCH',
-        body: { role: newRole },
-      })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ?? intl.formatMessage({ id: 'members.roleUpdateFailed' })
-        )
+      await workspacesClient.updateMember(memberId, { role: newRole })
       toast.success(intl.formatMessage({ id: 'members.roleUpdated' }))
     } catch (err) {
       // Rollback
@@ -142,14 +133,7 @@ export function MembersPage() {
   const handleLeave = async () => {
     setLeaving(true)
     try {
-      const res = await fetch(API.workspaces.leaveWorkspace, {
-        method: 'DELETE',
-      })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ?? intl.formatMessage({ id: 'members.leaveFailed' })
-        )
+      await workspacesClient.leaveWorkspace()
       clearCache()
       window.location.href = '/onboarding'
     } catch (err) {

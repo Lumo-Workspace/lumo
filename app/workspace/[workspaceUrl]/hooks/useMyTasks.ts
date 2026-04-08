@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiTask, MyTask } from '../types'
 import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { tasksClient } from '@/lib/api-client'
 
 type NewFormat = { taskIds: string[]; myTasksViewId: string | null }
 type LegacyFull = { tasks: MyTask[]; myTasksViewId: string | null }
@@ -46,12 +47,10 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const res = await fetch(API.tasks.me)
-      if (!res.ok) throw new Error('Failed to load tasks')
-      const data = (await res.json()) as {
+      const data = await tasksClient.listMine<{
         tasks: MyTask[]
         myTasksViewId: string
-      }
+      }>()
       upsertTasks(data.tasks)
       const ids = data.tasks.map(t => t.id)
       setTaskIds(ids)

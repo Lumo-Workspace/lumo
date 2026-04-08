@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ApiDocument } from '../types'
 import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
+import { documentsClient } from '@/lib/api-client'
 
 export function useDocuments() {
   const [documents, setDocuments] = useState<ApiDocument[]>([])
@@ -23,12 +24,9 @@ export function useDocuments() {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
-      const url = visibility
-        ? `${API.documents.list}?visibility=${visibility}`
-        : API.documents.list
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to load documents')
-      const data = (await res.json()) as { documents: ApiDocument[] }
+      const data = await documentsClient.list<{ documents: ApiDocument[] }>(
+        visibility
+      )
       setDocuments(data.documents)
       writeCache(CACHE_KEY.documents, data.documents)
       seeded.current = true

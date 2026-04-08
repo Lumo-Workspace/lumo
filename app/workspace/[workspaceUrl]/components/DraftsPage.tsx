@@ -6,7 +6,7 @@ import { FileEdit, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatTimestamp } from '../utils'
 import type { ApiDraft, ApiProject, ApiPriority } from '../types'
-import { PRIORITY_CONFIG } from './TaskFieldSelects'
+import { PRIORITY_CONFIG } from './fields'
 import { API_STATUS_LABEL } from '../utils'
 
 interface DraftsPageProps {

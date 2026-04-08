@@ -54,8 +54,8 @@ describe('findSimilarTasks', () => {
       maxResults: 3,
     })
     expect(matches.length).toBeGreaterThan(0)
-    expect(matches[0].score).toBeGreaterThanOrEqual(
-      matches[matches.length - 1].score
+    expect(matches[0]!.score).toBeGreaterThanOrEqual(
+      matches[matches.length - 1]!.score
     )
   })
 

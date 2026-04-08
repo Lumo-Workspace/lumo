@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { TreeNode } from '../../types'
 import { cn } from '@/lib/utils'
-import { API } from '../../constants'
+import { documentsClient } from '@/lib/api-client'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -458,11 +458,11 @@ export function GlobalDocTree({
 
     onMoveNode(draggedId, newParentId, sortOrder)
 
-    fetch(`${API.documents.move(draggedId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId: newParentId, sortOrder }),
-    })
+    documentsClient
+      .move(draggedId, { parentId: newParentId, sortOrder })
+      .catch(() => {
+        /* best-effort */
+      })
 
     setDraggedId(null)
     setDropTarget(null)
