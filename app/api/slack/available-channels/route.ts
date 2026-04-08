@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
+import { slackService } from '@/lib/services/slack.service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,10 +16,9 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { accessToken: true },
-    })
+    const integration = await slackService
+      .requireIntegrationWithToken(ws.workspaceId)
+      .catch(() => null)
     if (!integration)
       return NextResponse.json({ error: 'Not connected' }, { status: 404 })
 

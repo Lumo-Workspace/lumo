@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/slack/types'
 import { isPrismaUniqueError, requireWorkspaceByUrl } from '@/lib/api/helpers'
+import { slackService } from '@/lib/services/slack.service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,17 +23,12 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { id: true },
-    })
-    if (!integration)
-      return NextResponse.json({ error: 'Not connected' }, { status: 404 })
-
-    const channel = await prisma.slackChannel.findFirst({
-      where: { integrationId: integration.id, projectId },
-      select: { id: true, channelId: true, channelName: true, events: true },
-    })
+    const channel = await slackService
+      .getChannelForProject(ws.workspaceId, projectId)
+      .catch((err: { status?: number }) => {
+        if (err.status === 404) return null
+        throw err
+      })
 
     return NextResponse.json({ channel: channel ?? null })
   } catch (error) {
@@ -79,50 +74,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
 
-    // Verify project belongs to this workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId: ws.workspaceId },
-    })
-    if (!project)
-      return NextResponse.json({ error: 'Project not found' }, { status: 403 })
-
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { id: true },
-    })
-    if (!integration)
-      return NextResponse.json({ error: 'Not connected' }, { status: 404 })
-
-    // App-level check before DB insert
-    const existing = await prisma.slackChannel.findFirst({
-      where: { integrationId: integration.id, projectId },
-    })
-    if (existing)
-      return NextResponse.json(
-        { error: 'Channel already configured for this project' },
-        { status: 409 }
-      )
-
-    const channel = await prisma.slackChannel.create({
-      data: {
-        integrationId: integration.id,
-        channelId,
-        channelName,
-        events,
-        projectId,
-      },
-      select: {
-        id: true,
-        channelId: true,
-        channelName: true,
-        events: true,
-        projectId: true,
-      },
+    const channel = await slackService.createChannel(ws.workspaceId, {
+      channelId,
+      channelName,
+      projectId,
+      events,
     })
 
     return NextResponse.json({ channel }, { status: 201 })
   } catch (error) {
-    if (isPrismaUniqueError(error)) {
+    const status = (error as { status?: number }).status
+    if (status === 404) {
+      return NextResponse.json({ error: 'Not connected' }, { status: 404 })
+    }
+    if (status === 403) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 403 })
+    }
+    if (status === 409 || isPrismaUniqueError(error)) {
       return NextResponse.json(
         { error: 'Channel already configured for this project' },
         { status: 409 }

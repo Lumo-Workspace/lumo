@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { createRepoWebhook, deleteRepoWebhook } from '@/lib/github/webhooks'
 import { syncRepoPRs } from '@/lib/github/sync'
+import { githubService } from '@/lib/services/github.service'
 
 /**
  * GET /api/github/repos?workspaceUrl={slug}
@@ -23,14 +22,9 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.gitHubIntegration.findUnique({
-      where: {
-        workspaceId_memberId: {
-          workspaceId: ws.workspaceId,
-          memberId: ws.member.id,
-        },
-      },
-    })
+    const integration = await githubService
+      .requireIntegration(ws.workspaceId, ws.member.id)
+      .catch(() => null)
     if (!integration) {
       return NextResponse.json(
         { error: 'GitHub not connected' },
@@ -104,15 +98,9 @@ export async function PATCH(request: NextRequest) {
       ? body.repositories
       : []
 
-    const integration = await prisma.gitHubIntegration.findUnique({
-      where: {
-        workspaceId_memberId: {
-          workspaceId: ws.workspaceId,
-          memberId: ws.member.id,
-        },
-      },
-      include: { webhooks: true },
-    })
+    const integration = await githubService
+      .requireIntegrationWithWebhooks(ws.workspaceId, ws.member.id)
+      .catch(() => null)
     if (!integration) {
       return NextResponse.json(
         { error: 'GitHub not connected' },
@@ -123,14 +111,10 @@ export async function PATCH(request: NextRequest) {
     const token = decrypt(integration.accessToken)
 
     // Generate + persist webhook secret if not yet set
-    let { webhookSecret } = integration
-    if (!webhookSecret) {
-      webhookSecret = randomBytes(32).toString('hex')
-      await prisma.gitHubIntegration.update({
-        where: { id: integration.id },
-        data: { webhookSecret },
-      })
-    }
+    const webhookSecret = await githubService.ensureWebhookSecret(
+      integration.id,
+      integration.webhookSecret
+    )
 
     const oldRepos = integration.repositories
     const addedRepos = repositories.filter(r => !oldRepos.includes(r))
@@ -150,20 +134,7 @@ export async function PATCH(request: NextRequest) {
           webhookUrl,
           webhookSecret
         )
-        await prisma.gitHubWebhook.upsert({
-          where: {
-            integrationId_repo: {
-              integrationId: integration.id,
-              repo: fullName,
-            },
-          },
-          create: {
-            integrationId: integration.id,
-            repo: fullName,
-            githubHookId: hookId,
-          },
-          update: { githubHookId: hookId },
-        })
+        await githubService.upsertWebhook(integration.id, fullName, hookId)
 
         // Backfill PRs that existed before the webhook was registered
         void syncRepoPRs(token, fullName, ws.workspaceId, integration.id).catch(
@@ -184,22 +155,14 @@ export async function PATCH(request: NextRequest) {
       const hook = integration.webhooks.find(h => h.repo === fullName)
       if (hook) {
         await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
-        await prisma.gitHubWebhook.delete({
-          where: {
-            integrationId_repo: {
-              integrationId: integration.id,
-              repo: fullName,
-            },
-          },
-        })
+        await githubService.deleteWebhook(integration.id, fullName)
       }
     }
 
-    const updated = await prisma.gitHubIntegration.update({
-      where: { id: integration.id },
-      data: { repositories },
-      select: { repositories: true },
-    })
+    const updated = await githubService.updateRepositories(
+      integration.id,
+      repositories
+    )
 
     return NextResponse.json({ repositories: updated.repositories })
   } catch (error) {

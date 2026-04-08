@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { verifyGitHubSignature } from '@/lib/github/verify'
 import { handlePullRequest, handleCheckSuite, handlePush } from './handlers'
+import { githubService } from '@/lib/services/github.service'
 
 /**
  * POST /api/webhooks/github
@@ -28,14 +28,7 @@ export async function POST(request: NextRequest) {
   if (!repoFullName) return NextResponse.json({ ok: true })
 
   // Find all integrations that registered a webhook for this repo
-  const webhooks = await prisma.gitHubWebhook.findMany({
-    where: { repo: repoFullName },
-    include: {
-      integration: {
-        select: { id: true, workspaceId: true, webhookSecret: true },
-      },
-    },
-  })
+  const webhooks = await githubService.findWebhooksByRepo(repoFullName)
 
   // Find the one whose secret validates this signature
   const matched = webhooks.find(

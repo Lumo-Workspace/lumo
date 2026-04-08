@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
+import { slackService } from '@/lib/services/slack.service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,13 +16,9 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { slackTeamName: true, slackUserId: true, slackTeamId: true },
-    })
+    const status = await slackService.getIntegrationStatus(ws.workspaceId)
 
-    if (!integration) return NextResponse.json({ connected: false })
-    return NextResponse.json({ connected: true, ...integration })
+    return NextResponse.json(status)
   } catch (error) {
     console.error('GET /api/slack/integration error:', error)
     return NextResponse.json(
@@ -47,22 +43,11 @@ export async function DELETE(request: NextRequest) {
     const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    if (memberResult.role !== 'OWNER') {
-      return NextResponse.json(
-        { error: 'Only workspace owners can disconnect Slack' },
-        { status: 403 }
-      )
-    }
-
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { id: true, accessToken: true },
-    })
-    if (!integration)
-      return NextResponse.json({ error: 'Not connected' }, { status: 404 })
+    const { integrationToken, performDelete } =
+      await slackService.deleteIntegration(ws.workspaceId, memberResult.role)
 
     // Revoke token with Slack (fire-and-forget)
-    const token = decrypt(integration.accessToken)
+    const token = decrypt(integrationToken)
     fetch('https://slack.com/api/auth.revoke', {
       method: 'POST',
       headers: {
@@ -71,11 +56,19 @@ export async function DELETE(request: NextRequest) {
       },
     }).catch(err => console.error('[slack] token revoke failed:', err))
 
-    await prisma.slackIntegration.delete({
-      where: { workspaceId: ws.workspaceId },
-    })
+    await performDelete()
     return NextResponse.json({ success: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 403) {
+      return NextResponse.json(
+        { error: 'Only workspace owners can disconnect Slack' },
+        { status: 403 }
+      )
+    }
+    if (status === 404) {
+      return NextResponse.json({ error: 'Not connected' }, { status: 404 })
+    }
     console.error('DELETE /api/slack/integration error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

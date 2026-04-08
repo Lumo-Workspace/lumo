@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
+import { slackService } from '@/lib/services/slack.service'
 
 /**
  * Invite a single Clerk user (by clerkId) to a Slack channel.
@@ -94,10 +94,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
 
-    const integration = await prisma.slackIntegration.findUnique({
-      where: { workspaceId: ws.workspaceId },
-      select: { accessToken: true },
-    })
+    const integration = await slackService
+      .requireIntegrationWithToken(ws.workspaceId)
+      .catch(() => null)
     if (!integration)
       return NextResponse.json(
         { error: 'Slack not connected' },
