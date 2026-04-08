@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 
+/** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */
 const TASK_DETAIL_INCLUDE = {
   project: {
     select: {
@@ -11,7 +12,7 @@ const TASK_DETAIL_INCLUDE = {
         orderBy: [
           { isDefault: 'desc' as const },
           { createdAt: 'asc' as const },
-        ] as never,
+        ] as { isDefault: 'desc'; createdAt: 'asc' }[],
       },
     },
   },
@@ -104,6 +105,7 @@ const TASK_DETAIL_INCLUDE = {
   },
 } as const
 
+/** Include for task update operations (lighter than full detail). */
 const TASK_UPDATE_INCLUDE = {
   project: {
     include: {
@@ -115,6 +117,7 @@ const TASK_UPDATE_INCLUDE = {
 } as const
 
 export const taskRepository = {
+  /** Find a task by ID with full detail relations. */
   async findById(id: string) {
     return prisma.task.findUnique({
       where: { id },
@@ -122,6 +125,7 @@ export const taskRepository = {
     })
   },
 
+  /** Find a task by ID with update-related relations (project + team). */
   async findForUpdate(id: string) {
     return prisma.task.findUnique({
       where: { id },
@@ -129,10 +133,12 @@ export const taskRepository = {
     })
   },
 
+  /** Find a task by ID with only the project relation (for auth checks). */
   async findWithProject(id: string) {
     return prisma.task.findUnique({ where: { id }, include: { project: true } })
   },
 
+  /** Update a task's fields. */
   async update(id: string, data: Record<string, unknown>) {
     return prisma.task.update({
       where: { id },
@@ -144,10 +150,12 @@ export const taskRepository = {
     })
   },
 
+  /** Delete a task by ID. */
   async delete(id: string) {
     await prisma.task.delete({ where: { id } })
   },
 
+  /** Find all children of a task (direct descendants only). */
   async findChildren(parentId: string) {
     return prisma.task.findMany({
       where: { parentTaskId: parentId },
@@ -155,12 +163,13 @@ export const taskRepository = {
     })
   },
 
+  /** Check if targetId is a descendant of ancestorId (recursive). Used to prevent circular parent references. */
   async isDescendant(ancestorId: string, targetId: string): Promise<boolean> {
     const children = await prisma.task.findMany({
       where: { parentTaskId: ancestorId },
       select: { id: true },
     })
-    if (!children || children.length === 0) return false
+    if (children.length === 0) return false
     if (children.some(child => child.id === targetId)) return true
     for (const child of children) {
       if (await this.isDescendant(child.id, targetId)) return true
@@ -168,6 +177,7 @@ export const taskRepository = {
     return false
   },
 
+  /** Find task status by ID (lightweight query for state machine). */
   async findStatus(id: string) {
     return prisma.task.findUnique({ where: { id }, select: { status: true } })
   },
