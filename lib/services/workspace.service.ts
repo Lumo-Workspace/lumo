@@ -15,7 +15,10 @@ export interface UpdateWorkspaceInput {
 
 export const workspaceService = {
   /** Create a new workspace with full initialisation (team, member, actors). */
-  async createWorkspace(userId: string, data: { name: string; slug?: string }) {
+  async createWorkspace(
+    userId: string,
+    data: { name: string; slug?: string | undefined }
+  ) {
     const slug = data.slug ?? generateWorkspaceSlug(data.name)
 
     return workspaceRepository.create({

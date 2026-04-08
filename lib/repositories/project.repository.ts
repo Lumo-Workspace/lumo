@@ -18,7 +18,7 @@ export const projectRepository = {
           orderBy: [
             { isDefault: 'desc' as const },
             { createdAt: 'asc' as const },
-          ] as { isDefault: 'desc'; createdAt: 'asc' }[],
+          ] as unknown as { isDefault: 'desc'; createdAt: 'asc' }[],
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -38,8 +38,8 @@ export const projectRepository = {
     workspaceId: string
     teamId: string
     name: string
-    description?: string
-    isIdea?: boolean
+    description?: string | undefined
+    isIdea?: boolean | undefined
     createdByMemberId: string
   }) {
     return prisma.$transaction(async tx => {
@@ -50,7 +50,7 @@ export const projectRepository = {
           createdByMemberId: data.createdByMemberId,
           name: data.name,
           description: data.description ?? null,
-          isIdea: data.isIdea,
+          isIdea: data.isIdea ?? false,
         },
       })
 

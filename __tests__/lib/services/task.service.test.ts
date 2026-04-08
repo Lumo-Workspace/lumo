@@ -42,7 +42,6 @@ import { isValidTaskTransition } from '@/lib/task/state-machine'
 const mockFindById = taskRepository.findById as jest.Mock
 const mockFindForUpdate = taskRepository.findForUpdate as jest.Mock
 const mockUpdate = taskRepository.update as jest.Mock
-const mockIsDescendant = taskRepository.isDescendant as jest.Mock
 const mockIsValidTransition = isValidTaskTransition as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())

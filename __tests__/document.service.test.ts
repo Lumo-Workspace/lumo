@@ -75,7 +75,7 @@ describe('documentService', () => {
       const result = await documentService.listDocuments('ws-1', 'm-1')
 
       expect(result).toHaveLength(1)
-      expect(result[0].id).toBe('doc-1')
+      expect(result[0]!.id).toBe('doc-1')
       expect(mockFindByWorkspace).toHaveBeenCalledWith('ws-1', 'm-1', undefined)
     })
 

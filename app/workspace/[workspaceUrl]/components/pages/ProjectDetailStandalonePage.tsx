@@ -193,7 +193,11 @@ export function ProjectDetailStandalonePage({
             (p: ApiProject) => p.id === project.id
           )
           if (fresh?.repositories) {
-            setProject(prev => ({ ...prev, repositories: fresh.repositories }))
+            setProject(prev => {
+              const updated = { ...prev }
+              if (fresh.repositories) updated.repositories = fresh.repositories
+              return updated as ApiProject
+            })
           }
         }
         setLoading(false)

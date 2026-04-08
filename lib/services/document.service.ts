@@ -12,7 +12,7 @@ export interface CreateDocumentInput {
   emoji?: string | null
   parentId?: string | null
   projectId?: string | null
-  visibility: string
+  visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
 }
 
 export interface UpdateDocumentInput {

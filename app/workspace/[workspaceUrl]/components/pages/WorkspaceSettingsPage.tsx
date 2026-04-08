@@ -205,16 +205,17 @@ export function WorkspaceSettingsPage() {
         summaryFrequency,
         summaryLocale,
       })
-      setWorkspace(prev =>
-        prev
-          ? {
-              ...prev,
-              summaryEnabled: data.workspace.summaryEnabled,
-              summaryFrequency: data.workspace.summaryFrequency,
-              summaryLocale: data.workspace.summaryLocale,
-            }
-          : prev
-      )
+      setWorkspace(prev => {
+        if (!prev) return prev
+        const updated = { ...prev } as Workspace
+        if (data.workspace.summaryEnabled !== undefined)
+          updated.summaryEnabled = data.workspace.summaryEnabled
+        if (data.workspace.summaryFrequency !== undefined)
+          updated.summaryFrequency = data.workspace.summaryFrequency
+        if (data.workspace.summaryLocale !== undefined)
+          updated.summaryLocale = data.workspace.summaryLocale
+        return updated
+      })
       toast.success(
         intl.formatMessage({ id: 'workspaceSettings.summaryUpdated' })
       )

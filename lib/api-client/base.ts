@@ -31,14 +31,16 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { method = 'GET', body, headers, signal } = options ?? {}
 
+  const reqHeaders: Record<string, string> = {
+    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    ...headers,
+  }
+
   const config: RequestInit = {
     method,
-    signal,
-    headers: {
-      ...(body !== undefined && { 'Content-Type': 'application/json' }),
-      ...headers,
-    },
-    ...(body !== undefined && { body: JSON.stringify(body) }),
+    headers: reqHeaders,
+    ...(signal !== undefined ? { signal } : {}),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   }
 
   const res = await fetch(url, config)

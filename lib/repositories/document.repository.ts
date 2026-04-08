@@ -1,3 +1,4 @@
+import { type DocVisibility } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -9,7 +10,7 @@ export interface CreateDocumentData {
   projectId?: string | null
   workspaceId: string
   createdById: string
-  visibility: string
+  visibility: DocVisibility
   sortOrder: number
 }
 
@@ -62,12 +63,6 @@ const DOCUMENT_DETAIL_INCLUDE = {
       member: { select: { id: true, clerkId: true } },
     },
   },
-  _count: { select: { children: true } },
-} as const
-
-const DOCUMENT_CREATE_INCLUDE = {
-  project: { select: { id: true, name: true } },
-  createdBy: { select: { id: true, clerkId: true } },
   _count: { select: { children: true } },
 } as const
 
@@ -161,7 +156,11 @@ export const documentRepository = {
         visibility: data.visibility,
         sortOrder: data.sortOrder,
       },
-      include: DOCUMENT_CREATE_INCLUDE,
+      include: {
+        project: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, clerkId: true } },
+        _count: { select: { children: true } },
+      },
     })
   },
 

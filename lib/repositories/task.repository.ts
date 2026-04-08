@@ -12,7 +12,7 @@ const TASK_DETAIL_INCLUDE = {
         orderBy: [
           { isDefault: 'desc' as const },
           { createdAt: 'asc' as const },
-        ] as { isDefault: 'desc'; createdAt: 'asc' }[],
+        ] as unknown as { isDefault: 'desc'; createdAt: 'asc' }[],
       },
     },
   },
