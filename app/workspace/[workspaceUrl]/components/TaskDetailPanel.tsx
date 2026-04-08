@@ -12,7 +12,8 @@ import {
   GitBranch,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { formatTimestamp, apiFetch, slugifyProjectName } from '../utils'
+import { formatTimestamp, slugifyProjectName } from '../utils'
+import { apiFetch, tasksClient } from '@/lib/api-client'
 import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -57,7 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { API, CACHE_KEY } from '../constants'
+import { CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { CreateBranchDialog } from './CreateBranchDialog'
@@ -298,10 +299,12 @@ export function TaskDetailPanel({
     if (cachedComments === null) setCommentsLoading(true)
 
     Promise.all([
-      fetch(API.tasks.byId(initialTask.id)).then(r => r.json()),
-      fetch(API.tasks.comments(initialTask.id)).then(r =>
-        r.ok ? r.json() : { comments: [] }
-      ),
+      tasksClient
+        .getById<{ task: TaskDetail | null }>(initialTask.id)
+        .catch(() => ({ task: null })),
+      tasksClient
+        .listComments<{ comments: ApiComment[] }>(initialTask.id)
+        .catch(() => ({ comments: [] as ApiComment[] })),
     ])
       .then(([taskData, commentsData]) => {
         if (taskData.task) {
@@ -331,12 +334,11 @@ export function TaskDetailPanel({
             desc: t.description ?? null,
           })
         }
-        const freshComments =
-          (commentsData as { comments: ApiComment[] }).comments ?? []
+        const freshComments = commentsData.comments ?? []
         setComments(freshComments)
         writeCache(CACHE_KEY.comments(initialTask.id), freshComments)
       })
-      .catch(console.error)
+      .catch(() => {})
       .finally(() => {
         setDescriptionLoading(false)
         setCommentsLoading(false)
@@ -348,8 +350,14 @@ export function TaskDetailPanel({
   // ── Related documents ────────────────────────────────────────────────────
   useEffect(() => {
     if (!task?.id) return
-    fetch(`/api/tasks/${task.id}/documents`)
-      .then(res => res.json())
+    apiFetch<{
+      documents?: {
+        id: string
+        title: string
+        emoji: string | null
+        updatedAt: string
+      }[]
+    }>(`/api/tasks/${task.id}/documents`)
       .then(data => setRelatedDocs(data.documents ?? []))
       .catch(() => {})
   }, [task?.id])
@@ -361,22 +369,20 @@ export function TaskDetailPanel({
       event.type === 'comment:updated' ||
       event.type === 'comment:deleted'
     ) {
-      fetch(API.tasks.comments(initialTask.id))
-        .then(r => (r.ok ? r.json() : null))
+      tasksClient
+        .listComments<{ comments: ApiComment[] }>(initialTask.id)
         .then(data => {
-          if (data?.comments) {
-            setComments(data.comments)
-            writeCache(CACHE_KEY.comments(initialTask.id), data.comments)
-          }
+          setComments(data.comments)
+          writeCache(CACHE_KEY.comments(initialTask.id), data.comments)
         })
-        .catch(console.error)
+        .catch(() => {})
     }
     if (event.type === 'task:updated') {
-      fetch(API.tasks.byId(initialTask.id))
-        .then(r => (r.ok ? r.json() : null))
+      tasksClient
+        .getById<{ task: TaskDetail }>(initialTask.id)
         .then(data => {
           if (data?.task) {
-            const t = data.task as TaskDetail
+            const t = data.task
             setTask(prev => ({
               ...prev,
               description: t.description,
@@ -397,16 +403,16 @@ export function TaskDetailPanel({
             })
           }
         })
-        .catch(console.error)
+        .catch(() => {})
     }
   })
 
   // Re-fetch task detail (used after subtask creation)
   const refreshDetail = useCallback(async () => {
     try {
-      const res = await fetch(API.tasks.byId(initialTask.id))
-      if (!res.ok) return
-      const data = await res.json()
+      const data = await tasksClient.getById<{ task: TaskDetail }>(
+        initialTask.id
+      )
       if (data?.task) {
         const t = data.task as TaskDetail
         setTask(prev => ({
@@ -500,12 +506,9 @@ export function TaskDetailPanel({
     clearCommentRef.current?.()
 
     try {
-      const res = await apiFetch(API.tasks.comments(task.id), {
-        method: 'POST',
-        body: { body },
-      })
-      if (!res.ok) throw new Error()
-      const { comment } = (await res.json()) as { comment: ApiComment }
+      const { comment } = await tasksClient.createComment<{
+        comment: ApiComment
+      }>(task.id, { body })
       setComments(prev => {
         const next = prev.map(c => (c.id === tempId ? comment : c))
         writeCache(CACHE_KEY.comments(task.id), next)
@@ -589,12 +592,9 @@ export function TaskDetailPanel({
       setReplyingToComment(null)
 
       try {
-        const res = await apiFetch(API.tasks.comments(task.id), {
-          method: 'POST',
-          body: { body, parentId, quotedCommentId },
-        })
-        if (!res.ok) throw new Error()
-        const { comment } = (await res.json()) as { comment: ApiComment }
+        const { comment } = await tasksClient.createComment<{
+          comment: ApiComment
+        }>(task.id, { body, parentId, quotedCommentId })
         setComments(prev => {
           const next = mapCommentTree(prev, tempId, () => comment)
           writeCache(CACHE_KEY.comments(task.id), next)
@@ -625,12 +625,9 @@ export function TaskDetailPanel({
       if (!body || savingComment) return
       setSavingComment(true)
       try {
-        const res = await apiFetch(API.tasks.comment(task.id, commentId), {
-          method: 'PATCH',
-          body: { body },
-        })
-        if (!res.ok) throw new Error()
-        const { comment } = (await res.json()) as { comment: ApiComment }
+        const { comment } = await tasksClient.updateComment<{
+          comment: ApiComment
+        }>(task.id, commentId, { body })
         setComments(prev => {
           const next = mapCommentTree(prev, commentId, () => comment)
           writeCache(CACHE_KEY.comments(task.id), next)
@@ -651,10 +648,7 @@ export function TaskDetailPanel({
     async (commentId: string) => {
       setDeletingCommentId(commentId)
       try {
-        const res = await fetch(API.tasks.comment(task.id, commentId), {
-          method: 'DELETE',
-        })
-        if (!res.ok) throw new Error()
+        await tasksClient.deleteComment(task.id, commentId)
         setComments(prev => {
           const next = mapCommentTree(prev, commentId, () => null)
           writeCache(CACHE_KEY.comments(task.id), next)

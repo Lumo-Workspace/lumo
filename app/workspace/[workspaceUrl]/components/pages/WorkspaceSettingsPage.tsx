@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache, clearCache } from '../../cache'
-import { apiFetch } from '../../utils'
+import { apiFetch, workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { Button } from '@/components/ui/button'
 import {
@@ -101,9 +101,10 @@ export function WorkspaceSettingsPage() {
 
   const fetchWorkspace = useCallback(async () => {
     try {
-      const res = await fetch(API.workspaces.me)
-      if (!res.ok) return
-      const data = await res.json()
+      const data = await workspacesClient.getMe<{
+        workspace: Workspace
+        role: string
+      }>()
       const owner = data.role === 'OWNER'
 
       setWorkspace(data.workspace)
@@ -149,16 +150,9 @@ export function WorkspaceSettingsPage() {
     if (!name.trim() || name === workspace?.name) return
     setSavingName(true)
     try {
-      const res = await apiFetch(API.workspaces.me, {
-        method: 'PATCH',
-        body: { name: name.trim() },
+      const data = await workspacesClient.updateMe<{ workspace: Workspace }>({
+        name: name.trim(),
       })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ??
-            intl.formatMessage({ id: 'workspaceSettings.nameUpdateFailed' })
-        )
       setWorkspace(prev =>
         prev ? { ...prev, name: data.workspace.name } : prev
       )
@@ -183,16 +177,9 @@ export function WorkspaceSettingsPage() {
     if (!trimmed || trimmed === workspace?.slug) return
     setSavingSlug(true)
     try {
-      const res = await apiFetch(API.workspaces.me, {
-        method: 'PATCH',
-        body: { slug: trimmed },
+      const data = await workspacesClient.updateMe<{ workspace: Workspace }>({
+        slug: trimmed,
       })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ??
-            intl.formatMessage({ id: 'workspaceSettings.urlUpdateFailed' })
-        )
       patchWorkspaceCache({ slug: data.workspace.slug })
       toast.success(intl.formatMessage({ id: 'workspaceSettings.urlUpdated' }))
       router.push(`/workspace/${data.workspace.slug}/settings/workspace`)
@@ -213,16 +200,11 @@ export function WorkspaceSettingsPage() {
     if (!assertOwner()) return
     setSavingSummary(true)
     try {
-      const res = await apiFetch(API.workspaces.me, {
-        method: 'PATCH',
-        body: { summaryEnabled, summaryFrequency, summaryLocale },
+      const data = await workspacesClient.updateMe<{ workspace: Workspace }>({
+        summaryEnabled,
+        summaryFrequency,
+        summaryLocale,
       })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ??
-            intl.formatMessage({ id: 'workspaceSettings.summaryUpdateFailed' })
-        )
       setWorkspace(prev =>
         prev
           ? {
@@ -252,13 +234,7 @@ export function WorkspaceSettingsPage() {
     if (!assertOwner()) return
     setDeleting(true)
     try {
-      const res = await fetch(API.workspaces.me, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(
-          data.error ??
-            intl.formatMessage({ id: 'workspaceSettings.deleteFailed' })
-        )
+      await apiFetch(API.workspaces.me, { method: 'DELETE' })
       clearCache()
       window.location.href = '/onboarding'
     } catch (err) {

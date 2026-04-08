@@ -18,7 +18,8 @@ import type {
   DocVisibility,
   WorkspaceMemberInfo,
 } from '../../types'
-import { API, CACHE_KEY } from '../../constants'
+import { CACHE_KEY } from '../../constants'
+import { documentsClient } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
 
 interface DocumentEditorPageProps {
@@ -94,9 +95,10 @@ export function DocumentEditorPage({
 
     async function fetchDocument() {
       try {
-        const res = await fetch(API.documents.byId(documentId))
-        if (!res.ok) return
-        const data = await res.json()
+        const data = await documentsClient.getById<{
+          document: ApiDocumentDetail & { tags?: string[] }
+          ancestors?: ApiDocumentAncestor[]
+        }>(documentId)
         if (!cancelled) {
           const docWithAncestors = {
             ...data.document,
@@ -133,25 +135,17 @@ export function DocumentEditorPage({
     }) => {
       setSaveStatus('saving')
       try {
-        const res = await fetch(API.documents.byId(documentId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
+        const data = await documentsClient.update<{
+          document: Partial<ApiDocumentDetail>
+        }>(documentId, updates)
+        setSaveStatus('saved')
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
+        setDoc(prev => {
+          const updated = prev ? { ...prev, ...data.document } : prev
+          if (updated) writeCache(CACHE_KEY.documentDetail(documentId), updated)
+          return updated
         })
-        if (res.ok) {
-          setSaveStatus('saved')
-          if (savedTimer.current) clearTimeout(savedTimer.current)
-          savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
-          const data = await res.json()
-          setDoc(prev => {
-            const updated = prev ? { ...prev, ...data.document } : prev
-            if (updated)
-              writeCache(CACHE_KEY.documentDetail(documentId), updated)
-            return updated
-          })
-        } else {
-          setSaveStatus('error')
-        }
       } catch {
         setSaveStatus('error')
       }
@@ -204,11 +198,7 @@ export function DocumentEditorPage({
     async (newTags: string[]) => {
       setTags(newTags)
       try {
-        await fetch(API.documents.byId(documentId), {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: newTags }),
-        })
+        await documentsClient.update(documentId, { tags: newTags })
       } catch {
         setTags(doc?.tags ?? [])
       }

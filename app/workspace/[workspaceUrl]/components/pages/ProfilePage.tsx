@@ -8,7 +8,7 @@ import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { apiFetch } from '../../utils'
+import { apiFetch } from '@/lib/api-client'
 
 export function ProfilePage() {
   const intl = useIntl()
@@ -77,17 +77,10 @@ export function ProfilePage() {
   const handleSaveName = async () => {
     setSavingName(true)
     try {
-      const res = await apiFetch('/api/users/profile', {
+      await apiFetch('/api/users/profile', {
         method: 'PATCH',
         body: { firstName, lastName },
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(
-          (data as { error?: string }).error ??
-            intl.formatMessage({ id: 'profile.saveFailed' })
-        )
-      }
       await user?.reload()
       toast.success(intl.formatMessage({ id: 'profile.nameUpdated' }))
     } catch (err) {

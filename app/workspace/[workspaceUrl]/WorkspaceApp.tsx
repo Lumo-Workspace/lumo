@@ -19,14 +19,21 @@ import {
   Page,
   ApiProject,
   ApiTask,
+  ApiDocument,
   ApiDraft,
   MyTask,
   ApiStatus,
   ApiPriority,
   TreeNode,
 } from './types'
-import { API, CACHE_KEY } from './constants'
-import { slugifyProjectName, apiFetch } from './utils'
+import { CACHE_KEY } from './constants'
+import { slugifyProjectName } from './utils'
+import {
+  apiFetchQuiet,
+  tasksClient,
+  projectsClient,
+  documentsClient,
+} from '@/lib/api-client'
 import { clearCache, readCache, writeCache } from './cache'
 
 // Hooks
@@ -308,14 +315,9 @@ export default function DashboardApp() {
         createdBy: { id: '', name: '', imageUrl: null },
       })
       // Background sync
-      fetch(API.documents.list, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parentId }),
-      })
-        .then(res => (res.ok ? res.json() : null))
+      documentsClient
+        .create<{ document: ApiDocument; ancestors?: unknown[] }>({ parentId })
         .then(data => {
-          if (!data) return
           const realId = data.document.id as string
           docTree.replaceNodeId(tempId, realId)
           writeCache(CACHE_KEY.documentDetail(realId), {
@@ -487,12 +489,10 @@ export default function DashboardApp() {
       }
 
       try {
-        const res = await apiFetch(API.tasks.byId(taskId), {
-          method: 'PATCH',
-          body: data,
-        })
-        if (!res.ok) throw new Error('Failed to update task')
-        const { task: updated } = (await res.json()) as { task: ApiTask }
+        const { task: updated } = await tasksClient.update<{ task: ApiTask }>(
+          taskId,
+          data
+        )
         // Reconcile with server response (preserves project field via upsertTasks merge)
         upsertTasks([updated])
         // Re-check assignee after server confirms
@@ -529,10 +529,9 @@ export default function DashboardApp() {
       setSelectedTask(prev => (prev?.id === taskId ? null : prev))
 
       try {
-        const res = await fetch(API.tasks.byId(taskId), { method: 'DELETE' })
-        if (!res.ok) throw new Error('Failed to delete task')
-      } catch (err) {
-        console.error(err)
+        await tasksClient.delete(taskId)
+      } catch {
+        // silently ignore — optimistic removal already applied
       }
     },
     [removeTask, setMyTaskIds, setProjectTaskIds]
@@ -755,23 +754,23 @@ export default function DashboardApp() {
       setProjects(prev => [optimistic, ...prev])
       navigateTo('project-detail', optimistic)
 
-      const res = await apiFetch(API.projects.list, {
-        method: 'POST',
-        body: {
+      let project: ApiProject
+      try {
+        const data = await projectsClient.create<{ project: ApiProject }>({
           name,
           description: description.trim() || undefined,
-        },
-      })
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string }
+        })
+        project = data.project
+      } catch (err) {
         setProjects(prev => prev.filter(p => p.id !== tempId))
         navigateTo('projects')
+        const message =
+          err instanceof Error ? err.message : 'Failed to create project'
         toast.error(
-          err.error ?? intl.formatMessage({ id: 'task.projectCreateFailed' })
+          message ?? intl.formatMessage({ id: 'task.projectCreateFailed' })
         )
-        throw new Error(err.error ?? 'Failed to create project')
+        throw err
       }
-      const { project } = (await res.json()) as { project: ApiProject }
       const confirmed: ApiProject = {
         ...project,
         _count: { tasks: 0 },
@@ -829,28 +828,29 @@ export default function DashboardApp() {
         setMyTaskIds(prev => [...prev, tempId])
       }
 
-      const res = await apiFetch(API.projects.tasks(projectId), {
-        method: 'POST',
-        body: {
-          title,
-          description: description.trim() || undefined,
-          status,
-          priority,
-          assigneeActorId: assigneeId || undefined,
-          repositoryId: repositoryId ?? undefined,
-        },
-      })
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string }
+      let task: ApiTask
+      try {
+        const data = await projectsClient.createTask<{ task: ApiTask }>(
+          projectId,
+          {
+            title,
+            description: description.trim() || undefined,
+            status,
+            priority,
+            assigneeActorId: assigneeId || undefined,
+            repositoryId: repositoryId ?? undefined,
+          }
+        )
+        task = data.task
+      } catch (err) {
         removeTask(tempId)
         setProjectTaskIds(prev => prev.filter(id => id !== tempId))
         setMyTaskIds(prev => prev.filter(id => id !== tempId))
-        toast.error(
-          err.error ?? intl.formatMessage({ id: 'task.createFailed' })
-        )
-        throw new Error(err.error ?? 'Failed to create task')
+        const message =
+          err instanceof Error ? err.message : 'Failed to create task'
+        toast.error(message ?? intl.formatMessage({ id: 'task.createFailed' }))
+        throw err
       }
-      const { task } = (await res.json()) as { task: ApiTask }
       // Merge real task (preserving project field via replaceTempId)
       replaceTempId(tempId, {
         ...task,
@@ -871,7 +871,7 @@ export default function DashboardApp() {
 
       // Record AI priority override if user changed the suggestion
       if (aiSuggestedPriority && aiSuggestedPriority !== priority) {
-        apiFetch('/api/tasks/priority-override', {
+        apiFetchQuiet('/api/tasks/priority-override', {
           method: 'POST',
           body: {
             taskId: task.id,
@@ -881,8 +881,6 @@ export default function DashboardApp() {
             taskTitle: title,
             taskDescription: description || undefined,
           },
-        }).catch(() => {
-          // Silent failure — override recording is non-critical
         })
       }
     },
@@ -922,10 +920,7 @@ export default function DashboardApp() {
       setProjects(prev => prev.filter(p => p.id !== projectId))
       navigateTo('projects')
 
-      const res = await fetch(API.projects.byId(projectId), {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error('Failed to delete project')
+      await projectsClient.delete(projectId)
     },
     [
       navigateTo,
@@ -948,12 +943,9 @@ export default function DashboardApp() {
         defaultReviewerId?: string | null
       }
     ) => {
-      const res = await apiFetch(API.projects.byId(id), {
-        method: 'PATCH',
-        body: data,
-      })
-      if (!res.ok) throw new Error('Failed to update project')
-      const { project: updated } = await res.json()
+      const { project: updated } = await projectsClient.update<{
+        project: ApiProject
+      }>(id, data)
       setProjects(prev =>
         prev.map(p => (p.id === id ? { ...p, ...updated } : p))
       )
@@ -990,29 +982,22 @@ export default function DashboardApp() {
   // ─── Document handlers ─────────────────────────────────────────────────────
   const handleNewDocument = useCallback(async () => {
     try {
-      const res = await fetch(API.documents.list, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setDocuments(prev => [data.document, ...prev])
-        setCurrentPage('document-editor')
-        setSelectedDocumentId(data.document.id)
-        window.history.pushState(
-          null,
-          '',
-          `/workspace/${workspaceUrl}/documents/${data.document.id}`
-        )
-      }
+      const data = await documentsClient.create<{ document: ApiDocument }>({})
+      setDocuments(prev => [data.document, ...prev])
+      setCurrentPage('document-editor')
+      setSelectedDocumentId(data.document.id)
+      window.history.pushState(
+        null,
+        '',
+        `/workspace/${workspaceUrl}/documents/${data.document.id}`
+      )
     } catch {}
   }, [workspaceUrl, setDocuments])
 
   const handleDeleteDocument = useCallback(
     async (id: string) => {
       try {
-        await fetch(API.documents.byId(id), { method: 'DELETE' })
+        await documentsClient.delete(id)
         setDocuments(prev => prev.filter(d => d.id !== id))
       } catch {}
     },
@@ -1361,11 +1346,7 @@ export default function DashboardApp() {
                 }
                 const renamedId = treeRenameDoc.id
                 docTree.renameNode(renamedId, treeRenameValue)
-                fetch(API.documents.byId(renamedId), {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ title: treeRenameValue }),
-                })
+                documentsClient.update(renamedId, { title: treeRenameValue })
                 setTreeRenameDoc(null)
               }}
             >
@@ -1448,7 +1429,7 @@ export default function DashboardApp() {
                       `/workspace/${workspaceUrl}/documents`
                     )
                   }
-                  fetch(API.documents.byId(deletedId), { method: 'DELETE' })
+                  documentsClient.delete(deletedId)
                 }}
               >
                 {intl.formatMessage({
