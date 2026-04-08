@@ -69,6 +69,7 @@ export function DocumentEditorPage({
   )
   const [loading, setLoading] = useState(!initialCache)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
@@ -138,6 +139,8 @@ export function DocumentEditorPage({
         })
         if (res.ok) {
           setSaveStatus('saved')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
           const data = await res.json()
           setDoc(prev => {
             const updated = prev ? { ...prev, ...data.document } : prev
