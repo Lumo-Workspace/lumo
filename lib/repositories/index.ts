@@ -18,3 +18,8 @@ export type {
   CreateSlackChannelData,
   UpdateSlackChannelData,
 } from './slack.repository'
+export { inviteRepository } from './invite.repository'
+export type { CreateInviteData } from './invite.repository'
+export { memberRepository } from './member.repository'
+export { viewRepository } from './view.repository'
+export type { CreateViewData } from './view.repository'

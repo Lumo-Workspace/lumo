@@ -1,0 +1,260 @@
+import { inviteService } from '@/lib/services/invite.service'
+
+// ── Mock dependencies ───────────────────────────────────────────────────────
+
+const mockDeletePendingByEmail = jest.fn()
+const mockCreate = jest.fn()
+const mockFindPendingByWorkspace = jest.fn()
+const mockFindByToken = jest.fn()
+const mockFindByTokenForAuth = jest.fn()
+const mockFindByTokenWithWorkspace = jest.fn()
+const mockFindByTokenForResend = jest.fn()
+const mockUpdateStatus = jest.fn()
+const mockAcceptInTransaction = jest.fn()
+
+jest.mock('@/lib/repositories/invite.repository', () => ({
+  inviteRepository: {
+    deletePendingByEmail: (...args: any[]) => mockDeletePendingByEmail(...args),
+    create: (...args: any[]) => mockCreate(...args),
+    findPendingByWorkspace: (...args: any[]) =>
+      mockFindPendingByWorkspace(...args),
+    findByToken: (...args: any[]) => mockFindByToken(...args),
+    findByTokenForAuth: (...args: any[]) => mockFindByTokenForAuth(...args),
+    findByTokenWithWorkspace: (...args: any[]) =>
+      mockFindByTokenWithWorkspace(...args),
+    findByTokenForResend: (...args: any[]) => mockFindByTokenForResend(...args),
+    updateStatus: (...args: any[]) => mockUpdateStatus(...args),
+    acceptInTransaction: (...args: any[]) => mockAcceptInTransaction(...args),
+  },
+}))
+
+const mockFindByWorkspaceAndClerkId = jest.fn()
+
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findByWorkspaceAndClerkId: (...args: any[]) =>
+      mockFindByWorkspaceAndClerkId(...args),
+  },
+}))
+
+beforeEach(() => jest.clearAllMocks())
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+
+describe('inviteService', () => {
+  describe('createInvites', () => {
+    it('deletes pending invites and creates new ones for each email', async () => {
+      mockCreate
+        .mockResolvedValueOnce({ id: 'inv-1', token: 'tok-1' })
+        .mockResolvedValueOnce({ id: 'inv-2', token: 'tok-2' })
+
+      const results = await inviteService.createInvites(
+        'ws-1',
+        ['A@B.com', 'c@d.com'],
+        'Alice',
+        'member-1',
+        new Date('2026-04-15')
+      )
+
+      expect(results).toHaveLength(2)
+      expect(results[0]!.email).toBe('a@b.com') // lowercased
+      expect(mockDeletePendingByEmail).toHaveBeenCalledTimes(2)
+      expect(mockCreate).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('listPendingInvites', () => {
+    it('delegates to repository', async () => {
+      mockFindPendingByWorkspace.mockResolvedValue([{ id: 'inv-1' }])
+
+      const result = await inviteService.listPendingInvites('ws-1')
+
+      expect(result).toHaveLength(1)
+      expect(mockFindPendingByWorkspace).toHaveBeenCalledWith('ws-1')
+    })
+  })
+
+  describe('getInviteByToken', () => {
+    it('returns shaped invite when found', async () => {
+      mockFindByToken.mockResolvedValue({
+        status: 'PENDING',
+        expiresAt: new Date('2099-01-01'),
+        email: 'a@b.com',
+        inviterName: 'Alice',
+        workspace: { name: 'Test', slug: 'test' },
+      })
+
+      const result = await inviteService.getInviteByToken('tok-1')
+
+      expect(result.workspaceName).toBe('Test')
+      expect(result.status).toBe('PENDING')
+    })
+
+    it('returns EXPIRED status for expired pending invite', async () => {
+      mockFindByToken.mockResolvedValue({
+        status: 'PENDING',
+        expiresAt: new Date('2020-01-01'),
+        email: 'a@b.com',
+        inviterName: 'Alice',
+        workspace: { name: 'Test', slug: 'test' },
+      })
+
+      const result = await inviteService.getInviteByToken('tok-1')
+
+      expect(result.status).toBe('EXPIRED')
+    })
+
+    it('throws 404 when not found', async () => {
+      mockFindByToken.mockResolvedValue(null)
+
+      await expect(
+        inviteService.getInviteByToken('nonexistent')
+      ).rejects.toMatchObject({
+        message: 'Invite not found',
+        status: 404,
+      })
+    })
+  })
+
+  describe('revokeInvite', () => {
+    it('revokes a pending invite', async () => {
+      mockFindByTokenForAuth.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'PENDING',
+      })
+
+      await inviteService.revokeInvite('tok-1', 'ws-1')
+
+      expect(mockUpdateStatus).toHaveBeenCalledWith('inv-1', 'REVOKED')
+    })
+
+    it('throws 404 when invite not in caller workspace', async () => {
+      mockFindByTokenForAuth.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-other',
+        status: 'PENDING',
+      })
+
+      await expect(
+        inviteService.revokeInvite('tok-1', 'ws-1')
+      ).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('throws 400 when invite is not PENDING', async () => {
+      mockFindByTokenForAuth.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'ACCEPTED',
+      })
+
+      await expect(
+        inviteService.revokeInvite('tok-1', 'ws-1')
+      ).rejects.toMatchObject({ status: 400 })
+    })
+  })
+
+  describe('acceptInvite', () => {
+    it('accepts invite and returns workspace slug', async () => {
+      mockFindByTokenWithWorkspace.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'PENDING',
+        expiresAt: new Date('2099-01-01'),
+        workspace: { slug: 'test', teams: [{ id: 'team-1' }] },
+      })
+      mockFindByWorkspaceAndClerkId.mockResolvedValue(null)
+
+      const result = await inviteService.acceptInvite('tok-1', 'clerk-1')
+
+      expect(result.workspaceSlug).toBe('test')
+      expect(result.alreadyMember).toBe(false)
+      expect(mockAcceptInTransaction).toHaveBeenCalled()
+    })
+
+    it('returns idempotently when already a member', async () => {
+      mockFindByTokenWithWorkspace.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'PENDING',
+        expiresAt: new Date('2099-01-01'),
+        workspace: { slug: 'test', teams: [] },
+      })
+      mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
+
+      const result = await inviteService.acceptInvite('tok-1', 'clerk-1')
+
+      expect(result.alreadyMember).toBe(true)
+      expect(mockAcceptInTransaction).not.toHaveBeenCalled()
+    })
+
+    it('throws 409 when invite is not PENDING', async () => {
+      mockFindByTokenWithWorkspace.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'ACCEPTED',
+        expiresAt: new Date('2099-01-01'),
+        workspace: { slug: 'test', teams: [] },
+      })
+
+      await expect(
+        inviteService.acceptInvite('tok-1', 'clerk-1')
+      ).rejects.toMatchObject({ status: 409 })
+    })
+
+    it('throws 410 when invite is expired', async () => {
+      mockFindByTokenWithWorkspace.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'PENDING',
+        expiresAt: new Date('2020-01-01'),
+        workspace: { slug: 'test', teams: [] },
+      })
+
+      await expect(
+        inviteService.acceptInvite('tok-1', 'clerk-1')
+      ).rejects.toMatchObject({ status: 410 })
+    })
+  })
+
+  describe('resendInvite', () => {
+    it('returns invite data for resending', async () => {
+      mockFindByTokenForResend.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'PENDING',
+        email: 'a@b.com',
+        inviterName: 'Alice',
+        workspace: { name: 'Test', slug: 'test' },
+      })
+
+      const result = await inviteService.resendInvite('tok-1', 'ws-1')
+
+      expect(result.email).toBe('a@b.com')
+    })
+
+    it('throws 404 when invite not in caller workspace', async () => {
+      mockFindByTokenForResend.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-other',
+        status: 'PENDING',
+      })
+
+      await expect(
+        inviteService.resendInvite('tok-1', 'ws-1')
+      ).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('throws 400 when invite is not PENDING', async () => {
+      mockFindByTokenForResend.mockResolvedValue({
+        id: 'inv-1',
+        workspaceId: 'ws-1',
+        status: 'ACCEPTED',
+      })
+
+      await expect(
+        inviteService.resendInvite('tok-1', 'ws-1')
+      ).rejects.toMatchObject({ status: 400 })
+    })
+  })
+})
