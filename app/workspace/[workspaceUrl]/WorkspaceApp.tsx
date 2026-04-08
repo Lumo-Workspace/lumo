@@ -766,7 +766,9 @@ export default function DashboardApp() {
         const err = (await res.json()) as { error?: string }
         setProjects(prev => prev.filter(p => p.id !== tempId))
         navigateTo('projects')
-        toast.error(err.error ?? 'Failed to create project')
+        toast.error(
+          err.error ?? intl.formatMessage({ id: 'task.projectCreateFailed' })
+        )
         throw new Error(err.error ?? 'Failed to create project')
       }
       const { project } = (await res.json()) as { project: ApiProject }
@@ -777,7 +779,7 @@ export default function DashboardApp() {
       }
       setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
       setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
-      toast.success('Project created', {
+      toast.success(intl.formatMessage({ id: 'task.projectCreateSuccess' }), {
         description: `${project.name}`,
       })
     },
@@ -843,7 +845,9 @@ export default function DashboardApp() {
         removeTask(tempId)
         setProjectTaskIds(prev => prev.filter(id => id !== tempId))
         setMyTaskIds(prev => prev.filter(id => id !== tempId))
-        toast.error(err.error ?? 'Failed to create task')
+        toast.error(
+          err.error ?? intl.formatMessage({ id: 'task.createFailed' })
+        )
         throw new Error(err.error ?? 'Failed to create task')
       }
       const { task } = (await res.json()) as { task: ApiTask }
@@ -861,7 +865,7 @@ export default function DashboardApp() {
             : p
         )
       )
-      toast.success('Task created', {
+      toast.success(intl.formatMessage({ id: 'task.createSuccess' }), {
         description: `${task.teamIdentifier}-${task.number} - ${task.title}`,
       })
 
