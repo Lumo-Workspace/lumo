@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import { GitBranch, Check, Plus, X, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { API } from '../constants'
+import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
 import type { GitHubStatus } from './pages/IntegrationsPage'
 
 interface GitHubIntegrationCardProps {
@@ -31,107 +30,27 @@ interface GitHubIntegrationCardProps {
   isOwner: boolean
 }
 
-interface GhRepo {
-  fullName: string
-  name: string
-  private: boolean
-}
-
 export function GitHubIntegrationCard({
   workspaceUrl,
   status,
   onStatusChange,
   isOwner,
 }: GitHubIntegrationCardProps) {
-  const [disconnectOpen, setDisconnectOpen] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [addRepoOpen, setAddRepoOpen] = useState(false)
-  const [availableRepos, setAvailableRepos] = useState<GhRepo[]>([])
-  const [loadingRepos, setLoadingRepos] = useState(false)
-
-  const handleConnect = () => {
-    window.open(API.github.oauth(workspaceUrl), '_blank')
-  }
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      const res = await fetch(
-        `${API.github.integration}?workspaceUrl=${workspaceUrl}`,
-        {
-          method: 'DELETE',
-        }
-      )
-      if (!res.ok) throw new Error()
-      onStatusChange({ connected: false })
-      toast.success('GitHub disconnected')
-    } catch {
-      toast.error('Failed to disconnect GitHub')
-    } finally {
-      setDisconnecting(false)
-      setDisconnectOpen(false)
-    }
-  }
-
-  const handleRemoveRepo = async (repo: string) => {
-    if (!status?.repositories) return
-    const updated = status.repositories.filter(r => r !== repo)
-    try {
-      const res = await fetch(
-        `${API.github.repos}?workspaceUrl=${workspaceUrl}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repositories: updated }),
-        }
-      )
-      if (!res.ok) throw new Error()
-      onStatusChange({ ...status, repositories: updated })
-    } catch {
-      toast.error('Failed to remove repository')
-    }
-  }
-
-  const openAddRepo = async () => {
-    setAddRepoOpen(true)
-    setLoadingRepos(true)
-    try {
-      const res = await fetch(
-        `${API.github.repos}?workspaceUrl=${workspaceUrl}`
-      )
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      setAvailableRepos(data.repos ?? [])
-    } catch {
-      toast.error('Failed to load repositories')
-      setAddRepoOpen(false)
-    } finally {
-      setLoadingRepos(false)
-    }
-  }
-
-  const handleAddRepo = async (fullName: string) => {
-    if (!status) return
-    const current = status.repositories ?? []
-    if (current.includes(fullName)) return
-    const updated = [...current, fullName]
-    try {
-      const res = await fetch(
-        `${API.github.repos}?workspaceUrl=${workspaceUrl}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repositories: updated }),
-        }
-      )
-      if (!res.ok) throw new Error()
-      onStatusChange({ ...status, repositories: updated })
-      setAddRepoOpen(false)
-      toast.success(`Added ${fullName}`)
-    } catch {
-      toast.error('Failed to add repository')
-    }
-  }
+  const intl = useIntl()
+  const {
+    disconnectOpen,
+    setDisconnectOpen,
+    disconnecting,
+    addRepoOpen,
+    setAddRepoOpen,
+    availableRepos,
+    loadingRepos,
+    handleConnect,
+    handleDisconnect,
+    handleRemoveRepo,
+    openAddRepo,
+    handleAddRepo,
+  } = useGitHubIntegration(workspaceUrl, status, onStatusChange)
 
   return (
     <>
@@ -147,10 +66,10 @@ export function GitHubIntegrationCard({
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                GitHub
+                {intl.formatMessage({ id: 'github.title' })}
               </p>
               <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                Link repositories to tasks and automate workflows.
+                {intl.formatMessage({ id: 'github.description' })}
               </p>
             </div>
           </div>
@@ -158,11 +77,11 @@ export function GitHubIntegrationCard({
           {status?.connected ? (
             <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
               <Check size={12} />
-              Connected
+              {intl.formatMessage({ id: 'github.connected' })}
             </span>
           ) : isOwner ? (
             <Button size='sm' onClick={handleConnect}>
-              Connect GitHub
+              {intl.formatMessage({ id: 'github.connectGitHub' })}
             </Button>
           ) : null}
         </div>
@@ -171,7 +90,7 @@ export function GitHubIntegrationCard({
         {status?.connected && (
           <div className='border-t border-zinc-100 dark:border-zinc-800 px-6 py-5 bg-zinc-50 dark:bg-zinc-900/50 space-y-4'>
             <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-              Connected as{' '}
+              {intl.formatMessage({ id: 'github.connectedAs' })}{' '}
               <a
                 href={`https://github.com/${status.githubLogin}`}
                 target='_blank'
@@ -185,7 +104,7 @@ export function GitHubIntegrationCard({
             {/* Authorized repos */}
             <div>
               <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2'>
-                Authorized repositories
+                {intl.formatMessage({ id: 'github.authorizedRepos' })}
               </p>
 
               {status.repositories && status.repositories.length > 0 ? (
@@ -202,7 +121,9 @@ export function GitHubIntegrationCard({
                         <button
                           onClick={() => handleRemoveRepo(repo)}
                           className='text-zinc-400 hover:text-red-500 transition-colors ml-3 shrink-0'
-                          title='Remove repository'
+                          title={intl.formatMessage({
+                            id: 'github.removeRepo',
+                          })}
                         >
                           <X size={13} />
                         </button>
@@ -212,7 +133,7 @@ export function GitHubIntegrationCard({
                 </ul>
               ) : (
                 <p className='text-xs text-zinc-400 dark:text-zinc-500 italic'>
-                  No repositories added yet.
+                  {intl.formatMessage({ id: 'github.noRepos' })}
                 </p>
               )}
             </div>
@@ -226,7 +147,7 @@ export function GitHubIntegrationCard({
                   onClick={openAddRepo}
                 >
                   <Plus size={13} />
-                  Add repository
+                  {intl.formatMessage({ id: 'github.addRepo' })}
                 </Button>
                 <Button
                   variant='ghost'
@@ -234,7 +155,7 @@ export function GitHubIntegrationCard({
                   className='text-zinc-400 hover:text-destructive'
                   onClick={() => setDisconnectOpen(true)}
                 >
-                  Disconnect
+                  {intl.formatMessage({ id: 'common.disconnect' })}
                 </Button>
               </div>
             )}
@@ -246,13 +167,17 @@ export function GitHubIntegrationCard({
       <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <AlertDialogContent size='sm'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect GitHub?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'github.disconnectTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Your access token will be deleted. You can reconnect at any time.
+              {intl.formatMessage({ id: 'github.disconnectDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={handleDisconnect}
@@ -261,7 +186,7 @@ export function GitHubIntegrationCard({
               {disconnecting ? (
                 <Loader2 size={14} className='animate-spin' />
               ) : (
-                'Disconnect'
+                intl.formatMessage({ id: 'common.disconnect' })
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -272,9 +197,11 @@ export function GitHubIntegrationCard({
       <Dialog open={addRepoOpen} onOpenChange={setAddRepoOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add repository</DialogTitle>
+            <DialogTitle>
+              {intl.formatMessage({ id: 'github.addRepo' })}
+            </DialogTitle>
             <DialogDescription>
-              Select a repository to authorize for this workspace.
+              {intl.formatMessage({ id: 'github.addRepoDesc' })}
             </DialogDescription>
           </DialogHeader>
 
@@ -298,7 +225,7 @@ export function GitHubIntegrationCard({
                       </span>
                       {repo.private && (
                         <span className='ml-auto text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'>
-                          private
+                          {intl.formatMessage({ id: 'github.private' })}
                         </span>
                       )}
                     </button>
@@ -308,7 +235,7 @@ export function GitHubIntegrationCard({
                 r => !status?.repositories?.includes(r.fullName)
               ).length === 0 && (
                 <p className='text-xs text-zinc-400 text-center py-6'>
-                  All accessible repositories have been added.
+                  {intl.formatMessage({ id: 'github.allReposAdded' })}
                 </p>
               )}
             </ul>
