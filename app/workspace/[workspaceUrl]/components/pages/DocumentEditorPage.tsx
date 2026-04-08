@@ -346,15 +346,10 @@ export function DocumentEditorPage({
             )}
 
             {/* Tags */}
-            {tags.length > 0 && (
-              <>
-                <span className='text-border'>·</span>
-                <TagInput tags={tags} onChange={handleTagsChange} />
-              </>
-            )}
-            {tags.length === 0 && (
+            {tags.length > 0 && <span className='text-border'>·</span>}
+            <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
               <TagInput tags={tags} onChange={handleTagsChange} />
-            )}
+            </div>
 
             {/* Save status */}
             {saveStatus !== 'idle' && (
