@@ -123,6 +123,7 @@
   "documents.colTags": "Tags",
   "documents.colCollaborators": "Collaborators",
   "documents.colCreatedAt": "Created",
+  "documents.colCreator": "Creator",
   "documents.colUpdatedAt": "Updated",
   "documents.tagPlaceholder": "Add tag...",
   "documents.delete": "Delete",

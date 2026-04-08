@@ -297,16 +297,13 @@ export function DocumentsPage({
                 {intl.formatMessage({ id: 'documents.colName' })}
               </th>
               <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
+                {intl.formatMessage({ id: 'documents.colCreator' })}
+              </th>
+              <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'documents.colTags' })}
               </th>
               <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
                 {intl.formatMessage({ id: 'documents.colCollaborators' })}
-              </th>
-              <th className='text-left py-2 px-3'>
-                {renderSortableHeader(
-                  intl.formatMessage({ id: 'documents.colCreatedAt' }),
-                  'createdAt'
-                )}
               </th>
               <th className='text-left py-2 px-3'>
                 {renderSortableHeader(
@@ -333,6 +330,26 @@ export function DocumentsPage({
                   </div>
                 </td>
                 <td className='py-2 px-3'>
+                  <span className='flex items-center gap-1.5'>
+                    <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                      {doc.createdBy.imageUrl ? (
+                        <img
+                          src={doc.createdBy.imageUrl}
+                          alt={doc.createdBy.name}
+                          className='w-full h-full object-cover'
+                        />
+                      ) : (
+                        <span className='text-[8px] font-medium text-muted-foreground'>
+                          {getInitials(doc.createdBy.name)}
+                        </span>
+                      )}
+                    </span>
+                    <span className='text-xs text-muted-foreground'>
+                      {doc.createdBy.name}
+                    </span>
+                  </span>
+                </td>
+                <td className='py-2 px-3'>
                   {doc.tags && doc.tags.length > 0 && (
                     <TagList tags={doc.tags} max={3} />
                   )}
@@ -345,9 +362,6 @@ export function DocumentsPage({
                       size={22}
                     />
                   )}
-                </td>
-                <td className='py-2 px-3 text-xs text-muted-foreground whitespace-nowrap'>
-                  {formatRelativeTime(doc.createdAt)}
                 </td>
                 <td className='py-2 px-3 text-xs text-muted-foreground whitespace-nowrap'>
                   {formatRelativeTime(doc.updatedAt)}
