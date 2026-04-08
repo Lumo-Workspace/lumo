@@ -79,14 +79,10 @@ export async function GET(request: NextRequest) {
 
   const memberId = ws.member.id
 
-  // Permission filter: only docs the user owns, workspace-visible, or shared with them
+  // Permission filter: own docs + workspace-visible (shared docs belong in the Shared tab)
   const permissionFilter = {
     workspaceId: ws.workspaceId,
-    OR: [
-      { createdById: memberId },
-      { visibility: 'WORKSPACE' as const },
-      { shares: { some: { memberId } } },
-    ],
+    OR: [{ createdById: memberId }, { visibility: 'WORKSPACE' as const }],
   }
 
   // 2. Fetch root documents
