@@ -193,7 +193,7 @@ export function TagPicker({
                 })
               : ''
           }
-          className='bg-transparent text-sm outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
+          className='bg-transparent text-xs outline-none min-w-[80px] flex-1 placeholder:text-zinc-400 dark:placeholder:text-zinc-500'
         />
       </div>
       {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (

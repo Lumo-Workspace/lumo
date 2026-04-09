@@ -190,6 +190,21 @@ export function TaskDetailSidebar({
                   },
                 ]
               : []),
+            ...(allTags && onTagsChange
+              ? [
+                  {
+                    label: intl.formatMessage({ id: 'task.tags' }),
+                    node: (
+                      <TagPicker
+                        selectedTags={task.tags ?? []}
+                        allTags={allTags}
+                        onChange={onTagsChange}
+                        onCreateTag={onCreateTag}
+                      />
+                    ),
+                  },
+                ]
+              : []),
           ] as { label: string; node: React.ReactNode }[]
         ).map(({ label, node }) => (
           <div key={label} className='flex items-center gap-2 -ml-2'>
@@ -201,23 +216,8 @@ export function TaskDetailSidebar({
         ))}
       </div>
 
-      {/* ── Tags ──────────────────────────────────────────────────── */}
-      {allTags && onTagsChange && (
-        <div className='pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800'>
-          <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
-            {intl.formatMessage({ id: 'task.tags' })}
-          </p>
-          <TagPicker
-            selectedTags={task.tags ?? []}
-            allTags={allTags}
-            onChange={onTagsChange}
-            onCreateTag={onCreateTag}
-          />
-        </div>
-      )}
-
       {/* ── Branch ─────────────────────────────────────────────────── */}
-      <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+      <div className='pt-3'>
         <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
           <GitBranch size={12} />
           {intl.formatMessage({ id: 'task.branch' })}
@@ -264,7 +264,7 @@ export function TaskDetailSidebar({
       </div>
 
       {/* ── Pull Requests ───────────────────────────────────────────── */}
-      <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+      <div className='pt-3'>
         <div className='flex items-center justify-between mb-2'>
           <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
             <GitPullRequest size={12} />
