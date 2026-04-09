@@ -10,7 +10,7 @@ import {
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushUserEvent } from '@/lib/integrations/pusher'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
-import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
+import { shouldNotifyBatch } from '@/lib/services/notification.service'
 import { commentService } from '@/lib/services'
 import {
   taskRepository,

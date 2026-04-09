@@ -6,7 +6,7 @@ import { zodError } from '@/lib/api/helpers'
 import {
   buildTaskNotificationCtx,
   dispatchTaskUpdateNotifications,
-} from '@/lib/notifications/notifyTaskChange'
+} from '@/lib/services/notification.service'
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
 import { taskService } from '@/lib/services'

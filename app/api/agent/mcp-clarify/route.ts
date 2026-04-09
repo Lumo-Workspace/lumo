@@ -3,7 +3,7 @@ import { notificationRepository } from '@/lib/repositories/notification.reposito
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { transitionAgentStatus } from '@/lib/services'
 import { pushAgentEvent } from '@/lib/integrations/pusher'
-import { notifyAgentClarify } from '@/lib/notifications/notifyAgentActions'
+import { notifyAgentClarify } from '@/lib/services/notification.service'
 import { validateMcpToken } from '@/lib/auth/mcp-auth'
 
 /**

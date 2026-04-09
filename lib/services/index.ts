@@ -42,6 +42,22 @@ export type {
   AgentErrorCode,
 } from './agent-orchestration.service'
 export { notificationService } from './notification.service'
+export {
+  shouldNotify,
+  shouldNotifyBatch,
+  buildTaskNotificationCtx,
+  dispatchTaskUpdateNotifications,
+  notifyActor,
+  notifyChannel,
+  notifyStatusChange,
+  notifyAgentClarify,
+  notifyAgentVerify,
+  notifyAgentFailed,
+  notifyAgentDone,
+  notifyReviewerOrOwners,
+  notifyTaskInReview,
+} from './notification.service'
+export type { TaskNotificationCtx } from './notification.service'
 export { tagService } from './tag.service'
 export type { CreateTagInput, UpdateTagInput } from './tag.service'
 export { timelineService } from './timeline.service'

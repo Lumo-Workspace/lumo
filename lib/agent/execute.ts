@@ -20,7 +20,7 @@ import type { DomainEvent } from '@/lib/events/types'
 import {
   notifyAgentVerify,
   notifyAgentFailed,
-} from '@/lib/notifications/notifyAgentActions'
+} from '@/lib/services/notification.service'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
 import { installMcpServer, MCP_CONFIG_PATH } from '@/lib/integrations/sandbox'
 import { buildAgentContext } from './context-builder'

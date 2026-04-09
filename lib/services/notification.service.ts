@@ -1,5 +1,31 @@
 import { notificationRepository } from '@/lib/repositories/notification.repository'
 
+// ── Re-exported notification orchestration ──────────────────────────────
+
+export {
+  shouldNotify,
+  shouldNotifyBatch,
+} from '@/lib/notifications/preferenceGate'
+
+export {
+  buildTaskNotificationCtx,
+  dispatchTaskUpdateNotifications,
+  notifyActor,
+  notifyChannel,
+  notifyStatusChange,
+} from '@/lib/notifications/notifyTaskChange'
+export type { TaskNotificationCtx } from '@/lib/notifications/notifyTaskChange'
+
+export {
+  notifyAgentClarify,
+  notifyAgentVerify,
+  notifyAgentFailed,
+  notifyAgentDone,
+} from '@/lib/notifications/notifyAgentActions'
+
+export { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
+export { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+
 export const notificationService = {
   /**
    * Get enriched notifications for a recipient.

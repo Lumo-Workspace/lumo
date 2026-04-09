@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { agentRepository } from '@/lib/repositories/agent.repository'
 import { pushAgentEvent } from '@/lib/integrations/pusher'
 import { transitionAgentStatus, userFriendlyError } from '@/lib/services'
-import { notifyAgentFailed } from '@/lib/notifications/notifyAgentActions'
+import { notifyAgentFailed } from '@/lib/services/notification.service'
 
 /**
  * POST /api/webhooks/sandbox

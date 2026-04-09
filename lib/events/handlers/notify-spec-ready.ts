@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
+import { notifyReviewerOrOwners } from '@/lib/services/notification.service'
 import type { AgentStatusChangedEvent } from '../types'
 
 /**
