@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { HelpCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { agentClient } from '@/lib/api-client'
 import type { AgentClarifyPending } from './types'
 
 export function AgentClarifyPanel({
@@ -38,11 +39,7 @@ export function AgentClarifyPanel({
     if (!reply.trim()) return
     setSubmitting(true)
     try {
-      await fetch('/api/agent/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, workspaceId, reply: reply.trim() }),
-      })
+      await agentClient.resume(taskId, workspaceId, reply.trim())
       onReplied()
     } finally {
       setSubmitting(false)
