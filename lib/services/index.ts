@@ -72,3 +72,8 @@ export { tagService } from './tag.service'
 export type { CreateTagInput, UpdateTagInput } from './tag.service'
 export { timelineService } from './timeline.service'
 export type { TimelineEntry } from './timeline.service'
+export {
+  handleClarifyResponse,
+  handleAuthorizeResponse,
+  handleVerifyResponse,
+} from './notification-response.service'
