@@ -24,6 +24,8 @@ const PR_TYPES = new Set([
   'PR_LINKED',
   'PR_UNLINKED',
 ])
+// Activities that duplicate inline entries (e.g. comments already shown)
+const HIDDEN_TYPES = new Set(['COMMENT_ADDED'])
 
 export function TimelineEntryRenderer({
   entry,
@@ -40,7 +42,10 @@ export function TimelineEntryRenderer({
     )
   }
 
-  // Activity entry
+  // Activity entry — skip types that duplicate inline entries
+  if (HIDDEN_TYPES.has(entry.type)) {
+    return null
+  }
   if (AGENT_TYPES.has(entry.type)) {
     return <AgentRunItem entry={entry} />
   }

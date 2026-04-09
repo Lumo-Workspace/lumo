@@ -430,6 +430,8 @@
 
   "subtask.removeDraft": "Remove draft subtask",
   "subtask.addAll": "Add all",
+  "subtask.edit": "Edit",
+  "subtask.delete": "Delete",
 
   "table.addRowAbove": "Add row above",
   "table.addRowBelow": "Add row below",
@@ -507,10 +509,15 @@
   "activity.parentChanged": "set parent to {title}",
   "activity.parentRemoved": "removed parent task",
   "activity.tagsChanged": "updated tags",
+  "activity.tagsAdded": "added tag {added}",
+  "activity.tagsRemoved": "removed tag {removed}",
+  "activity.tagsAddedRemoved": "added tag {added} and removed tag {removed}",
   "activity.repositoryChanged": "changed repository",
   "activity.commentDeleted": "deleted a comment",
   "activity.subtaskAdded": "added subtask {title}",
   "activity.subtaskRemoved": "removed subtask {title}",
   "activity.specGenerated": "generated spec",
-  "activity.branchCreated": "created branch {name}"
+  "activity.branchCreated": "created branch {name}",
+  "activity.empty": "No activity yet",
+  "activity.loadEarlier": "Load earlier activity"
 }

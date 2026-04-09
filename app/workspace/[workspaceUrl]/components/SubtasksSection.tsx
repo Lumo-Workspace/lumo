@@ -3,9 +3,23 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter, useParams } from 'next/navigation'
-import { Sparkles, X, Loader2, Check } from 'lucide-react'
+import {
+  Sparkles,
+  X,
+  Loader2,
+  Check,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { slugifyProjectName } from '../utils'
 import { apiFetch } from '@/lib/api-client'
 import type { TaskDetail, ApiPriority } from '../types'
@@ -31,6 +45,8 @@ export function SubtasksSection({
   const [isGenerating, setIsGenerating] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   const children = task.children ?? []
 
@@ -40,6 +56,35 @@ export function SubtasksSection({
     router.push(
       `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${identifier}`
     )
+  }
+
+  function startEditing(child: { id: string; title: string }) {
+    setEditingId(child.id)
+    setEditingTitle(child.title)
+  }
+
+  async function saveEdit(childId: string) {
+    const trimmed = editingTitle.trim()
+    if (!trimmed) return
+    setEditingId(null)
+    try {
+      await apiFetch(`/api/tasks/${childId}`, {
+        method: 'PATCH',
+        body: { title: trimmed },
+      })
+      onSubtasksCreated()
+    } catch {
+      setError('Failed to update subtask')
+    }
+  }
+
+  async function handleDeleteChild(childId: string) {
+    try {
+      await apiFetch(`/api/tasks/${childId}`, { method: 'DELETE' })
+      onSubtasksCreated()
+    } catch {
+      setError('Failed to delete subtask')
+    }
   }
   const hasDrafts = drafts.length > 0
 
@@ -113,19 +158,11 @@ export function SubtasksSection({
         <ul className='space-y-1 mb-2'>
           {children.map(child => {
             const isDone = child.status === 'DONE'
+            const isEditing = editingId === child.id
             return (
               <li
                 key={child.id}
-                role='button'
-                tabIndex={0}
-                onClick={() => handleChildClick(child.number)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleChildClick(child.number)
-                  }
-                }}
-                className='flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                className='group flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 py-1 rounded px-1 -mx-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
               >
                 {isDone ? (
                   <span className='size-4 rounded bg-emerald-500 text-white flex items-center justify-center shrink-0'>
@@ -134,17 +171,78 @@ export function SubtasksSection({
                 ) : (
                   <span className='size-4 rounded border border-zinc-300 dark:border-zinc-600 shrink-0' />
                 )}
-                <span
-                  className={cn(
-                    'truncate',
-                    isDone && 'line-through text-zinc-400 dark:text-zinc-500'
-                  )}
-                >
-                  {child.title}
-                </span>
-                <span className='text-xs text-zinc-400 dark:text-zinc-500 shrink-0'>
-                  #{child.number}
-                </span>
+                {isEditing ? (
+                  <input
+                    autoFocus
+                    type='text'
+                    value={editingTitle}
+                    onChange={e => setEditingTitle(e.target.value)}
+                    onBlur={() => saveEdit(child.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEdit(child.id)
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    className='flex-1 text-sm px-1 py-0 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400'
+                  />
+                ) : (
+                  <>
+                    <span
+                      role='button'
+                      tabIndex={0}
+                      onClick={() => handleChildClick(child.number)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleChildClick(child.number)
+                        }
+                      }}
+                      className={cn(
+                        'truncate cursor-pointer',
+                        isDone &&
+                          'line-through text-zinc-400 dark:text-zinc-500'
+                      )}
+                    >
+                      {task.teamIdentifier}-{child.number} · {child.title}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={e => e.stopPropagation()}
+                          className='ml-auto p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0'
+                        >
+                          <MoreHorizontal className='size-3.5' />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end'>
+                        <DropdownMenuItem
+                          onClick={e => {
+                            e.stopPropagation()
+                            startEditing(child)
+                          }}
+                        >
+                          <Pencil className='size-3.5 mr-2' />
+                          {intl.formatMessage({
+                            id: 'subtask.edit',
+                            defaultMessage: 'Edit',
+                          })}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleDeleteChild(child.id)
+                          }}
+                          className='text-red-600 focus:text-red-600'
+                        >
+                          <Trash2 className='size-3.5 mr-2' />
+                          {intl.formatMessage({
+                            id: 'subtask.delete',
+                            defaultMessage: 'Delete',
+                          })}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                )}
               </li>
             )
           })}

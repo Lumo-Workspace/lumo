@@ -200,13 +200,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       })
     }
     if (parsed.data.tagIds !== undefined) {
+      const oldTagNames = ((taskCheck as any).tags ?? []).map(
+        (t: { name: string }) => t.name
+      )
+      const newTagNames = ((result.task as any).tags ?? []).map(
+        (t: { name: string }) => t.name
+      )
+      const oldSet = new Set(oldTagNames as string[])
+      const newSet = new Set(newTagNames as string[])
+      const added = (newTagNames as string[]).filter(n => !oldSet.has(n))
+      const removed = (oldTagNames as string[]).filter(n => !newSet.has(n))
       activityEvents.push({
         type: 'task:tags_changed',
         taskId: id,
         projectId,
         actorId: triggerActorId ?? '',
-        added: [],
-        removed: [],
+        added,
+        removed,
       })
     }
 

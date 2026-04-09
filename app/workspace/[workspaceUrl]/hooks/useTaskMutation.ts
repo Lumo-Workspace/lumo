@@ -50,20 +50,25 @@ export function useTaskMutation({
   const handlePatch = useCallback(
     async (data: TaskPatchData) => {
       const snapshot = task
-      const localUpdate = { ...task, ...data }
 
-      // Resolve project name for optimistic display
-      if (data.projectId) {
-        const newProject = projects.find(p => p.id === data.projectId)
-        if (newProject) {
-          localUpdate.project = { id: newProject.id, name: newProject.name }
+      // Use functional updater to avoid clobbering pending state
+      // (e.g. tags set right before handlePatch in the same handler)
+      const applyPatch = (prev: TaskDetail) => {
+        const updated = { ...prev, ...data }
+        if (data.projectId) {
+          const newProject = projects.find(p => p.id === data.projectId)
+          if (newProject) {
+            updated.project = { id: newProject.id, name: newProject.name }
+          }
         }
+        return updated
       }
 
       // Optimistic local update
-      setTask(localUpdate)
+      setTask(applyPatch)
 
       // Sync to cache
+      const localUpdate = applyPatch(task)
       const taskMap = readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
       writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: localUpdate })
 

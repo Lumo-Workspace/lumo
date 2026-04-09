@@ -430,6 +430,8 @@
 
   "subtask.removeDraft": "移除子任务草稿",
   "subtask.addAll": "全部添加",
+  "subtask.edit": "编辑",
+  "subtask.delete": "删除",
 
   "table.addRowAbove": "在上方添加行",
   "table.addRowBelow": "在下方添加行",
@@ -507,10 +509,15 @@
   "activity.parentChanged": "设置父任务为 {title}",
   "activity.parentRemoved": "移除了父任务",
   "activity.tagsChanged": "更新了标签",
+  "activity.tagsAdded": "添加了标签 {added}",
+  "activity.tagsRemoved": "移除了标签 {removed}",
+  "activity.tagsAddedRemoved": "添加了标签 {added}，移除了标签 {removed}",
   "activity.repositoryChanged": "更改了仓库",
   "activity.commentDeleted": "删除了一条评论",
   "activity.subtaskAdded": "添加了子任务 {title}",
   "activity.subtaskRemoved": "移除了子任务 {title}",
   "activity.specGenerated": "生成了规格说明",
-  "activity.branchCreated": "创建了分支 {name}"
+  "activity.branchCreated": "创建了分支 {name}",
+  "activity.empty": "暂无动态",
+  "activity.loadEarlier": "加载更早的动态"
 }
