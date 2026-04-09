@@ -37,15 +37,29 @@ export function flattenTasks(
  *  this year       → "Mar 21"
  *  older           → "Mar 21, 2025"
  */
-export function formatTimestamp(date: Date | string): string {
+export function formatTimestamp(
+  date: Date | string,
+  locale: string = 'en',
+  messages?: {
+    justNow?: string
+    mAgo?: string
+    today?: string
+    yesterday?: string
+  }
+): string {
   const d = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffSec = Math.floor(diffMs / 1000)
   const diffMin = Math.floor(diffMs / 60000)
 
-  if (diffSec < 60) return 'just now'
-  if (diffMin < 60) return `${diffMin}m ago`
+  const justNow = messages?.justNow ?? 'just now'
+  const mAgo = messages?.mAgo ?? '{m}m ago'
+  const todayLabel = messages?.today ?? 'Today'
+  const yesterdayLabel = messages?.yesterday ?? 'Yesterday'
+
+  if (diffSec < 60) return justNow
+  if (diffMin < 60) return mAgo.replace('{m}', String(diffMin))
 
   const sameDate = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() &&
@@ -53,22 +67,22 @@ export function formatTimestamp(date: Date | string): string {
     a.getDate() === b.getDate()
 
   if (sameDate(d, now)) {
-    return `Today ${d.toLocaleTimeString('en-US', {
+    const time = d.toLocaleTimeString(locale, {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true,
-    })}`
+    })
+    return `${todayLabel} ${time}`
   }
 
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (sameDate(d, yesterday)) return 'Yesterday'
+  if (sameDate(d, yesterday)) return yesterdayLabel
 
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   }
 
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -100,27 +114,34 @@ export const API_STATUS_LABEL: Record<string, string> = {
  * Format a due date for display.
  * Returns: "Today", "Tomorrow", "Apr 10", "Apr 10, 2027", or "" if null.
  */
-export function formatDueDate(date: string | null | undefined): string {
+export function formatDueDate(
+  date: string | null | undefined,
+  locale: string = 'en',
+  messages?: { today?: string; tomorrow?: string }
+): string {
   if (!date) return ''
   const d = new Date(date)
   const now = new Date()
+
+  const todayLabel = messages?.today ?? 'Today'
+  const tomorrowLabel = messages?.tomorrow ?? 'Tomorrow'
 
   const sameDay = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
 
-  if (sameDay(d, now)) return 'Today'
+  if (sameDay(d, now)) return todayLabel
 
   const tomorrow = new Date(now)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  if (sameDay(d, tomorrow)) return 'Tomorrow'
+  if (sameDay(d, tomorrow)) return tomorrowLabel
 
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   }
 
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

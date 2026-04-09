@@ -18,17 +18,18 @@ export function formatDate(
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  }
+  },
+  locale: string = 'en'
 ): string {
   const dateObj =
     typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
-  return new Intl.DateTimeFormat('zh-CN', options).format(dateObj)
+  return new Intl.DateTimeFormat(locale, options).format(dateObj)
 }
 
 // 格式化相对时间
 export function formatRelativeTime(
   date: Date | string | number,
-  locale: string = 'zh'
+  locale: string = 'en'
 ): string {
   const dateObj =
     typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
@@ -36,7 +37,7 @@ export function formatRelativeTime(
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000)
 
   if (diffInSeconds < 60) {
-    return locale === 'zh' ? '刚刚' : 'just now'
+    return locale.startsWith('zh') ? '刚刚' : 'just now'
   }
 
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'always' })

@@ -43,13 +43,27 @@ export function formatStepElapsed(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export function formatRelativeTime(dateStr: string): string {
+export function formatRelativeTime(
+  dateStr: string,
+  locale: string = 'en'
+): string {
   const diff = Date.now() - new Date(dateStr).getTime()
+  const seconds = Math.floor(diff / 1000)
+
+  if (seconds < 60)
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(
+      0,
+      'second'
+    )
+
+  const rtf = new Intl.RelativeTimeFormat(locale, {
+    numeric: 'always',
+    style: 'narrow',
+  })
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 60) return rtf.format(-mins, 'minute')
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return rtf.format(-hours, 'hour')
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return rtf.format(-days, 'day')
 }

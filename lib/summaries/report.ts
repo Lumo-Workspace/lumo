@@ -189,8 +189,9 @@ export async function generateProjectReport(
   stats: TaskSummaryStats,
   ctx: ProjectContext
 ): Promise<SummaryReport> {
-  const systemPrompt =
-    ctx.locale === 'zh' ? SUMMARY_SYSTEM_PROMPT_ZH : SUMMARY_SYSTEM_PROMPT_EN
+  const systemPrompt = ctx.locale.startsWith('zh')
+    ? SUMMARY_SYSTEM_PROMPT_ZH
+    : SUMMARY_SYSTEM_PROMPT_EN
   const prompt = buildProjectPrompt(stats, ctx)
 
   const { object } = await generateObject({
@@ -207,8 +208,9 @@ export async function generateWorkspaceReport(
   stats: WorkspaceSummaryStats,
   ctx: WorkspaceContext
 ): Promise<SummaryReport> {
-  const systemPrompt =
-    ctx.locale === 'zh' ? SUMMARY_SYSTEM_PROMPT_ZH : SUMMARY_SYSTEM_PROMPT_EN
+  const systemPrompt = ctx.locale.startsWith('zh')
+    ? SUMMARY_SYSTEM_PROMPT_ZH
+    : SUMMARY_SYSTEM_PROMPT_EN
   const prompt = buildWorkspacePrompt(stats, ctx)
 
   const { object } = await generateObject({

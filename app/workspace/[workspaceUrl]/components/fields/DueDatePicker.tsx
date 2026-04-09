@@ -1,7 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { enUS, zhCN } from 'date-fns/locale'
+import {
+  enUS,
+  enGB,
+  enAU,
+  zhCN,
+  zhTW,
+  es,
+  fr,
+  de,
+  ja,
+  ko,
+  hi,
+  ru,
+  vi,
+  id,
+  ms,
+} from 'date-fns/locale'
+import type { Locale as DateFnsLocale } from 'date-fns'
 import { CalendarDays, X } from 'lucide-react'
 import {
   Tooltip,
@@ -39,7 +56,25 @@ export function DueDatePicker({
   triggerClassName,
 }: DueDatePickerProps) {
   const intl = useIntl()
-  const calendarLocale = intl.locale === 'zh' ? zhCN : enUS
+  const DATE_FNS_LOCALES: Record<string, DateFnsLocale> = {
+    en: enUS,
+    'en-GB': enGB,
+    'en-AU': enAU,
+    'zh-CN': zhCN,
+    'zh-TW': zhTW,
+    'es-ES': es,
+    'es-419': es,
+    fr,
+    de,
+    ja,
+    ko,
+    hi,
+    ru,
+    vi,
+    id,
+    ms,
+  }
+  const calendarLocale = DATE_FNS_LOCALES[intl.locale] ?? enUS
   const [open, setOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDate, setDialogDate] = useState<Date | undefined>(undefined)

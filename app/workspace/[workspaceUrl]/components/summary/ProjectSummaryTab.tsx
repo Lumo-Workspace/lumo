@@ -32,7 +32,10 @@ export function ProjectSummaryTab({ projectId }: ProjectSummaryTabProps) {
     return (
       <div className='flex items-center justify-center py-16'>
         <p className='text-sm text-zinc-400 dark:text-zinc-500'>
-          Loading&hellip;
+          {intl.formatMessage({
+            id: 'common.loading',
+            defaultMessage: 'Loading…',
+          })}
         </p>
       </div>
     )

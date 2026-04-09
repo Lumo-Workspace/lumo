@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { FileEdit, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatTimestamp } from '../utils'
+import { useFormatDate } from '../hooks/useFormatDate'
 import type { ApiDraft, ApiProject, ApiPriority } from '../types'
 import { PRIORITY_CONFIG } from './fields'
 import { API_STATUS_LABEL } from '../utils'
@@ -184,6 +184,7 @@ function DraftCard({
   onDelete: () => void
   intl: ReturnType<typeof useIntl>
 }) {
+  const { fmtTimestamp } = useFormatDate()
   return (
     <div
       className='group flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
@@ -202,7 +203,7 @@ function DraftCard({
       <div className='flex items-center gap-2'>
         <span className='flex items-center gap-1 text-xs text-zinc-400'>
           <Clock className='size-3' />
-          {formatTimestamp(updatedAt)}
+          {fmtTimestamp(updatedAt)}
         </span>
         <Button
           variant='ghost'

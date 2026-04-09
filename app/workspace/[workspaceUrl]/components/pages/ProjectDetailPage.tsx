@@ -316,7 +316,10 @@ export function ProjectDetailPage({
               size='icon'
               onClick={onSlack}
               className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              title='Slack notifications'
+              title={intl.formatMessage({
+                id: 'project.slackNotifications',
+                defaultMessage: 'Slack notifications',
+              })}
             >
               <MessageSquare size={14} />
             </Button>
@@ -327,7 +330,10 @@ export function ProjectDetailPage({
               size='icon'
               onClick={onCopyLink}
               className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              title='Copy link'
+              title={intl.formatMessage({
+                id: 'project.copyLink',
+                defaultMessage: 'Copy link',
+              })}
             >
               {copied ? <Check size={14} /> : <LinkIcon size={14} />}
             </Button>
@@ -398,7 +404,10 @@ export function ProjectDetailPage({
                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
             )}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {intl.formatMessage({
+              id: `project.tab.${t}`,
+              defaultMessage: t.charAt(0).toUpperCase() + t.slice(1),
+            })}
           </button>
         ))}
       </div>
@@ -435,7 +444,14 @@ export function ProjectDetailPage({
               >
                 {project.name}
               </TypographyH3>
-              {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+              {project.isIdea && (
+                <span className={IDEA_BADGE_CLS}>
+                  {intl.formatMessage({
+                    id: 'project.draft',
+                    defaultMessage: 'Draft',
+                  })}
+                </span>
+              )}
             </div>
 
             {/* Two-column layout */}
@@ -443,7 +459,10 @@ export function ProjectDetailPage({
               {/* ── Left: Description ── */}
               <div className='flex-1 min-w-0'>
                 <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
-                  Description
+                  {intl.formatMessage({
+                    id: 'project.description',
+                    defaultMessage: 'Description',
+                  })}
                 </p>
                 <DescriptionEditor
                   key={project.id}
@@ -451,7 +470,10 @@ export function ProjectDetailPage({
                   onCommit={html => {
                     onUpdateProject(project.id, { description: html ?? '' })
                   }}
-                  placeholder='Add a description…'
+                  placeholder={intl.formatMessage({
+                    id: 'project.descriptionPlaceholder',
+                    defaultMessage: 'Add a description…',
+                  })}
                   members={members}
                   documentId={project.id}
                 />
@@ -462,7 +484,10 @@ export function ProjectDetailPage({
                 {/* Lead */}
                 <div className='space-y-2'>
                   <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
-                    Lead
+                    {intl.formatMessage({
+                      id: 'project.lead',
+                      defaultMessage: 'Lead',
+                    })}
                   </p>
                   <ReviewerSelect
                     value={project.defaultReviewerId ?? null}
@@ -483,7 +508,10 @@ export function ProjectDetailPage({
                 {/* Repositories */}
                 <div className='space-y-2'>
                   <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
-                    Repositories
+                    {intl.formatMessage({
+                      id: 'project.repositories',
+                      defaultMessage: 'Repositories',
+                    })}
                   </p>
 
                   {/* Listed repos */}
@@ -505,7 +533,10 @@ export function ProjectDetailPage({
                               </span>
                               {repo.isDefault && (
                                 <span className='inline-flex items-center h-[18px] px-1 rounded text-[10px] leading-none bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 shrink-0'>
-                                  Default
+                                  {intl.formatMessage({
+                                    id: 'project.default',
+                                    defaultMessage: 'Default',
+                                  })}
                                 </span>
                               )}
                             </div>
@@ -519,7 +550,10 @@ export function ProjectDetailPage({
                               target='_blank'
                               rel='noopener noreferrer'
                               className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                              title='Open on GitHub'
+                              title={intl.formatMessage({
+                                id: 'project.openOnGithub',
+                                defaultMessage: 'Open on GitHub',
+                              })}
                             >
                               <ExternalLink size={11} />
                             </a>
@@ -527,7 +561,10 @@ export function ProjectDetailPage({
                               <button
                                 onClick={() => handleSetDefault(repo.id)}
                                 className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                                title='Set as default'
+                                title={intl.formatMessage({
+                                  id: 'project.setAsDefault',
+                                  defaultMessage: 'Set as default',
+                                })}
                               >
                                 <Star size={11} />
                               </button>
@@ -535,7 +572,10 @@ export function ProjectDetailPage({
                             <button
                               onClick={() => handleRemoveRepo(repo.id)}
                               className='p-0.5 text-zinc-400 hover:text-red-500'
-                              title='Remove'
+                              title={intl.formatMessage({
+                                id: 'project.removeRepo',
+                                defaultMessage: 'Remove',
+                              })}
                             >
                               <X size={11} />
                             </button>
@@ -550,7 +590,10 @@ export function ProjectDetailPage({
                     <PopoverTrigger asChild>
                       <button className='flex items-center gap-1.5 w-full h-7 px-2 rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors'>
                         <Plus size={11} />
-                        Add repository
+                        {intl.formatMessage({
+                          id: 'project.addRepository',
+                          defaultMessage: 'Add repository',
+                        })}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
@@ -561,31 +604,54 @@ export function ProjectDetailPage({
                       {reposLoading ? (
                         <div className='flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground'>
                           <Loader2 size={13} className='animate-spin' />
-                          Loading repositories…
+                          {intl.formatMessage({
+                            id: 'project.loadingRepos',
+                            defaultMessage: 'Loading repositories…',
+                          })}
                         </div>
                       ) : githubConnected === false ? (
                         <div className='px-3 py-4 text-xs text-muted-foreground text-center space-y-1'>
-                          <p>GitHub is not connected.</p>
                           <p>
-                            Go to{' '}
+                            {intl.formatMessage({
+                              id: 'project.githubNotConnected',
+                              defaultMessage: 'GitHub is not connected.',
+                            })}
+                          </p>
+                          <p>
+                            {intl.formatMessage({
+                              id: 'project.goTo',
+                              defaultMessage: 'Go to',
+                            })}{' '}
                             <a
                               href={`/workspace/${workspaceUrl}/settings`}
                               className='text-blue-500 underline'
                             >
-                              Settings
+                              {intl.formatMessage({
+                                id: 'project.settings',
+                                defaultMessage: 'Settings',
+                              })}
                             </a>{' '}
-                            to connect GitHub.
+                            {intl.formatMessage({
+                              id: 'project.toConnectGithub',
+                              defaultMessage: 'to connect GitHub.',
+                            })}
                           </p>
                         </div>
                       ) : (
                         <Command>
                           <CommandInput
-                            placeholder='Search repositories…'
+                            placeholder={intl.formatMessage({
+                              id: 'project.searchRepos',
+                              defaultMessage: 'Search repositories…',
+                            })}
                             className='text-xs h-8'
                           />
                           <CommandList>
                             <CommandEmpty className='py-4 text-xs text-center text-muted-foreground'>
-                              No repositories found.
+                              {intl.formatMessage({
+                                id: 'project.noReposFound',
+                                defaultMessage: 'No repositories found.',
+                              })}
                             </CommandEmpty>
                             <CommandGroup>
                               {availableRepos.map(repo => {
@@ -629,7 +695,10 @@ export function ProjectDetailPage({
                                     </div>
                                     {repo.private && (
                                       <span className='text-[10px] text-zinc-400 shrink-0'>
-                                        private
+                                        {intl.formatMessage({
+                                          id: 'project.private',
+                                          defaultMessage: 'private',
+                                        })}
                                       </span>
                                     )}
                                   </CommandItem>
@@ -683,15 +752,27 @@ export function ProjectDetailPage({
                   <EmptyMedia variant='icon'>
                     <Layers />
                   </EmptyMedia>
-                  <EmptyTitle>No tasks yet</EmptyTitle>
+                  <EmptyTitle>
+                    {intl.formatMessage({
+                      id: 'project.noTasksYet',
+                      defaultMessage: 'No tasks yet',
+                    })}
+                  </EmptyTitle>
                   <EmptyDescription>
-                    This project has no tasks. Add the first one to get started.
+                    {intl.formatMessage({
+                      id: 'project.noTasksDesc',
+                      defaultMessage:
+                        'This project has no tasks. Add the first one to get started.',
+                    })}
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
                   <Button onClick={() => onNewTask()}>
                     <Plus size={16} />
-                    Create Task
+                    {intl.formatMessage({
+                      id: 'project.createTask',
+                      defaultMessage: 'Create Task',
+                    })}
                   </Button>
                 </EmptyContent>
               </Empty>

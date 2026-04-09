@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { Send, Pencil, Trash2, Reply, Link as LinkIcon } from 'lucide-react'
-import { formatTimestamp, slugifyProjectName } from '../utils'
+import { slugifyProjectName } from '../utils'
+import { useFormatDate } from '../hooks/useFormatDate'
 import { copyLink } from '../utils/copyLink'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -111,6 +112,7 @@ export function CommentSection({
   tc,
 }: CommentSectionProps) {
   const intl = useIntl()
+  const { fmtTimestamp } = useFormatDate()
 
   return (
     <>
@@ -167,7 +169,7 @@ export function CommentSection({
                           {ca.name}
                         </span>
                         <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                          {formatTimestamp(comment.createdAt)}
+                          {fmtTimestamp(comment.createdAt)}
                           {wasEdited && ' · edited'}
                         </span>
                       </div>
@@ -350,7 +352,7 @@ export function CommentSection({
                                   {ra.name}
                                 </span>
                                 <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                                  {formatTimestamp(reply.createdAt)}
+                                  {fmtTimestamp(reply.createdAt)}
                                   {rWasEdited && ' · edited'}
                                 </span>
                               </div>

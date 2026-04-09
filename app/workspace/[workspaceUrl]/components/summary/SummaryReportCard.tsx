@@ -19,7 +19,7 @@ export function SummaryReportCard({
   const intl = useIntl()
   const [expanded, setExpanded] = useState(false)
 
-  const formattedDate = new Date(generatedAt).toLocaleDateString('en-US', {
+  const formattedDate = new Date(generatedAt).toLocaleDateString(intl.locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

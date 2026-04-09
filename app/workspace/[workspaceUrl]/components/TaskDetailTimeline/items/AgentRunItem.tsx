@@ -89,7 +89,7 @@ export function AgentRunItem({ entry }: AgentRunItemProps) {
         )}
       </div>
       <span className='text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0'>
-        {new Date(entry.createdAt).toLocaleTimeString([], {
+        {new Date(entry.createdAt).toLocaleTimeString(intl.locale, {
           hour: '2-digit',
           minute: '2-digit',
         })}

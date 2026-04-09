@@ -46,12 +46,17 @@ export function useProjectSummary(
       setLoading(true)
       setError(null)
       try {
-        const data = await apiFetch<{ summary: ApiProjectSummary }>(
-          API.summaries.project(projectId)
-        )
+        const data = await apiFetch<{
+          summary?: ApiProjectSummary
+          summaries?: ApiProjectSummary[]
+        }>(API.summaries.project(projectId))
         if (cancelled) return
-        setSummary(data.summary)
-        writeCache(cacheKey, data.summary)
+        const latest = data.summary ?? data.summaries?.[0] ?? null
+        const fetched = isValidSummary(latest)
+          ? (latest as ApiProjectSummary)
+          : null
+        setSummary(fetched)
+        if (fetched) writeCache(cacheKey, fetched)
       } catch {
         if (!cancelled) setError('Failed to load summary')
       } finally {

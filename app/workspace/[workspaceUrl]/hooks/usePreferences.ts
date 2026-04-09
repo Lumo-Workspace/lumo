@@ -6,7 +6,23 @@ import { toast } from 'sonner'
 
 export interface Preferences {
   theme: 'light' | 'dark' | 'system'
-  locale: 'en' | 'zh'
+  locale:
+    | 'en'
+    | 'zh-CN'
+    | 'zh-TW'
+    | 'en-GB'
+    | 'en-AU'
+    | 'es-ES'
+    | 'es-419'
+    | 'fr'
+    | 'de'
+    | 'ja'
+    | 'ko'
+    | 'hi'
+    | 'ru'
+    | 'vi'
+    | 'id'
+    | 'ms'
   timezone: string
   notifyInAppAssigned: boolean
   notifyInAppComment: boolean

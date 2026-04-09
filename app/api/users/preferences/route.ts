@@ -3,7 +3,24 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
 const VALID_THEMES = ['light', 'dark', 'system'] as const
-const VALID_LOCALES = ['en', 'zh'] as const
+const VALID_LOCALES = [
+  'en',
+  'zh-CN',
+  'zh-TW',
+  'en-GB',
+  'en-AU',
+  'es-ES',
+  'es-419',
+  'fr',
+  'de',
+  'ja',
+  'ko',
+  'hi',
+  'ru',
+  'vi',
+  'id',
+  'ms',
+] as const
 
 const BOOLEAN_FIELDS = [
   'notifyInAppAssigned',

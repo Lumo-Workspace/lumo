@@ -146,12 +146,26 @@ export function PreferencesPage() {
               }
               disabled={loading}
             >
-              <SelectTrigger className='w-32 h-8 text-sm'>
+              <SelectTrigger className='w-48 h-8 text-sm'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='en'>English</SelectItem>
-                <SelectItem value='zh'>中文</SelectItem>
+                <SelectItem value='id'>Bahasa Indonesia</SelectItem>
+                <SelectItem value='ms'>Bahasa Melayu</SelectItem>
+                <SelectItem value='de'>Deutsch</SelectItem>
+                <SelectItem value='en'>English (US)</SelectItem>
+                <SelectItem value='en-AU'>English (Australia)</SelectItem>
+                <SelectItem value='en-GB'>English (UK)</SelectItem>
+                <SelectItem value='es-419'>Español (Latinoamérica)</SelectItem>
+                <SelectItem value='es-ES'>Español (España)</SelectItem>
+                <SelectItem value='fr'>Français</SelectItem>
+                <SelectItem value='vi'>Tiếng Việt</SelectItem>
+                <SelectItem value='ru'>Русский</SelectItem>
+                <SelectItem value='hi'>हिन्दी</SelectItem>
+                <SelectItem value='ja'>日本語</SelectItem>
+                <SelectItem value='ko'>한국어</SelectItem>
+                <SelectItem value='zh-CN'>简体中文</SelectItem>
+                <SelectItem value='zh-TW'>繁體中文</SelectItem>
               </SelectContent>
             </Select>
           </div>

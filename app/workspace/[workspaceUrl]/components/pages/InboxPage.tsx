@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
 import { AnimatePresence, motion } from 'framer-motion'
-import { formatDistanceToNow } from 'date-fns'
+
 import {
   Inbox,
   CheckCheck,
@@ -270,6 +270,7 @@ function NotificationItem({
     reply?: string
   ) => void
 }) {
+  const intlLocal = useIntl()
   const { actor, task, type, commentPreview, createdAt, read } = notification
 
   // Track which review action was taken this session so buttons stay visible
@@ -297,7 +298,21 @@ function NotificationItem({
   }
   const verb = VERB[type] ?? 'mentioned you in'
 
-  const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true })
+  const timeAgo = (() => {
+    const rtf = new Intl.RelativeTimeFormat(intlLocal.locale, {
+      numeric: 'auto',
+    })
+    const diff = Date.now() - new Date(createdAt).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return rtf.format(0, 'second')
+    if (mins < 60) return rtf.format(-mins, 'minute')
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return rtf.format(-hours, 'hour')
+    const days = Math.floor(hours / 24)
+    if (days < 30) return rtf.format(-days, 'day')
+    const months = Math.floor(days / 30)
+    return rtf.format(-months, 'month')
+  })()
 
   return (
     <ContextMenu>

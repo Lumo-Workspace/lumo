@@ -3,7 +3,7 @@
 import type { TimelineCommentEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
 import { resolveCommentAuthor } from '../../comment-utils'
-import { formatTimestamp } from '../../../utils'
+import { useFormatDate } from '../../../hooks/useFormatDate'
 
 interface CommentTimelineItemProps {
   entry: TimelineCommentEntry
@@ -16,6 +16,7 @@ export function CommentTimelineItem({
   members,
   agentActors,
 }: CommentTimelineItemProps) {
+  const { fmtTimestamp } = useFormatDate()
   const ca = resolveCommentAuthor(entry as any, members, agentActors)
 
   return (
@@ -31,7 +32,7 @@ export function CommentTimelineItem({
             {ca.name}
           </span>
           <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-            {formatTimestamp(entry.createdAt)}
+            {fmtTimestamp(entry.createdAt)}
           </span>
         </div>
         <div

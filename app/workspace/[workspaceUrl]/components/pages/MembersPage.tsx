@@ -45,8 +45,8 @@ import { getInitials } from '@/lib/utils/getInitials'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
+function formatDate(iso: string, locale: string = 'en') {
+  return new Date(iso).toLocaleDateString(locale, {
     month: 'short',
     year: 'numeric',
   })
@@ -254,7 +254,7 @@ export function MembersPage() {
 
                   {/* Joined */}
                   <span className='text-sm text-zinc-400 shrink-0 whitespace-nowrap'>
-                    {formatDate(m.joinedAt)}
+                    {formatDate(m.joinedAt, intl.locale)}
                   </span>
 
                   {/* Actions — only show for self if they can leave */}
@@ -354,7 +354,7 @@ export function MembersPage() {
 
                     {/* Sent date */}
                     <span className='text-sm text-zinc-400 whitespace-nowrap'>
-                      {formatDate(inv.createdAt)}
+                      {formatDate(inv.createdAt, intl.locale)}
                     </span>
 
                     {/* Actions */}

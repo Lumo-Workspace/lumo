@@ -48,7 +48,10 @@ export function SummaryHistory({
         <div className='space-y-1'>
           {loading && (
             <p className='text-xs text-zinc-400 dark:text-zinc-500 py-2'>
-              Loading&hellip;
+              {intl.formatMessage({
+                id: 'common.loading',
+                defaultMessage: 'Loading…',
+              })}
             </p>
           )}
 
@@ -62,7 +65,7 @@ export function SummaryHistory({
             const isExpanded = expandedId === entry.id
             const formattedDate = new Date(
               entry.generatedAt
-            ).toLocaleDateString('en-US', {
+            ).toLocaleDateString(intl.locale, {
               month: 'short',
               day: 'numeric',
               year: 'numeric',

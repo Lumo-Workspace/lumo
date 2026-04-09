@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
 import type { ApiComment, WorkspaceMemberInfo } from '../types'
-import { formatTimestamp, slugifyProjectName } from '../utils'
+import { slugifyProjectName } from '../utils'
+import { useFormatDate } from '../hooks/useFormatDate'
 import { copyLink } from '../utils/copyLink'
 import { DescriptionEditor } from './DescriptionEditor'
 import { CommentAvatar } from './CommentAvatar'
@@ -72,6 +73,7 @@ export function TaskDetailComments({
   tc,
 }: TaskDetailCommentsProps) {
   const intl = useIntl()
+  const { fmtTimestamp } = useFormatDate()
 
   return (
     <>
@@ -124,7 +126,7 @@ export function TaskDetailComments({
                         {ca.name}
                       </span>
                       <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                        {formatTimestamp(comment.createdAt)}
+                        {fmtTimestamp(comment.createdAt)}
                         {wasEdited &&
                           ` · ${intl.formatMessage({ id: 'task.edited' })}`}
                       </span>
@@ -305,7 +307,7 @@ export function TaskDetailComments({
                                 {ra.name}
                               </span>
                               <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                                {formatTimestamp(reply.createdAt)}
+                                {fmtTimestamp(reply.createdAt)}
                                 {rWasEdited &&
                                   ` · ${intl.formatMessage({ id: 'task.edited' })}`}
                               </span>

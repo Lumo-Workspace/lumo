@@ -368,17 +368,28 @@ function formatActivityText(
   }
 }
 
-function formatTimeAgo(dateStr: string): string {
+function formatTimeAgo(dateStr: string, locale: string = 'en'): string {
   const now = Date.now()
   const then = new Date(dateStr).getTime()
   const diff = now - then
+  const seconds = Math.floor(diff / 1000)
+
+  if (seconds < 60)
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(
+      0,
+      'second'
+    )
+
+  const rtf = new Intl.RelativeTimeFormat(locale, {
+    numeric: 'always',
+    style: 'narrow',
+  })
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return rtf.format(-minutes, 'minute')
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return rtf.format(-hours, 'hour')
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return rtf.format(-days, 'day')
 }
 
 export function CompactActivityItem({
@@ -411,11 +422,11 @@ export function CompactActivityItem({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                {formatTimeAgo(entry.createdAt)}
+                {formatTimeAgo(entry.createdAt, intl.locale)}
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              {new Date(entry.createdAt).toLocaleString()}
+              {new Date(entry.createdAt).toLocaleString(intl.locale)}
             </TooltipContent>
           </Tooltip>
         </div>
