@@ -389,3 +389,22 @@ export interface ApiDocumentShare {
   role: DocShareRole
   createdAt: string
 }
+
+export interface ApiPullRequestSearchResult {
+  id: string
+  repo: string
+  number: number
+  title: string
+  url: string
+  state: string
+  ciStatus: string | null
+  authorLogin: string
+  headBranch: string
+  createdAt: string
+  task: {
+    id: string
+    number: number
+    title: string
+    team: { identifier: string }
+  } | null
+}
