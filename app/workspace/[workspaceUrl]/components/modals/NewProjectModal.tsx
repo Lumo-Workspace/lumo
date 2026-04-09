@@ -52,7 +52,10 @@ export function NewProjectModal({
   const recovery = useFormRecovery<Record<string, unknown>>({
     cacheKey: CACHE_KEY.formRecoveryNewProject,
     disabled: isFromDraft || !!preFill,
-    isEmpty: data => !data.name && !data.description,
+    isEmpty: data => {
+      const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+      return !str(data.name) && !str(data.description)
+    },
   })
 
   // Auto-save to localStorage on form changes
