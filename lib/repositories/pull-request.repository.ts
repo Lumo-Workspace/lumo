@@ -20,4 +20,61 @@ export const pullRequestRepository = {
       orderBy: { createdAt: 'desc' },
     })
   },
+
+  /** Search PRs in a workspace by number or title. */
+  async searchByWorkspace(workspaceId: string, query: string, limit: number) {
+    const numericQuery = /^\d+$/.test(query) ? Number(query) : null
+    return prisma.pullRequest.findMany({
+      where: {
+        workspaceId,
+        ...(numericQuery !== null
+          ? { number: numericQuery }
+          : { title: { contains: query, mode: 'insensitive' as const } }),
+      },
+      select: {
+        id: true,
+        repo: true,
+        number: true,
+        title: true,
+        url: true,
+        state: true,
+        ciStatus: true,
+        authorLogin: true,
+        headBranch: true,
+        createdAt: true,
+        task: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+  },
+
+  /** Find a PR by repo + number compound key, with task info. */
+  async findByRepoAndNumber(repo: string, number: number) {
+    return prisma.pullRequest.findUnique({
+      where: { repo_number: { repo, number } },
+      include: {
+        task: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+  },
+
+  /** Update the task association for a PR. Pass null to unlink. */
+  async updateTaskId(prId: string, taskId: string | null) {
+    return prisma.pullRequest.update({ where: { id: prId }, data: { taskId } })
+  },
 }
