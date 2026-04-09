@@ -135,12 +135,7 @@ export function NewTaskModal({
     disabled: isFromDraft || !!preFill,
     isEmpty: data => {
       const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
-      return (
-        !str(data.title) &&
-        !str(data.description) &&
-        !data.projectId &&
-        !data.assigneeId
-      )
+      return !str(data.title) && !str(data.description)
     },
   })
 
