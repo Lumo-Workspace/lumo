@@ -13,6 +13,7 @@ import {
   User,
   Settings2,
   Bell,
+  Tag,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -46,6 +47,11 @@ export function SettingsShell({
       href: `/workspace/${workspaceUrl}/settings/integrations`,
       icon: Puzzle,
     },
+    {
+      label: intl.formatMessage({ id: 'settings.tags' }),
+      href: `/workspace/${workspaceUrl}/settings/tags`,
+      icon: Tag,
+    },
   ]
 
   const memberItems = [
@@ -58,6 +64,11 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.integrations' }),
       href: `/workspace/${workspaceUrl}/settings/integrations`,
       icon: Puzzle,
+    },
+    {
+      label: intl.formatMessage({ id: 'settings.tags' }),
+      href: `/workspace/${workspaceUrl}/settings/tags`,
+      icon: Tag,
     },
   ]
 
