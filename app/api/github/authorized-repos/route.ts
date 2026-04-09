@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { githubService } from '@/lib/services/github.service'
 
 /**
  * GET /api/github/authorized-repos?workspaceUrl={slug}
@@ -27,21 +27,7 @@ export async function GET(request: NextRequest) {
     const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    // Collect all repos authorized across all integrations for this workspace
-    const integrations = await prisma.gitHubIntegration.findMany({
-      where: { workspaceId: ws.workspaceId },
-      select: { repositories: true },
-    })
-
-    const allRepos = integrations.flatMap(i => i.repositories)
-    // Deduplicate (in case multiple integrations authorize the same repo)
-    const unique = [...new Set(allRepos)]
-
-    const repos = unique.map(fullName => ({
-      fullName,
-      name: fullName.split('/')[1] ?? fullName,
-      private: false, // privacy info not stored; omit for branch creation purposes
-    }))
+    const repos = await githubService.getAuthorizedRepos(ws.workspaceId)
 
     return NextResponse.json({ repos })
   } catch (error) {

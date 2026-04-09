@@ -1,6 +1,5 @@
 import { waitUntil } from '@vercel/functions'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
@@ -10,6 +9,11 @@ import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
 import { commentService } from '@/lib/services'
+import {
+  taskRepository,
+  memberRepository,
+  notificationRepository,
+} from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -25,10 +29,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const task = await prisma.task.findUnique({
-      where: { id },
-      include: { project: { select: { workspaceId: true } } },
-    })
+    const task = await taskRepository.findWithProjectWorkspaceId(id)
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const memberResult = await requireWorkspaceMember(
@@ -62,22 +63,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const task = await prisma.task.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        projectId: true,
-        number: true,
-        title: true,
-        team: { select: { identifier: true } },
-        project: {
-          select: {
-            workspaceId: true,
-            workspace: { select: { slug: true } },
-          },
-        },
-      },
-    })
+    const task = await taskRepository.findForComment(id)
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const memberResult = await requireWorkspaceMember(
@@ -133,11 +119,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     if (mentionedIds.length > 0) {
       const workspaceId = task.project.workspaceId
-      prisma.workspaceMember
-        .findMany({
-          where: { workspaceId, clerkId: { in: mentionedIds } },
-          select: { clerkId: true, actor: { select: { id: true } } },
-        })
+      memberRepository
+        .findByWorkspaceAndClerkIds(workspaceId, mentionedIds)
         .then(async members => {
           if (members.length === 0) return
           const workspaceSlug = task.project.workspace?.slug ?? ''
@@ -202,16 +185,16 @@ export async function POST(request: NextRequest, { params }: Params) {
               waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }))
             }
           }
-          return prisma.notification.createMany({
-            data: inAppRecipients.map(recipientActorId => ({
+          return notificationRepository.createMany(
+            inAppRecipients.map(recipientActorId => ({
               workspaceId,
               recipientActorId,
               type: 'TASK_MENTIONED' as const,
               taskId: id,
               commentId: comment.id,
               triggerActorId: authorActorId,
-            })),
-          })
+            }))
+          )
         })
         .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
     }

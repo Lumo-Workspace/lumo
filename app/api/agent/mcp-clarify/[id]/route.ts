@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { validateMcpToken } from '@/lib/auth/mcp-auth'
 
 /**
@@ -16,10 +16,7 @@ export async function GET(
   try {
     const { id } = await params
 
-    const clarify = await prisma.agentClarify.findUnique({
-      where: { id },
-      select: { taskId: true, reply: true, repliedAt: true },
-    })
+    const clarify = await notificationRepository.findClarifyForPoll(id)
 
     if (!clarify) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })

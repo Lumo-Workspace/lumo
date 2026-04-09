@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
+import { notificationService } from '@/lib/services/notification.service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -26,23 +26,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const notification = await prisma.notification.findUnique({ where: { id } })
-    if (!notification) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
     const currentActorId = await resolveCurrentActorId(userId)
-    if (!currentActorId || notification.recipientActorId !== currentActorId) {
+    if (!currentActorId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await request.json().catch(() => ({}))
     const read = typeof body.read === 'boolean' ? body.read : true
 
-    await prisma.notification.update({ where: { id }, data: { read } })
+    await notificationService.updateRead(id, currentActorId, read)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404 || status === 403) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('PATCH /api/notifications/[id] error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
@@ -61,20 +60,19 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const notification = await prisma.notification.findUnique({ where: { id } })
-    if (!notification) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
     const currentActorId = await resolveCurrentActorId(userId)
-    if (!currentActorId || notification.recipientActorId !== currentActorId) {
+    if (!currentActorId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.notification.delete({ where: { id } })
+    await notificationService.deleteNotification(id, currentActorId)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status === 404 || status === 403) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('DELETE /api/notifications/[id] error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

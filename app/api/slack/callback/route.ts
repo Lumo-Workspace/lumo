@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { decrypt, encrypt } from '@/lib/crypto'
+import { slackService } from '@/lib/services/slack.service'
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
@@ -52,23 +52,13 @@ export async function GET(request: NextRequest) {
 
     const encryptedToken = encrypt(tokenData.access_token)
 
-    await prisma.slackIntegration.upsert({
-      where: { workspaceId },
-      create: {
-        workspaceId,
-        installedBy: memberId,
-        accessToken: encryptedToken,
-        slackTeamId: tokenData.team.id,
-        slackTeamName: tokenData.team.name,
-        slackUserId: tokenData.authed_user.id,
-      },
-      update: {
-        installedBy: memberId,
-        accessToken: encryptedToken,
-        slackTeamId: tokenData.team.id,
-        slackTeamName: tokenData.team.name,
-        slackUserId: tokenData.authed_user.id,
-      },
+    await slackService.upsertIntegration({
+      workspaceId,
+      installedBy: memberId,
+      accessToken: encryptedToken,
+      slackTeamId: tokenData.team.id,
+      slackTeamName: tokenData.team.name,
+      slackUserId: tokenData.authed_user.id,
     })
 
     return NextResponse.redirect(

@@ -6,8 +6,8 @@ import { z } from 'zod'
 
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
 import { generateDescriptionSchema } from '@/lib/validation/schemas'
+import { taskRepository, projectRepository } from '@/lib/repositories'
 
 const descriptionResponseSchema = z.object({
   description: z
@@ -175,12 +175,10 @@ export async function POST(request: Request) {
       if (projectResult instanceof NextResponse) return projectResult
       const { project } = projectResult
 
-      const recentTasks = await prisma.task.findMany({
-        where: { projectId },
-        select: { title: true, description: true },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      })
+      const recentTasks = await taskRepository.findRecentByProject(
+        projectId,
+        10
+      )
 
       const prompt = buildPrompt({
         title,
@@ -213,11 +211,7 @@ export async function POST(request: Request) {
     if (wsResult instanceof NextResponse) return wsResult
 
     const workspaceId = wsResult.workspace.id
-    const projects = await prisma.project.findMany({
-      where: { workspaceId, isIdea: false },
-      select: { id: true, name: true, description: true },
-      orderBy: { createdAt: 'desc' },
-    })
+    const projects = await projectRepository.findByWorkspaceNonIdea(workspaceId)
 
     if (projects.length === 0) {
       return NextResponse.json(

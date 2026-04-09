@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/db/prisma'
 import { projectRepository } from '@/lib/repositories/project.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import { getDefaultTeam } from '@/lib/team'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -84,9 +84,9 @@ export const projectService = {
     if (input.isIdea !== undefined) data.isIdea = input.isIdea
     if (input.defaultReviewerId !== undefined) {
       if (input.defaultReviewerId !== null) {
-        const reviewer = await prisma.workspaceMember.findUnique({
-          where: { id: input.defaultReviewerId },
-        })
+        const reviewer = await memberRepository.findById(
+          input.defaultReviewerId
+        )
         if (!reviewer || reviewer.workspaceId !== project.workspaceId) {
           throw Object.assign(
             new Error('Reviewer is not a member of this workspace'),

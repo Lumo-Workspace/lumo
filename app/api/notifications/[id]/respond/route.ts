@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
+import { notificationService } from '@/lib/services/notification.service'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { resumeAgent } from '@/lib/agent/resume'
 import {
   clearAgentStatus,
@@ -64,38 +65,12 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Actor not found' }, { status: 404 })
     }
 
-    // Load notification
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        type: true,
-        requiresAction: true,
-        actionTakenAt: true,
-        recipientActorId: true,
-        taskId: true,
-        clarifyId: true,
-      },
-    })
-
-    if (!notification) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-    if (notification.recipientActorId !== recipientActorId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-    if (!notification.requiresAction) {
-      return NextResponse.json(
-        { error: 'This notification does not require an action' },
-        { status: 409 }
-      )
-    }
-    if (notification.actionTakenAt) {
-      return NextResponse.json(
-        { error: 'Action already taken' },
-        { status: 409 }
-      )
-    }
+    // Load notification with ownership + action checks
+    const notification = await notificationService.loadForRespond(
+      id,
+      recipientActorId
+    )
+    const taskId = notification.taskId!
 
     // Parse body
     const body = await request.json().catch(() => ({}))
@@ -108,11 +83,6 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
     const data = parsed.data
 
-    const taskId = notification.taskId
-    if (!taskId) {
-      return NextResponse.json({ error: 'No task linked' }, { status: 422 })
-    }
-
     // ── AGENT_CLARIFY ──────────────────────────────────────────────────────────
     if (notification.type === 'AGENT_CLARIFY') {
       if (data.action !== 'reply') {
@@ -122,15 +92,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         )
       }
 
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          agentStatus: true,
-          projectId: true,
-          project: { select: { workspaceId: true } },
-        },
-      })
+      const task = await taskRepository.findForAgent(taskId)
 
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -140,10 +102,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
 
       // Mark actionTakenAt first to prevent double-submission
-      await prisma.notification.update({
-        where: { id },
-        data: { actionTakenAt: new Date(), read: true },
-      })
+      await notificationService.markActionTaken(id)
 
       if (task.agentStatus === 'INPUT_REQUIRED') {
         // Resume agent — DB update only, MCP server picks up reply via HTTP poll
@@ -151,15 +110,12 @@ export async function POST(request: NextRequest, { params }: Params) {
           await resumeAgent(taskId, task.projectId, data.reply)
         } catch {
           // Resume failed — fall through to re-run
-          await prisma.task.update({
-            where: { id: taskId },
-            data: { agentError: null },
-          })
+          await taskRepository.clearAgentError(taskId)
           if (notification.clarifyId) {
-            await prisma.agentClarify.update({
-              where: { id: notification.clarifyId },
-              data: { reply: data.reply, repliedAt: new Date() },
-            })
+            await notificationService.replyClarify(
+              notification.clarifyId,
+              data.reply
+            )
           }
           await runAgent({
             taskId,
@@ -171,15 +127,12 @@ export async function POST(request: NextRequest, { params }: Params) {
         }
       } else {
         // Task not INPUT_REQUIRED — re-run the agent fresh
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { agentError: null },
-        })
+        await taskRepository.clearAgentError(taskId)
         if (notification.clarifyId) {
-          await prisma.agentClarify.update({
-            where: { id: notification.clarifyId },
-            data: { reply: data.reply, repliedAt: new Date() },
-          })
+          await notificationService.replyClarify(
+            notification.clarifyId,
+            data.reply
+          )
         }
         await executeAgent({
           taskId,
@@ -202,15 +155,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         )
       }
 
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          agentStatus: true,
-          projectId: true,
-          project: { select: { workspaceId: true } },
-        },
-      })
+      const task = await taskRepository.findForAgent(taskId)
 
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -219,10 +164,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
-      await prisma.notification.update({
-        where: { id },
-        data: { actionTakenAt: new Date(), read: true },
-      })
+      await notificationService.markActionTaken(id)
 
       if (data.action === 'approve') {
         const reply = 'APPROVED'
@@ -230,10 +172,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           try {
             await resumeAgent(taskId, task.projectId, reply)
           } catch {
-            await prisma.task.update({
-              where: { id: taskId },
-              data: { agentError: null },
-            })
+            await taskRepository.clearAgentError(taskId)
             await runAgent({
               taskId,
               actorClerkId: userId,
@@ -246,10 +185,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             })
           }
         } else {
-          await prisma.task.update({
-            where: { id: taskId },
-            data: { agentError: null },
-          })
+          await taskRepository.clearAgentError(taskId)
           await executeAgent({
             taskId,
             actorClerkId: userId,
@@ -277,16 +213,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         )
       }
 
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          status: true,
-          agentStatus: true,
-          projectId: true,
-          project: { select: { workspaceId: true } },
-        },
-      })
+      const task = await taskRepository.findForAgent(taskId)
 
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -296,10 +223,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       }
 
       // Mark actionTakenAt first
-      await prisma.notification.update({
-        where: { id },
-        data: { actionTakenAt: new Date(), read: true },
-      })
+      await notificationService.markActionTaken(id)
 
       if (data.action === 'confirm') {
         // Transition task → DONE
@@ -313,10 +237,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       } else {
         // send_back: clear agent status and re-run
         await clearAgentStatus(taskId, task.projectId)
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { agentError: null },
-        })
+        await taskRepository.clearAgentError(taskId)
         await runAgent({
           taskId,
           actorClerkId: userId,
@@ -334,6 +255,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       { status: 409 }
     )
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status && status >= 400 && status < 500) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('POST /api/notifications/[id]/respond error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

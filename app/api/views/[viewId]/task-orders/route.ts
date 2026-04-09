@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
+import { viewService } from '@/lib/services/view.service'
 
 type Params = { params: Promise<{ viewId: string }> }
 
@@ -27,47 +27,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
     }
 
-    // Verify view exists and resolve its workspace
-    const view = await prisma.view.findUnique({
-      where: { id: viewId },
-      include: {
-        project: { select: { workspaceId: true } },
-        member: { select: { workspaceId: true, clerkId: true } },
-      },
-    })
-    if (!view) {
-      return NextResponse.json({ error: 'View not found' }, { status: 404 })
-    }
-
-    const workspaceId = view.project?.workspaceId ?? view.member?.workspaceId
-    if (!workspaceId) {
-      return NextResponse.json(
-        { error: 'View has no workspace' },
-        { status: 400 }
-      )
-    }
-
-    // Check caller belongs to this workspace
-    const member = await prisma.workspaceMember.findFirst({
-      where: { workspaceId, clerkId: userId },
-    })
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Personal views: only the owner can update
-    if (view.memberId && view.member?.clerkId !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    await prisma.viewTaskOrder.upsert({
-      where: { viewId_taskId: { viewId, taskId } },
-      update: { order, groupKey },
-      create: { viewId, taskId, groupKey, order },
-    })
+    await viewService.upsertTaskOrder(viewId, taskId, groupKey, order, userId)
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('PATCH /api/views/[viewId]/task-orders error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

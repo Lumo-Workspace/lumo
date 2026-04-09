@@ -27,4 +27,27 @@ export const commentRepository = {
   async create(data: CreateCommentData) {
     return prisma.comment.create({ data })
   },
+
+  /** Find a comment by ID with task and project workspace info (for ownership/auth checks). */
+  async findByIdWithTask(id: string) {
+    return prisma.comment.findUnique({
+      where: { id },
+      include: {
+        task: { select: { project: { select: { workspaceId: true } } } },
+      },
+    })
+  },
+
+  /** Update a comment's body. */
+  async update(id: string, data: { body: string }) {
+    return prisma.comment.update({
+      where: { id },
+      data,
+    })
+  },
+
+  /** Delete a comment by ID. */
+  async delete(id: string) {
+    return prisma.comment.delete({ where: { id } })
+  },
 }

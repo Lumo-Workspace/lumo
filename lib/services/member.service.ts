@@ -1,0 +1,88 @@
+import { memberRepository } from '@/lib/repositories/member.repository'
+import type { WorkspaceRole } from '@prisma/client'
+
+// ── Member Service ─────────────────────────────────────────────────────────
+
+export const memberService = {
+  /**
+   * List all workspace members (raw DB records with actor IDs).
+   * Caller is responsible for enriching with Clerk user profiles.
+   */
+  async listMembers(workspaceId: string) {
+    return memberRepository.findByWorkspace(workspaceId)
+  },
+
+  /** Get agent actors for a workspace, lazy-creating the coding agent if needed. */
+  async getAgentActors(workspaceId: string) {
+    const existingAgent =
+      await memberRepository.findCodingAgentProfile(workspaceId)
+    if (!existingAgent) {
+      await memberRepository.createCodingAgent(workspaceId)
+    }
+
+    const agentActors = await memberRepository.findAgentActors(workspaceId)
+    return agentActors.map(a => ({
+      actorId: a.id,
+      name: a.agent?.name ?? 'Agent',
+      avatarColor: a.agent?.avatarColor ?? '#6366f1',
+      type: a.agent?.type ?? 'CODING',
+    }))
+  },
+
+  /** Update a member's role. Only OWNER callers can do this. */
+  async updateMemberRole(
+    memberId: string,
+    newRole: WorkspaceRole,
+    callerMemberId: string,
+    callerRole: string,
+    callerWorkspaceId: string
+  ) {
+    if (callerRole !== 'OWNER') {
+      throw Object.assign(new Error('Forbidden'), { status: 403 })
+    }
+
+    if (memberId === callerMemberId) {
+      throw Object.assign(new Error('You cannot change your own role'), {
+        status: 400,
+      })
+    }
+
+    const target = await memberRepository.findById(memberId)
+    if (!target || target.workspaceId !== callerWorkspaceId) {
+      throw Object.assign(new Error('Member not found'), { status: 404 })
+    }
+
+    // Guard: cannot demote the last OWNER
+    if (target.role === 'OWNER' && newRole === 'MEMBER') {
+      const ownerCount = await memberRepository.countOwners(callerWorkspaceId)
+      if (ownerCount <= 1) {
+        throw Object.assign(new Error('Cannot remove the last admin'), {
+          status: 400,
+        })
+      }
+    }
+
+    return memberRepository.updateRole(memberId, newRole)
+  },
+
+  /** Remove the current user from the workspace. Blocked if last OWNER. */
+  async leaveWorkspace(
+    memberId: string,
+    memberRole: string,
+    workspaceId: string
+  ) {
+    if (memberRole === 'OWNER') {
+      const ownerCount = await memberRepository.countOwners(workspaceId)
+      if (ownerCount <= 1) {
+        throw Object.assign(
+          new Error(
+            'Cannot leave — you are the last admin. Transfer admin to someone else first.'
+          ),
+          { status: 400 }
+        )
+      }
+    }
+
+    await memberRepository.delete(memberId)
+  },
+}

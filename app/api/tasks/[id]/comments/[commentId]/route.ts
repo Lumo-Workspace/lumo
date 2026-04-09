@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { getHumanActorId } from '@/lib/actor'
+import { commentRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string; commentId: string }> }
 
@@ -13,12 +13,7 @@ async function requireCommentOwner(
   userId: string,
   action: string
 ) {
-  const comment = await prisma.comment.findUnique({
-    where: { id: commentId },
-    include: {
-      task: { select: { project: { select: { workspaceId: true } } } },
-    },
-  })
+  const comment = await commentRepository.findByIdWithTask(commentId)
   if (!comment || comment.taskId !== taskId) {
     return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
   }
@@ -54,9 +49,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const parsed = updateCommentSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const updated = await prisma.comment.update({
-      where: { id: commentId },
-      data: { body: parsed.data.body },
+    const updated = await commentRepository.update(commentId, {
+      body: parsed.data.body,
     })
 
     return NextResponse.json({ comment: updated })
@@ -87,7 +81,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     )
     if (result instanceof NextResponse) return result
 
-    await prisma.comment.delete({ where: { id: commentId } })
+    await commentRepository.delete(commentId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

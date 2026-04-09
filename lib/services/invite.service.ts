@@ -1,0 +1,129 @@
+import { inviteRepository } from '@/lib/repositories/invite.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+
+// ── Invite Service ─────────────────────────────────────────────────────────
+
+export const inviteService = {
+  /**
+   * Send invites to a list of emails.
+   * For each email: deletes any existing pending invite, creates a new one,
+   * and returns the created invite for the caller to send emails.
+   */
+  async createInvites(
+    workspaceId: string,
+    emails: string[],
+    inviterName: string,
+    invitedById: string,
+    expiresAt: Date
+  ) {
+    const results: Array<{
+      email: string
+      invite: Awaited<ReturnType<typeof inviteRepository.create>>
+    }> = []
+
+    for (const rawEmail of emails) {
+      const email = rawEmail.toLowerCase()
+
+      // Upsert: delete any existing pending invite for this email+workspace
+      await inviteRepository.deletePendingByEmail(workspaceId, email)
+
+      const invite = await inviteRepository.create({
+        workspaceId,
+        email,
+        inviterName,
+        invitedById,
+        expiresAt,
+      })
+
+      results.push({ email, invite })
+    }
+
+    return results
+  },
+
+  /** List all pending invites for a workspace. */
+  async listPendingInvites(workspaceId: string) {
+    return inviteRepository.findPendingByWorkspace(workspaceId)
+  },
+
+  /** Get invite details by token (public, no auth required). */
+  async getInviteByToken(token: string) {
+    const invite = await inviteRepository.findByToken(token)
+    if (!invite) {
+      throw Object.assign(new Error('Invite not found'), { status: 404 })
+    }
+
+    const isExpired = invite.expiresAt < new Date()
+
+    return {
+      workspaceName: invite.workspace.name,
+      workspaceSlug: invite.workspace.slug,
+      inviterName: invite.inviterName,
+      email: invite.email,
+      status:
+        isExpired && invite.status === 'PENDING' ? 'EXPIRED' : invite.status,
+    }
+  },
+
+  /** Revoke a pending invite. Caller must own the workspace. */
+  async revokeInvite(token: string, callerWorkspaceId: string) {
+    const invite = await inviteRepository.findByTokenForAuth(token)
+    if (!invite || invite.workspaceId !== callerWorkspaceId) {
+      throw Object.assign(new Error('Invite not found'), { status: 404 })
+    }
+    if (invite.status !== 'PENDING') {
+      throw Object.assign(new Error('Only PENDING invites can be revoked'), {
+        status: 400,
+      })
+    }
+
+    await inviteRepository.updateStatus(invite.id, 'REVOKED')
+  },
+
+  /** Accept an invite: create member, add to default team, mark accepted. */
+  async acceptInvite(token: string, clerkId: string) {
+    const invite = await inviteRepository.findByTokenWithWorkspace(token)
+    if (!invite) {
+      throw Object.assign(new Error('Invite not found'), { status: 404 })
+    }
+    if (invite.status !== 'PENDING') {
+      throw Object.assign(
+        new Error('This invitation has already been used or revoked'),
+        { status: 409 }
+      )
+    }
+    if (invite.expiresAt < new Date()) {
+      throw Object.assign(new Error('This invitation has expired'), {
+        status: 410,
+      })
+    }
+
+    // Idempotent: already a member → return workspace slug
+    const existingMember = await memberRepository.findByWorkspaceAndClerkId(
+      invite.workspaceId,
+      clerkId
+    )
+    if (existingMember) {
+      return { workspaceSlug: invite.workspace.slug, alreadyMember: true }
+    }
+
+    await inviteRepository.acceptInTransaction(invite, clerkId)
+
+    return { workspaceSlug: invite.workspace.slug, alreadyMember: false }
+  },
+
+  /** Resend an invite: reset expiry and return invite data for email sending. */
+  async resendInvite(token: string, callerWorkspaceId: string) {
+    const invite = await inviteRepository.findByTokenForResend(token)
+    if (!invite || invite.workspaceId !== callerWorkspaceId) {
+      throw Object.assign(new Error('Invite not found'), { status: 404 })
+    }
+    if (invite.status !== 'PENDING') {
+      throw Object.assign(new Error('Only PENDING invites can be resent'), {
+        status: 400,
+      })
+    }
+
+    return invite
+  },
+}

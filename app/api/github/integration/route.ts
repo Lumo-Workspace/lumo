@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { deleteRepoWebhook } from '@/lib/github/webhooks'
+import { githubService } from '@/lib/services/github.service'
 
 /**
  * GET /api/github/integration?workspaceUrl={slug}
@@ -21,26 +21,12 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.gitHubIntegration.findUnique({
-      where: {
-        workspaceId_memberId: {
-          workspaceId: ws.workspaceId,
-          memberId: ws.member.id,
-        },
-      },
-      select: { githubLogin: true, githubUserId: true, repositories: true },
-    })
+    const status = await githubService.getIntegrationStatus(
+      ws.workspaceId,
+      ws.member.id
+    )
 
-    if (!integration) {
-      return NextResponse.json({ connected: false })
-    }
-
-    return NextResponse.json({
-      connected: true,
-      githubLogin: integration.githubLogin,
-      githubUserId: integration.githubUserId,
-      repositories: integration.repositories,
-    })
+    return NextResponse.json(status)
   } catch (error) {
     console.error('GET /api/github/integration error:', error)
     return NextResponse.json(
@@ -66,15 +52,9 @@ export async function DELETE(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    const integration = await prisma.gitHubIntegration.findUnique({
-      where: {
-        workspaceId_memberId: {
-          workspaceId: ws.workspaceId,
-          memberId: ws.member.id,
-        },
-      },
-      include: { webhooks: true },
-    })
+    const integration = await githubService
+      .requireIntegrationWithWebhooks(ws.workspaceId, ws.member.id)
+      .catch(() => null)
 
     if (integration) {
       const token = decrypt(integration.accessToken)
@@ -92,9 +72,7 @@ export async function DELETE(request: NextRequest) {
         }
       }
       // Cascade delete handles GitHubWebhook records
-      await prisma.gitHubIntegration.delete({
-        where: { id: integration.id },
-      })
+      await githubService.deleteIntegration(integration.id)
     }
 
     return NextResponse.json({ ok: true })

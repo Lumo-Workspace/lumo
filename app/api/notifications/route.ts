@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
+import { notificationService } from '@/lib/services/notification.service'
 
 /**
  * GET /api/notifications — return unread notifications for the current user.
@@ -25,30 +25,10 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
     }
 
-    const rawNotifications = await prisma.notification.findMany({
-      where: { workspaceId: ws.workspaceId, recipientActorId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: {
-        trigger: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { clerkId: true } },
-            agent: { select: { name: true, avatarColor: true } },
-          },
-        },
-      },
-    })
-
-    // Sort actionable (requiresAction=true AND actionTakenAt=null) to top
-    rawNotifications.sort((a, b) => {
-      const aActionable = a.requiresAction && a.actionTakenAt === null
-      const bActionable = b.requiresAction && b.actionTakenAt === null
-      if (aActionable && !bActionable) return -1
-      if (!aActionable && bActionable) return 1
-      return b.createdAt.getTime() - a.createdAt.getTime()
-    })
+    const rawNotifications = await notificationService.getNotifications(
+      recipientActorId,
+      ws.workspaceId
+    )
 
     if (rawNotifications.length === 0) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
@@ -74,6 +54,13 @@ export async function GET(_request: NextRequest) {
         rawNotifications.map(n => n.commentId).filter(Boolean) as string[]
       ),
     ]
+    const clarifyIds = [
+      ...new Set(
+        rawNotifications
+          .filter(n => n.type === 'AGENT_CLARIFY' && n.clarifyId)
+          .map(n => n.clarifyId) as string[]
+      ),
+    ]
 
     // Batch-fetch Clerk profiles for HUMAN trigger actors
     const clerk = await clerkClient()
@@ -97,42 +84,13 @@ export async function GET(_request: NextRequest) {
       ])
     )
 
-    // Batch-fetch tasks
-    const tasks =
-      taskIds.length > 0
-        ? await prisma.task.findMany({
-            where: { id: { in: taskIds } },
-            include: { team: { select: { identifier: true } } },
-          })
-        : []
-    const taskMap = new Map(tasks.map(t => [t.id, t]))
-
-    // Batch-fetch comment previews
-    const comments =
-      commentIds.length > 0
-        ? await prisma.comment.findMany({
-            where: { id: { in: commentIds } },
-            select: { id: true, body: true },
-          })
-        : []
-    const commentMap = new Map(comments.map(c => [c.id, c.body]))
-
-    // Batch-fetch AgentClarify records for AGENT_CLARIFY notifications
-    const clarifyIds = [
-      ...new Set(
-        rawNotifications
-          .filter(n => n.type === 'AGENT_CLARIFY' && n.clarifyId)
-          .map(n => n.clarifyId) as string[]
-      ),
-    ]
-    const clarifies =
-      clarifyIds.length > 0
-        ? await prisma.agentClarify.findMany({
-            where: { id: { in: clarifyIds } },
-            select: { id: true, question: true, context: true },
-          })
-        : []
-    const clarifyMap = new Map(clarifies.map(c => [c.id, c]))
+    // Batch-fetch tasks, comments, clarifies
+    const { taskMap, commentMap, clarifyMap } =
+      await notificationService.batchFetchRelatedData(
+        taskIds,
+        commentIds,
+        clarifyIds
+      )
 
     const notifications = rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
@@ -207,10 +165,7 @@ export async function PATCH(_request: NextRequest) {
     const recipientActorId = await getHumanActorId(ws.member.id)
     if (!recipientActorId) return NextResponse.json({ ok: true })
 
-    await prisma.notification.updateMany({
-      where: { workspaceId: ws.workspaceId, recipientActorId, read: false },
-      data: { read: true },
-    })
+    await notificationService.markAllRead(recipientActorId, ws.workspaceId)
 
     return NextResponse.json({ ok: true })
   } catch (error) {

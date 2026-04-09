@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
+import { projectRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string; repoId: string }> }
 
@@ -15,10 +15,7 @@ async function loadRepoAndMember(
   repoId: string,
   userId: string
 ) {
-  const repo = await prisma.projectRepository.findUnique({
-    where: { id: repoId },
-    include: { project: { select: { workspaceId: true } } },
-  })
+  const repo = await projectRepository.findRepositoryById(repoId)
   if (!repo || repo.projectId !== projectId) return null
   const member = await requireWorkspaceMember(repo.project.workspaceId, userId)
   if (member instanceof NextResponse) return null
@@ -49,20 +46,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (parsed.data.isDefault === true) {
       // Clear existing defaults, then set this one
-      await prisma.projectRepository.updateMany({
-        where: { projectId: id, isDefault: true },
-        data: { isDefault: false },
-      })
+      await projectRepository.clearDefaultRepositories(id)
     }
 
     const updateData: { isDefault?: boolean } = {}
     if (parsed.data.isDefault !== undefined)
       updateData.isDefault = parsed.data.isDefault
 
-    const updated = await prisma.projectRepository.update({
-      where: { id: repoId },
-      data: updateData,
-    })
+    const updated = await projectRepository.updateRepository(repoId, updateData)
 
     return NextResponse.json({ repository: updated })
   } catch (error) {
@@ -95,7 +86,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       )
     }
 
-    await prisma.projectRepository.delete({ where: { id: repoId } })
+    await projectRepository.deleteRepository(repoId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

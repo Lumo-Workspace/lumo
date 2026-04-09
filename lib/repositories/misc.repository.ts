@@ -1,0 +1,158 @@
+import { prisma } from '@/lib/db/prisma'
+import type { TaskPriority } from '@prisma/client'
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+interface CreateWaitlistEntryData {
+  email: string
+  name: string | null
+  company: string | null
+  teamSize: string | null
+}
+
+interface CreateApiKeyData {
+  workspaceMemberId: string
+  label: string
+  keyHash: string
+  keyPrefix: string
+}
+
+interface CreatePriorityOverrideData {
+  taskId: string
+  memberId: string
+  projectId: string
+  aiSuggested: TaskPriority
+  userChosen: TaskPriority
+  taskTitle: string
+  taskDescription: string | null
+}
+
+// ── Misc Repository ────────────────────────────────────────────────────────
+
+export const miscRepository = {
+  // ── WaitlistEntry ──────────────────────────────────────────────────────
+
+  /** Find a waitlist entry by email. */
+  async findWaitlistEntryByEmail(email: string) {
+    return prisma.waitlistEntry.findUnique({ where: { email } })
+  },
+
+  /** Create a waitlist entry. */
+  async createWaitlistEntry(data: CreateWaitlistEntryData) {
+    return prisma.waitlistEntry.create({ data })
+  },
+
+  // ── ApiKey ─────────────────────────────────────────────────────────────
+
+  /** List active (non-revoked) API keys for a workspace member. */
+  async findActiveApiKeys(workspaceMemberId: string) {
+    return prisma.apiKey.findMany({
+      where: { workspaceMemberId, revokedAt: null },
+      select: {
+        id: true,
+        label: true,
+        keyPrefix: true,
+        createdAt: true,
+        lastUsedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+  },
+
+  /** Find an API key by ID (for ownership check). */
+  async findApiKeyById(id: string) {
+    return prisma.apiKey.findUnique({
+      where: { id },
+      select: { workspaceMemberId: true, revokedAt: true },
+    })
+  },
+
+  /** Create a new API key. */
+  async createApiKey(data: CreateApiKeyData) {
+    return prisma.apiKey.create({
+      data,
+      select: { id: true, label: true, keyPrefix: true, createdAt: true },
+    })
+  },
+
+  /** Revoke (soft-delete) an API key. */
+  async revokeApiKey(id: string) {
+    return prisma.apiKey.update({
+      where: { id },
+      data: { revokedAt: new Date() },
+    })
+  },
+
+  // ── UserPreference ─────────────────────────────────────────────────────
+
+  /** Find user preferences by member ID. */
+  async findUserPreference(memberId: string) {
+    return prisma.userPreference.findUnique({ where: { memberId } })
+  },
+
+  /** Upsert user preferences. */
+  async upsertUserPreference(
+    memberId: string,
+    update: Record<string, unknown>
+  ) {
+    return prisma.userPreference.upsert({
+      where: { memberId },
+      update,
+      create: { memberId, ...update },
+    })
+  },
+
+  // ── PriorityOverride ──────────────────────────────────────────────────
+
+  /** Record a priority override. */
+  async createPriorityOverride(data: CreatePriorityOverrideData) {
+    return prisma.priorityOverride.create({ data })
+  },
+
+  /** Find priority overrides for a member in a project. */
+  async findPriorityOverrides(
+    memberId: string,
+    projectId: string,
+    take: number
+  ) {
+    return prisma.priorityOverride.findMany({
+      where: { memberId, projectId },
+      select: { taskTitle: true, aiSuggested: true, userChosen: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
+  // ── DocumentMention ───────────────────────────────────────────────────
+
+  /** Find document mentions for a task, filtered by workspace access. */
+  async findDocumentMentionsByTask(
+    taskId: string,
+    workspaceId: string,
+    memberId: string
+  ) {
+    return prisma.documentMention.findMany({
+      where: {
+        taskId,
+        document: {
+          workspaceId,
+          OR: [
+            { createdById: memberId },
+            { visibility: 'WORKSPACE' },
+            { shares: { some: { memberId } } },
+          ],
+        },
+      },
+      include: {
+        document: {
+          select: {
+            id: true,
+            title: true,
+            emoji: true,
+            updatedAt: true,
+          },
+        },
+      },
+    })
+  },
+}

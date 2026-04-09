@@ -1,0 +1,165 @@
+import { memberRepository } from '@/lib/repositories/member.repository'
+
+// ── Mock Prisma ─────────────────────────────────────────────────────────────
+
+const mockMemberFindMany = jest.fn()
+const mockMemberFindUnique = jest.fn()
+const mockMemberUpdate = jest.fn()
+const mockMemberCount = jest.fn()
+const mockMemberDelete = jest.fn()
+const mockActorFindMany = jest.fn()
+const mockAgentFindFirst = jest.fn()
+const mockAgentCreate = jest.fn()
+const mockActorCreate = jest.fn()
+
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    workspaceMember: {
+      findMany: (...args: any[]) => mockMemberFindMany(...args),
+      findUnique: (...args: any[]) => mockMemberFindUnique(...args),
+      update: (...args: any[]) => mockMemberUpdate(...args),
+      count: (...args: any[]) => mockMemberCount(...args),
+      delete: (...args: any[]) => mockMemberDelete(...args),
+    },
+    actor: {
+      findMany: (...args: any[]) => mockActorFindMany(...args),
+      create: (...args: any[]) => mockActorCreate(...args),
+    },
+    agentProfile: {
+      findFirst: (...args: any[]) => mockAgentFindFirst(...args),
+      create: (...args: any[]) => mockAgentCreate(...args),
+    },
+  },
+}))
+
+beforeEach(() => jest.clearAllMocks())
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+
+describe('memberRepository', () => {
+  describe('findByWorkspace', () => {
+    it('queries members ordered by joinedAt asc with actor', async () => {
+      mockMemberFindMany.mockResolvedValue([
+        { id: 'm-1', actor: { id: 'a-1' } },
+      ])
+
+      const result = await memberRepository.findByWorkspace('ws-1')
+
+      expect(result).toHaveLength(1)
+      expect(mockMemberFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { workspaceId: 'ws-1' },
+          orderBy: { joinedAt: 'asc' },
+          include: { actor: { select: { id: true } } },
+        })
+      )
+    })
+  })
+
+  describe('findByWorkspaceAndClerkId', () => {
+    it('queries by composite unique key', async () => {
+      mockMemberFindUnique.mockResolvedValue({ id: 'm-1' })
+
+      const result = await memberRepository.findByWorkspaceAndClerkId(
+        'ws-1',
+        'clerk-1'
+      )
+
+      expect(result?.id).toBe('m-1')
+      expect(mockMemberFindUnique).toHaveBeenCalledWith({
+        where: {
+          workspaceId_clerkId: { workspaceId: 'ws-1', clerkId: 'clerk-1' },
+        },
+      })
+    })
+  })
+
+  describe('findById', () => {
+    it('returns member with selected fields', async () => {
+      mockMemberFindUnique.mockResolvedValue({
+        id: 'm-1',
+        workspaceId: 'ws-1',
+        role: 'MEMBER',
+      })
+
+      const result = await memberRepository.findById('m-1')
+
+      expect(result?.role).toBe('MEMBER')
+    })
+  })
+
+  describe('updateRole', () => {
+    it('updates member role and returns id + role', async () => {
+      mockMemberUpdate.mockResolvedValue({ id: 'm-1', role: 'OWNER' })
+
+      const result = await memberRepository.updateRole('m-1', 'OWNER')
+
+      expect(result.role).toBe('OWNER')
+      expect(mockMemberUpdate).toHaveBeenCalledWith({
+        where: { id: 'm-1' },
+        data: { role: 'OWNER' },
+        select: { id: true, role: true },
+      })
+    })
+  })
+
+  describe('countOwners', () => {
+    it('counts OWNER members in workspace', async () => {
+      mockMemberCount.mockResolvedValue(2)
+
+      const result = await memberRepository.countOwners('ws-1')
+
+      expect(result).toBe(2)
+      expect(mockMemberCount).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', role: 'OWNER' },
+      })
+    })
+  })
+
+  describe('delete', () => {
+    it('deletes member by ID', async () => {
+      mockMemberDelete.mockResolvedValue({ id: 'm-1' })
+
+      await memberRepository.delete('m-1')
+
+      expect(mockMemberDelete).toHaveBeenCalledWith({
+        where: { id: 'm-1' },
+      })
+    })
+  })
+
+  describe('findAgentActors', () => {
+    it('returns agent actors with profile info', async () => {
+      mockActorFindMany.mockResolvedValue([
+        {
+          id: 'a-1',
+          agent: { name: 'Coding Agent', avatarColor: '#fff', type: 'CODING' },
+        },
+      ])
+
+      const result = await memberRepository.findAgentActors('ws-1')
+
+      expect(result).toHaveLength(1)
+      expect(mockActorFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { workspaceId: 'ws-1', type: 'AGENT' },
+        })
+      )
+    })
+  })
+
+  describe('createCodingAgent', () => {
+    it('creates agent profile and actor', async () => {
+      mockAgentCreate.mockResolvedValue({ id: 'agent-1' })
+
+      await memberRepository.createCodingAgent('ws-1')
+
+      expect(mockAgentCreate).toHaveBeenCalledWith({
+        data: { workspaceId: 'ws-1', name: 'Coding Agent', type: 'CODING' },
+      })
+      expect(mockActorCreate).toHaveBeenCalledWith({
+        data: { workspaceId: 'ws-1', type: 'AGENT', agentId: 'agent-1' },
+      })
+    })
+  })
+})

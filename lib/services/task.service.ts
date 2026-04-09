@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/db/prisma'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import {
@@ -189,9 +189,7 @@ export const taskService = {
             status: 400,
           })
         }
-        const parent = await prisma.task.findUnique({
-          where: { id: parentTaskId },
-        })
+        const parent = await taskRepository.findProjectIdById(parentTaskId)
         if (!parent || parent.projectId !== task.projectId) {
           throw Object.assign(
             new Error('Parent task not found in this project'),
@@ -209,9 +207,7 @@ export const taskService = {
 
     // Validate project
     if (projectId !== undefined) {
-      const newProject = await prisma.project.findUnique({
-        where: { id: projectId },
-      })
+      const newProject = await projectRepository.findByIdSimple(projectId)
       if (!newProject || newProject.workspaceId !== task.project.workspaceId) {
         throw Object.assign(new Error('Project not found in this workspace'), {
           status: 400,
@@ -222,10 +218,7 @@ export const taskService = {
     // Validate assignee
     let newAssigneeType: 'HUMAN' | 'AGENT' | null = null
     if (assigneeActorId !== undefined && assigneeActorId !== null) {
-      const actor = await prisma.actor.findUnique({
-        where: { id: assigneeActorId },
-        select: { type: true, workspaceId: true },
-      })
+      const actor = await taskRepository.findActorById(assigneeActorId)
       if (!actor || actor.workspaceId !== task.project.workspaceId) {
         throw Object.assign(
           new Error('Assignee is not part of this workspace'),
@@ -237,10 +230,7 @@ export const taskService = {
 
     // Validate reviewer
     if (reviewerActorId !== undefined && reviewerActorId !== null) {
-      const actor = await prisma.actor.findUnique({
-        where: { id: reviewerActorId },
-        select: { workspaceId: true },
-      })
+      const actor = await taskRepository.findActorById(reviewerActorId)
       if (!actor || actor.workspaceId !== task.project.workspaceId) {
         throw Object.assign(
           new Error('Reviewer is not part of this workspace'),

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { getOrCreateHumanActor } from '@/lib/actor'
+import { memberService } from '@/lib/services/member.service'
 
 /**
  * GET /api/workspaces/members
@@ -22,13 +22,7 @@ export async function GET() {
 
     const workspaceId = ws.workspaceId
 
-    const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
-      orderBy: { joinedAt: 'asc' },
-      include: {
-        actor: { select: { id: true } },
-      },
-    })
+    const members = await memberService.listMembers(workspaceId)
 
     // Batch-fetch Clerk user profiles
     const client = await clerkClient()
@@ -64,35 +58,11 @@ export async function GET() {
       }
     })
 
-    // Lazy-create Coding Agent if not yet seeded for this workspace
-    const existingAgent = await prisma.agentProfile.findFirst({
-      where: { workspaceId, type: 'CODING', memberId: null },
-    })
-    if (!existingAgent) {
-      const profile = await prisma.agentProfile.create({
-        data: { workspaceId, name: 'Coding Agent', type: 'CODING' },
-      })
-      await prisma.actor.create({
-        data: { workspaceId, type: 'AGENT', agentId: profile.id },
-      })
-    }
-
-    const agentActors = await prisma.actor.findMany({
-      where: { workspaceId, type: 'AGENT' },
-      select: {
-        id: true,
-        agent: { select: { name: true, avatarColor: true, type: true } },
-      },
-    })
+    const agentActors = await memberService.getAgentActors(workspaceId)
 
     return NextResponse.json({
       members: enrichedMembers,
-      agentActors: agentActors.map(a => ({
-        actorId: a.id,
-        name: a.agent?.name ?? 'Agent',
-        avatarColor: a.agent?.avatarColor ?? '#6366f1',
-        type: a.agent?.type ?? 'CODING',
-      })),
+      agentActors,
     })
   } catch (error) {
     console.error('GET /api/workspaces/members error:', error)

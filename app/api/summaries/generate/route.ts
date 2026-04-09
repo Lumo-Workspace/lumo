@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { prisma } from '@/lib/db/prisma'
+import { summaryService } from '@/lib/services/summary.service'
 import { generateSummarySchema } from '@/lib/validation/schemas'
 import {
   aggregateProjectStats,
@@ -10,28 +10,6 @@ import {
   generateProjectReport,
   generateWorkspaceReport,
 } from '@/lib/summaries/report'
-
-function isDueForGeneration(
-  frequency: string,
-  lastGenerated: Date | null
-): boolean {
-  if (!lastGenerated) return true
-
-  const now = new Date()
-  const diffMs = now.getTime() - lastGenerated.getTime()
-  const diffHours = diffMs / (1000 * 60 * 60)
-
-  switch (frequency) {
-    case 'DAILY':
-      return diffHours >= 24
-    case 'EVERY_TWO_DAYS':
-      return diffHours >= 48
-    case 'WEEKLY':
-      return diffHours >= 168
-    default:
-      return true
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -53,26 +31,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const workspaces = await prisma.workspace.findMany({
-      where: {
-        summaryEnabled: true,
-        ...(workspaceId ? { id: workspaceId } : {}),
-      },
-      include: {
-        projects: true,
-        summaries: {
-          orderBy: { generatedAt: 'desc' },
-          take: 1,
-        },
-      },
-    })
+    const workspaces =
+      await summaryService.findSummaryEnabledWorkspaces(workspaceId)
 
     const results = []
 
     for (const workspace of workspaces) {
       const lastGenerated = workspace.summaries[0]?.generatedAt ?? null
 
-      if (!isDueForGeneration(workspace.summaryFrequency, lastGenerated)) {
+      if (
+        !summaryService.isDueForGeneration(
+          workspace.summaryFrequency,
+          lastGenerated
+        )
+      ) {
         results.push({ workspaceId: workspace.id, skipped: true })
         continue
       }
@@ -88,14 +60,12 @@ export async function POST(request: Request) {
             locale: workspace.summaryLocale,
           })
 
-          const summary = await prisma.projectSummary.create({
-            data: {
-              projectId: project.id,
-              stats: stats as unknown as Prisma.InputJsonValue,
-              tldr,
-              report,
-            },
-          })
+          const summary = await summaryService.createProjectSummary(
+            project.id,
+            stats as unknown as Prisma.InputJsonValue,
+            tldr,
+            report
+          )
 
           projectSummaries.push({
             projectId: project.id,
@@ -116,14 +86,12 @@ export async function POST(request: Request) {
         locale: workspace.summaryLocale,
       })
 
-      const workspaceSummary = await prisma.workspaceSummary.create({
-        data: {
-          workspaceId: workspace.id,
-          stats: workspaceStats as unknown as Prisma.InputJsonValue,
-          tldr,
-          report,
-        },
-      })
+      const workspaceSummary = await summaryService.createWorkspaceSummary(
+        workspace.id,
+        workspaceStats as unknown as Prisma.InputJsonValue,
+        tldr,
+        report
+      )
 
       results.push({
         workspaceId: workspace.id,

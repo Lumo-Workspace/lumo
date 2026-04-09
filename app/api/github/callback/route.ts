@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { encrypt, decrypt } from '@/lib/crypto'
+import { githubService } from '@/lib/services/github.service'
 
 /**
  * GET /api/github/callback?code={code}&state={state}
@@ -88,23 +88,13 @@ export async function GET(request: NextRequest) {
     // Encrypt the access token before storing
     const encryptedToken = encrypt(rawToken)
 
-    await prisma.gitHubIntegration.upsert({
-      where: { workspaceId_memberId: { workspaceId, memberId } },
-      create: {
-        workspaceId,
-        memberId,
-        accessToken: encryptedToken,
-        tokenType,
-        githubUserId,
-        githubLogin,
-        repositories: [],
-      },
-      update: {
-        accessToken: encryptedToken,
-        tokenType,
-        githubUserId,
-        githubLogin,
-      },
+    await githubService.upsertIntegration({
+      workspaceId,
+      memberId,
+      accessToken: encryptedToken,
+      tokenType,
+      githubUserId,
+      githubLogin,
     })
 
     return NextResponse.redirect(successRedirect)

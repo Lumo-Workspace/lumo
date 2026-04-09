@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { documentRepository } from '@/lib/repositories/document.repository'
 
 export async function GET(
   _request: NextRequest,
@@ -7,14 +7,7 @@ export async function GET(
 ) {
   const { token } = await params
 
-  const document = await prisma.document.findUnique({
-    where: { publicToken: token },
-    select: {
-      title: true,
-      emoji: true,
-      content: true,
-    },
-  })
+  const document = await documentRepository.findByPublicToken(token)
 
   if (!document) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })

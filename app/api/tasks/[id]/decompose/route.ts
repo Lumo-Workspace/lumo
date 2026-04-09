@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireTaskMember } from '@/lib/api/helpers'
+import { taskRepository } from '@/lib/repositories'
 
 const subtasksSchema = z.object({
   subtasks: z
@@ -22,15 +22,7 @@ export async function POST(
   const { userId } = authResult
   const { id } = await params
 
-  const task = await prisma.task.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      project: { select: { workspaceId: true } },
-    },
-  })
+  const task = await taskRepository.findForDecompose(id)
 
   const memberResult = await requireTaskMember(task, userId)
   if (memberResult instanceof NextResponse) return memberResult

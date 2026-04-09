@@ -1,11 +1,11 @@
 import { waitUntil } from '@vercel/functions'
-import { prisma } from '@/lib/db/prisma'
 import { getActorClerkId } from '@/lib/actor'
 import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
 import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
+import { githubService } from '@/lib/services/github.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,16 +56,11 @@ async function findTaskForBranch(
   const parts = splitIdentifier(identifier)
   if (!parts) return null
 
-  return prisma.task.findFirst({
-    where: {
-      number: parts.number,
-      team: { identifier: parts.teamIdentifier, workspaceId },
-    },
-    include: {
-      project: { select: { defaultReviewerId: true, workspaceId: true } },
-      team: { select: { identifier: true } },
-    },
-  })
+  return githubService.findTaskByIdentifier(
+    parts.teamIdentifier,
+    parts.number,
+    workspaceId
+  )
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -99,62 +94,37 @@ export async function handlePullRequest(
 
   const task = await findTaskForBranch(pr.head.ref, workspaceId)
 
-  await prisma.pullRequest.upsert({
-    where: { repo_number: { repo: repository.full_name, number: pr.number } },
-    create: {
-      workspaceId,
-      taskId: task?.id ?? null,
-      integrationId,
-      repo: repository.full_name,
-      number: pr.number,
-      title: pr.title,
-      url: pr.html_url,
-      state,
-      authorLogin: pr.user.login,
-      headBranch: pr.head.ref,
-      baseBranch: pr.base.ref,
-      isDraft: pr.draft,
-      mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
-      closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
-    },
-    update: {
-      title: pr.title,
-      state,
-      isDraft: pr.draft,
-      mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
-      closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
-      ...(task ? { taskId: task.id } : {}),
-    },
+  await githubService.upsertPullRequest({
+    workspaceId,
+    taskId: task?.id ?? null,
+    integrationId,
+    repo: repository.full_name,
+    number: pr.number,
+    title: pr.title,
+    url: pr.html_url,
+    state,
+    authorLogin: pr.user.login,
+    headBranch: pr.head.ref,
+    baseBranch: pr.base.ref,
+    isDraft: pr.draft,
+    mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
+    closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
   })
 
   // Ensure the branch appears in the task's branch list whenever a PR
   // event references it — covers branches created outside Lumo and
   // branches that were deleted before any push event was tracked
   if (task) {
-    await prisma.taskBranch.upsert({
-      where: {
-        taskId_repo_branchName: {
-          taskId: task.id,
-          repo: repository.full_name,
-          branchName: pr.head.ref,
-        },
-      },
-      create: {
-        taskId: task.id,
-        repo: repository.full_name,
-        branchName: pr.head.ref,
-      },
-      update: {},
+    await githubService.upsertTaskBranch({
+      taskId: task.id,
+      repo: repository.full_name,
+      branchName: pr.head.ref,
     })
   }
 
   if (!task) return
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { slug: true },
-  })
-  const workspaceSlug = workspace?.slug ?? ''
+  const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
   const taskUrl = buildTaskUrl(workspaceSlug, task.team.identifier, task.number)
 
@@ -289,29 +259,14 @@ export async function handlePush(
   // Use only the first line of the commit message
   const commitMessage = head_commit.message.split('\n')[0]!
 
-  await prisma.taskBranch.upsert({
-    where: {
-      taskId_repo_branchName: {
-        taskId: task.id,
-        repo: repository.full_name,
-        branchName,
-      },
-    },
-    create: {
-      taskId: task.id,
-      repo: repository.full_name,
-      branchName,
-      lastCommitSha: head_commit.id,
-      lastCommitMessage: commitMessage,
-      lastCommitAuthor: head_commit.author.name,
-      lastPushedAt: new Date(),
-    },
-    update: {
-      lastCommitSha: head_commit.id,
-      lastCommitMessage: commitMessage,
-      lastCommitAuthor: head_commit.author.name,
-      lastPushedAt: new Date(),
-    },
+  await githubService.upsertTaskBranch({
+    taskId: task.id,
+    repo: repository.full_name,
+    branchName,
+    lastCommitSha: head_commit.id,
+    lastCommitMessage: commitMessage,
+    lastCommitAuthor: head_commit.author.name,
+    lastPushedAt: new Date(),
   })
 }
 
@@ -337,8 +292,9 @@ export async function handleCheckSuite(
   const prNumbers = suite.pull_requests.map(pr => pr.number)
   if (prNumbers.length === 0) return
 
-  await prisma.pullRequest.updateMany({
-    where: { repo: repository.full_name, number: { in: prNumbers } },
-    data: { ciStatus },
-  })
+  await githubService.updatePullRequestCiStatus(
+    repository.full_name,
+    prNumbers,
+    ciStatus
+  )
 }

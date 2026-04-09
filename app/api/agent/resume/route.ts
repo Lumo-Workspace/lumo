@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { resumeAgent } from '@/lib/agent/resume'
 
 const bodySchema = z.object({
@@ -29,15 +29,7 @@ export async function POST(req: NextRequest) {
     const memberResult = await requireWorkspaceMember(workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        agentStatus: true,
-        projectId: true,
-        project: { select: { workspaceId: true } },
-      },
-    })
+    const task = await taskRepository.findForAgent(taskId)
 
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })

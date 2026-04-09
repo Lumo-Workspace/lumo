@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateMemberRoleSchema } from '@/lib/validation/schemas'
+import { memberService } from '@/lib/services/member.service'
 
 export async function PATCH(
   request: NextRequest,
@@ -16,30 +16,7 @@ export async function PATCH(
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    // Caller must be OWNER
-    if (ws.member.role !== 'OWNER') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
     const { memberId } = await params
-
-    // Prevent editing own role
-    if (memberId === ws.member.id) {
-      return NextResponse.json(
-        { error: 'You cannot change your own role' },
-        { status: 400 }
-      )
-    }
-
-    // Validate target belongs to same workspace
-    const target = await prisma.workspaceMember.findUnique({
-      where: { id: memberId },
-      select: { id: true, workspaceId: true, role: true },
-    })
-
-    if (!target || target.workspaceId !== ws.workspaceId) {
-      return NextResponse.json({ error: 'Member not found' }, { status: 404 })
-    }
 
     const body = await request.json()
     const parsed = updateMemberRoleSchema.safeParse(body)
@@ -47,27 +24,20 @@ export async function PATCH(
 
     const { role } = parsed.data
 
-    // Guard: cannot demote the last OWNER
-    if (target.role === 'OWNER' && role === 'MEMBER') {
-      const ownerCount = await prisma.workspaceMember.count({
-        where: { workspaceId: ws.workspaceId, role: 'OWNER' },
-      })
-      if (ownerCount <= 1) {
-        return NextResponse.json(
-          { error: 'Cannot remove the last admin' },
-          { status: 400 }
-        )
-      }
-    }
-
-    const updated = await prisma.workspaceMember.update({
-      where: { id: memberId },
-      data: { role },
-      select: { id: true, role: true },
-    })
+    const updated = await memberService.updateMemberRole(
+      memberId,
+      role,
+      ws.member.id,
+      ws.member.role,
+      ws.workspaceId
+    )
 
     return NextResponse.json({ member: updated })
   } catch (error) {
+    const status = (error as { status?: number }).status
+    if (status) {
+      return NextResponse.json({ error: (error as Error).message }, { status })
+    }
     console.error('PATCH /api/workspaces/members/[memberId] error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { summaryService } from '@/lib/services/summary.service'
 import { getSummarySchema } from '@/lib/validation/schemas'
 
 export async function GET(request: Request) {
@@ -9,9 +10,7 @@ export async function GET(request: Request) {
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const member = await prisma.workspaceMember.findFirst({
-      where: { clerkId: userId },
-    })
+    const member = await memberRepository.findFirstByClerkId(userId)
 
     if (!member) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
@@ -34,14 +33,10 @@ export async function GET(request: Request) {
 
     const { limit, before } = parsed.data
 
-    const summaries = await prisma.workspaceSummary.findMany({
-      where: {
-        workspaceId: member.workspaceId,
-        ...(before ? { generatedAt: { lt: new Date(before) } } : {}),
-      },
-      orderBy: { generatedAt: 'desc' },
-      take: limit,
-    })
+    const summaries = await summaryService.getWorkspaceSummaries(
+      member.workspaceId,
+      { limit, before }
+    )
 
     return NextResponse.json({ summaries })
   } catch (error) {

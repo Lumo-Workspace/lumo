@@ -12,4 +12,12 @@ export const pullRequestRepository = {
   async updateState(id: string, data: PrStateUpdate) {
     return prisma.pullRequest.update({ where: { id }, data })
   },
+
+  /** Find the most recent open PR for a task. */
+  async findActivePr(taskId: string) {
+    return prisma.pullRequest.findFirst({
+      where: { taskId, state: 'open' },
+      orderBy: { createdAt: 'desc' },
+    })
+  },
 }

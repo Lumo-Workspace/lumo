@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 import { priorityOverrideSchema } from '@/lib/validation/schemas'
 
 export async function POST(request: Request) {
@@ -31,16 +31,14 @@ export async function POST(request: Request) {
       taskDescription,
     } = parsed.data
 
-    await prisma.priorityOverride.create({
-      data: {
-        taskId,
-        memberId: userId,
-        projectId,
-        aiSuggested,
-        userChosen,
-        taskTitle,
-        taskDescription: taskDescription ?? null,
-      },
+    await miscRepository.createPriorityOverride({
+      taskId,
+      memberId: userId,
+      projectId,
+      aiSuggested,
+      userChosen,
+      taskTitle,
+      taskDescription: taskDescription ?? null,
     })
 
     return NextResponse.json({ success: true }, { status: 201 })
