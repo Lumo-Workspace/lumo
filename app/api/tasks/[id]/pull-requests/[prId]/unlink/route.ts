@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { getHumanActorId } from '@/lib/actor'
 import { taskService } from '@/lib/services'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string; prId: string }> }
 
@@ -26,6 +30,21 @@ export async function POST(_request: NextRequest, { params }: Params) {
     if (memberResult instanceof NextResponse) return memberResult
 
     await taskService.unlinkPullRequest(id, prId)
+
+    // Fire-and-forget activity recording
+    const triggerActorId = await getHumanActorId(memberResult.id)
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:pr_unlinked',
+          taskId: id,
+          projectId: task.projectId,
+          actorId: triggerActorId ?? '',
+          prId,
+          prNumber: 0,
+        } satisfies TaskActivityEvent,
+      ])
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

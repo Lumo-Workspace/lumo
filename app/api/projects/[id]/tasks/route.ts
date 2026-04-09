@@ -12,6 +12,8 @@ import {
   viewRepository,
   notificationRepository,
 } from '@/lib/repositories'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -201,6 +203,19 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const taskWithId = task
 
+    // ── Fire-and-forget: task created activity event ────────────────────────
+    const triggerActorId = await getHumanActorId(memberResult.id)
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:created',
+          taskId: task.id,
+          projectId: id,
+          actorId: triggerActorId ?? '',
+        } satisfies TaskActivityEvent,
+      ])
+    )
+
     // ── Fire-and-forget: task_created Slack channel notification ─────────────
     const taskIdentifier = buildTaskIdentifier(task.teamIdentifier, task.number)
     const taskUrl = buildTaskUrl(
@@ -224,20 +239,19 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     // ── Fire-and-forget: notify assignee if task was created with one ─────────
     if (assigneeActorId) {
-      getHumanActorId(memberResult.id)
-        .then(triggerActorId =>
-          taskRepository.findActorWithMember(assigneeActorId).then(actor => {
-            if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-            if (actor.member.clerkId === userId) return
-            return notificationRepository.create({
-              workspaceId: project.workspaceId,
-              recipientActorId: assigneeActorId,
-              type: 'TASK_ASSIGNED' as const,
-              taskId: task.id,
-              triggerActorId,
-            })
+      taskRepository
+        .findActorWithMember(assigneeActorId)
+        .then(actor => {
+          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+          if (actor.member.clerkId === userId) return
+          return notificationRepository.create({
+            workspaceId: project.workspaceId,
+            recipientActorId: assigneeActorId,
+            type: 'TASK_ASSIGNED' as const,
+            taskId: task.id,
+            triggerActorId,
           })
-        )
+        })
         .catch(err =>
           console.error('[notify] TASK_ASSIGNED (create) failed:', err)
         )

@@ -14,6 +14,8 @@ import {
   memberRepository,
   notificationRepository,
 } from '@/lib/repositories'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -94,6 +96,19 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Push real-time comment event to task viewers
     waitUntil(
       pushTaskEvent(id, { type: 'comment:created', commentId: comment.id })
+    )
+
+    // Fire-and-forget activity recording
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:comment_added',
+          taskId: id,
+          projectId: task.projectId,
+          actorId: authorActorId,
+          commentId: comment.id,
+        } satisfies TaskActivityEvent,
+      ])
     )
 
     // Handle @agent mention — delegate to orchestrator
