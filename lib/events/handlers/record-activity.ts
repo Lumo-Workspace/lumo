@@ -1,6 +1,7 @@
 import type { TaskActivityType } from '@prisma/client'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { pushActivityEvent } from '@/lib/pusher/server'
 
 type ActivityRecord = {
   type: TaskActivityType
@@ -188,10 +189,21 @@ export async function handleRecordActivity(
   event: TaskActivityEvent
 ): Promise<void> {
   const { type, payload } = toActivityRecord(event)
-  await activityRepository.create({
+
+  const activity = await activityRepository.create({
     taskId: event.taskId,
-    actorId: event.actorId,
+    actorId: 'actorId' in event ? (event.actorId ?? null) : null,
     type,
     payload,
+  })
+
+  // Push realtime update (fire-and-forget)
+  void pushActivityEvent(event.taskId, {
+    id: activity.id,
+    kind: 'activity',
+    type: activity.type,
+    payload: activity.payload,
+    createdAt: activity.createdAt,
+    actorId: activity.actorId,
   })
 }

@@ -8,6 +8,10 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/pusher/server', () => ({
+  pushActivityEvent: jest.fn().mockResolvedValue(undefined),
+}))
+
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { handleRecordActivity } from '@/lib/events/handlers/record-activity'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
@@ -18,7 +22,13 @@ beforeEach(() => jest.clearAllMocks())
 
 describe('handleRecordActivity', () => {
   it('records STATUS_CHANGED activity with from/to payload', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-1' })
+    mockCreate.mockResolvedValue({
+      id: 'act-1',
+      type: 'STATUS_CHANGED',
+      payload: { from: 'TODO', to: 'IN_PROGRESS' },
+      createdAt: new Date(),
+      actorId: 'actor-1',
+    })
     const event: TaskActivityEvent = {
       type: 'task:status_changed_activity',
       taskId: 'task-1',
@@ -37,7 +47,13 @@ describe('handleRecordActivity', () => {
   })
 
   it('records ASSIGNEE_CHANGED activity', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-2' })
+    mockCreate.mockResolvedValue({
+      id: 'act-2',
+      type: 'ASSIGNEE_CHANGED',
+      payload: { fromActorId: null, toActorId: 'actor-2', toName: 'Bob' },
+      createdAt: new Date(),
+      actorId: 'actor-1',
+    })
     const event: TaskActivityEvent = {
       type: 'task:assignee_changed',
       taskId: 'task-1',
@@ -57,7 +73,13 @@ describe('handleRecordActivity', () => {
   })
 
   it('records TASK_CREATED activity with empty payload', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-3' })
+    mockCreate.mockResolvedValue({
+      id: 'act-3',
+      type: 'TASK_CREATED',
+      payload: {},
+      createdAt: new Date(),
+      actorId: 'actor-1',
+    })
     const event: TaskActivityEvent = {
       type: 'task:created',
       taskId: 'task-1',
@@ -74,7 +96,13 @@ describe('handleRecordActivity', () => {
   })
 
   it('records COMMENT_ADDED activity', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-4' })
+    mockCreate.mockResolvedValue({
+      id: 'act-4',
+      type: 'COMMENT_ADDED',
+      payload: { commentId: 'cmt-1' },
+      createdAt: new Date(),
+      actorId: 'actor-1',
+    })
     const event: TaskActivityEvent = {
       type: 'task:comment_added',
       taskId: 'task-1',
@@ -92,7 +120,17 @@ describe('handleRecordActivity', () => {
   })
 
   it('records PR_CREATED activity', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-5' })
+    mockCreate.mockResolvedValue({
+      id: 'act-5',
+      type: 'PR_CREATED',
+      payload: {
+        prNumber: 42,
+        prUrl: 'https://github.com/org/repo/pull/42',
+        prTitle: 'Fix bug',
+      },
+      createdAt: new Date(),
+      actorId: null,
+    })
     const event: TaskActivityEvent = {
       type: 'task:pr_created',
       taskId: 'task-1',
@@ -116,7 +154,13 @@ describe('handleRecordActivity', () => {
   })
 
   it('records AGENT_RUN_FAILED with errorCode', async () => {
-    mockCreate.mockResolvedValue({ id: 'act-6' })
+    mockCreate.mockResolvedValue({
+      id: 'act-6',
+      type: 'AGENT_RUN_FAILED',
+      payload: { runId: 'run-1', runNumber: 3, errorCode: 'TIMEOUT' },
+      createdAt: new Date(),
+      actorId: null,
+    })
     const event: TaskActivityEvent = {
       type: 'task:agent_run_failed',
       taskId: 'task-1',
