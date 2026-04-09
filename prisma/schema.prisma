@@ -92,6 +92,34 @@ enum ActorType {
   AGENT
 }
 
+enum TaskActivityType {
+  TASK_CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNEE_CHANGED
+  REVIEWER_CHANGED
+  TITLE_CHANGED
+  DESCRIPTION_CHANGED
+  DUE_DATE_CHANGED
+  PARENT_CHANGED
+  TAGS_CHANGED
+  REPOSITORY_CHANGED
+  COMMENT_ADDED
+  COMMENT_DELETED
+  SUBTASK_ADDED
+  SUBTASK_REMOVED
+  SPEC_GENERATED
+  BRANCH_CREATED
+  PR_LINKED
+  PR_UNLINKED
+  PR_CREATED
+  PR_MERGED
+  AGENT_RUN_STARTED
+  AGENT_RUN_COMPLETED
+  AGENT_RUN_FAILED
+  AGENT_INPUT_REQUIRED
+}
+
 enum AgentType {
   CODING
   REVIEW
@@ -436,16 +464,17 @@ model Comment {
 }
 
 model TaskActivity {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   taskId    String
   actorId   String?
-  type      String   // "status_changed" | "assignee_changed" | "comment_added" etc.
-  payload   Json?    // { from: "TODO", to: "IN_PROGRESS" }
-  createdAt DateTime @default(now())
+  type      TaskActivityType
+  payload   Json?
+  createdAt DateTime         @default(now())
 
   task  Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   actor Actor? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
+  @@index([taskId, createdAt])
   @@index([taskId])
   @@map("task_activities")
 }
