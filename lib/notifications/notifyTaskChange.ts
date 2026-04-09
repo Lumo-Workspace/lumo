@@ -1,9 +1,15 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
-import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import {
+  sendChannelNotification,
+  sendDMNotification,
+} from '@/lib/integrations/slack'
 import { pushUserEvent } from '@/lib/pusher/server'
 import { shouldNotify } from '@/lib/notifications/preferenceGate'
-import type { SlackEventType, NotificationPayload } from '@/lib/slack/types'
+import type {
+  SlackEventType,
+  NotificationPayload,
+} from '@/lib/integrations/slack'
 import type { NotificationType } from '@prisma/client'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 

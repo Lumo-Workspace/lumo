@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import type { SlackEventType } from '@/lib/slack/types'
+import type { SlackEventType } from '@/lib/integrations/slack'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

@@ -4,7 +4,10 @@ import {
   parseBranchIdentifier,
   splitIdentifier,
 } from '@/lib/integrations/github'
-import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import {
+  sendChannelNotification,
+  sendDMNotification,
+} from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
 import { transitionTaskStatus } from '@/lib/task/state-machine'

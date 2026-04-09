@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 import { decrypt } from '@/lib/crypto'
-import { handleCommand, CommandResult } from '@/lib/slack/commands'
+import { handleCommand, CommandResult } from '@/lib/integrations/slack'
 import { createHmac, timingSafeEqual } from 'crypto'
 
 function verifySlackSignature(

@@ -41,3 +41,9 @@ export interface NotificationPayload {
   prUrl?: string
   commentBody?: string
 }
+
+// Input: the raw text after "@Lumo " or "/lumo "
+// Returns: Slack Block Kit blocks array OR a plain string message
+export type CommandResult =
+  | { type: 'blocks'; blocks: object[] }
+  | { type: 'text'; text: string }

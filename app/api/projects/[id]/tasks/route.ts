@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createTaskSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
-import { sendChannelNotification } from '@/lib/slack/notify'
+import { sendChannelNotification } from '@/lib/integrations/slack'
 import { getHumanActorId } from '@/lib/actor'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import {

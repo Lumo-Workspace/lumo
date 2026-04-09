@@ -4,7 +4,7 @@ import type {
   CreateSlackChannelData,
   UpdateSlackChannelData,
 } from '@/lib/repositories/slack.repository'
-import type { SlackEventType } from '@/lib/slack/types'
+import type { SlackEventType } from '@/lib/integrations/slack'
 
 // ── Slack Service ───────────────────────────────────────────────────────────
 
