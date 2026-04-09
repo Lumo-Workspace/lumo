@@ -318,6 +318,42 @@ export const quickDispatchV2Schema = z.object({
   mentions: z.array(mentionSchema).max(20).default([]),
 })
 
+// ─── Quick Dispatch Execute ────────────────────────────────────────────────
+
+const executeUpdateActionSchema = z.object({
+  type: z.literal('update'),
+  taskId: z.string(),
+  fields: z.object({
+    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    assigneeActorId: z.string().optional(),
+    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  }),
+})
+
+const executeCreateActionSchema = z.object({
+  type: z.literal('create'),
+  title: z.string().trim().min(1).max(500),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).default('TODO'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  projectId: z.string(),
+  assigneeActorId: z.string().nullable().optional(),
+  description: z.string().max(10000).optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+})
+
+export const executeQuickDispatchSchema = z.object({
+  actions: z
+    .array(
+      z.discriminatedUnion('type', [
+        executeUpdateActionSchema,
+        executeCreateActionSchema,
+      ])
+    )
+    .min(1, 'At least one action is required')
+    .max(10, 'Cannot execute more than 10 actions at once'),
+  workspaceUrl: z.string().min(1, 'Workspace URL is required'),
+})
+
 // ─── Drafts ────────────────────────────────────────────────────────────────
 
 export const taskDraftDataSchema = z.object({
