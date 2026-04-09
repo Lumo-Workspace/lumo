@@ -20,6 +20,7 @@ import {
   MyTask,
   ApiStatus,
   ApiPriority,
+  TaskPreFillFields,
 } from './types'
 import { slugifyProjectName } from './utils'
 import { clearCache } from './cache'
@@ -52,7 +53,6 @@ import { DraftsPage } from './components/DraftsPage'
 import { DashboardPage } from './components/pages/DashboardPage'
 import { GlobalDocTree } from './components/document/GlobalDocTree'
 import { WorkspaceModals } from './components/WorkspaceModals'
-import type { QuickDispatchParsedFields } from './components/modals/QuickDispatchModal'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
 
@@ -242,7 +242,7 @@ export default function DashboardApp() {
     ApiStatus | undefined
   >(undefined)
   const [newTaskPreFill, setNewTaskPreFill] = useState<
-    QuickDispatchParsedFields | undefined
+    TaskPreFillFields | undefined
   >(undefined)
 
   // ─── Drafts ────────────────────────────────────────────────────────────────
@@ -353,19 +353,9 @@ export default function DashboardApp() {
       )
       setNewTaskDefaultStatus(status)
       setNewTaskPreFill(undefined)
-      setIsQuickDispatchOpen(true)
-    },
-    [taskHandlers]
-  )
-
-  const handleQuickDispatchEdit = useCallback(
-    (fields: QuickDispatchParsedFields) => {
-      setNewTaskPreFill(fields)
-      setNewTaskDefaultAssigneeId(fields.assigneeId || undefined)
-      setNewTaskDefaultStatus(fields.status)
       setIsNewTaskModalOpen(true)
     },
-    []
+    [taskHandlers]
   )
 
   const openNewTaskModalForMe = useCallback(
@@ -506,12 +496,12 @@ export default function DashboardApp() {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        openNewTaskModal()
+        setIsQuickDispatchOpen(true)
       }
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [openNewTaskModal])
+  }, [])
 
   // ─── Render current page ───────────────────────────────────────────────────
   const renderPage = () => {
@@ -751,7 +741,8 @@ export default function DashboardApp() {
           setRestoringDraftId={setRestoringDraftId}
           isQuickDispatchOpen={isQuickDispatchOpen}
           setIsQuickDispatchOpen={setIsQuickDispatchOpen}
-          onQuickDispatchEdit={handleQuickDispatchEdit}
+          myTasks={myTasks}
+          currentActorId={currentActorId}
           isNewProjectModalOpen={isNewProjectModalOpen}
           setIsNewProjectModalOpen={setIsNewProjectModalOpen}
           onCreateProject={projectHandlers.handleCreateProject}
