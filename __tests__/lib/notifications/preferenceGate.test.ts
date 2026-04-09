@@ -2,6 +2,15 @@
  * @jest-environment node
  */
 
+// Mock Slack integration to prevent 'chat' module resolution failure in test env
+jest.mock('@/lib/integrations/slack', () => ({
+  sendChannelNotification: jest.fn(),
+  sendDMNotification: jest.fn(),
+  handleCommand: jest.fn(),
+  slackAdapter: {},
+  bot: {},
+}))
+
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     actor: {
@@ -19,7 +28,7 @@ import { prisma } from '@/lib/db/prisma'
 import {
   shouldNotify,
   shouldNotifyBatch,
-} from '@/lib/notifications/preferenceGate'
+} from '@/lib/services/notification.service'
 
 const mockActorFindUnique = prisma.actor.findUnique as jest.Mock
 const mockActorFindMany = prisma.actor.findMany as jest.Mock

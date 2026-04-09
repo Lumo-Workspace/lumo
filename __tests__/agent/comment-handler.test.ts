@@ -1,4 +1,4 @@
-import { handleAgentComment } from '@/lib/agent/comment-handler'
+import { handleAgentComment } from '@/lib/services/agent-orchestration.service'
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {

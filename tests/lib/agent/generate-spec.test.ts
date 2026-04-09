@@ -1,4 +1,4 @@
-import { generateSpecDraft } from '@/lib/agent/generate-spec'
+import { generateSpecDraft } from '@/lib/services/spec-generation.service'
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ jest.mock('@/lib/integrations/pusher', () => ({
   fireAgentEvent: jest.fn(),
 }))
 
-jest.mock('@/lib/agent/markdown', () => ({
+jest.mock('@/lib/utils/markdown', () => ({
   markdownToHtml: jest.fn((md: string) =>
     /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
       md
