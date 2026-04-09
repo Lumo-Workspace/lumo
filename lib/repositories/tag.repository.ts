@@ -6,6 +6,9 @@ export const tagRepository = {
     return prisma.tag.findMany({
       where: { workspaceId },
       orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { taskTags: true, documentTags: true } },
+      },
     })
   },
 

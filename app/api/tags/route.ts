@@ -15,7 +15,16 @@ export async function GET(_request: NextRequest) {
   const ws = await requireUserWorkspace(userId)
   if (ws instanceof NextResponse) return ws
 
-  const tags = await tagService.listTags(ws.workspaceId)
+  const raw = await tagService.listTags(ws.workspaceId)
+  const tags = raw.map(t => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+    workspaceId: t.workspaceId,
+    createdAt: t.createdAt,
+    taskCount: t._count.taskTags,
+    documentCount: t._count.documentTags,
+  }))
   return NextResponse.json({ tags })
 }
 

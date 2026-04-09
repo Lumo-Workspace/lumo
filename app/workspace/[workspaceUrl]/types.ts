@@ -306,6 +306,11 @@ export interface ApiTag {
   createdAt: string
 }
 
+export interface ApiTagWithCounts extends ApiTag {
+  taskCount: number
+  documentCount: number
+}
+
 // ── Documents ─────────────────────────────────────────────────────────────
 
 export type DocVisibility = 'PRIVATE' | 'SHARED' | 'WORKSPACE'
