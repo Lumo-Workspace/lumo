@@ -1,4 +1,5 @@
 import type { DomainEvent } from './types'
+import type { TaskActivityEvent } from './types/task-activity'
 import { registry } from './handlers'
 
 /**
@@ -18,6 +19,15 @@ export async function dispatchEvents(events: DomainEvent[]): Promise<void> {
       case 'task:status_changed': {
         const handlers = registry['task:status_changed']
         await Promise.all(handlers.map(h => runWithRetry(h, event)))
+        break
+      }
+      default: {
+        if ('task:activity' in registry) {
+          const handlers = registry['task:activity']
+          await Promise.all(
+            handlers.map(h => runWithRetry(h, event as TaskActivityEvent))
+          )
+        }
         break
       }
     }
