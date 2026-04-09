@@ -1,33 +1,10 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import {
-  Layers,
-  Plus,
-  MoreHorizontal,
-  Trash2,
-  MessageSquare,
-  GitBranch,
-  Star,
-  X,
-  Loader2,
-  Check,
-  Link as LinkIcon,
-  ExternalLink,
-} from 'lucide-react'
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+import { useMemo, useCallback } from 'react'
+import { Layers, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { apiFetch } from '@/lib/api-client'
 import {
   ApiProject,
-  ApiRepository,
   ApiTask,
   ApiStatus,
   WorkspaceMemberInfo,
@@ -57,39 +34,11 @@ import {
 import { DataTable } from '../data-table/data-table'
 import { createTaskColumns } from '../data-table/task-columns'
 import { TypographyH3 } from '@/components/ui/typography'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
-import { PageBreadcrumb } from '../PageBreadcrumb'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { useProjectViewState } from '../../hooks/useProjectViewState'
+import { ProjectHeader } from '../ProjectHeader'
+import { RepositoriesSection } from '../RepositoriesSection'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -149,9 +98,30 @@ export function ProjectDetailPage({
   copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
-  const [tab, setTab] = useState<'overview' | 'tasks' | 'summary'>('overview')
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const {
+    tab,
+    setTab,
+    viewMode,
+    setViewMode,
+    deleteOpen,
+    setDeleteOpen,
+    repositories,
+    pickerOpen,
+    setPickerOpen,
+    availableRepos,
+    reposLoading,
+    githubConnected,
+    addingRepo,
+    linkedFullNames,
+    handleAddRepo,
+    handleSetDefault,
+    handleRemoveRepo,
+  } = useProjectViewState({
+    projectId: project.id,
+    initialRepositories: project.repositories,
+    workspaceUrl,
+  })
+
   const {
     options: displayOptions,
     setCompletedFilter,
@@ -182,96 +152,6 @@ export function ProjectDetailPage({
     getMemberName,
   ])
 
-  // ── Repositories state ────────────────────────────────────────────────────
-  const [repositories, setRepositories] = useState<ApiRepository[]>(
-    project.repositories ?? []
-  )
-  // Sync when parent hydrates repositories from the API (standalone page flow)
-  useEffect(() => {
-    if (project.repositories) setRepositories(project.repositories)
-  }, [project.repositories])
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [availableRepos, setAvailableRepos] = useState<
-    { fullName: string; private: boolean }[]
-  >([])
-  const [reposLoading, setReposLoading] = useState(false)
-  const [githubConnected, setGithubConnected] = useState<boolean | null>(null)
-  const [addingRepo, setAddingRepo] = useState<string | null>(null)
-
-  // Fetch available repos from GitHub when picker opens
-  useEffect(() => {
-    if (!pickerOpen) return
-    setReposLoading(true)
-    apiFetch<{ repos?: { fullName: string; private: boolean }[] }>(
-      `/api/github/repos?workspaceUrl=${workspaceUrl}`
-    )
-      .then(data => {
-        if (data.repos) {
-          setAvailableRepos(data.repos)
-          setGithubConnected(true)
-        } else {
-          setGithubConnected(false)
-        }
-      })
-      .catch(() => setGithubConnected(false))
-      .finally(() => setReposLoading(false))
-  }, [pickerOpen, workspaceUrl])
-
-  const linkedFullNames = new Set(repositories.map(r => r.fullName))
-
-  const handleAddRepo = useCallback(
-    async (fullName: string) => {
-      if (linkedFullNames.has(fullName)) return
-      setAddingRepo(fullName)
-      try {
-        const data = await apiFetch<{ repository: ApiRepository }>(
-          `/api/projects/${project.id}/repositories`,
-          {
-            method: 'POST',
-            body: { fullName },
-          }
-        )
-        setRepositories(prev => [...prev, data.repository])
-        setPickerOpen(false)
-      } finally {
-        setAddingRepo(null)
-      }
-    },
-
-    [project.id, linkedFullNames]
-  )
-
-  const handleSetDefault = useCallback(
-    async (repoId: string) => {
-      try {
-        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
-          method: 'PATCH',
-          body: { isDefault: true },
-        })
-        setRepositories(prev =>
-          prev.map(r => ({ ...r, isDefault: r.id === repoId }))
-        )
-      } catch {
-        // ignore
-      }
-    },
-    [project.id]
-  )
-
-  const handleRemoveRepo = useCallback(
-    async (repoId: string) => {
-      try {
-        await apiFetch(`/api/projects/${project.id}/repositories/${repoId}`, {
-          method: 'DELETE',
-        })
-        setRepositories(prev => prev.filter(r => r.id !== repoId))
-      } catch {
-        // ignore
-      }
-    },
-    [project.id]
-  )
-
   // Memoised columns — stable reference so TanStack Table doesn't re-create on every render
   const taskColumns = useMemo(
     () => createTaskColumns(onTaskClick, onDeleteTask),
@@ -290,90 +170,17 @@ export function ProjectDetailPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Breadcrumb */}
-      <PageBreadcrumb>
-        <div className='flex items-center gap-1.5'>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <button onClick={onBack}>Projects</button>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{project.name}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          {onSlack && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onSlack}
-              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              title='Slack notifications'
-            >
-              <MessageSquare size={14} />
-            </Button>
-          )}
-          {onCopyLink && (
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={onCopyLink}
-              className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              title='Copy link'
-            >
-              {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              >
-                <MoreHorizontal size={14} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='start'>
-              <DropdownMenuItem
-                className='text-destructive focus:text-destructive'
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className='mr-2 size-4' />
-                Delete project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </PageBreadcrumb>
-
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent size='sm'>
-          <AlertDialogHeader>
-            <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
-              <Trash2 />
-            </AlertDialogMedia>
-            <AlertDialogTitle>Delete project?</AlertDialogTitle>
-            <AlertDialogDescription>
-              &ldquo;{project.name}&rdquo; and all its tasks will be permanently
-              deleted. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant='destructive'
-              onClick={() => onDeleteProject(project.id)}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ProjectHeader
+        projectName={project.name}
+        projectId={project.id}
+        deleteOpen={deleteOpen}
+        onDeleteOpenChange={setDeleteOpen}
+        onBack={onBack}
+        onDeleteProject={onDeleteProject}
+        onSlack={onSlack}
+        onCopyLink={onCopyLink}
+        copied={copied}
+      />
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
@@ -471,180 +278,34 @@ export function ProjectDetailPage({
                 </div>
 
                 {/* Repositories */}
-                <div className='space-y-2'>
-                  <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
-                    Repositories
-                  </p>
-
-                  {/* Listed repos */}
-                  {repositories.length > 0 && (
-                    <ul className='space-y-1.5'>
-                      {repositories.map(repo => (
-                        <li
-                          key={repo.id}
-                          className='group flex items-start gap-2 rounded-md px-2 py-1.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800'
-                        >
-                          <GitBranch
-                            size={13}
-                            className='text-zinc-400 shrink-0 mt-0.5'
-                          />
-                          <div className='flex-1 min-w-0'>
-                            <div className='flex items-center gap-1.5 h-[18px]'>
-                              <span className='text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate'>
-                                {repo.name}
-                              </span>
-                              {repo.isDefault && (
-                                <span className='inline-flex items-center h-[18px] px-1 rounded text-[10px] leading-none bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 shrink-0'>
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            <span className='text-[11px] text-zinc-400 dark:text-zinc-500 font-mono truncate block'>
-                              {repo.fullName}
-                            </span>
-                          </div>
-                          <div className='flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0'>
-                            <a
-                              href={`https://github.com/${repo.fullName}`}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                              title='Open on GitHub'
-                            >
-                              <ExternalLink size={11} />
-                            </a>
-                            {!repo.isDefault && (
-                              <button
-                                onClick={() => handleSetDefault(repo.id)}
-                                className='p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                                title='Set as default'
-                              >
-                                <Star size={11} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleRemoveRepo(repo.id)}
-                              className='p-0.5 text-zinc-400 hover:text-red-500'
-                              title='Remove'
-                            >
-                              <X size={11} />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/* Add repository picker */}
-                  <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                    <PopoverTrigger asChild>
-                      <button className='flex items-center gap-1.5 w-full h-7 px-2 rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors'>
-                        <Plus size={11} />
-                        Add repository
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className='w-64 p-0'
-                      align='start'
-                      side='bottom'
-                    >
-                      {reposLoading ? (
-                        <div className='flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground'>
-                          <Loader2 size={13} className='animate-spin' />
-                          Loading repositories…
-                        </div>
-                      ) : githubConnected === false ? (
-                        <div className='px-3 py-4 text-xs text-muted-foreground text-center space-y-1'>
-                          <p>GitHub is not connected.</p>
-                          <p>
-                            Go to{' '}
-                            <a
-                              href={`/workspace/${workspaceUrl}/settings`}
-                              className='text-blue-500 underline'
-                            >
-                              Settings
-                            </a>{' '}
-                            to connect GitHub.
-                          </p>
-                        </div>
-                      ) : (
-                        <Command>
-                          <CommandInput
-                            placeholder='Search repositories…'
-                            className='text-xs h-8'
-                          />
-                          <CommandList>
-                            <CommandEmpty className='py-4 text-xs text-center text-muted-foreground'>
-                              No repositories found.
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {availableRepos.map(repo => {
-                                const isLinked = linkedFullNames.has(
-                                  repo.fullName
-                                )
-                                const isAdding = addingRepo === repo.fullName
-                                return (
-                                  <CommandItem
-                                    key={repo.fullName}
-                                    value={repo.fullName}
-                                    onSelect={() =>
-                                      handleAddRepo(repo.fullName)
-                                    }
-                                    disabled={isLinked}
-                                    className='flex items-center gap-2 text-xs'
-                                  >
-                                    {isAdding ? (
-                                      <Loader2
-                                        size={12}
-                                        className='animate-spin shrink-0'
-                                      />
-                                    ) : isLinked ? (
-                                      <Check
-                                        size={12}
-                                        className='text-green-500 shrink-0'
-                                      />
-                                    ) : (
-                                      <GitBranch
-                                        size={12}
-                                        className='text-zinc-400 shrink-0'
-                                      />
-                                    )}
-                                    <div className='flex-1 min-w-0'>
-                                      <div className='truncate font-medium'>
-                                        {repo.fullName.split('/')[1]}
-                                      </div>
-                                      <div className='truncate text-zinc-400 font-mono'>
-                                        {repo.fullName}
-                                      </div>
-                                    </div>
-                                    {repo.private && (
-                                      <span className='text-[10px] text-zinc-400 shrink-0'>
-                                        private
-                                      </span>
-                                    )}
-                                  </CommandItem>
-                                )
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                <RepositoriesSection
+                  repositories={repositories}
+                  pickerOpen={pickerOpen}
+                  onPickerOpenChange={setPickerOpen}
+                  availableRepos={availableRepos}
+                  reposLoading={reposLoading}
+                  githubConnected={githubConnected}
+                  addingRepo={addingRepo}
+                  linkedFullNames={linkedFullNames}
+                  onAddRepo={handleAddRepo}
+                  onSetDefault={handleSetDefault}
+                  onRemoveRepo={handleRemoveRepo}
+                  workspaceUrl={workspaceUrl}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Tasks tab ── */}
+      {/* ── Summary tab ── */}
       {tab === 'summary' && (
         <div className='flex-1 overflow-y-auto'>
           <ProjectSummaryTab projectId={project.id} />
         </div>
       )}
 
+      {/* ── Tasks tab ── */}
       {tab === 'tasks' && (
         <div className='flex-1 flex flex-col overflow-hidden'>
           {/* Toolbar */}
