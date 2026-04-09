@@ -198,36 +198,34 @@ export function TagPicker({
           className='bg-transparent text-sm outline-none min-w-[80px] flex-1 placeholder:text-muted-foreground'
         />
       </div>
-      {showSuggestions &&
-        input &&
-        (filteredSuggestions.length > 0 || canCreate) && (
-          <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-md z-50 py-1'>
-            {filteredSuggestions.slice(0, 5).map(tag => (
-              <button
-                key={tag.id}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => addTag(tag)}
-                className='flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-muted'
-              >
-                <TagBadgeNew tag={tag} />
-              </button>
-            ))}
-            {canCreate && (
-              <button
-                onMouseDown={e => e.preventDefault()}
-                onClick={handleCreate}
-                disabled={creating}
-                className='flex items-center gap-1.5 w-full text-left px-3 py-1.5 text-sm hover:bg-muted text-muted-foreground'
-              >
-                <Plus className='h-3 w-3' />
-                {intl.formatMessage(
-                  { id: 'tags.create', defaultMessage: 'Create "{name}"' },
-                  { name: input.trim() }
-                )}
-              </button>
-            )}
-          </div>
-        )}
+      {showSuggestions && (filteredSuggestions.length > 0 || canCreate) && (
+        <div className='absolute top-full left-0 mt-1 w-48 bg-popover border rounded-md shadow-md z-50 py-1'>
+          {filteredSuggestions.slice(0, 5).map(tag => (
+            <button
+              key={tag.id}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => addTag(tag)}
+              className='flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-muted'
+            >
+              <TagBadgeNew tag={tag} />
+            </button>
+          ))}
+          {canCreate && (
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={handleCreate}
+              disabled={creating}
+              className='flex items-center gap-1.5 w-full text-left px-3 py-1.5 text-sm hover:bg-muted text-muted-foreground'
+            >
+              <Plus className='h-3 w-3' />
+              {intl.formatMessage(
+                { id: 'tags.create', defaultMessage: 'Create "{name}"' },
+                { name: input.trim() }
+              )}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
