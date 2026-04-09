@@ -188,7 +188,7 @@
   "share.copied": "Copied",
   "share.button": "Share",
   "quickDispatch.title": "Quick Dispatch",
-  "quickDispatch.placeholder": "Describe a task in one sentence...",
+  "quickDispatch.placeholder": "Type @ to mention tasks, projects, or members...",
   "quickDispatch.parsing": "Parsing...",
   "quickDispatch.confirm": "Create task",
   "quickDispatch.edit": "Edit",
@@ -452,5 +452,11 @@
   "quickDispatch.noResults": "No results found",
   "quickDispatch.mentionTasks": "Tasks",
   "quickDispatch.mentionProjects": "Projects",
-  "quickDispatch.mentionMembers": "Members"
+  "quickDispatch.mentionMembers": "Members",
+  "quickDispatch.confirmExecute": "Execute ({count})",
+  "quickDispatch.executing": "Executing...",
+  "quickDispatch.noActions": "Could not parse any actions",
+  "quickDispatch.actionUpdate": "Update",
+  "quickDispatch.actionCreate": "Create",
+  "quickDispatch.executed": "{count} actions executed"
 }

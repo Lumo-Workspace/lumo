@@ -1,145 +1,127 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { AnimatePresence } from 'motion/react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ArrowRightLeft, Plus, X } from 'lucide-react'
 import { Modal } from '../Modal'
 import { Button } from '@/components/ui/button'
-import { PRIORITY_CONFIG } from '../fields'
+import { MentionInput } from '../MentionInput'
 import { useQuickDispatch } from '../../hooks/useQuickDispatch'
-import type { NewTaskFormData } from './NewTaskModal'
-import type { ApiPriority, ApiStatus, WorkspaceMemberInfo } from '../../types'
+import type { QuickAction } from '@/lib/quick-dispatch/types'
+import type { MentionCandidate } from '../MentionInput'
+import type { ApiProject, MyTask, WorkspaceMemberInfo } from '../../types'
 import { isSubmitShortcut } from '../../utils'
-
-/** Parsed fields passed to the edit callback so NewTaskModal can be pre-filled. */
-export interface QuickDispatchParsedFields {
-  title: string
-  description: string
-  status: ApiStatus
-  priority: ApiPriority
-  projectId: string
-  assigneeId: string
-  dueDate: string | null
-}
 
 interface QuickDispatchModalProps {
   isOpen: boolean
   onClose: () => void
   members: WorkspaceMemberInfo[]
-  onSubmit: (data: NewTaskFormData) => Promise<void>
-  /** Called when user clicks "Edit" — parent should open NewTaskModal with these fields pre-filled. */
-  onEdit: (fields: QuickDispatchParsedFields) => void
-  onSaveDraft?:
-    | ((type: 'TASK', data: Record<string, unknown>) => Promise<void>)
-    | undefined
+  projects: ApiProject[]
+  myTasks: MyTask[]
+  currentActorId: string | null
+  onTasksChanged: () => void
 }
 
 export function QuickDispatchModal({
   isOpen,
   onClose,
   members,
-  onSubmit,
-  onEdit,
-  onSaveDraft,
+  projects,
+  myTasks,
+  currentActorId: _currentActorId,
+  onTasksChanged,
 }: QuickDispatchModalProps) {
   const intl = useIntl()
-  const { phase, input, setInput, result, error, parse, reset, backToInput } =
-    useQuickDispatch()
+  const {
+    phase,
+    input,
+    setInput,
+    mentions,
+    setMentions,
+    actions,
+    error,
+    parse,
+    execute,
+    removeAction,
+    reset,
+    backToInput,
+  } = useQuickDispatch()
+
+  // Build autocomplete candidates
+  const candidates: MentionCandidate[] = useMemo(() => {
+    const taskCandidates: MentionCandidate[] = myTasks.map(t => ({
+      type: 'task',
+      id: t.id,
+      label: `${t.teamIdentifier}-${t.number} ${t.title}`,
+      sublabel: t.project?.name,
+      identifier: `${t.teamIdentifier}-${t.number}`,
+      title: t.title,
+    }))
+    const projectCandidates: MentionCandidate[] = projects.map(p => ({
+      type: 'project',
+      id: p.id,
+      label: p.name,
+      name: p.name,
+    }))
+    const memberCandidates: MentionCandidate[] = members.map(m => ({
+      type: 'member',
+      id: m.actorId ?? m.id,
+      label: m.name,
+      name: m.name,
+      actorId: m.actorId ?? m.id,
+    }))
+    return [...taskCandidates, ...projectCandidates, ...memberCandidates]
+  }, [myTasks, projects, members])
 
   const handleClose = useCallback(() => {
     reset()
     onClose()
   }, [reset, onClose])
 
-  const handleSubmit = useCallback(() => {
-    if (!result || !result.projectId) return
-
-    const data: NewTaskFormData = {
-      title: result.title,
-      description: result.description,
-      status: result.status as ApiStatus,
-      priority: result.priority as ApiPriority,
-      projectId: result.projectId,
-      assigneeId: result.assigneeActorId ?? '',
-      repositoryId: null,
-      dueDate: result.dueDate,
+  const handleExecute = useCallback(async () => {
+    const results = await execute()
+    if (results) {
+      const successCount = results.filter(r => r.success).length
+      if (successCount > 0) {
+        toast.success(
+          intl.formatMessage(
+            { id: 'quickDispatch.executed' },
+            { count: successCount }
+          )
+        )
+        onTasksChanged()
+      }
+      const errors = results.filter(r => !r.success)
+      for (const err of errors) {
+        toast.error(err.message ?? 'Action failed')
+      }
+      reset()
+      onClose()
     }
-
-    reset()
-    onClose()
-    onSubmit(data).catch(() => {})
-  }, [result, reset, onClose, onSubmit])
-
-  const handleSaveDraft = useCallback(() => {
-    if (!result || !onSaveDraft) return
-
-    const formData: Record<string, unknown> = {
-      title: result.title,
-      description: result.description,
-      status: result.status,
-      priority: result.priority,
-    }
-    if (result.projectId) formData.projectId = result.projectId
-    if (result.assigneeActorId) formData.assigneeId = result.assigneeActorId
-    if (result.dueDate) formData.dueDate = result.dueDate
-
-    reset()
-    onClose()
-    onSaveDraft('TASK', formData)
-      .then(() => toast.success(intl.formatMessage({ id: 'drafts.saved' })))
-      .catch(() => toast.error(intl.formatMessage({ id: 'drafts.saveFailed' })))
-  }, [result, onSaveDraft, reset, onClose, intl])
-
-  const handleEdit = useCallback(() => {
-    if (!result) return
-
-    const fields: QuickDispatchParsedFields = {
-      title: result.title,
-      description: result.description,
-      status: result.status as ApiStatus,
-      priority: result.priority as ApiPriority,
-      projectId: result.projectId ?? '',
-      assigneeId: result.assigneeActorId ?? '',
-      dueDate: result.dueDate,
-    }
-
-    reset()
-    onClose()
-    onEdit(fields)
-  }, [result, reset, onClose, onEdit])
+  }, [execute, intl, onTasksChanged, reset, onClose])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (phase === 'input' && e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        parse(input)
-      }
       if (phase === 'preview' && isSubmitShortcut(e)) {
         e.preventDefault()
-        handleSubmit()
+        handleExecute()
       }
       if (e.key === 'Escape') {
         if (phase === 'preview') {
           backToInput()
-        } else {
+        } else if (phase === 'input') {
           handleClose()
         }
       }
     },
-    [phase, input, parse, handleSubmit, backToInput, handleClose]
+    [phase, handleExecute, backToInput, handleClose]
   )
 
-  const priorityConfig =
-    result && result.priority in PRIORITY_CONFIG
-      ? PRIORITY_CONFIG[result.priority as ApiPriority]
-      : null
-
-  const memberName =
-    result?.assigneeName ??
-    members.find(m => m.actorId === result?.assigneeActorId)?.name ??
-    null
+  const hasCreateWithoutProject = actions.some(
+    a => a.type === 'create' && !a.projectId
+  )
 
   return (
     <AnimatePresence>
@@ -154,16 +136,14 @@ export function QuickDispatchModal({
               <Button variant='ghost' onClick={backToInput}>
                 {intl.formatMessage({ id: 'quickDispatch.back' })}
               </Button>
-              <Button variant='outline' onClick={handleEdit}>
-                {intl.formatMessage({ id: 'quickDispatch.edit' })}
-              </Button>
-              {onSaveDraft && (
-                <Button variant='outline' onClick={handleSaveDraft}>
-                  {intl.formatMessage({ id: 'drafts.saveDraft' })}
-                </Button>
-              )}
-              <Button onClick={handleSubmit} disabled={!result?.projectId}>
-                {intl.formatMessage({ id: 'quickDispatch.confirm' })}
+              <Button
+                onClick={handleExecute}
+                disabled={actions.length === 0 || hasCreateWithoutProject}
+              >
+                {intl.formatMessage(
+                  { id: 'quickDispatch.confirmExecute' },
+                  { count: actions.length }
+                )}
               </Button>
             </div>
           ) : undefined
@@ -174,19 +154,19 @@ export function QuickDispatchModal({
             {/* ── Input Phase ──────────────────────────── */}
             {(phase === 'input' || phase === 'loading') && (
               <div className='space-y-3'>
-                <div className='relative'>
-                  <input
-                    autoFocus
-                    className='w-full bg-transparent border-none p-0 text-lg font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
-                    placeholder={intl.formatMessage({
-                      id: 'quickDispatch.placeholder',
-                    })}
-                    type='text'
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    disabled={phase === 'loading'}
-                  />
-                </div>
+                <MentionInput
+                  value={input}
+                  onChange={setInput}
+                  mentions={mentions}
+                  onMentionsChange={setMentions}
+                  candidates={candidates}
+                  placeholder={intl.formatMessage({
+                    id: 'quickDispatch.placeholder',
+                  })}
+                  disabled={phase === 'loading'}
+                  onSubmit={() => parse(input)}
+                  autoFocus
+                />
                 {phase === 'loading' && (
                   <div className='flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400'>
                     <Loader2 className='size-4 animate-spin' />
@@ -198,97 +178,27 @@ export function QuickDispatchModal({
                     {error}
                   </div>
                 )}
-                {result?.titleTooVague && (
-                  <div className='rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'>
-                    {intl.formatMessage({ id: 'quickDispatch.titleVague' })}
-                  </div>
-                )}
-                {result?.missingProject && !result?.titleTooVague && (
-                  <div className='rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'>
-                    {intl.formatMessage({
-                      id: 'quickDispatch.missingProject',
-                    })}
-                  </div>
-                )}
               </div>
             )}
 
-            {/* ── Preview Phase (read-only card) ────────── */}
-            {phase === 'preview' && result && (
-              <div className='space-y-3'>
-                <FieldRow
-                  label={intl.formatMessage({
-                    id: 'quickDispatch.fieldTitle',
-                  })}
-                >
-                  <span className='font-medium text-zinc-900 dark:text-zinc-100'>
-                    {result.title}
-                  </span>
-                </FieldRow>
-                <FieldRow
-                  label={intl.formatMessage({
-                    id: 'quickDispatch.fieldProject',
-                  })}
-                >
-                  {result.projectName ? (
-                    <span>{result.projectName}</span>
-                  ) : (
-                    <span className='text-amber-600 dark:text-amber-400'>
-                      {intl.formatMessage({
-                        id: 'quickDispatch.missingProject',
-                      })}
-                    </span>
-                  )}
-                </FieldRow>
-                <FieldRow
-                  label={intl.formatMessage({
-                    id: 'quickDispatch.fieldPriority',
-                  })}
-                >
-                  {priorityConfig && (
-                    <span className='flex items-center gap-1.5'>
-                      <priorityConfig.Icon
-                        className={`size-3.5 ${priorityConfig.iconColor}`}
-                      />
-                      {priorityConfig.label}
-                    </span>
-                  )}
-                </FieldRow>
-                <FieldRow
-                  label={intl.formatMessage({
-                    id: 'quickDispatch.fieldAssignee',
-                  })}
-                >
-                  <span>
-                    {memberName ??
-                      intl.formatMessage({ id: 'quickDispatch.none' })}
-                  </span>
-                </FieldRow>
-                <FieldRow
-                  label={intl.formatMessage({
-                    id: 'quickDispatch.fieldDueDate',
-                  })}
-                >
-                  <span>
-                    {result.dueDate
-                      ? new Date(result.dueDate).toLocaleDateString()
-                      : intl.formatMessage({ id: 'quickDispatch.none' })}
-                  </span>
-                </FieldRow>
-                {result.description && (
-                  <FieldRow
-                    label={intl.formatMessage({
-                      id: 'quickDispatch.fieldDescription',
-                    })}
-                  >
-                    <div
-                      className='prose prose-sm max-w-none text-zinc-600 dark:prose-invert dark:text-zinc-400'
-                      dangerouslySetInnerHTML={{
-                        __html: result.description,
-                      }}
-                    />
-                  </FieldRow>
-                )}
+            {/* ── Preview Phase ──────────────────────────── */}
+            {phase === 'preview' && (
+              <div className='space-y-2'>
+                {actions.map((action, i) => (
+                  <ActionRow
+                    key={i}
+                    action={action}
+                    onRemove={() => removeAction(i)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ── Executing Phase ──────────────────────────── */}
+            {phase === 'executing' && (
+              <div className='flex items-center justify-center gap-2 py-8 text-sm text-indigo-600 dark:text-indigo-400'>
+                <Loader2 className='size-4 animate-spin' />
+                {intl.formatMessage({ id: 'quickDispatch.executing' })}
               </div>
             )}
           </div>
@@ -298,21 +208,60 @@ export function QuickDispatchModal({
   )
 }
 
-function FieldRow({
-  label,
-  children,
+function ActionRow({
+  action,
+  onRemove,
 }: {
-  label: string
-  children: React.ReactNode
+  action: QuickAction
+  onRemove: () => void
 }) {
-  return (
-    <div className='flex items-start gap-3'>
-      <span className='w-20 shrink-0 text-sm text-zinc-500 dark:text-zinc-400 pt-0.5'>
-        {label}
-      </span>
-      <div className='flex-1 text-sm text-zinc-700 dark:text-zinc-300'>
-        {children}
+  if (action.type === 'update') {
+    return (
+      <div className='flex items-center gap-2 rounded-md border px-3 py-2 text-sm'>
+        <ArrowRightLeft className='size-4 text-blue-500 shrink-0' />
+        <span className='font-mono text-xs text-zinc-500'>
+          {action.taskIdentifier}
+        </span>
+        <span className='truncate font-medium'>{action.taskTitle}</span>
+        {action.fields.status && (
+          <span className='ml-auto text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800'>
+            → {action.fields.status}
+          </span>
+        )}
+        {action.fields.priority && (
+          <span className='text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800'>
+            {action.fields.priority}
+          </span>
+        )}
+        <button
+          onClick={onRemove}
+          className='ml-1 p-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded'
+        >
+          <X className='size-3.5 text-zinc-400' />
+        </button>
       </div>
+    )
+  }
+
+  return (
+    <div className='flex items-center gap-2 rounded-md border px-3 py-2 text-sm'>
+      <Plus className='size-4 text-green-500 shrink-0' />
+      <span className='truncate font-medium'>{action.title}</span>
+      {action.projectName && (
+        <span className='text-xs text-zinc-500'>{action.projectName}</span>
+      )}
+      {action.assigneeName && (
+        <span className='text-xs text-zinc-500'>@{action.assigneeName}</span>
+      )}
+      <span className='ml-auto text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800'>
+        {action.status}
+      </span>
+      <button
+        onClick={onRemove}
+        className='ml-1 p-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded'
+      >
+        <X className='size-3.5 text-zinc-400' />
+      </button>
     </div>
   )
 }
