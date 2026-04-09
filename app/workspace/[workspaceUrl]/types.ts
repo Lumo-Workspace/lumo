@@ -408,3 +408,41 @@ export interface ApiPullRequestSearchResult {
     team: { identifier: string }
   } | null
 }
+
+// ── Timeline ─────────────────────────────────────────────────────────────────
+
+export interface TimelineActivityEntry {
+  id: string
+  kind: 'activity'
+  type: string
+  payload: Record<string, unknown> | null
+  actorId: string | null
+  actor?: {
+    id: string
+    type: string
+    member?: { id: string; clerkId: string } | null
+    agent?: { id: string; name: string; avatarColor: string } | null
+  } | null
+  createdAt: string
+}
+
+export interface TimelineCommentEntry {
+  id: string
+  kind: 'comment'
+  body: string
+  authorActorId: string | null
+  parentId: string | null
+  quotedCommentId: string | null
+  type: string
+  createdAt: string
+  updatedAt: string
+  replies?: TimelineCommentEntry[]
+}
+
+export type TimelineEntry = TimelineActivityEntry | TimelineCommentEntry
+
+export interface TimelineResponse {
+  items: TimelineEntry[]
+  hasMore: boolean
+  nextCursor: string | null
+}
