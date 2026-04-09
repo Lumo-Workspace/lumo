@@ -37,7 +37,7 @@ jest.mock('@/lib/utils/markdown', () => ({
       : html
   ),
 }))
-jest.mock('@/lib/agent/sandbox-health', () => ({
+jest.mock('@/lib/integrations/sandbox', () => ({
   isSandboxAlive: jest.fn(),
 }))
 jest.mock('@/lib/utils/clerk-helpers', () => ({
@@ -53,7 +53,7 @@ jest.mock('@/lib/events/dispatcher', () => ({
 
 import { prisma } from '@/lib/db/prisma'
 import { getClerkUser } from '@/lib/utils/clerk-helpers'
-import { isSandboxAlive } from '@/lib/agent/sandbox-health'
+import { isSandboxAlive } from '@/lib/integrations/sandbox'
 import { executeAgent } from '@/lib/agent/execute'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock

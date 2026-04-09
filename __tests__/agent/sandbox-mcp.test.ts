@@ -1,4 +1,8 @@
-import { installMcpServer, MCP_CONFIG_PATH } from '@/lib/agent/sandbox-mcp'
+jest.mock('@e2b/code-interpreter', () => ({
+  Sandbox: { connect: jest.fn() },
+}))
+
+import { installMcpServer, MCP_CONFIG_PATH } from '@/lib/integrations/sandbox'
 
 describe('sandbox-mcp', () => {
   describe('installMcpServer', () => {

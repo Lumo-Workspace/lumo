@@ -22,7 +22,7 @@ import {
   notifyAgentFailed,
 } from '@/lib/notifications/notifyAgentActions'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
-import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
+import { installMcpServer, MCP_CONFIG_PATH } from '@/lib/integrations/sandbox'
 import { buildAgentContext } from './context-builder'
 
 // ── Constants ──────────────────────────────────────────────────────────────

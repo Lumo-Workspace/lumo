@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { isSandboxAlive } from './sandbox-health'
+import { isSandboxAlive } from '@/lib/integrations/sandbox'
 import { getClerkUser } from '@/lib/utils/clerk-helpers'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'

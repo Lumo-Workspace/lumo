@@ -11,7 +11,10 @@ import {
 } from '@/lib/agent/state-machine'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { executeAgent } from '@/lib/agent/execute'
-import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
+import {
+  isAgentServiceEnabled,
+  proxyToAgentService,
+} from '@/lib/integrations/sandbox'
 
 /** Run agent either via proxy or locally. */
 async function runAgent(opts: {

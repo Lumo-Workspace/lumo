@@ -17,6 +17,7 @@
  */
 
 import type { Sandbox } from '@e2b/code-interpreter'
+import type { McpEnvVars } from './types'
 
 // ── MCP server source (injected as a single .mjs file) ────────────────────
 
@@ -304,12 +305,6 @@ function buildMcpConfig(): string {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────
-
-export interface McpEnvVars {
-  callbackUrl: string
-  callbackToken?: string | undefined
-  taskId: string
-}
 
 /**
  * Write the MCP server code and config into the sandbox.

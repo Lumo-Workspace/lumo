@@ -4,7 +4,10 @@ import { requireAuth } from '@/lib/auth'
 import { zodError, requireTaskMember } from '@/lib/api/helpers'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { executeAgent } from '@/lib/agent/execute'
-import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
+import {
+  isAgentServiceEnabled,
+  proxyToAgentService,
+} from '@/lib/integrations/sandbox'
 
 // Setup phase only (clone, install, branch) — typically < 3 min
 export const maxDuration = 300
