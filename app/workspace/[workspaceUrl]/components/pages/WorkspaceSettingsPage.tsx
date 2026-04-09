@@ -252,7 +252,9 @@ export function WorkspaceSettingsPage() {
   if (loading) {
     return (
       <div className='h-full flex items-center justify-center'>
-        <span className='text-sm text-zinc-400'>Loading…</span>
+        <span className='text-sm text-zinc-400'>
+          {intl.formatMessage({ id: 'common.loading' })}
+        </span>
       </div>
     )
   }
@@ -261,7 +263,7 @@ export function WorkspaceSettingsPage() {
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-8'>
-          Workspace
+          {intl.formatMessage({ id: 'workspaceSettings.title' })}
         </h1>
 
         {/* Settings card */}
@@ -270,10 +272,10 @@ export function WorkspaceSettingsPage() {
           <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
             <div>
               <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
-                Logo
+                {intl.formatMessage({ id: 'workspaceSettings.logo' })}
               </p>
               <p className='text-xs text-zinc-400 mt-0.5'>
-                Recommended size is 256×256px
+                {intl.formatMessage({ id: 'workspaceSettings.logoHint' })}
               </p>
             </div>
             <LogoUploader
@@ -290,7 +292,7 @@ export function WorkspaceSettingsPage() {
           {/* Name row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
             <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0 w-16'>
-              Name
+              {intl.formatMessage({ id: 'workspaceSettings.name' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
               <input
@@ -318,7 +320,7 @@ export function WorkspaceSettingsPage() {
           {/* URL row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4'>
             <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0 w-16'>
-              URL
+              {intl.formatMessage({ id: 'workspaceSettings.url' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
               <div className='flex items-center h-8 rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden w-64'>
@@ -358,7 +360,7 @@ export function WorkspaceSettingsPage() {
           <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-8'>
             <div className='px-5 py-3 border-b border-zinc-100 dark:border-zinc-800'>
               <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
-                Summary Settings
+                {intl.formatMessage({ id: 'workspaceSettings.summaryTitle' })}
               </p>
             </div>
 
@@ -366,11 +368,12 @@ export function WorkspaceSettingsPage() {
             <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
               <div>
                 <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
-                  Enable Summary
+                  {intl.formatMessage({
+                    id: 'workspaceSettings.summaryEnable',
+                  })}
                 </p>
                 <p className='text-xs text-zinc-400 mt-0.5'>
-                  Automatically generate periodic project and workspace
-                  summaries
+                  {intl.formatMessage({ id: 'workspaceSettings.summaryDesc' })}
                 </p>
               </div>
               <button
@@ -396,7 +399,9 @@ export function WorkspaceSettingsPage() {
             {/* Frequency selector */}
             <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
               <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
-                Generation Frequency
+                {intl.formatMessage({
+                  id: 'workspaceSettings.summaryFrequency',
+                })}
               </label>
               <select
                 value={summaryFrequency}
@@ -406,16 +411,24 @@ export function WorkspaceSettingsPage() {
                 disabled={savingSummary || !summaryEnabled}
                 className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                <option value='DAILY'>Daily</option>
-                <option value='EVERY_TWO_DAYS'>Every Two Days</option>
-                <option value='WEEKLY'>Weekly</option>
+                <option value='DAILY'>
+                  {intl.formatMessage({ id: 'workspaceSettings.freqDaily' })}
+                </option>
+                <option value='EVERY_TWO_DAYS'>
+                  {intl.formatMessage({
+                    id: 'workspaceSettings.freqEveryTwoDays',
+                  })}
+                </option>
+                <option value='WEEKLY'>
+                  {intl.formatMessage({ id: 'workspaceSettings.freqWeekly' })}
+                </option>
               </select>
             </div>
 
             {/* Language selector */}
             <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
               <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
-                Report Language
+                {intl.formatMessage({ id: 'workspaceSettings.reportLanguage' })}
               </label>
               <select
                 value={summaryLocale}
@@ -423,8 +436,12 @@ export function WorkspaceSettingsPage() {
                 disabled={savingSummary || !summaryEnabled}
                 className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                <option value='en'>English</option>
-                <option value='zh'>Chinese</option>
+                <option value='en'>
+                  {intl.formatMessage({ id: 'workspaceSettings.langEn' })}
+                </option>
+                <option value='zh'>
+                  {intl.formatMessage({ id: 'workspaceSettings.langZh' })}
+                </option>
               </select>
             </div>
 
@@ -448,17 +465,16 @@ export function WorkspaceSettingsPage() {
           <div className='rounded-lg border border-red-200 dark:border-red-900/50 overflow-hidden'>
             <div className='px-5 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-200 dark:border-red-900/50'>
               <p className='text-sm font-semibold text-red-700 dark:text-red-400'>
-                Danger zone
+                {intl.formatMessage({ id: 'workspaceSettings.dangerZone' })}
               </p>
             </div>
             <div className='flex items-center justify-between px-5 py-4'>
               <div>
                 <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
-                  Delete workspace
+                  {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
                 </p>
                 <p className='text-xs text-zinc-400 mt-0.5'>
-                  Permanently delete this workspace and all its data. This
-                  cannot be undone.
+                  {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
                 </p>
               </div>
               <Button
@@ -488,20 +504,24 @@ export function WorkspaceSettingsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({
+                id: 'workspaceSettings.deleteConfirmTitle',
+              })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{workspace?.name}</strong>{' '}
-              and all its projects, tasks, and members. This action cannot be
-              undone.
+              {intl.formatMessage(
+                { id: 'workspaceSettings.deleteConfirmDesc' },
+                { name: workspace?.name ?? '' }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className='px-1 pb-2'>
             <p className='text-xs text-zinc-500 mb-1.5'>
-              Type{' '}
-              <span className='font-mono font-semibold text-zinc-700 dark:text-zinc-300'>
-                {workspace?.name}
-              </span>{' '}
-              to confirm
+              {intl.formatMessage(
+                { id: 'workspaceSettings.deleteTypePrompt' },
+                { name: workspace?.name ?? '' }
+              )}
             </p>
             <input
               type='text'
@@ -512,7 +532,9 @@ export function WorkspaceSettingsPage() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               onClick={handleDelete}

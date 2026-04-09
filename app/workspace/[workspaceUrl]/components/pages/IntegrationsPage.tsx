@@ -49,10 +49,10 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     <div className='flex-1 overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
-          Integrations
+          {intl.formatMessage({ id: 'integrations.title' })}
         </h1>
         <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
-          Connect external services to enhance your workflow.
+          {intl.formatMessage({ id: 'integrations.description' })}
         </p>
 
         {loading ? (

@@ -8,14 +8,12 @@ import type { ApiTag } from '../../types'
 // ── Tag color helpers ─────────────────────────────────────────────────────
 
 const DEFAULT_COLORS = [
-  { bg: '#dbeafe', text: '#1d4ed8' },
-  { bg: '#dcfce7', text: '#166534' },
-  { bg: '#fef3c7', text: '#92400e' },
-  { bg: '#e0e7ff', text: '#3730a3' },
-  { bg: '#fce7f3', text: '#9d174d' },
-  { bg: '#ffedd5', text: '#9a3412' },
-  { bg: '#ccfbf1', text: '#115e59' },
-  { bg: '#fee2e2', text: '#991b1b' },
+  { bg: '#fff1f0', text: '#f5222d' }, // red
+  { bg: '#fff7e6', text: '#fa8c16' }, // orange
+  { bg: '#fffbe6', text: '#d4a012' }, // yellow
+  { bg: '#f6ffed', text: '#52c41a' }, // green
+  { bg: '#e6f7ff', text: '#1890ff' }, // blue
+  { bg: '#f9f0ff', text: '#722ed1' }, // purple
 ]
 
 function getTagColor(tag: ApiTag): { bg: string; text: string } {

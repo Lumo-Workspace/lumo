@@ -79,18 +79,19 @@ function sortDocuments(docs: ApiDocument[], sortBy: SortKey): ApiDocument[] {
   })
 }
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
   const date = new Date(dateStr)
   const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  const diffMins = Math.floor(diffSec / 60)
+  if (diffMins < 60) return rtf.format(-diffMins, 'minute')
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffHours < 24) return rtf.format(-diffHours, 'hour')
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString(undefined, {
+  if (diffDays < 7) return rtf.format(-diffDays, 'day')
+  return date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
   })
@@ -260,7 +261,7 @@ export function DocumentsPage({
               </div>
             )}
             <span className='text-xs text-muted-foreground w-16 text-right shrink-0'>
-              {formatRelativeTime(doc.updatedAt)}
+              {formatRelativeTime(doc.updatedAt, intl.locale)}
             </span>
             {renderRowMenu(doc)}
           </div>
@@ -371,7 +372,7 @@ export function DocumentsPage({
                   )}
                 </td>
                 <td className='py-2 px-3 text-xs text-muted-foreground whitespace-nowrap'>
-                  {formatRelativeTime(doc.updatedAt)}
+                  {formatRelativeTime(doc.updatedAt, intl.locale)}
                 </td>
                 <td className='py-2 px-1'>{renderRowMenu(doc)}</td>
               </tr>

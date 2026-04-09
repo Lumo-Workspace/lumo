@@ -26,16 +26,14 @@ import { tagsClient } from '@/lib/api-client'
 import type { ApiTagWithCounts } from '../../types'
 import { TagBadgeNew } from '../document/TagPicker'
 
-// ── Color presets (reuse the text colors from TagPicker DEFAULT_COLORS) ───
+// ── Color presets (bright dopamine palette) ──────────────────────────────
 const PRESET_COLORS = [
-  '#1d4ed8', // blue
-  '#166534', // green
-  '#92400e', // amber
-  '#3730a3', // indigo
-  '#9d174d', // pink
-  '#9a3412', // orange
-  '#115e59', // teal
-  '#991b1b', // red
+  '#f5222d', // red
+  '#fa8c16', // orange
+  '#d4a012', // yellow
+  '#52c41a', // green
+  '#1890ff', // blue
+  '#722ed1', // purple
 ]
 
 interface TagFormState {
@@ -101,13 +99,28 @@ export function TagsSettingsPage() {
           editingTag.id,
           { name: trimmed, color: form.color }
         )
-        setTags(prev => prev.map(t => (t.id === editingTag.id ? data.tag : t)))
+        setTags(prev =>
+          prev.map(t =>
+            t.id === editingTag.id
+              ? {
+                  ...data.tag,
+                  taskCount: data.tag.taskCount ?? t.taskCount,
+                  documentCount: data.tag.documentCount ?? t.documentCount,
+                }
+              : t
+          )
+        )
       } else {
         const data = await tagsClient.create<{ tag: ApiTagWithCounts }>(
           form.color ? { name: trimmed, color: form.color } : { name: trimmed }
         )
+        const newTag = {
+          ...data.tag,
+          taskCount: data.tag.taskCount ?? 0,
+          documentCount: data.tag.documentCount ?? 0,
+        }
         setTags(prev =>
-          [...prev, data.tag].sort((a, b) => a.name.localeCompare(b.name))
+          [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name))
         )
       }
       setDialogOpen(false)
@@ -180,15 +193,15 @@ export function TagsSettingsPage() {
               <TagBadgeNew tag={tag} />
               <span className='flex-1' />
               <span className='text-xs text-muted-foreground'>
-                {intl.formatMessage(
-                  { id: 'settings.tags.tasks' },
-                  { count: tag.taskCount }
-                )}
-                {' · '}
-                {intl.formatMessage(
-                  { id: 'settings.tags.docs' },
-                  { count: tag.documentCount }
-                )}
+                {tag.taskCount === 0 && tag.documentCount === 0
+                  ? intl.formatMessage({ id: 'settings.tags.unused' })
+                  : `${intl.formatMessage(
+                      { id: 'settings.tags.tasks' },
+                      { count: tag.taskCount }
+                    )} · ${intl.formatMessage(
+                      { id: 'settings.tags.docs' },
+                      { count: tag.documentCount }
+                    )}`}
               </span>
               <button
                 onClick={() => openEdit(tag)}

@@ -26,43 +26,48 @@ export function formatDate(
 }
 
 // 格式化相对时间
-export function formatRelativeTime(date: Date | string | number): string {
+export function formatRelativeTime(
+  date: Date | string | number,
+  locale: string = 'zh'
+): string {
   const dateObj =
     typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000)
 
   if (diffInSeconds < 60) {
-    return '刚刚'
+    return locale === 'zh' ? '刚刚' : 'just now'
   }
+
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'always' })
 
   const diffInMinutes = Math.floor(diffInSeconds / 60)
   if (diffInMinutes < 60) {
-    return `${diffInMinutes}分钟前`
+    return rtf.format(-diffInMinutes, 'minute')
   }
 
   const diffInHours = Math.floor(diffInMinutes / 60)
   if (diffInHours < 24) {
-    return `${diffInHours}小时前`
+    return rtf.format(-diffInHours, 'hour')
   }
 
   const diffInDays = Math.floor(diffInHours / 24)
   if (diffInDays < 7) {
-    return `${diffInDays}天前`
+    return rtf.format(-diffInDays, 'day')
   }
 
   const diffInWeeks = Math.floor(diffInDays / 7)
   if (diffInWeeks < 4) {
-    return `${diffInWeeks}周前`
+    return rtf.format(-diffInWeeks, 'week')
   }
 
   const diffInMonths = Math.floor(diffInDays / 30)
   if (diffInMonths < 12) {
-    return `${diffInMonths}个月前`
+    return rtf.format(-diffInMonths, 'month')
   }
 
   const diffInYears = Math.floor(diffInDays / 365)
-  return `${diffInYears}年前`
+  return rtf.format(-diffInYears, 'year')
 }
 
 // 格式化文件大小
