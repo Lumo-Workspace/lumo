@@ -1,7 +1,13 @@
 import { waitUntil } from '@vercel/functions'
 import { getActorClerkId } from '@/lib/actor'
-import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
-import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import {
+  parseBranchIdentifier,
+  splitIdentifier,
+} from '@/lib/integrations/github'
+import {
+  sendChannelNotification,
+  sendDMNotification,
+} from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
 import { transitionTaskStatus } from '@/lib/task/state-machine'

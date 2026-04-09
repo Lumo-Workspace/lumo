@@ -10,7 +10,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import { parseBranchIdentifier, splitIdentifier } from '@/lib/github/branch'
+import { parseBranchIdentifier, splitIdentifier } from './branch'
 
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',

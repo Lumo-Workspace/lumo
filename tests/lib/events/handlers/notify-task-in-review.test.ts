@@ -13,13 +13,13 @@ jest.mock('@/lib/actor', () => ({
   getHumanActorId: jest.fn(),
 }))
 
-jest.mock('@/lib/notifications/notifyTaskInReview', () => ({
+jest.mock('@/lib/services/notification.service', () => ({
   notifyTaskInReview: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
 import { getHumanActorId } from '@/lib/actor'
-import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+import { notifyTaskInReview } from '@/lib/services/notification.service'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
 const mockGetHumanActorId = getHumanActorId as jest.Mock

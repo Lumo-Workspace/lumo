@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
-import { createRepoWebhook, deleteRepoWebhook } from '@/lib/github/webhooks'
-import { syncRepoPRs } from '@/lib/github/sync'
 import { githubService } from '@/lib/services/github.service'
 
 /**
@@ -98,69 +96,9 @@ export async function PATCH(request: NextRequest) {
       ? body.repositories
       : []
 
-    const integration = await githubService
-      .requireIntegrationWithWebhooks(ws.workspaceId, ws.member.id)
-      .catch(() => null)
-    if (!integration) {
-      return NextResponse.json(
-        { error: 'GitHub not connected' },
-        { status: 404 }
-      )
-    }
-
-    const token = decrypt(integration.accessToken)
-
-    // Generate + persist webhook secret if not yet set
-    const webhookSecret = await githubService.ensureWebhookSecret(
-      integration.id,
-      integration.webhookSecret
-    )
-
-    const oldRepos = integration.repositories
-    const addedRepos = repositories.filter(r => !oldRepos.includes(r))
-    const removedRepos = oldRepos.filter(r => !repositories.includes(r))
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/github`
-
-    // Create webhooks for newly added repos
-    for (const fullName of addedRepos) {
-      const slash = fullName.indexOf('/')
-      const owner = fullName.slice(0, slash)
-      const repo = fullName.slice(slash + 1)
-      try {
-        const hookId = await createRepoWebhook(
-          token,
-          owner,
-          repo,
-          webhookUrl,
-          webhookSecret
-        )
-        await githubService.upsertWebhook(integration.id, fullName, hookId)
-
-        // Backfill PRs that existed before the webhook was registered
-        void syncRepoPRs(token, fullName, ws.workspaceId, integration.id).catch(
-          err =>
-            console.error(`[github] syncRepoPRs failed for ${fullName}:`, err)
-        )
-      } catch (err) {
-        // Log but don't fail: repo is saved even if webhook creation fails
-        console.error(`[github] createRepoWebhook failed for ${fullName}:`, err)
-      }
-    }
-
-    // Delete webhooks for removed repos
-    for (const fullName of removedRepos) {
-      const slash = fullName.indexOf('/')
-      const owner = fullName.slice(0, slash)
-      const repo = fullName.slice(slash + 1)
-      const hook = integration.webhooks.find(h => h.repo === fullName)
-      if (hook) {
-        await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
-        await githubService.deleteWebhook(integration.id, fullName)
-      }
-    }
-
-    const updated = await githubService.updateRepositories(
-      integration.id,
+    const updated = await githubService.updateAuthorizedRepos(
+      ws.workspaceId,
+      ws.member.id,
       repositories
     )
 

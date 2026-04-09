@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/slack/types'
+import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/integrations/slack'
 import { isPrismaUniqueError, requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { slackService } from '@/lib/services/slack.service'
 

@@ -1,4 +1,4 @@
-import { handleAgentComment } from '@/lib/agent/comment-handler'
+import { handleAgentComment } from '@/lib/services/agent-orchestration.service'
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -18,7 +18,7 @@ jest.mock('@/lib/actor', () => ({
 jest.mock('@/lib/agent/execute', () => ({
   executeAgent: jest.fn(),
 }))
-jest.mock('@/lib/agent/markdown', () => ({
+jest.mock('@/lib/utils/markdown', () => ({
   markdownToHtml: jest.fn((md: string) =>
     /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
       md
@@ -37,13 +37,13 @@ jest.mock('@/lib/agent/markdown', () => ({
       : html
   ),
 }))
-jest.mock('@/lib/agent/sandbox-health', () => ({
+jest.mock('@/lib/integrations/sandbox', () => ({
   isSandboxAlive: jest.fn(),
 }))
-jest.mock('@/lib/agent/clerk-cache', () => ({
+jest.mock('@/lib/utils/clerk-helpers', () => ({
   getClerkUser: jest.fn(),
 }))
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushTaskEvent: jest.fn().mockReturnValue(Promise.resolve()),
   pushUserEvent: jest.fn().mockReturnValue(Promise.resolve()),
 }))
@@ -52,8 +52,8 @@ jest.mock('@/lib/events/dispatcher', () => ({
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { getClerkUser } from '@/lib/agent/clerk-cache'
-import { isSandboxAlive } from '@/lib/agent/sandbox-health'
+import { getClerkUser } from '@/lib/utils/clerk-helpers'
+import { isSandboxAlive } from '@/lib/integrations/sandbox'
 import { executeAgent } from '@/lib/agent/execute'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
@@ -77,7 +77,7 @@ describe('handleAgentComment', () => {
     mockCommentCreate.mockResolvedValue({ id: 'comment-reply-1' })
     mockNotificationCreate.mockResolvedValue({})
     // Re-apply mocks after resetAllMocks clears them
-    const pusher = require('@/lib/pusher/server')
+    const pusher = require('@/lib/integrations/pusher')
     pusher.pushTaskEvent.mockReturnValue(Promise.resolve())
     pusher.pushUserEvent.mockReturnValue(Promise.resolve())
     const dispatcher = require('@/lib/events/dispatcher')

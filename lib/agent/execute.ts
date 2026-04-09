@@ -2,12 +2,12 @@ import { randomBytes } from 'crypto'
 import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { getGithubInstallationToken } from '@/lib/github/auth'
+import { getGithubInstallationToken } from '@/lib/integrations/github'
 import {
   pushAgentEvent,
   fireAgentEvent,
   pushTaskEvent,
-} from '@/lib/pusher/server'
+} from '@/lib/integrations/pusher'
 import { AgentError, userFriendlyError } from './errors'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'
@@ -20,9 +20,9 @@ import type { DomainEvent } from '@/lib/events/types'
 import {
   notifyAgentVerify,
   notifyAgentFailed,
-} from '@/lib/notifications/notifyAgentActions'
-import { htmlToMarkdown } from './markdown'
-import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
+} from '@/lib/services/notification.service'
+import { htmlToMarkdown } from '@/lib/utils/markdown'
+import { installMcpServer, MCP_CONFIG_PATH } from '@/lib/integrations/sandbox'
 import { buildAgentContext } from './context-builder'
 
 // ── Constants ──────────────────────────────────────────────────────────────

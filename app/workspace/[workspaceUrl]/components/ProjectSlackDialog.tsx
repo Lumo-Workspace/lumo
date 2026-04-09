@@ -20,7 +20,7 @@ import {
   ALL_SLACK_EVENTS,
   SLACK_EVENT_LABELS,
   SlackEventType,
-} from '@/lib/slack/types'
+} from '@/lib/integrations/slack'
 
 interface ProjectSlackDialogProps {
   isOpen: boolean

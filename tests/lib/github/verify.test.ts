@@ -1,5 +1,10 @@
 import { createHmac } from 'crypto'
-import { verifyGitHubSignature } from '@/lib/github/verify'
+
+// Mock ESM dependencies pulled in transitively via the barrel
+jest.mock('@octokit/auth-app', () => ({ createAppAuth: jest.fn() }))
+jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
+
+import { verifyGitHubSignature } from '@/lib/integrations/github'
 
 function sign(body: string, secret: string): string {
   return (

@@ -35,7 +35,7 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   },
 }))
 
-jest.mock('@/lib/github/auth', () => ({
+jest.mock('@/lib/integrations/github', () => ({
   getGithubInstallationToken: jest.fn(),
 }))
 

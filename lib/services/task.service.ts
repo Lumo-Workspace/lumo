@@ -1,10 +1,22 @@
+import { waitUntil } from '@vercel/functions'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
+import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { getGithubInstallationToken } from '@/lib/github/auth'
+import { getGithubInstallationToken } from '@/lib/integrations/github'
+import { sendChannelNotification } from '@/lib/integrations/slack'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
+import {
+  buildTaskNotificationCtx,
+  dispatchTaskUpdateNotifications,
+} from '@/lib/services/notification.service'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
+import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { decrypt } from '@/lib/crypto'
+import type { TaskStatus, TaskPriority } from '@prisma/client'
 import {
   isValidTaskTransition,
   type TaskStatusValue,
@@ -38,6 +50,17 @@ export interface TaskUpdateResult {
   changedFields: string[]
   oldStatus: string
   oldAssigneeActorId: string | null
+}
+
+/** Minimal shape of a task detail needed by updateTaskWithSideEffects */
+export interface TaskDetailForUpdate {
+  project: {
+    workspaceId: string
+    workspace?: { slug: string } | null
+  }
+  projectId: string
+  number: number
+  [key: string]: unknown
 }
 
 // ── PR Sync (private) ───────────────────────────────────────────────────────
@@ -101,6 +124,151 @@ async function syncPullRequestStatus(
 // ── Task Service ────────────────────────────────────────────────────────────
 
 export const taskService = {
+  /**
+   * Create a task with ordering, notifications, and activity dispatch.
+   * Throws on validation errors with { status, error } shape.
+   */
+  async createTask(
+    projectId: string,
+    input: {
+      title: string
+      description?: string | null | undefined
+      status: TaskStatus
+      priority: TaskPriority
+      assigneeActorId?: string | null | undefined
+      parentTaskId?: string | null | undefined
+      repositoryId?: string | null | undefined
+      order?: number | undefined
+      dueDate?: string | null | undefined
+    },
+    actorId: string,
+    actorClerkId: string
+  ) {
+    const project = await projectRepository.findByIdWithDefaults(projectId)
+    if (!project) {
+      throw Object.assign(new Error('Project not found'), { status: 404 })
+    }
+
+    const {
+      title,
+      description,
+      status,
+      priority,
+      assigneeActorId,
+      parentTaskId,
+      repositoryId,
+      order,
+      dueDate,
+    } = input
+
+    // Validate parentTaskId belongs to the same project
+    if (parentTaskId) {
+      const parent = await taskRepository.findWithProject(parentTaskId)
+      if (!parent || parent.projectId !== projectId) {
+        throw Object.assign(
+          new Error('Parent task not found in this project'),
+          { status: 400 }
+        )
+      }
+    }
+
+    // Auto-calculate order if not provided
+    let taskOrder = order
+    if (taskOrder === undefined) {
+      const maxOrderTask = await taskRepository.findMaxOrder(
+        projectId,
+        parentTaskId ?? null
+      )
+      taskOrder = (maxOrderTask?.order ?? 0) + 1
+    }
+
+    // Validate assigneeActorId belongs to the same workspace
+    let assigneeIsAgent = false
+    if (assigneeActorId) {
+      const actor = await taskRepository.findActorById(assigneeActorId)
+      if (!actor || actor.workspaceId !== project.workspaceId) {
+        throw Object.assign(
+          new Error('Assignee is not part of this workspace'),
+          { status: 400 }
+        )
+      }
+      assigneeIsAgent = actor.type === 'AGENT'
+    }
+
+    const task = await taskRepository.createWithSequence({
+      projectId,
+      teamId: project.teamId,
+      title,
+      description: description ?? null,
+      status,
+      priority,
+      assigneeActorId: assigneeActorId ?? null,
+      agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
+      reviewerActorId: null,
+      parentTaskId: parentTaskId ?? null,
+      repositoryId: repositoryId ?? null,
+      order: taskOrder,
+      dueDate: dueDate ?? null,
+      defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
+    })
+
+    // ── Fire-and-forget: task created activity event ────────────────────────
+    const triggerActorId = actorId
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:created',
+          taskId: task.id,
+          projectId,
+          actorId: triggerActorId ?? '',
+        } satisfies TaskActivityEvent,
+      ])
+    )
+
+    // ── Fire-and-forget: task_created Slack channel notification ─────────────
+    const taskIdentifier = buildTaskIdentifier(task.teamIdentifier, task.number)
+    const taskUrl = buildTaskUrl(
+      project.workspace?.slug ?? '',
+      task.teamIdentifier,
+      task.number
+    )
+    waitUntil(
+      sendChannelNotification(
+        project.workspaceId,
+        'task_created',
+        {
+          taskId: task.id,
+          taskTitle: task.title,
+          taskIdentifier,
+          taskUrl,
+        },
+        projectId
+      )
+    )
+
+    // ── Fire-and-forget: notify assignee if task was created with one ─────────
+    if (assigneeActorId) {
+      taskRepository
+        .findActorWithMember(assigneeActorId)
+        .then(actor => {
+          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
+          if (actor.member.clerkId === actorClerkId) return
+          return notificationRepository.create({
+            workspaceId: project.workspaceId,
+            recipientActorId: assigneeActorId,
+            type: 'TASK_ASSIGNED' as const,
+            taskId: task.id,
+            triggerActorId,
+          })
+        })
+        .catch(err =>
+          console.error('[notify] TASK_ASSIGNED (create) failed:', err)
+        )
+    }
+
+    return { task }
+  },
+
   /**
    * Get full task detail with PR status sync.
    * Returns null if task not found.
@@ -288,6 +456,212 @@ export const taskService = {
       oldStatus: task.status,
       oldAssigneeActorId: task.assigneeActorId ?? null,
     }
+  },
+
+  /**
+   * Update a task and dispatch all side effects (activity events,
+   * real-time push, notifications). Returns the update result.
+   *
+   * @param taskId   The task to update
+   * @param input    Validated update payload
+   * @param taskCheck  Pre-loaded task detail (for old-value diffing)
+   * @param actorId  The human actor ID of the user making the change
+   * @param actorClerkId  The Clerk user ID (used to skip self-notifications)
+   */
+  async updateTaskWithSideEffects(
+    taskId: string,
+    input: UpdateTaskInput,
+    taskCheck: TaskDetailForUpdate,
+    actorId: string | null,
+    actorClerkId: string
+  ): Promise<TaskUpdateResult> {
+    const result = await this.updateTask(taskId, input)
+    const triggerActorId = actorId
+    const projectId = result.task.projectId as string
+
+    // Build activity events from changed fields
+    const activityEvents: TaskActivityEvent[] = []
+
+    if (input.status !== undefined && result.changedFields.includes('status')) {
+      activityEvents.push({
+        type: 'task:status_changed_activity',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: result.oldStatus,
+        to: input.status,
+      })
+    }
+    if (
+      input.priority !== undefined &&
+      result.changedFields.includes('priority')
+    ) {
+      activityEvents.push({
+        type: 'task:priority_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).priority ?? null,
+        to: input.priority,
+      })
+    }
+    if (input.title !== undefined && result.changedFields.includes('title')) {
+      activityEvents.push({
+        type: 'task:title_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).title ?? null,
+        to: input.title,
+      })
+    }
+    if (
+      input.assigneeActorId !== undefined &&
+      result.changedFields.includes('assigneeActorId')
+    ) {
+      activityEvents.push({
+        type: 'task:assignee_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromActorId: result.oldAssigneeActorId,
+        toActorId: input.assigneeActorId ?? null,
+        toName: null,
+      })
+    }
+    if (
+      input.reviewerActorId !== undefined &&
+      result.changedFields.includes('reviewerActorId')
+    ) {
+      activityEvents.push({
+        type: 'task:reviewer_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromActorId: (taskCheck as any).reviewerActorId ?? null,
+        toActorId: input.reviewerActorId ?? null,
+        toName: null,
+      })
+    }
+    if (
+      input.description !== undefined &&
+      result.changedFields.includes('description')
+    ) {
+      activityEvents.push({
+        type: 'task:description_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: null,
+        to: null,
+      })
+    }
+    if (
+      input.dueDate !== undefined &&
+      result.changedFields.includes('dueDate')
+    ) {
+      activityEvents.push({
+        type: 'task:due_date_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).dueDate ?? null,
+        to: input.dueDate ?? null,
+      })
+    }
+    if (
+      input.parentTaskId !== undefined &&
+      result.changedFields.includes('parentTaskId')
+    ) {
+      activityEvents.push({
+        type: 'task:parent_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromTaskId: (taskCheck as any).parentTaskId ?? null,
+        toTaskId: input.parentTaskId ?? null,
+        toTitle: null,
+      })
+    }
+    if (
+      input.repositoryId !== undefined &&
+      result.changedFields.includes('repositoryId')
+    ) {
+      activityEvents.push({
+        type: 'task:repository_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromRepoId: (taskCheck as any).repositoryId ?? null,
+        toRepoId: input.repositoryId ?? null,
+        toName: null,
+      })
+    }
+    if (input.tagIds !== undefined) {
+      const oldTagNames = ((taskCheck as any).tags ?? []).map(
+        (t: { name: string }) => t.name
+      )
+      const newTagNames = ((result.task as any).tags ?? []).map(
+        (t: { name: string }) => t.name
+      )
+      const oldSet = new Set(oldTagNames as string[])
+      const newSet = new Set(newTagNames as string[])
+      const added = (newTagNames as string[]).filter(n => !oldSet.has(n))
+      const removed = (oldTagNames as string[]).filter(n => !newSet.has(n))
+      activityEvents.push({
+        type: 'task:tags_changed',
+        taskId,
+        projectId,
+        actorId: triggerActorId ?? '',
+        added,
+        removed,
+      })
+    }
+
+    // Fire-and-forget activity recording
+    if (activityEvents.length > 0) {
+      waitUntil(dispatchEvents(activityEvents))
+    }
+
+    // Push real-time events (fire-and-forget)
+    waitUntil(
+      Promise.all([
+        pushTaskEvent(taskId, {
+          type: 'task:updated',
+          fields: result.changedFields,
+        }),
+        pushProjectEvent(result.task.projectId as string, {
+          type: 'task:updated',
+          taskId,
+          fields: result.changedFields,
+          patch: result.task,
+        }),
+      ])
+    )
+
+    // Notification side-effects (fire-and-forget)
+    const ctx = buildTaskNotificationCtx(
+      {
+        ...taskCheck,
+        assigneeActorId: result.oldAssigneeActorId,
+      } as Parameters<typeof buildTaskNotificationCtx>[0],
+      result.task as Parameters<typeof buildTaskNotificationCtx>[1],
+      triggerActorId,
+      actorClerkId
+    )
+    dispatchTaskUpdateNotifications({
+      ctx,
+      taskId,
+      oldStatus: result.oldStatus,
+      newStatus: input.status,
+      oldAssigneeActorId: result.oldAssigneeActorId,
+      newAssigneeActorId: input.assigneeActorId,
+      updatedReviewerActorId: (result.task.reviewerActorId as string) ?? null,
+      workspaceId: taskCheck.project.workspaceId,
+      triggerActorId,
+    })
+
+    return result
   },
 
   /**

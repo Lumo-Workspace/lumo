@@ -8,7 +8,7 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   },
 }))
 
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushActivityEvent: jest.fn().mockResolvedValue(undefined),
 }))
 

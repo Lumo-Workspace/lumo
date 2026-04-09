@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { batchCreateTasksSchema } from '@/lib/validation/schemas'
-import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
+import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
 import { taskRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }

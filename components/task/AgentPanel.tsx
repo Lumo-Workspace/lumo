@@ -15,7 +15,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import type { AgentEvent } from '@/lib/pusher/server'
+import { agentClient, ApiClientError } from '@/lib/api-client'
+import type { AgentEvent } from '@/lib/integrations/pusher'
 import {
   AgentStatusBadge,
   AgentClarifyPanel,
@@ -278,27 +279,22 @@ function AgentPanelInner({
     setSteps([])
     setPausedAt(null)
     try {
-      const res = await fetch('/api/agent/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Request failed' }))
-        setStatus('FAILED')
-        onTaskUpdate?.({ agentStatus: 'FAILED', agentError: data.error })
-        setLogs(prev => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            type: 'agent:failed',
-            message: `Failed to start: ${data.error}`,
-          },
-        ])
-        return
-      }
+      await agentClient.execute(task.id)
       setStatus('WORKING')
       onTaskUpdate?.({ agentStatus: 'WORKING' })
+    } catch (err) {
+      const message =
+        err instanceof ApiClientError ? err.message : 'Request failed'
+      setStatus('FAILED')
+      onTaskUpdate?.({ agentStatus: 'FAILED', agentError: message })
+      setLogs(prev => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          type: 'agent:failed',
+          message: `Failed to start: ${message}`,
+        },
+      ])
     } finally {
       setRunning(false)
     }
@@ -307,11 +303,7 @@ function AgentPanelInner({
   const handleCancel = useCallback(async () => {
     setCancelling(true)
     try {
-      await fetch('/api/agent/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id }),
-      })
+      await agentClient.cancel(task.id)
     } finally {
       setCancelling(false)
     }
@@ -320,23 +312,15 @@ function AgentPanelInner({
   const handleConfirmSpec = useCallback(async () => {
     setConfirmingSpec(true)
     try {
-      const res = await fetch('/api/agent/confirm-spec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id, spec: task.spec ?? '' }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        toast.error(
-          (data as { error?: string }).error ??
-            `Failed to confirm spec (${res.status})`
-        )
-        return
-      }
+      await agentClient.confirmSpec(task.id, task.spec ?? '')
       setStatus('WORKING')
       setLogs([])
       setSteps([])
       onTaskUpdate?.({ agentStatus: 'WORKING' })
+    } catch (err) {
+      toast.error(
+        err instanceof ApiClientError ? err.message : `Failed to confirm spec`
+      )
     } finally {
       setConfirmingSpec(false)
     }

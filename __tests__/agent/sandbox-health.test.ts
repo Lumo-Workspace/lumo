@@ -1,4 +1,4 @@
-import { isSandboxAlive } from '@/lib/agent/sandbox-health'
+import { isSandboxAlive } from '@/lib/integrations/sandbox'
 
 const mockConnect = jest.fn()
 

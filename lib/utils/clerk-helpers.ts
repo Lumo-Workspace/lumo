@@ -49,3 +49,29 @@ export async function getClerkUser(clerkId: string): Promise<CachedClerkUser> {
     return { name: 'Unknown', email: '' }
   }
 }
+
+export interface EnrichedUser {
+  clerkId: string
+  name: string
+  imageUrl: string
+}
+
+export async function enrichClerkUsers(
+  clerkIds: string[]
+): Promise<Map<string, EnrichedUser>> {
+  if (clerkIds.length === 0) return new Map()
+  const client = await clerkClient()
+  const users = await client.users.getUserList({
+    userId: clerkIds,
+    limit: clerkIds.length,
+  })
+  const map = new Map<string, EnrichedUser>()
+  for (const u of users.data) {
+    map.set(u.id, {
+      clerkId: u.id,
+      name: [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Unknown',
+      imageUrl: u.imageUrl,
+    })
+  }
+  return map
+}

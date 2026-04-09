@@ -1,11 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
-
-// Input: the raw text after "@Lumo " or "/lumo "
-// Returns: Slack Block Kit blocks array OR a plain string message
-export type CommandResult =
-  | { type: 'blocks'; blocks: object[] }
-  | { type: 'text'; text: string }
+import { CommandResult } from './types'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
 async function resolveSlackUser(

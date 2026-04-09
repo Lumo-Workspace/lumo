@@ -7,11 +7,11 @@ import type {
   TaskStatusChangedEvent,
 } from '@/lib/events/types'
 
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushProjectEvent: jest.fn().mockResolvedValue(undefined),
 }))
 
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { pushProjectEvent } from '@/lib/integrations/pusher'
 
 const mockPushProjectEvent = pushProjectEvent as jest.Mock
 

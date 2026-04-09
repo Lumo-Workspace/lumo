@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyGitHubSignature } from '@/lib/github/verify'
+import { verifyGitHubSignature } from '@/lib/integrations/github'
 import { handlePullRequest, handleCheckSuite, handlePush } from './handlers'
 import { githubService } from '@/lib/services/github.service'
 

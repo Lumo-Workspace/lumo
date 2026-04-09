@@ -15,13 +15,13 @@ jest.mock('@/lib/agent/state-machine', () => ({
   transitionAgentStatus: jest.fn(),
 }))
 
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushAgentEvent: jest.fn(),
 }))
 
 import { agentRepository } from '@/lib/repositories/agent.repository'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent } from '@/lib/integrations/pusher'
 import { agentService } from '@/lib/services/agent.service'
 
 const mockFindActiveRun = agentRepository.findActiveRun as jest.Mock

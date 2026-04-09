@@ -9,12 +9,12 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/notifications/notifyReviewerOrOwners', () => ({
+jest.mock('@/lib/services/notification.service', () => ({
   notifyReviewerOrOwners: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
+import { notifyReviewerOrOwners } from '@/lib/services/notification.service'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
 const mockNotify = notifyReviewerOrOwners as jest.Mock

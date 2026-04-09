@@ -3,19 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
-import { sendDMNotification, sendChannelNotification } from '@/lib/slack/notify'
 import { getHumanActorId } from '@/lib/actor'
-import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
-import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
-import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
 import { commentService } from '@/lib/services'
-import {
-  taskRepository,
-  memberRepository,
-  notificationRepository,
-} from '@/lib/repositories'
-import { dispatchEvents } from '@/lib/events/dispatcher'
-import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
+import { taskRepository } from '@/lib/repositories'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -85,134 +75,21 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const { body: commentBody, parentId, quotedCommentId } = parsed.data
 
-    const comment = await commentService.createComment({
+    const comment = await commentService.createCommentWithSideEffects({
       taskId: id,
       authorActorId,
       body: commentBody,
       parentId: parentId ?? null,
       quotedCommentId: quotedCommentId ?? null,
+      authorClerkId: userId,
+      workspaceId: task.project.workspaceId,
+      projectId: task.projectId,
+      taskTitle: task.title,
+      taskNumber: task.number,
+      teamIdentifier: task.team?.identifier ?? '',
+      workspaceSlug: task.project.workspace?.slug ?? '',
+      waitUntil,
     })
-
-    // Push real-time comment event to task viewers
-    waitUntil(
-      pushTaskEvent(id, { type: 'comment:created', commentId: comment.id })
-    )
-
-    // Fire-and-forget activity recording
-    waitUntil(
-      dispatchEvents([
-        {
-          type: 'task:comment_added',
-          taskId: id,
-          projectId: task.projectId,
-          actorId: authorActorId,
-          commentId: comment.id,
-        } satisfies TaskActivityEvent,
-      ])
-    )
-
-    // Handle @agent mention — delegate to orchestrator
-    if (commentService.hasAgentMention(commentBody)) {
-      const { handleAgentComment } = await import('@/lib/agent/comment-handler')
-      waitUntil(
-        handleAgentComment({
-          taskId: id,
-          commentId: comment.id,
-          commentBody,
-          actorClerkId: userId,
-        }).catch(err =>
-          console.error('[comment/@agent] handleAgentComment failed:', err)
-        )
-      )
-    }
-
-    // Fire-and-forget: TASK_MENTIONED notifications for @mention chips
-    const mentionedIds = commentService.parseMentionedClerkIds(
-      commentBody,
-      userId
-    )
-
-    if (mentionedIds.length > 0) {
-      const workspaceId = task.project.workspaceId
-      memberRepository
-        .findByWorkspaceAndClerkIds(workspaceId, mentionedIds)
-        .then(async members => {
-          if (members.length === 0) return
-          const workspaceSlug = task.project.workspace?.slug ?? ''
-          const mentionPayload = {
-            taskId: id,
-            taskTitle: task.title,
-            commentBody: commentBody.replace(/<[^>]+>/g, '').slice(0, 200),
-            taskUrl: buildTaskUrl(
-              workspaceSlug,
-              task.team?.identifier ?? '',
-              task.number
-            ),
-          }
-
-          const recipientActors = members
-            .map(m => m.actor?.id)
-            .filter((actorId): actorId is string => !!actorId)
-
-          // Batch preference checks for inApp and slack channels
-          const [inAppAllowed, slackAllowed] = await Promise.all([
-            shouldNotifyBatch(recipientActors, 'inApp', 'TASK_MENTIONED'),
-            shouldNotifyBatch(recipientActors, 'slack', 'TASK_MENTIONED'),
-          ])
-
-          // Slack DM — only to users who have slack mention enabled
-          for (const m of members) {
-            if (m.actor?.id && slackAllowed.has(m.actor.id)) {
-              waitUntil(
-                sendDMNotification(
-                  workspaceId,
-                  m.clerkId,
-                  'comment_mention',
-                  mentionPayload
-                )
-              )
-            }
-          }
-
-          // Channel notification (project-level, not gated by personal preference)
-          waitUntil(
-            sendChannelNotification(
-              workspaceId,
-              'comment_mention',
-              {
-                ...mentionPayload,
-                taskId: task.id,
-                taskIdentifier: `${task.team?.identifier ?? ''}-${task.number}`,
-              },
-              task.projectId
-            )
-          )
-
-          // Inbox notifications — only for users who have inApp mention enabled
-          const inAppRecipients = recipientActors.filter(id =>
-            inAppAllowed.has(id)
-          )
-          if (inAppRecipients.length === 0) return
-
-          // Push real-time notification for inbox recipients
-          for (const m of members) {
-            if (m.clerkId && m.actor?.id && inAppAllowed.has(m.actor.id)) {
-              waitUntil(pushUserEvent(m.clerkId, { type: 'notification:new' }))
-            }
-          }
-          return notificationRepository.createMany(
-            inAppRecipients.map(recipientActorId => ({
-              workspaceId,
-              recipientActorId,
-              type: 'TASK_MENTIONED' as const,
-              taskId: id,
-              commentId: comment.id,
-              triggerActorId: authorActorId,
-            }))
-          )
-        })
-        .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
-    }
 
     return NextResponse.json({ comment }, { status: 201 })
   } catch (error) {

@@ -1,7 +1,10 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { getActorClerkId } from '@/lib/actor'
-import { sendChannelNotification, sendDMNotification } from '@/lib/slack/notify'
+import {
+  sendChannelNotification,
+  sendDMNotification,
+} from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { notifyReviewerOrOwners } from './notifyReviewerOrOwners'
 

@@ -26,7 +26,7 @@ jest.mock('@clerk/nextjs/server', () => ({
   }),
 }))
 
-import { handleCommand } from '@/lib/slack/commands'
+import { handleCommand } from '@/lib/integrations/slack'
 import { prisma } from '@/lib/db/prisma'
 
 const asMock = (fn: unknown): jest.Mock<any> => fn as jest.Mock<any>

@@ -1,7 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { getActorClerkId } from '@/lib/actor'
-import { pushUserEvent } from '@/lib/pusher/server'
+import { pushUserEvent } from '@/lib/integrations/pusher'
 import { shouldNotify } from '@/lib/notifications/preferenceGate'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

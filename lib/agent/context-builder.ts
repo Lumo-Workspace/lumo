@@ -7,7 +7,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import { htmlToMarkdown } from './markdown'
+import { htmlToMarkdown } from '@/lib/utils/markdown'
 
 // ── Token budget ──────────────────────────────────────────────────────────
 

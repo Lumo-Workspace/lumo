@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/slack/types'
+import { SlackEventType, ALL_SLACK_EVENTS } from '@/lib/integrations/slack'
 import { slackService } from '@/lib/services/slack.service'
 import { slackRepository } from '@/lib/repositories/slack.repository'
 

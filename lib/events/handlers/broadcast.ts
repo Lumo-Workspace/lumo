@@ -1,4 +1,4 @@
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { pushProjectEvent } from '@/lib/integrations/pusher'
 import type { AgentStatusChangedEvent, TaskStatusChangedEvent } from '../types'
 
 /** Broadcast agent status change to project channel (board / sidebar). */

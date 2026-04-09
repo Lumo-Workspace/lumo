@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { getHumanActorId } from '@/lib/actor'
-import { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
+import { notifyTaskInReview } from '@/lib/services/notification.service'
 import type { TaskStatusChangedEvent } from '../types'
 
 /**

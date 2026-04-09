@@ -1,4 +1,4 @@
-import { generateSpecDraft } from '@/lib/agent/generate-spec'
+import { generateSpecDraft } from '@/lib/services/spec-generation.service'
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -17,12 +17,12 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushAgentEvent: jest.fn(),
   fireAgentEvent: jest.fn(),
 }))
 
-jest.mock('@/lib/agent/markdown', () => ({
+jest.mock('@/lib/utils/markdown', () => ({
   markdownToHtml: jest.fn((md: string) =>
     /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
       md
@@ -48,7 +48,7 @@ jest.mock('@/lib/events/dispatcher', () => ({
 
 // Import mocked modules AFTER jest.mock calls so we get the mock instances
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, fireAgentEvent } from '@/lib/integrations/pusher'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
 const mockPrismaTaskFindUnique = (prisma as any).task.findUnique as jest.Mock

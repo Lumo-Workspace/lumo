@@ -3,28 +3,11 @@ import { z } from 'zod'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { notificationService } from '@/lib/services/notification.service'
-import { taskRepository } from '@/lib/repositories/task.repository'
-import { resumeAgent } from '@/lib/agent/resume'
 import {
-  clearAgentStatus,
-  transitionAgentStatus,
-} from '@/lib/agent/state-machine'
-import { transitionTaskStatus } from '@/lib/task/state-machine'
-import { executeAgent } from '@/lib/agent/execute'
-import { isAgentServiceEnabled, proxyToAgentService } from '@/lib/agent/proxy'
-
-/** Run agent either via proxy or locally. */
-async function runAgent(opts: {
-  taskId: string
-  actorClerkId: string
-  trigger: string
-}): Promise<void> {
-  if (isAgentServiceEnabled()) {
-    await proxyToAgentService('/api/agent/execute', opts)
-  } else {
-    await executeAgent(opts)
-  }
-}
+  handleClarifyResponse,
+  handleAuthorizeResponse,
+  handleVerifyResponse,
+} from '@/lib/services/notification-response.service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -83,7 +66,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
     const data = parsed.data
 
-    // ── AGENT_CLARIFY ──────────────────────────────────────────────────────────
+    const base = {
+      notificationId: id,
+      actorClerkId: userId,
+      workspaceId: ws.workspaceId,
+      taskId,
+      notification,
+    }
+
+    // ── Dispatch to service handlers ───────────────────────────────────────
     if (notification.type === 'AGENT_CLARIFY') {
       if (data.action !== 'reply') {
         return NextResponse.json(
@@ -91,62 +82,10 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 400 }
         )
       }
-
-      const task = await taskRepository.findForAgent(taskId)
-
-      if (!task) {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-      }
-      if (task.project.workspaceId !== ws.workspaceId) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-
-      // Mark actionTakenAt first to prevent double-submission
-      await notificationService.markActionTaken(id)
-
-      if (task.agentStatus === 'INPUT_REQUIRED') {
-        // Resume agent — DB update only, MCP server picks up reply via HTTP poll
-        try {
-          await resumeAgent(taskId, task.projectId, data.reply)
-        } catch {
-          // Resume failed — fall through to re-run
-          await taskRepository.clearAgentError(taskId)
-          if (notification.clarifyId) {
-            await notificationService.replyClarify(
-              notification.clarifyId,
-              data.reply
-            )
-          }
-          await runAgent({
-            taskId,
-            actorClerkId: userId,
-            trigger: 'clarify_reply',
-          }).catch(err => {
-            console.error(`[notifications/respond] Re-run failed:`, err)
-          })
-        }
-      } else {
-        // Task not INPUT_REQUIRED — re-run the agent fresh
-        await taskRepository.clearAgentError(taskId)
-        if (notification.clarifyId) {
-          await notificationService.replyClarify(
-            notification.clarifyId,
-            data.reply
-          )
-        }
-        await executeAgent({
-          taskId,
-          actorClerkId: userId,
-          trigger: 'clarify_reply',
-        }).catch(err => {
-          console.error(`[notifications/respond] Re-run failed:`, err)
-        })
-      }
-
-      return NextResponse.json({ ok: true })
+      const result = await handleClarifyResponse({ ...base, reply: data.reply })
+      return NextResponse.json(result)
     }
 
-    // ── AGENT_AUTHORIZE ────────────────────────────────────────────────────────
     if (notification.type === 'AGENT_AUTHORIZE') {
       if (data.action !== 'approve' && data.action !== 'deny') {
         return NextResponse.json(
@@ -154,57 +93,13 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 400 }
         )
       }
-
-      const task = await taskRepository.findForAgent(taskId)
-
-      if (!task) {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-      }
-      if (task.project.workspaceId !== ws.workspaceId) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-
-      await notificationService.markActionTaken(id)
-
-      if (data.action === 'approve') {
-        const reply = 'APPROVED'
-        if (task.agentStatus === 'INPUT_REQUIRED') {
-          try {
-            await resumeAgent(taskId, task.projectId, reply)
-          } catch {
-            await taskRepository.clearAgentError(taskId)
-            await runAgent({
-              taskId,
-              actorClerkId: userId,
-              trigger: 'clarify_reply',
-            }).catch(err => {
-              console.error(
-                `[notifications/respond] Approve re-run failed:`,
-                err
-              )
-            })
-          }
-        } else {
-          await taskRepository.clearAgentError(taskId)
-          await executeAgent({
-            taskId,
-            actorClerkId: userId,
-            trigger: 'clarify_reply',
-          }).catch(err => {
-            console.error(`[notifications/respond] Approve re-run failed:`, err)
-          })
-        }
-      } else {
-        // Deny: fail the agent
-        await transitionAgentStatus(taskId, task.projectId, 'FAILED', {
-          agentError: 'AUTHORIZATION_DENIED',
-        })
-      }
-
-      return NextResponse.json({ ok: true })
+      const result = await handleAuthorizeResponse({
+        ...base,
+        action: data.action,
+      })
+      return NextResponse.json(result)
     }
 
-    // ── AGENT_VERIFY ───────────────────────────────────────────────────────────
     if (notification.type === 'AGENT_VERIFY') {
       if (data.action !== 'confirm' && data.action !== 'send_back') {
         return NextResponse.json(
@@ -212,42 +107,11 @@ export async function POST(request: NextRequest, { params }: Params) {
           { status: 400 }
         )
       }
-
-      const task = await taskRepository.findForAgent(taskId)
-
-      if (!task) {
-        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-      }
-      if (task.project.workspaceId !== ws.workspaceId) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-
-      // Mark actionTakenAt first
-      await notificationService.markActionTaken(id)
-
-      if (data.action === 'confirm') {
-        // Transition task → DONE
-        await transitionTaskStatus(taskId, task.projectId, 'DONE', {
-          currentStatus: task.status as
-            | 'TODO'
-            | 'IN_PROGRESS'
-            | 'IN_REVIEW'
-            | 'DONE',
-        })
-      } else {
-        // send_back: clear agent status and re-run
-        await clearAgentStatus(taskId, task.projectId)
-        await taskRepository.clearAgentError(taskId)
-        await runAgent({
-          taskId,
-          actorClerkId: userId,
-          trigger: 'send_back',
-        }).catch(err => {
-          console.error(`[notifications/respond] Send-back re-run failed:`, err)
-        })
-      }
-
-      return NextResponse.json({ ok: true })
+      const result = await handleVerifyResponse({
+        ...base,
+        action: data.action,
+      })
+      return NextResponse.json(result)
     }
 
     return NextResponse.json(
