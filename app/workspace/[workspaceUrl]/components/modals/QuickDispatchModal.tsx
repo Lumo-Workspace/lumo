@@ -95,7 +95,9 @@ export function QuickDispatchModal({
       }
       const errors = results.filter(r => !r.success)
       for (const err of errors) {
-        toast.error(err.message ?? 'Action failed')
+        toast.error(
+          err.message ?? intl.formatMessage({ id: 'quickDispatch.noActions' })
+        )
       }
       reset()
       onClose()

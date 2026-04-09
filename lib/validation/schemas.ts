@@ -335,7 +335,7 @@ const executeCreateActionSchema = z.object({
   title: z.string().trim().min(1).max(500),
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).default('TODO'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  projectId: z.string(),
+  projectId: z.string().min(1, 'Project ID is required'),
   assigneeActorId: z.string().nullable().optional(),
   description: z.string().max(10000).optional(),
   dueDate: z.string().datetime().nullable().optional(),
