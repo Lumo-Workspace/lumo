@@ -2,16 +2,36 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import type { QuickDispatchResponse } from '@/lib/prompts/quick-dispatch'
-import { apiFetch } from '@/lib/api-client'
+import { tasksClient } from '@/lib/api-client'
+import type { QuickAction, Mention } from '@/lib/quick-dispatch/types'
 
-type DispatchPhase = 'input' | 'loading' | 'preview' | 'editing'
+type DispatchPhase = 'input' | 'loading' | 'preview' | 'executing'
+
+interface ParseResponse {
+  actions: QuickAction[]
+  needsConfirmation: boolean
+}
+
+interface ActionResult {
+  type: 'updated' | 'created' | 'error'
+  taskId?: string
+  taskIdentifier?: string
+  success: boolean
+  message?: string
+  index: number
+}
+
+interface ExecuteResponse {
+  results: ActionResult[]
+}
 
 export function useQuickDispatch() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [phase, setPhase] = useState<DispatchPhase>('input')
   const [input, setInput] = useState('')
-  const [result, setResult] = useState<QuickDispatchResponse | null>(null)
+  const [mentions, setMentions] = useState<Mention[]>([])
+  const [actions, setActions] = useState<QuickAction[]>([])
+  const [results, setResults] = useState<ActionResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -34,73 +54,98 @@ export function useQuickDispatch() {
       setPhase('loading')
 
       try {
-        const data = await apiFetch<QuickDispatchResponse>(
-          '/api/tasks/parse-quick-dispatch',
-          {
-            method: 'POST',
-            body: { input: trimmed, workspaceUrl },
-            signal: controller.signal,
-          }
+        const data = await tasksClient.parseQuickDispatch<ParseResponse>(
+          { input: trimmed, workspaceUrl, mentions },
+          controller.signal
         )
 
         if (controller.signal.aborted) return
 
-        setResult(data)
-
-        if (data.titleTooVague) {
+        if (data.actions.length === 0) {
+          setError('Could not parse any actions from the input')
           setPhase('input')
-        } else {
-          setPhase('preview')
+          return
         }
+
+        setActions(data.actions)
+        setPhase('preview')
       } catch (err) {
         if (controller.signal.aborted) return
         setError(err instanceof Error ? err.message : 'Something went wrong')
         setPhase('input')
       }
     },
-    [workspaceUrl]
+    [workspaceUrl, mentions]
   )
 
-  const enterEditMode = useCallback(() => {
-    setPhase('editing')
-  }, [])
+  const execute = useCallback(async () => {
+    if (actions.length === 0) return
 
-  const exitEditMode = useCallback(() => {
-    setPhase('preview')
-  }, [])
+    setPhase('executing')
+    setError(null)
 
-  const updateField = useCallback(
-    <K extends keyof QuickDispatchResponse>(
-      key: K,
-      value: QuickDispatchResponse[K]
-    ) => {
-      setResult(prev => (prev ? { ...prev, [key]: value } : prev))
-    },
-    []
-  )
+    try {
+      const executeActions = actions.map(a => {
+        if (a.type === 'update') {
+          return { type: 'update' as const, taskId: a.taskId, fields: a.fields }
+        }
+        return {
+          type: 'create' as const,
+          title: a.title,
+          status: a.status,
+          priority: a.priority,
+          projectId: a.projectId!,
+          assigneeActorId: a.assigneeActorId,
+          description: a.description,
+          dueDate: a.dueDate,
+        }
+      })
+
+      const data = await tasksClient.executeQuickDispatch<ExecuteResponse>({
+        actions: executeActions,
+        workspaceUrl,
+      })
+
+      setResults(data.results)
+      return data.results
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Execution failed')
+      setPhase('preview')
+      return undefined
+    }
+  }, [actions, workspaceUrl])
+
+  const removeAction = useCallback((index: number) => {
+    setActions(prev => prev.filter((_, i) => i !== index))
+  }, [])
 
   const reset = useCallback(() => {
     abortRef.current?.abort()
     setPhase('input')
     setInput('')
-    setResult(null)
+    setMentions([])
+    setActions([])
+    setResults([])
     setError(null)
   }, [])
 
   const backToInput = useCallback(() => {
     setPhase('input')
+    setActions([])
   }, [])
 
   return {
     phase,
     input,
     setInput,
-    result,
+    mentions,
+    setMentions,
+    actions,
+    results,
     error,
     parse,
-    enterEditMode,
-    exitEditMode,
-    updateField,
+    execute,
+    removeAction,
     reset,
     backToInput,
   }

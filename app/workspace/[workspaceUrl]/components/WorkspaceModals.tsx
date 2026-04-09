@@ -9,13 +9,13 @@ import type {
   ApiStatus,
   MyTask,
   WorkspaceMemberInfo,
+  TaskPreFillFields,
 } from '../types'
 import type { AgentActor } from '../hooks/useMembers'
 import { CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
 import { documentsClient } from '@/lib/api-client'
 import type { NewTaskFormData } from './modals/NewTaskModal'
-import type { QuickDispatchParsedFields } from './modals/QuickDispatchModal'
 
 import { TaskDrawer } from './TaskDrawer'
 import { NewTaskModal } from './modals/NewTaskModal'
@@ -70,10 +70,8 @@ interface WorkspaceModalsProps {
   setNewTaskDefaultAssigneeId: Dispatch<SetStateAction<string | undefined>>
   newTaskDefaultStatus: ApiStatus | undefined
   setNewTaskDefaultStatus: Dispatch<SetStateAction<ApiStatus | undefined>>
-  newTaskPreFill: QuickDispatchParsedFields | undefined
-  setNewTaskPreFill: Dispatch<
-    SetStateAction<QuickDispatchParsedFields | undefined>
-  >
+  newTaskPreFill: TaskPreFillFields | undefined
+  setNewTaskPreFill: Dispatch<SetStateAction<TaskPreFillFields | undefined>>
   onCreateTask: (data: NewTaskFormData) => Promise<void>
   restoringDraftId: string | undefined
   setRestoringDraftId: Dispatch<SetStateAction<string | undefined>>
@@ -81,7 +79,8 @@ interface WorkspaceModalsProps {
   // Quick dispatch
   isQuickDispatchOpen: boolean
   setIsQuickDispatchOpen: Dispatch<SetStateAction<boolean>>
-  onQuickDispatchEdit: (fields: QuickDispatchParsedFields) => void
+  myTasks: MyTask[]
+  currentActorId: string | null
 
   // New project modal
   isNewProjectModalOpen: boolean
@@ -149,7 +148,8 @@ export function WorkspaceModals({
   setRestoringDraftId,
   isQuickDispatchOpen,
   setIsQuickDispatchOpen,
-  onQuickDispatchEdit,
+  myTasks,
+  currentActorId,
   isNewProjectModalOpen,
   setIsNewProjectModalOpen,
   onCreateProject,
@@ -249,9 +249,10 @@ export function WorkspaceModals({
             isOpen={isQuickDispatchOpen}
             onClose={() => setIsQuickDispatchOpen(false)}
             members={members}
-            onSubmit={onCreateTask}
-            onEdit={onQuickDispatchEdit}
-            onSaveDraft={onSaveDraft}
+            projects={projects}
+            myTasks={myTasks}
+            currentActorId={currentActorId}
+            onTasksChanged={onTasksChanged}
           />
         )}
         {isNewProjectModalOpen && (

@@ -133,8 +133,15 @@ export function NewTaskModal({
   const recovery = useFormRecovery<Record<string, unknown>>({
     cacheKey: CACHE_KEY.formRecoveryNewTask,
     disabled: isFromDraft || !!preFill,
-    isEmpty: data =>
-      !data.title && !data.description && !data.projectId && !data.assigneeId,
+    isEmpty: data => {
+      const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+      return (
+        !str(data.title) &&
+        !str(data.description) &&
+        !data.projectId &&
+        !data.assigneeId
+      )
+    },
   })
 
   // ─── AI priority suggestion ────────────────────────────────────────────

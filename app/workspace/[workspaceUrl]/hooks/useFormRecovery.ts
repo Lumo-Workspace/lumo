@@ -32,7 +32,12 @@ export function useFormRecovery<T extends Record<string, unknown>>({
 }: UseFormRecoveryOptions<T>): UseFormRecoveryReturn<T> {
   const [recovered, setRecovered] = useState<T | null>(() => {
     if (disabled) return null
-    return readCache<T>(cacheKey)
+    const cached = readCache<T>(cacheKey)
+    if (cached && isEmpty(cached)) {
+      localStorage.removeItem(cacheKey)
+      return null
+    }
+    return cached
   })
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
