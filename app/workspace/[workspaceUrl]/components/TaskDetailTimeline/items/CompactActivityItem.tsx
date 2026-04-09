@@ -162,7 +162,7 @@ function formatActivityText(
         { name: String(p.branchName ?? '') }
       )
     default:
-      return type.toLowerCase().replace(/_/g, ' ')
+      return (type ?? '').toLowerCase().replace(/_/g, ' ')
   }
 }
 

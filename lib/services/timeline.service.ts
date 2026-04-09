@@ -5,7 +5,7 @@ export interface TimelineEntry {
   id: string
   kind: 'activity' | 'comment'
   createdAt: Date
-  data: Record<string, unknown>
+  [key: string]: unknown
 }
 
 interface TimelineOptions {
@@ -53,7 +53,8 @@ export const timelineService = {
         id: a.id as string,
         kind: 'activity' as const,
         createdAt: a.createdAt as Date,
-        data: a as Record<string, unknown>,
+        // Flatten so frontend gets { kind, type, payload, actorId, actor, ... }
+        ...(a as Record<string, unknown>),
       })
     )
 
@@ -63,7 +64,7 @@ export const timelineService = {
       id: c.id as string,
       kind: 'comment' as const,
       createdAt: c.createdAt as Date,
-      data: c as Record<string, unknown>,
+      ...(c as Record<string, unknown>),
     }))
 
     // Filter comments by cursor if needed
