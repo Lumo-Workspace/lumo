@@ -10,7 +10,7 @@ import {
   isMarkdown,
   markdownToHtml,
   htmlToMarkdown,
-} from '@/lib/agent/markdown'
+} from '@/lib/utils/markdown'
 
 describe('isHtml', () => {
   it('detects common HTML tags', () => {

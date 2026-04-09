@@ -18,7 +18,7 @@ jest.mock('@/lib/actor', () => ({
 jest.mock('@/lib/agent/execute', () => ({
   executeAgent: jest.fn(),
 }))
-jest.mock('@/lib/agent/markdown', () => ({
+jest.mock('@/lib/utils/markdown', () => ({
   markdownToHtml: jest.fn((md: string) =>
     /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
       md
@@ -40,7 +40,7 @@ jest.mock('@/lib/agent/markdown', () => ({
 jest.mock('@/lib/agent/sandbox-health', () => ({
   isSandboxAlive: jest.fn(),
 }))
-jest.mock('@/lib/agent/clerk-cache', () => ({
+jest.mock('@/lib/utils/clerk-helpers', () => ({
   getClerkUser: jest.fn(),
 }))
 jest.mock('@/lib/integrations/pusher', () => ({
@@ -52,7 +52,7 @@ jest.mock('@/lib/events/dispatcher', () => ({
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { getClerkUser } from '@/lib/agent/clerk-cache'
+import { getClerkUser } from '@/lib/utils/clerk-helpers'
 import { isSandboxAlive } from '@/lib/agent/sandbox-health'
 import { executeAgent } from '@/lib/agent/execute'
 

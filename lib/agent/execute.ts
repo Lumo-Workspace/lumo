@@ -21,7 +21,7 @@ import {
   notifyAgentVerify,
   notifyAgentFailed,
 } from '@/lib/notifications/notifyAgentActions'
-import { htmlToMarkdown } from './markdown'
+import { htmlToMarkdown } from '@/lib/utils/markdown'
 import { installMcpServer, MCP_CONFIG_PATH } from './sandbox-mcp'
 import { buildAgentContext } from './context-builder'
 

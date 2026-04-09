@@ -8,6 +8,7 @@ import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember, requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { generateDescriptionSchema } from '@/lib/validation/schemas'
 import { taskRepository, projectRepository } from '@/lib/repositories'
+import { sanitizeHtml } from '@/lib/utils/sanitize'
 
 const descriptionResponseSchema = z.object({
   description: z
@@ -32,36 +33,6 @@ const descriptionWithProjectSchema = z.object({
     .string()
     .describe('A brief reason why this project was suggested'),
 })
-
-const ALLOWED_TAGS = new Set([
-  'p',
-  'strong',
-  'em',
-  'code',
-  'ul',
-  'ol',
-  'li',
-  'input',
-  'br',
-])
-
-/** Strip all HTML tags except the allowed set. Removes all attributes except type/checked on input. */
-function sanitizeHtml(html: string): string {
-  return html.replace(
-    /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/?>/g,
-    (match, tag: string) => {
-      const lower = tag.toLowerCase()
-      if (!ALLOWED_TAGS.has(lower)) return ''
-      // For input, only allow type="checkbox" and checked
-      if (lower === 'input') return '<input type="checkbox">'
-      // For closing tags, return as-is
-      if (match.startsWith('</')) return `</${lower}>`
-      // For opening tags, strip all attributes
-      if (match.endsWith('/>')) return `<${lower} />`
-      return `<${lower}>`
-    }
-  )
-}
 
 function buildPrompt({
   title,

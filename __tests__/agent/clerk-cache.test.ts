@@ -1,4 +1,4 @@
-import { getClerkUser, _clearCache } from '@/lib/agent/clerk-cache'
+import { getClerkUser, _clearCache } from '@/lib/utils/clerk-helpers'
 
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({

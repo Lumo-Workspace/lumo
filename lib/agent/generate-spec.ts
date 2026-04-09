@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { pushAgentEvent, fireAgentEvent } from '@/lib/integrations/pusher'
 import { transitionAgentStatus } from './state-machine'
-import { markdownToHtml } from './markdown'
+import { markdownToHtml } from '@/lib/utils/markdown'
 import { prisma } from '@/lib/db/prisma'
 
 const SPEC_SYSTEM_PROMPT = `You are a technical spec writer for a software engineering team.
