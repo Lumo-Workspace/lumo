@@ -1,4 +1,4 @@
-import { apiFetch } from './base'
+import { apiFetch, ApiClientError } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 
 export const tasksClient = {
@@ -66,6 +66,40 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.quickDispatchExecute, {
       method: 'POST',
       body: data,
+    })
+  },
+
+  searchPrs<T>(workspaceId: string, query: string, limit?: number) {
+    const params = new URLSearchParams({ q: query, workspaceId })
+    if (limit) params.set('limit', String(limit))
+    return apiFetch<T>(`${API.pullRequests.search}?${params}`)
+  },
+
+  async linkPr(
+    taskId: string,
+    data: { prId?: string; url?: string; force?: boolean }
+  ) {
+    const url = API.pullRequests.link(taskId)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      const err = new ApiClientError(json.error ?? 'Link failed', res.status)
+      if (json.conflictTask) {
+        ;(err as ApiClientError & { conflictTask: unknown }).conflictTask =
+          json.conflictTask
+      }
+      throw err
+    }
+    return json
+  },
+
+  unlinkPr(taskId: string, prId: string) {
+    return apiFetch<void>(API.pullRequests.unlink(taskId, prId), {
+      method: 'POST',
     })
   },
 }
