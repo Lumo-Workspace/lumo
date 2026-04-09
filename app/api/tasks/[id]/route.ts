@@ -10,6 +10,8 @@ import {
 import { getHumanActorId } from '@/lib/actor'
 import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
 import { taskService } from '@/lib/services'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -70,6 +72,148 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!parsed.success) return zodError(parsed)
 
     const result = await taskService.updateTask(id, parsed.data)
+    const triggerActorId = await getHumanActorId(memberResult.id)
+
+    // Build activity events from changed fields
+    const activityEvents: TaskActivityEvent[] = []
+    const projectId = result.task.projectId as string
+
+    if (
+      parsed.data.status !== undefined &&
+      result.changedFields.includes('status')
+    ) {
+      activityEvents.push({
+        type: 'task:status_changed_activity',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: result.oldStatus,
+        to: parsed.data.status,
+      })
+    }
+    if (
+      parsed.data.priority !== undefined &&
+      result.changedFields.includes('priority')
+    ) {
+      activityEvents.push({
+        type: 'task:priority_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).priority ?? null,
+        to: parsed.data.priority,
+      })
+    }
+    if (
+      parsed.data.title !== undefined &&
+      result.changedFields.includes('title')
+    ) {
+      activityEvents.push({
+        type: 'task:title_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).title ?? null,
+        to: parsed.data.title,
+      })
+    }
+    if (
+      parsed.data.assigneeActorId !== undefined &&
+      result.changedFields.includes('assigneeActorId')
+    ) {
+      activityEvents.push({
+        type: 'task:assignee_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromActorId: result.oldAssigneeActorId,
+        toActorId: parsed.data.assigneeActorId ?? null,
+        toName: null,
+      })
+    }
+    if (
+      parsed.data.reviewerActorId !== undefined &&
+      result.changedFields.includes('reviewerActorId')
+    ) {
+      activityEvents.push({
+        type: 'task:reviewer_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromActorId: (taskCheck as any).reviewerActorId ?? null,
+        toActorId: parsed.data.reviewerActorId ?? null,
+        toName: null,
+      })
+    }
+    if (
+      parsed.data.description !== undefined &&
+      result.changedFields.includes('description')
+    ) {
+      activityEvents.push({
+        type: 'task:description_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: null,
+        to: null,
+      })
+    }
+    if (
+      parsed.data.dueDate !== undefined &&
+      result.changedFields.includes('dueDate')
+    ) {
+      activityEvents.push({
+        type: 'task:due_date_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        from: (taskCheck as any).dueDate ?? null,
+        to: parsed.data.dueDate ?? null,
+      })
+    }
+    if (
+      parsed.data.parentTaskId !== undefined &&
+      result.changedFields.includes('parentTaskId')
+    ) {
+      activityEvents.push({
+        type: 'task:parent_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromTaskId: (taskCheck as any).parentTaskId ?? null,
+        toTaskId: parsed.data.parentTaskId ?? null,
+        toTitle: null,
+      })
+    }
+    if (
+      parsed.data.repositoryId !== undefined &&
+      result.changedFields.includes('repositoryId')
+    ) {
+      activityEvents.push({
+        type: 'task:repository_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        fromRepoId: (taskCheck as any).repositoryId ?? null,
+        toRepoId: parsed.data.repositoryId ?? null,
+        toName: null,
+      })
+    }
+    if (parsed.data.tagIds !== undefined) {
+      activityEvents.push({
+        type: 'task:tags_changed',
+        taskId: id,
+        projectId,
+        actorId: triggerActorId ?? '',
+        added: [],
+        removed: [],
+      })
+    }
+
+    // Fire-and-forget activity recording
+    if (activityEvents.length > 0) {
+      waitUntil(dispatchEvents(activityEvents))
+    }
 
     // Push real-time events (fire-and-forget)
     waitUntil(
@@ -88,7 +232,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     )
 
     // Notification side-effects (fire-and-forget)
-    const triggerActorId = await getHumanActorId(memberResult.id)
     const ctx = buildTaskNotificationCtx(
       {
         ...taskCheck,

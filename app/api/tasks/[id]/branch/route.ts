@@ -1,8 +1,12 @@
 // app/api/tasks/[id]/branch/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { decrypt } from '@/lib/crypto'
+import { getHumanActorId } from '@/lib/actor'
 import { taskRepository, githubRepository } from '@/lib/repositories'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -124,6 +128,20 @@ export async function POST(request: NextRequest, { params }: Params) {
       taskId,
       repo,
       branchName
+    )
+
+    // Fire-and-forget activity recording
+    const triggerActorId = await getHumanActorId(memberResult.id)
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:branch_created',
+          taskId,
+          projectId: task.projectId ?? '',
+          actorId: triggerActorId ?? '',
+          branchName,
+        } satisfies TaskActivityEvent,
+      ])
     )
 
     const url = `https://github.com/${repo}/tree/${branchName}`

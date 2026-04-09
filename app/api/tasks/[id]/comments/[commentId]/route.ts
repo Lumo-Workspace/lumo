@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { getHumanActorId } from '@/lib/actor'
-import { commentRepository } from '@/lib/repositories'
+import { commentRepository, taskRepository } from '@/lib/repositories'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string; commentId: string }> }
 
@@ -82,6 +85,23 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (result instanceof NextResponse) return result
 
     await commentRepository.delete(commentId)
+
+    // Fire-and-forget activity recording
+    const actorId = await getHumanActorId(result.member.id)
+    const task = await taskRepository.findWithProjectWorkspaceId(taskId)
+    if (task) {
+      waitUntil(
+        dispatchEvents([
+          {
+            type: 'task:comment_deleted',
+            taskId,
+            projectId: task.projectId ?? '',
+            actorId: actorId ?? '',
+            commentId,
+          } satisfies TaskActivityEvent,
+        ])
+      )
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -111,3 +111,24 @@ export async function pushUserEvent(
     console.error('[pusher] Failed to push user event:', err)
   }
 }
+
+// ── Activity events (timeline updates) ──────────────────────────────────────
+
+export type ActivityPusherEvent = {
+  type: 'activity:created'
+  entry: Record<string, unknown>
+}
+
+export async function pushActivityEvent(
+  taskId: string,
+  entry: Record<string, unknown>
+): Promise<void> {
+  try {
+    await getPusher().trigger(`task-${taskId}`, 'activity-created', {
+      type: 'activity:created',
+      entry,
+    })
+  } catch (err) {
+    console.error('[pusher] Failed to push activity event:', err)
+  }
+}

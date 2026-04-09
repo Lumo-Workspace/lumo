@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { linkPullRequestSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
+import { getHumanActorId } from '@/lib/actor'
 import { taskService } from '@/lib/services'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { dispatchEvents } from '@/lib/events/dispatcher'
+import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -36,6 +40,22 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (prId !== undefined) input.prId = prId
     if (url !== undefined) input.url = url
     const result = await taskService.linkPullRequest(id, input)
+
+    // Fire-and-forget activity recording
+    const triggerActorId = await getHumanActorId(memberResult.id)
+    waitUntil(
+      dispatchEvents([
+        {
+          type: 'task:pr_linked',
+          taskId: id,
+          projectId: task.projectId,
+          actorId: triggerActorId ?? '',
+          prId: result.id,
+          prNumber: result.number,
+          prUrl: result.url,
+        } satisfies TaskActivityEvent,
+      ])
+    )
 
     return NextResponse.json({ pullRequest: result })
   } catch (error) {
