@@ -55,12 +55,12 @@ describe('timelineService.getTimeline', () => {
     const result = await timelineService.getTimeline('task-1', { limit: 30 })
 
     expect(result.items).toHaveLength(3)
-    expect(result.items[0].id).toBe('a1')
-    expect(result.items[0].kind).toBe('activity')
-    expect(result.items[1].id).toBe('c1')
-    expect(result.items[1].kind).toBe('comment')
-    expect(result.items[2].id).toBe('a2')
-    expect(result.items[2].kind).toBe('activity')
+    expect(result.items[0]!.id).toBe('a1')
+    expect(result.items[0]!.kind).toBe('activity')
+    expect(result.items[1]!.id).toBe('c1')
+    expect(result.items[1]!.kind).toBe('comment')
+    expect(result.items[2]!.id).toBe('a2')
+    expect(result.items[2]!.kind).toBe('activity')
     expect(result.hasMore).toBe(false)
   })
 

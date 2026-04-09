@@ -37,11 +37,13 @@ export const timelineService = {
           : undefined
 
     // Fetch from both sources (limit+1 each for hasMore detection)
+    const findOptions: {
+      limit: number
+      cursor?: { timestamp: string; id: string }
+    } = { limit }
+    if (activityCursor) findOptions.cursor = activityCursor
     const [activities, comments] = await Promise.all([
-      activityRepository.findByTaskId(taskId, {
-        limit,
-        cursor: activityCursor,
-      }),
+      activityRepository.findByTaskId(taskId, findOptions),
       commentRepository.findByTaskId(taskId),
     ])
 
