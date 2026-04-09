@@ -287,13 +287,15 @@ export function NewTaskModal({
     if (!onSaveDraft) return
     const formData: Record<string, unknown> = {}
     if (title.trim()) formData.title = title.trim()
-    if (descriptionRef.current) formData.description = descriptionRef.current
+    const descText = descriptionRef.current?.replace(/<[^>]*>/g, '').trim()
+    if (descText) formData.description = descriptionRef.current
     if (status !== 'TODO') formData.status = status
     if (priority !== 'MEDIUM') formData.priority = priority
     if (effectiveProjectId) formData.projectId = effectiveProjectId
     if (assigneeId) formData.assigneeId = assigneeId
     if (repositoryId) formData.repositoryId = repositoryId
     if (dueDate) formData.dueDate = dueDate
+    if (Object.keys(formData).length === 0) return
     try {
       await onSaveDraft('TASK', formData)
       recovery.clear()

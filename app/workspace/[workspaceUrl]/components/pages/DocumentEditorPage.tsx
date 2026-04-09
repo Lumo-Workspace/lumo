@@ -41,7 +41,7 @@ function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
   const now = new Date()
   const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  if (diffSec < 60) return rtf.format(0, 'second')
   const diffMins = Math.floor(diffSec / 60)
   if (diffMins < 60) return rtf.format(-diffMins, 'minute')
   const diffHours = Math.floor(diffMins / 60)
@@ -76,6 +76,7 @@ export function DocumentEditorPage({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastContentRef = useRef<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
   const { tags: allTags, createTag } = useTags()
@@ -93,6 +94,7 @@ export function DocumentEditorPage({
       setTitle(cached.title)
       setAncestors(cached.ancestors ?? [])
       setDocTags(cached.docTags ?? [])
+      lastContentRef.current = cached.content ?? null
     }
     setLoading(!cached)
 
@@ -111,6 +113,7 @@ export function DocumentEditorPage({
           setTitle(data.document.title)
           setAncestors(data.ancestors ?? [])
           setDocTags(data.document.docTags ?? [])
+          lastContentRef.current = data.document.content ?? null
           writeCache(CACHE_KEY.documentDetail(documentId), docWithAncestors)
         }
       } catch {
@@ -166,15 +169,21 @@ export function DocumentEditorPage({
 
   const handleContentChange = useCallback(
     (html: string | null) => {
-      debouncedSave({ content: html ?? '' })
+      const content = html ?? ''
+      if (content === (lastContentRef.current ?? '')) return
+      lastContentRef.current = content
+      debouncedSave({ content })
     },
     [debouncedSave]
   )
 
   const handleContentCommit = useCallback(
     (html: string | null) => {
+      const content = html ?? ''
+      if (content === (lastContentRef.current ?? '')) return
+      lastContentRef.current = content
       if (saveTimer.current) clearTimeout(saveTimer.current)
-      save({ content: html ?? '' })
+      save({ content })
     },
     [save]
   )
