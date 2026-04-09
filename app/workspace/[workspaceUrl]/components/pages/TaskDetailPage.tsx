@@ -40,7 +40,7 @@ import { useTaskDetailState } from '../../hooks/useTaskDetailState'
 import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
 import { TaskDetailHeader } from '../TaskDetailHeader'
-import { TaskDetailComments } from '../TaskDetailComments'
+import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 
 interface TaskDetailPageProps {
@@ -329,18 +329,21 @@ export function TaskDetailPage({
               </div>
             )}
 
-            {/* Comments */}
-            <TaskDetailComments
-              workspaceUrl={workspaceUrl}
-              projectName={task.project.name}
-              teamIdentifier={task.teamIdentifier}
-              taskNumber={task.number}
-              members={members}
-              agentActors={agentActors}
-              mentionableMembers={mentionableMembers}
-              currentActorId={currentMember?.actorId}
-              user={user}
-              tc={tc}
+            {/* Activity / Comments Timeline */}
+            <TimelineTabs
+              taskId={task.id}
+              commentsProps={{
+                workspaceUrl,
+                projectName: task.project.name,
+                teamIdentifier: task.teamIdentifier,
+                taskNumber: task.number,
+                members,
+                agentActors,
+                mentionableMembers,
+                currentActorId: currentMember?.actorId,
+                user,
+                tc,
+              }}
             />
           </div>
 
