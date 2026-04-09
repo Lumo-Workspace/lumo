@@ -69,6 +69,15 @@ export const tasksClient = {
     })
   },
 
+  getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {
+    const params = new URLSearchParams()
+    if (cursor) params.set('cursor', cursor)
+    if (limit) params.set('limit', String(limit))
+    const qs = params.toString()
+    const url = `${API.tasks.timeline(taskId)}${qs ? `?${qs}` : ''}`
+    return apiFetch<T>(url)
+  },
+
   searchPrs<T>(workspaceId: string, query: string, limit?: number) {
     const params = new URLSearchParams({ q: query, workspaceId })
     if (limit) params.set('limit', String(limit))
