@@ -293,6 +293,17 @@ export interface TaskDetail {
   clarifies?: ApiAgentClarify[]
   agentRuns?: ApiAgentRun[]
   spec?: string | null
+  tags?: ApiTag[]
+}
+
+// ── Tags ─────────────────────────────────────────────────────────────────
+
+export interface ApiTag {
+  id: string
+  name: string
+  color: string | null
+  workspaceId: string
+  createdAt: string
 }
 
 // ── Documents ─────────────────────────────────────────────────────────────
@@ -316,6 +327,7 @@ export interface ApiDocument {
   updatedAt: string
   _count?: { children: number }
   tags?: string[]
+  docTags?: ApiTag[]
   editors?: Array<{
     member: { id: string; name: string; imageUrl: string | null }
     lastEditedAt: string

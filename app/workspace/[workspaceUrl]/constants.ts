@@ -50,6 +50,10 @@ export const API = {
     retry: '/api/agent/retry',
     status: (taskId: string) => `/api/agent/status/${taskId}`,
   },
+  tags: {
+    list: '/api/tags',
+    byId: (id: string) => `/api/tags/${id}`,
+  },
   documents: {
     list: '/api/documents',
     byId: (id: string) => `/api/documents/${id}`,

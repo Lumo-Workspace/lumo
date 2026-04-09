@@ -42,6 +42,7 @@ import {
 import { AsyncContent } from '../AsyncContent'
 import { ApiDocument, DocVisibility } from '../../types'
 import { TagList } from '../document/TagBadge'
+import { TagListNew } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { CACHE_KEY } from '../../constants'
 import { cn } from '@/lib/utils'
@@ -244,11 +245,15 @@ export function DocumentsPage({
                 )}
               </span>
             </span>
-            {doc.tags && doc.tags.length > 0 && (
+            {doc.docTags && doc.docTags.length > 0 ? (
+              <div className='shrink-0 hidden sm:block'>
+                <TagListNew tags={doc.docTags} max={2} />
+              </div>
+            ) : doc.tags && doc.tags.length > 0 ? (
               <div className='shrink-0 hidden sm:block'>
                 <TagList tags={doc.tags} max={2} />
               </div>
-            )}
+            ) : null}
             {doc.editors && doc.editors.length > 0 && (
               <div className='shrink-0 hidden sm:block'>
                 <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
@@ -350,9 +355,11 @@ export function DocumentsPage({
                   </span>
                 </td>
                 <td className='py-2 px-3'>
-                  {doc.tags && doc.tags.length > 0 && (
+                  {doc.docTags && doc.docTags.length > 0 ? (
+                    <TagListNew tags={doc.docTags} max={3} />
+                  ) : doc.tags && doc.tags.length > 0 ? (
                     <TagList tags={doc.tags} max={3} />
-                  )}
+                  ) : null}
                 </td>
                 <td className='py-2 px-3'>
                   {doc.editors && doc.editors.length > 0 && (

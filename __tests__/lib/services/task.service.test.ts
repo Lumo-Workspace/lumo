@@ -28,6 +28,13 @@ jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: jest.fn(),
 }))
 
+jest.mock('@/lib/repositories/tag.repository', () => ({
+  tagRepository: {
+    findByTask: jest.fn().mockResolvedValue([]),
+    syncTaskTags: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     actor: { findUnique: jest.fn() },

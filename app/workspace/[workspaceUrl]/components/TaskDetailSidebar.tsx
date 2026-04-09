@@ -8,7 +8,12 @@ import {
   GitPullRequest,
   GitBranch,
 } from 'lucide-react'
-import type { TaskDetail, WorkspaceMemberInfo, ApiProject } from '../types'
+import type {
+  TaskDetail,
+  WorkspaceMemberInfo,
+  ApiProject,
+  ApiTag,
+} from '../types'
 import {
   StatusSelect,
   AssigneeSelect,
@@ -26,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { TagPicker } from './document/TagPicker'
 import React from 'react'
 
 interface TaskDetailSidebarProps {
@@ -39,6 +45,12 @@ interface TaskDetailSidebarProps {
   workspaceUrl: string
   onPatch: (patch: Record<string, unknown>) => void
   onCopyBranch: (id: string, name: string) => void
+  /** All workspace tags for TagPicker. */
+  allTags?: ApiTag[]
+  /** Called when tag IDs change. */
+  onTagIdsChange?: (tagIds: string[]) => void
+  /** Called to create a new tag inline. */
+  onCreateTag?: (name: string) => Promise<ApiTag | null>
 }
 
 export function TaskDetailSidebar({
@@ -52,6 +64,9 @@ export function TaskDetailSidebar({
   workspaceUrl,
   onPatch,
   onCopyBranch,
+  allTags,
+  onTagIdsChange,
+  onCreateTag,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
 
@@ -169,6 +184,21 @@ export function TaskDetailSidebar({
           </div>
         ))}
       </div>
+
+      {/* ── Tags ──────────────────────────────────────────────────── */}
+      {allTags && onTagIdsChange && (
+        <div className='pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800'>
+          <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
+            Tags
+          </p>
+          <TagPicker
+            selectedTags={task.tags ?? []}
+            allTags={allTags}
+            onChangeTagIds={onTagIdsChange}
+            onCreateTag={onCreateTag}
+          />
+        </div>
+      )}
 
       {/* ── Branch ─────────────────────────────────────────────────── */}
       <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>

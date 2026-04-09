@@ -127,6 +127,7 @@ model Workspace {
   documents          Document[]
   drafts             Draft[]
   summaries          WorkspaceSummary[]
+  tags               Tag[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -332,6 +333,7 @@ model Task {
   activities     TaskActivity[]
   documentMentions  DocumentMention[]
   priorityOverrides PriorityOverride[]
+  taskTags       TaskTag[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -736,8 +738,9 @@ model Document {
   children    Document[]    @relation("DocTree")
   sortOrder   Float         @default(0)
   publicToken String?       @unique
-  tags         String[]  @default([])
+  tags         String[]  @default([])  // @deprecated — migrating to Tag relation
   editors      DocumentEditor[]
+  documentTags DocumentTag[]
 
   projectId   String?
   project     Project?      @relation(fields: [projectId], references: [id])
@@ -860,4 +863,46 @@ model WorkspaceSummary {
   createdAt    DateTime  @default(now())
 
   @@index([workspaceId, generatedAt(sort: Desc)])
+}
+
+// ─── Tags (shared pool for Tasks & Documents) ──────────────────────────────
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?
+  workspaceId String
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  taskTags    TaskTag[]
+  documentTags DocumentTag[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("tags")
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@index([tagId])
+  @@map("task_tags")
+}
+
+model DocumentTag {
+  documentId String
+  tagId      String
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@index([tagId])
+  @@map("document_tags")
 }

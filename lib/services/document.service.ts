@@ -3,6 +3,7 @@ import {
   documentRepository,
   type DocumentFilters,
 } from '@/lib/repositories/document.repository'
+import { tagRepository } from '@/lib/repositories/tag.repository'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export interface UpdateDocumentInput {
   sortOrder?: number
   publicToken?: string | null
   tags?: string[]
+  tagIds?: string[]
   childOrder?: string[]
 }
 
@@ -151,9 +153,13 @@ export const documentService = {
     // Walk ancestor chain
     const ancestors = await documentRepository.findAncestors(doc.parentId)
 
+    // Fetch tag associations
+    const docTags = await tagRepository.findByDocument(id)
+
     const creatorUser = userMap.get(doc.createdBy.clerkId)
     const shaped = {
       ...doc,
+      docTags,
       createdBy: {
         id: doc.createdBy.id,
         name: resolveClerkName(creatorUser, doc.createdBy.clerkId),
@@ -260,6 +266,11 @@ export const documentService = {
       updateData.publicToken = data.publicToken
     if (data.tags !== undefined) updateData.tags = data.tags
 
+    // Sync tag associations if tagIds provided
+    if (data.tagIds !== undefined) {
+      await tagRepository.syncDocumentTags(id, data.tagIds)
+    }
+
     const mentionTaskIds = data.content
       ? this.extractTaskMentionIds(data.content)
       : undefined
@@ -276,7 +287,10 @@ export const documentService = {
       await documentRepository.upsertEditor(id, memberId)
     }
 
-    return updated
+    // Attach tags to response
+    const docTags = await tagRepository.findByDocument(id)
+
+    return { ...updated, docTags }
   },
 
   /** Delete document (owner only) with recursive descendant cleanup. */

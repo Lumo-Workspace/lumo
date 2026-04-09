@@ -24,6 +24,13 @@ jest.mock('@/lib/repositories/document.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/tag.repository', () => ({
+  tagRepository: {
+    findByDocument: jest.fn().mockResolvedValue([]),
+    syncDocumentTags: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
     users: {

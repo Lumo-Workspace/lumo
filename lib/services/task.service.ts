@@ -1,6 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { tagRepository } from '@/lib/repositories/tag.repository'
 import { getGithubInstallationToken } from '@/lib/github/auth'
 import {
   isValidTaskTransition,
@@ -27,6 +28,7 @@ export interface UpdateTaskInput {
   reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
+  tagIds?: string[] | undefined
 }
 
 export interface TaskUpdateResult {
@@ -125,10 +127,14 @@ export const taskService = {
       }
     }
 
+    // Fetch tag associations
+    const tags = await tagRepository.findByTask(task.id)
+
     return {
       ...task,
       status: taskStatus,
       pullRequests,
+      tags,
       teamIdentifier: task.team.identifier,
       parent: task.parent
         ? {
@@ -161,6 +167,7 @@ export const taskService = {
       reviewerActorId,
       projectId,
       repositoryId,
+      tagIds,
       ...rest
     } = input
 
@@ -263,10 +270,18 @@ export const taskService = {
     if (projectId !== undefined) data.projectId = projectId
     if (repositoryId !== undefined) data.repositoryId = repositoryId
 
+    // Sync tag associations if tagIds provided
+    if (tagIds !== undefined) {
+      await tagRepository.syncTaskTags(taskId, tagIds)
+    }
+
     const updated = await taskRepository.update(taskId, data)
 
+    // Attach tags to response
+    const tags = await tagRepository.findByTask(taskId)
+
     return {
-      task: { ...updated, teamIdentifier: updated.team.identifier },
+      task: { ...updated, teamIdentifier: updated.team.identifier, tags },
       changedFields: Object.keys(data),
       oldStatus: task.status,
       oldAssigneeActorId: task.assigneeActorId ?? null,

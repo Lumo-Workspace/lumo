@@ -38,6 +38,7 @@ import { useTaskMutation } from '../../hooks/useTaskMutation'
 import { useTaskDescription } from '../../hooks/useTaskDescription'
 import { useTaskDetailState } from '../../hooks/useTaskDetailState'
 import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
+import { useTags } from '../../hooks/useTags'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
@@ -94,6 +95,7 @@ export function TaskDetailPage({
   })
 
   const { handlePatch } = useTaskMutation({ task, setTask, projects })
+  const { tags: allTags, createTag } = useTags()
 
   const desc = useTaskDescription({
     taskId: initialTask.id,
@@ -354,6 +356,9 @@ export function TaskDetailPage({
             workspaceUrl={workspaceUrl}
             onPatch={handlePatch}
             onCopyBranch={actions.handleCopyBranch}
+            allTags={allTags}
+            onTagIdsChange={tagIds => handlePatch({ tagIds })}
+            onCreateTag={createTag}
           />
         </div>
       </SidebarInset>

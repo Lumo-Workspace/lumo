@@ -25,6 +25,7 @@ export type TaskPatchData = Partial<{
   projectId: string
   priority: ApiPriority
   dueDate: string | null
+  tagIds: string[]
 }>
 
 interface UseTaskMutationOptions {

@@ -8,7 +8,7 @@ import { DescriptionEditor } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
-import { TagInput } from '../document/TagInput'
+import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { getInitials } from '@/lib/utils/getInitials'
 import type {
@@ -17,10 +17,12 @@ import type {
   ApiDocumentShare,
   DocVisibility,
   WorkspaceMemberInfo,
+  ApiTag,
 } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { documentsClient } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
+import { useTags } from '../../hooks/useTags'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -75,7 +77,8 @@ export function DocumentEditorPage({
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [tags, setTags] = useState<string[]>(initialCache?.tags ?? [])
+  const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
+  const { tags: allTags, createTag } = useTags()
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -89,14 +92,14 @@ export function DocumentEditorPage({
       setDoc(cached)
       setTitle(cached.title)
       setAncestors(cached.ancestors ?? [])
-      setTags(cached.tags ?? [])
+      setDocTags(cached.docTags ?? [])
     }
     setLoading(!cached)
 
     async function fetchDocument() {
       try {
         const data = await documentsClient.getById<{
-          document: ApiDocumentDetail & { tags?: string[] }
+          document: ApiDocumentDetail & { docTags?: ApiTag[] }
           ancestors?: ApiDocumentAncestor[]
         }>(documentId)
         if (!cancelled) {
@@ -107,7 +110,7 @@ export function DocumentEditorPage({
           setDoc(docWithAncestors)
           setTitle(data.document.title)
           setAncestors(data.ancestors ?? [])
-          setTags(data.document.tags ?? [])
+          setDocTags(data.document.docTags ?? [])
           writeCache(CACHE_KEY.documentDetail(documentId), docWithAncestors)
         }
       } catch {
@@ -194,16 +197,23 @@ export function DocumentEditorPage({
     [save, onEmojiChanged, documentId]
   )
 
-  const handleTagsChange = useCallback(
-    async (newTags: string[]) => {
-      setTags(newTags)
+  const handleTagIdsChange = useCallback(
+    async (newTagIds: string[]) => {
+      // Optimistic: resolve IDs to full tag objects
+      const newTags = newTagIds
+        .map(
+          id => allTags.find(t => t.id === id) ?? docTags.find(t => t.id === id)
+        )
+        .filter((t): t is ApiTag => t !== undefined)
+      const prev = docTags
+      setDocTags(newTags)
       try {
-        await documentsClient.update(documentId, { tags: newTags })
+        await documentsClient.update(documentId, { tagIds: newTagIds })
       } catch {
-        setTags(doc?.tags ?? [])
+        setDocTags(prev)
       }
     },
-    [documentId, doc?.tags]
+    [documentId, allTags, docTags]
   )
 
   function getSaveStatusText(): string {
@@ -341,9 +351,14 @@ export function DocumentEditorPage({
             )}
 
             {/* Tags */}
-            {tags.length > 0 && <span className='text-border'>·</span>}
+            {docTags.length > 0 && <span className='text-border'>·</span>}
             <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
-              <TagInput tags={tags} onChange={handleTagsChange} />
+              <TagPicker
+                selectedTags={docTags}
+                allTags={allTags}
+                onChangeTagIds={handleTagIdsChange}
+                onCreateTag={createTag}
+              />
             </div>
 
             {/* Save error */}

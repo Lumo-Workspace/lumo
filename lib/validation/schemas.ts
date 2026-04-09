@@ -104,6 +104,7 @@ export const updateTaskSchema = z.object({
   repositoryId: z.string().nullable().optional(),
   order: z.number().optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  tagIds: z.array(z.string().cuid()).max(20).optional(),
 })
 
 // ─── Batch Task Creation ───────────────────────────────────────────────────
@@ -215,6 +216,7 @@ export const updateDocumentSchema = z.object({
   childOrder: z.array(z.string()).optional(),
   publicToken: z.string().max(30).nullable().optional(),
   tags: z.array(z.string().max(30)).max(20).optional(),
+  tagIds: z.array(z.string().cuid()).max(20).optional(),
 })
 
 export const moveDocumentSchema = z.object({
@@ -229,6 +231,25 @@ export const createDocumentShareSchema = z.object({
 
 export const updateDocumentShareSchema = z.object({
   role: z.enum(['VIEWER', 'EDITOR', 'MANAGER']),
+})
+
+// ─── Tags ──────────────────────────────────────────────────────────────────
+
+export const createTagSchema = z.object({
+  name: z.string().trim().min(1, 'Tag name is required').max(30),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color must be hex format (#rrggbb)')
+    .optional(),
+})
+
+export const updateTagSchema = z.object({
+  name: z.string().trim().min(1).max(30).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
 })
 
 // ─── AI Priority Suggestion ────────────────────────────────────────────────
