@@ -188,7 +188,7 @@
   "share.copied": "已复制",
   "share.button": "分享",
   "quickDispatch.title": "快速派发",
-  "quickDispatch.placeholder": "用一句话描述任务...",
+  "quickDispatch.placeholder": "输入 @ 引用任务、项目或成员...",
   "quickDispatch.parsing": "解析中...",
   "quickDispatch.confirm": "创建任务",
   "quickDispatch.edit": "编辑",
@@ -447,5 +447,16 @@
   "task.deleteTitle": "删除任务？",
   "task.deleteDesc": "\u201c{title}\u201d将被永久删除，此操作无法撤销。",
 
-  "common.project": "项目"
+  "common.project": "项目",
+
+  "quickDispatch.noResults": "没有找到结果",
+  "quickDispatch.mentionTasks": "任务",
+  "quickDispatch.mentionProjects": "项目",
+  "quickDispatch.mentionMembers": "成员",
+  "quickDispatch.confirmExecute": "执行 ({count})",
+  "quickDispatch.executing": "执行中...",
+  "quickDispatch.noActions": "无法解析出任何操作",
+  "quickDispatch.actionUpdate": "更新",
+  "quickDispatch.actionCreate": "创建",
+  "quickDispatch.executed": "已执行 {count} 个操作"
 }

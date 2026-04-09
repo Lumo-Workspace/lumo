@@ -53,4 +53,19 @@ export const tasksClient = {
       signal,
     })
   },
+
+  parseQuickDispatch<T>(data: unknown, signal?: AbortSignal) {
+    return apiFetch<T>(API.tasks.quickDispatchParse, {
+      method: 'POST',
+      body: data,
+      signal,
+    })
+  },
+
+  executeQuickDispatch<T>(data: unknown) {
+    return apiFetch<T>(API.tasks.quickDispatchExecute, {
+      method: 'POST',
+      body: data,
+    })
+  },
 }

@@ -8,6 +8,8 @@ export const API = {
     comments: (taskId: string) => `/api/tasks/${taskId}/comments`,
     comment: (taskId: string, commentId: string) =>
       `/api/tasks/${taskId}/comments/${commentId}`,
+    quickDispatchParse: '/api/tasks/parse-quick-dispatch',
+    quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
   },
   projects: {
     list: '/api/projects',

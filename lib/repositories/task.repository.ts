@@ -277,6 +277,22 @@ export const taskRepository = {
     })
   },
 
+  /** Lightweight summary of tasks assigned to an actor — for Quick Dispatch AI context. */
+  async findAssignedTasksSummary(actorId: string) {
+    return prisma.task.findMany({
+      where: { assigneeActorId: actorId },
+      select: {
+        id: true,
+        title: true,
+        number: true,
+        status: true,
+        team: { select: { identifier: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    })
+  },
+
   /** Find tasks for duplicate checking (recent 200 tasks in a project). */
   async findForDuplicateCheck(projectId: string) {
     return prisma.task.findMany({
