@@ -284,6 +284,40 @@ export const quickDispatchSchema = z.object({
   workspaceUrl: z.string().min(1, 'Workspace URL is required'),
 })
 
+// ─── Quick Dispatch V2 ────────────────────────────────────────────────────
+
+const mentionSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('task'),
+    id: z.string(),
+    identifier: z.string(),
+    title: z.string(),
+    position: z.tuple([z.number(), z.number()]),
+  }),
+  z.object({
+    type: z.literal('project'),
+    id: z.string(),
+    name: z.string(),
+    position: z.tuple([z.number(), z.number()]),
+  }),
+  z.object({
+    type: z.literal('member'),
+    actorId: z.string(),
+    name: z.string(),
+    position: z.tuple([z.number(), z.number()]),
+  }),
+])
+
+export const quickDispatchV2Schema = z.object({
+  input: z
+    .string()
+    .trim()
+    .min(1, 'Input is required')
+    .max(1000, 'Input must be at most 1000 characters'),
+  workspaceUrl: z.string().min(1, 'Workspace URL is required'),
+  mentions: z.array(mentionSchema).max(20).default([]),
+})
+
 // ─── Drafts ────────────────────────────────────────────────────────────────
 
 export const taskDraftDataSchema = z.object({
