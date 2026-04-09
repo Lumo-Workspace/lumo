@@ -1,10 +1,4 @@
-interface InviteEmailOptions {
-  workspaceName: string
-  inviterName: string
-  inviterFirstName: string
-  inviterEmail: string
-  inviteUrl: string
-}
+import type { InviteEmailOptions, InviteEmailResult } from '../types'
 
 export function buildInviteEmail({
   workspaceName,
@@ -12,7 +6,7 @@ export function buildInviteEmail({
   inviterFirstName,
   inviterEmail,
   inviteUrl,
-}: InviteEmailOptions): { subject: string; html: string } {
+}: InviteEmailOptions): InviteEmailResult {
   const lumoLogo = `<img src="https://www.uselumo.ai/logo-dark.svg" width="32" height="32" alt="Lumo" style="display:block;"/>`
 
   return {
