@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { apiFetch } from '@/lib/api-client'
+import { tasksClient } from '@/lib/api-client'
 import type { QuickAction, Mention } from '@/lib/quick-dispatch/types'
 
 type DispatchPhase = 'input' | 'loading' | 'preview' | 'executing'
@@ -54,13 +54,9 @@ export function useQuickDispatch() {
       setPhase('loading')
 
       try {
-        const data = await apiFetch<ParseResponse>(
-          '/api/tasks/parse-quick-dispatch',
-          {
-            method: 'POST',
-            body: { input: trimmed, workspaceUrl, mentions },
-            signal: controller.signal,
-          }
+        const data = await tasksClient.parseQuickDispatch<ParseResponse>(
+          { input: trimmed, workspaceUrl, mentions },
+          controller.signal
         )
 
         if (controller.signal.aborted) return
@@ -105,13 +101,10 @@ export function useQuickDispatch() {
         }
       })
 
-      const data = await apiFetch<ExecuteResponse>(
-        '/api/tasks/quick-dispatch/execute',
-        {
-          method: 'POST',
-          body: { actions: executeActions, workspaceUrl },
-        }
-      )
+      const data = await tasksClient.executeQuickDispatch<ExecuteResponse>({
+        actions: executeActions,
+        workspaceUrl,
+      })
 
       setResults(data.results)
       return data.results
