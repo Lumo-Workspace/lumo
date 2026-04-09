@@ -1,4 +1,4 @@
-import { ApiTask } from './types'
+import { ApiTask, Page } from './types'
 
 /** Returns true if the user is on macOS / iOS */
 export const isMac =
@@ -137,4 +137,38 @@ export function isOverdue(date: string | null | undefined): boolean {
   d.setHours(0, 0, 0, 0)
   today.setHours(0, 0, 0, 0)
   return d.getTime() < today.getTime()
+}
+
+/**
+ * Convert a Page to its URL path.
+ * Used by WorkspaceApp for pushState and by TaskDetailPage for navigation.
+ */
+export function pageToPath(
+  workspaceUrl: string,
+  page: Page,
+  project?: { name: string; id?: string } | null
+): string {
+  const base = `/workspace/${workspaceUrl}`
+  switch (page) {
+    case 'dashboard':
+      return `${base}/dashboard`
+    case 'my-tasks':
+      return `${base}/my-tasks`
+    case 'inbox':
+      return `${base}/inbox`
+    case 'projects':
+      return `${base}/projects`
+    case 'project-detail':
+      return project
+        ? `${base}/projects/${slugifyProjectName(project.name)}`
+        : `${base}/projects`
+    case 'documents':
+      return `${base}/documents`
+    case 'document-editor':
+      return `${base}/documents/${project?.id ?? ''}`
+    case 'drafts':
+      return `${base}/drafts`
+    default:
+      return `${base}/my-tasks`
+  }
 }

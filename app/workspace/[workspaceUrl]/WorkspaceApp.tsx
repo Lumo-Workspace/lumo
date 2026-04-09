@@ -8,7 +8,7 @@ import {
   Dispatch,
   SetStateAction,
 } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { useCurrentUser } from './hooks/useCurrentUser'
@@ -22,7 +22,7 @@ import {
   ApiPriority,
   TaskPreFillFields,
 } from './types'
-import { slugifyProjectName } from './utils'
+import { slugifyProjectName, pageToPath as pageToPathUtil } from './utils'
 import { clearCache } from './cache'
 
 // Hooks
@@ -56,35 +56,8 @@ import { WorkspaceModals } from './components/WorkspaceModals'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
 
-function pageToPath(
-  workspaceUrl: string,
-  page: Page,
-  project?: ApiProject | null
-): string {
-  const base = `/workspace/${workspaceUrl}`
-  switch (page) {
-    case 'dashboard':
-      return `${base}/dashboard`
-    case 'my-tasks':
-      return `${base}/my-tasks`
-    case 'inbox':
-      return `${base}/inbox`
-    case 'projects':
-      return `${base}/projects`
-    case 'project-detail':
-      return project
-        ? `${base}/projects/${slugifyProjectName(project.name)}`
-        : `${base}/projects`
-    case 'documents':
-      return `${base}/documents`
-    case 'document-editor':
-      return `${base}/documents/${project?.id ?? ''}`
-    case 'drafts':
-      return `${base}/drafts`
-    default:
-      return `${base}/my-tasks`
-  }
-}
+// Re-export from utils for backward compat within this file
+const pageToPath = pageToPathUtil
 
 function pathToPage(
   pathname: string,
@@ -113,6 +86,7 @@ function pathToPage(
 
 export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const pathname = usePathname()
 
   // ─── Navigation ────────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -122,6 +96,12 @@ export default function DashboardApp() {
   const [selectedProject, setSelectedProject] = useState<ApiProject | null>(
     null
   )
+
+  // Sync currentPage when Next.js route changes (component reused across routes)
+  useEffect(() => {
+    const { page } = pathToPage(pathname, workspaceUrl)
+    setCurrentPage(page)
+  }, [pathname, workspaceUrl])
   const [pendingProjectSlug] = useState<string | undefined>(() => {
     if (typeof window === 'undefined') return undefined
     return pathToPage(window.location.pathname, workspaceUrl).projectSlug

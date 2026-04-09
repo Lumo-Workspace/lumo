@@ -26,7 +26,7 @@ import {
 } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { slugifyProjectName } from '../../utils'
+import { slugifyProjectName, pageToPath } from '../../utils'
 import { tasksClient, workspacesClient, projectsClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -208,7 +208,7 @@ export function TaskDetailPage({
     <SidebarProvider className='h-screen font-sans'>
       <AppSidebar
         currentPage={'task-detail' as Page}
-        onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
+        onNavigate={(page: Page) => router.push(pageToPath(workspaceUrl, page))}
         unreadCount={unreadCount}
         draftCount={0}
       />
