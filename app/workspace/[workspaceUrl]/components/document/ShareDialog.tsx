@@ -39,7 +39,7 @@ function MemberAvatar({
   imageUrl: string | null
   size?: number
 }) {
-  const initials = name
+  const initials = (name || '?')
     .split(' ')
     .map(p => p[0])
     .join('')
@@ -178,8 +178,17 @@ export function ShareDialog({
         const data = await documentsClient.createShare<{
           share: ApiDocumentShare
         }>(documentId, { memberId: member.id, role: inviteRole })
-        // Replace temp share with real one
-        onSharesChange(nextShares.map(s => (s.id === tempId ? data.share : s)))
+        // Replace temp share with real one, preserving member display info
+        // (API returns member with only id/clerkId, not name/imageUrl)
+        const realShare: ApiDocumentShare = {
+          ...data.share,
+          member: {
+            ...data.share.member,
+            name: data.share.member.name ?? member.name,
+            imageUrl: data.share.member.imageUrl ?? member.imageUrl,
+          },
+        }
+        onSharesChange(nextShares.map(s => (s.id === tempId ? realShare : s)))
       } catch {
         onSharesChange(shares)
       }
