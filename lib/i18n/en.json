@@ -447,5 +447,10 @@
   "task.deleteTitle": "Delete task?",
   "task.deleteDesc": "\"{title}\" will be permanently deleted. This action cannot be undone.",
 
-  "common.project": "Project"
+  "common.project": "Project",
+
+  "quickDispatch.noResults": "No results found",
+  "quickDispatch.mentionTasks": "Tasks",
+  "quickDispatch.mentionProjects": "Projects",
+  "quickDispatch.mentionMembers": "Members"
 }

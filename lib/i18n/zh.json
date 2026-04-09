@@ -447,5 +447,10 @@
   "task.deleteTitle": "删除任务？",
   "task.deleteDesc": "\u201c{title}\u201d将被永久删除，此操作无法撤销。",
 
-  "common.project": "项目"
+  "common.project": "项目",
+
+  "quickDispatch.noResults": "没有找到结果",
+  "quickDispatch.mentionTasks": "任务",
+  "quickDispatch.mentionProjects": "项目",
+  "quickDispatch.mentionMembers": "成员"
 }
