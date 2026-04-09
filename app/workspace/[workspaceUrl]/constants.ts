@@ -87,6 +87,12 @@ export const API = {
     project: (projectId: string) => `/api/summaries/project/${projectId}`,
     workspace: '/api/summaries/workspace',
   },
+  pullRequests: {
+    search: '/api/pull-requests/search',
+    link: (taskId: string) => `/api/tasks/${taskId}/pull-requests/link`,
+    unlink: (taskId: string, prId: string) =>
+      `/api/tasks/${taskId}/pull-requests/${prId}/unlink`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────

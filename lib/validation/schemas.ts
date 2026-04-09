@@ -390,3 +390,21 @@ export const getSummarySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(1),
   before: z.string().datetime().optional(),
 })
+
+// ── Pull Request Link ────────────────────────────────────────────────────────
+
+export const linkPullRequestSchema = z
+  .object({
+    prId: z.string().min(1).optional(),
+    url: z.string().url().optional(),
+    force: z.boolean().default(false),
+  })
+  .refine(data => (data.prId ? !data.url : !!data.url), {
+    message: 'Provide exactly one of prId or url',
+  })
+
+export const searchPullRequestsSchema = z.object({
+  q: z.string().min(1).max(100),
+  workspaceId: z.string().min(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})

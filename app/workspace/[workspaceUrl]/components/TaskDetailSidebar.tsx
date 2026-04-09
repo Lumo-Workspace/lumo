@@ -7,6 +7,7 @@ import {
   ExternalLink,
   GitPullRequest,
   GitBranch,
+  X,
 } from 'lucide-react'
 import type {
   TaskDetail,
@@ -24,6 +25,7 @@ import {
 } from './fields'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
+import { LinkPrPopover } from './LinkPrPopover'
 import {
   Select,
   SelectContent,
@@ -45,6 +47,9 @@ interface TaskDetailSidebarProps {
   workspaceUrl: string
   onPatch: (patch: Record<string, unknown>) => void
   onCopyBranch: (id: string, name: string) => void
+  workspaceId: string
+  onUnlinkPr: (prId: string) => void
+  onLinkPr: () => void
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
   /** Called when tags change (full objects). */
@@ -62,8 +67,11 @@ export function TaskDetailSidebar({
   createBranchOpen,
   setCreateBranchOpen,
   workspaceUrl,
+  workspaceId,
   onPatch,
   onCopyBranch,
+  onUnlinkPr,
+  onLinkPr,
   allTags,
   onTagsChange,
   onCreateTag,
@@ -248,12 +256,19 @@ export function TaskDetailSidebar({
       </div>
 
       {/* ── Pull Requests ───────────────────────────────────────────── */}
-      {task.pullRequests && task.pullRequests.length > 0 && (
-        <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-          <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
+      <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+        <div className='flex items-center justify-between mb-2'>
+          <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
             <GitPullRequest size={12} />
             Pull Requests
           </p>
+          <LinkPrPopover
+            taskId={task.id}
+            workspaceId={workspaceId}
+            onLinked={onLinkPr}
+          />
+        </div>
+        {task.pullRequests && task.pullRequests.length > 0 ? (
           <ul className='space-y-2.5'>
             {task.pullRequests.map(pr => {
               const relatedRun = task.agentRuns?.find(
@@ -272,7 +287,7 @@ export function TaskDetailSidebar({
                       : null
 
               return (
-                <li key={pr.id} className='flex items-start gap-2'>
+                <li key={pr.id} className='flex items-start gap-2 group'>
                   <CiIcon status={pr.ciStatus} />
                   <div className='min-w-0 flex-1'>
                     <a
@@ -297,12 +312,23 @@ export function TaskDetailSidebar({
                       )}
                     </div>
                   </div>
+                  <button
+                    onClick={() => onUnlinkPr(pr.id)}
+                    className='shrink-0 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-all'
+                    title='Unlink pull request'
+                  >
+                    <X size={12} />
+                  </button>
                 </li>
               )
             })}
           </ul>
-        </div>
-      )}
+        ) : (
+          <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+            No pull requests
+          </p>
+        )}
+      </div>
 
       <CreateBranchDialog
         isOpen={createBranchOpen}

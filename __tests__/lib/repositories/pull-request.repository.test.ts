@@ -6,6 +6,9 @@ jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     pullRequest: {
       update: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
   },
 }))
