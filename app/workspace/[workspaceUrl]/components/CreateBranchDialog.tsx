@@ -256,9 +256,9 @@ export function CreateBranchDialog({
                 </span>
               </div>
 
-              <div className='flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2'>
+              <div className='flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 overflow-hidden'>
                 <GitBranch size={13} className='text-zinc-400 shrink-0' />
-                <span className='flex-1 text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate'>
+                <span className='flex-1 min-w-0 text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate'>
                   {state.branchName}
                 </span>
                 <button

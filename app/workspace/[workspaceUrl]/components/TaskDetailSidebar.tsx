@@ -56,6 +56,8 @@ interface TaskDetailSidebarProps {
   onTagsChange?: (tags: ApiTag[]) => void
   /** Called to create a new tag inline. */
   onCreateTag?: (name: string) => Promise<ApiTag | null>
+  /** Called when a branch is created via the dialog. */
+  onBranchCreated?: (branch: import('../types').ApiTaskBranch) => void
 }
 
 export function TaskDetailSidebar({
@@ -75,6 +77,7 @@ export function TaskDetailSidebar({
   allTags,
   onTagsChange,
   onCreateTag,
+  onBranchCreated,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
 
@@ -354,6 +357,7 @@ export function TaskDetailSidebar({
           null
         }
         workspaceUrl={workspaceUrl}
+        {...(onBranchCreated ? { onBranchCreated } : {})}
       />
     </div>
   )

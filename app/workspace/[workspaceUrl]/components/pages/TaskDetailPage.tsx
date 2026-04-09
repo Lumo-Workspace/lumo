@@ -376,6 +376,12 @@ export function TaskDetailPage({
               handlePatch({ tagIds: tags.map(t => t.id) })
             }}
             onCreateTag={createTag}
+            onBranchCreated={branch =>
+              setTask(prev => ({
+                ...prev,
+                branches: [...(prev.branches ?? []), branch],
+              }))
+            }
           />
         </div>
       </SidebarInset>
