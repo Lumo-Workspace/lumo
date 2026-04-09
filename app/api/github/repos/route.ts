@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
-import { createRepoWebhook, deleteRepoWebhook } from '@/lib/github/webhooks'
-import { syncRepoPRs } from '@/lib/github/sync'
+import {
+  createRepoWebhook,
+  deleteRepoWebhook,
+  syncRepoPRs,
+} from '@/lib/integrations/github'
 import { githubService } from '@/lib/services/github.service'
 
 /**

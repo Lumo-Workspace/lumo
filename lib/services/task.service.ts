@@ -3,7 +3,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { getGithubInstallationToken } from '@/lib/github/auth'
+import { getGithubInstallationToken } from '@/lib/integrations/github'
 import { decrypt } from '@/lib/crypto'
 import {
   isValidTaskTransition,

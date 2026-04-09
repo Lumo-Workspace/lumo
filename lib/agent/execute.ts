@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import { Sandbox } from '@e2b/code-interpreter'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { getGithubInstallationToken } from '@/lib/github/auth'
+import { getGithubInstallationToken } from '@/lib/integrations/github'
 import {
   pushAgentEvent,
   fireAgentEvent,

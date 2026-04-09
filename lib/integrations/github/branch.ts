@@ -22,7 +22,7 @@ export function parseBranchIdentifier(branch: string): string | null {
  */
 export function splitIdentifier(
   identifier: string
-): { teamIdentifier: string; number: number } | null {
+): import('./types').SplitIdentifier | null {
   const idx = identifier.lastIndexOf('-')
   if (idx === -1) return null
   const teamIdentifier = identifier.slice(0, idx).toUpperCase()

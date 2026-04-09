@@ -1,8 +1,12 @@
+// Mock ESM dependencies pulled in transitively via the barrel
+jest.mock('@octokit/auth-app', () => ({ createAppAuth: jest.fn() }))
+jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
+
 import {
   parseBranchIdentifier,
   splitIdentifier,
   generateBranchName,
-} from '@/lib/github/branch'
+} from '@/lib/integrations/github'
 
 describe('parseBranchIdentifier', () => {
   it('parses lumo/ prefix', () => {
