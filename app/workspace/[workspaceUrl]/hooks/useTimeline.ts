@@ -4,6 +4,14 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { TimelineEntry, TimelineResponse } from '../types'
 import { tasksClient } from '@/lib/api-client'
 import { usePusherEvent } from './usePusher'
+import { readCache, writeCache } from '../cache'
+import { CACHE_KEY } from '../constants'
+
+interface CachedTimeline {
+  items: TimelineEntry[]
+  hasMore: boolean
+  nextCursor: string | null
+}
 
 interface UseTimelineOptions {
   taskId: string
@@ -11,10 +19,17 @@ interface UseTimelineOptions {
 }
 
 export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
-  const [entries, setEntries] = useState<TimelineEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const cacheKey = CACHE_KEY.timeline(taskId)
+  const cached = useRef(readCache<CachedTimeline>(cacheKey))
+
+  const [entries, setEntries] = useState<TimelineEntry[]>(
+    () => cached.current?.items ?? []
+  )
+  const [loading, setLoading] = useState(!cached.current)
+  const [hasMore, setHasMore] = useState(cached.current?.hasMore ?? false)
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    cached.current?.nextCursor ?? null
+  )
   const [loadingMore, setLoadingMore] = useState(false)
   const initialFetched = useRef(false)
 
@@ -34,21 +49,26 @@ export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
     [taskId]
   )
 
-  // Initial load
+  // Initial load — always fetch to get fresh data, but don't show loading if cached
   useEffect(() => {
     if (!enabled || initialFetched.current) return
     initialFetched.current = true
 
-    setLoading(true)
+    if (!cached.current) setLoading(true)
     fetchTimeline().then(data => {
       if (data) {
         setEntries(data.items)
         setHasMore(data.hasMore)
         setNextCursor(data.nextCursor)
+        writeCache(cacheKey, {
+          items: data.items,
+          hasMore: data.hasMore,
+          nextCursor: data.nextCursor,
+        })
       }
       setLoading(false)
     })
-  }, [enabled, fetchTimeline])
+  }, [enabled, fetchTimeline, cacheKey])
 
   // Load more (earlier entries)
   const loadMore = useCallback(async () => {
@@ -57,12 +77,20 @@ export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
 
     const data = await fetchTimeline(nextCursor)
     if (data) {
-      setEntries(prev => [...data.items, ...prev])
+      setEntries(prev => {
+        const merged = [...data.items, ...prev]
+        writeCache(cacheKey, {
+          items: merged,
+          hasMore: data.hasMore,
+          nextCursor: data.nextCursor,
+        })
+        return merged
+      })
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
     }
     setLoadingMore(false)
-  }, [hasMore, loadingMore, nextCursor, fetchTimeline])
+  }, [hasMore, loadingMore, nextCursor, fetchTimeline, cacheKey])
 
   // Realtime: append new activities
   usePusherEvent<{ type: string; entry: TimelineEntry }>(
@@ -73,7 +101,13 @@ export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
         setEntries(prev => {
           // Deduplicate by id
           if (prev.some(e => e.id === event.entry.id)) return prev
-          return [...prev, event.entry]
+          const updated = [...prev, event.entry]
+          writeCache(cacheKey, {
+            items: updated,
+            hasMore,
+            nextCursor,
+          })
+          return updated
         })
       }
     }
@@ -86,8 +120,13 @@ export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
       setEntries(data.items)
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
+      writeCache(cacheKey, {
+        items: data.items,
+        hasMore: data.hasMore,
+        nextCursor: data.nextCursor,
+      })
     }
-  }, [fetchTimeline])
+  }, [fetchTimeline, cacheKey])
 
   return {
     entries,

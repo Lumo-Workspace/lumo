@@ -25,7 +25,7 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
   return (
     <div className='mt-8'>
       {/* Tab bar */}
-      <div className='flex gap-4 border-b border-zinc-100 dark:border-zinc-800 mb-4'>
+      <div className='flex gap-4 mb-4'>
         <button
           className={`pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
             activeTab === 'comments'

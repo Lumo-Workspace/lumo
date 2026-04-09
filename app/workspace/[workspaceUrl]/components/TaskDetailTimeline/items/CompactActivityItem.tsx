@@ -6,10 +6,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import type { ReactNode } from 'react'
 import type { TimelineActivityEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
 import { API_STATUS_LABEL } from '../../../utils'
-import { PRIORITY_CONFIG } from '../../fields/shared'
+import { StatusIcon } from '../../StatusIcon'
+import { PRIORITY_CONFIG, PriorityIcon } from '../../fields/shared'
+import type { ApiPriority } from '../../../types'
+import { buildActorMention } from '../ActorMention'
 
 interface CompactActivityItemProps {
   entry: TimelineActivityEntry
@@ -74,21 +78,35 @@ function resolveActor(
   return { name: 'Unknown', isAgent: false, imageUrl: undefined, initials: '?' }
 }
 
-function resolveNameByActorId(
-  actorId: unknown,
-  members: WorkspaceMemberInfo[]
-): string | null {
-  if (typeof actorId !== 'string' || !actorId) return null
-  const member = members.find(m => m.actorId === actorId)
-  return member?.name ?? null
+const TAG_COLORS = [
+  { bg: '#fff1f0', text: '#f5222d' },
+  { bg: '#fff7e6', text: '#fa8c16' },
+  { bg: '#fffbe6', text: '#d4a012' },
+  { bg: '#f6ffed', text: '#52c41a' },
+  { bg: '#e6f7ff', text: '#1890ff' },
+  { bg: '#f9f0ff', text: '#722ed1' },
+]
+
+function InlineTagBadge({ name }: { name: string }) {
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const color = TAG_COLORS[hash % TAG_COLORS.length] ?? TAG_COLORS[0]!
+  return (
+    <span
+      className='inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none whitespace-nowrap align-middle'
+      style={{ backgroundColor: color.bg, color: color.text }}
+    >
+      {name}
+    </span>
+  )
 }
 
 function formatActivityText(
   type: string,
   payload: Record<string, unknown> | null,
   intl: ReturnType<typeof useIntl>,
-  members: WorkspaceMemberInfo[]
-): string {
+  members: WorkspaceMemberInfo[],
+  agentActors: { actorId: string; name: string }[]
+): ReactNode {
   const p = payload ?? {}
   switch (type) {
     case 'TASK_CREATED':
@@ -96,66 +114,129 @@ function formatActivityText(
         id: 'activity.taskCreated',
         defaultMessage: 'created this task',
       })
-    case 'STATUS_CHANGED':
-      return intl.formatMessage(
-        {
-          id: 'activity.statusChanged',
-          defaultMessage: 'changed status from {from} to {to}',
-        },
-        {
-          from: API_STATUS_LABEL[String(p.from ?? '')] ?? String(p.from ?? ''),
-          to: API_STATUS_LABEL[String(p.to ?? '')] ?? String(p.to ?? ''),
-        }
+    case 'STATUS_CHANGED': {
+      const fromStatus = String(p.from ?? '')
+      const toStatus = String(p.to ?? '')
+      const fromLabel = API_STATUS_LABEL[fromStatus] ?? fromStatus
+      const toLabel = API_STATUS_LABEL[toStatus] ?? toStatus
+      return (
+        <>
+          {intl.formatMessage({
+            id: 'activity.statusChanged.prefix',
+            defaultMessage: 'changed status from',
+          })}{' '}
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <StatusIcon status={fromStatus} size={12} />
+            <span>{fromLabel}</span>
+          </span>{' '}
+          {intl.formatMessage({
+            id: 'activity.statusChanged.to',
+            defaultMessage: 'to',
+          })}{' '}
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <StatusIcon status={toStatus} size={12} />
+            <span>{toLabel}</span>
+          </span>
+        </>
       )
-    case 'PRIORITY_CHANGED':
-      return intl.formatMessage(
-        {
-          id: 'activity.priorityChanged',
-          defaultMessage: 'changed priority from {from} to {to}',
-        },
-        {
-          from:
-            PRIORITY_CONFIG[
-              String(p.from ?? '') as keyof typeof PRIORITY_CONFIG
-            ]?.label ?? String(p.from ?? ''),
-          to:
-            PRIORITY_CONFIG[String(p.to ?? '') as keyof typeof PRIORITY_CONFIG]
-              ?.label ?? String(p.to ?? ''),
-        }
+    }
+    case 'PRIORITY_CHANGED': {
+      const fromPriority = String(p.from ?? '') as ApiPriority
+      const toPriority = String(p.to ?? '') as ApiPriority
+      const fromPriorityLabel =
+        PRIORITY_CONFIG[fromPriority]?.label ?? String(p.from ?? '')
+      const toPriorityLabel =
+        PRIORITY_CONFIG[toPriority]?.label ?? String(p.to ?? '')
+      return (
+        <>
+          {intl.formatMessage({
+            id: 'activity.priorityChanged.prefix',
+            defaultMessage: 'changed priority from',
+          })}{' '}
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <PriorityIcon priority={fromPriority} />
+            <span>{fromPriorityLabel}</span>
+          </span>{' '}
+          {intl.formatMessage({
+            id: 'activity.priorityChanged.to',
+            defaultMessage: 'to',
+          })}{' '}
+          <span className='inline-flex items-center gap-1 align-middle'>
+            <PriorityIcon priority={toPriority} />
+            <span>{toPriorityLabel}</span>
+          </span>
+        </>
       )
+    }
     case 'ASSIGNEE_CHANGED': {
-      const assigneeName = p.toName
-        ? String(p.toName)
-        : resolveNameByActorId(p.toActorId, members)
-      return assigneeName
-        ? intl.formatMessage(
-            {
-              id: 'activity.assigneeChanged',
-              defaultMessage: 'assigned to {name}',
-            },
-            { name: assigneeName }
-          )
-        : intl.formatMessage({
-            id: 'activity.assigneeRemoved',
-            defaultMessage: 'removed assignee',
-          })
+      const fromMention = buildActorMention(p.fromActorId, members, agentActors)
+      const toMention = buildActorMention(p.toActorId, members, agentActors)
+      if (fromMention && toMention) {
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.assigneeFromTo.prefix',
+              defaultMessage: 'changed assignee from',
+            })}{' '}
+            {fromMention}{' '}
+            {intl.formatMessage({
+              id: 'activity.assigneeFromTo.to',
+              defaultMessage: 'to',
+            })}{' '}
+            {toMention}
+          </>
+        )
+      }
+      if (toMention) {
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.assigneeTo',
+              defaultMessage: 'assigned to',
+            })}{' '}
+            {toMention}
+          </>
+        )
+      }
+      return intl.formatMessage({
+        id: 'activity.assigneeRemoved',
+        defaultMessage: 'removed assignee',
+      })
     }
     case 'REVIEWER_CHANGED': {
-      const reviewerName = p.toName
-        ? String(p.toName)
-        : resolveNameByActorId(p.toActorId, members)
-      return reviewerName
-        ? intl.formatMessage(
-            {
-              id: 'activity.reviewerChanged',
-              defaultMessage: 'set reviewer to {name}',
-            },
-            { name: reviewerName }
-          )
-        : intl.formatMessage({
-            id: 'activity.reviewerRemoved',
-            defaultMessage: 'removed reviewer',
-          })
+      const fromMention = buildActorMention(p.fromActorId, members, agentActors)
+      const toMention = buildActorMention(p.toActorId, members, agentActors)
+      if (fromMention && toMention) {
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.reviewerFromTo.prefix',
+              defaultMessage: 'changed reviewer from',
+            })}{' '}
+            {fromMention}{' '}
+            {intl.formatMessage({
+              id: 'activity.reviewerFromTo.to',
+              defaultMessage: 'to',
+            })}{' '}
+            {toMention}
+          </>
+        )
+      }
+      if (toMention) {
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.reviewerTo',
+              defaultMessage: 'set reviewer to',
+            })}{' '}
+            {toMention}
+          </>
+        )
+      }
+      return intl.formatMessage({
+        id: 'activity.reviewerRemoved',
+        defaultMessage: 'removed reviewer',
+      })
     }
     case 'TITLE_CHANGED':
       return intl.formatMessage({
@@ -196,28 +277,46 @@ function formatActivityText(
     case 'TAGS_CHANGED': {
       const added = Array.isArray(p.added) ? (p.added as string[]) : []
       const removed = Array.isArray(p.removed) ? (p.removed as string[]) : []
+      const renderTags = (names: string[]) =>
+        names.map((name, i) => (
+          <InlineTagBadge key={`${name}-${i}`} name={name} />
+        ))
       if (added.length > 0 && removed.length > 0) {
-        return intl.formatMessage(
-          {
-            id: 'activity.tagsAddedRemoved',
-            defaultMessage: 'added tag {added} and removed tag {removed}',
-          },
-          { added: added.join(', '), removed: removed.join(', ') }
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.tagsAdded.prefix',
+              defaultMessage: 'added tag',
+            })}{' '}
+            {renderTags(added)}{' '}
+            {intl.formatMessage({
+              id: 'activity.tagsRemoved.prefix',
+              defaultMessage: 'and removed tag',
+            })}{' '}
+            {renderTags(removed)}
+          </>
         )
       }
       if (added.length > 0) {
-        return intl.formatMessage(
-          { id: 'activity.tagsAdded', defaultMessage: 'added tag {added}' },
-          { added: added.join(', ') }
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.tagsAdded.prefix',
+              defaultMessage: 'added tag',
+            })}{' '}
+            {renderTags(added)}
+          </>
         )
       }
       if (removed.length > 0) {
-        return intl.formatMessage(
-          {
-            id: 'activity.tagsRemoved',
-            defaultMessage: 'removed tag {removed}',
-          },
-          { removed: removed.join(', ') }
+        return (
+          <>
+            {intl.formatMessage({
+              id: 'activity.tagsRemoved.only',
+              defaultMessage: 'removed tag',
+            })}{' '}
+            {renderTags(removed)}
+          </>
         )
       }
       return intl.formatMessage({
@@ -289,7 +388,13 @@ export function CompactActivityItem({
 }: CompactActivityItemProps) {
   const intl = useIntl()
   const actor = resolveActor(entry, members, agentActors)
-  const text = formatActivityText(entry.type, entry.payload, intl, members)
+  const text = formatActivityText(
+    entry.type,
+    entry.payload,
+    intl,
+    members,
+    agentActors
+  )
 
   return (
     <div className='flex gap-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400'>
