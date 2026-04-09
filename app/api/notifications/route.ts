@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { notificationService } from '@/lib/services/notification.service'
@@ -34,110 +33,8 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ notifications: [], unreadCount: 0 })
     }
 
-    // Collect IDs to batch-fetch
-    const humanClerkIds = [
-      ...new Set(
-        rawNotifications
-          .map(n =>
-            n.trigger?.type === 'HUMAN' ? n.trigger.member?.clerkId : undefined
-          )
-          .filter(Boolean) as string[]
-      ),
-    ]
-    const taskIds = [
-      ...new Set(
-        rawNotifications.map(n => n.taskId).filter(Boolean) as string[]
-      ),
-    ]
-    const commentIds = [
-      ...new Set(
-        rawNotifications.map(n => n.commentId).filter(Boolean) as string[]
-      ),
-    ]
-    const clarifyIds = [
-      ...new Set(
-        rawNotifications
-          .filter(n => n.type === 'AGENT_CLARIFY' && n.clarifyId)
-          .map(n => n.clarifyId) as string[]
-      ),
-    ]
-
-    // Batch-fetch Clerk profiles for HUMAN trigger actors
-    const clerk = await clerkClient()
-    const clerkUsers =
-      humanClerkIds.length > 0
-        ? await clerk.users.getUserList({
-            userId: humanClerkIds,
-            limit: humanClerkIds.length,
-          })
-        : { data: [] }
-    const clerkUserMap = new Map(
-      clerkUsers.data.map(u => [
-        u.id,
-        {
-          name:
-            `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
-            u.emailAddresses[0]?.emailAddress ||
-            'Unknown',
-          imageUrl: u.imageUrl ?? null,
-        },
-      ])
-    )
-
-    // Batch-fetch tasks, comments, clarifies
-    const { taskMap, commentMap, clarifyMap } =
-      await notificationService.batchFetchRelatedData(
-        taskIds,
-        commentIds,
-        clarifyIds
-      )
-
-    const notifications = rawNotifications.map(n => {
-      const task = n.taskId ? taskMap.get(n.taskId) : null
-      // Resolve actor display info from the trigger relation
-      let actor: { name: string; imageUrl: string | null } | null = null
-      if (n.trigger) {
-        if (n.trigger.type === 'HUMAN' && n.trigger.member?.clerkId) {
-          actor = clerkUserMap.get(n.trigger.member.clerkId) ?? null
-        } else if (n.trigger.type === 'AGENT' && n.trigger.agent) {
-          actor = { name: n.trigger.agent.name, imageUrl: null }
-        }
-      }
-      const clarify =
-        n.type === 'AGENT_CLARIFY' && n.clarifyId
-          ? (clarifyMap.get(n.clarifyId) ?? null)
-          : null
-      return {
-        id: n.id,
-        type: n.type,
-        read: n.read,
-        requiresAction: n.requiresAction,
-        actionTakenAt: n.actionTakenAt ? n.actionTakenAt.toISOString() : null,
-        createdAt: n.createdAt.toISOString(),
-        taskId: n.taskId,
-        commentId: n.commentId,
-        clarifyId: n.clarifyId,
-        triggerActorId: n.triggerActorId,
-        actor,
-        task: task
-          ? {
-              id: task.id,
-              title: task.title,
-              number: task.number,
-              teamIdentifier: task.team.identifier,
-            }
-          : null,
-        commentPreview: n.commentId
-          ? (commentMap
-              .get(n.commentId)
-              ?.replace(/<[^>]*>/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim() ?? null)
-          : null,
-        clarifyQuestion: clarify?.question ?? null,
-        clarifyContext: clarify?.context ?? null,
-      }
-    })
+    const notifications =
+      await notificationService.enrichNotifications(rawNotifications)
 
     const unreadCount = notifications.filter(n => !n.read).length
     return NextResponse.json({ notifications, unreadCount })

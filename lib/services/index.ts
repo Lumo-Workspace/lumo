@@ -77,3 +77,6 @@ export {
   handleAuthorizeResponse,
   handleVerifyResponse,
 } from './notification-response.service'
+export { quickDispatchService } from './quick-dispatch.service'
+export type { ActionResult } from './quick-dispatch.service'
+export { preferenceService } from './preference.service'

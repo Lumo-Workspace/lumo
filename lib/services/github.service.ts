@@ -1,5 +1,14 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
+import { decrypt } from '@/lib/crypto'
 import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
+
+const GH_API = 'https://api.github.com'
+const GH_HEADERS = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  Accept: 'application/vnd.github+json',
+  'X-GitHub-Api-Version': '2022-11-28',
+  'Content-Type': 'application/json',
+})
 
 // ── GitHub Service ──────────────────────────────────────────────────────────
 
@@ -86,6 +95,162 @@ export const githubService = {
       name: fullName.split('/')[1] ?? fullName,
       private: false,
     }))
+  },
+
+  /**
+   * Update authorized repos: create webhooks for added repos, delete for removed.
+   * Returns the updated repository list.
+   */
+  async updateAuthorizedRepos(
+    workspaceId: string,
+    memberId: string,
+    repositories: string[]
+  ) {
+    const integration = await githubRepository.findIntegrationWithWebhooks(
+      workspaceId,
+      memberId
+    )
+    if (!integration) {
+      throw Object.assign(new Error('GitHub not connected'), { status: 404 })
+    }
+
+    const token = decrypt(integration.accessToken)
+
+    // Generate + persist webhook secret if not yet set
+    const webhookSecret = await this.ensureWebhookSecret(
+      integration.id,
+      integration.webhookSecret
+    )
+
+    const oldRepos = integration.repositories
+    const addedRepos = repositories.filter(r => !oldRepos.includes(r))
+    const removedRepos = oldRepos.filter(r => !repositories.includes(r))
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/github`
+
+    const { createRepoWebhook, deleteRepoWebhook, syncRepoPRs } =
+      await import('@/lib/integrations/github')
+
+    // Create webhooks for newly added repos
+    for (const fullName of addedRepos) {
+      const slash = fullName.indexOf('/')
+      const owner = fullName.slice(0, slash)
+      const repo = fullName.slice(slash + 1)
+      try {
+        const hookId = await createRepoWebhook(
+          token,
+          owner,
+          repo,
+          webhookUrl,
+          webhookSecret
+        )
+        await this.upsertWebhook(integration.id, fullName, hookId)
+
+        // Backfill PRs that existed before the webhook was registered
+        void syncRepoPRs(token, fullName, workspaceId, integration.id).catch(
+          err =>
+            console.error(`[github] syncRepoPRs failed for ${fullName}:`, err)
+        )
+      } catch (err) {
+        // Log but don't fail: repo is saved even if webhook creation fails
+        console.error(`[github] createRepoWebhook failed for ${fullName}:`, err)
+      }
+    }
+
+    // Delete webhooks for removed repos
+    for (const fullName of removedRepos) {
+      const slash = fullName.indexOf('/')
+      const owner = fullName.slice(0, slash)
+      const repo = fullName.slice(slash + 1)
+      const hook = integration.webhooks.find(h => h.repo === fullName)
+      if (hook) {
+        await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
+        await this.deleteWebhook(integration.id, fullName)
+      }
+    }
+
+    const updated = await this.updateRepositories(integration.id, repositories)
+    return updated
+  },
+
+  /**
+   * Create a GitHub branch from main for a task.
+   * Validates the repo is connected, creates the branch via GitHub API,
+   * and records the branch in the database.
+   */
+  async createBranchForTask(
+    taskId: string,
+    repo: string,
+    branchName: string,
+    workspaceId: string
+  ) {
+    // Find a GitHub integration for this workspace that has the repo authorized
+    const integration = await githubRepository.findIntegrationByRepo(
+      workspaceId,
+      repo
+    )
+    if (!integration) {
+      throw Object.assign(
+        new Error('Repository not connected. Add it in Integrations settings.'),
+        { status: 422 }
+      )
+    }
+
+    const token = decrypt(integration.accessToken)
+    const slash = repo.indexOf('/')
+    const owner = repo.slice(0, slash)
+    const repoName = repo.slice(slash + 1)
+    const headers = GH_HEADERS(token)
+
+    // Get SHA of main branch
+    const refRes = await fetch(
+      `${GH_API}/repos/${owner}/${repoName}/git/refs/heads/main`,
+      { headers }
+    )
+    if (!refRes.ok) {
+      const err = await refRes.json().catch(() => ({}))
+      throw Object.assign(
+        new Error(
+          (err as { message?: string }).message ??
+            'Could not find main branch on GitHub'
+        ),
+        { status: 422 }
+      )
+    }
+    const refData = await refRes.json()
+    const sha: string | undefined = refData?.object?.sha
+    if (!sha) {
+      throw Object.assign(new Error('Could not find main branch on GitHub'), {
+        status: 422,
+      })
+    }
+
+    // Create the branch
+    const createRes = await fetch(
+      `${GH_API}/repos/${owner}/${repoName}/git/refs`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha }),
+      }
+    )
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}))
+      throw Object.assign(
+        new Error(
+          (err as { message?: string }).message ?? 'Failed to create branch'
+        ),
+        { status: 422 }
+      )
+    }
+
+    const createdBranch = await githubRepository.createTaskBranch(
+      taskId,
+      repo,
+      branchName
+    )
+
+    const url = `https://github.com/${repo}/tree/${branchName}`
+    return { branchName, url, branch: createdBranch }
   },
 
   // ── Webhooks ────────────────────────────────────────────────────────────
