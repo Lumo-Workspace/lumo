@@ -59,6 +59,11 @@ export {
   notifyTaskInReview,
 } from './notification.service'
 export type { TaskNotificationCtx } from './notification.service'
+export { descriptionService } from './description.service'
+export type {
+  GenerateWithProjectResult,
+  GenerateWithoutProjectResult,
+} from './description.service'
 export { tagService } from './tag.service'
 export type { CreateTagInput, UpdateTagInput } from './tag.service'
 export { timelineService } from './timeline.service'
