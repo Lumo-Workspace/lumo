@@ -73,6 +73,23 @@ export const pullRequestRepository = {
     })
   },
 
+  /** Find a PR by ID with task info. */
+  async findById(id: string) {
+    return prisma.pullRequest.findUnique({
+      where: { id },
+      include: {
+        task: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+  },
+
   /** Update the task association for a PR. Pass null to unlink. */
   async updateTaskId(prId: string, taskId: string | null) {
     return prisma.pullRequest.update({ where: { id: prId }, data: { taskId } })
