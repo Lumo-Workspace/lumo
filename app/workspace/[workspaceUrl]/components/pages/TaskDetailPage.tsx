@@ -273,16 +273,16 @@ export function TaskDetailPage({
             <div className='mt-8'>
               <div className='flex items-center gap-2 mb-2'>
                 <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
-                  Spec
+                  {intl.formatMessage({ id: 'task.spec' })}
                 </span>
                 <span className='text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded px-1.5 py-0.5 leading-none'>
-                  Agent reads this
+                  {intl.formatMessage({ id: 'task.agentReadsThis' })}
                 </span>
               </div>
               <DescriptionEditor
                 value={task.spec ?? null}
                 onCommit={actions.commitSpec}
-                placeholder='+ Add spec for the agent…'
+                placeholder={intl.formatMessage({ id: 'task.specPlaceholder' })}
                 members={mentionableMembers}
               />
             </div>
@@ -291,7 +291,7 @@ export function TaskDetailPage({
             {(initialTask.children?.length ?? 0) > 0 && (
               <div className='mt-8'>
                 <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
-                  Sub-tasks
+                  {intl.formatMessage({ id: 'task.subtasks' })}
                 </p>
                 <div className='space-y-1'>
                   {initialTask.children!.map(child => {

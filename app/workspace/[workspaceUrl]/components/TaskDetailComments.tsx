@@ -76,7 +76,7 @@ export function TaskDetailComments({
   return (
     <>
       <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-8 mb-4'>
-        Comments
+        {intl.formatMessage({ id: 'task.comments' })}
       </p>
 
       {/* Skeleton while loading */}
@@ -125,7 +125,8 @@ export function TaskDetailComments({
                       </span>
                       <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
                         {formatTimestamp(comment.createdAt)}
-                        {wasEdited && ' · edited'}
+                        {wasEdited &&
+                          ` · ${intl.formatMessage({ id: 'task.edited' })}`}
                       </span>
                     </div>
 
@@ -177,7 +178,7 @@ export function TaskDetailComments({
                             }
                             onClick={() => tc.saveEditComment(comment.id)}
                           >
-                            Save
+                            {intl.formatMessage({ id: 'common.save' })}
                           </Button>
                         </div>
                       </div>
@@ -205,7 +206,9 @@ export function TaskDetailComments({
                             <LinkIcon size={12} />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>Copy link</TooltipContent>
+                        <TooltipContent>
+                          {intl.formatMessage({ id: 'task.copyCommentLink' })}
+                        </TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -222,7 +225,9 @@ export function TaskDetailComments({
                             <Reply size={12} />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>Reply</TooltipContent>
+                        <TooltipContent>
+                          {intl.formatMessage({ id: 'task.reply' })}
+                        </TooltipContent>
                       </Tooltip>
                       {isAuthor && (
                         <>
@@ -301,7 +306,8 @@ export function TaskDetailComments({
                               </span>
                               <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
                                 {formatTimestamp(reply.createdAt)}
-                                {rWasEdited && ' · edited'}
+                                {rWasEdited &&
+                                  ` · ${intl.formatMessage({ id: 'task.edited' })}`}
                               </span>
                             </div>
                             {rIsEditing ? (
@@ -359,7 +365,7 @@ export function TaskDetailComments({
                                     }
                                     onClick={() => tc.saveEditComment(reply.id)}
                                   >
-                                    Save
+                                    {intl.formatMessage({ id: 'common.save' })}
                                   </Button>
                                 </div>
                               </div>
@@ -436,7 +442,11 @@ export function TaskDetailComments({
                                     <LinkIcon size={12} />
                                   </button>
                                 </TooltipTrigger>
-                                <TooltipContent>Copy link</TooltipContent>
+                                <TooltipContent>
+                                  {intl.formatMessage({
+                                    id: 'task.copyCommentLink',
+                                  })}
+                                </TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -453,7 +463,9 @@ export function TaskDetailComments({
                                     <Reply size={12} />
                                   </button>
                                 </TooltipTrigger>
-                                <TooltipContent>Reply</TooltipContent>
+                                <TooltipContent>
+                                  {intl.formatMessage({ id: 'task.reply' })}
+                                </TooltipContent>
                               </Tooltip>
                               {rIsAuthor && (
                                 <>
@@ -582,7 +594,7 @@ export function TaskDetailComments({
                           onClick={() => tc.submitReply(comment.id)}
                         >
                           <Send size={12} />
-                          Reply
+                          {intl.formatMessage({ id: 'task.reply' })}
                           <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
                             {typeof navigator !== 'undefined' &&
                             /Mac|iPhone|iPad/i.test(navigator.platform)
@@ -639,7 +651,7 @@ export function TaskDetailComments({
               onClick={tc.submitComment}
             >
               <Send size={12} />
-              Comment
+              {intl.formatMessage({ id: 'task.comment' })}
               <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
                 {typeof navigator !== 'undefined' &&
                 /Mac|iPhone|iPad/i.test(navigator.platform)
