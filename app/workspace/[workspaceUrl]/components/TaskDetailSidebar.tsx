@@ -47,8 +47,8 @@ interface TaskDetailSidebarProps {
   onCopyBranch: (id: string, name: string) => void
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
-  /** Called when tag IDs change. */
-  onTagIdsChange?: (tagIds: string[]) => void
+  /** Called when tags change (full objects). */
+  onTagsChange?: (tags: ApiTag[]) => void
   /** Called to create a new tag inline. */
   onCreateTag?: (name: string) => Promise<ApiTag | null>
 }
@@ -65,7 +65,7 @@ export function TaskDetailSidebar({
   onPatch,
   onCopyBranch,
   allTags,
-  onTagIdsChange,
+  onTagsChange,
   onCreateTag,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
@@ -186,7 +186,7 @@ export function TaskDetailSidebar({
       </div>
 
       {/* ── Tags ──────────────────────────────────────────────────── */}
-      {allTags && onTagIdsChange && (
+      {allTags && onTagsChange && (
         <div className='pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800'>
           <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2'>
             Tags
@@ -194,7 +194,7 @@ export function TaskDetailSidebar({
           <TagPicker
             selectedTags={task.tags ?? []}
             allTags={allTags}
-            onChangeTagIds={onTagIdsChange}
+            onChange={onTagsChange}
             onCreateTag={onCreateTag}
           />
         </div>

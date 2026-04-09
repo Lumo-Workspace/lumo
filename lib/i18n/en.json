@@ -126,6 +126,7 @@
   "documents.colCreator": "Creator",
   "documents.colUpdatedAt": "Updated",
   "documents.tagPlaceholder": "Add tag...",
+  "tags.create": "Create \"{name}\"",
   "documents.delete": "Delete",
   "documents.deleteConfirm": "Are you sure you want to delete this document?",
   "documents.duplicate": "Duplicate",

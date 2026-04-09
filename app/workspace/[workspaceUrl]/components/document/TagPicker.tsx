@@ -76,8 +76,8 @@ interface TagPickerProps {
   selectedTags: ApiTag[]
   /** All available tags in the workspace (for suggestions). */
   allTags: ApiTag[]
-  /** Called when selected tags change. Receives the new tag IDs array. */
-  onChangeTagIds: (tagIds: string[]) => void
+  /** Called when selected tags change. Receives the new full tag objects. */
+  onChange: (tags: ApiTag[]) => void
   /** Called to create a new tag. Should return the created tag. */
   onCreateTag?: ((name: string) => Promise<ApiTag | null>) | undefined
 }
@@ -85,7 +85,7 @@ interface TagPickerProps {
 export function TagPicker({
   selectedTags,
   allTags,
-  onChangeTagIds,
+  onChange,
   onCreateTag,
 }: TagPickerProps) {
   const intl = useIntl()
@@ -110,19 +110,19 @@ export function TagPicker({
   const addTag = useCallback(
     (tag: ApiTag) => {
       if (!selectedIds.has(tag.id)) {
-        onChangeTagIds([...selectedTags.map(t => t.id), tag.id])
+        onChange([...selectedTags, tag])
       }
       setInput('')
       setShowSuggestions(false)
     },
-    [selectedTags, selectedIds, onChangeTagIds]
+    [selectedTags, selectedIds, onChange]
   )
 
   const removeTag = useCallback(
     (tagId: string) => {
-      onChangeTagIds(selectedTags.filter(t => t.id !== tagId).map(t => t.id))
+      onChange(selectedTags.filter(t => t.id !== tagId))
     },
-    [selectedTags, onChangeTagIds]
+    [selectedTags, onChange]
   )
 
   const handleCreate = useCallback(async () => {

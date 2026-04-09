@@ -126,6 +126,7 @@
   "documents.colCreator": "创建者",
   "documents.colUpdatedAt": "更新时间",
   "documents.tagPlaceholder": "添加标签...",
+  "tags.create": "创建「{name}」",
   "documents.delete": "删除",
   "documents.deleteConfirm": "确定要删除此文档吗？",
   "documents.duplicate": "复制",

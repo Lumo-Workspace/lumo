@@ -197,23 +197,19 @@ export function DocumentEditorPage({
     [save, onEmojiChanged, documentId]
   )
 
-  const handleTagIdsChange = useCallback(
-    async (newTagIds: string[]) => {
-      // Optimistic: resolve IDs to full tag objects
-      const newTags = newTagIds
-        .map(
-          id => allTags.find(t => t.id === id) ?? docTags.find(t => t.id === id)
-        )
-        .filter((t): t is ApiTag => t !== undefined)
+  const handleTagsChange = useCallback(
+    async (newTags: ApiTag[]) => {
       const prev = docTags
       setDocTags(newTags)
       try {
-        await documentsClient.update(documentId, { tagIds: newTagIds })
+        await documentsClient.update(documentId, {
+          tagIds: newTags.map(t => t.id),
+        })
       } catch {
         setDocTags(prev)
       }
     },
-    [documentId, allTags, docTags]
+    [documentId, docTags]
   )
 
   function getSaveStatusText(): string {
@@ -356,7 +352,7 @@ export function DocumentEditorPage({
               <TagPicker
                 selectedTags={docTags}
                 allTags={allTags}
-                onChangeTagIds={handleTagIdsChange}
+                onChange={handleTagsChange}
                 onCreateTag={createTag}
               />
             </div>

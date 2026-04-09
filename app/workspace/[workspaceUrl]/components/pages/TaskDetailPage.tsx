@@ -357,7 +357,10 @@ export function TaskDetailPage({
             onPatch={handlePatch}
             onCopyBranch={actions.handleCopyBranch}
             allTags={allTags}
-            onTagIdsChange={tagIds => handlePatch({ tagIds })}
+            onTagsChange={tags => {
+              setTask(prev => ({ ...prev, tags }))
+              handlePatch({ tagIds: tags.map(t => t.id) })
+            }}
             onCreateTag={createTag}
           />
         </div>
