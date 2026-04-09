@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import { useParams } from 'next/navigation'
 import { Search, Plus, Layers, Link as LinkIcon } from 'lucide-react'
 import { ApiProject } from '../../types'
@@ -22,12 +23,6 @@ import {
   cmpNumber,
   cmpDate,
 } from '../../hooks/useTableSort'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { copyLink } from '../../utils/copyLink'
@@ -57,6 +52,7 @@ export function ProjectsPage({
   onSelectProject,
   onNewProject,
 }: ProjectsPageProps) {
+  const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -102,15 +98,7 @@ export function ProjectsPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <PageBreadcrumb>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Projects</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </PageBreadcrumb>
+      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.projects' })} />
 
       {/* Page header */}
       <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>

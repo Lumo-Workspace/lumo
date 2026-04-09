@@ -394,5 +394,15 @@
   "table.addColRight": "在右侧添加列",
   "table.deleteRow": "删除行",
   "table.deleteCol": "删除列",
-  "table.deleteTable": "删除表格"
+  "table.deleteTable": "删除表格",
+
+  "project.deleteProject": "删除项目",
+  "project.deleteTitle": "删除项目？",
+  "project.deleteDesc": "\u201c{name}\u201d及其所有任务将被永久删除，此操作无法撤销。",
+
+  "task.deleteTask": "删除任务",
+  "task.deleteTitle": "删除任务？",
+  "task.deleteDesc": "\u201c{title}\u201d将被永久删除，此操作无法撤销。",
+
+  "common.project": "项目"
 }

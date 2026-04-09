@@ -394,5 +394,15 @@
   "table.addColRight": "Add column right",
   "table.deleteRow": "Delete row",
   "table.deleteCol": "Delete column",
-  "table.deleteTable": "Delete table"
+  "table.deleteTable": "Delete table",
+
+  "project.deleteProject": "Delete project",
+  "project.deleteTitle": "Delete project?",
+  "project.deleteDesc": "\"{name}\" and all its tasks will be permanently deleted. This action cannot be undone.",
+
+  "task.deleteTask": "Delete task",
+  "task.deleteTitle": "Delete task?",
+  "task.deleteDesc": "\"{title}\" will be permanently deleted. This action cannot be undone.",
+
+  "common.project": "Project"
 }

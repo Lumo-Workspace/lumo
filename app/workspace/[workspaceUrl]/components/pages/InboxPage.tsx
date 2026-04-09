@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useIntl } from 'react-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import {
@@ -500,6 +501,7 @@ export function InboxPage({
   upsertTasks,
   onUpdate,
 }: InboxPageProps) {
+  const intl = useIntl()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [panelTask, setPanelTask] = useState<ApiTask | null>(null)
   const [panelLoading, setPanelLoading] = useState(false)
@@ -667,7 +669,9 @@ export function InboxPage({
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbPage>Inbox</BreadcrumbPage>
+                <BreadcrumbPage>
+                  {intl.formatMessage({ id: 'sidebar.inbox' })}
+                </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>

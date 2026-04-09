@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { Trash2, Link as LinkIcon, Check, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -54,6 +55,7 @@ export function TaskDetailHeader({
   taskLinkCopied,
   onCopyTaskLink,
 }: TaskDetailHeaderProps) {
+  const intl = useIntl()
   const router = useRouter()
 
   return (
@@ -96,7 +98,7 @@ export function TaskDetailHeader({
                 onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 className='mr-2 size-4' />
-                Delete task
+                {intl.formatMessage({ id: 'task.deleteTask' })}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -112,7 +114,9 @@ export function TaskDetailHeader({
               {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Copy link</TooltipContent>
+          <TooltipContent>
+            {intl.formatMessage({ id: 'task.copyLink' })}
+          </TooltipContent>
         </Tooltip>
       </div>
 
@@ -122,16 +126,22 @@ export function TaskDetailHeader({
             <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
               <Trash2 />
             </AlertDialogMedia>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'task.deleteTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{taskTitle}&rdquo; will be permanently deleted. This action
-              cannot be undone.
+              {intl.formatMessage(
+                { id: 'task.deleteDesc' },
+                { title: taskTitle }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction variant='destructive' onClick={onDeleteTask}>
-              Delete
+              {intl.formatMessage({ id: 'common.delete' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

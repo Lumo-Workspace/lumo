@@ -1,13 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import { Plus, CheckSquare } from 'lucide-react'
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb'
 import { MyTask, ApiStatus } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
 import { StatusIcon } from '../StatusIcon'
@@ -68,6 +63,7 @@ export function MyTasksPage({
   onTaskClick,
   onNewTask,
 }: MyTasksPageProps) {
+  const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
     useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
@@ -90,15 +86,7 @@ export function MyTasksPage({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
-      <PageBreadcrumb>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>My Tasks</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </PageBreadcrumb>
+      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.myTasks' })} />
       <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
         <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />

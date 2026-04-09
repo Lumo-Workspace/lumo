@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import type { TaskDetail, WorkspaceMemberInfo, ApiProject } from '../types'
 import { CACHE_KEY } from '../constants'
 import { readCache } from '../cache'
@@ -17,6 +18,7 @@ export function useTaskDetailState({
   workspaceUrl,
   sourceProp,
 }: UseTaskDetailStateParams) {
+  const intl = useIntl()
   // ── Breadcrumb source ──────────────────────────────────────────────────
   const [from, setFrom] = useState<string | null>(sourceProp ?? null)
   useEffect(() => {
@@ -29,7 +31,10 @@ export function useTaskDetailState({
   }, [sourceProp])
 
   const sourceLabel =
-    from === 'my-tasks' ? 'My Tasks' : (initialTask.project?.name ?? 'Project')
+    from === 'my-tasks'
+      ? intl.formatMessage({ id: 'sidebar.myTasks' })
+      : (initialTask.project?.name ??
+        intl.formatMessage({ id: 'common.project' }))
 
   // ── Task state ─────────────────────────────────────────────────────────
   const [task, setTask] = useState<TaskDetail>(initialTask)

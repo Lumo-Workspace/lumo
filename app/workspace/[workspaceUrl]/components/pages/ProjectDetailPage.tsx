@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useIntl } from 'react-intl'
 import {
   Layers,
   Plus,
@@ -151,6 +152,7 @@ export function ProjectDetailPage({
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<'overview' | 'tasks' | 'summary'>('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
+  const intl = useIntl()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const {
     options: displayOptions,
@@ -297,7 +299,9 @@ export function ProjectDetailPage({
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <button onClick={onBack}>Projects</button>
+                  <button onClick={onBack}>
+                    {intl.formatMessage({ id: 'sidebar.projects' })}
+                  </button>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
@@ -344,7 +348,7 @@ export function ProjectDetailPage({
                 onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 className='mr-2 size-4' />
-                Delete project
+                {intl.formatMessage({ id: 'project.deleteProject' })}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -357,19 +361,25 @@ export function ProjectDetailPage({
             <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
               <Trash2 />
             </AlertDialogMedia>
-            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'project.deleteTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{project.name}&rdquo; and all its tasks will be permanently
-              deleted. This action cannot be undone.
+              {intl.formatMessage(
+                { id: 'project.deleteDesc' },
+                { name: project.name }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={() => onDeleteProject(project.id)}
             >
-              Delete
+              {intl.formatMessage({ id: 'common.delete' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
