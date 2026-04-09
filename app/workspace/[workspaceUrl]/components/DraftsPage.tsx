@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { FileEdit, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb'
+import { PageBreadcrumb } from './PageBreadcrumb'
 import { formatTimestamp } from '../utils'
 import type { ApiDraft, ApiProject, ApiPriority } from '../types'
 import { PRIORITY_CONFIG } from './fields'
@@ -57,117 +64,122 @@ export function DraftsPage({
     }`
 
   return (
-    <div className='flex-1 overflow-y-auto p-6'>
-      <div className='max-w-3xl mx-auto'>
-        {/* Header */}
-        <div className='flex items-center gap-3 mb-6'>
-          <FileEdit className='size-6 text-zinc-400' />
-          <h1 className='text-2xl font-bold text-zinc-900 dark:text-zinc-100'>
-            {intl.formatMessage({ id: 'drafts.title' })}
-          </h1>
-        </div>
-
-        {/* Tabs */}
-        <div className='flex gap-1 mb-6'>
-          <button
-            className={tabCls(activeTab === 'tasks')}
-            onClick={() => setActiveTab('tasks')}
-          >
-            {intl.formatMessage({ id: 'drafts.tabTasks' })}
-            {taskDrafts.length > 0 && (
-              <span className='ml-1.5 text-xs text-zinc-400'>
-                {taskDrafts.length}
-              </span>
-            )}
-          </button>
-          <button
-            className={tabCls(activeTab === 'projects')}
-            onClick={() => setActiveTab('projects')}
-          >
-            {intl.formatMessage({ id: 'drafts.tabProjects' })}
-            {projectDrafts.length + ideaProjects.length > 0 && (
-              <span className='ml-1.5 text-xs text-zinc-400'>
-                {projectDrafts.length + ideaProjects.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Task Drafts */}
-        {activeTab === 'tasks' && (
-          <div className='space-y-2'>
-            {taskDrafts.length === 0 ? (
-              <EmptyState intl={intl} />
-            ) : (
-              taskDrafts.map(draft => (
-                <DraftCard
-                  key={draft.id}
-                  title={
-                    (draft.data as Record<string, unknown>).title as
-                      | string
-                      | undefined
-                  }
-                  subtitle={getDraftSubtitle(draft)}
-                  updatedAt={draft.updatedAt}
-                  confirmDelete={confirmDeleteId === draft.id}
-                  onClick={() => onRestoreTaskDraft(draft)}
-                  onDelete={() => handleDelete(draft.id)}
-                  intl={intl}
-                />
-              ))
-            )}
+    <>
+      <PageBreadcrumb>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>
+                {intl.formatMessage({ id: 'drafts.title' })}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </PageBreadcrumb>
+      <div className='flex-1 overflow-y-auto p-6'>
+        <div className='max-w-3xl mx-auto'>
+          {/* Tabs */}
+          <div className='flex gap-1 mb-6'>
+            <button
+              className={tabCls(activeTab === 'tasks')}
+              onClick={() => setActiveTab('tasks')}
+            >
+              {intl.formatMessage({ id: 'drafts.tabTasks' })}
+              {taskDrafts.length > 0 && (
+                <span className='ml-1.5 text-xs text-zinc-400'>
+                  {taskDrafts.length}
+                </span>
+              )}
+            </button>
+            <button
+              className={tabCls(activeTab === 'projects')}
+              onClick={() => setActiveTab('projects')}
+            >
+              {intl.formatMessage({ id: 'drafts.tabProjects' })}
+              {projectDrafts.length + ideaProjects.length > 0 && (
+                <span className='ml-1.5 text-xs text-zinc-400'>
+                  {projectDrafts.length + ideaProjects.length}
+                </span>
+              )}
+            </button>
           </div>
-        )}
 
-        {/* Project Drafts */}
-        {activeTab === 'projects' && (
-          <div className='space-y-2'>
-            {projectDrafts.length === 0 && ideaProjects.length === 0 ? (
-              <EmptyState intl={intl} />
-            ) : (
-              <>
-                {projectDrafts.map(draft => (
+          {/* Task Drafts */}
+          {activeTab === 'tasks' && (
+            <div className='space-y-2'>
+              {taskDrafts.length === 0 ? (
+                <EmptyState intl={intl} />
+              ) : (
+                taskDrafts.map(draft => (
                   <DraftCard
                     key={draft.id}
                     title={
-                      (draft.data as Record<string, unknown>).name as
+                      (draft.data as Record<string, unknown>).title as
                         | string
                         | undefined
                     }
-                    subtitle={
-                      (draft.data as Record<string, unknown>).description as
-                        | string
-                        | undefined
-                    }
+                    subtitle={getDraftSubtitle(draft)}
                     updatedAt={draft.updatedAt}
                     confirmDelete={confirmDeleteId === draft.id}
-                    onClick={() => onRestoreProjectDraft(draft)}
+                    onClick={() => onRestoreTaskDraft(draft)}
                     onDelete={() => handleDelete(draft.id)}
                     intl={intl}
                   />
-                ))}
-                {ideaProjects.map(project => (
-                  <div
-                    key={project.id}
-                    className='group flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
-                    onClick={() => onOpenIdeaProject(project)}
-                  >
-                    <div className='flex-1 min-w-0'>
-                      <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
-                        {project.name}
-                      </p>
-                      <p className='text-xs text-amber-600 dark:text-amber-400 mt-0.5'>
-                        {intl.formatMessage({ id: 'drafts.ideaProject' })}
-                      </p>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Project Drafts */}
+          {activeTab === 'projects' && (
+            <div className='space-y-2'>
+              {projectDrafts.length === 0 && ideaProjects.length === 0 ? (
+                <EmptyState intl={intl} />
+              ) : (
+                <>
+                  {projectDrafts.map(draft => (
+                    <DraftCard
+                      key={draft.id}
+                      title={
+                        (draft.data as Record<string, unknown>).name as
+                          | string
+                          | undefined
+                      }
+                      subtitle={
+                        (draft.data as Record<string, unknown>).description as
+                          | string
+                          | undefined
+                      }
+                      updatedAt={draft.updatedAt}
+                      confirmDelete={confirmDeleteId === draft.id}
+                      onClick={() => onRestoreProjectDraft(draft)}
+                      onDelete={() => handleDelete(draft.id)}
+                      intl={intl}
+                    />
+                  ))}
+                  {ideaProjects.map(project => (
+                    <div
+                      key={project.id}
+                      className='group flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors'
+                      onClick={() => onOpenIdeaProject(project)}
+                    >
+                      <div className='flex-1 min-w-0'>
+                        <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate'>
+                          {project.name}
+                        </p>
+                        <p className='text-xs text-amber-600 dark:text-amber-400 mt-0.5'>
+                          {intl.formatMessage({ id: 'drafts.ideaProject' })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
