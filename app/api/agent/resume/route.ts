@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { resumeAgent } from '@/lib/agent/resume'
+import { resumeAgent } from '@/lib/services'
 
 const bodySchema = z.object({
   taskId: z.string().min(1),

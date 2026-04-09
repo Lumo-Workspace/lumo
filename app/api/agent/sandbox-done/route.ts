@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { agentRepository } from '@/lib/repositories/agent.repository'
-import { processAgentCompletion } from '@/lib/agent/execute'
+import { processAgentCompletion } from '@/lib/services'
 
 const bodySchema = z.object({
   runId: z.string().min(1),

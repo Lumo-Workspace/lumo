@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { transitionAgentStatus } from '@/lib/agent/state-machine'
+import { transitionAgentStatus } from '@/lib/services'
 import { pushAgentEvent } from '@/lib/integrations/pusher'
 import { notifyAgentClarify } from '@/lib/notifications/notifyAgentActions'
 import { validateMcpToken } from '@/lib/auth/mcp-auth'

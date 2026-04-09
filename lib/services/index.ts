@@ -18,6 +18,29 @@ export { viewService } from './view.service'
 export { draftService } from './draft.service'
 export { summaryService } from './summary.service'
 export { agentService } from './agent.service'
+export { generateSpecDraft } from './spec-generation.service'
+export { resumeAgent } from './clarification.service'
+export {
+  executeAgent,
+  processAgentCompletion,
+  handleAgentComment,
+  extractAgentInstruction,
+  buildAgentSpec,
+  buildAgentContext,
+  transitionAgentStatus,
+  clearAgentStatus,
+  isValidTransition,
+  AgentError,
+  userFriendlyError,
+} from './agent-orchestration.service'
+export type {
+  AgentResult,
+  ExecuteAgentOptions,
+  HandleAgentCommentOptions,
+  AgentStatusValue,
+  TransitionOptions,
+  AgentErrorCode,
+} from './agent-orchestration.service'
 export { notificationService } from './notification.service'
 export { tagService } from './tag.service'
 export type { CreateTagInput, UpdateTagInput } from './tag.service'

@@ -4,13 +4,13 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { notificationService } from '@/lib/services/notification.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { resumeAgent } from '@/lib/agent/resume'
 import {
+  resumeAgent,
   clearAgentStatus,
   transitionAgentStatus,
-} from '@/lib/agent/state-machine'
+  executeAgent,
+} from '@/lib/services'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
-import { executeAgent } from '@/lib/agent/execute'
 import {
   isAgentServiceEnabled,
   proxyToAgentService,
