@@ -24,6 +24,7 @@ import {
   FIELD_TRIGGER_CLS,
 } from './fields'
 import { CreateBranchDialog } from './CreateBranchDialog'
+import { UnlinkBranchDialog } from './UnlinkBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
 import { LinkPrPopover } from './LinkPrPopover'
 import {
@@ -34,7 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TagPicker } from './document/TagPicker'
-import React from 'react'
+import React, { useState } from 'react'
 
 interface TaskDetailSidebarProps {
   task: TaskDetail
@@ -58,6 +59,8 @@ interface TaskDetailSidebarProps {
   onCreateTag?: (name: string) => Promise<ApiTag | null>
   /** Called when a branch is created via the dialog. */
   onBranchCreated?: (branch: import('../types').ApiTaskBranch) => void
+  /** Called when a branch is unlinked. */
+  onUnlinkBranch?: (branchId: string) => void
 }
 
 export function TaskDetailSidebar({
@@ -78,8 +81,14 @@ export function TaskDetailSidebar({
   onTagsChange,
   onCreateTag,
   onBranchCreated,
+  onUnlinkBranch,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
+
+  const [unlinkBranch, setUnlinkBranch] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   return (
     <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
@@ -252,6 +261,18 @@ export function TaskDetailSidebar({
                 >
                   <ExternalLink size={12} />
                 </a>
+                <button
+                  onClick={() =>
+                    setUnlinkBranch({
+                      id: branch.id,
+                      name: branch.branchName,
+                    })
+                  }
+                  className='shrink-0 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-all'
+                  title={intl.formatMessage({ id: 'task.unlinkBranch' })}
+                >
+                  <X size={12} />
+                </button>
               </li>
             ))}
           </ul>
@@ -344,6 +365,19 @@ export function TaskDetailSidebar({
         )}
       </div>
 
+      {unlinkBranch && (
+        <UnlinkBranchDialog
+          isOpen={!!unlinkBranch}
+          onClose={() => setUnlinkBranch(null)}
+          taskId={task.id}
+          branchId={unlinkBranch.id}
+          branchName={unlinkBranch.name}
+          onUnlinked={branchId => {
+            onUnlinkBranch?.(branchId)
+            setUnlinkBranch(null)
+          }}
+        />
+      )}
       <CreateBranchDialog
         isOpen={createBranchOpen}
         onClose={() => setCreateBranchOpen(false)}

@@ -382,6 +382,12 @@ export function TaskDetailPage({
                 branches: [...(prev.branches ?? []), branch],
               }))
             }
+            onUnlinkBranch={branchId =>
+              setTask(prev => ({
+                ...prev,
+                branches: (prev.branches ?? []).filter(b => b.id !== branchId),
+              }))
+            }
           />
         </div>
       </SidebarInset>

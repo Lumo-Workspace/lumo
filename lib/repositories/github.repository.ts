@@ -222,6 +222,20 @@ export const githubRepository = {
     })
   },
 
+  /** Find a task branch by ID. */
+  async findTaskBranch(branchId: string) {
+    return prisma.taskBranch.findUnique({
+      where: { id: branchId },
+    })
+  },
+
+  /** Delete a task branch record by ID. */
+  async deleteTaskBranch(branchId: string) {
+    return prisma.taskBranch.delete({
+      where: { id: branchId },
+    })
+  },
+
   /** Find integration by workspace that has a specific repo authorized. */
   async findIntegrationByRepo(workspaceId: string, repo: string) {
     return prisma.gitHubIntegration.findFirst({
