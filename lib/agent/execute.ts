@@ -7,7 +7,7 @@ import {
   pushAgentEvent,
   fireAgentEvent,
   pushTaskEvent,
-} from '@/lib/pusher/server'
+} from '@/lib/integrations/pusher'
 import { AgentError, userFriendlyError } from './errors'
 import { generateSpecDraft } from './generate-spec'
 import { transitionAgentStatus } from './state-machine'

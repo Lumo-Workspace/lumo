@@ -8,7 +8,7 @@ import {
   dispatchTaskUpdateNotifications,
 } from '@/lib/notifications/notifyTaskChange'
 import { getHumanActorId } from '@/lib/actor'
-import { pushTaskEvent, pushProjectEvent } from '@/lib/pusher/server'
+import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
 import { taskService } from '@/lib/services'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'

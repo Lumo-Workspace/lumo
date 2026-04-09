@@ -4,7 +4,7 @@ import { getClerkUser } from './clerk-cache'
 import { executeAgent } from './execute'
 import type { AgentResult } from './execute'
 import { getAgentActor, getHumanActorId } from '@/lib/actor'
-import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
+import { pushTaskEvent, pushUserEvent } from '@/lib/integrations/pusher'
 import { transitionAgentStatus } from './state-machine'
 import { htmlToMarkdown, markdownToHtml } from './markdown'
 

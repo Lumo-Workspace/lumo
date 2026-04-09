@@ -17,7 +17,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushAgentEvent: jest.fn(),
   fireAgentEvent: jest.fn(),
 }))
@@ -48,7 +48,7 @@ jest.mock('@/lib/events/dispatcher', () => ({
 
 // Import mocked modules AFTER jest.mock calls so we get the mock instances
 import { prisma } from '@/lib/db/prisma'
-import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, fireAgentEvent } from '@/lib/integrations/pusher'
 
 const mockPrismaTaskUpdate = prisma.task.update as jest.Mock
 const mockPrismaTaskFindUnique = (prisma as any).task.findUnique as jest.Mock

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useCurrentUser } from './useCurrentUser'
 import { useNotifications } from './useNotifications'
 import { usePusherEvent } from './usePusher'
-import type { UserEvent } from '@/lib/pusher/server'
+import type { UserEvent } from '@/lib/integrations/pusher'
 
 /**
  * Combines useNotifications + auto-fetch on mount + Pusher real-time updates.

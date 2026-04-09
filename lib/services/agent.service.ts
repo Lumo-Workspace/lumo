@@ -1,7 +1,7 @@
 import type { AgentStatus } from '@prisma/client'
 import { agentRepository } from '@/lib/repositories/agent.repository'
 import { transitionAgentStatus } from '@/lib/agent/state-machine'
-import { pushAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent } from '@/lib/integrations/pusher'
 
 export const agentService = {
   /**

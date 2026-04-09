@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { pushAgentEvent, fireAgentEvent } from '@/lib/pusher/server'
+import { pushAgentEvent, fireAgentEvent } from '@/lib/integrations/pusher'
 import { transitionAgentStatus } from './state-machine'
 import { markdownToHtml } from './markdown'
 import { prisma } from '@/lib/db/prisma'

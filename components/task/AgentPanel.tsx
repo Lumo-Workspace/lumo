@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import type { AgentEvent } from '@/lib/pusher/server'
+import type { AgentEvent } from '@/lib/integrations/pusher'
 import {
   AgentStatusBadge,
   AgentClarifyPanel,

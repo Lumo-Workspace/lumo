@@ -8,7 +8,7 @@ import {
   sendChannelNotification,
 } from '@/lib/integrations/slack'
 import { getHumanActorId } from '@/lib/actor'
-import { pushTaskEvent, pushUserEvent } from '@/lib/pusher/server'
+import { pushTaskEvent, pushUserEvent } from '@/lib/integrations/pusher'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { shouldNotifyBatch } from '@/lib/notifications/preferenceGate'
 import { commentService } from '@/lib/services'

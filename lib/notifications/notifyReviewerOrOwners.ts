@@ -1,7 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
 import { getHumanActorId, getActorClerkId } from '@/lib/actor'
-import { pushUserEvent } from '@/lib/pusher/server'
+import { pushUserEvent } from '@/lib/integrations/pusher'
 import type { NotificationType } from '@prisma/client'
 
 /**

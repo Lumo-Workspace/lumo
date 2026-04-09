@@ -6,7 +6,7 @@ import { tasksClient, apiFetch } from '@/lib/api-client'
 import { readCache, writeCache } from '../cache'
 import { CACHE_KEY } from '../constants'
 import { usePusherEvent } from './usePusher'
-import type { TaskEvent } from '@/lib/pusher/server'
+import type { TaskEvent } from '@/lib/integrations/pusher'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

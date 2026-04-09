@@ -1,7 +1,7 @@
 import type { TaskActivityType } from '@prisma/client'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { pushActivityEvent } from '@/lib/pusher/server'
+import { pushActivityEvent } from '@/lib/integrations/pusher'
 
 type ActivityRecord = {
   type: TaskActivityType

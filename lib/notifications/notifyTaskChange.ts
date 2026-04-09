@@ -4,7 +4,7 @@ import {
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack'
-import { pushUserEvent } from '@/lib/pusher/server'
+import { pushUserEvent } from '@/lib/integrations/pusher'
 import { shouldNotify } from '@/lib/notifications/preferenceGate'
 import type {
   SlackEventType,

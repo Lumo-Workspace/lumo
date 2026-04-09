@@ -10,7 +10,7 @@ import {
   taskRepository,
 } from '@/lib/repositories'
 import { getHumanActorId } from '@/lib/actor'
-import { pushProjectEvent } from '@/lib/pusher/server'
+import { pushProjectEvent } from '@/lib/integrations/pusher'
 
 type ActionResult = {
   type: 'update' | 'create'

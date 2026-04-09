@@ -1,4 +1,4 @@
-import type { AgentEvent } from '@/lib/pusher/server'
+import type { AgentEvent } from '@/lib/integrations/pusher'
 
 export function formatEvent(event: AgentEvent): string {
   switch (event.type) {

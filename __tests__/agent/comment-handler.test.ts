@@ -43,7 +43,7 @@ jest.mock('@/lib/agent/sandbox-health', () => ({
 jest.mock('@/lib/agent/clerk-cache', () => ({
   getClerkUser: jest.fn(),
 }))
-jest.mock('@/lib/pusher/server', () => ({
+jest.mock('@/lib/integrations/pusher', () => ({
   pushTaskEvent: jest.fn().mockReturnValue(Promise.resolve()),
   pushUserEvent: jest.fn().mockReturnValue(Promise.resolve()),
 }))
@@ -77,7 +77,7 @@ describe('handleAgentComment', () => {
     mockCommentCreate.mockResolvedValue({ id: 'comment-reply-1' })
     mockNotificationCreate.mockResolvedValue({})
     // Re-apply mocks after resetAllMocks clears them
-    const pusher = require('@/lib/pusher/server')
+    const pusher = require('@/lib/integrations/pusher')
     pusher.pushTaskEvent.mockReturnValue(Promise.resolve())
     pusher.pushUserEvent.mockReturnValue(Promise.resolve())
     const dispatcher = require('@/lib/events/dispatcher')
