@@ -164,17 +164,29 @@ Decimal phases appear between their surrounding integers in numeric order.
 - Canonical payload shape from `shared/AgentSessionEventPayload` must be enforced in the session-recorder so server-origin events validate against the same Zod schema as client-origin events
 - Run the full agent-server Jest suite after any change to `shared/`; agent-server is a separate workspace with its own Prisma client instance
 
+### Phase 7: Migrate Agent Execution to Anthropic Managed Service
+
+**Goal:** Replace E2B sandbox execution in `agent-server/` with Anthropic's managed Claude Agent service — remove the E2B dependency, update `AgentRun.sandboxId` and related schema, and migrate the execution flow, env config, and auth/token handling that assumes a sandbox lifecycle.
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 7 to break down)
+
 ---
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7
 
-| Phase                              | Plans Complete | Status      | Completed |
-| ---------------------------------- | -------------- | ----------- | --------- |
-| 1. Data Model and Canonical Schema | 0/TBD          | Not started | -         |
-| 2. Ingestion API and Hook Auth     | 0/TBD          | Not started | -         |
-| 3. Hook Runtime                    | 0/TBD          | Not started | -         |
-| 4. Launcher UI                     | 0/TBD          | Not started | -         |
-| 5. Sessions Tab UI                 | 0/TBD          | Not started | -         |
-| 6. Agent-Server Unification        | 0/TBD          | Not started | -         |
+| Phase                                               | Plans Complete | Status      | Completed |
+| --------------------------------------------------- | -------------- | ----------- | --------- |
+| 1. Data Model and Canonical Schema                  | 0/TBD          | Not started | -         |
+| 2. Ingestion API and Hook Auth                      | 0/TBD          | Not started | -         |
+| 3. Hook Runtime                                     | 0/TBD          | Not started | -         |
+| 4. Launcher UI                                      | 0/TBD          | Not started | -         |
+| 5. Sessions Tab UI                                  | 0/TBD          | Not started | -         |
+| 6. Agent-Server Unification                         | 0/TBD          | Not started | -         |
+| 7. Migrate Agent Execution to Anthropic Managed Svc | 0/TBD          | Not started | -         |

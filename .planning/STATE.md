@@ -7,7 +7,7 @@ stopped_at: Phase 1 context gathered
 last_updated: '2026-04-10T17:53:33.833Z'
 last_activity: 2026-04-10 — Roadmap created; all 50 v1 requirements mapped to 6 phases
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 1 of 6 (Data Model and Canonical Schema)
+Phase: 1 of 7 (Data Model and Canonical Schema)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
 Last activity: 2026-04-10 — Roadmap created; all 50 v1 requirements mapped to 6 phases
@@ -54,6 +54,10 @@ Progress: [░░░░░░░░░░] 0%
 _Updated after each plan completion_
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 7 added: Migrate Agent Execution to Anthropic Managed Service — replace E2B sandbox execution in `agent-server/` with the Anthropic managed Claude Agent path; remove E2B dependency and update `AgentRun.sandboxId` and related schema/config/auth.
 
 ### Decisions
 
