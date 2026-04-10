@@ -139,66 +139,66 @@ Explicitly excluded. Documented to prevent scope creep. Mirrors PROJECT.md `Out 
 
 Which phases cover which requirements. Populated by the gsd-roadmapper agent.
 
-| Requirement | Phase     | Status  |
-| ----------- | --------- | ------- |
-| DATA-01     | Phase [N] | Pending |
-| DATA-02     | Phase [N] | Pending |
-| DATA-03     | Phase [N] | Pending |
-| DATA-04     | Phase [N] | Pending |
-| DATA-05     | Phase [N] | Pending |
-| DATA-06     | Phase [N] | Pending |
-| DATA-07     | Phase [N] | Pending |
-| INGEST-01   | Phase [N] | Pending |
-| INGEST-02   | Phase [N] | Pending |
-| INGEST-03   | Phase [N] | Pending |
-| INGEST-04   | Phase [N] | Pending |
-| INGEST-05   | Phase [N] | Pending |
-| INGEST-06   | Phase [N] | Pending |
-| INGEST-07   | Phase [N] | Pending |
-| INGEST-08   | Phase [N] | Pending |
-| INGEST-09   | Phase [N] | Pending |
-| HOOK-01     | Phase [N] | Pending |
-| HOOK-02     | Phase [N] | Pending |
-| HOOK-03     | Phase [N] | Pending |
-| HOOK-04     | Phase [N] | Pending |
-| HOOK-05     | Phase [N] | Pending |
-| HOOK-06     | Phase [N] | Pending |
-| HOOK-07     | Phase [N] | Pending |
-| HOOK-08     | Phase [N] | Pending |
-| LAUNCH-01   | Phase [N] | Pending |
-| LAUNCH-02   | Phase [N] | Pending |
-| LAUNCH-03   | Phase [N] | Pending |
-| LAUNCH-04   | Phase [N] | Pending |
-| LAUNCH-05   | Phase [N] | Pending |
-| LAUNCH-06   | Phase [N] | Pending |
-| SESSION-01  | Phase [N] | Pending |
-| SESSION-02  | Phase [N] | Pending |
-| SESSION-03  | Phase [N] | Pending |
-| SESSION-04  | Phase [N] | Pending |
-| SESSION-05  | Phase [N] | Pending |
-| SESSION-06  | Phase [N] | Pending |
-| SESSION-07  | Phase [N] | Pending |
-| SESSION-08  | Phase [N] | Pending |
-| SESSION-09  | Phase [N] | Pending |
-| SESSION-10  | Phase [N] | Pending |
-| SESSION-11  | Phase [N] | Pending |
-| SESSION-12  | Phase [N] | Pending |
-| SESSION-13  | Phase [N] | Pending |
-| SESSION-14  | Phase [N] | Pending |
-| SESSION-15  | Phase [N] | Pending |
-| AGENT-01    | Phase [N] | Pending |
-| AGENT-02    | Phase [N] | Pending |
-| AGENT-03    | Phase [N] | Pending |
-| AGENT-04    | Phase [N] | Pending |
-| AGENT-05    | Phase [N] | Pending |
+| Requirement | Phase   | Status  |
+| ----------- | ------- | ------- |
+| DATA-01     | Phase 1 | Pending |
+| DATA-02     | Phase 1 | Pending |
+| DATA-03     | Phase 1 | Pending |
+| DATA-04     | Phase 1 | Pending |
+| DATA-05     | Phase 1 | Pending |
+| DATA-06     | Phase 1 | Pending |
+| DATA-07     | Phase 1 | Pending |
+| INGEST-01   | Phase 2 | Pending |
+| INGEST-02   | Phase 2 | Pending |
+| INGEST-03   | Phase 2 | Pending |
+| INGEST-04   | Phase 2 | Pending |
+| INGEST-05   | Phase 2 | Pending |
+| INGEST-06   | Phase 2 | Pending |
+| INGEST-07   | Phase 2 | Pending |
+| INGEST-08   | Phase 2 | Pending |
+| INGEST-09   | Phase 2 | Pending |
+| HOOK-01     | Phase 3 | Pending |
+| HOOK-02     | Phase 3 | Pending |
+| HOOK-03     | Phase 3 | Pending |
+| HOOK-04     | Phase 3 | Pending |
+| HOOK-05     | Phase 3 | Pending |
+| HOOK-06     | Phase 3 | Pending |
+| HOOK-07     | Phase 3 | Pending |
+| HOOK-08     | Phase 3 | Pending |
+| LAUNCH-01   | Phase 4 | Pending |
+| LAUNCH-02   | Phase 4 | Pending |
+| LAUNCH-03   | Phase 4 | Pending |
+| LAUNCH-04   | Phase 4 | Pending |
+| LAUNCH-05   | Phase 4 | Pending |
+| LAUNCH-06   | Phase 4 | Pending |
+| SESSION-01  | Phase 5 | Pending |
+| SESSION-02  | Phase 5 | Pending |
+| SESSION-03  | Phase 5 | Pending |
+| SESSION-04  | Phase 5 | Pending |
+| SESSION-05  | Phase 5 | Pending |
+| SESSION-06  | Phase 5 | Pending |
+| SESSION-07  | Phase 5 | Pending |
+| SESSION-08  | Phase 5 | Pending |
+| SESSION-09  | Phase 5 | Pending |
+| SESSION-10  | Phase 5 | Pending |
+| SESSION-11  | Phase 5 | Pending |
+| SESSION-12  | Phase 5 | Pending |
+| SESSION-13  | Phase 5 | Pending |
+| SESSION-14  | Phase 5 | Pending |
+| SESSION-15  | Phase 5 | Pending |
+| AGENT-01    | Phase 6 | Pending |
+| AGENT-02    | Phase 6 | Pending |
+| AGENT-03    | Phase 6 | Pending |
+| AGENT-04    | Phase 6 | Pending |
+| AGENT-05    | Phase 6 | Pending |
 
 **Coverage:**
 
 - v1 requirements: 50 total
-- Mapped to phases: 0 (populated by roadmapper)
-- Unmapped: 50 (expected pre-roadmap) ⚠️
+- Mapped to phases: 50/50 ✓
+- Unmapped: 0 ✓
 
 ---
 
 _Requirements defined: 2026-04-10_
-_Last updated: 2026-04-10 after initial definition (Agent Sessions milestone)_
+_Last updated: 2026-04-10 — traceability populated by gsd-roadmapper (Agent Sessions milestone)_
