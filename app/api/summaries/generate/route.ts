@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { summaryService } from '@/lib/services/summary.service'
-import { generateSummarySchema } from '@/lib/validation/schemas'
 import {
   aggregateProjectStats,
   aggregateWorkspaceStats,
@@ -11,28 +10,20 @@ import {
   generateWorkspaceReport,
 } from '@/lib/summaries/report'
 
-export async function POST(request: Request) {
+/**
+ * GET /api/summaries/generate
+ * Called daily by Vercel Cron. Iterates summary-enabled workspaces and
+ * generates project + workspace summaries for any that are due based on
+ * their configured frequency.
+ */
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
-    const body = await request.json()
-    const parsed = generateSummarySchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      )
-    }
-
-    const { workspaceId, secret } = parsed.data
-
-    if (secret !== process.env.SUMMARY_CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const workspaces =
-      await summaryService.findSummaryEnabledWorkspaces(workspaceId)
+    const workspaces = await summaryService.findSummaryEnabledWorkspaces()
 
     const results = []
 
@@ -73,7 +64,7 @@ export async function POST(request: Request) {
           })
         } catch (err) {
           console.error(
-            `POST /api/summaries/generate project error [${project.id}]:`,
+            `GET /api/summaries/generate project error [${project.id}]:`,
             err
           )
           projectSummaries.push({ projectId: project.id, error: true })
@@ -102,7 +93,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ results })
   } catch (error) {
-    console.error('POST /api/summaries/generate error:', error)
+    console.error('GET /api/summaries/generate error:', error)
     return NextResponse.json(
       { error: 'Failed to generate summaries' },
       { status: 500 }

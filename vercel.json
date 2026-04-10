@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/check-agent-timeouts",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/summaries/generate",
+      "schedule": "0 8 * * *"
     }
   ]
 }

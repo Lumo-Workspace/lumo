@@ -381,11 +381,6 @@ export const upsertDraftSchema = z.object({
 
 // ─── Summaries ────────────────────────────────────────────────────────────────
 
-export const generateSummarySchema = z.object({
-  workspaceId: z.string().optional(),
-  secret: z.string().min(1, 'Secret is required'),
-})
-
 export const getSummarySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(1),
   before: z.string().datetime().optional(),
