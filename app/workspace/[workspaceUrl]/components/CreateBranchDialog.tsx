@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { generateBranchName } from '@/lib/integrations/github'
+import { generateBranchName } from '@/lib/integrations/github/branch'
 import { API } from '../constants'
 import { apiFetch, tasksClient, ApiClientError } from '@/lib/api-client'
 import type { ApiTaskBranch } from '../types'
