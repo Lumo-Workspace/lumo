@@ -16,7 +16,11 @@ export function useFormatDate() {
         id: 'time.justNow',
         defaultMessage: 'just now',
       }),
-      mAgo: intl.formatMessage({ id: 'time.mAgo', defaultMessage: '{m}m ago' }),
+      mAgo: (m: number) =>
+        intl.formatMessage(
+          { id: 'time.mAgo', defaultMessage: '{m}m ago' },
+          { m }
+        ),
       today: intl.formatMessage({ id: 'time.today', defaultMessage: 'Today' }),
       yesterday: intl.formatMessage({
         id: 'time.yesterday',

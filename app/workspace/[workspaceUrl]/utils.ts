@@ -42,7 +42,7 @@ export function formatTimestamp(
   locale: string = 'en',
   messages?: {
     justNow?: string
-    mAgo?: string
+    mAgo?: (m: number) => string
     today?: string
     yesterday?: string
   }
@@ -54,12 +54,12 @@ export function formatTimestamp(
   const diffMin = Math.floor(diffMs / 60000)
 
   const justNow = messages?.justNow ?? 'just now'
-  const mAgo = messages?.mAgo ?? '{m}m ago'
+  const mAgo = messages?.mAgo ?? ((m: number) => `${m}m ago`)
   const todayLabel = messages?.today ?? 'Today'
   const yesterdayLabel = messages?.yesterday ?? 'Yesterday'
 
   if (diffSec < 60) return justNow
-  if (diffMin < 60) return mAgo.replace('{m}', String(diffMin))
+  if (diffMin < 60) return mAgo(diffMin)
 
   const sameDate = (a: Date, b: Date) =>
     a.getFullYear() === b.getFullYear() &&
