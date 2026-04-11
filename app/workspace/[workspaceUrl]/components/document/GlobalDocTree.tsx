@@ -136,10 +136,10 @@ function TreeItemRow({
       onDragEnd={onDragEnd}
       style={{ paddingLeft: `${depth * 4 + 8}px`, paddingRight: '6px' }}
       className={cn(
-        'group relative flex items-center gap-1.5 w-full rounded-sm py-1 text-[13px] transition-colors cursor-pointer select-none',
+        'group relative flex items-center gap-1.5 w-full rounded-sm py-1.5 text-[13px] font-medium transition-colors cursor-pointer select-none',
         isCurrent
-          ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-foreground/70 hover:bg-accent/50 hover:text-foreground',
+          ? 'bg-accent text-accent-foreground font-semibold'
+          : 'text-foreground/80 hover:bg-accent/50 hover:text-foreground',
         isDragging && 'opacity-40',
         isDropInside && 'ring-1 ring-blue-400 bg-blue-50 dark:bg-blue-900/20'
       )}
@@ -153,11 +153,11 @@ function TreeItemRow({
         <div className='absolute left-2 right-2 bottom-0 h-0.5 bg-blue-500 rounded-full' />
       )}
 
-      {/* Expand/collapse */}
+      {/* Emoji / expand toggle (Notion-style: emoji morphs into chevron on hover) */}
       {hasChildren ? (
         <button
           type='button'
-          className='shrink-0 flex items-center justify-center w-5 h-5 hover:bg-black/5 dark:hover:bg-white/10 rounded-sm transition-colors'
+          className='relative shrink-0 flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
           onClick={e => {
             e.stopPropagation()
             onToggleExpand()
@@ -166,21 +166,25 @@ function TreeItemRow({
           {node.isLoading ? (
             <Loader2 size={12} className='animate-spin text-muted-foreground' />
           ) : (
-            <ChevronRight
-              size={12}
-              className={cn(
-                'text-muted-foreground transition-transform duration-150',
-                isExpanded && 'rotate-90'
-              )}
-            />
+            <>
+              <span className='text-[13px] leading-none transition-opacity group-hover:opacity-0'>
+                {node.emoji || '📄'}
+              </span>
+              <ChevronRight
+                size={12}
+                className={cn(
+                  'absolute text-muted-foreground opacity-0 transition-all duration-150 group-hover:opacity-100',
+                  isExpanded && 'rotate-90'
+                )}
+              />
+            </>
           )}
         </button>
       ) : (
-        <span className='w-5 shrink-0' />
+        <span className='shrink-0 flex items-center justify-center w-6 h-6 text-[13px] leading-none'>
+          {node.emoji || '📄'}
+        </span>
       )}
-
-      {/* Emoji */}
-      <span className='shrink-0 text-[13px]'>{node.emoji || '📄'}</span>
 
       {/* Label */}
       <span className='truncate flex-1'>{node.title || 'Untitled'}</span>
@@ -192,7 +196,7 @@ function TreeItemRow({
           <DropdownMenuTrigger asChild>
             <button
               type='button'
-              className='flex items-center justify-center w-5 h-5 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+              className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
               onClick={e => e.stopPropagation()}
             >
               <MoreHorizontal size={13} className='text-muted-foreground' />
@@ -231,7 +235,7 @@ function TreeItemRow({
         {/* Add child */}
         <button
           type='button'
-          className='flex items-center justify-center w-5 h-5 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+          className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
           onClick={e => {
             e.stopPropagation()
             onAddChild()
@@ -503,12 +507,14 @@ export function GlobalDocTree({
       {/* Add root document */}
       <button
         type='button'
-        className='flex items-center gap-1.5 w-full rounded-sm py-1 mt-0.5 text-[13px] text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
-        style={{ paddingLeft: '8px' }}
+        className='flex items-center gap-1.5 w-full rounded-sm py-1.5 mt-0.5 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
+        style={{ paddingLeft: '8px', paddingRight: '6px' }}
         onClick={() => onAddChild(null)}
       >
-        <Plus size={14} />
-        <span>
+        <span className='shrink-0 flex items-center justify-center w-6 h-6'>
+          <Plus size={14} />
+        </span>
+        <span className='truncate'>
           {intl.formatMessage({
             id: 'documentTree.newDoc',
             defaultMessage: 'New document',
