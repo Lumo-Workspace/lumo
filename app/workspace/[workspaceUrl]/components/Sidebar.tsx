@@ -12,6 +12,7 @@ import {
   Settings,
   FileEdit,
   BarChart3,
+  Search,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
@@ -49,6 +50,13 @@ interface AppSidebarProps {
   onNavigate: (page: Page) => void
   unreadCount: number
   draftCount: number
+  /**
+   * Open the global Ask Lumo (command palette / AI) modal. Optional because
+   * deep-link standalone pages (TaskDetailPage, ProjectDetailStandalonePage)
+   * don't currently host the modal state — when omitted the search button
+   * is hidden.
+   */
+  onOpenAskLumo?: () => void
 }
 
 export function AppSidebar({
@@ -56,6 +64,7 @@ export function AppSidebar({
   onNavigate,
   unreadCount,
   draftCount,
+  onOpenAskLumo,
 }: AppSidebarProps) {
   const { user } = useCurrentUser()
   const { signOut } = useClerk()
@@ -99,15 +108,16 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible='none'>
-      {/* Workspace / user header */}
+      {/* Workspace / user header — workspace dropdown takes the row, with the
+          Ask Lumo (global command) button sitting flush against its right edge. */}
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem className='flex items-center gap-1'>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size='lg'
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                  className='flex-1 min-w-0 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
                   tooltip={workspaceName || 'Workspace'}
                 >
                   {workspaceLogoUrl ? (
@@ -173,6 +183,20 @@ export function AppSidebar({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Ask Lumo — global command palette / AI entry. Cmd+K also works.
+                Hidden on standalone deep-link pages that don't host the modal. */}
+            {onOpenAskLumo && (
+              <button
+                type='button'
+                onClick={onOpenAskLumo}
+                title={`${intl.formatMessage({ id: 'quickDispatch.title' })} (⌘K)`}
+                aria-label={intl.formatMessage({ id: 'quickDispatch.title' })}
+                className='flex shrink-0 items-center justify-center size-8 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors'
+              >
+                <Search size={16} />
+              </button>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

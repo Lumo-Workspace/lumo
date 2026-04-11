@@ -80,7 +80,6 @@ interface WorkspaceModalsProps {
   isQuickDispatchOpen: boolean
   setIsQuickDispatchOpen: Dispatch<SetStateAction<boolean>>
   myTasks: MyTask[]
-  currentActorId: string | null
 
   // New project modal
   isNewProjectModalOpen: boolean
@@ -149,7 +148,6 @@ export function WorkspaceModals({
   isQuickDispatchOpen,
   setIsQuickDispatchOpen,
   myTasks,
-  currentActorId,
   isNewProjectModalOpen,
   setIsNewProjectModalOpen,
   onCreateProject,
@@ -251,8 +249,6 @@ export function WorkspaceModals({
             members={members}
             projects={projects}
             myTasks={myTasks}
-            currentActorId={currentActorId}
-            onTasksChanged={onTasksChanged}
           />
         )}
         {isNewProjectModalOpen && (

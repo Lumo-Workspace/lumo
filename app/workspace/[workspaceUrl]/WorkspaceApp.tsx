@@ -688,6 +688,7 @@ export default function DashboardApp() {
           onNavigate={navigateTo}
           unreadCount={unreadCount}
           draftCount={draftCount}
+          onOpenAskLumo={() => setIsQuickDispatchOpen(true)}
         />
 
         <SidebarInset className='overflow-hidden flex flex-col'>
@@ -730,7 +731,6 @@ export default function DashboardApp() {
           isQuickDispatchOpen={isQuickDispatchOpen}
           setIsQuickDispatchOpen={setIsQuickDispatchOpen}
           myTasks={myTasks}
-          currentActorId={currentActorId}
           isNewProjectModalOpen={isNewProjectModalOpen}
           setIsNewProjectModalOpen={setIsNewProjectModalOpen}
           onCreateProject={projectHandlers.handleCreateProject}
