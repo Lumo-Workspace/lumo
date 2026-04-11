@@ -193,8 +193,20 @@ function TreeItemRow({
       {/* Label */}
       <span className='truncate flex-1'>{node.title || 'Untitled'}</span>
 
-      {/* Hover actions */}
+      {/* Hover actions — `+` first, `…` second (Notion-style) */}
       <div className='shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+        {/* Add child */}
+        <button
+          type='button'
+          className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
+          onClick={e => {
+            e.stopPropagation()
+            onAddChild()
+          }}
+        >
+          <Plus size={13} className='text-muted-foreground' />
+        </button>
+
         {/* More menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -235,18 +247,6 @@ function TreeItemRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Add child */}
-        <button
-          type='button'
-          className='flex items-center justify-center w-6 h-6 rounded-sm hover:bg-black/5 dark:hover:bg-white/10 transition-colors'
-          onClick={e => {
-            e.stopPropagation()
-            onAddChild()
-          }}
-        >
-          <Plus size={13} className='text-muted-foreground' />
-        </button>
       </div>
     </div>
   )

@@ -290,11 +290,12 @@ export function DocumentEditorPage({
           systems and the active state never advances past the first heading. */}
       <div ref={setScrollRoot} className='relative flex-1 overflow-y-auto'>
         {/* Top bar — spans the full scroll container above the TOC + editor
-            so the breadcrumb sits flush against the left edge. `pl-2` matches
-            the doc tree header's left padding so the expand-sidebar button
-            sits exactly where the collapse-sidebar button was, with no
-            horizontal jump when toggling the sidebar. */}
-        <div className='flex items-center justify-between pl-2 pr-6 pt-6 pb-4'>
+            so the breadcrumb sits flush against the left edge. `px-2` matches
+            the doc tree header's padding so the expand-sidebar button sits
+            exactly where the collapse-sidebar button was, with no horizontal
+            jump when toggling the sidebar, and the right edge mirrors that
+            same 8px gutter for symmetry across all document pages. */}
+        <div className='flex items-center justify-between px-2 pt-6 pb-4'>
           <div className='flex items-center gap-2 min-w-0'>
             {docTreeCollapsed && (
               <button

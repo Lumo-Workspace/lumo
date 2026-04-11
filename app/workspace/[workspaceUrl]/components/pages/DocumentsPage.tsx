@@ -390,7 +390,11 @@ export function DocumentsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      <div className='px-6 pt-6 pb-4'>
+      {/* Page padding matches the doc tree's collapse-button padding (px-2)
+          so the expand-sidebar button below sits at exactly the same x as
+          the collapse button — toggling the sidebar feels like the button
+          stays in place. */}
+      <div className='px-2 pt-6 pb-4'>
         <div className='flex items-start justify-between mb-1'>
           <div className='flex items-start gap-2'>
             {docTreeCollapsed && (
@@ -497,7 +501,7 @@ export function DocumentsPage({
         </div>
       </div>
 
-      <div className='flex-1 overflow-y-auto px-6'>
+      <div className='flex-1 overflow-y-auto px-2'>
         <AsyncContent
           loading={loading}
           error={error}
