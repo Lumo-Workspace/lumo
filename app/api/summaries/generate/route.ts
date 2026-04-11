@@ -4,11 +4,13 @@ import { summaryService } from '@/lib/services/summary.service'
 import {
   aggregateProjectStats,
   aggregateWorkspaceStats,
+  type ProjectRiskOverride,
 } from '@/lib/summaries/stats'
 import {
   generateProjectReport,
   generateWorkspaceReport,
 } from '@/lib/summaries/report'
+import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
 
 /**
  * GET /api/summaries/generate
@@ -40,11 +42,33 @@ export async function GET(req: NextRequest) {
         continue
       }
 
+      const workspaceConfig = {
+        riskOverdueRatio: workspace.riskOverdueRatio,
+        riskStalledDays: workspace.riskStalledDays,
+        riskStalledMinCount: workspace.riskStalledMinCount,
+        riskAgentFailRatio: workspace.riskAgentFailRatio,
+        riskStalePrDays: workspace.riskStalePrDays,
+        riskThroughputDrop: workspace.riskThroughputDrop,
+      }
+
       const projectSummaries = []
+      const projectOverrides = new Map<string, ProjectRiskOverride | null>()
 
       for (const project of workspace.projects) {
+        const override: ProjectRiskOverride = {
+          riskOverdueRatio: project.riskOverdueRatio,
+          riskStalledDays: project.riskStalledDays,
+          riskStalledMinCount: project.riskStalledMinCount,
+          riskAgentFailRatio: project.riskAgentFailRatio,
+          riskStalePrDays: project.riskStalePrDays,
+          riskThroughputDrop: project.riskThroughputDrop,
+        }
+        projectOverrides.set(project.id, override)
+
+        const effective = resolveEffectiveRiskConfig(workspaceConfig, override)
+
         try {
-          const stats = await aggregateProjectStats(project.id)
+          const stats = await aggregateProjectStats(project.id, effective)
           const { tldr, report } = await generateProjectReport(stats, {
             projectName: project.name,
             projectDescription: project.description ?? null,
@@ -71,7 +95,15 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const workspaceStats = await aggregateWorkspaceStats(workspace.id)
+      const workspaceEffective = resolveEffectiveRiskConfig(
+        workspaceConfig,
+        null
+      )
+      const workspaceStats = await aggregateWorkspaceStats(
+        workspace.id,
+        workspaceEffective,
+        projectOverrides
+      )
       const { tldr, report } = await generateWorkspaceReport(workspaceStats, {
         workspaceName: workspace.name,
         locale: workspace.summaryLocale,
