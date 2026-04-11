@@ -481,7 +481,7 @@ export function GlobalDocTree({
   return (
     <div className='w-56 shrink-0 border-r flex flex-col overflow-hidden'>
       {/* Sidebar header with collapse toggle — pt-6 matches main content top bar */}
-      <div className='flex items-center gap-1 px-2 pt-6 pb-2'>
+      <div className='flex items-center px-2 pt-6 pb-2'>
         <button
           type='button'
           onClick={onCollapse}
@@ -500,11 +500,11 @@ export function GlobalDocTree({
             id: 'documentTree.home',
             defaultMessage: 'All documents',
           })}
-          className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
+          className='flex items-center justify-center size-8 ml-0.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
         >
           <House className='size-4' />
         </button>
-        <span className='ml-1 truncate text-sm font-medium text-foreground'>
+        <span className='truncate text-sm font-medium text-foreground'>
           {intl.formatMessage({
             id: 'documentTree.allDocs',
             defaultMessage: 'Lumo 文档',
