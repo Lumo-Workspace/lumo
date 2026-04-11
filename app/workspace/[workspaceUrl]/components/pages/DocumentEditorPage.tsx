@@ -87,7 +87,13 @@ export function DocumentEditorPage({
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
   const [tocItems, setTocItems] = useState<TocItem[]>([])
-  const scrollRootRef = useRef<HTMLDivElement>(null)
+  // The scroll root needs to be a state value (not just a ref) so child
+  // components can react when the DOM node mounts. The Tiptap TableOfContents
+  // extension binds its scroll listener once during onCreate, so handing it a
+  // function that closes over a still-null ref would silently fall through to
+  // window. Storing the node in state lets DescriptionEditor rebind the
+  // listener once the real element is available.
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null)
   const { tags: allTags, createTag } = useTags()
   const { collapsed: tocCollapsed, toggle: toggleToc } = useDocTocCollapsed()
 
@@ -277,14 +283,65 @@ export function DocumentEditorPage({
 
   return (
     <>
-      <div ref={scrollRootRef} className='flex-1 overflow-y-auto'>
+      {/* `relative` is required: the Tiptap TableOfContents extension compares
+          a heading's `offsetTop` against the container's `scrollTop`. Without
+          a positioned scroll container the heading's offsetParent walks
+          further up the tree, so the two values live in different coordinate
+          systems and the active state never advances past the first heading. */}
+      <div ref={setScrollRoot} className='relative flex-1 overflow-y-auto'>
+        {/* Top bar — spans the full scroll container above the TOC + editor
+            so the breadcrumb sits flush against the left edge. `pl-2` matches
+            the doc tree header's left padding so the expand-sidebar button
+            sits exactly where the collapse-sidebar button was, with no
+            horizontal jump when toggling the sidebar. */}
+        <div className='flex items-center justify-between pl-2 pr-6 pt-6 pb-4'>
+          <div className='flex items-center gap-2 min-w-0'>
+            {docTreeCollapsed && (
+              <button
+                type='button'
+                onClick={onExpandDocTree}
+                title={intl.formatMessage({
+                  id: 'documentTree.expand',
+                  defaultMessage: 'Expand sidebar (⌘+\\)',
+                })}
+                className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+              >
+                <PanelLeftOpen className='size-4' />
+              </button>
+            )}
+            <DocumentBreadcrumb
+              ancestors={ancestors}
+              current={{
+                id: doc.id,
+                title: title || doc.title,
+                emoji: doc.emoji,
+              }}
+              onNavigate={id => {
+                if (id) onNavigateToDocument(id)
+                else onNavigateToDocuments()
+              }}
+            />
+          </div>
+          <Button
+            size='sm'
+            className='gap-1.5 h-8'
+            onClick={() => setShareDialogOpen(true)}
+          >
+            <Link2 size={14} />
+            {intl.formatMessage({
+              id: 'share.button',
+              defaultMessage: 'Share',
+            })}
+          </Button>
+        </div>
+
         <div className='flex'>
           {/* Table of contents — sticky left rail, only visible on wide screens.
               Hidden entirely when the document has no headings. */}
           {tocItems.length > 0 && (
             <aside
               className={cn(
-                'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-6 px-2',
+                'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
                 tocCollapsed ? 'w-12' : 'w-52'
               )}
             >
@@ -292,54 +349,12 @@ export function DocumentEditorPage({
                 items={tocItems}
                 collapsed={tocCollapsed}
                 onToggle={toggleToc}
-                scrollRoot={scrollRootRef.current}
+                scrollRoot={scrollRoot}
               />
             </aside>
           )}
           <div className='flex-1 min-w-0'>
-            <div className='max-w-3xl mx-auto px-8 py-6'>
-              {/* Top bar: breadcrumb + share button */}
-              <div className='flex items-center justify-between mb-4'>
-                <div className='flex items-center gap-2 min-w-0'>
-                  {docTreeCollapsed && (
-                    <button
-                      type='button'
-                      onClick={onExpandDocTree}
-                      title={intl.formatMessage({
-                        id: 'documentTree.expand',
-                        defaultMessage: 'Expand sidebar (⌘+\\)',
-                      })}
-                      className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-                    >
-                      <PanelLeftOpen className='size-4' />
-                    </button>
-                  )}
-                  <DocumentBreadcrumb
-                    ancestors={ancestors}
-                    current={{
-                      id: doc.id,
-                      title: title || doc.title,
-                      emoji: doc.emoji,
-                    }}
-                    onNavigate={id => {
-                      if (id) onNavigateToDocument(id)
-                      else onNavigateToDocuments()
-                    }}
-                  />
-                </div>
-                <Button
-                  size='sm'
-                  className='gap-1.5 h-8'
-                  onClick={() => setShareDialogOpen(true)}
-                >
-                  <Link2 size={14} />
-                  {intl.formatMessage({
-                    id: 'share.button',
-                    defaultMessage: 'Share',
-                  })}
-                </Button>
-              </div>
-
+            <div className='max-w-3xl mx-auto px-8 pb-6'>
               {/* Emoji + Title */}
               <div className='flex items-start gap-3 mb-4'>
                 <EmojiPicker value={doc.emoji} onChange={handleEmojiChange} />
@@ -353,10 +368,10 @@ export function DocumentEditorPage({
               </div>
 
               {/* Metadata */}
-              <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-4 flex-wrap'>
+              <div className='flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap'>
                 {/* Creator */}
-                <span className='flex items-center gap-1.5 shrink-0'>
-                  <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                <span className='flex items-center gap-1 shrink-0'>
+                  <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
                     {doc.createdBy.imageUrl ? (
                       <img
                         src={doc.createdBy.imageUrl}
@@ -364,7 +379,7 @@ export function DocumentEditorPage({
                         className='w-full h-full object-cover'
                       />
                     ) : (
-                      <span className='text-[9px] font-medium'>
+                      <span className='text-[8px] font-medium'>
                         {getInitials(doc.createdBy.name)}
                       </span>
                     )}
@@ -385,7 +400,7 @@ export function DocumentEditorPage({
                 {doc.project && (
                   <>
                     <span className='text-border'>·</span>
-                    <span className='border border-border rounded px-2 py-0.5 shrink-0'>
+                    <span className='border border-border rounded px-1.5 py-px shrink-0'>
                       {doc.project.name}
                     </span>
                   </>
@@ -398,7 +413,7 @@ export function DocumentEditorPage({
                     <CollaboratorAvatars
                       editors={doc.editors}
                       max={3}
-                      size={22}
+                      size={18}
                     />
                   </>
                 )}
@@ -433,7 +448,7 @@ export function DocumentEditorPage({
                 placeholder='Type / for commands…'
                 documentId={doc.id}
                 onTocUpdate={setTocItems}
-                tocScrollParent={() => scrollRootRef.current}
+                tocScrollRoot={scrollRoot}
               />
             </div>
           </div>

@@ -55,7 +55,7 @@ export function DocumentToc({
                 defaultMessage: 'Hide table of contents',
               }
         )}
-        className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+        className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
       >
         {collapsed ? (
           <AlignLeft className='size-4' />
@@ -74,8 +74,8 @@ export function DocumentToc({
                 className={cn(
                   'block w-full text-left text-[12px] leading-[1.4] py-1 pr-2 truncate rounded-sm transition-colors',
                   item.isActive
-                    ? 'text-foreground font-medium bg-accent/60'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
+                    ? 'text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
                 title={item.textContent}
               >

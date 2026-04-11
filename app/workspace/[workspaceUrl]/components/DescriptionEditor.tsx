@@ -121,12 +121,14 @@ interface DescriptionEditorProps {
    */
   onTocUpdate?: (items: TocItem[]) => void
   /**
-   * Returns the element that owns the editor's vertical scroll. The
-   * TableOfContents extension binds its scroll listener here so the
-   * "active heading" state stays in sync as the user scrolls. If omitted,
-   * the extension falls back to `window`.
+   * Element that owns the editor's vertical scroll. The TableOfContents
+   * extension binds its scroll listener here so the "active heading" state
+   * stays in sync as the user scrolls. Pass the actual DOM node (not a
+   * function) — we manually rebind the listener whenever this changes
+   * because the upstream extension only reads `scrollParent` once during
+   * onCreate, when the parent ref is typically still null.
    */
-  tocScrollParent?: () => HTMLElement | null
+  tocScrollRoot?: HTMLElement | null
 }
 
 /** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
@@ -232,7 +234,7 @@ export function DescriptionEditor({
   agentActors = [],
   documentId,
   onTocUpdate,
-  tocScrollParent,
+  tocScrollRoot,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -265,10 +267,19 @@ export function DescriptionEditor({
   useEffect(() => {
     onTocUpdateRef.current = onTocUpdate
   }, [onTocUpdate])
-  const tocScrollParentRef = useRef(tocScrollParent)
+  // Stable ref so the (created-once) extension config can always reach the
+  // latest scroll container.
+  const tocScrollRootRef = useRef(tocScrollRoot)
   useEffect(() => {
-    tocScrollParentRef.current = tocScrollParent
-  }, [tocScrollParent])
+    tocScrollRootRef.current = tocScrollRoot
+  }, [tocScrollRoot])
+  // Ref the extension's onUpdate calls into. We compute the active heading
+  // ourselves (see the rebind effect below) instead of trusting Tiptap's
+  // built-in scroll math, because Tiptap's check (`scrollTop >= offsetTop`)
+  // can never highlight the last heading once the container has scrolled to
+  // its bottom — the heading still sits below scrollTop, just not far enough
+  // to make the container scroll any further.
+  const emitTocRef = useRef<() => void>(() => {})
   const tocEnabled = !!onTocUpdate
 
   // Stable DOM element for the bubble menu (created once, never changes)
@@ -317,18 +328,12 @@ export function DescriptionEditor({
       ...(tocEnabled
         ? [
             TableOfContents.configure({
-              scrollParent: () => tocScrollParentRef.current?.() ?? window,
-              onUpdate: (content: TableOfContentData) => {
-                onTocUpdateRef.current?.(
-                  content.map(item => ({
-                    id: item.id,
-                    level: item.level,
-                    textContent: item.textContent,
-                    isActive: item.isActive,
-                    itemIndex: item.itemIndex,
-                  }))
-                )
-              },
+              // Tiptap's scrollHandler still fires on its window listener
+              // and writes into storage.content. We don't trust its
+              // `isActive`, so onUpdate just nudges our own emitter which
+              // re-derives the active heading from the current scrollTop.
+              scrollParent: () => tocScrollRootRef.current ?? window,
+              onUpdate: () => emitTocRef.current(),
             }),
           ]
         : []),
@@ -398,6 +403,96 @@ export function DescriptionEditor({
   useEffect(() => {
     editorRef.current = editor ?? null
   }, [editor])
+
+  // Compute the active heading ourselves and push the TOC items upstream.
+  //
+  // Why not use Tiptap's built-in active state? It only marks a heading
+  // active when `scrollTop >= heading.offsetTop`. Once the container has
+  // scrolled to its bottom, the last heading still sits below scrollTop —
+  // the container literally cannot scroll any further — so the highlight
+  // gets stuck on whichever heading happens to be flush with the top edge.
+  //
+  // This effect (re)wires three things:
+  //   1. `emitTocRef` — called by the extension's onUpdate when the heading
+  //      list changes (typing a new heading), and by our own scroll listener.
+  //   2. A scroll listener on the real container so we re-emit on scroll.
+  //   3. Removal of the extension's window-bound listener that would
+  //      otherwise fire onUpdate with stale active states.
+  useEffect(() => {
+    if (!tocEnabled || !editor) return
+
+    const ACTIVE_OFFSET = 80 // px below container top that still counts as "at the top"
+
+    const emit = () => {
+      const tocStorage = editor.storage.tableOfContents as
+        | { content?: TableOfContentData }
+        | undefined
+      const items = tocStorage?.content ?? []
+      if (!items.length) {
+        onTocUpdateRef.current?.([])
+        return
+      }
+
+      const root = tocScrollRootRef.current
+      let activeIdx = -1
+      if (root) {
+        const scrollTop = root.scrollTop
+        const atBottom = scrollTop + root.clientHeight >= root.scrollHeight - 2
+        if (atBottom) {
+          activeIdx = items.length - 1
+        } else {
+          items.forEach((item, i) => {
+            const el = root.querySelector(
+              `[data-toc-id="${item.id}"]`
+            ) as HTMLElement | null
+            if (el && el.offsetTop <= scrollTop + ACTIVE_OFFSET) {
+              activeIdx = i
+            }
+          })
+        }
+      }
+      // Fallback to the first heading when no candidate has crossed the
+      // threshold yet — at scrollTop = 0 the first heading lives below the
+      // title/metadata block, so its offsetTop is greater than the threshold
+      // and the loop above leaves activeIdx at -1, which would mean "nothing
+      // highlighted" even though the user is clearly reading the top section.
+      if (activeIdx === -1) activeIdx = 0
+
+      onTocUpdateRef.current?.(
+        items.map((item, i) => ({
+          id: item.id,
+          level: item.level,
+          textContent: item.textContent,
+          isActive: i === activeIdx,
+          itemIndex: item.itemIndex,
+        }))
+      )
+    }
+
+    emitTocRef.current = emit
+
+    // The extension auto-attaches its own scrollHandler to window during
+    // onCreate. Detach it so it doesn't push stale `isActive` values that
+    // race with ours.
+    const tocStorage = editor.storage.tableOfContents as
+      | { scrollHandler?: () => void }
+      | undefined
+    if (typeof tocStorage?.scrollHandler === 'function') {
+      window.removeEventListener('scroll', tocStorage.scrollHandler)
+    }
+
+    if (!tocScrollRoot) {
+      emit()
+      return
+    }
+
+    tocScrollRoot.addEventListener('scroll', emit, { passive: true })
+    emit()
+
+    return () => {
+      tocScrollRoot.removeEventListener('scroll', emit)
+    }
+  }, [editor, tocEnabled, tocScrollRoot])
 
   // Open the hidden file picker when the toolbar image button is clicked
   const handleInsertImage = useCallback(() => {
