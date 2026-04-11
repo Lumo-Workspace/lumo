@@ -77,11 +77,68 @@ export interface RiskSignals {
 }
 
 export function computeRisk(
-  _stats: TaskSummaryStats,
-  _signals: RiskSignals,
-  _config: RiskConfig
+  stats: TaskSummaryStats,
+  signals: RiskSignals,
+  config: RiskConfig
 ): RiskAssessment {
-  throw new Error('computeRisk not implemented')
+  const reasons: RiskReason[] = []
+
+  // Rule 1: overdue_ratio_high
+  if (stats.totalTasks > 0) {
+    const ratio = stats.overdueTasks.count / stats.totalTasks
+    if (ratio >= config.overdueRatio) {
+      const pct = Math.round(ratio * 100)
+      reasons.push({
+        code: 'overdue_ratio_high',
+        detail: `${stats.overdueTasks.count}/${stats.totalTasks} tasks overdue (${pct}%)`,
+      })
+    }
+  }
+
+  // Rule 2: stalled_tasks
+  if (signals.stalledTaskCount >= config.stalledMinCount) {
+    reasons.push({
+      code: 'stalled_tasks',
+      detail: `${signals.stalledTaskCount} tasks with no progress in ${config.stalledDays} days`,
+    })
+  }
+
+  // Rule 3: agent_failure_rate
+  if (stats.agentStats.total >= 3) {
+    const failRatio = stats.agentStats.failed / stats.agentStats.total
+    if (failRatio >= config.agentFailRatio) {
+      const pct = Math.round(failRatio * 100)
+      reasons.push({
+        code: 'agent_failure_rate',
+        detail: `Agent failure rate ${pct}% (${stats.agentStats.failed}/${stats.agentStats.total})`,
+      })
+    }
+  }
+
+  // Rule 4: stale_open_prs
+  if (signals.staleOpenPrCount >= 1) {
+    reasons.push({
+      code: 'stale_open_prs',
+      detail: `${signals.staleOpenPrCount} PRs waiting > ${config.stalePrDays} days for review`,
+    })
+  }
+
+  // Rule 5: throughput_drop
+  if (signals.prev7dCompleted > 0) {
+    const threshold = signals.prev7dCompleted * config.throughputDrop
+    if (signals.last7dCompleted <= threshold) {
+      const dropPct = Math.round(
+        (1 - signals.last7dCompleted / signals.prev7dCompleted) * 100
+      )
+      reasons.push({
+        code: 'throughput_drop',
+        detail: `Completion dropped ${dropPct}% week-over-week`,
+      })
+    }
+  }
+
+  const score = reasons.reduce((sum, r) => sum + RISK_WEIGHTS[r.code], 0)
+  return { level: levelFromScore(score), score, reasons }
 }
 
 export function collectTopBlockers(_input: {
