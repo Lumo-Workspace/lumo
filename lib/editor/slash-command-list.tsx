@@ -3,6 +3,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   forwardRef,
@@ -30,14 +31,16 @@ export const SlashCommandList = forwardRef<
     setSelectedIndex(0)
   }, [items])
 
-  // Scroll selected item into view after selection renders
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      const el = itemRefs.current.get(selectedIndex)
-      if (el) {
-        el.scrollIntoView({ block: 'nearest' })
-      }
-    })
+  // Scroll selected item into view in the SAME paint as the highlight change.
+  // useLayoutEffect runs after DOM commit but before paint, so the browser paints
+  // the new highlight position and the new scroll offset together — no visible lag.
+  // `behavior: 'instant'` overrides the global `html { scroll-behavior: smooth }`
+  // so the scroll lands on the same frame instead of animating after the highlight.
+  useLayoutEffect(() => {
+    const el = itemRefs.current.get(selectedIndex)
+    if (el) {
+      el.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+    }
   }, [selectedIndex])
 
   const selectItem = useCallback(
@@ -98,13 +101,15 @@ export const SlashCommandList = forwardRef<
                     else itemRefs.current.delete(idx)
                   }}
                   type='button'
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs ${
                     idx === selectedIndex
                       ? 'bg-accent text-accent-foreground'
                       : 'text-foreground hover:bg-muted'
                   }`}
                   onClick={() => selectItem(idx)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
+                  onMouseMove={() => {
+                    if (selectedIndex !== idx) setSelectedIndex(idx)
+                  }}
                 >
                   <span className='flex w-5 items-center justify-center shrink-0 text-muted-foreground'>
                     {item.icon}
