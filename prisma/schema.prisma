@@ -161,6 +161,13 @@ model Workspace {
   summaryEnabled   Boolean          @default(true)
   summaryLocale    String           @default("en")
 
+  riskOverdueRatio    Float @default(0.25)
+  riskStalledDays     Int   @default(7)
+  riskStalledMinCount Int   @default(3)
+  riskAgentFailRatio  Float @default(0.30)
+  riskStalePrDays     Int   @default(3)
+  riskThroughputDrop  Float @default(0.50)
+
   @@map("workspaces")
 }
 
