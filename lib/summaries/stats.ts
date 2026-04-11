@@ -4,6 +4,8 @@ import type {
   WorkspaceSummaryStats,
   RiskAssessment,
   TopBlockers,
+  RiskLevel,
+  RiskReason,
 } from '@/types/summary'
 import {
   computeRisk,
@@ -306,55 +308,121 @@ export async function aggregateProjectStats(
 }
 
 export async function aggregateWorkspaceStats(
-  workspaceId: string
+  workspaceId: string,
+  workspaceConfig: RiskConfig,
+  projectRiskOverrides: Map<string, ProjectRiskOverride | null>
 ): Promise<WorkspaceSummaryStats> {
   const projects = await prisma.project.findMany({
     where: { workspaceId },
     select: { id: true, name: true },
   })
 
-  const [baseStats, projectCounts] = await Promise.all([
-    // aggregate all tasks across the workspace using aggregateProjectStats
-    // but we need workspace-level stats, so run individual project stats and merge
-    Promise.all(projects.map(p => aggregateProjectStats(p.id))),
+  // Build per-project effective configs via the overrides map
+  const projectStatsList = await Promise.all(
+    projects.map(async p => {
+      const override = projectRiskOverrides.get(p.id) ?? null
+      const effective = override
+        ? {
+            overdueRatio:
+              override.riskOverdueRatio ?? workspaceConfig.overdueRatio,
+            stalledDays:
+              override.riskStalledDays ?? workspaceConfig.stalledDays,
+            stalledMinCount:
+              override.riskStalledMinCount ?? workspaceConfig.stalledMinCount,
+            agentFailRatio:
+              override.riskAgentFailRatio ?? workspaceConfig.agentFailRatio,
+            stalePrDays:
+              override.riskStalePrDays ?? workspaceConfig.stalePrDays,
+            throughputDrop:
+              override.riskThroughputDrop ?? workspaceConfig.throughputDrop,
+          }
+        : workspaceConfig
+      return { project: p, stats: await aggregateProjectStats(p.id, effective) }
+    })
+  )
 
-    // per-project breakdown counts
-    Promise.all(
-      projects.map(async p => {
-        const [total, completed, overdue] = await Promise.all([
-          prisma.task.count({ where: { projectId: p.id } }),
-          prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
-          prisma.task.count({
-            where: {
-              projectId: p.id,
-              dueDate: { lt: new Date() },
-              status: { not: 'DONE' },
-            },
-          }),
-        ])
-        return {
-          projectId: p.id,
-          projectName: p.name,
-          totalTasks: total,
-          completedTasks: completed,
-          overdueTasks: overdue,
-        }
-      })
-    ),
-  ])
+  const projectCounts = await Promise.all(
+    projects.map(async p => {
+      const [total, completed, overdue] = await Promise.all([
+        prisma.task.count({ where: { projectId: p.id } }),
+        prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
+        prisma.task.count({
+          where: {
+            projectId: p.id,
+            dueDate: { lt: new Date() },
+            status: { not: 'DONE' },
+          },
+        }),
+      ])
+      return {
+        projectId: p.id,
+        projectName: p.name,
+        totalTasks: total,
+        completedTasks: completed,
+        overdueTasks: overdue,
+      }
+    })
+  )
 
-  // Merge all project stats into workspace-level stats
-  const merged = mergeStats(baseStats)
+  const merged = mergeStats(projectStatsList.map(ps => ps.stats))
 
-  const projectBreakdown = projectCounts
+  // Project breakdown enriched with risk
+  const riskByProject = new Map<string, RiskAssessment>()
+  for (const { project, stats } of projectStatsList) {
+    riskByProject.set(project.id, stats.risk)
+  }
+  const projectBreakdown = projectCounts.map(pc => ({
+    ...pc,
+    risk: riskByProject.get(pc.projectId) ?? EMPTY_RISK,
+  }))
+
+  // Workspace-level risk = max-of-projects (dominant level wins)
+  const levels = Array.from(riskByProject.values()).map(r => r.level)
+  let workspaceLevel: RiskLevel = 'healthy'
+  for (const l of levels) {
+    if (l === 'at-risk') {
+      workspaceLevel = 'at-risk'
+      break
+    }
+    if (l === 'watch') workspaceLevel = 'watch'
+  }
+
+  // Aggregate workspace reasons: top 3 at-risk project names as synthetic reasons
+  const atRiskProjects = projectBreakdown
+    .filter(p => p.risk.level === 'at-risk')
+    .slice(0, 3)
+  const aggregateReasons: RiskReason[] = atRiskProjects.map(p => ({
+    code: 'overdue_ratio_high', // reuse existing code; narrator will summarize
+    detail: `Project "${p.projectName}" is at risk (${p.overdueTasks} overdue)`,
+  }))
+
+  const workspaceRisk: RiskAssessment = {
+    level: workspaceLevel,
+    score: 0,
+    reasons: aggregateReasons,
+  }
 
   return {
     ...merged,
+    risk: workspaceRisk,
+    topBlockers: EMPTY_BLOCKERS, // workspace-level: project tab only
     projectBreakdown,
   }
 }
 
-function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
+// Helper type to describe project-level override columns (all nullable)
+export interface ProjectRiskOverride {
+  riskOverdueRatio: number | null
+  riskStalledDays: number | null
+  riskStalledMinCount: number | null
+  riskAgentFailRatio: number | null
+  riskStalePrDays: number | null
+  riskThroughputDrop: number | null
+}
+
+function mergeStats(
+  statsList: TaskSummaryStats[]
+): Omit<TaskSummaryStats, 'risk' | 'topBlockers'> {
   const statusDistribution: Record<string, number> = {}
   const priorityDistribution: Record<string, number> = {}
   let totalTasks = 0
@@ -375,16 +443,13 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
 
   for (const s of statsList) {
     totalTasks += s.totalTasks
-
     for (const [k, v] of Object.entries(s.statusDistribution)) {
       statusDistribution[k] = (statusDistribution[k] ?? 0) + v
     }
     for (const [k, v] of Object.entries(s.priorityDistribution)) {
       priorityDistribution[k] = (priorityDistribution[k] ?? 0) + v
     }
-
     overdueTaskIds.push(...s.overdueTasks.taskIds)
-
     for (const m of s.memberWorkload) {
       const existing = memberWorkloadMap.get(m.actorId)
       if (existing) {
@@ -398,27 +463,21 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
         })
       }
     }
-
     for (const t of s.completionTrend) {
       trendMap.set(t.date, (trendMap.get(t.date) ?? 0) + t.completed)
     }
-
     if (s.avgCompletionTime !== null) {
       totalCompletionMs += s.avgCompletionTime
       completionCount++
     }
-
     if (s.subtaskCompletionRate !== null) {
-      // approximate by weighting equally (we don't have raw counts here)
       doneSubtasks += s.subtaskCompletionRate
       totalSubtasks++
     }
-
     agentStats.total += s.agentStats.total
     agentStats.completed += s.agentStats.completed
     agentStats.failed += s.agentStats.failed
     agentStats.working += s.agentStats.working
-
     prTotal += s.prStats.total
     prMerged += s.prStats.merged
     prOpen += s.prStats.open
@@ -427,7 +486,6 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
   const memberWorkload = Array.from(memberWorkloadMap.entries()).map(
     ([actorId, v]) => ({ actorId, ...v })
   )
-
   const completionTrend = Array.from(trendMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, completed]) => ({ date, completed }))
