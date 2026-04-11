@@ -121,7 +121,7 @@
 
   "sidebar.documents": "文档",
 
-  "documents.title": "文档",
+  "documents.title": "所有文档",
   "documents.subtitle": "创建和分享团队文档",
   "documents.newDocument": "新建文档",
   "documents.filterAll": "全部",
@@ -171,6 +171,16 @@
 
   "documentTree.empty": "暂无文档",
   "documentTree.newDoc": "新建文档",
+  "documentTree.collapse": "收起侧边栏 (⌘+\\)",
+  "documentTree.expand": "展开侧边栏 (⌘+\\)",
+  "documentTree.home": "所有文档",
+  "documentTree.allDocs": "Lumo 文档",
+
+  "documentToc.title": "本页目录",
+  "documentToc.empty": "暂无标题",
+  "documentToc.untitledHeading": "未命名标题",
+  "documentToc.collapse": "隐藏目录",
+  "documentToc.expand": "显示目录",
 
   "share.title": "分享文档",
   "share.searchPlaceholder": "搜索成员...",

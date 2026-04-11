@@ -39,6 +39,7 @@ import { useDrafts } from './hooks/useDrafts'
 import { useWorkspaceTaskHandlers } from './hooks/useWorkspaceTaskHandlers'
 import { useWorkspaceProjectHandlers } from './hooks/useWorkspaceProjectHandlers'
 import { useWorkspaceDocumentHandlers } from './hooks/useWorkspaceDocumentHandlers'
+import { useDocTreeCollapsed } from './hooks/useDocTreeCollapsed'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
@@ -185,6 +186,8 @@ export default function DashboardApp() {
 
   // ─── Document tree ──────────────────────────────────────────────────────────
   const docTree = useDocumentTree(selectedDocumentId)
+  const { collapsed: docTreeCollapsed, toggle: toggleDocTreeCollapsed } =
+    useDocTreeCollapsed()
 
   // Tree rename/delete dialog state
   const [treeRenameDoc, setTreeRenameDoc] = useState<{
@@ -554,20 +557,24 @@ export default function DashboardApp() {
       case 'documents':
         return (
           <div className='flex-1 flex overflow-hidden'>
-            <GlobalDocTree
-              roots={docTree.roots}
-              expandedIds={docTree.expandedIds}
-              currentDocId={null}
-              onNavigate={documentHandlers.navigateToDocument}
-              onExpandNode={docTree.expandNode}
-              onAddChild={documentHandlers.handleTreeCreateChild}
-              onRenameDoc={doc => {
-                setTreeRenameValue(doc.title)
-                setTreeRenameDoc(doc)
-              }}
-              onDeleteDoc={doc => setTreeDeleteDoc(doc)}
-              onMoveNode={docTree.moveNode}
-            />
+            {!docTreeCollapsed && (
+              <GlobalDocTree
+                roots={docTree.roots}
+                expandedIds={docTree.expandedIds}
+                currentDocId={null}
+                onNavigate={documentHandlers.navigateToDocument}
+                onExpandNode={docTree.expandNode}
+                onAddChild={documentHandlers.handleTreeCreateChild}
+                onRenameDoc={doc => {
+                  setTreeRenameValue(doc.title)
+                  setTreeRenameDoc(doc)
+                }}
+                onDeleteDoc={doc => setTreeDeleteDoc(doc)}
+                onMoveNode={docTree.moveNode}
+                onCollapse={toggleDocTreeCollapsed}
+                onNavigateHome={documentHandlers.navigateToDocuments}
+              />
+            )}
             <DocumentsPage
               documents={documents}
               loading={documentsLoading}
@@ -578,6 +585,8 @@ export default function DashboardApp() {
                 documentHandlers.navigateToDocument(doc.id)
               }
               onDeleteDocument={documentHandlers.handleDeleteDocument}
+              docTreeCollapsed={docTreeCollapsed}
+              onExpandDocTree={toggleDocTreeCollapsed}
             />
           </div>
         )
@@ -585,38 +594,37 @@ export default function DashboardApp() {
       case 'document-editor':
         return (
           <div className='flex-1 flex overflow-hidden'>
-            <GlobalDocTree
-              roots={docTree.roots}
-              expandedIds={docTree.expandedIds}
-              currentDocId={selectedDocumentId}
-              onNavigate={documentHandlers.navigateToDocument}
-              onExpandNode={docTree.expandNode}
-              onAddChild={documentHandlers.handleTreeCreateChild}
-              onRenameDoc={doc => {
-                setTreeRenameValue(doc.title)
-                setTreeRenameDoc(doc)
-              }}
-              onDeleteDoc={doc => setTreeDeleteDoc(doc)}
-              onMoveNode={docTree.moveNode}
-            />
+            {!docTreeCollapsed && (
+              <GlobalDocTree
+                roots={docTree.roots}
+                expandedIds={docTree.expandedIds}
+                currentDocId={selectedDocumentId}
+                onNavigate={documentHandlers.navigateToDocument}
+                onExpandNode={docTree.expandNode}
+                onAddChild={documentHandlers.handleTreeCreateChild}
+                onRenameDoc={doc => {
+                  setTreeRenameValue(doc.title)
+                  setTreeRenameDoc(doc)
+                }}
+                onDeleteDoc={doc => setTreeDeleteDoc(doc)}
+                onMoveNode={docTree.moveNode}
+                onCollapse={toggleDocTreeCollapsed}
+                onNavigateHome={documentHandlers.navigateToDocuments}
+              />
+            )}
             {selectedDocumentId ? (
               <DocumentEditorPage
                 documentId={selectedDocumentId}
                 onNavigateToDocument={documentHandlers.navigateToDocument}
                 members={members}
                 currentMemberId={currentMemberId}
-                onNavigateToDocuments={() => {
-                  setCurrentPage('documents')
-                  window.history.pushState(
-                    null,
-                    '',
-                    `/workspace/${workspaceUrl}/documents`
-                  )
-                }}
+                onNavigateToDocuments={documentHandlers.navigateToDocuments}
                 onTitleChanged={(id, title) => docTree.renameNode(id, title)}
                 onEmojiChanged={(id, emoji) =>
                   docTree.updateNodeEmoji(id, emoji)
                 }
+                docTreeCollapsed={docTreeCollapsed}
+                onExpandDocTree={toggleDocTreeCollapsed}
               />
             ) : null}
           </div>

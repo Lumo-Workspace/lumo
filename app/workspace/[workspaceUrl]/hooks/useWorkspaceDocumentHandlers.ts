@@ -45,6 +45,11 @@ export function useWorkspaceDocumentHandlers({
     [workspaceUrl, docTree, setSelectedDocumentId, setCurrentPage]
   )
 
+  const navigateToDocuments = useCallback(() => {
+    setCurrentPage('documents')
+    window.history.pushState(null, '', `/workspace/${workspaceUrl}/documents`)
+  }, [workspaceUrl, setCurrentPage])
+
   const handleTreeCreateChild = useCallback(
     (parentId: string | null) => {
       const tempId = `temp-${crypto.randomUUID()}`
@@ -141,6 +146,7 @@ export function useWorkspaceDocumentHandlers({
 
   return {
     navigateToDocument,
+    navigateToDocuments,
     handleTreeCreateChild,
     handleNewDocument,
     handleDeleteDocument,

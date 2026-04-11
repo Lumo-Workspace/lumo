@@ -8,6 +8,10 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import Mention from '@tiptap/extension-mention'
 import { mergeAttributes } from '@tiptap/core'
+import {
+  TableOfContents,
+  type TableOfContentData,
+} from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import {
   SlashCommandExtension,
@@ -92,6 +96,14 @@ import { toast } from 'sonner'
 
 // ─── Main editor ───────────────────────────────────────────────────────────────
 
+export type TocItem = {
+  id: string
+  level: number
+  textContent: string
+  isActive: boolean
+  itemIndex: number
+}
+
 interface DescriptionEditorProps {
   value: string | null
   onCommit: (html: string | null) => void
@@ -102,6 +114,12 @@ interface DescriptionEditorProps {
   agentActors?: { actorId: string; name: string }[]
   /** Used as the Blob path segment: documents/{documentId}/… */
   documentId?: string
+  /**
+   * When provided, enables the Table of Contents extension and reports
+   * heading items so a parent can render a TOC sidebar. Headings are
+   * tagged with `data-toc-id` so callers can `scrollIntoView()` them.
+   */
+  onTocUpdate?: (items: TocItem[]) => void
 }
 
 /** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
@@ -206,6 +224,7 @@ export function DescriptionEditor({
   tasks = [],
   agentActors = [],
   documentId,
+  onTocUpdate,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -231,6 +250,14 @@ export function DescriptionEditor({
     null
   )
   const slashListRef = useRef<SlashCommandListRef | null>(null)
+
+  // Stable ref for onTocUpdate so the extension config (created once) always
+  // calls the latest prop without needing to re-init the editor.
+  const onTocUpdateRef = useRef(onTocUpdate)
+  useEffect(() => {
+    onTocUpdateRef.current = onTocUpdate
+  }, [onTocUpdate])
+  const tocEnabled = !!onTocUpdate
 
   // Stable DOM element for the bubble menu (created once, never changes)
   const [menuElement] = useState<HTMLDivElement | null>(() =>
@@ -271,6 +298,23 @@ export function DescriptionEditor({
                 if (editor.isActive('table')) return true
                 // Otherwise only show for non-empty text selections
                 return !state.selection.empty
+              },
+            }),
+          ]
+        : []),
+      ...(tocEnabled
+        ? [
+            TableOfContents.configure({
+              onUpdate: (content: TableOfContentData) => {
+                onTocUpdateRef.current?.(
+                  content.map(item => ({
+                    id: item.id,
+                    level: item.level,
+                    textContent: item.textContent,
+                    isActive: item.isActive,
+                    itemIndex: item.itemIndex,
+                  }))
+                )
               },
             }),
           ]

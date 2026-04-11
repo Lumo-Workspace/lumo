@@ -121,7 +121,7 @@
 
   "sidebar.documents": "Documents",
 
-  "documents.title": "Documents",
+  "documents.title": "All Documents",
   "documents.subtitle": "Create and share docs with your team",
   "documents.newDocument": "New Document",
   "documents.filterAll": "All",
@@ -171,6 +171,16 @@
 
   "documentTree.empty": "No documents yet",
   "documentTree.newDoc": "New document",
+  "documentTree.collapse": "Collapse sidebar (⌘+\\)",
+  "documentTree.expand": "Expand sidebar (⌘+\\)",
+  "documentTree.home": "All documents",
+  "documentTree.allDocs": "Lumo Docs",
+
+  "documentToc.title": "On this page",
+  "documentToc.empty": "No headings yet",
+  "documentToc.untitledHeading": "Untitled heading",
+  "documentToc.collapse": "Hide table of contents",
+  "documentToc.expand": "Show table of contents",
 
   "share.title": "Share document",
   "share.searchPlaceholder": "Search members...",

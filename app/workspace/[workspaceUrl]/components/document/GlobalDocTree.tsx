@@ -9,6 +9,8 @@ import {
   Trash2,
   Loader2,
   MoreHorizontal,
+  PanelLeftClose,
+  House,
 } from 'lucide-react'
 import type { TreeNode } from '../../types'
 import { cn } from '@/lib/utils'
@@ -42,6 +44,8 @@ interface GlobalDocTreeProps {
     newParentId: string | null,
     sortOrder: number
   ) => void
+  onCollapse: () => void
+  onNavigateHome: () => void
 }
 
 // ─── Drop position ──────────────────────────────────────────
@@ -378,6 +382,8 @@ export function GlobalDocTree({
   onRenameDoc,
   onDeleteDoc,
   onMoveNode,
+  onCollapse,
+  onNavigateHome,
 }: GlobalDocTreeProps) {
   const intl = useIntl()
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -473,54 +479,90 @@ export function GlobalDocTree({
   }, [draggedId, dropTarget, roots, onMoveNode])
 
   return (
-    <div className='w-56 shrink-0 border-r overflow-y-auto py-1.5 px-1.5'>
-      {roots.length === 0 ? (
-        <div className='px-2 py-8 text-center text-[13px] text-muted-foreground'>
-          {intl.formatMessage({
-            id: 'documentTree.empty',
-            defaultMessage: 'No documents yet',
+    <div className='w-56 shrink-0 border-r flex flex-col overflow-hidden'>
+      {/* Sidebar header with collapse toggle — pt-6 matches main content top bar */}
+      <div className='flex items-center gap-1 px-2 pt-6 pb-2'>
+        <button
+          type='button'
+          onClick={onCollapse}
+          title={intl.formatMessage({
+            id: 'documentTree.collapse',
+            defaultMessage: 'Collapse sidebar (⌘\\)',
           })}
-        </div>
-      ) : (
-        <TreeNodeGroup
-          nodes={roots}
-          depth={0}
-          expandedIds={expandedIds}
-          currentDocId={currentDocId}
-          draggedId={draggedId}
-          dropTarget={dropTarget}
-          onNavigate={onNavigate}
-          onExpandNode={onExpandNode}
-          onAddChild={onAddChild}
-          onRenameDoc={onRenameDoc}
-          onDeleteDoc={onDeleteDoc}
-          onDragStart={setDraggedId}
-          onDragOver={(nodeId, position) => setDropTarget({ nodeId, position })}
-          onDragEnd={() => {
-            setDraggedId(null)
-            setDropTarget(null)
-          }}
-          onDrop={handleDrop}
-        />
-      )}
+          className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
+        >
+          <PanelLeftClose className='size-4' />
+        </button>
+        <button
+          type='button'
+          onClick={onNavigateHome}
+          title={intl.formatMessage({
+            id: 'documentTree.home',
+            defaultMessage: 'All documents',
+          })}
+          className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0'
+        >
+          <House className='size-4' />
+        </button>
+        <span className='ml-1 truncate text-sm font-medium text-foreground'>
+          {intl.formatMessage({
+            id: 'documentTree.allDocs',
+            defaultMessage: 'Lumo 文档',
+          })}
+        </span>
+      </div>
 
-      {/* Add root document */}
-      <button
-        type='button'
-        className='flex items-center gap-1.5 w-full rounded-sm py-1.5 mt-0.5 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
-        style={{ paddingLeft: '8px', paddingRight: '6px' }}
-        onClick={() => onAddChild(null)}
-      >
-        <span className='shrink-0 flex items-center justify-center w-6 h-6'>
-          <Plus size={14} />
-        </span>
-        <span className='truncate'>
-          {intl.formatMessage({
-            id: 'documentTree.newDoc',
-            defaultMessage: 'New document',
-          })}
-        </span>
-      </button>
+      <div className='flex-1 overflow-y-auto pb-1 px-1.5'>
+        {roots.length === 0 ? (
+          <div className='px-2 py-8 text-center text-[13px] text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'documentTree.empty',
+              defaultMessage: 'No documents yet',
+            })}
+          </div>
+        ) : (
+          <TreeNodeGroup
+            nodes={roots}
+            depth={0}
+            expandedIds={expandedIds}
+            currentDocId={currentDocId}
+            draggedId={draggedId}
+            dropTarget={dropTarget}
+            onNavigate={onNavigate}
+            onExpandNode={onExpandNode}
+            onAddChild={onAddChild}
+            onRenameDoc={onRenameDoc}
+            onDeleteDoc={onDeleteDoc}
+            onDragStart={setDraggedId}
+            onDragOver={(nodeId, position) =>
+              setDropTarget({ nodeId, position })
+            }
+            onDragEnd={() => {
+              setDraggedId(null)
+              setDropTarget(null)
+            }}
+            onDrop={handleDrop}
+          />
+        )}
+
+        {/* Add root document */}
+        <button
+          type='button'
+          className='flex items-center gap-1.5 w-full rounded-sm py-1.5 mt-0.5 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors'
+          style={{ paddingLeft: '8px', paddingRight: '6px' }}
+          onClick={() => onAddChild(null)}
+        >
+          <span className='shrink-0 flex items-center justify-center w-6 h-6'>
+            <Plus size={14} />
+          </span>
+          <span className='truncate'>
+            {intl.formatMessage({
+              id: 'documentTree.newDoc',
+              defaultMessage: 'New document',
+            })}
+          </span>
+        </button>
+      </div>
     </div>
   )
 }

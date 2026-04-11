@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
-import { Link2 } from 'lucide-react'
+import { Link2, PanelLeftOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DescriptionEditor } from '../DescriptionEditor'
+import { DescriptionEditor, type TocItem } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
 import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
+import { DocumentToc } from '../document/DocumentToc'
+import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/utils/getInitials'
 import type {
   ApiDocumentDetail,
@@ -23,6 +25,7 @@ import { CACHE_KEY } from '../../constants'
 import { documentsClient } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
 import { useTags } from '../../hooks/useTags'
+import { useDocTocCollapsed } from '../../hooks/useDocTocCollapsed'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -32,6 +35,8 @@ interface DocumentEditorPageProps {
   onEmojiChanged?: (id: string, emoji: string | null) => void
   members: WorkspaceMemberInfo[]
   currentMemberId: string | undefined
+  docTreeCollapsed: boolean
+  onExpandDocTree: () => void
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -62,6 +67,8 @@ export function DocumentEditorPage({
   onEmojiChanged,
   members,
   currentMemberId,
+  docTreeCollapsed,
+  onExpandDocTree,
 }: DocumentEditorPageProps) {
   const intl = useIntl()
   const initialCache = readCache<ApiDocumentDetail>(
@@ -79,7 +86,10 @@ export function DocumentEditorPage({
   const lastContentRef = useRef<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
+  const [tocItems, setTocItems] = useState<TocItem[]>([])
+  const scrollRootRef = useRef<HTMLDivElement>(null)
   const { tags: allTags, createTag } = useTags()
+  const { collapsed: tocCollapsed, toggle: toggleToc } = useDocTocCollapsed()
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -267,124 +277,165 @@ export function DocumentEditorPage({
 
   return (
     <>
-      <div className='flex-1 overflow-y-auto'>
-        <div className='max-w-3xl mx-auto px-8 py-6'>
-          {/* Top bar: breadcrumb + share button */}
-          <div className='flex items-center justify-between mb-4'>
-            <DocumentBreadcrumb
-              ancestors={ancestors}
-              current={{
-                id: doc.id,
-                title: title || doc.title,
-                emoji: doc.emoji,
-              }}
-              onNavigate={id => {
-                if (id) onNavigateToDocument(id)
-                else onNavigateToDocuments()
-              }}
-            />
-            <Button
-              size='sm'
-              className='gap-1.5 h-8'
-              onClick={() => setShareDialogOpen(true)}
+      <div ref={scrollRootRef} className='flex-1 overflow-y-auto'>
+        <div className='flex'>
+          {/* Table of contents — sticky left rail, only visible on wide screens.
+              Hidden entirely when the document has no headings. */}
+          {tocItems.length > 0 && (
+            <aside
+              className={cn(
+                'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-6 px-2',
+                tocCollapsed ? 'w-12' : 'w-52'
+              )}
             >
-              <Link2 size={14} />
-              {intl.formatMessage({
-                id: 'share.button',
-                defaultMessage: 'Share',
-              })}
-            </Button>
-          </div>
-
-          {/* Emoji + Title */}
-          <div className='flex items-start gap-3 mb-4'>
-            <EmojiPicker value={doc.emoji} onChange={handleEmojiChange} />
-            <input
-              type='text'
-              value={title}
-              onChange={e => handleTitleChange(e.target.value)}
-              className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
-              placeholder={intl.formatMessage({ id: 'documents.untitled' })}
-            />
-          </div>
-
-          {/* Metadata */}
-          <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-4 flex-wrap'>
-            {/* Creator */}
-            <span className='flex items-center gap-1.5 shrink-0'>
-              <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                {doc.createdBy.imageUrl ? (
-                  <img
-                    src={doc.createdBy.imageUrl}
-                    alt={doc.createdBy.name}
-                    className='w-full h-full object-cover'
+              <DocumentToc
+                items={tocItems}
+                collapsed={tocCollapsed}
+                onToggle={toggleToc}
+                scrollRoot={scrollRootRef.current}
+              />
+            </aside>
+          )}
+          <div className='flex-1 min-w-0'>
+            <div className='max-w-3xl mx-auto px-8 py-6'>
+              {/* Top bar: breadcrumb + share button */}
+              <div className='flex items-center justify-between mb-4'>
+                <div className='flex items-center gap-2 min-w-0'>
+                  {docTreeCollapsed && (
+                    <button
+                      type='button'
+                      onClick={onExpandDocTree}
+                      title={intl.formatMessage({
+                        id: 'documentTree.expand',
+                        defaultMessage: 'Expand sidebar (⌘+\\)',
+                      })}
+                      className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+                    >
+                      <PanelLeftOpen className='size-4' />
+                    </button>
+                  )}
+                  <DocumentBreadcrumb
+                    ancestors={ancestors}
+                    current={{
+                      id: doc.id,
+                      title: title || doc.title,
+                      emoji: doc.emoji,
+                    }}
+                    onNavigate={id => {
+                      if (id) onNavigateToDocument(id)
+                      else onNavigateToDocuments()
+                    }}
                   />
-                ) : (
-                  <span className='text-[9px] font-medium'>
-                    {getInitials(doc.createdBy.name)}
+                </div>
+                <Button
+                  size='sm'
+                  className='gap-1.5 h-8'
+                  onClick={() => setShareDialogOpen(true)}
+                >
+                  <Link2 size={14} />
+                  {intl.formatMessage({
+                    id: 'share.button',
+                    defaultMessage: 'Share',
+                  })}
+                </Button>
+              </div>
+
+              {/* Emoji + Title */}
+              <div className='flex items-start gap-3 mb-4'>
+                <EmojiPicker value={doc.emoji} onChange={handleEmojiChange} />
+                <input
+                  type='text'
+                  value={title}
+                  onChange={e => handleTitleChange(e.target.value)}
+                  className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
+                  placeholder={intl.formatMessage({ id: 'documents.untitled' })}
+                />
+              </div>
+
+              {/* Metadata */}
+              <div className='flex items-center gap-2.5 text-xs text-muted-foreground mb-4 flex-wrap'>
+                {/* Creator */}
+                <span className='flex items-center gap-1.5 shrink-0'>
+                  <span className='size-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                    {doc.createdBy.imageUrl ? (
+                      <img
+                        src={doc.createdBy.imageUrl}
+                        alt={doc.createdBy.name}
+                        className='w-full h-full object-cover'
+                      />
+                    ) : (
+                      <span className='text-[9px] font-medium'>
+                        {getInitials(doc.createdBy.name)}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-              <span>{doc.createdBy.name}</span>
-            </span>
-
-            <span className='text-border'>·</span>
-
-            {/* Updated time / Save status (save status temporarily replaces updated time) */}
-            <span className='shrink-0'>
-              {saveStatus === 'saving' || saveStatus === 'saved'
-                ? getSaveStatusText()
-                : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt, intl.locale)}`}
-            </span>
-
-            {/* Project badge (if linked) */}
-            {doc.project && (
-              <>
-                <span className='text-border'>·</span>
-                <span className='border border-border rounded px-2 py-0.5 shrink-0'>
-                  {doc.project.name}
+                  <span>{doc.createdBy.name}</span>
                 </span>
-              </>
-            )}
 
-            {/* Editor avatars (if any) */}
-            {doc.editors && doc.editors.length > 0 && (
-              <>
                 <span className='text-border'>·</span>
-                <CollaboratorAvatars editors={doc.editors} max={3} size={22} />
-              </>
-            )}
 
-            {/* Tags */}
-            {docTags.length > 0 && <span className='text-border'>·</span>}
-            <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
-              <TagPicker
-                selectedTags={docTags}
-                allTags={allTags}
-                onChange={handleTagsChange}
-                onCreateTag={createTag}
+                {/* Updated time / Save status (save status temporarily replaces updated time) */}
+                <span className='shrink-0'>
+                  {saveStatus === 'saving' || saveStatus === 'saved'
+                    ? getSaveStatusText()
+                    : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt, intl.locale)}`}
+                </span>
+
+                {/* Project badge (if linked) */}
+                {doc.project && (
+                  <>
+                    <span className='text-border'>·</span>
+                    <span className='border border-border rounded px-2 py-0.5 shrink-0'>
+                      {doc.project.name}
+                    </span>
+                  </>
+                )}
+
+                {/* Editor avatars (if any) */}
+                {doc.editors && doc.editors.length > 0 && (
+                  <>
+                    <span className='text-border'>·</span>
+                    <CollaboratorAvatars
+                      editors={doc.editors}
+                      max={3}
+                      size={22}
+                    />
+                  </>
+                )}
+
+                {/* Tags */}
+                {docTags.length > 0 && <span className='text-border'>·</span>}
+                <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
+                  <TagPicker
+                    selectedTags={docTags}
+                    allTags={allTags}
+                    onChange={handleTagsChange}
+                    onCreateTag={createTag}
+                  />
+                </div>
+
+                {/* Save error */}
+                {saveStatus === 'error' && (
+                  <>
+                    <span className='text-border'>·</span>
+                    <span className='italic text-destructive'>
+                      {getSaveStatusText()}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Editor */}
+              <DescriptionEditor
+                value={doc.content}
+                onCommit={handleContentCommit}
+                onChange={handleContentChange}
+                placeholder='Type / for commands…'
+                documentId={doc.id}
+                onTocUpdate={setTocItems}
               />
             </div>
-
-            {/* Save error */}
-            {saveStatus === 'error' && (
-              <>
-                <span className='text-border'>·</span>
-                <span className='italic text-destructive'>
-                  {getSaveStatusText()}
-                </span>
-              </>
-            )}
           </div>
-
-          {/* Editor */}
-          <DescriptionEditor
-            value={doc.content}
-            onCommit={handleContentCommit}
-            onChange={handleContentChange}
-            placeholder='Type / for commands…'
-            documentId={doc.id}
-          />
         </div>
       </div>
 
