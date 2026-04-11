@@ -21,6 +21,13 @@ describe('TaskSummaryStats', () => {
       subtaskCompletionRate: 75,
       agentStats: { total: 2, completed: 1, failed: 0, working: 1 },
       prStats: { total: 3, merged: 2, open: 1 },
+      risk: { level: 'healthy', score: 0, reasons: [] },
+      topBlockers: {
+        overdueTaskIds: [],
+        stalledTaskIds: [],
+        failingAgentTaskIds: [],
+        staleOpenPrNumbers: [],
+      },
     }
     expect(stats.totalTasks).toBe(10)
     expect(stats.overdueTasks.count).toBe(1)
@@ -39,6 +46,13 @@ describe('TaskSummaryStats', () => {
       subtaskCompletionRate: null,
       agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
       prStats: { total: 0, merged: 0, open: 0 },
+      risk: { level: 'healthy', score: 0, reasons: [] },
+      topBlockers: {
+        overdueTaskIds: [],
+        stalledTaskIds: [],
+        failingAgentTaskIds: [],
+        staleOpenPrNumbers: [],
+      },
     }
     expect(stats.avgCompletionTime).toBeNull()
     expect(stats.subtaskCompletionRate).toBeNull()
@@ -64,6 +78,13 @@ describe('ApiProjectSummary', () => {
         subtaskCompletionRate: null,
         agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
         prStats: { total: 0, merged: 0, open: 0 },
+        risk: { level: 'healthy', score: 0, reasons: [] },
+        topBlockers: {
+          overdueTaskIds: [],
+          stalledTaskIds: [],
+          failingAgentTaskIds: [],
+          staleOpenPrNumbers: [],
+        },
       },
     }
     expect(summary.projectId).toBe('proj-1')
@@ -90,6 +111,17 @@ describe('ApiWorkspaceSummary', () => {
         subtaskCompletionRate: 50,
         agentStats: { total: 4, completed: 3, failed: 1, working: 0 },
         prStats: { total: 6, merged: 4, open: 2 },
+        risk: {
+          level: 'watch',
+          score: 1,
+          reasons: [{ code: 'overdue_ratio_high', detail: 'overdue' }],
+        },
+        topBlockers: {
+          overdueTaskIds: ['t1', 't2'],
+          stalledTaskIds: [],
+          failingAgentTaskIds: [],
+          staleOpenPrNumbers: [],
+        },
         projectBreakdown: [
           {
             projectId: 'proj-1',
@@ -97,6 +129,11 @@ describe('ApiWorkspaceSummary', () => {
             totalTasks: 10,
             completedTasks: 5,
             overdueTasks: 1,
+            risk: {
+              level: 'watch',
+              score: 1,
+              reasons: [{ code: 'overdue_ratio_high', detail: 'overdue' }],
+            },
           },
         ],
       },
