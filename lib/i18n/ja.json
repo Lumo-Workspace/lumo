@@ -161,8 +161,6 @@
   "documentTree.expand": "サイドバーを開く (⌘+\\)",
   "documentTree.home": "すべてのドキュメント",
   "documentTree.allDocs": "Lumo ドキュメント",
-  "documentToc.title": "このページ",
-  "documentToc.empty": "見出しがまだありません",
   "documentToc.untitledHeading": "無題の見出し",
   "documentToc.collapse": "目次を隠す",
   "documentToc.expand": "目次を表示",

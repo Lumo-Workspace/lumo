@@ -161,8 +161,6 @@
   "documentTree.expand": "Développer la barre latérale (⌘+\\)",
   "documentTree.home": "Tous les documents",
   "documentTree.allDocs": "Lumo Docs",
-  "documentToc.title": "Sur cette page",
-  "documentToc.empty": "Aucun titre pour l'instant",
   "documentToc.untitledHeading": "Titre sans nom",
   "documentToc.collapse": "Masquer le sommaire",
   "documentToc.expand": "Afficher le sommaire",

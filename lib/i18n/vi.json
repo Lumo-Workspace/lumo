@@ -161,8 +161,6 @@
   "documentTree.expand": "Mở rộng thanh bên (⌘+\\)",
   "documentTree.home": "Tất cả tài liệu",
   "documentTree.allDocs": "Lumo Docs",
-  "documentToc.title": "Trong trang này",
-  "documentToc.empty": "Chưa có tiêu đề",
   "documentToc.untitledHeading": "Tiêu đề chưa đặt tên",
   "documentToc.collapse": "Ẩn mục lục",
   "documentToc.expand": "Hiện mục lục",

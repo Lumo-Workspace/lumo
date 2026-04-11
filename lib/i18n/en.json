@@ -176,8 +176,6 @@
   "documentTree.home": "All documents",
   "documentTree.allDocs": "Lumo Docs",
 
-  "documentToc.title": "On this page",
-  "documentToc.empty": "No headings yet",
   "documentToc.untitledHeading": "Untitled heading",
   "documentToc.collapse": "Hide table of contents",
   "documentToc.expand": "Show table of contents",

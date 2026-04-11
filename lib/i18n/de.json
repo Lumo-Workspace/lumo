@@ -161,8 +161,6 @@
   "documentTree.expand": "Seitenleiste ausklappen (⌘+\\)",
   "documentTree.home": "Alle Dokumente",
   "documentTree.allDocs": "Lumo Docs",
-  "documentToc.title": "Auf dieser Seite",
-  "documentToc.empty": "Noch keine Überschriften",
   "documentToc.untitledHeading": "Unbenannte Überschrift",
   "documentToc.collapse": "Inhaltsverzeichnis ausblenden",
   "documentToc.expand": "Inhaltsverzeichnis einblenden",

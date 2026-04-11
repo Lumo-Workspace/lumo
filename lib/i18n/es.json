@@ -161,8 +161,6 @@
   "documentTree.expand": "Expandir barra lateral (⌘+\\)",
   "documentTree.home": "Todos los documentos",
   "documentTree.allDocs": "Lumo Docs",
-  "documentToc.title": "En esta página",
-  "documentToc.empty": "Aún no hay encabezados",
   "documentToc.untitledHeading": "Encabezado sin título",
   "documentToc.collapse": "Ocultar tabla de contenidos",
   "documentToc.expand": "Mostrar tabla de contenidos",

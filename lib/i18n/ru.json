@@ -161,8 +161,6 @@
   "documentTree.expand": "Развернуть боковую панель (⌘+\\)",
   "documentTree.home": "Все документы",
   "documentTree.allDocs": "Lumo Docs",
-  "documentToc.title": "На этой странице",
-  "documentToc.empty": "Заголовков пока нет",
   "documentToc.untitledHeading": "Безымянный заголовок",
   "documentToc.collapse": "Скрыть оглавление",
   "documentToc.expand": "Показать оглавление",

@@ -433,6 +433,7 @@ export function DocumentEditorPage({
                 placeholder='Type / for commands…'
                 documentId={doc.id}
                 onTocUpdate={setTocItems}
+                tocScrollParent={() => scrollRootRef.current}
               />
             </div>
           </div>

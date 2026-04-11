@@ -176,8 +176,6 @@
   "documentTree.home": "所有文档",
   "documentTree.allDocs": "Lumo 文档",
 
-  "documentToc.title": "本页目录",
-  "documentToc.empty": "暂无标题",
   "documentToc.untitledHeading": "未命名标题",
   "documentToc.collapse": "隐藏目录",
   "documentToc.expand": "显示目录",

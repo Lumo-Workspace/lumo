@@ -120,6 +120,13 @@ interface DescriptionEditorProps {
    * tagged with `data-toc-id` so callers can `scrollIntoView()` them.
    */
   onTocUpdate?: (items: TocItem[]) => void
+  /**
+   * Returns the element that owns the editor's vertical scroll. The
+   * TableOfContents extension binds its scroll listener here so the
+   * "active heading" state stays in sync as the user scrolls. If omitted,
+   * the extension falls back to `window`.
+   */
+  tocScrollParent?: () => HTMLElement | null
 }
 
 /** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
@@ -225,6 +232,7 @@ export function DescriptionEditor({
   agentActors = [],
   documentId,
   onTocUpdate,
+  tocScrollParent,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -257,6 +265,10 @@ export function DescriptionEditor({
   useEffect(() => {
     onTocUpdateRef.current = onTocUpdate
   }, [onTocUpdate])
+  const tocScrollParentRef = useRef(tocScrollParent)
+  useEffect(() => {
+    tocScrollParentRef.current = tocScrollParent
+  }, [tocScrollParent])
   const tocEnabled = !!onTocUpdate
 
   // Stable DOM element for the bubble menu (created once, never changes)
@@ -305,6 +317,7 @@ export function DescriptionEditor({
       ...(tocEnabled
         ? [
             TableOfContents.configure({
+              scrollParent: () => tocScrollParentRef.current?.() ?? window,
               onUpdate: (content: TableOfContentData) => {
                 onTocUpdateRef.current?.(
                   content.map(item => ({

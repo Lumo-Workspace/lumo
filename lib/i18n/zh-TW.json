@@ -161,8 +161,6 @@
   "documentTree.expand": "展開側邊欄 (⌘+\\)",
   "documentTree.home": "所有文件",
   "documentTree.allDocs": "Lumo 文件",
-  "documentToc.title": "本頁目錄",
-  "documentToc.empty": "暫無標題",
   "documentToc.untitledHeading": "未命名標題",
   "documentToc.collapse": "隱藏目錄",
   "documentToc.expand": "顯示目錄",
