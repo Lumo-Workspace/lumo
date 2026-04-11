@@ -293,6 +293,13 @@ model Project {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  riskOverdueRatio    Float?
+  riskStalledDays     Int?
+  riskStalledMinCount Int?
+  riskAgentFailRatio  Float?
+  riskStalePrDays     Int?
+  riskThroughputDrop  Float?
+
   workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy       WorkspaceMember     @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
