@@ -3,12 +3,12 @@
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
 import { useProjectSummary } from '../../hooks/useSummary'
-import { SummaryReportCard } from './SummaryReportCard'
+import { BriefingCard } from './BriefingCard'
+import { TopBlockersList } from './TopBlockersList'
 import { StatsCardRow } from './StatsCardRow'
 import { StatusDistributionChart } from './StatusDistributionChart'
 import { MemberWorkloadChart } from './MemberWorkloadChart'
 import { CompletionTrendChart } from './CompletionTrendChart'
-import { AdditionalStats } from './AdditionalStats'
 import { SummaryHistory } from './SummaryHistory'
 import {
   Empty,
@@ -21,9 +21,13 @@ import {
 
 interface ProjectSummaryTabProps {
   projectId: string
+  onOpenTask?: (taskId: string) => void
 }
 
-export function ProjectSummaryTab({ projectId }: ProjectSummaryTabProps) {
+export function ProjectSummaryTab({
+  projectId,
+  onOpenTask,
+}: ProjectSummaryTabProps) {
   const intl = useIntl()
   const { summary, history, loading, error, loadHistory, historyLoading } =
     useProjectSummary(projectId)
@@ -64,25 +68,31 @@ export function ProjectSummaryTab({ projectId }: ProjectSummaryTabProps) {
     )
   }
 
+  const stats = summary.stats
+
   return (
     <div className='space-y-4 px-4 md:px-8 py-6'>
-      <SummaryReportCard
+      <BriefingCard
         tldr={summary.tldr}
         report={summary.report}
         generatedAt={summary.generatedAt}
+        risk={stats?.risk ?? null}
       />
 
-      <StatsCardRow stats={summary.stats} />
+      {stats?.topBlockers && (
+        <TopBlockersList
+          blockers={stats.topBlockers}
+          onOpenTask={onOpenTask ?? (() => {})}
+        />
+      )}
+
+      <StatsCardRow stats={stats} />
 
       <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-        <StatusDistributionChart
-          distribution={summary.stats.statusDistribution}
-        />
-        <MemberWorkloadChart workload={summary.stats.memberWorkload} />
-        <CompletionTrendChart trend={summary.stats.completionTrend} />
+        <StatusDistributionChart distribution={stats.statusDistribution} />
+        <MemberWorkloadChart workload={stats.memberWorkload} />
+        <CompletionTrendChart trend={stats.completionTrend} />
       </div>
-
-      <AdditionalStats stats={summary.stats} />
 
       <SummaryHistory
         history={history}
