@@ -141,7 +141,7 @@ export function computeRisk(
   return { level: levelFromScore(score), score, reasons }
 }
 
-export function collectTopBlockers(_input: {
+export function collectTopBlockers(input: {
   tasks: Array<{
     id: string
     status: string
@@ -153,7 +153,49 @@ export function collectTopBlockers(_input: {
   now: Date
   config: RiskConfig
 }): TopBlockers {
-  throw new Error('collectTopBlockers not implemented')
+  const { tasks, agents, prs, now, config } = input
+  const cap = <T>(arr: T[]) => arr.slice(0, 10)
+
+  const stalledCutoff = new Date(
+    now.getTime() - config.stalledDays * 24 * 60 * 60 * 1000
+  )
+  const stalePrCutoff = new Date(
+    now.getTime() - config.stalePrDays * 24 * 60 * 60 * 1000
+  )
+
+  const overdueTaskIds = cap(
+    tasks
+      .filter(t => t.dueDate !== null && t.dueDate < now && t.status !== 'DONE')
+      .map(t => t.id)
+  )
+
+  const stalledTaskIds = cap(
+    tasks
+      .filter(
+        t =>
+          t.status !== 'DONE' &&
+          t.status !== 'CANCELLED' &&
+          t.updatedAt < stalledCutoff
+      )
+      .map(t => t.id)
+  )
+
+  const failingAgentTaskIds = cap(
+    agents.filter(a => a.agentStatus === 'FAILED').map(a => a.taskId)
+  )
+
+  const staleOpenPrNumbers = cap(
+    prs
+      .filter(p => p.state === 'open' && p.createdAt < stalePrCutoff)
+      .map(p => p.number)
+  )
+
+  return {
+    overdueTaskIds,
+    stalledTaskIds,
+    failingAgentTaskIds,
+    staleOpenPrNumbers,
+  }
 }
 
 // Exported helpers used by aggregate workspace risk computation
