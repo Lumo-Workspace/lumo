@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { summariesClient } from '@/lib/api-client/summaries'
 import { useGenerationPoller } from './useGenerationPoller'
 import { ApiClientError } from '@/lib/api-client/base'
@@ -21,6 +21,12 @@ export function useReportRefresh(
   const [jobId, setJobId] = useState<string | null>(null)
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
 
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
+
+  const scopeType = scope.type
+  const scopeProjectId = scope.type === 'project' ? scope.projectId : undefined
+
   const poller = useGenerationPoller(jobId)
 
   // React to poller completing/failing
@@ -28,12 +34,12 @@ export function useReportRefresh(
     if (poller.status === 'completed') {
       setJobId(null)
       setState('idle')
-      onComplete()
+      onCompleteRef.current()
     } else if (poller.status === 'failed') {
       setJobId(null)
       setState('idle')
     }
-  }, [poller.status, onComplete])
+  }, [poller.status])
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -51,8 +57,8 @@ export function useReportRefresh(
     setState('generating')
     try {
       const result =
-        scope.type === 'project'
-          ? await summariesClient.generateProject(scope.projectId)
+        scopeType === 'project' && scopeProjectId
+          ? await summariesClient.generateProject(scopeProjectId)
           : await summariesClient.generateWorkspace()
 
       setJobId(result.jobId)
@@ -72,7 +78,7 @@ export function useReportRefresh(
         setState('idle')
       }
     }
-  }, [state, scope])
+  }, [state, scopeType, scopeProjectId])
 
   return { state, cooldownSeconds, trigger }
 }

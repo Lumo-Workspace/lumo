@@ -17,64 +17,60 @@ export function useProjectRealtimeStats(
   const [stats, setStats] = useState<TaskSummaryStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const fetch = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await statsClient.getProjectStats<{
-        stats: TaskSummaryStats
-      }>(projectId)
-      setStats(data.stats)
-    } catch {
-      setError('Failed to load stats')
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId])
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    fetch().then(() => {
-      if (cancelled) setStats(null)
-    })
+    setLoading(true)
+    setError(null)
+    statsClient
+      .getProjectStats<{ stats: TaskSummaryStats }>(projectId)
+      .then(data => {
+        if (!cancelled) setStats(data.stats)
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load stats')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [fetch])
+  }, [projectId, tick])
 
-  return { stats, loading, error, refetch: fetch }
+  const refetch = useCallback(() => setTick(t => t + 1), [])
+
+  return { stats, loading, error, refetch }
 }
 
 export function useWorkspaceRealtimeStats(): UseRealtimeStatsReturn<WorkspaceSummaryStats> {
   const [stats, setStats] = useState<WorkspaceSummaryStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const fetch = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await statsClient.getWorkspaceStats<{
-        stats: WorkspaceSummaryStats
-      }>()
-      setStats(data.stats)
-    } catch {
-      setError('Failed to load stats')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    fetch().then(() => {
-      if (cancelled) setStats(null)
-    })
+    setLoading(true)
+    setError(null)
+    statsClient
+      .getWorkspaceStats<{ stats: WorkspaceSummaryStats }>()
+      .then(data => {
+        if (!cancelled) setStats(data.stats)
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load stats')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [fetch])
+  }, [tick])
 
-  return { stats, loading, error, refetch: fetch }
+  const refetch = useCallback(() => setTick(t => t + 1), [])
+
+  return { stats, loading, error, refetch }
 }
