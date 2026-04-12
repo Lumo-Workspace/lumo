@@ -87,8 +87,16 @@ export const API = {
   },
   summaries: {
     generate: '/api/summaries/generate',
+    generateProject: (projectId: string) =>
+      `/api/summaries/generate/project/${projectId}`,
+    generateWorkspace: '/api/summaries/generate/workspace',
+    jobStatus: (jobId: string) => `/api/summaries/generate/status/${jobId}`,
     project: (projectId: string) => `/api/summaries/project/${projectId}`,
     workspace: '/api/summaries/workspace',
+  },
+  stats: {
+    project: (projectId: string) => `/api/stats/project/${projectId}`,
+    workspace: '/api/stats/workspace',
   },
   pullRequests: {
     search: '/api/pull-requests/search',

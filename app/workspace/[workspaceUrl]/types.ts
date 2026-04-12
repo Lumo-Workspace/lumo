@@ -123,6 +123,12 @@ export interface ApiProject {
   _count: { tasks: number }
   inProgressCount: number
   kanbanViewId?: string
+  riskOverdueRatio?: number | null
+  riskStalledDays?: number | null
+  riskStalledMinCount?: number | null
+  riskAgentFailRatio?: number | null
+  riskStalePrDays?: number | null
+  riskThroughputDrop?: number | null
 }
 
 export type AgentStatusValue =

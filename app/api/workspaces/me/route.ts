@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
-import { createWorkspaceSchema } from '@/lib/validation/schemas'
+import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 import { workspaceService } from '@/lib/services'
 
 /**
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest) {
     if (ws instanceof NextResponse) return ws
 
     const body = await request.json()
-    const parsed = createWorkspaceSchema.partial().safeParse(body)
+    const parsed = updateWorkspaceSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const updated = await workspaceService.updateWorkspace(

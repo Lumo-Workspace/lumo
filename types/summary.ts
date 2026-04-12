@@ -1,3 +1,30 @@
+export type RiskLevel = 'healthy' | 'watch' | 'at-risk'
+
+export type RiskReasonCode =
+  | 'overdue_ratio_high'
+  | 'stalled_tasks'
+  | 'agent_failure_rate'
+  | 'stale_open_prs'
+  | 'throughput_drop'
+
+export interface RiskReason {
+  code: RiskReasonCode
+  detail: string
+}
+
+export interface RiskAssessment {
+  level: RiskLevel
+  score: number
+  reasons: RiskReason[]
+}
+
+export interface TopBlockers {
+  overdueTaskIds: string[]
+  stalledTaskIds: string[]
+  failingAgentTaskIds: string[]
+  staleOpenPrNumbers: number[]
+}
+
 export interface TaskSummaryStats {
   totalTasks: number
   statusDistribution: Record<string, number>
@@ -19,6 +46,8 @@ export interface TaskSummaryStats {
     working: number
   }
   prStats: { total: number; merged: number; open: number }
+  risk: RiskAssessment
+  topBlockers: TopBlockers
 }
 
 export interface WorkspaceSummaryStats extends TaskSummaryStats {
@@ -28,6 +57,7 @@ export interface WorkspaceSummaryStats extends TaskSummaryStats {
     totalTasks: number
     completedTasks: number
     overdueTasks: number
+    risk: RiskAssessment
   }>
 }
 

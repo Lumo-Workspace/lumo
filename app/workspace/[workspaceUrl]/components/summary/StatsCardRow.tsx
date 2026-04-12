@@ -40,7 +40,7 @@ export function StatsCardRow({ stats }: StatsCardRowProps) {
     stats.avgCompletionTime !== null
       ? intl.formatMessage(
           { id: 'summary.hours' },
-          { count: stats.avgCompletionTime }
+          { count: Math.round(stats.avgCompletionTime * 10) / 10 }
         )
       : 'N/A'
 
