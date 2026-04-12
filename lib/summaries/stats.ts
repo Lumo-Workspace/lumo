@@ -64,7 +64,12 @@ export async function aggregateProjectStats(
         dueDate: { lt: now },
         status: { not: 'DONE' },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        team: { select: { identifier: true } },
+      },
     }),
     prisma.task.groupBy({
       by: ['assigneeActorId', 'status'],
@@ -123,15 +128,24 @@ export async function aggregateProjectStats(
       },
       select: {
         id: true,
+        number: true,
+        title: true,
         status: true,
         dueDate: true,
         updatedAt: true,
+        team: { select: { identifier: true } },
       },
     }),
     // Failing agent tasks (for top blockers)
     prisma.task.findMany({
       where: { projectId, agentStatus: 'FAILED' },
-      select: { id: true, agentStatus: true },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        agentStatus: true,
+        team: { select: { identifier: true } },
+      },
     }),
     // Open PRs (for stale PR signal + top blockers)
     prisma.pullRequest.findMany({
@@ -154,6 +168,7 @@ export async function aggregateProjectStats(
   }
 
   const overdueTaskIds = overdueTasks.map(t => t.id)
+  // overdueTasks from query now also has title, used later for topBlockers
 
   const actorIdSet = new Set(
     (assigneeGroups as Array<{ assigneeActorId: string | null }>)
@@ -299,12 +314,16 @@ export async function aggregateProjectStats(
   const topBlockers = collectTopBlockers({
     tasks: stalledCandidates.map(t => ({
       id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
       status: t.status,
       dueDate: t.dueDate,
       updatedAt: t.updatedAt,
     })),
     agents: failingAgentTasks.map(t => ({
       taskId: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
       agentStatus: t.agentStatus,
     })),
     prs: openPrs,
@@ -314,7 +333,13 @@ export async function aggregateProjectStats(
 
   // Re-populate overdue blockers from the overdue query (collectTopBlockers
   // only saw the stalled subset)
-  topBlockers.overdueTaskIds = overdueTaskIds.slice(0, 10)
+  topBlockers.overdueTaskIds = overdueTasks
+    .slice(0, 10)
+    .map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+    }))
 
   return { ...baseStats, risk, topBlockers }
 }

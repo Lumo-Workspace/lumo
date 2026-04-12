@@ -51,8 +51,13 @@ describe('TopBlockersList', () => {
     render(
       <TopBlockersList
         blockers={{
-          overdueTaskIds: ['t1', 't2'],
-          stalledTaskIds: ['t3'],
+          overdueTaskIds: [
+            { id: 't1', identifier: 'LUM-1', title: 'Fix login' },
+            { id: 't2', identifier: 'LUM-2', title: 'Update API' },
+          ],
+          stalledTaskIds: [
+            { id: 't3', identifier: 'LUM-3', title: 'Refactor auth' },
+          ],
           failingAgentTaskIds: [],
           staleOpenPrNumbers: [],
         }}
@@ -61,21 +66,25 @@ describe('TopBlockersList', () => {
     )
     expect(screen.getByText(/Overdue tasks/)).toBeInTheDocument()
     expect(screen.getByText(/Stalled tasks/)).toBeInTheDocument()
-    fireEvent.click(screen.getByText('t1'))
+    fireEvent.click(screen.getByText('LUM-1 Fix login'))
     expect(onOpenTask).toHaveBeenCalledWith('t1')
   })
 
   it('caps items at 5 and shows +N more', () => {
-    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    const items = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((id, i) => ({
+      id,
+      identifier: `LUM-${i + 1}`,
+      title: `Task ${id}`,
+    }))
     render(
       <TopBlockersList
-        blockers={{ ...allEmpty, overdueTaskIds: ids }}
+        blockers={{ ...allEmpty, overdueTaskIds: items }}
         onOpenTask={() => {}}
       />
     )
-    expect(screen.getByText('a')).toBeInTheDocument()
-    expect(screen.getByText('e')).toBeInTheDocument()
-    expect(screen.queryByText('f')).not.toBeInTheDocument()
+    expect(screen.getByText('LUM-1 Task a')).toBeInTheDocument()
+    expect(screen.getByText('LUM-5 Task e')).toBeInTheDocument()
+    expect(screen.queryByText('LUM-6 Task f')).not.toBeInTheDocument()
     expect(screen.getByText('+2 more')).toBeInTheDocument()
   })
 })

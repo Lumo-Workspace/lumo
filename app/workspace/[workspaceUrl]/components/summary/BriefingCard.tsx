@@ -59,9 +59,19 @@ export function BriefingCard({
         )}
       </header>
 
-      <p className='text-base font-medium text-zinc-800 dark:text-zinc-200'>
-        {tldr}
-      </p>
+      {tldr ? (
+        <p className='text-base font-medium text-zinc-800 dark:text-zinc-200'>
+          {tldr}
+        </p>
+      ) : (
+        <p className='text-sm text-zinc-400 dark:text-zinc-500 italic'>
+          {intl.formatMessage({
+            id: 'summary.noReport',
+            defaultMessage:
+              'No report generated yet. Click "Refresh" to generate one.',
+          })}
+        </p>
+      )}
 
       {hasStructured ? (
         <>

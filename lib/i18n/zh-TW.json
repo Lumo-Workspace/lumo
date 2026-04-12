@@ -274,6 +274,7 @@
   "summary.cooldown": "{seconds}秒後可重試",
   "summary.refreshSuccess": "報告已刷新",
   "summary.refreshFailed": "刷新報告失敗",
+  "summary.noReport": "尚未產生報告，點擊「刷新報告」即可產生。",
   "common.delete": "刪除",
   "common.edit": "編輯",
   "common.remove": "移除",

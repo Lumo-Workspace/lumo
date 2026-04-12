@@ -24,21 +24,30 @@ function useBlockerGroups(blockers: TopBlockers): BlockerGroup[] {
       key: 'overdue',
       labelKey: 'summary.blockerGroup.overdue',
       Icon: AlertTriangle,
-      items: blockers.overdueTaskIds.map(id => ({ id, label: id })),
+      items: blockers.overdueTaskIds.map(t => ({
+        id: t.id,
+        label: `${t.identifier} ${t.title}`,
+      })),
       kind: 'task',
     },
     {
       key: 'stalled',
       labelKey: 'summary.blockerGroup.stalled',
       Icon: Clock,
-      items: blockers.stalledTaskIds.map(id => ({ id, label: id })),
+      items: blockers.stalledTaskIds.map(t => ({
+        id: t.id,
+        label: `${t.identifier} ${t.title}`,
+      })),
       kind: 'task',
     },
     {
       key: 'failing-agents',
       labelKey: 'summary.blockerGroup.failingAgents',
       Icon: Bot,
-      items: blockers.failingAgentTaskIds.map(id => ({ id, label: id })),
+      items: blockers.failingAgentTaskIds.map(t => ({
+        id: t.id,
+        label: `${t.identifier} ${t.title}`,
+      })),
       kind: 'task',
     },
     {

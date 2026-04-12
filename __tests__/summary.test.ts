@@ -117,7 +117,10 @@ describe('ApiWorkspaceSummary', () => {
           reasons: [{ code: 'overdue_ratio_high', detail: 'overdue' }],
         },
         topBlockers: {
-          overdueTaskIds: ['t1', 't2'],
+          overdueTaskIds: [
+            { id: 't1', identifier: 'LUM-1', title: 'Task 1' },
+            { id: 't2', identifier: 'LUM-2', title: 'Task 2' },
+          ],
           stalledTaskIds: [],
           failingAgentTaskIds: [],
           staleOpenPrNumbers: [],

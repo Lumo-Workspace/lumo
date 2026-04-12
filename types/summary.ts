@@ -18,10 +18,16 @@ export interface RiskAssessment {
   reasons: RiskReason[]
 }
 
+export interface TopBlockerItem {
+  id: string
+  identifier: string
+  title: string
+}
+
 export interface TopBlockers {
-  overdueTaskIds: string[]
-  stalledTaskIds: string[]
-  failingAgentTaskIds: string[]
+  overdueTaskIds: TopBlockerItem[]
+  stalledTaskIds: TopBlockerItem[]
+  failingAgentTaskIds: TopBlockerItem[]
   staleOpenPrNumbers: number[]
 }
 

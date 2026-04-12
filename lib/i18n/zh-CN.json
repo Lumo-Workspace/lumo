@@ -291,6 +291,7 @@
   "summary.cooldown": "{seconds}秒后可重试",
   "summary.refreshSuccess": "报告已刷新",
   "summary.refreshFailed": "刷新报告失败",
+  "summary.noReport": "尚未生成报告，点击「刷新报告」即可生成。",
 
   "common.delete": "删除",
   "common.edit": "编辑",

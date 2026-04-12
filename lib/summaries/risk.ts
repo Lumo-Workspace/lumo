@@ -144,11 +144,18 @@ export function computeRisk(
 export function collectTopBlockers(input: {
   tasks: Array<{
     id: string
+    identifier: string
+    title: string
     status: string
     dueDate: Date | null
     updatedAt: Date
   }>
-  agents: Array<{ taskId: string; agentStatus: string | null }>
+  agents: Array<{
+    taskId: string
+    identifier: string
+    title: string
+    agentStatus: string | null
+  }>
   prs: Array<{ number: number; state: string; createdAt: Date }>
   now: Date
   config: RiskConfig
@@ -166,7 +173,7 @@ export function collectTopBlockers(input: {
   const overdueTaskIds = cap(
     tasks
       .filter(t => t.dueDate !== null && t.dueDate < now && t.status !== 'DONE')
-      .map(t => t.id)
+      .map(t => ({ id: t.id, identifier: t.identifier, title: t.title }))
   )
 
   const stalledTaskIds = cap(
@@ -177,11 +184,13 @@ export function collectTopBlockers(input: {
           t.status !== 'CANCELLED' &&
           t.updatedAt < stalledCutoff
       )
-      .map(t => t.id)
+      .map(t => ({ id: t.id, identifier: t.identifier, title: t.title }))
   )
 
   const failingAgentTaskIds = cap(
-    agents.filter(a => a.agentStatus === 'FAILED').map(a => a.taskId)
+    agents
+      .filter(a => a.agentStatus === 'FAILED')
+      .map(a => ({ id: a.taskId, identifier: a.identifier, title: a.title }))
   )
 
   const staleOpenPrNumbers = cap(

@@ -291,6 +291,7 @@
   "summary.cooldown": "Retry in {seconds}s",
   "summary.refreshSuccess": "Report refreshed",
   "summary.refreshFailed": "Failed to refresh report",
+  "summary.noReport": "No report generated yet. Click \"Refresh\" to generate one.",
 
   "common.delete": "Delete",
   "common.edit": "Edit",
