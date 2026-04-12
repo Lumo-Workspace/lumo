@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
 import type {
   TaskSummaryStats,
   WorkspaceSummaryStats,
@@ -174,11 +175,22 @@ export async function aggregateProjectStats(
       : []
 
   const actorNameMap = new Map<string, string>()
+  const clerkIds = actors
+    .filter(a => a.type !== 'AGENT' && a.member?.clerkId)
+    .map(a => a.member!.clerkId)
+  const clerkNameMap =
+    clerkIds.length > 0 ? await enrichClerkUsers(clerkIds) : new Map()
+
   for (const actor of actors) {
-    const name =
-      actor.type === 'AGENT' && actor.agent
-        ? actor.agent.name
-        : (actor.member?.clerkId ?? actor.id)
+    let name: string
+    if (actor.type === 'AGENT' && actor.agent) {
+      name = actor.agent.name
+    } else if (actor.member?.clerkId) {
+      name =
+        clerkNameMap.get(actor.member.clerkId)?.name ?? actor.member.clerkId
+    } else {
+      name = actor.id
+    }
     actorNameMap.set(actor.id, name)
   }
 

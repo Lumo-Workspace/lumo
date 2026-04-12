@@ -4,6 +4,11 @@ jest.mock('@prisma/adapter-pg', () => ({
   PrismaPg: jest.fn().mockImplementation(() => ({})),
 }))
 
+// Mock clerk-helpers to avoid Clerk SDK import
+jest.mock('@/lib/utils/clerk-helpers', () => ({
+  enrichClerkUsers: jest.fn().mockResolvedValue(new Map()),
+}))
+
 // Mock prisma
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
