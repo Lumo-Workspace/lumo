@@ -949,3 +949,14 @@ model DocumentTag {
   @@index([tagId])
   @@map("document_tags")
 }
+
+model GenerationJob {
+  id        String   @id @default(cuid())
+  type      String   // 'project' | 'workspace'
+  targetId  String   // projectId or workspaceId
+  status    String   @default("pending") // pending | completed | failed
+  summaryId String?  // populated on success
+  createdAt DateTime @default(now())
+
+  @@index([targetId, createdAt(sort: Desc)])
+}
