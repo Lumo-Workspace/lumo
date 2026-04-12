@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { summaryService } from '@/lib/services/summary.service'
+import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import {
   aggregateProjectStats,
   aggregateWorkspaceStats,
@@ -55,6 +56,19 @@ export async function GET(req: NextRequest) {
       const projectOverrides = new Map<string, ProjectRiskOverride | null>()
 
       for (const project of workspace.projects) {
+        // Skip if recently generated (manually or by prior cron run)
+        const recentJob = await generationJobRepository.findRecentByTarget(
+          project.id,
+          5
+        )
+        if (recentJob?.status === 'completed') {
+          projectSummaries.push({
+            projectId: project.id,
+            skipped: true,
+          })
+          continue
+        }
+
         const override: ProjectRiskOverride = {
           riskOverdueRatio: project.riskOverdueRatio,
           riskStalledDays: project.riskStalledDays,
@@ -86,6 +100,15 @@ export async function GET(req: NextRequest) {
             projectId: project.id,
             summaryId: summary.id,
           })
+          await generationJobRepository
+            .create('project', project.id)
+            .then(job =>
+              generationJobRepository.updateStatus(
+                job.id,
+                'completed',
+                summary.id
+              )
+            )
         } catch (err) {
           console.error(
             `GET /api/summaries/generate project error [${project.id}]:`,
@@ -115,6 +138,15 @@ export async function GET(req: NextRequest) {
         tldr,
         report
       )
+      await generationJobRepository
+        .create('workspace', workspace.id)
+        .then(job =>
+          generationJobRepository.updateStatus(
+            job.id,
+            'completed',
+            workspaceSummary.id
+          )
+        )
 
       results.push({
         workspaceId: workspace.id,
@@ -122,6 +154,9 @@ export async function GET(req: NextRequest) {
         projects: projectSummaries,
       })
     }
+
+    // Clean up old generation jobs (older than 7 days)
+    await generationJobRepository.deleteOlderThan(7)
 
     return NextResponse.json({ results })
   } catch (error) {
