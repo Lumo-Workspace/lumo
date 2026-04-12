@@ -161,6 +161,13 @@ model Workspace {
   summaryEnabled   Boolean          @default(true)
   summaryLocale    String           @default("en")
 
+  riskOverdueRatio    Float @default(0.25)
+  riskStalledDays     Int   @default(7)
+  riskStalledMinCount Int   @default(3)
+  riskAgentFailRatio  Float @default(0.30)
+  riskStalePrDays     Int   @default(3)
+  riskThroughputDrop  Float @default(0.50)
+
   @@map("workspaces")
 }
 
@@ -285,6 +292,13 @@ model Project {
   isIdea            Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  riskOverdueRatio    Float?
+  riskStalledDays     Int?
+  riskStalledMinCount Int?
+  riskAgentFailRatio  Float?
+  riskStalePrDays     Int?
+  riskThroughputDrop  Float?
 
   workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -934,4 +948,15 @@ model DocumentTag {
   @@id([documentId, tagId])
   @@index([tagId])
   @@map("document_tags")
+}
+
+model GenerationJob {
+  id        String   @id @default(cuid())
+  type      String   // 'project' | 'workspace'
+  targetId  String   // projectId or workspaceId
+  status    String   @default("pending") // pending | completed | failed
+  summaryId String?  // populated on success
+  createdAt DateTime @default(now())
+
+  @@index([targetId, createdAt(sort: Desc)])
 }

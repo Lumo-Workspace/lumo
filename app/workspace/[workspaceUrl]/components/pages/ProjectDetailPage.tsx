@@ -35,6 +35,8 @@ import {
 } from '../../types'
 import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../fields'
 import { ProjectSummaryTab } from '../summary/ProjectSummaryTab'
+import { ProjectRiskOverrideCard } from '../summary/ProjectRiskOverrideCard'
+import { workspacesClient } from '@/lib/api-client/workspaces'
 import { DescriptionEditor } from '../DescriptionEditor'
 import { BoardView } from '../board/BoardView'
 import { ProjectTaskCard } from '../board/SortableTaskCard'
@@ -154,6 +156,48 @@ export function ProjectDetailPage({
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Workspace risk defaults for project-level overrides
+  const [workspaceRiskDefaults, setWorkspaceRiskDefaults] = useState<{
+    riskOverdueRatio: number
+    riskStalledDays: number
+    riskStalledMinCount: number
+    riskAgentFailRatio: number
+    riskStalePrDays: number
+    riskThroughputDrop: number
+  } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    workspacesClient
+      .getMe<{
+        workspace: {
+          riskOverdueRatio?: number
+          riskStalledDays?: number
+          riskStalledMinCount?: number
+          riskAgentFailRatio?: number
+          riskStalePrDays?: number
+          riskThroughputDrop?: number
+        }
+      }>()
+      .then(data => {
+        if (cancelled) return
+        const w = data.workspace
+        setWorkspaceRiskDefaults({
+          riskOverdueRatio: w.riskOverdueRatio ?? 0.3,
+          riskStalledDays: w.riskStalledDays ?? 7,
+          riskStalledMinCount: w.riskStalledMinCount ?? 3,
+          riskAgentFailRatio: w.riskAgentFailRatio ?? 0.3,
+          riskStalePrDays: w.riskStalePrDays ?? 3,
+          riskThroughputDrop: w.riskThroughputDrop ?? 0.5,
+        })
+      })
+      .catch(() => {
+        // ignore — card will simply not mount
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const {
     options: displayOptions,
     setCompletedFilter,
@@ -504,6 +548,22 @@ export function ProjectDetailPage({
                     )}
                   />
                 </div>
+
+                {/* Risk thresholds override */}
+                {workspaceRiskDefaults && (
+                  <ProjectRiskOverrideCard
+                    projectId={project.id}
+                    workspaceDefaults={workspaceRiskDefaults}
+                    initialOverrides={{
+                      riskOverdueRatio: project.riskOverdueRatio ?? null,
+                      riskStalledDays: project.riskStalledDays ?? null,
+                      riskStalledMinCount: project.riskStalledMinCount ?? null,
+                      riskAgentFailRatio: project.riskAgentFailRatio ?? null,
+                      riskStalePrDays: project.riskStalePrDays ?? null,
+                      riskThroughputDrop: project.riskThroughputDrop ?? null,
+                    }}
+                  />
+                )}
 
                 {/* Repositories */}
                 <div className='space-y-2'>

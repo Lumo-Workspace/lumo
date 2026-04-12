@@ -64,7 +64,19 @@ export const summaryRepository = {
         ...(workspaceId ? { id: workspaceId } : {}),
       },
       include: {
-        projects: true,
+        projects: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            riskOverdueRatio: true,
+            riskStalledDays: true,
+            riskStalledMinCount: true,
+            riskAgentFailRatio: true,
+            riskStalePrDays: true,
+            riskThroughputDrop: true,
+          },
+        },
         summaries: {
           orderBy: { generatedAt: 'desc' },
           take: 1,

@@ -1,0 +1,6 @@
+ALTER TABLE "workspaces" ADD COLUMN "riskOverdueRatio"    DOUBLE PRECISION NOT NULL DEFAULT 0.25;
+ALTER TABLE "workspaces" ADD COLUMN "riskStalledDays"     INTEGER          NOT NULL DEFAULT 7;
+ALTER TABLE "workspaces" ADD COLUMN "riskStalledMinCount" INTEGER          NOT NULL DEFAULT 3;
+ALTER TABLE "workspaces" ADD COLUMN "riskAgentFailRatio"  DOUBLE PRECISION NOT NULL DEFAULT 0.30;
+ALTER TABLE "workspaces" ADD COLUMN "riskStalePrDays"     INTEGER          NOT NULL DEFAULT 3;
+ALTER TABLE "workspaces" ADD COLUMN "riskThroughputDrop"  DOUBLE PRECISION NOT NULL DEFAULT 0.50;

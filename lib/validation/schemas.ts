@@ -48,6 +48,15 @@ export const createWorkspaceSchema = z.object({
   summaryLocale: z.string().max(10).optional(),
 })
 
+export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
+  riskOverdueRatio: z.number().min(0).max(1).optional(),
+  riskStalledDays: z.number().int().min(1).max(30).optional(),
+  riskStalledMinCount: z.number().int().min(1).max(50).optional(),
+  riskAgentFailRatio: z.number().min(0).max(1).optional(),
+  riskStalePrDays: z.number().int().min(1).max(30).optional(),
+  riskThroughputDrop: z.number().min(0).max(1).optional(),
+})
+
 // ─── Project ────────────────────────────────────────────────────────────────
 
 export const createProjectSchema = z.object({
@@ -65,6 +74,12 @@ export const updateProjectSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   isIdea: z.boolean().optional(),
   defaultReviewerId: z.string().nullable().optional(),
+  riskOverdueRatio: z.number().min(0).max(1).nullable().optional(),
+  riskStalledDays: z.number().int().min(1).max(30).nullable().optional(),
+  riskStalledMinCount: z.number().int().min(1).max(50).nullable().optional(),
+  riskAgentFailRatio: z.number().min(0).max(1).nullable().optional(),
+  riskStalePrDays: z.number().int().min(1).max(30).nullable().optional(),
+  riskThroughputDrop: z.number().min(0).max(1).nullable().optional(),
 })
 
 // ─── Task ───────────────────────────────────────────────────────────────────

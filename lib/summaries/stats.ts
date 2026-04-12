@@ -1,10 +1,35 @@
 import { prisma } from '@/lib/db/prisma'
-import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
+import type {
+  TaskSummaryStats,
+  WorkspaceSummaryStats,
+  RiskAssessment,
+  TopBlockers,
+  RiskLevel,
+  RiskReason,
+} from '@/types/summary'
+import {
+  computeRisk,
+  collectTopBlockers,
+  type RiskConfig,
+  type RiskSignals,
+} from './risk'
+
+const EMPTY_RISK: RiskAssessment = { level: 'healthy', score: 0, reasons: [] }
+const EMPTY_BLOCKERS: TopBlockers = {
+  overdueTaskIds: [],
+  stalledTaskIds: [],
+  failingAgentTaskIds: [],
+  staleOpenPrNumbers: [],
+}
 
 export async function aggregateProjectStats(
-  projectId: string
+  projectId: string,
+  config: RiskConfig
 ): Promise<TaskSummaryStats> {
   const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
   const [
     statusGroups,
@@ -18,22 +43,21 @@ export async function aggregateProjectStats(
     prMerged,
     prOpen,
     completedRecently,
+    // New queries for risk signals and top blockers
+    stalledCandidates,
+    failingAgentTasks,
+    openPrs,
   ] = await Promise.all([
-    // Status distribution
     prisma.task.groupBy({
       by: ['status'],
       where: { projectId },
       _count: { _all: true },
     }),
-
-    // Priority distribution
     prisma.task.groupBy({
       by: ['priority'],
       where: { projectId },
       _count: { _all: true },
     }),
-
-    // Overdue tasks
     prisma.task.findMany({
       where: {
         projectId,
@@ -42,8 +66,6 @@ export async function aggregateProjectStats(
       },
       select: { id: true },
     }),
-
-    // Member workload grouped by assignee + status
     prisma.task.groupBy({
       by: ['assigneeActorId', 'status'],
       where: {
@@ -52,14 +74,10 @@ export async function aggregateProjectStats(
       },
       _count: { _all: true },
     }),
-
-    // DONE tasks for avg completion time
     prisma.task.findMany({
       where: { projectId, status: 'DONE' },
       select: { createdAt: true, updatedAt: true },
     }),
-
-    // Subtasks for completion rate
     prisma.task.findMany({
       where: {
         projectId,
@@ -67,8 +85,6 @@ export async function aggregateProjectStats(
       },
       select: { status: true },
     }),
-
-    // Agent stats
     prisma.task.groupBy({
       by: ['agentStatus'],
       where: {
@@ -77,23 +93,13 @@ export async function aggregateProjectStats(
       },
       _count: { _all: true },
     }),
-
-    // PR total
-    prisma.pullRequest.count({
-      where: { task: { projectId } },
-    }),
-
-    // PR merged
+    prisma.pullRequest.count({ where: { task: { projectId } } }),
     prisma.pullRequest.count({
       where: { task: { projectId }, state: 'merged' },
     }),
-
-    // PR open
     prisma.pullRequest.count({
       where: { task: { projectId }, state: 'open' },
     }),
-
-    // Completed tasks in last 30 days for trend
     prisma.task.findMany({
       where: {
         projectId,
@@ -104,9 +110,36 @@ export async function aggregateProjectStats(
       },
       select: { updatedAt: true },
     }),
+    // Stalled candidates: not done/cancelled, updated before stalledDays cutoff
+    prisma.task.findMany({
+      where: {
+        projectId,
+        status: { notIn: ['DONE'] },
+        updatedAt: {
+          lt: new Date(
+            now.getTime() - config.stalledDays * 24 * 60 * 60 * 1000
+          ),
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        dueDate: true,
+        updatedAt: true,
+      },
+    }),
+    // Failing agent tasks (for top blockers)
+    prisma.task.findMany({
+      where: { projectId, agentStatus: 'FAILED' },
+      select: { id: true, agentStatus: true },
+    }),
+    // Open PRs (for stale PR signal + top blockers)
+    prisma.pullRequest.findMany({
+      where: { task: { projectId }, state: 'open' },
+      select: { number: true, state: true, createdAt: true },
+    }),
   ])
 
-  // Build status distribution
   const statusDistribution: Record<string, number> = {}
   let totalTasks = 0
   for (const g of statusGroups) {
@@ -115,16 +148,13 @@ export async function aggregateProjectStats(
     totalTasks += count
   }
 
-  // Build priority distribution
   const priorityDistribution: Record<string, number> = {}
   for (const g of priorityGroups) {
     priorityDistribution[g.priority] = g._count._all
   }
 
-  // Overdue tasks
   const overdueTaskIds = overdueTasks.map(t => t.id)
 
-  // Member workload
   const actorIdSet = new Set(
     (assigneeGroups as Array<{ assigneeActorId: string | null }>)
       .map(g => g.assigneeActorId)
@@ -145,11 +175,22 @@ export async function aggregateProjectStats(
       : []
 
   const actorNameMap = new Map<string, string>()
+  const clerkIds = actors
+    .filter(a => a.type !== 'AGENT' && a.member?.clerkId)
+    .map(a => a.member!.clerkId)
+  const clerkNameMap =
+    clerkIds.length > 0 ? await enrichClerkUsers(clerkIds) : new Map()
+
   for (const actor of actors) {
-    const name =
-      actor.type === 'AGENT' && actor.agent
-        ? actor.agent.name
-        : (actor.member?.clerkId ?? actor.id)
+    let name: string
+    if (actor.type === 'AGENT' && actor.agent) {
+      name = actor.agent.name
+    } else if (actor.member?.clerkId) {
+      name =
+        clerkNameMap.get(actor.member.clerkId)?.name ?? actor.member.clerkId
+    } else {
+      name = actor.id
+    }
     actorNameMap.set(actor.id, name)
   }
 
@@ -165,9 +206,7 @@ export async function aggregateProjectStats(
       completed: 0,
     }
     entry.assigned += g._count._all
-    if (g.status === 'DONE') {
-      entry.completed += g._count._all
-    }
+    if (g.status === 'DONE') entry.completed += g._count._all
     workloadMap.set(g.assigneeActorId, entry)
   }
 
@@ -179,17 +218,23 @@ export async function aggregateProjectStats(
     })
   )
 
-  // Completion trend: group by date string
+  // Completion trend + week-over-week throughput
   const trendMap = new Map<string, number>()
+  let last7dCompleted = 0
+  let prev7dCompleted = 0
   for (const t of completedRecently) {
     const dateKey = t.updatedAt.toISOString().slice(0, 10)
     trendMap.set(dateKey, (trendMap.get(dateKey) ?? 0) + 1)
+    if (t.updatedAt >= sevenDaysAgo) {
+      last7dCompleted++
+    } else if (t.updatedAt >= fourteenDaysAgo) {
+      prev7dCompleted++
+    }
   }
   const completionTrend = Array.from(trendMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, completed]) => ({ date, completed }))
 
-  // Avg completion time in hours
   let avgCompletionTime: number | null = null
   if (doneTasks.length > 0) {
     const totalMs = doneTasks.reduce(
@@ -199,14 +244,12 @@ export async function aggregateProjectStats(
     avgCompletionTime = totalMs / doneTasks.length / (1000 * 60 * 60)
   }
 
-  // Subtask completion rate
   let subtaskCompletionRate: number | null = null
   if (subtasks.length > 0) {
     const doneSubtasks = subtasks.filter(t => t.status === 'DONE').length
     subtaskCompletionRate = doneSubtasks / subtasks.length
   }
 
-  // Agent stats
   const agentStats = { total: 0, completed: 0, failed: 0, working: 0 }
   for (const g of agentGroups as Array<{
     agentStatus: string | null
@@ -219,7 +262,8 @@ export async function aggregateProjectStats(
     else if (g.agentStatus === 'WORKING') agentStats.working += count
   }
 
-  return {
+  // Assemble the "base" stats (without risk yet)
+  const baseStats: Omit<TaskSummaryStats, 'risk' | 'topBlockers'> = {
     totalTasks,
     statusDistribution,
     priorityDistribution,
@@ -231,58 +275,166 @@ export async function aggregateProjectStats(
     agentStats,
     prStats: { total: prTotal, merged: prMerged, open: prOpen },
   }
+
+  const stalePrCutoff = new Date(
+    now.getTime() - config.stalePrDays * 24 * 60 * 60 * 1000
+  )
+  const staleOpenPrCount = openPrs.filter(
+    p => p.createdAt < stalePrCutoff
+  ).length
+
+  const signals: RiskSignals = {
+    stalledTaskCount: stalledCandidates.length,
+    staleOpenPrCount,
+    last7dCompleted,
+    prev7dCompleted,
+  }
+
+  const risk = computeRisk(
+    { ...baseStats, risk: EMPTY_RISK, topBlockers: EMPTY_BLOCKERS },
+    signals,
+    config
+  )
+
+  const topBlockers = collectTopBlockers({
+    tasks: stalledCandidates.map(t => ({
+      id: t.id,
+      status: t.status,
+      dueDate: t.dueDate,
+      updatedAt: t.updatedAt,
+    })),
+    agents: failingAgentTasks.map(t => ({
+      taskId: t.id,
+      agentStatus: t.agentStatus,
+    })),
+    prs: openPrs,
+    now,
+    config,
+  })
+
+  // Re-populate overdue blockers from the overdue query (collectTopBlockers
+  // only saw the stalled subset)
+  topBlockers.overdueTaskIds = overdueTaskIds.slice(0, 10)
+
+  return { ...baseStats, risk, topBlockers }
 }
 
 export async function aggregateWorkspaceStats(
-  workspaceId: string
+  workspaceId: string,
+  workspaceConfig: RiskConfig,
+  projectRiskOverrides: Map<string, ProjectRiskOverride | null>
 ): Promise<WorkspaceSummaryStats> {
   const projects = await prisma.project.findMany({
     where: { workspaceId },
     select: { id: true, name: true },
   })
 
-  const [baseStats, projectCounts] = await Promise.all([
-    // aggregate all tasks across the workspace using aggregateProjectStats
-    // but we need workspace-level stats, so run individual project stats and merge
-    Promise.all(projects.map(p => aggregateProjectStats(p.id))),
+  // Build per-project effective configs via the overrides map
+  const projectStatsList = await Promise.all(
+    projects.map(async p => {
+      const override = projectRiskOverrides.get(p.id) ?? null
+      const effective = override
+        ? {
+            overdueRatio:
+              override.riskOverdueRatio ?? workspaceConfig.overdueRatio,
+            stalledDays:
+              override.riskStalledDays ?? workspaceConfig.stalledDays,
+            stalledMinCount:
+              override.riskStalledMinCount ?? workspaceConfig.stalledMinCount,
+            agentFailRatio:
+              override.riskAgentFailRatio ?? workspaceConfig.agentFailRatio,
+            stalePrDays:
+              override.riskStalePrDays ?? workspaceConfig.stalePrDays,
+            throughputDrop:
+              override.riskThroughputDrop ?? workspaceConfig.throughputDrop,
+          }
+        : workspaceConfig
+      return { project: p, stats: await aggregateProjectStats(p.id, effective) }
+    })
+  )
 
-    // per-project breakdown counts
-    Promise.all(
-      projects.map(async p => {
-        const [total, completed, overdue] = await Promise.all([
-          prisma.task.count({ where: { projectId: p.id } }),
-          prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
-          prisma.task.count({
-            where: {
-              projectId: p.id,
-              dueDate: { lt: new Date() },
-              status: { not: 'DONE' },
-            },
-          }),
-        ])
-        return {
-          projectId: p.id,
-          projectName: p.name,
-          totalTasks: total,
-          completedTasks: completed,
-          overdueTasks: overdue,
-        }
-      })
-    ),
-  ])
+  const projectCounts = await Promise.all(
+    projects.map(async p => {
+      const [total, completed, overdue] = await Promise.all([
+        prisma.task.count({ where: { projectId: p.id } }),
+        prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
+        prisma.task.count({
+          where: {
+            projectId: p.id,
+            dueDate: { lt: new Date() },
+            status: { not: 'DONE' },
+          },
+        }),
+      ])
+      return {
+        projectId: p.id,
+        projectName: p.name,
+        totalTasks: total,
+        completedTasks: completed,
+        overdueTasks: overdue,
+      }
+    })
+  )
 
-  // Merge all project stats into workspace-level stats
-  const merged = mergeStats(baseStats)
+  const merged = mergeStats(projectStatsList.map(ps => ps.stats))
 
-  const projectBreakdown = projectCounts
+  // Project breakdown enriched with risk
+  const riskByProject = new Map<string, RiskAssessment>()
+  for (const { project, stats } of projectStatsList) {
+    riskByProject.set(project.id, stats.risk)
+  }
+  const projectBreakdown = projectCounts.map(pc => ({
+    ...pc,
+    risk: riskByProject.get(pc.projectId) ?? EMPTY_RISK,
+  }))
+
+  // Workspace-level risk = max-of-projects (dominant level wins)
+  const levels = Array.from(riskByProject.values()).map(r => r.level)
+  let workspaceLevel: RiskLevel = 'healthy'
+  for (const l of levels) {
+    if (l === 'at-risk') {
+      workspaceLevel = 'at-risk'
+      break
+    }
+    if (l === 'watch') workspaceLevel = 'watch'
+  }
+
+  // Aggregate workspace reasons: top 3 at-risk project names as synthetic reasons
+  const atRiskProjects = projectBreakdown
+    .filter(p => p.risk.level === 'at-risk')
+    .slice(0, 3)
+  const aggregateReasons: RiskReason[] = atRiskProjects.map(p => ({
+    code: 'overdue_ratio_high', // reuse existing code; narrator will summarize
+    detail: `Project "${p.projectName}" is at risk (${p.overdueTasks} overdue)`,
+  }))
+
+  const workspaceRisk: RiskAssessment = {
+    level: workspaceLevel,
+    score: 0,
+    reasons: aggregateReasons,
+  }
 
   return {
     ...merged,
+    risk: workspaceRisk,
+    topBlockers: EMPTY_BLOCKERS, // workspace-level: project tab only
     projectBreakdown,
   }
 }
 
-function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
+// Helper type to describe project-level override columns (all nullable)
+export interface ProjectRiskOverride {
+  riskOverdueRatio: number | null
+  riskStalledDays: number | null
+  riskStalledMinCount: number | null
+  riskAgentFailRatio: number | null
+  riskStalePrDays: number | null
+  riskThroughputDrop: number | null
+}
+
+function mergeStats(
+  statsList: TaskSummaryStats[]
+): Omit<TaskSummaryStats, 'risk' | 'topBlockers'> {
   const statusDistribution: Record<string, number> = {}
   const priorityDistribution: Record<string, number> = {}
   let totalTasks = 0
@@ -303,16 +455,13 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
 
   for (const s of statsList) {
     totalTasks += s.totalTasks
-
     for (const [k, v] of Object.entries(s.statusDistribution)) {
       statusDistribution[k] = (statusDistribution[k] ?? 0) + v
     }
     for (const [k, v] of Object.entries(s.priorityDistribution)) {
       priorityDistribution[k] = (priorityDistribution[k] ?? 0) + v
     }
-
     overdueTaskIds.push(...s.overdueTasks.taskIds)
-
     for (const m of s.memberWorkload) {
       const existing = memberWorkloadMap.get(m.actorId)
       if (existing) {
@@ -326,27 +475,21 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
         })
       }
     }
-
     for (const t of s.completionTrend) {
       trendMap.set(t.date, (trendMap.get(t.date) ?? 0) + t.completed)
     }
-
     if (s.avgCompletionTime !== null) {
       totalCompletionMs += s.avgCompletionTime
       completionCount++
     }
-
     if (s.subtaskCompletionRate !== null) {
-      // approximate by weighting equally (we don't have raw counts here)
       doneSubtasks += s.subtaskCompletionRate
       totalSubtasks++
     }
-
     agentStats.total += s.agentStats.total
     agentStats.completed += s.agentStats.completed
     agentStats.failed += s.agentStats.failed
     agentStats.working += s.agentStats.working
-
     prTotal += s.prStats.total
     prMerged += s.prStats.merged
     prOpen += s.prStats.open
@@ -355,7 +498,6 @@ function mergeStats(statsList: TaskSummaryStats[]): TaskSummaryStats {
   const memberWorkload = Array.from(memberWorkloadMap.entries()).map(
     ([actorId, v]) => ({ actorId, ...v })
   )
-
   const completionTrend = Array.from(trendMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, completed]) => ({ date, completed }))

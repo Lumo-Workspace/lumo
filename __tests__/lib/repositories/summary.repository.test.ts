@@ -94,7 +94,19 @@ describe('summaryRepository.findSummaryEnabledWorkspaces', () => {
     expect(mockWorkspaceFindMany).toHaveBeenCalledWith({
       where: { summaryEnabled: true },
       include: {
-        projects: true,
+        projects: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            riskOverdueRatio: true,
+            riskStalledDays: true,
+            riskStalledMinCount: true,
+            riskAgentFailRatio: true,
+            riskStalePrDays: true,
+            riskThroughputDrop: true,
+          },
+        },
         summaries: { orderBy: { generatedAt: 'desc' }, take: 1 },
       },
     })
@@ -108,7 +120,19 @@ describe('summaryRepository.findSummaryEnabledWorkspaces', () => {
     expect(mockWorkspaceFindMany).toHaveBeenCalledWith({
       where: { summaryEnabled: true, id: 'ws-1' },
       include: {
-        projects: true,
+        projects: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            riskOverdueRatio: true,
+            riskStalledDays: true,
+            riskStalledMinCount: true,
+            riskAgentFailRatio: true,
+            riskStalePrDays: true,
+            riskThroughputDrop: true,
+          },
+        },
         summaries: { orderBy: { generatedAt: 'desc' }, take: 1 },
       },
     })
