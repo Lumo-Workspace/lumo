@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { RiskAssessment } from '@/types/summary'
 import { parseReport } from '@/lib/summaries/parse-report'
+import { markdownToHtml } from '@/lib/utils/markdown'
 import { RiskBadge } from './RiskBadge'
 
 interface BriefingCardProps {
@@ -26,6 +27,8 @@ export function BriefingCard({
     () => parseReport(report, intl.locale),
     [report, intl.locale]
   )
+
+  const reportHtml = useMemo(() => markdownToHtml(parsed.raw), [parsed.raw])
 
   const hasStructured =
     parsed.todayFocus.length > 0 || parsed.riskNarrative.length > 0
@@ -84,9 +87,10 @@ export function BriefingCard({
           )}
         </>
       ) : (
-        <pre className='whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300 font-sans'>
-          {parsed.raw}
-        </pre>
+        <div
+          className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
+          dangerouslySetInnerHTML={{ __html: reportHtml }}
+        />
       )}
 
       {hasStructured && (
@@ -101,9 +105,10 @@ export function BriefingCard({
               : intl.formatMessage({ id: 'summary.showFullReport' })}
           </button>
           {expanded && (
-            <pre className='whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 pt-3 font-sans'>
-              {parsed.raw}
-            </pre>
+            <div
+              className='prose prose-sm dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 pt-3'
+              dangerouslySetInnerHTML={{ __html: reportHtml }}
+            />
           )}
         </>
       )}
