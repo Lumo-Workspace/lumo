@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { summaryRepository } from '@/lib/repositories/summary.repository'
+import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,5 +78,32 @@ export const summaryService = {
       default:
         return true
     }
+  },
+
+  async requestGeneration(
+    type: 'project' | 'workspace',
+    targetId: string,
+    cooldownMinutes = 5
+  ): Promise<{ jobId: string } | { retryAfter: number }> {
+    const recent = await generationJobRepository.findRecentByTarget(
+      targetId,
+      cooldownMinutes
+    )
+    if (recent) {
+      const elapsed = Date.now() - recent.createdAt.getTime()
+      const retryAfter = Math.ceil(
+        (cooldownMinutes * 60 * 1000 - elapsed) / 1000
+      )
+      return { retryAfter: Math.max(retryAfter, 1) }
+    }
+
+    const job = await generationJobRepository.create(type, targetId)
+    return { jobId: job.id }
+  },
+
+  async getJobStatus(jobId: string) {
+    const job = await generationJobRepository.findById(jobId)
+    if (!job) return null
+    return { status: job.status, summaryId: job.summaryId ?? null }
   },
 }
