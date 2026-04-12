@@ -286,6 +286,11 @@
   "summary.riskThresholds.resetToWorkspace": "Reset to workspace defaults",
   "summary.riskThresholds.saved": "Risk thresholds saved",
   "summary.riskThresholds.saveFailed": "Failed to save risk thresholds",
+  "summary.refreshReport": "Refresh report",
+  "summary.generating": "Generating…",
+  "summary.cooldown": "Retry in {seconds}s",
+  "summary.refreshSuccess": "Report refreshed",
+  "summary.refreshFailed": "Failed to refresh report",
 
   "common.delete": "Delete",
   "common.edit": "Edit",

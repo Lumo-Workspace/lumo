@@ -2,8 +2,12 @@
 
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
+import { useWorkspaceRealtimeStats } from '../../hooks/useRealtimeStats'
+import { useWorkspaceLatestReport } from '../../hooks/useLatestReport'
+import { useReportRefresh } from '../../hooks/useReportRefresh'
 import { useWorkspaceSummary } from '../../hooks/useSummary'
 import { BriefingCard } from '../summary/BriefingCard'
+import { RefreshReportButton } from '../summary/RefreshReportButton'
 import { ProjectsAtGlanceList } from '../summary/ProjectsAtGlanceList'
 import { StatsCardRow } from '../summary/StatsCardRow'
 import { StatusDistributionChart } from '../summary/StatusDistributionChart'
@@ -26,10 +30,32 @@ interface DashboardPageProps {
 
 export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
   const intl = useIntl()
-  const { summary, history, loading, error, loadHistory, historyLoading } =
-    useWorkspaceSummary()
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useWorkspaceRealtimeStats()
 
-  if (loading && !summary) {
+  const {
+    tldr,
+    report,
+    generatedAt,
+    loading: reportLoading,
+    refetch: refetchReport,
+  } = useWorkspaceLatestReport()
+
+  const {
+    state: refreshState,
+    cooldownSeconds,
+    trigger: triggerRefresh,
+  } = useReportRefresh({ type: 'workspace' }, refetchReport)
+
+  const { history, loadHistory, historyLoading } = useWorkspaceSummary()
+
+  const loading = statsLoading && reportLoading
+  const error = statsError
+
+  if (loading && !stats && !tldr) {
     return (
       <div className='flex-1 flex flex-col overflow-hidden'>
         <PageBreadcrumb
@@ -47,7 +73,7 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
     )
   }
 
-  if (!summary) {
+  if (!stats && !tldr) {
     return (
       <div className='flex-1 flex flex-col overflow-hidden'>
         <PageBreadcrumb
@@ -77,7 +103,6 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
     )
   }
 
-  const stats = summary.stats
   const projectBreakdown = stats?.projectBreakdown ?? []
 
   return (
@@ -85,12 +110,21 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
       <PageBreadcrumb title={intl.formatMessage({ id: 'summary.dashboard' })} />
       <div className='flex-1 overflow-y-auto'>
         <div className='px-4 md:px-8 py-6 space-y-4'>
-          <BriefingCard
-            tldr={summary.tldr}
-            report={summary.report}
-            generatedAt={summary.generatedAt}
-            risk={stats?.risk ?? null}
-          />
+          <div className='flex items-center justify-between'>
+            <BriefingCard
+              tldr={tldr ?? ''}
+              report={report ?? ''}
+              generatedAt={generatedAt ?? ''}
+              risk={stats?.risk ?? null}
+            />
+          </div>
+          <div className='flex justify-end -mt-2'>
+            <RefreshReportButton
+              state={refreshState}
+              cooldownSeconds={cooldownSeconds}
+              onRefresh={triggerRefresh}
+            />
+          </div>
 
           <ProjectsAtGlanceList
             projects={projectBreakdown}

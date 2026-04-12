@@ -286,6 +286,11 @@
   "summary.riskThresholds.resetToWorkspace": "重置为工作区默认值",
   "summary.riskThresholds.saved": "风险阈值已保存",
   "summary.riskThresholds.saveFailed": "保存风险阈值失败",
+  "summary.refreshReport": "刷新报告",
+  "summary.generating": "生成中…",
+  "summary.cooldown": "{seconds}秒后可重试",
+  "summary.refreshSuccess": "报告已刷新",
+  "summary.refreshFailed": "刷新报告失败",
 
   "common.delete": "删除",
   "common.edit": "编辑",

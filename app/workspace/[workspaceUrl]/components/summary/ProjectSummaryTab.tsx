@@ -2,8 +2,12 @@
 
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
+import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
+import { useProjectLatestReport } from '../../hooks/useLatestReport'
+import { useReportRefresh } from '../../hooks/useReportRefresh'
 import { useProjectSummary } from '../../hooks/useSummary'
 import { BriefingCard } from './BriefingCard'
+import { RefreshReportButton } from './RefreshReportButton'
 import { TopBlockersList } from './TopBlockersList'
 import { StatsCardRow } from './StatsCardRow'
 import { StatusDistributionChart } from './StatusDistributionChart'
@@ -29,10 +33,32 @@ export function ProjectSummaryTab({
   onOpenTask,
 }: ProjectSummaryTabProps) {
   const intl = useIntl()
-  const { summary, history, loading, error, loadHistory, historyLoading } =
-    useProjectSummary(projectId)
+  const {
+    stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useProjectRealtimeStats(projectId)
 
-  if (loading && !summary) {
+  const {
+    tldr,
+    report,
+    generatedAt,
+    loading: reportLoading,
+    refetch: refetchReport,
+  } = useProjectLatestReport(projectId)
+
+  const {
+    state: refreshState,
+    cooldownSeconds,
+    trigger: triggerRefresh,
+  } = useReportRefresh({ type: 'project', projectId }, refetchReport)
+
+  const { history, loadHistory, historyLoading } = useProjectSummary(projectId)
+
+  const loading = statsLoading && reportLoading
+  const error = statsError
+
+  if (loading && !stats && !tldr) {
     return (
       <div className='flex items-center justify-center py-16'>
         <p className='text-sm text-zinc-400 dark:text-zinc-500'>
@@ -45,7 +71,7 @@ export function ProjectSummaryTab({
     )
   }
 
-  if (!summary) {
+  if (!stats && !tldr) {
     return (
       <div className='space-y-4 px-4 md:px-8 py-6'>
         <Empty>
@@ -68,16 +94,23 @@ export function ProjectSummaryTab({
     )
   }
 
-  const stats = summary.stats
-
   return (
     <div className='space-y-4 px-4 md:px-8 py-6'>
-      <BriefingCard
-        tldr={summary.tldr}
-        report={summary.report}
-        generatedAt={summary.generatedAt}
-        risk={stats?.risk ?? null}
-      />
+      <div className='flex justify-between items-start'>
+        <BriefingCard
+          tldr={tldr ?? ''}
+          report={report ?? ''}
+          generatedAt={generatedAt ?? ''}
+          risk={stats?.risk ?? null}
+        />
+      </div>
+      <div className='flex justify-end -mt-2'>
+        <RefreshReportButton
+          state={refreshState}
+          cooldownSeconds={cooldownSeconds}
+          onRefresh={triggerRefresh}
+        />
+      </div>
 
       {stats?.topBlockers && (
         <TopBlockersList
@@ -86,13 +119,17 @@ export function ProjectSummaryTab({
         />
       )}
 
-      <StatsCardRow stats={stats} />
+      {stats && (
+        <>
+          <StatsCardRow stats={stats} />
 
-      <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-        <StatusDistributionChart distribution={stats.statusDistribution} />
-        <MemberWorkloadChart workload={stats.memberWorkload} />
-        <CompletionTrendChart trend={stats.completionTrend} />
-      </div>
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <StatusDistributionChart distribution={stats.statusDistribution} />
+            <MemberWorkloadChart workload={stats.memberWorkload} />
+            <CompletionTrendChart trend={stats.completionTrend} />
+          </div>
+        </>
+      )}
 
       <SummaryHistory
         history={history}
