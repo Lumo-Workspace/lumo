@@ -96,19 +96,19 @@ export function ProjectSummaryTab({
 
   return (
     <div className='space-y-4 px-4 md:px-8 py-6'>
-      <div className='flex justify-between items-start'>
+      <div className='space-y-0'>
+        <div className='flex justify-end mb-1'>
+          <RefreshReportButton
+            state={refreshState}
+            cooldownSeconds={cooldownSeconds}
+            onRefresh={triggerRefresh}
+          />
+        </div>
         <BriefingCard
           tldr={tldr ?? ''}
           report={report ?? ''}
           generatedAt={generatedAt ?? ''}
           risk={stats?.risk ?? null}
-        />
-      </div>
-      <div className='flex justify-end -mt-2'>
-        <RefreshReportButton
-          state={refreshState}
-          cooldownSeconds={cooldownSeconds}
-          onRefresh={triggerRefresh}
         />
       </div>
 

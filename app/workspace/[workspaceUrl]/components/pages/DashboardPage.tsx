@@ -110,19 +110,19 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
       <PageBreadcrumb title={intl.formatMessage({ id: 'summary.dashboard' })} />
       <div className='flex-1 overflow-y-auto'>
         <div className='px-4 md:px-8 py-6 space-y-4'>
-          <div className='flex items-center justify-between'>
+          <div className='space-y-0'>
+            <div className='flex justify-end mb-1'>
+              <RefreshReportButton
+                state={refreshState}
+                cooldownSeconds={cooldownSeconds}
+                onRefresh={triggerRefresh}
+              />
+            </div>
             <BriefingCard
               tldr={tldr ?? ''}
               report={report ?? ''}
               generatedAt={generatedAt ?? ''}
               risk={stats?.risk ?? null}
-            />
-          </div>
-          <div className='flex justify-end -mt-2'>
-            <RefreshReportButton
-              state={refreshState}
-              cooldownSeconds={cooldownSeconds}
-              onRefresh={triggerRefresh}
             />
           </div>
 

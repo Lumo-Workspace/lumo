@@ -30,20 +30,26 @@ export function BriefingCard({
   const hasStructured =
     parsed.todayFocus.length > 0 || parsed.riskNarrative.length > 0
 
-  const formattedDate = new Date(generatedAt).toLocaleDateString(intl.locale, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const parsedDate = generatedAt ? new Date(generatedAt) : null
+  const formattedDate =
+    parsedDate && !isNaN(parsedDate.getTime())
+      ? parsedDate.toLocaleDateString(intl.locale, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : null
 
   return (
     <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3'>
       <header className='flex items-center justify-between'>
         <RiskBadge level={risk?.level ?? null} showLabel />
-        <span className='text-xs text-zinc-400 dark:text-zinc-500'>
-          {formattedDate}
-        </span>
+        {formattedDate && (
+          <span className='text-xs text-zinc-400 dark:text-zinc-500'>
+            {formattedDate}
+          </span>
+        )}
       </header>
 
       <p className='text-base font-medium text-zinc-800 dark:text-zinc-200'>
