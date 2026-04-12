@@ -51,10 +51,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'already_finished' })
     }
 
-    console.log(
-      `[agent/sandbox-done] Processing callback for run ${parsed.data.runId} (exit=${parsed.data.exitCode}, timedOut=${parsed.data.timedOut})`
-    )
-
     await processAgentCompletion(parsed.data)
 
     return NextResponse.json({ status: 'ok' })

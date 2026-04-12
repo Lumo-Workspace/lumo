@@ -1,4 +1,4 @@
-import { miscRepository } from '@/lib/repositories/misc.repository'
+import { preferenceRepository } from '@/lib/repositories/preference.repository'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ function toResponse(pref: Record<string, unknown>) {
 export const preferenceService = {
   /** Get user preferences for a member, returning defaults if none saved. */
   async getPreferences(memberId: string) {
-    const pref = await miscRepository.findUserPreference(memberId)
+    const pref = await preferenceRepository.findByMemberId(memberId)
     return pref ? toResponse(pref) : DEFAULTS
   },
 
@@ -114,7 +114,7 @@ export const preferenceService = {
       })
     }
 
-    const pref = await miscRepository.upsertUserPreference(memberId, update)
+    const pref = await preferenceRepository.upsert(memberId, update)
     return toResponse(pref)
   },
 }

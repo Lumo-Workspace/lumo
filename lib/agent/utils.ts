@@ -44,7 +44,18 @@ export async function createPullRequest({
   return response.json()
 }
 
-export async function updateTask(id: string, data: Record<string, unknown>) {
+export async function updateTask(
+  id: string,
+  data: {
+    title?: string
+    description?: string | null
+    status?: string
+    priority?: string
+    assigneeActorId?: string | null
+    agentStatus?: string | null
+    agentError?: string | null
+  }
+) {
   console.log(`[DB] updateTask ${id}:`, data)
 }
 

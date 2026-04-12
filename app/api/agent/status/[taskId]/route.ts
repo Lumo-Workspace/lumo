@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
-import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { pullRequestService } from '@/lib/services/pull-request.service'
 
 type Params = { params: Promise<{ taskId: string }> }
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const [pendingClarify, activePr] = await Promise.all([
       notificationRepository.findPendingClarify(taskId),
-      pullRequestRepository.findActivePr(taskId),
+      pullRequestService.findActivePr(taskId),
     ])
 
     return NextResponse.json({

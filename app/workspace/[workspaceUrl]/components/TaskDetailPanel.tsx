@@ -98,6 +98,10 @@ export function TaskDetailPanel({
     parent: 'parent' in initialTask ? (initialTask.parent ?? null) : null,
   }))
 
+  const projectName = task.project?.name ?? ''
+  const projectDefaultReviewerId = task.project?.defaultReviewerId ?? null
+  const projectRepositories = task.project?.repositories
+
   const { user } = useCurrentUser()
   const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -106,11 +110,11 @@ export function TaskDetailPanel({
     const parent = task.parent
     if (!parent) return
     const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
-    const projectSlug = slugifyProjectName(task.project.name)
+    const projectSlug = slugifyProjectName(projectName)
     router.push(
       `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
     )
-  }, [task.parent, task.project.name, workspaceUrl, router])
+  }, [task.parent, projectName, workspaceUrl, router])
 
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
@@ -224,7 +228,7 @@ export function TaskDetailPanel({
           projectId={task.projectId}
           dueDate={task.dueDate ?? null}
           assignee={task.assignee}
-          defaultReviewerId={task.project.defaultReviewerId ?? null}
+          defaultReviewerId={projectDefaultReviewerId}
           parent={task.parent}
           membersWithActorId={membersWithActorId}
           agentActors={agentActors ?? []}
@@ -335,8 +339,8 @@ export function TaskDetailPanel({
           title={task.title}
           projectId={task.projectId}
           defaultRepo={
-            task.project.repositories?.find(r => r.isDefault)?.fullName ??
-            task.project.repositories?.[0]?.fullName ??
+            projectRepositories?.find(r => r.isDefault)?.fullName ??
+            projectRepositories?.[0]?.fullName ??
             null
           }
           workspaceUrl={workspaceUrl}
@@ -423,7 +427,7 @@ export function TaskDetailPanel({
       {/* ── Comments ─────────────────────────────────────────────────────────── */}
       <CommentSection
         workspaceUrl={workspaceUrl}
-        projectName={task.project.name}
+        projectName={projectName}
         teamIdentifier={task.teamIdentifier}
         taskNumber={task.number}
         members={members}

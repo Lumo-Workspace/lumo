@@ -50,30 +50,16 @@ describe('taskRepository.findById', () => {
   })
 })
 
-describe('taskRepository.isDescendant', () => {
-  it('returns true when target is direct child', async () => {
+describe('taskRepository.findChildren', () => {
+  it('returns direct children of a task', async () => {
     mockFindMany.mockResolvedValueOnce([{ id: 'child-1' }, { id: 'child-2' }])
-    const result = await taskRepository.isDescendant('parent', 'child-2')
-    expect(result).toBe(true)
+    const result = await taskRepository.findChildren('parent')
+    expect(result).toEqual([{ id: 'child-1' }, { id: 'child-2' }])
   })
 
-  it('returns true when target is nested descendant', async () => {
-    mockFindMany.mockResolvedValueOnce([{ id: 'child-1' }])
-    mockFindMany.mockResolvedValueOnce([{ id: 'grandchild-1' }])
-    const result = await taskRepository.isDescendant('parent', 'grandchild-1')
-    expect(result).toBe(true)
-  })
-
-  it('returns false when target is not a descendant', async () => {
-    mockFindMany.mockResolvedValueOnce([{ id: 'child-1' }])
+  it('returns empty array when no children', async () => {
     mockFindMany.mockResolvedValueOnce([])
-    const result = await taskRepository.isDescendant('parent', 'unrelated')
-    expect(result).toBe(false)
-  })
-
-  it('returns false when parent has no children', async () => {
-    mockFindMany.mockResolvedValueOnce([])
-    const result = await taskRepository.isDescendant('parent', 'target')
-    expect(result).toBe(false)
+    const result = await taskRepository.findChildren('parent')
+    expect(result).toEqual([])
   })
 })

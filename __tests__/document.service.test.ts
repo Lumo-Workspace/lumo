@@ -20,7 +20,7 @@ jest.mock('@/lib/repositories/document.repository', () => ({
     deleteWithDescendants: (...args: any[]) =>
       mockDeleteWithDescendants(...args),
     upsertEditor: (...args: any[]) => mockUpsertEditor(...args),
-    findAncestors: jest.fn().mockResolvedValue([]),
+    findNodeWithChildren: jest.fn().mockResolvedValue(null),
   },
 }))
 

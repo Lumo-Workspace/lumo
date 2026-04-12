@@ -80,3 +80,4 @@ export {
 export { quickDispatchService } from './quick-dispatch.service'
 export type { ActionResult } from './quick-dispatch.service'
 export { preferenceService } from './preference.service'
+export { pullRequestService } from './pull-request.service'

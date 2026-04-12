@@ -9,39 +9,9 @@ import {
   viewRepository,
 } from '@/lib/repositories'
 import { taskService } from '@/lib/services/task.service'
+import { buildTaskTree } from '@/lib/utils/task-tree'
 
 type Params = { params: Promise<{ id: string }> }
-
-// ─── Tree builder ───────────────────────────────────────────────────────────
-
-interface TaskNode {
-  id: string
-  parentTaskId: string | null
-  viewOrder: number | null
-  teamIdentifier: string
-  [key: string]: unknown
-}
-type TaskWithChildren = TaskNode & { children: TaskWithChildren[] }
-
-function buildTaskTree(tasks: TaskNode[]): TaskWithChildren[] {
-  const map = new Map<string, TaskWithChildren>()
-  const roots: TaskWithChildren[] = []
-
-  for (const task of tasks) {
-    map.set(task.id, { ...task, children: [] })
-  }
-
-  for (const task of tasks) {
-    const node = map.get(task.id)!
-    if (task.parentTaskId && map.has(task.parentTaskId)) {
-      map.get(task.parentTaskId)!.children.push(node)
-    } else {
-      roots.push(node)
-    }
-  }
-
-  return roots
-}
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +50,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     // Merge viewOrder into tasks
-    const tasksWithOrder: TaskNode[] = tasks.map(t => ({
+    const tasksWithOrder = tasks.map(t => ({
       ...t,
       teamIdentifier: t.team.identifier,
       viewOrder: orderMap.get(t.id) ?? null,

@@ -71,17 +71,11 @@ async function handleSandboxKilled(sandboxId: string) {
   const run = await agentRepository.findRunBySandboxId(sandboxId)
 
   if (!run) {
-    console.log(
-      `[webhook/sandbox] No AgentRun found for sandbox ${sandboxId}, ignoring`
-    )
     return
   }
 
   // If the run already completed/failed/cancelled, nothing to do
   if (run.status !== 'WORKING') {
-    console.log(
-      `[webhook/sandbox] AgentRun ${run.id} already ${run.status}, ignoring`
-    )
     return
   }
 

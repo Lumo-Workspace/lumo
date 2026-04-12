@@ -25,8 +25,8 @@ interface LogoUploaderProps {
   workspaceName: string
   /** Called with the new public URL after a successful upload. */
   onUpload: (logoUrl: string) => void
-  /** API endpoint — pass API.workspaces.logo */
-  uploadUrl: string
+  /** Upload function — receives FormData, returns Response. Use workspacesClient.uploadLogo. */
+  upload: (formData: FormData) => Promise<Response>
 }
 
 function initCrop(width: number, height: number): Crop {
@@ -41,7 +41,7 @@ export function LogoUploader({
   currentLogoUrl,
   workspaceName,
   onUpload,
-  uploadUrl,
+  upload,
 }: LogoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
@@ -130,7 +130,7 @@ export function LogoUploader({
         try {
           const formData = new FormData()
           formData.append('file', blob, 'logo.jpg')
-          const res = await fetch(uploadUrl, { method: 'POST', body: formData })
+          const res = await upload(formData)
           const data = await res.json()
           if (!res.ok) throw new Error(data.error ?? 'Upload failed')
           onUpload(data.logoUrl as string)

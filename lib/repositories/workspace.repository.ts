@@ -1,3 +1,4 @@
+import type { SummaryFrequency } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -7,6 +8,21 @@ export interface CreateWorkspaceData {
   name: string
   slug: string
   clerkId: string
+}
+
+export interface WorkspaceUpdateData {
+  name?: string
+  slug?: string
+  logoUrl?: string | null
+  summaryEnabled?: boolean
+  summaryFrequency?: SummaryFrequency | string
+  summaryLocale?: string
+  riskOverdueRatio?: number
+  riskStalledDays?: number
+  riskStalledMinCount?: number
+  riskAgentFailRatio?: number
+  riskStalePrDays?: number
+  riskThroughputDrop?: number
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -75,8 +91,11 @@ export const workspaceRepository = {
   },
 
   /** Update workspace fields. */
-  async update(id: string, data: Record<string, unknown>) {
-    return prisma.workspace.update({ where: { id }, data })
+  async update(id: string, data: WorkspaceUpdateData) {
+    return prisma.workspace.update({
+      where: { id },
+      data: data as Parameters<typeof prisma.workspace.update>[0]['data'],
+    })
   },
 
   /** Delete workspace (cascades). */

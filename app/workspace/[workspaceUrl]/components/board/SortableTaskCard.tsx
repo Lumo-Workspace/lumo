@@ -330,6 +330,7 @@ interface MyTaskCardProps {
 }
 
 export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
+  const projectName = task.project?.name
   const isAgent = task.assignee?.type === 'AGENT'
   const label = isAgent ? agentStatusLabel(task.agentStatus) : null
 
@@ -365,7 +366,7 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
       )}
       <div className='flex justify-between items-center'>
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
-          {task.project.name}
+          {projectName}
         </span>
         {isAgent && label ? (
           <span

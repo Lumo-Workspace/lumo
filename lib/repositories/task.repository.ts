@@ -1,6 +1,23 @@
 import { prisma } from '@/lib/db/prisma'
 import type { TaskStatus, TaskPriority, AgentStatus } from '@prisma/client'
 
+export interface TaskUpdateData {
+  title?: string | undefined
+  description?: string | null | undefined
+  spec?: string | null | undefined
+  status?: TaskStatus | string | undefined
+  priority?: TaskPriority | string | undefined
+  order?: number | undefined
+  dueDate?: string | Date | null | undefined
+  parentTaskId?: string | null | undefined
+  assigneeActorId?: string | null | undefined
+  reviewerActorId?: string | null | undefined
+  projectId?: string | undefined
+  repositoryId?: string | null | undefined
+  agentStatus?: AgentStatus | null | undefined
+  agentError?: string | null | undefined
+}
+
 /** Full detail include for single task view. Used by GET /api/tasks/[id] and task detail pages. */
 const TASK_DETAIL_INCLUDE = {
   project: {
@@ -140,10 +157,10 @@ export const taskRepository = {
   },
 
   /** Update a task's fields. */
-  async update(id: string, data: Record<string, unknown>) {
+  async update(id: string, data: TaskUpdateData) {
     return prisma.task.update({
       where: { id },
-      data,
+      data: data as Parameters<typeof prisma.task.update>[0]['data'],
       include: {
         project: { select: { id: true, name: true } },
         team: { select: { identifier: true } },
@@ -162,20 +179,6 @@ export const taskRepository = {
       where: { parentTaskId: parentId },
       select: { id: true },
     })
-  },
-
-  /** Check if targetId is a descendant of ancestorId (recursive). Used to prevent circular parent references. */
-  async isDescendant(ancestorId: string, targetId: string): Promise<boolean> {
-    const children = await prisma.task.findMany({
-      where: { parentTaskId: ancestorId },
-      select: { id: true },
-    })
-    if (children.length === 0) return false
-    if (children.some(child => child.id === targetId)) return true
-    for (const child of children) {
-      if (await this.isDescendant(child.id, targetId)) return true
-    }
-    return false
   },
 
   /** Find task status by ID (lightweight query for state machine). */

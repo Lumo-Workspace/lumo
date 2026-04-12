@@ -78,7 +78,8 @@ export const projectService = {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
 
-    const data: Record<string, unknown> = {}
+    const data: import('@/lib/repositories/project.repository').ProjectUpdateData =
+      {}
     if (input.name !== undefined) data.name = input.name
     if (input.description !== undefined) data.description = input.description
     if (input.isIdea !== undefined) data.isIdea = input.isIdea

@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/task.repository', () => ({
     findWithProject: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
-    isDescendant: jest.fn(),
+    findChildren: jest.fn(),
   },
 }))
 

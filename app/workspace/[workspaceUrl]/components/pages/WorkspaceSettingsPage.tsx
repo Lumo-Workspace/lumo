@@ -337,7 +337,7 @@ export function WorkspaceSettingsPage() {
             <LogoUploader
               currentLogoUrl={workspace?.logoUrl}
               workspaceName={workspace?.name ?? ''}
-              uploadUrl={API.workspaces.logo}
+              upload={workspacesClient.uploadLogo}
               onUpload={url => {
                 setWorkspace(w => (w ? { ...w, logoUrl: url } : w))
                 patchWorkspaceCache({ logoUrl: url })

@@ -1,33 +1,37 @@
-import { waitUntil } from '@vercel/functions'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import { notificationRepository } from '@/lib/repositories/notification.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { getGithubInstallationToken } from '@/lib/integrations/github'
-import { sendChannelNotification } from '@/lib/integrations/slack'
-import { dispatchEvents } from '@/lib/events/dispatcher'
-import { pushTaskEvent, pushProjectEvent } from '@/lib/integrations/pusher'
-import {
-  buildTaskNotificationCtx,
-  dispatchTaskUpdateNotifications,
-} from '@/lib/services/notification.service'
-import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
-import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import { decrypt } from '@/lib/crypto'
 import type { TaskStatus, TaskPriority } from '@prisma/client'
 import {
   isValidTaskTransition,
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
+import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
+import {
+  dispatchCreateTaskSideEffects,
+  dispatchUpdateTaskSideEffects,
+} from '@/lib/services/task-notifications.service'
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Check if targetId is a descendant of ancestorId (recursive). Used to prevent circular parent references. */
+async function isDescendant(
+  ancestorId: string,
+  targetId: string
+): Promise<boolean> {
+  const children = await taskRepository.findChildren(ancestorId)
+  if (children.length === 0) return false
+  if (children.some(child => child.id === targetId)) return true
+  for (const child of children) {
+    if (await isDescendant(child.id, targetId)) return true
+  }
+  return false
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
-
-interface PrStatusUpdate {
-  state: string
-  mergedAt: Date | null
-}
 
 export interface UpdateTaskInput {
   title?: string | undefined
@@ -46,7 +50,20 @@ export interface UpdateTaskInput {
 }
 
 export interface TaskUpdateResult {
-  task: Record<string, unknown>
+  task: {
+    id: string
+    projectId: string
+    title: string
+    number: number
+    status: string
+    priority: string
+    assigneeActorId: string | null
+    reviewerActorId: string | null
+    teamIdentifier: string
+    team: { identifier: string }
+    tags: Array<{ id: string; name: string; color: string | null }>
+    [key: string]: unknown
+  }
   changedFields: string[]
   oldStatus: string
   oldAssigneeActorId: string | null
@@ -61,64 +78,6 @@ export interface TaskDetailForUpdate {
   projectId: string
   number: number
   [key: string]: unknown
-}
-
-// ── PR Sync (private) ───────────────────────────────────────────────────────
-
-async function syncPullRequestStatus(
-  openPrs: { id: string; number: number; url: string; state: string }[]
-): Promise<Map<string, PrStatusUpdate>> {
-  const updates = new Map<string, PrStatusUpdate>()
-  try {
-    const token = await getGithubInstallationToken()
-
-    for (const pr of openPrs) {
-      const match = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)
-      if (!match) continue
-      const repo = match[1]
-
-      const res = await fetch(
-        `https://api.github.com/repos/${repo}/pulls/${pr.number}`,
-        {
-          headers: {
-            Authorization: `token ${token}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-        }
-      )
-      if (!res.ok) continue
-
-      const ghPr = (await res.json()) as {
-        state: string
-        merged: boolean
-        merged_at: string | null
-        closed_at: string | null
-        draft: boolean
-      }
-
-      const newState = ghPr.merged
-        ? 'merged'
-        : ghPr.state === 'closed'
-          ? 'closed'
-          : 'open'
-
-      if (newState === pr.state) continue
-
-      const mergedAt = ghPr.merged_at ? new Date(ghPr.merged_at) : null
-
-      await pullRequestRepository.updateState(pr.id, {
-        state: newState,
-        mergedAt,
-        closedAt: ghPr.closed_at ? new Date(ghPr.closed_at) : null,
-        isDraft: ghPr.draft,
-      })
-
-      updates.set(pr.id, { state: newState, mergedAt })
-    }
-  } catch (_err) {
-    // Non-critical: PR state may be slightly stale
-  }
-  return updates
 }
 
 // ── Task Service ────────────────────────────────────────────────────────────
@@ -212,59 +171,21 @@ export const taskService = {
       defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
     })
 
-    // ── Fire-and-forget: task created activity event ────────────────────────
-    const triggerActorId = actorId
-    waitUntil(
-      dispatchEvents([
-        {
-          type: 'task:created',
-          taskId: task.id,
-          projectId,
-          actorId: triggerActorId ?? '',
-        } satisfies TaskActivityEvent,
-      ])
-    )
-
-    // ── Fire-and-forget: task_created Slack channel notification ─────────────
-    const taskIdentifier = buildTaskIdentifier(task.teamIdentifier, task.number)
-    const taskUrl = buildTaskUrl(
-      project.workspace?.slug ?? '',
-      task.teamIdentifier,
-      task.number
-    )
-    waitUntil(
-      sendChannelNotification(
-        project.workspaceId,
-        'task_created',
-        {
-          taskId: task.id,
-          taskTitle: task.title,
-          taskIdentifier,
-          taskUrl,
-        },
-        projectId
-      )
-    )
-
-    // ── Fire-and-forget: notify assignee if task was created with one ─────────
-    if (assigneeActorId) {
-      taskRepository
-        .findActorWithMember(assigneeActorId)
-        .then(actor => {
-          if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-          if (actor.member.clerkId === actorClerkId) return
-          return notificationRepository.create({
-            workspaceId: project.workspaceId,
-            recipientActorId: assigneeActorId,
-            type: 'TASK_ASSIGNED' as const,
-            taskId: task.id,
-            triggerActorId,
-          })
-        })
-        .catch(err =>
-          console.error('[notify] TASK_ASSIGNED (create) failed:', err)
-        )
-    }
+    // Fire-and-forget side-effects
+    dispatchCreateTaskSideEffects({
+      task: {
+        id: task.id,
+        title: task.title,
+        teamIdentifier: task.teamIdentifier,
+        number: task.number,
+      },
+      projectId,
+      workspaceId: project.workspaceId,
+      workspaceSlug: project.workspace?.slug ?? '',
+      actorId,
+      actorClerkId,
+      assigneeActorId: assigneeActorId ?? null,
+    })
 
     return { task }
   },
@@ -373,7 +294,7 @@ export const taskService = {
             { status: 400 }
           )
         }
-        if (await taskRepository.isDescendant(taskId, parentTaskId)) {
+        if (await isDescendant(taskId, parentTaskId)) {
           throw Object.assign(
             new Error('Cannot create circular parent reference'),
             { status: 400 }
@@ -417,7 +338,7 @@ export const taskService = {
     }
 
     // Build update data
-    const data: Record<string, unknown> = {}
+    const data: import('@/lib/repositories/task.repository').TaskUpdateData = {}
     if (rest.title !== undefined) data.title = rest.title
     if (rest.description !== undefined) data.description = rest.description
     if (rest.spec !== undefined) data.spec = rest.spec
@@ -461,12 +382,6 @@ export const taskService = {
   /**
    * Update a task and dispatch all side effects (activity events,
    * real-time push, notifications). Returns the update result.
-   *
-   * @param taskId   The task to update
-   * @param input    Validated update payload
-   * @param taskCheck  Pre-loaded task detail (for old-value diffing)
-   * @param actorId  The human actor ID of the user making the change
-   * @param actorClerkId  The Clerk user ID (used to skip self-notifications)
    */
   async updateTaskWithSideEffects(
     taskId: string,
@@ -476,189 +391,14 @@ export const taskService = {
     actorClerkId: string
   ): Promise<TaskUpdateResult> {
     const result = await this.updateTask(taskId, input)
-    const triggerActorId = actorId
-    const projectId = result.task.projectId as string
 
-    // Build activity events from changed fields
-    const activityEvents: TaskActivityEvent[] = []
-
-    if (input.status !== undefined && result.changedFields.includes('status')) {
-      activityEvents.push({
-        type: 'task:status_changed_activity',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        from: result.oldStatus,
-        to: input.status,
-      })
-    }
-    if (
-      input.priority !== undefined &&
-      result.changedFields.includes('priority')
-    ) {
-      activityEvents.push({
-        type: 'task:priority_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        from: (taskCheck as any).priority ?? null,
-        to: input.priority,
-      })
-    }
-    if (input.title !== undefined && result.changedFields.includes('title')) {
-      activityEvents.push({
-        type: 'task:title_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        from: (taskCheck as any).title ?? null,
-        to: input.title,
-      })
-    }
-    if (
-      input.assigneeActorId !== undefined &&
-      result.changedFields.includes('assigneeActorId')
-    ) {
-      activityEvents.push({
-        type: 'task:assignee_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        fromActorId: result.oldAssigneeActorId,
-        toActorId: input.assigneeActorId ?? null,
-        toName: null,
-      })
-    }
-    if (
-      input.reviewerActorId !== undefined &&
-      result.changedFields.includes('reviewerActorId')
-    ) {
-      activityEvents.push({
-        type: 'task:reviewer_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        fromActorId: (taskCheck as any).reviewerActorId ?? null,
-        toActorId: input.reviewerActorId ?? null,
-        toName: null,
-      })
-    }
-    if (
-      input.description !== undefined &&
-      result.changedFields.includes('description')
-    ) {
-      activityEvents.push({
-        type: 'task:description_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        from: null,
-        to: null,
-      })
-    }
-    if (
-      input.dueDate !== undefined &&
-      result.changedFields.includes('dueDate')
-    ) {
-      activityEvents.push({
-        type: 'task:due_date_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        from: (taskCheck as any).dueDate ?? null,
-        to: input.dueDate ?? null,
-      })
-    }
-    if (
-      input.parentTaskId !== undefined &&
-      result.changedFields.includes('parentTaskId')
-    ) {
-      activityEvents.push({
-        type: 'task:parent_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        fromTaskId: (taskCheck as any).parentTaskId ?? null,
-        toTaskId: input.parentTaskId ?? null,
-        toTitle: null,
-      })
-    }
-    if (
-      input.repositoryId !== undefined &&
-      result.changedFields.includes('repositoryId')
-    ) {
-      activityEvents.push({
-        type: 'task:repository_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        fromRepoId: (taskCheck as any).repositoryId ?? null,
-        toRepoId: input.repositoryId ?? null,
-        toName: null,
-      })
-    }
-    if (input.tagIds !== undefined) {
-      const oldTagNames = ((taskCheck as any).tags ?? []).map(
-        (t: { name: string }) => t.name
-      )
-      const newTagNames = ((result.task as any).tags ?? []).map(
-        (t: { name: string }) => t.name
-      )
-      const oldSet = new Set(oldTagNames as string[])
-      const newSet = new Set(newTagNames as string[])
-      const added = (newTagNames as string[]).filter(n => !oldSet.has(n))
-      const removed = (oldTagNames as string[]).filter(n => !newSet.has(n))
-      activityEvents.push({
-        type: 'task:tags_changed',
-        taskId,
-        projectId,
-        actorId: triggerActorId ?? '',
-        added,
-        removed,
-      })
-    }
-
-    // Fire-and-forget activity recording
-    if (activityEvents.length > 0) {
-      waitUntil(dispatchEvents(activityEvents))
-    }
-
-    // Push real-time events (fire-and-forget)
-    waitUntil(
-      Promise.all([
-        pushTaskEvent(taskId, {
-          type: 'task:updated',
-          fields: result.changedFields,
-        }),
-        pushProjectEvent(result.task.projectId as string, {
-          type: 'task:updated',
-          taskId,
-          fields: result.changedFields,
-          patch: result.task,
-        }),
-      ])
-    )
-
-    // Notification side-effects (fire-and-forget)
-    const ctx = buildTaskNotificationCtx(
-      {
-        ...taskCheck,
-        assigneeActorId: result.oldAssigneeActorId,
-      } as Parameters<typeof buildTaskNotificationCtx>[0],
-      result.task as Parameters<typeof buildTaskNotificationCtx>[1],
-      triggerActorId,
-      actorClerkId
-    )
-    dispatchTaskUpdateNotifications({
-      ctx,
+    dispatchUpdateTaskSideEffects({
       taskId,
-      oldStatus: result.oldStatus,
-      newStatus: input.status,
-      oldAssigneeActorId: result.oldAssigneeActorId,
-      newAssigneeActorId: input.assigneeActorId,
-      updatedReviewerActorId: (result.task.reviewerActorId as string) ?? null,
-      workspaceId: taskCheck.project.workspaceId,
-      triggerActorId,
+      input,
+      result,
+      taskCheck,
+      actorId,
+      actorClerkId,
     })
 
     return result

@@ -84,6 +84,7 @@ export function TaskDetailSidebar({
   onUnlinkBranch,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
+  const projectRepositories = task.project?.repositories
 
   const [unlinkBranch, setUnlinkBranch] = useState<{
     id: string
@@ -161,7 +162,7 @@ export function TaskDetailSidebar({
                 />
               ),
             },
-            ...((task.project.repositories?.length ?? 0) > 0
+            ...((projectRepositories?.length ?? 0) > 0
               ? [
                   {
                     label: intl.formatMessage({ id: 'task.repository' }),
@@ -186,7 +187,7 @@ export function TaskDetailSidebar({
                           <SelectItem value='__none__'>
                             {intl.formatMessage({ id: 'task.noRepository' })}
                           </SelectItem>
-                          {task.project.repositories!.map(repo => (
+                          {projectRepositories!.map(repo => (
                             <SelectItem key={repo.id} value={repo.id}>
                               {repo.isDefault
                                 ? intl.formatMessage(
@@ -386,8 +387,8 @@ export function TaskDetailSidebar({
         title={task.title}
         projectId={task.projectId}
         defaultRepo={
-          task.project.repositories?.find(r => r.isDefault)?.fullName ??
-          task.project.repositories?.[0]?.fullName ??
+          projectRepositories?.find(r => r.isDefault)?.fullName ??
+          projectRepositories?.[0]?.fullName ??
           null
         }
         workspaceUrl={workspaceUrl}

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma'
+import { statsRepository } from '@/lib/repositories/stats.repository'
 import {
   aggregateProjectStats,
   aggregateWorkspaceStats,
@@ -7,28 +7,13 @@ import {
 import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
 import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
 
-const RISK_FIELDS = {
-  riskOverdueRatio: true,
-  riskStalledDays: true,
-  riskStalledMinCount: true,
-  riskAgentFailRatio: true,
-  riskStalePrDays: true,
-  riskThroughputDrop: true,
-} as const
-
 export async function getProjectStats(
   projectId: string,
   workspaceId: string
 ): Promise<TaskSummaryStats> {
   const [project, workspace] = await Promise.all([
-    prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, ...RISK_FIELDS },
-    }),
-    prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: RISK_FIELDS,
-    }),
+    statsRepository.findProjectWithRiskConfig(projectId),
+    statsRepository.findWorkspaceWithRiskConfig(workspaceId),
   ])
 
   if (!project)
@@ -43,16 +28,8 @@ export async function getProjectStats(
 export async function getWorkspaceStats(
   workspaceId: string
 ): Promise<WorkspaceSummaryStats> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: {
-      id: true,
-      ...RISK_FIELDS,
-      projects: {
-        select: { id: true, ...RISK_FIELDS },
-      },
-    },
-  })
+  const workspace =
+    await statsRepository.findWorkspaceWithProjectRiskConfigs(workspaceId)
 
   if (!workspace)
     throw Object.assign(new Error('Workspace not found'), { status: 404 })

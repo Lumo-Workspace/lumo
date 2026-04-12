@@ -61,7 +61,8 @@ export const workspaceService = {
       }
     }
 
-    const data: Record<string, unknown> = {}
+    const data: import('@/lib/repositories/workspace.repository').WorkspaceUpdateData =
+      {}
     if (input.name !== undefined) data.name = input.name
     if (input.slug !== undefined) data.slug = input.slug
     if (input.summaryEnabled !== undefined)

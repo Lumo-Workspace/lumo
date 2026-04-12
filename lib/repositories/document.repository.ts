@@ -14,12 +14,31 @@ export interface CreateDocumentData {
   sortOrder: number
 }
 
+export interface DocumentUpdateData {
+  title?: string
+  content?: string | null
+  emoji?: string | null
+  visibility?: DocVisibility | string
+  projectId?: string | null
+  sortOrder?: number
+  publicToken?: string | null
+  tags?: string[]
+}
+
 export interface DocumentFilters {
   visibility?: string
   projectId?: string
   parentId?: string | null
   search?: string
   rootOnly?: boolean
+}
+
+export interface DocumentTreeFilter {
+  workspaceId: string
+  parentId?: string | null
+  createdById?: string
+  visibility?: DocVisibility
+  OR?: Array<Record<string, unknown>>
 }
 
 // ── Shared includes ─────────────────────────────────────────────────────────
@@ -75,7 +94,15 @@ export const documentRepository = {
     memberId: string,
     filters?: DocumentFilters
   ) {
-    const where: Record<string, unknown> = {
+    const where: {
+      workspaceId: string
+      createdById?: string
+      visibility?: DocVisibility
+      projectId?: string
+      parentId?: string | null
+      title?: { contains: string; mode: 'insensitive' }
+      OR?: Array<Record<string, unknown>>
+    } = {
       workspaceId,
       OR: [
         { createdById: memberId },
@@ -177,24 +204,29 @@ export const documentRepository = {
   },
 
   /** Update document fields. */
-  async update(id: string, data: Record<string, unknown>) {
+  async update(id: string, data: DocumentUpdateData) {
     return prisma.document.update({
       where: { id },
-      data,
+      data: data as Parameters<typeof prisma.document.update>[0]['data'],
     })
   },
 
   /** Update document with optional child reordering and mention sync, all in a single transaction. */
   async updateWithChildrenAndMentions(
     id: string,
-    updateData: Record<string, unknown>,
+    updateData: DocumentUpdateData,
     childOrder: string[] | undefined,
     mentionTaskIds: string[] | undefined
   ) {
     return prisma.$transaction(async tx => {
       const updatedDoc =
         Object.keys(updateData).length > 0
-          ? await tx.document.update({ where: { id }, data: updateData })
+          ? await tx.document.update({
+              where: { id },
+              data: updateData as Parameters<
+                typeof tx.document.update
+              >[0]['data'],
+            })
           : await tx.document.findUniqueOrThrow({ where: { id } })
 
       // Reorder children if childOrder is provided
@@ -270,54 +302,26 @@ export const documentRepository = {
     })
   },
 
-  /** Find ancestor chain for a document. Walks parent chain with loop prevention. */
-  async findAncestors(parentId: string | null) {
-    const ancestors: {
-      id: string
-      title: string
-      emoji: string | null
-      children: {
-        id: string
-        title: string
-        emoji: string | null
-        _count: { children: number }
-      }[]
-    }[] = []
-
-    let currentParentId = parentId
-    const visitedIds = new Set<string>()
-
-    while (currentParentId && !visitedIds.has(currentParentId)) {
-      visitedIds.add(currentParentId)
-      const parent = await prisma.document.findUnique({
-        where: { id: currentParentId },
-        select: {
-          id: true,
-          title: true,
-          emoji: true,
-          parentId: true,
-          children: {
-            orderBy: { sortOrder: 'asc' },
-            select: {
-              id: true,
-              title: true,
-              emoji: true,
-              _count: { select: { children: true } },
-            },
+  /** Find a single document node with its children (used by ancestor chain walker). */
+  async findNodeWithChildren(id: string) {
+    return prisma.document.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        emoji: true,
+        parentId: true,
+        children: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            emoji: true,
+            _count: { select: { children: true } },
           },
         },
-      })
-      if (!parent) break
-      ancestors.unshift({
-        id: parent.id,
-        title: parent.title,
-        emoji: parent.emoji,
-        children: parent.children,
-      })
-      currentParentId = parent.parentId
-    }
-
-    return ancestors
+      },
+    })
   },
 
   /** Find a document node by ID (for tree traversal, parentId only). */
@@ -329,7 +333,7 @@ export const documentRepository = {
   },
 
   /** Find tree nodes (documents matching a filter, for sidebar tree). */
-  async findTreeNodes(filter: Record<string, unknown>) {
+  async findTreeNodes(filter: DocumentTreeFilter) {
     return prisma.document.findMany({
       where: filter,
       orderBy: { sortOrder: 'asc' },

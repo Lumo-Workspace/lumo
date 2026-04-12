@@ -46,6 +46,8 @@ function AgentPanelInner({
   task: AgentTask
   onTaskUpdate?: (updates: Partial<AgentTask>) => void
 }) {
+  const projectWorkspaceId = task.project?.workspaceId
+
   const [status, setStatus] = useState(task.agentStatus ?? 'SUBMITTED')
   const [logs, setLogs] = useState<AgentLog[]>([])
   const [steps, setSteps] = useState<AgentStep[]>(() => {
@@ -385,11 +387,11 @@ function AgentPanelInner({
       )}
 
       {/* ── PAUSED: clarify question ── */}
-      {isPaused && clarify && task.project?.workspaceId && (
+      {isPaused && clarify && projectWorkspaceId && (
         <AgentClarifyPanel
           clarify={clarify}
           taskId={task.id}
-          workspaceId={task.project.workspaceId}
+          workspaceId={projectWorkspaceId}
           pausedAt={pausedAt}
           onReplied={handleClarifyReplied}
         />

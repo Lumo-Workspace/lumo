@@ -1,5 +1,12 @@
 import { prisma } from '@/lib/db/prisma'
 
+export interface ProjectUpdateData {
+  name?: string
+  description?: string | null
+  isIdea?: boolean
+  defaultReviewerId?: string | null
+}
+
 export const projectRepository = {
   /** Find all projects in workspace, filtered by member visibility (public + own ideas). */
   async findByWorkspace(workspaceId: string, memberId: string) {
@@ -69,7 +76,7 @@ export const projectRepository = {
   },
 
   /** Update project fields. */
-  async update(id: string, data: Record<string, unknown>) {
+  async update(id: string, data: ProjectUpdateData) {
     return prisma.project.update({ where: { id }, data })
   },
 

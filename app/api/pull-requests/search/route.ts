@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { searchPullRequestsSchema } from '@/lib/validation/schemas'
-import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { pullRequestService } from '@/lib/services/pull-request.service'
 
 /**
  * GET /api/pull-requests/search?q=...&workspaceId=...&limit=20
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const results = await pullRequestRepository.searchByWorkspace(
+    const results = await pullRequestService.searchByWorkspace(
       parsed.data.workspaceId,
       parsed.data.q,
       parsed.data.limit

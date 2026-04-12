@@ -53,6 +53,40 @@ function resolveClerkName(
   )
 }
 
+/** Walk the parent chain with loop prevention. Returns ancestors from root → immediate parent. */
+async function findAncestors(parentId: string | null) {
+  const ancestors: {
+    id: string
+    title: string
+    emoji: string | null
+    children: {
+      id: string
+      title: string
+      emoji: string | null
+      _count: { children: number }
+    }[]
+  }[] = []
+
+  let currentParentId = parentId
+  const visitedIds = new Set<string>()
+
+  while (currentParentId && !visitedIds.has(currentParentId)) {
+    visitedIds.add(currentParentId)
+    const parent =
+      await documentRepository.findNodeWithChildren(currentParentId)
+    if (!parent) break
+    ancestors.unshift({
+      id: parent.id,
+      title: parent.title,
+      emoji: parent.emoji,
+      children: parent.children,
+    })
+    currentParentId = parent.parentId
+  }
+
+  return ancestors
+}
+
 // ── Document Service ────────────────────────────────────────────────────────
 
 export const documentService = {
@@ -151,7 +185,7 @@ export const documentService = {
     const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
 
     // Walk ancestor chain
-    const ancestors = await documentRepository.findAncestors(doc.parentId)
+    const ancestors = await findAncestors(doc.parentId)
 
     // Fetch tag associations
     const docTags = await tagRepository.findByDocument(id)
@@ -255,7 +289,8 @@ export const documentService = {
       })
     }
 
-    const updateData: Record<string, unknown> = {}
+    const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =
+      {}
     if (data.title !== undefined) updateData.title = data.title
     if (data.content !== undefined) updateData.content = data.content
     if (data.emoji !== undefined) updateData.emoji = data.emoji

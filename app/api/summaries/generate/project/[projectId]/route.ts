@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
+import { type Prisma } from '@prisma/client'
 import { waitUntil } from '@vercel/functions'
 import { requireAuth } from '@/lib/auth'
 import { loadProjectAndMember } from '@/lib/api/helpers'
@@ -7,7 +7,7 @@ import { summaryService } from '@/lib/services/summary.service'
 import { getProjectStats } from '@/lib/services/stats.service'
 import { generateProjectReport } from '@/lib/summaries/report'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
-import { prisma } from '@/lib/db/prisma'
+import { statsRepository } from '@/lib/repositories/stats.repository'
 
 export async function POST(
   _req: NextRequest,
@@ -33,15 +33,12 @@ export async function POST(
 
   const { jobId } = genResult
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: project.workspaceId },
-    select: { summaryLocale: true },
-  })
+  const workspace = await statsRepository.findWorkspaceSummaryLocale(
+    project.workspaceId
+  )
 
-  const projectRecord = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { name: true, description: true },
-  })
+  const projectRecord =
+    await statsRepository.findProjectNameAndDescription(projectId)
 
   waitUntil(
     (async () => {
