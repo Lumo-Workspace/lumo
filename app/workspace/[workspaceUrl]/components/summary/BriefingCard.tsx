@@ -4,14 +4,18 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { RiskAssessment } from '@/types/summary'
 import { parseReport } from '@/lib/summaries/parse-report'
-import { markdownToHtml } from '@/lib/utils/markdown'
 import { RiskBadge } from './RiskBadge'
+import { RichReportContent } from './RichReportContent'
+import type { WorkspaceMemberInfo } from '../../types'
+import type { AgentActor } from '../../hooks/useMembers'
 
 interface BriefingCardProps {
   tldr: string
   report: string
   generatedAt: string
   risk: RiskAssessment | null
+  members?: WorkspaceMemberInfo[]
+  agentActors?: AgentActor[]
 }
 
 export function BriefingCard({
@@ -19,6 +23,8 @@ export function BriefingCard({
   report,
   generatedAt,
   risk,
+  members = [],
+  agentActors = [],
 }: BriefingCardProps) {
   const intl = useIntl()
   const [expanded, setExpanded] = useState(false)
@@ -27,8 +33,6 @@ export function BriefingCard({
     () => parseReport(report, intl.locale),
     [report, intl.locale]
   )
-
-  const reportHtml = useMemo(() => markdownToHtml(parsed.raw), [parsed.raw])
 
   const hasStructured =
     parsed.todayFocus.length > 0 || parsed.riskNarrative.length > 0
@@ -68,13 +72,13 @@ export function BriefingCard({
               </h3>
               <ul className='space-y-1.5'>
                 {parsed.todayFocus.map((item, i) => (
-                  <li
+                  <RichReportContent
                     key={i}
-                    className='flex gap-2 text-sm text-zinc-700 dark:text-zinc-300'
-                  >
-                    <span className='text-zinc-400'>•</span>
-                    <span>{item}</span>
-                  </li>
+                    markdown={`- ${item}`}
+                    members={members}
+                    agentActors={agentActors}
+                    className='contents'
+                  />
                 ))}
               </ul>
             </section>
@@ -82,14 +86,20 @@ export function BriefingCard({
 
           {parsed.riskNarrative && (
             <section className='rounded bg-zinc-50 dark:bg-zinc-900/50 p-3 text-xs text-zinc-600 dark:text-zinc-400'>
-              {parsed.riskNarrative}
+              <RichReportContent
+                markdown={parsed.riskNarrative}
+                members={members}
+                agentActors={agentActors}
+                className='space-y-1'
+              />
             </section>
           )}
         </>
       ) : (
-        <div
-          className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
-          dangerouslySetInnerHTML={{ __html: reportHtml }}
+        <RichReportContent
+          markdown={parsed.raw}
+          members={members}
+          agentActors={agentActors}
         />
       )}
 
@@ -105,10 +115,13 @@ export function BriefingCard({
               : intl.formatMessage({ id: 'summary.showFullReport' })}
           </button>
           {expanded && (
-            <div
-              className='prose prose-sm dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 pt-3'
-              dangerouslySetInnerHTML={{ __html: reportHtml }}
-            />
+            <div className='border-t border-zinc-100 dark:border-zinc-800 pt-3'>
+              <RichReportContent
+                markdown={parsed.raw}
+                members={members}
+                agentActors={agentActors}
+              />
+            </div>
           )}
         </>
       )}

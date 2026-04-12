@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
 import { useProjectRealtimeStats } from '../../hooks/useRealtimeStats'
 import { useProjectLatestReport } from '../../hooks/useLatestReport'
 import { useReportRefresh } from '../../hooks/useReportRefresh'
 import { useProjectSummary } from '../../hooks/useSummary'
+import { useMembers } from '../../hooks/useMembers'
 import { BriefingCard } from './BriefingCard'
 import { RefreshReportButton } from './RefreshReportButton'
 import { TopBlockersList } from './TopBlockersList'
@@ -54,6 +56,10 @@ export function ProjectSummaryTab({
   } = useReportRefresh({ type: 'project', projectId }, refetchReport)
 
   const { history, loadHistory, historyLoading } = useProjectSummary(projectId)
+  const { members, agentActors, fetchMembers } = useMembers()
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
 
   const loading = statsLoading && reportLoading
   const error = statsError
@@ -109,6 +115,8 @@ export function ProjectSummaryTab({
           report={report ?? ''}
           generatedAt={generatedAt ?? ''}
           risk={stats?.risk ?? null}
+          members={members}
+          agentActors={agentActors}
         />
       </div>
 

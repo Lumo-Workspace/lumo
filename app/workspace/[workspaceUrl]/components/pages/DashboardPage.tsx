@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { BarChart2 } from 'lucide-react'
 import { useWorkspaceRealtimeStats } from '../../hooks/useRealtimeStats'
 import { useWorkspaceLatestReport } from '../../hooks/useLatestReport'
 import { useReportRefresh } from '../../hooks/useReportRefresh'
 import { useWorkspaceSummary } from '../../hooks/useSummary'
+import { useMembers } from '../../hooks/useMembers'
 import { BriefingCard } from '../summary/BriefingCard'
 import { RefreshReportButton } from '../summary/RefreshReportButton'
 import { ProjectsAtGlanceList } from '../summary/ProjectsAtGlanceList'
@@ -51,6 +53,10 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
   } = useReportRefresh({ type: 'workspace' }, refetchReport)
 
   const { history, loadHistory, historyLoading } = useWorkspaceSummary()
+  const { members, agentActors, fetchMembers } = useMembers()
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
 
   const loading = statsLoading && reportLoading
   const error = statsError
@@ -123,6 +129,8 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
               report={report ?? ''}
               generatedAt={generatedAt ?? ''}
               risk={stats?.risk ?? null}
+              members={members}
+              agentActors={agentActors}
             />
           </div>
 
