@@ -53,23 +53,23 @@ export function ActorMention({
             </Avatar>
           )}
           <div className='min-w-0'>
-            <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate'>
+            <span className='block text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate'>
               {name}
-            </p>
+            </span>
             {isAgent && (
-              <p className='text-xs text-violet-600 dark:text-violet-400'>
+              <span className='block text-xs text-violet-600 dark:text-violet-400'>
                 Agent
-              </p>
+              </span>
             )}
             {email && (
-              <p className='text-xs text-zinc-500 dark:text-zinc-400 truncate'>
+              <span className='block text-xs text-zinc-500 dark:text-zinc-400 truncate'>
                 {email}
-              </p>
+              </span>
             )}
             {role && !isAgent && (
-              <p className='text-xs text-zinc-500 dark:text-zinc-400 capitalize'>
+              <span className='block text-xs text-zinc-500 dark:text-zinc-400 capitalize'>
                 {role.toLowerCase()}
-              </p>
+              </span>
             )}
           </div>
         </div>
