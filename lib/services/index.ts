@@ -25,27 +25,31 @@ export { summaryService } from './summary.service'
 export { agentService } from './agent.service'
 export { generateSpecDraft } from './spec-generation.service'
 export { resumeAgent } from './clarification.service'
+// State machine
 export {
-  executeAgent,
-  processAgentCompletion,
-  handleAgentComment,
-  extractAgentInstruction,
-  buildAgentSpec,
-  buildAgentContext,
   transitionAgentStatus,
   clearAgentStatus,
   isValidTransition,
-  AgentError,
-  userFriendlyError,
-} from './agent-orchestration.service'
+} from '@/lib/agent/state-machine'
 export type {
-  AgentResult,
-  ExecuteAgentOptions,
-  HandleAgentCommentOptions,
   AgentStatusValue,
   TransitionOptions,
-  AgentErrorCode,
-} from './agent-orchestration.service'
+} from '@/lib/agent/state-machine'
+// Execution
+export { executeAgent, processAgentCompletion } from '@/lib/agent/execute'
+export type { AgentResult, ExecuteAgentOptions } from '@/lib/agent/execute'
+// Comment handling
+export {
+  handleAgentComment,
+  extractAgentInstruction,
+  buildAgentSpec,
+} from '@/lib/agent/comment-handler'
+export type { HandleAgentCommentOptions } from '@/lib/agent/comment-handler'
+// Context
+export { buildAgentContext } from '@/lib/agent/context-builder'
+// Errors
+export { AgentError, userFriendlyError } from '@/lib/agent/errors'
+export type { AgentErrorCode } from '@/lib/agent/errors'
 export { notificationService } from './notification.service'
 export {
   shouldNotify,
