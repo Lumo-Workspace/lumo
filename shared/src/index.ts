@@ -80,6 +80,48 @@ export type EventHandlerRegistry = {
   'task:status_changed': TaskEventHandler[]
 }
 
+// ── Agent execution types ────────────────────────────────────────────────────
+
+export type AgentResult =
+  | { outcome: 'done'; prUrl: string; prNumber: number }
+  | { outcome: 'failed'; error: string }
+  | { outcome: 'clarify'; question: string }
+  | { outcome: 'no_changes' }
+  | { outcome: 'spec_review' }
+  | { outcome: 'started'; sessionId?: string; runId?: string }
+
+export interface ExecuteAgentOptions {
+  taskId: string
+  actorClerkId: string
+  actorName?: string
+  actorEmail?: string
+  trigger?: string
+}
+
+export type ChangedFile = {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+}
+
+/** Common fields shared by RunContext in both main app and agent-server. */
+export interface BaseRunContext {
+  taskId: string
+  identifier: string
+  branchName: string
+  isFollowUp: boolean
+  taskSpec: string
+  repoOwner: string
+  repoName: string
+  resolvedRepo: string
+  githubToken: string
+  anthropicKey: string
+  currentRunId: string
+  mcpToken: string
+  agentStartedAt: number
+  gitName: string
+  gitEmail: string
+}
+
 // ── Agent Server API contract ────────────────────────────────────────────────
 
 export interface ExecuteAgentRequest {
