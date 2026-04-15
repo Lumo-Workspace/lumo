@@ -7,22 +7,6 @@ jest.mock('@/lib/integrations/slack', () => ({
   bot: {},
 }))
 
-// Mock heavy dependencies pulled in by agent-orchestration.service re-exports
-jest.mock('@/lib/agent/execute', () => ({
-  executeAgent: jest.fn(),
-  processAgentCompletion: jest.fn(),
-}))
-
-jest.mock('@/lib/integrations/sandbox', () => ({
-  isSandboxAlive: jest.fn(),
-}))
-
-jest.mock('@/lib/agent/comment-handler', () => ({
-  handleAgentComment: jest.fn(),
-  extractAgentInstruction: jest.fn(),
-  buildAgentSpec: jest.fn(),
-}))
-
 // Mock Prisma before imports
 const mockFindUniqueOrThrow = jest.fn()
 jest.mock('@/lib/db/prisma', () => ({
@@ -38,7 +22,7 @@ jest.mock('marked', () => ({
   marked: { parse: jest.fn((md: string) => `<p>${md}</p>`) },
 }))
 
-import { buildAgentContext } from '@/lib/services/agent-orchestration.service'
+import { buildAgentContext } from '@/lib/agent/context-builder'
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
