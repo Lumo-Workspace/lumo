@@ -10,7 +10,8 @@ import {
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import { notifyAgentVerify } from '@/lib/services/notification.service'
 import type { DomainEvent } from '@/lib/events/types'
-import type { RunContext, ChangedFile } from './execute'
+import type { ChangedFile } from '@lumo/shared'
+import type { RunContext } from './execute'
 
 // ── GitHub helpers ─────────────────────────────────────────────────────────
 
