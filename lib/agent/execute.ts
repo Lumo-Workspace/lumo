@@ -266,9 +266,6 @@ export async function executeAgent({
       background: true,
     })
 
-    console.log(
-      `[Agent] Agent started in background for task ${taskId}, sandbox ${sandbox.sandboxId}`
-    )
     // Do NOT kill sandbox — it runs independently
     return { outcome: 'started' }
   } catch (error) {
@@ -355,10 +352,6 @@ export async function processAgentCompletion(params: {
   }
 
   // Success — post-processing via GitHub API
-  console.log(
-    `[Agent] Agent done for task ${taskId}, proceeding to post-processing`
-  )
-
   const resolvedRepo = resolveRepo(task)
   const [repoOwner, repoName] = resolvedRepo.split('/')
   if (!repoOwner || !repoName)
