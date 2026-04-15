@@ -25,7 +25,8 @@
       "@/utils/*": ["./utils/*"],
       "@/types/*": ["./types/*"],
       "@/constants/*": ["./constants/*"],
-      "@/lib/*": ["./lib/*"]
+      "@/lib/*": ["./lib/*"],
+      "@lumo/shared": ["./shared/dist"]
     },
     "target": "es2017",
     "forceConsistentCasingInFileNames": true,

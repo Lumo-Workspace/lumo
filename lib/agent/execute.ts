@@ -33,47 +33,16 @@ import { processPostAgent } from './post-agent'
 
 export { loadTask } from './run-lifecycle'
 
+// Re-export from shared for convenience within nextjs-app
+export type { AgentResult, ExecuteAgentOptions, ChangedFile } from '@lumo/shared'
+import type { AgentResult, ExecuteAgentOptions, BaseRunContext } from '@lumo/shared'
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type AgentResult =
-  | { outcome: 'done'; prUrl: string; prNumber: number }
-  | { outcome: 'failed'; error: string }
-  | { outcome: 'clarify'; question: string }
-  | { outcome: 'no_changes' }
-  | { outcome: 'spec_review' }
-  | { outcome: 'started' }
-
-export interface ExecuteAgentOptions {
-  taskId: string
-  actorClerkId: string
-  actorName?: string
-  actorEmail?: string
-  trigger?: string
-}
-
 /** Bundled context passed between execution phases. */
-export interface RunContext {
-  taskId: string
+export interface RunContext extends BaseRunContext {
   task: Awaited<ReturnType<typeof loadTask>>
-  identifier: string
-  branchName: string
-  isFollowUp: boolean
-  taskSpec: string
-  repoOwner: string
-  repoName: string
-  resolvedRepo: string
-  githubToken: string
-  anthropicKey: string
-  currentRunId: string
-  mcpToken: string
-  agentStartedAt: number
-  gitName: string
-  gitEmail: string
-}
-
-export type ChangedFile = {
-  path: string
-  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  sessionId?: string
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
