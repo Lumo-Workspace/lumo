@@ -1,0 +1,516 @@
+{
+  "feature": "Agent execution code refactor: security fix, shared types, barrel consolidation",
+  "workflow_type": "refactor",
+  "workflow_rationale": "This is a code reorganization and cleanup task — no new user-facing features. The goal is to fix a critical security issue (token logging), eliminate duplicate type definitions by extracting to shared package, remove an unnecessary barrel re-export service, and clean up debug logging. Classic refactor: add new (shared types) → migrate (update imports) → remove old (delete barrel, remove duplicates) → cleanup (verify).",
+  "phases": [
+    {
+      "id": "phase-1-security-fix",
+      "name": "Security Fix & Debug Log Cleanup",
+      "type": "implementation",
+      "description": "Remove the critical GitHub token leak and all debug console.log statements from lib/agent/. This is the highest priority change and is standalone — no dependency on other phases.",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Remove GitHub token leak (CRITICAL) and debug console.logs from lib/agent/execute.ts. Line 108 logs the full GitHub installation token — this is a security vulnerability. Also remove debug logs on lines 183 and 185.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/agent/execute.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -n 'console.log' lib/agent/execute.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "Remove lines 108, 183, 185. Keep the resolveCredentials function logic intact — just remove the console.log statement that leaks the token. Do NOT add replacement logging."
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Remove debug console.logs from lib/agent/run-lifecycle.ts (lines 78, 83, 90). Keep the console.error on line 161 (markFailed) — that's a genuine error log.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/agent/run-lifecycle.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -n 'console.log' lib/agent/run-lifecycle.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "No console.log statements found — already removed. The console.error in markFailed is acceptable per project rules."
+        },
+        {
+          "id": "subtask-1-3",
+          "description": "Remove debug console.logs from lib/agent/utils.ts (lines 59, 67) and lib/agent/github-pr.ts (lines 88-90, 111). These are leftover debug statements.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/agent/utils.ts",
+            "lib/agent/github-pr.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -rn 'console.log' lib/agent/",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "Removed console.log from utils.ts stubs. No console.logs found in github-pr.ts. Note: sandbox.ts still has console.logs but is out of scope for this subtask."
+        }
+      ]
+    },
+    {
+      "id": "phase-2-add-shared-types",
+      "name": "Add Shared Agent Types to shared/ Package",
+      "type": "implementation",
+      "description": "Add AgentResult, ExecuteAgentOptions, ChangedFile, and BaseRunContext type definitions to shared/src/index.ts. Build the shared package so both the main app and agent-server can import these types.",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Add AgentResult, ExecuteAgentOptions, ChangedFile, and BaseRunContext type definitions to shared/src/index.ts. AgentResult's 'started' variant should have optional sessionId and runId fields to accommodate both main app and agent-server variants.",
+          "service": "shared",
+          "files_to_modify": [
+            "shared/src/index.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "shared/src/index.ts",
+            "lib/agent/execute.ts",
+            "agent-server/src/agent/execute.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd shared && npx tsc --noEmit",
+            "expected": "No errors"
+          },
+          "status": "completed",
+          "notes": "Add types at end of file, after existing agent server API contract section. Use 'export type' pattern consistent with existing exports. BaseRunContext should include common fields (taskId, identifier, branchName, isFollowUp, taskSpec, repoOwner, repoName, resolvedRepo, githubToken, currentRunId, agentStartedAt, gitName, gitEmail) but NOT the 'task' field since it's Prisma-model-specific."
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Build the shared package to generate updated dist/ files so downstream consumers can import the new types.",
+          "service": "shared",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "ls shared/dist/index.d.ts && grep 'AgentResult' shared/dist/index.d.ts",
+            "expected": "File exists and contains AgentResult type"
+          },
+          "status": "completed",
+          "notes": "Run 'cd shared && npx tsc' to rebuild. Verify the dist/index.d.ts contains the new type exports."
+        }
+      ]
+    },
+    {
+      "id": "phase-3-migrate-to-shared",
+      "name": "Migrate Services to Import from Shared Types",
+      "type": "implementation",
+      "description": "Update lib/agent/execute.ts and agent-server/src/agent/execute.ts to import AgentResult, ExecuteAgentOptions, ChangedFile from @lumo/shared instead of defining them locally. Keep re-exports for backward compatibility.",
+      "depends_on": [
+        "phase-2-add-shared-types"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Update lib/agent/execute.ts to import AgentResult, ExecuteAgentOptions, ChangedFile, and BaseRunContext from @lumo/shared. Remove the local type definitions. Keep re-exports so existing import paths continue to work. Extend BaseRunContext for the main app's RunContext (adding sessionId field).",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/agent/execute.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "agent-server/src/agent/errors.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit 2>&1 | head -20",
+            "expected": "No errors (or errors unrelated to this change)"
+          },
+          "status": "completed",
+          "notes": "Pattern: replace local type/interface definitions with imports from @lumo/shared, then re-export for convenience. Example from agent-server/src/agent/errors.ts: export { AgentError } from '@lumo/shared'. For RunContext, import BaseRunContext and extend: export interface RunContext extends BaseRunContext { sessionId: string; task: ... }. The ExecuteResult type stays local since it's only used in this file."
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Update agent-server/src/agent/execute.ts to import AgentResult, ExecuteAgentOptions, ChangedFile, and BaseRunContext from @lumo/shared. Remove the local type definitions. Extend BaseRunContext for agent-server's RunContext (adding anthropicKey, mcpToken, actorName, task).",
+          "service": "agent-server",
+          "files_to_modify": [
+            "agent-server/src/agent/execute.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "agent-server/src/agent/errors.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd agent-server && npx tsc --noEmit 2>&1 | head -20",
+            "expected": "No errors (or errors unrelated to this change)"
+          },
+          "status": "completed",
+          "notes": "Import types from @lumo/shared. Keep local RunContext interface that extends BaseRunContext with server-specific fields. Agent-server uses ESM (.js extensions) but @lumo/shared resolves via tsconfig paths — no extension needed for the import."
+        },
+        {
+          "id": "subtask-3-3",
+          "description": "Update lib/agent/github-pr.ts to import ChangedFile from @lumo/shared (or from ./execute re-export) instead of the local definition in execute.ts. Verify RunContext import still works.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/agent/github-pr.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit 2>&1 | grep 'github-pr' | head -5",
+            "expected": "No errors for github-pr.ts"
+          },
+          "status": "completed",
+          "notes": "github-pr.ts currently imports 'import type { RunContext, ChangedFile } from ./execute'. After subtask-3-1, execute.ts re-exports these from @lumo/shared, so this import should continue to work. Verify it does. If RunContext import needs updating because the local definition changed shape, update accordingly."
+        }
+      ]
+    },
+    {
+      "id": "phase-4-eliminate-barrel",
+      "name": "Eliminate agent-orchestration.service.ts Barrel",
+      "type": "implementation",
+      "description": "Remove the passthrough-only agent-orchestration.service.ts. Update all consumers to import directly from lib/agent/ modules. Update lib/services/index.ts barrel to import from the source modules.",
+      "depends_on": [
+        "phase-3-migrate-to-shared"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Update lib/services/index.ts to import agent-related exports directly from lib/agent/ modules instead of from agent-orchestration.service.ts. Import values from lib/agent/state-machine, lib/agent/execute, lib/agent/context-builder, lib/agent/errors. Import shared types from @lumo/shared.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/services/index.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "lib/services/index.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "grep 'agent-orchestration' lib/services/index.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "Replace the two blocks that import from './agent-orchestration.service' (lines 28-44) with equivalent imports from '@/lib/agent/state-machine', '@/lib/agent/execute', '@/lib/agent/context-builder', '@/lib/agent/errors', and '@lumo/shared'. Keep the exact same export names so all downstream consumers continue to work unchanged."
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Update lib/services/notification-response.service.ts to import clearAgentStatus, transitionAgentStatus, executeAgent directly from lib/agent/ modules instead of from agent-orchestration.service.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/services/notification-response.service.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep 'agent-orchestration' lib/services/notification-response.service.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "Changed import from '@/lib/services/agent-orchestration.service' to import from '@/lib/agent/state-machine' (for clearAgentStatus, transitionAgentStatus) and '@/lib/agent/execute' (for executeAgent)."
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Update lib/services/agent.service.ts to import transitionAgentStatus directly from lib/agent/state-machine instead of from agent-orchestration.service.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/services/agent.service.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep 'agent-orchestration' lib/services/agent.service.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "Simple one-line import path change. From './agent-orchestration.service' to '@/lib/agent/state-machine'."
+        },
+        {
+          "id": "subtask-4-4",
+          "description": "Update __tests__/agent/context-builder.test.ts to import buildAgentContext from '@/lib/agent/context-builder' instead of from the barrel. Also remove the mock for agent-orchestration.service re-exports if no longer needed.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "__tests__/agent/context-builder.test.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep 'agent-orchestration' __tests__/agent/context-builder.test.ts",
+            "expected": "No matches (exit code 1)"
+          },
+          "status": "completed",
+          "notes": "The test currently imports from '@/lib/services/agent-orchestration.service'. Change to '@/lib/agent/context-builder'. The mock for '@/lib/agent/execute' can remain since it prevents heavy dependencies from loading."
+        },
+        {
+          "id": "subtask-4-5",
+          "description": "Delete lib/services/agent-orchestration.service.ts. It is now unused — all consumers have been migrated to import directly from lib/agent/ modules.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "lib/services/agent-orchestration.service.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "test ! -f lib/services/agent-orchestration.service.ts && echo 'DELETED'",
+            "expected": "DELETED"
+          },
+          "status": "completed",
+          "notes": "Delete the file. Verify no remaining references: grep -r 'agent-orchestration.service' lib/ __tests__/ app/ components/ should return no matches."
+        }
+      ]
+    },
+    {
+      "id": "phase-5-verify-agentpanel",
+      "name": "Verify AgentPanel Placement",
+      "type": "implementation",
+      "description": "Verify that AgentPanel is rendered at a consistent, intuitive position in both TaskDetailPanel.tsx (sidebar) and TaskDetailPage.tsx (full page). Based on investigation, placement is already consistent within each view — document the finding.",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Verify AgentPanel placement in both TaskDetailPanel.tsx and TaskDetailPage.tsx. Investigation shows: Panel view places AgentPanel after PRs/Branches (sidebar has no description/spec sections). Page view places AgentPanel after Spec and Sub-tasks (before timeline). Both consistently place it as the last content section. If no changes are needed, document the finding. If positioning should be adjusted for consistency, make the change.",
+          "service": "nextjs-app",
+          "files_to_modify": [
+            "app/workspace/[workspaceUrl]/components/TaskDetailPanel.tsx",
+            "app/workspace/[workspaceUrl]/components/pages/TaskDetailPage.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Verify that AgentPanel appears at a consistent position relative to other content sections in both views. The current placement (after PRs in panel, after spec in page) is consistent within each layout context."
+          },
+          "status": "completed",
+          "notes": "Verified: placement is consistent. TaskDetailPanel (sidebar): AgentPanel after PRs/Branches (line 323-332). TaskDetailPage (full page): AgentPanel after Sub-tasks, before Timeline (line 320-330). Both place it as the last content section before non-content elements. No code changes needed."
+        }
+      ]
+    },
+    {
+      "id": "phase-6-integration-verification",
+      "name": "Integration Verification & Cleanup",
+      "type": "integration",
+      "description": "Run TypeScript compilation, existing tests, and verify no regressions. Ensure no circular imports and all agent API routes still resolve.",
+      "depends_on": [
+        "phase-1-security-fix",
+        "phase-3-migrate-to-shared",
+        "phase-4-eliminate-barrel",
+        "phase-5-verify-agentpanel"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Run TypeScript type checking for the main Next.js app to verify no type errors after all refactoring changes.",
+          "all_services": false,
+          "service": "nextjs-app",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "Run TypeScript type checking for the agent-server to verify no type errors after shared type imports.",
+          "all_services": false,
+          "service": "agent-server",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd agent-server && npx tsc --noEmit",
+            "expected": "No errors"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-3",
+          "description": "Run existing Jest tests to verify no regressions. The context-builder test was updated in phase 4 and should pass with the new import path.",
+          "all_services": false,
+          "service": "nextjs-app",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "npm test 2>&1 | tail -20",
+            "expected": "All tests pass"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-4",
+          "description": "Final verification: confirm no console.log statements remain in lib/agent/, no references to agent-orchestration.service remain outside docs/, and no token/secret values in any log statements.",
+          "all_services": true,
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "echo '=== console.log check ===' && (grep -rn 'console.log' lib/agent/ 2>/dev/null && exit 1 || echo 'PASS: no console.log in lib/agent/') && echo '=== barrel reference check ===' && (grep -rn 'agent-orchestration.service' lib/ __tests__/ app/ components/ 2>/dev/null && exit 1 || echo 'PASS: no barrel references') && echo '=== token logging check ===' && (grep -rn 'console.*token.*=\\|console.*secret.*=\\|console.*key.*=' lib/agent/ 2>/dev/null && exit 1 || echo 'PASS: no credential logging')",
+            "expected": "All checks pass"
+          },
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 6,
+    "total_subtasks": 16,
+    "services_involved": [
+      "nextjs-app",
+      "agent-server",
+      "shared"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 3,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-1-security-fix",
+            "phase-2-add-shared-types",
+            "phase-5-verify-agentpanel"
+          ],
+          "reason": "All three have no dependencies and modify completely different file sets"
+        }
+      ],
+      "recommended_workers": 2,
+      "speedup_estimate": "1.3x faster than sequential — phases 1, 2, 5 can run in parallel, but 3 and 4 are sequential"
+    },
+    "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 001 --parallel 2"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "No console.log statements in lib/agent/ (only console.error for genuine errors)",
+      "No GitHub token or credentials appear in any log output",
+      "All existing tests pass (npm test)",
+      "No TypeScript errors in main app (npx tsc --noEmit)",
+      "No TypeScript errors in agent-server (cd agent-server && npx tsc --noEmit)",
+      "agent-orchestration.service.ts is deleted",
+      "AgentResult, ExecuteAgentOptions, ChangedFile are defined in shared/src/index.ts",
+      "Both lib/agent/execute.ts and agent-server/src/agent/execute.ts import from @lumo/shared",
+      "No circular imports between lib/agent/ and lib/services/",
+      "AgentPanel renders consistently in both task detail views"
+    ],
+    "verification_steps": [
+      {
+        "name": "TypeScript Check (Main App)",
+        "command": "npx tsc --noEmit",
+        "expected_outcome": "No errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "TypeScript Check (Agent Server)",
+        "command": "cd agent-server && npx tsc --noEmit",
+        "expected_outcome": "No errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Unit Tests",
+        "command": "npm test",
+        "expected_outcome": "All tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "No Console.log in lib/agent/",
+        "command": "grep -rn 'console.log' lib/agent/",
+        "expected_outcome": "No matches (exit code 1)",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "No Token Logging",
+        "command": "grep -rn 'console.*token\\|console.*secret' lib/agent/ | grep -v 'console.error\\|console.warn'",
+        "expected_outcome": "No matches (exit code 1)",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk refactor touching critical agent execution path. All import paths must be validated. Token leak fix is security-critical. TypeScript compilation and existing tests provide comprehensive validation."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": [
+        "npm test"
+      ],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": [],
+      "notes": "Integration tests require running services and API keys. Refactor correctness is validated via TypeScript compilation and unit tests."
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "browser_verification": {
+      "required": false,
+      "pages": [
+        {
+          "url": "http://localhost:3000/workspace/*/project/*/tasks/*",
+          "checks": [
+            "AgentPanel appears in consistent position for agent-assigned tasks"
+          ]
+        }
+      ],
+      "notes": "No functional UI changes — only verifying existing placement consistency"
+    },
+    "database_verification": {
+      "required": false,
+      "checks": [],
+      "notes": "No database schema changes in this refactor"
+    }
+  },
+  "qa_signoff": null,
+  "executionPhase": "coding",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-04-15T04:03:34.171Z",
+  "xstateState": "planning"
+}
