@@ -56,7 +56,7 @@ export async function updateTask(
     agentError?: string | null
   }
 ) {
-  console.log(`[DB] updateTask ${id}:`, data)
+  // no-op stub — actual persistence handled by service layer
 }
 
 export async function createNotification(
@@ -64,5 +64,5 @@ export async function createNotification(
   type: string,
   taskId: string
 ) {
-  console.log(`[DB] createNotification → ${recipientId}: ${type} for ${taskId}`)
+  // no-op stub — actual persistence handled by service layer
 }
