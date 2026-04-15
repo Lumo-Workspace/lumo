@@ -4,8 +4,8 @@ import { resumeAgent } from '@/lib/services/clarification.service'
 import {
   clearAgentStatus,
   transitionAgentStatus,
-  executeAgent,
-} from '@/lib/services/agent-orchestration.service'
+} from '@/lib/agent/state-machine'
+import { executeAgent } from '@/lib/agent/execute'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import {
   isAgentServiceEnabled,
