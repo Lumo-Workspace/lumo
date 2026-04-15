@@ -16,7 +16,13 @@ import {
   type TaskStatusValue,
 } from './task-state-machine.js'
 import { dispatchEvents } from '../events/dispatcher.js'
-import type { DomainEvent } from '@lumo/shared'
+import type {
+  DomainEvent,
+  AgentResult,
+  ExecuteAgentOptions,
+  ChangedFile,
+  BaseRunContext,
+} from '@lumo/shared'
 import {
   notifyAgentVerify,
   notifyAgentFailed,
@@ -35,45 +41,12 @@ const PUSH_TIMEOUT_MS = 60 * 1000
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type AgentResult =
-  | { outcome: 'done'; prUrl: string; prNumber: number }
-  | { outcome: 'failed'; error: string }
-  | { outcome: 'clarify'; question: string }
-  | { outcome: 'no_changes' }
-  | { outcome: 'spec_review' }
-  | { outcome: 'started' }
+// Re-export from shared for convenience within agent-server
+export type { AgentResult, ExecuteAgentOptions, ChangedFile } from '@lumo/shared'
 
-export interface ExecuteAgentOptions {
-  taskId: string
-  actorClerkId: string
-  actorName?: string
-  actorEmail?: string
-  trigger?: string
-}
-
-interface RunContext {
-  taskId: string
+interface RunContext extends BaseRunContext {
   task: Awaited<ReturnType<typeof loadTask>>
-  identifier: string
-  branchName: string
-  isFollowUp: boolean
-  taskSpec: string
-  repoOwner: string
-  repoName: string
-  resolvedRepo: string
-  githubToken: string
-  anthropicKey: string
-  currentRunId: string
-  mcpToken: string
-  agentStartedAt: number
-  gitName: string
-  gitEmail: string
   actorName?: string
-}
-
-type ChangedFile = {
-  path: string
-  status: 'added' | 'modified' | 'deleted' | 'renamed'
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
