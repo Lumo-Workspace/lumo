@@ -16,6 +16,10 @@ jest.mock('@/lib/repositories/sentry.repository', () => ({
     createMapping: jest.fn(),
     findMappingWithIntegration: jest.fn(),
     deleteMapping: jest.fn(),
+    findIntegrationByOrgSlug: jest.fn(),
+    findLink: jest.fn(),
+    createLink: jest.fn(),
+    markWebhookReceived: jest.fn(),
   },
 }))
 jest.mock('@/lib/crypto', () => ({
@@ -28,12 +32,29 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: { findActorsByEmailInWorkspace: jest.fn() },
 }))
+jest.mock('@/lib/repositories/activity.repository', () => ({
+  activityRepository: { create: jest.fn() },
+}))
+jest.mock('@/lib/services/task.service', () => ({
+  taskService: {
+    createFromAutomation: jest.fn(),
+    reopen: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: { findById: jest.fn() },
+}))
 
 import { sentryService } from '@/lib/services/sentry.service'
 import { sentryRepository } from '@/lib/repositories/sentry.repository'
 import { encrypt } from '@/lib/crypto'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+import { taskService } from '@/lib/services/task.service'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import alertFixture from '@/__tests__/fixtures/sentry-issue-alert.json'
+import { createHmac } from 'crypto'
 
 describe('sentryService status/connect/disconnect', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -277,5 +298,172 @@ describe('sentryService._resolveAssignee', () => {
   it('returns null when emails list is empty', async () => {
     const id = await sentryService._resolveAssignee('ws1', [])
     expect(id).toBeNull()
+  })
+})
+
+function signed(body: string, secret: string) {
+  return createHmac('sha256', secret).update(body, 'utf8').digest('hex')
+}
+
+const PLAIN_SECRET = 'test-secret'
+const ENC_SECRET = `enc(${PLAIN_SECRET})`
+
+describe('sentryService.handleWebhook', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(sentryRepository.findIntegrationByOrgSlug as jest.Mock).mockResolvedValue(
+      {
+        id: 'int1',
+        workspaceId: 'ws1',
+        clientSecret: ENC_SECRET,
+      }
+    )
+    ;(sentryRepository.findMappingByProjectSlug as jest.Mock).mockResolvedValue(
+      {
+        id: 'map1',
+        projectId: 'p1',
+        integrationId: 'int1',
+      }
+    )
+    ;(sentryRepository.findLink as jest.Mock).mockResolvedValue(null)
+    ;(sentryRepository.createLink as jest.Mock).mockResolvedValue({
+      id: 'link1',
+      taskId: 't1',
+    })
+    ;(sentryRepository.markWebhookReceived as jest.Mock).mockResolvedValue(
+      undefined
+    )
+    // ensureBugTag + resolveAssignee behaviour
+    ;(tagRepository.findByName as jest.Mock).mockResolvedValue({
+      id: 'tagBug',
+    })
+    ;(
+      memberRepository.findActorsByEmailInWorkspace as jest.Mock
+    ).mockResolvedValue([])
+    ;(taskService.createFromAutomation as jest.Mock).mockResolvedValue({
+      task: { id: 't1' },
+    })
+  })
+
+  it('throws 401 when signature is missing', async () => {
+    const body = JSON.stringify(alertFixture)
+    await expect(
+      sentryService.handleWebhook({ rawBody: body, signature: null })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('throws 404 when orgSlug unmatched', async () => {
+    ;(sentryRepository.findIntegrationByOrgSlug as jest.Mock).mockResolvedValue(
+      null
+    )
+    const body = JSON.stringify(alertFixture)
+    await expect(
+      sentryService.handleWebhook({ rawBody: body, signature: 'deadbeef' })
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('throws 401 when signature is wrong', async () => {
+    const body = JSON.stringify(alertFixture)
+    await expect(
+      sentryService.handleWebhook({ rawBody: body, signature: 'deadbeef' })
+    ).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('skips silently when mapping is missing', async () => {
+    ;(sentryRepository.findMappingByProjectSlug as jest.Mock).mockResolvedValue(
+      null
+    )
+    const body = JSON.stringify(alertFixture)
+    const sig = signed(body, PLAIN_SECRET)
+    const result = await sentryService.handleWebhook({
+      rawBody: body,
+      signature: sig,
+    })
+    expect(result).toMatchObject({ skipped: 'no_mapping' })
+    expect(taskService.createFromAutomation).not.toHaveBeenCalled()
+  })
+
+  it('creates task + link for first-time issue', async () => {
+    const body = JSON.stringify(alertFixture)
+    const sig = signed(body, PLAIN_SECRET)
+    const result = await sentryService.handleWebhook({
+      rawBody: body,
+      signature: sig,
+    })
+    expect(taskService.createFromAutomation).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({
+        priority: 'HIGH',
+        tagIds: ['tagBug'],
+      })
+    )
+    expect(sentryRepository.createLink).toHaveBeenCalledWith({
+      integrationId: 'int1',
+      sentryIssueId: '4555555555',
+      taskId: 't1',
+    })
+    expect(sentryRepository.markWebhookReceived).toHaveBeenCalledWith('int1')
+    expect(result).toMatchObject({ created: true, taskId: 't1' })
+  })
+
+  it('records activity and does NOT create task for repeated issue', async () => {
+    ;(sentryRepository.findLink as jest.Mock).mockResolvedValue({
+      id: 'link1',
+      taskId: 't1',
+    })
+    ;(taskRepository.findById as jest.Mock).mockResolvedValue({
+      id: 't1',
+      status: 'TODO',
+    })
+    const body = JSON.stringify(alertFixture)
+    const sig = signed(body, PLAIN_SECRET)
+    const result = await sentryService.handleWebhook({
+      rawBody: body,
+      signature: sig,
+    })
+    expect(taskService.createFromAutomation).not.toHaveBeenCalled()
+    expect(activityRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: 't1', type: 'SENTRY_ALERT' })
+    )
+    expect(result).toMatchObject({ repeated: true, taskId: 't1' })
+  })
+
+  it('reopens DONE task on regression', async () => {
+    ;(sentryRepository.findLink as jest.Mock).mockResolvedValue({
+      id: 'link1',
+      taskId: 't1',
+    })
+    ;(taskRepository.findById as jest.Mock).mockResolvedValue({
+      id: 't1',
+      status: 'DONE',
+    })
+    const body = JSON.stringify(alertFixture)
+    const sig = signed(body, PLAIN_SECRET)
+    await sentryService.handleWebhook({ rawBody: body, signature: sig })
+    expect(taskService.reopen).toHaveBeenCalledWith('t1', {
+      reason: 'sentry_regression',
+      actorId: null,
+    })
+  })
+
+  it('falls back to repeated flow on link P2002 race', async () => {
+    ;(sentryRepository.findLink as jest.Mock)
+      .mockResolvedValueOnce(null) // first read: not yet present
+      .mockResolvedValueOnce({ id: 'link1', taskId: 't1' }) // after race: present
+    ;(sentryRepository.createLink as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('duplicate'), { code: 'P2002' })
+    )
+    ;(taskRepository.findById as jest.Mock).mockResolvedValue({
+      id: 't1',
+      status: 'TODO',
+    })
+    const body = JSON.stringify(alertFixture)
+    const sig = signed(body, PLAIN_SECRET)
+    const result = await sentryService.handleWebhook({
+      rawBody: body,
+      signature: sig,
+    })
+    expect(activityRepository.create).toHaveBeenCalled()
+    expect(result).toMatchObject({ repeated: true })
   })
 })
