@@ -1,7 +1,8 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { MessageSquare, Check, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
+import { SlackIcon } from './SlackIcon'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -33,11 +34,8 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
         {/* Header */}
         <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
           <div className='flex items-center gap-3'>
-            <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0'>
-              <MessageSquare
-                size={18}
-                className='text-zinc-700 dark:text-zinc-300'
-              />
+            <div className='size-9 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0'>
+              <SlackIcon className='h-[18px] w-[18px]' />
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
