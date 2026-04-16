@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { AlertTriangle } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -363,6 +364,38 @@ function formatActivityText(
         },
         { name: String(p.branchName ?? '') }
       )
+    case 'SENTRY_ALERT': {
+      const triggeredRule =
+        typeof p.triggeredRule === 'string' ? p.triggeredRule : undefined
+      const reopened = p.reopened === true
+      const eventCount = typeof p.eventCount === 'number' ? p.eventCount : null
+      const label = reopened
+        ? intl.formatMessage({
+            id: 'activity.sentryReopened',
+            defaultMessage: 'reopened by Sentry regression',
+          })
+        : triggeredRule
+          ? intl.formatMessage(
+              {
+                id: 'activity.sentryAlert',
+                defaultMessage: 'Sentry alert: {rule}',
+              },
+              { rule: triggeredRule }
+            )
+          : intl.formatMessage({
+              id: 'activity.sentryAlertReceived',
+              defaultMessage: 'Sentry alert received',
+            })
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <AlertTriangle className='h-3.5 w-3.5 text-red-500' />
+          <span>{label}</span>
+          {eventCount !== null ? (
+            <span className='text-zinc-400'>· {eventCount} events</span>
+          ) : null}
+        </span>
+      )
+    }
     default:
       return (type ?? '').toLowerCase().replace(/_/g, ' ')
   }

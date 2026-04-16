@@ -32,6 +32,18 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+// ── Mock Clerk ──────────────────────────────────────────────────────────────
+
+const mockClerkGetUserList = jest.fn()
+
+jest.mock('@clerk/nextjs/server', () => ({
+  createClerkClient: () => ({
+    users: {
+      getUserList: (...args: any[]) => mockClerkGetUserList(...args),
+    },
+  }),
+}))
+
 beforeEach(() => jest.clearAllMocks())
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -160,6 +172,101 @@ describe('memberRepository', () => {
       expect(mockActorCreate).toHaveBeenCalledWith({
         data: { workspaceId: 'ws-1', type: 'AGENT', agentId: 'agent-1' },
       })
+    })
+  })
+
+  describe('findActorsByEmailInWorkspace', () => {
+    it('returns actor ids for matching emails within the workspace', async () => {
+      mockClerkGetUserList.mockResolvedValue({
+        data: [
+          {
+            id: 'clerk-1',
+            emailAddresses: [{ emailAddress: 'ada@example.com' }],
+          },
+        ],
+      })
+      mockMemberFindMany.mockResolvedValue([
+        { clerkId: 'clerk-1', actor: { id: 'actor-1' } },
+      ])
+
+      const ids = await memberRepository.findActorsByEmailInWorkspace('ws-1', [
+        'ada@example.com',
+      ])
+
+      expect(ids).toEqual(['actor-1'])
+      expect(mockClerkGetUserList).toHaveBeenCalledWith(
+        expect.objectContaining({ emailAddress: ['ada@example.com'] })
+      )
+      expect(mockMemberFindMany).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws-1', clerkId: { in: ['clerk-1'] } },
+        select: { clerkId: true, actor: { select: { id: true } } },
+      })
+    })
+
+    it('returns empty array when no Clerk user matches', async () => {
+      mockClerkGetUserList.mockResolvedValue({ data: [] })
+
+      const ids = await memberRepository.findActorsByEmailInWorkspace('ws-1', [
+        'x@example.com',
+      ])
+
+      expect(ids).toEqual([])
+      expect(mockMemberFindMany).not.toHaveBeenCalled()
+    })
+
+    it('returns empty array when emails list is empty', async () => {
+      const ids = await memberRepository.findActorsByEmailInWorkspace(
+        'ws-1',
+        []
+      )
+
+      expect(ids).toEqual([])
+      expect(mockClerkGetUserList).not.toHaveBeenCalled()
+      expect(mockMemberFindMany).not.toHaveBeenCalled()
+    })
+
+    it('preserves input order of matched emails', async () => {
+      mockClerkGetUserList.mockResolvedValue({
+        data: [
+          {
+            id: 'clerk-b',
+            emailAddresses: [{ emailAddress: 'b@example.com' }],
+          },
+          {
+            id: 'clerk-a',
+            emailAddresses: [{ emailAddress: 'a@example.com' }],
+          },
+        ],
+      })
+      mockMemberFindMany.mockResolvedValue([
+        { clerkId: 'clerk-a', actor: { id: 'actor-a' } },
+        { clerkId: 'clerk-b', actor: { id: 'actor-b' } },
+      ])
+
+      const ids = await memberRepository.findActorsByEmailInWorkspace('ws-1', [
+        'a@example.com',
+        'b@example.com',
+      ])
+
+      expect(ids).toEqual(['actor-a', 'actor-b'])
+    })
+
+    it('skips Clerk users that do not have a workspace membership', async () => {
+      mockClerkGetUserList.mockResolvedValue({
+        data: [
+          {
+            id: 'clerk-1',
+            emailAddresses: [{ emailAddress: 'ada@example.com' }],
+          },
+        ],
+      })
+      mockMemberFindMany.mockResolvedValue([]) // no member in this workspace
+
+      const ids = await memberRepository.findActorsByEmailInWorkspace('ws-1', [
+        'ada@example.com',
+      ])
+
+      expect(ids).toEqual([])
     })
   })
 })
