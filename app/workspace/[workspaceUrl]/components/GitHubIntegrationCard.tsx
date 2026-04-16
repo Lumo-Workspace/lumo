@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { GitBranch, Check, Plus, X, Loader2 } from 'lucide-react'
+import { GitHubIcon } from './GitHubIcon'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -58,11 +59,8 @@ export function GitHubIntegrationCard({
         {/* Header */}
         <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
           <div className='flex items-center gap-3'>
-            <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0'>
-              <GitBranch
-                size={18}
-                className='text-zinc-700 dark:text-zinc-300'
-              />
+            <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300'>
+              <GitHubIcon className='h-[18px] w-[18px]' />
             </div>
             <div>
               <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
