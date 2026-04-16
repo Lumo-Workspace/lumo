@@ -18,7 +18,7 @@ const TRANSITIONS: Record<FromKey, AgentStatusValue[]> = {
   INPUT_REQUIRED: ['WORKING', 'FAILED', 'CANCELED'],
   FAILED: ['WORKING'],
   CANCELED: ['WORKING'],
-  COMPLETED: [],
+  COMPLETED: ['WORKING'],
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
