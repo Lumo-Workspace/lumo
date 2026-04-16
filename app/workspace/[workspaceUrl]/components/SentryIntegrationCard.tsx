@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertTriangle } from 'lucide-react'
 import { sentryApi, type SentryStatus } from '@/lib/api-client/sentry'
 import { SentryConnectDialog } from './SentryConnectDialog'
 import { SentryMappingsDialog } from './SentryMappingsDialog'
+import { SentryIcon } from './SentryIcon'
 
 export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -52,8 +52,8 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
     <>
       <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 p-5'>
         <div className='flex items-start gap-3'>
-          <div className='rounded-lg bg-red-500/10 p-2 text-red-500'>
-            <AlertTriangle className='h-5 w-5' />
+          <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300'>
+            <SentryIcon className='h-5 w-5' />
           </div>
           <div className='flex-1'>
             <h3 className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
