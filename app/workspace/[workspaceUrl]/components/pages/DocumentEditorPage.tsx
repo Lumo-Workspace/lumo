@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
-import { Link2, PanelLeftOpen } from 'lucide-react'
+import { Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DescriptionEditor, type TocItem } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
@@ -35,8 +35,6 @@ interface DocumentEditorPageProps {
   onEmojiChanged?: (id: string, emoji: string | null) => void
   members: WorkspaceMemberInfo[]
   currentMemberId: string | undefined
-  docTreeCollapsed: boolean
-  onExpandDocTree: () => void
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -67,8 +65,6 @@ export function DocumentEditorPage({
   onEmojiChanged,
   members,
   currentMemberId,
-  docTreeCollapsed,
-  onExpandDocTree,
 }: DocumentEditorPageProps) {
   const intl = useIntl()
   const initialCache = readCache<ApiDocumentDetail>(
@@ -296,26 +292,11 @@ export function DocumentEditorPage({
           systems and the active state never advances past the first heading. */}
       <div ref={setScrollRoot} className='relative flex-1 overflow-y-auto'>
         {/* Top bar — spans the full scroll container above the TOC + editor
-            so the breadcrumb sits flush against the left edge. `px-2` matches
-            the doc tree header's padding so the expand-sidebar button sits
-            exactly where the collapse-sidebar button was, with no horizontal
-            jump when toggling the sidebar, and the right edge mirrors that
-            same 8px gutter for symmetry across all document pages. */}
+            so the breadcrumb sits flush against the left edge. `px-2` mirrors
+            the 8px gutter the doc tree (or the collapsed-rail) reserves on
+            its right edge, so all document pages share a consistent gutter. */}
         <div className='flex items-center justify-between px-2 pt-6 pb-4'>
-          <div className='flex items-center gap-2 min-w-0'>
-            {docTreeCollapsed && (
-              <button
-                type='button'
-                onClick={onExpandDocTree}
-                title={intl.formatMessage({
-                  id: 'documentTree.expand',
-                  defaultMessage: 'Expand sidebar (⌘+\\)',
-                })}
-                className='flex items-center justify-center size-8 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-              >
-                <PanelLeftOpen className='size-4' />
-              </button>
-            )}
+          <div className='min-w-0'>
             <DocumentBreadcrumb
               ancestors={ancestors}
               current={{

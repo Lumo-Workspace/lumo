@@ -13,7 +13,6 @@ import {
   Table2,
   ArrowDown,
   ArrowUpDown,
-  PanelLeftOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -56,8 +55,6 @@ interface DocumentsPageProps {
   onNewDocument: () => void
   onSelectDocument: (doc: ApiDocument) => void
   onDeleteDocument: (id: string) => void
-  docTreeCollapsed: boolean
-  onExpandDocTree: () => void
 }
 
 const FILTERS: { key: DocVisibility | 'ALL'; msgId: string }[] = [
@@ -108,8 +105,6 @@ export function DocumentsPage({
   onNewDocument,
   onSelectDocument,
   onDeleteDocument,
-  docTreeCollapsed,
-  onExpandDocTree,
 }: DocumentsPageProps) {
   const intl = useIntl()
   const [search, setSearch] = useState('')
@@ -402,34 +397,15 @@ export function DocumentsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Page padding matches the doc tree's collapse-button padding (px-2)
-          so the expand-sidebar button below sits at exactly the same x as
-          the collapse button — toggling the sidebar feels like the button
-          stays in place. */}
       <div className='px-2 pt-6 pb-4'>
         <div className='flex items-start justify-between mb-1'>
-          <div className='flex items-start gap-2'>
-            {docTreeCollapsed && (
-              <button
-                type='button'
-                onClick={onExpandDocTree}
-                title={intl.formatMessage({
-                  id: 'documentTree.expand',
-                  defaultMessage: 'Expand sidebar (⌘\\)',
-                })}
-                className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
-              >
-                <PanelLeftOpen className='size-4' />
-              </button>
-            )}
-            <div>
-              <h1 className='text-2xl font-bold'>
-                {intl.formatMessage({ id: 'documents.title' })}
-              </h1>
-              <p className='text-sm text-muted-foreground'>
-                {intl.formatMessage({ id: 'documents.subtitle' })}
-              </p>
-            </div>
+          <div>
+            <h1 className='text-2xl font-bold'>
+              {intl.formatMessage({ id: 'documents.title' })}
+            </h1>
+            <p className='text-sm text-muted-foreground'>
+              {intl.formatMessage({ id: 'documents.subtitle' })}
+            </p>
           </div>
           <Button size='sm' onClick={onNewDocument}>
             <Plus className='size-4 mr-1' />

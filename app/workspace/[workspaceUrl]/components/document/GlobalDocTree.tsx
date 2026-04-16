@@ -10,6 +10,7 @@ import {
   Loader2,
   MoreHorizontal,
   PanelLeftClose,
+  PanelLeftOpen,
   House,
 } from 'lucide-react'
 import type { TreeNode } from '../../types'
@@ -597,5 +598,30 @@ export function GlobalDocTree({
         </button>
       </div>
     </div>
+  )
+}
+
+// ─── Collapsed Rail ──────────────────────────────────────────
+// Slim left column shown in place of the full tree when the doc tree is
+// collapsed. Mirrors the expanded tree's `pt-6` and size-8 button so the
+// expand control sits at the exact same x/y as the collapse control —
+// toggling the sidebar feels like the button stays in place.
+
+export function CollapsedDocTreeRail({ onExpand }: { onExpand: () => void }) {
+  const intl = useIntl()
+  return (
+    <aside className='w-12 shrink-0 flex flex-col items-center pt-6'>
+      <button
+        type='button'
+        onClick={onExpand}
+        title={intl.formatMessage({
+          id: 'documentTree.expand',
+          defaultMessage: 'Expand sidebar (⌘\\)',
+        })}
+        className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
+      >
+        <PanelLeftOpen className='size-4' />
+      </button>
+    </aside>
   )
 }

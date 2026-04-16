@@ -52,7 +52,10 @@ import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
 import { DraftsPage } from './components/DraftsPage'
 import { DashboardPage } from './components/pages/DashboardPage'
-import { GlobalDocTree } from './components/document/GlobalDocTree'
+import {
+  GlobalDocTree,
+  CollapsedDocTreeRail,
+} from './components/document/GlobalDocTree'
 import { WorkspaceModals } from './components/WorkspaceModals'
 
 // ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
@@ -571,7 +574,9 @@ export default function DashboardApp() {
       case 'documents':
         return (
           <div className='flex-1 flex overflow-hidden'>
-            {!docTreeCollapsed && (
+            {docTreeCollapsed ? (
+              <CollapsedDocTreeRail onExpand={toggleDocTreeCollapsed} />
+            ) : (
               <GlobalDocTree
                 roots={docTree.roots}
                 expandedIds={docTree.expandedIds}
@@ -599,8 +604,6 @@ export default function DashboardApp() {
                 documentHandlers.navigateToDocument(doc.id)
               }
               onDeleteDocument={documentHandlers.handleDeleteDocument}
-              docTreeCollapsed={docTreeCollapsed}
-              onExpandDocTree={toggleDocTreeCollapsed}
             />
           </div>
         )
@@ -608,7 +611,9 @@ export default function DashboardApp() {
       case 'document-editor':
         return (
           <div className='flex-1 flex overflow-hidden'>
-            {!docTreeCollapsed && (
+            {docTreeCollapsed ? (
+              <CollapsedDocTreeRail onExpand={toggleDocTreeCollapsed} />
+            ) : (
               <GlobalDocTree
                 roots={docTree.roots}
                 expandedIds={docTree.expandedIds}
@@ -637,8 +642,6 @@ export default function DashboardApp() {
                 onEmojiChanged={(id, emoji) =>
                   docTree.updateNodeEmoji(id, emoji)
                 }
-                docTreeCollapsed={docTreeCollapsed}
-                onExpandDocTree={toggleDocTreeCollapsed}
               />
             ) : null}
           </div>
