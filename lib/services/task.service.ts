@@ -3,6 +3,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 import { decrypt } from '@/lib/crypto'
 import type { TaskStatus, TaskPriority } from '@prisma/client'
 import {
@@ -237,6 +238,31 @@ export const taskService = {
     }
 
     return { task }
+  },
+
+  /**
+   * Move a task back to TODO with a structured SENTRY_ALERT activity note.
+   * No-op if the task is not currently DONE. Used by Sentry regression
+   * handling — records the reopen reason as activity payload so the
+   * timeline can explain why the task came back to life.
+   */
+  async reopen(
+    taskId: string,
+    opts: { reason: 'sentry_regression'; actorId: string | null }
+  ) {
+    const task = await taskRepository.findForUpdate(taskId)
+    if (!task) {
+      throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+    if (task.status !== 'DONE') return
+
+    await taskRepository.update(taskId, { status: 'TODO' })
+    await activityRepository.create({
+      taskId,
+      type: 'SENTRY_ALERT',
+      actorId: opts.actorId,
+      payload: { reason: opts.reason, reopened: true },
+    })
   },
 
   /**
