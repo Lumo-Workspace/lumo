@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { Check, Loader2 } from 'lucide-react'
 import { sentryApi, type SentryStatus } from '@/lib/api-client/sentry'
@@ -22,6 +23,7 @@ import { SentryIcon } from './SentryIcon'
 import { IntegrationCard } from './IntegrationCard'
 
 export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
+  const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const [status, setStatus] = useState<SentryStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,7 +36,7 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
     try {
       setStatus(await sentryApi.getStatus(workspaceUrl))
     } catch {
-      toast.error('Failed to load Sentry status')
+      toast.error(intl.formatMessage({ id: 'sentry.loadFailed' }))
     } finally {
       setLoading(false)
     }
@@ -50,10 +52,10 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
     try {
       await sentryApi.disconnect(workspaceUrl)
       await loadStatus()
-      toast.success('Sentry disconnected')
+      toast.success(intl.formatMessage({ id: 'sentry.disconnectSuccess' }))
       setDisconnectOpen(false)
     } catch {
-      toast.error('Failed to disconnect Sentry')
+      toast.error(intl.formatMessage({ id: 'sentry.disconnectFailed' }))
     } finally {
       setDisconnecting(false)
     }
@@ -66,11 +68,11 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
   ) : connected ? (
     <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
       <Check size={12} />
-      Connected
+      {intl.formatMessage({ id: 'sentry.connected' })}
     </span>
   ) : isOwner ? (
     <Button size='sm' onClick={() => setConnectOpen(true)}>
-      Connect
+      {intl.formatMessage({ id: 'sentry.connectSentry' })}
     </Button>
   ) : null
 
@@ -78,23 +80,36 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
     <>
       <IntegrationCard
         icon={<SentryIcon className='h-[18px] w-[18px]' />}
-        title='Sentry'
-        description='Automatically create tasks from Sentry alerts.'
+        title={intl.formatMessage({ id: 'sentry.title' })}
+        description={intl.formatMessage({ id: 'sentry.description' })}
         headerAction={headerAction}
       >
         {connected ? (
           <>
             <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-              Connected to{' '}
-              <span className='font-medium text-zinc-700 dark:text-zinc-300 font-mono'>
-                {status?.orgSlug}
-              </span>
+              {intl.formatMessage(
+                { id: 'sentry.connectedTo' },
+                {
+                  orgSlug: (
+                    <span className='font-medium text-zinc-700 dark:text-zinc-300 font-mono'>
+                      {status?.orgSlug}
+                    </span>
+                  ),
+                }
+              )}
             </p>
 
             <p className='text-xs text-zinc-400 dark:text-zinc-500'>
               {status?.lastWebhookAt
-                ? `Last verified webhook: ${new Date(status.lastWebhookAt).toLocaleString()}`
-                : 'Waiting for first verified webhook.'}
+                ? intl.formatMessage(
+                    { id: 'sentry.lastWebhook' },
+                    {
+                      time: new Date(status.lastWebhookAt).toLocaleString(
+                        intl.locale
+                      ),
+                    }
+                  )
+                : intl.formatMessage({ id: 'sentry.waitingWebhook' })}
             </p>
 
             {isOwner && (
@@ -104,7 +119,7 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
                   size='sm'
                   onClick={() => setMappingsOpen(true)}
                 >
-                  Manage mappings
+                  {intl.formatMessage({ id: 'sentry.manageMappings' })}
                 </Button>
                 <Button
                   variant='ghost'
@@ -112,7 +127,7 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
                   className='text-zinc-400 hover:text-destructive'
                   onClick={() => setDisconnectOpen(true)}
                 >
-                  Disconnect
+                  {intl.formatMessage({ id: 'common.disconnect' })}
                 </Button>
               </div>
             )}
@@ -134,14 +149,17 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
       <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
         <AlertDialogContent size='sm'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Sentry?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'sentry.disconnectTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Existing tasks created from Sentry alerts stay. New alerts
-              won&apos;t create tasks until you reconnect.
+              {intl.formatMessage({ id: 'sentry.disconnectDesc' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={handleDisconnect}
@@ -150,7 +168,7 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
               {disconnecting ? (
                 <Loader2 size={14} className='animate-spin' />
               ) : (
-                'Disconnect'
+                intl.formatMessage({ id: 'common.disconnect' })
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
