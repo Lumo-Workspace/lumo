@@ -1,10 +1,37 @@
 import {
+  buildTaskDescription,
   extractIssueFields,
   mapLevelToPriority,
   pickSuggestedOwnerEmails,
 } from '@/lib/integrations/sentry/payload'
-import type { SentryIssueAlertPayload } from '@/lib/integrations/sentry/types'
+import type {
+  ExtractedIssueFields,
+  SentryIssueAlertPayload,
+} from '@/lib/integrations/sentry/types'
 import alertFixture from '@/__tests__/fixtures/sentry-issue-alert.json'
+
+function fields(
+  overrides: Partial<ExtractedIssueFields> = {}
+): ExtractedIssueFields {
+  return {
+    sentryIssueId: '1',
+    sentryProjectSlug: 'frontend',
+    title: 'Boom',
+    culprit: 'renderThing',
+    level: 'error',
+    webUrl: 'https://example.com/issues/1',
+    eventCount: 42,
+    firstSeen: '2026-04-16T00:00:00.000Z',
+    lastSeen: '2026-04-16T09:15:30.000Z',
+    stackFrames: [
+      { function: 'a', filename: 'a.ts', lineno: 1 },
+      { function: 'b', filename: 'b.ts', lineno: 2 },
+      { function: 'c', filename: 'c.ts', lineno: 3 },
+    ],
+    triggeredRule: null,
+    ...overrides,
+  }
+}
 
 function makePayload(
   overrides: Partial<SentryIssueAlertPayload['data']['event']> = {}
@@ -175,5 +202,66 @@ describe('extractIssueFields', () => {
         },
       } as SentryIssueAlertPayload)
     ).toThrow(/project_slug/)
+  })
+})
+
+describe('buildTaskDescription', () => {
+  it('produces markdown with all sections', () => {
+    const md = buildTaskDescription(fields())
+    expect(md).toMatch(
+      /\*\*Sentry issue:\*\* \[Boom\]\(https:\/\/example\.com\/issues\/1\)/
+    )
+    expect(md).toMatch(/\*\*Culprit:\*\* `renderThing`/)
+    expect(md).toMatch(/\*\*Level:\*\* `error`/)
+    expect(md).toMatch(/\*\*Events:\*\* 42/)
+    expect(md).toContain('First seen: 2026-04-16T00:00:00.000Z')
+    expect(md).toContain('Last seen: 2026-04-16T09:15:30.000Z')
+    expect(md).toContain('at a (a.ts:1)')
+    expect(md).toContain('at c (c.ts:3)')
+    expect(md).toContain('_Created automatically from Sentry alert._')
+  })
+
+  it('omits stack block when there are no frames', () => {
+    const md = buildTaskDescription(fields({ stackFrames: [] }))
+    expect(md).not.toContain('**Stack')
+    expect(md).not.toContain('```')
+  })
+
+  it('truncates to 5 frames, innermost first', () => {
+    const manyFrames = Array.from({ length: 10 }, (_, i) => ({
+      function: `fn${i}`,
+      filename: 'x.ts',
+      lineno: i,
+    }))
+    const md = buildTaskDescription(fields({ stackFrames: manyFrames }))
+    // Sentry sends outermost-first; we reverse and take first 5.
+    expect(md).toContain('at fn9 (x.ts:9)')
+    expect(md).toContain('at fn5 (x.ts:5)')
+    expect(md).not.toContain('at fn4 (x.ts:4)')
+  })
+
+  it('truncates stack lines longer than 200 chars', () => {
+    const longFn = 'f'.repeat(500)
+    const md = buildTaskDescription(
+      fields({
+        stackFrames: [{ function: longFn, filename: 'x.ts', lineno: 1 }],
+      })
+    )
+    const stackLine = md.split('\n').find(l => l.includes('at '))!
+    expect(stackLine.length).toBeLessThanOrEqual(200)
+  })
+
+  it('gracefully handles missing optional fields', () => {
+    const md = buildTaskDescription(
+      fields({
+        culprit: null,
+        eventCount: null,
+        firstSeen: null,
+        lastSeen: null,
+      })
+    )
+    expect(md).not.toContain('**Culprit:**')
+    expect(md).not.toContain('**Events:**')
+    expect(md).not.toContain('First seen:')
   })
 })

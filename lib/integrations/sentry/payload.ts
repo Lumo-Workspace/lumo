@@ -96,3 +96,50 @@ export function extractIssueFields(
     triggeredRule: payload.data.triggered_rule ?? null,
   }
 }
+
+const MAX_STACK_FRAMES = 5
+const MAX_LINE_LEN = 200
+
+/**
+ * Build a Markdown task description from extracted Sentry fields.
+ */
+export function buildTaskDescription(fields: ExtractedIssueFields): string {
+  const lines: string[] = []
+
+  lines.push(`**Sentry issue:** [${fields.title}](${fields.webUrl})`)
+  lines.push('')
+
+  if (fields.culprit) {
+    lines.push(`**Culprit:** \`${fields.culprit}\``)
+  }
+  lines.push(`**Level:** \`${fields.level}\``)
+
+  const meta: string[] = []
+  if (fields.eventCount !== null) meta.push(`**Events:** ${fields.eventCount}`)
+  if (fields.firstSeen) meta.push(`First seen: ${fields.firstSeen}`)
+  if (fields.lastSeen) meta.push(`Last seen: ${fields.lastSeen}`)
+  if (meta.length > 0) lines.push(meta.join(' · '))
+
+  if (fields.stackFrames.length > 0) {
+    lines.push('')
+    lines.push('**Stack (top 5 frames):**')
+    lines.push('```')
+    const frames = [...fields.stackFrames].reverse().slice(0, MAX_STACK_FRAMES)
+    for (const f of frames) {
+      const fn = f.function ?? '<anonymous>'
+      const file = f.filename ?? '<unknown>'
+      const ln = f.lineno ?? 0
+      let line = `  at ${fn} (${file}:${ln})`
+      if (line.length > MAX_LINE_LEN) {
+        line = line.slice(0, MAX_LINE_LEN - 3) + '...'
+      }
+      lines.push(line)
+    }
+    lines.push('```')
+  }
+
+  lines.push('')
+  lines.push('_Created automatically from Sentry alert._')
+
+  return lines.join('\n')
+}
