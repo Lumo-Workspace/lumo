@@ -104,6 +104,14 @@ export const API = {
     unlink: (taskId: string, prId: string) =>
       `/api/tasks/${taskId}/pull-requests/${prId}/unlink`,
   },
+  sentry: {
+    integration: (workspaceUrl: string) =>
+      `/api/sentry/integration?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    mappings: (workspaceUrl: string) =>
+      `/api/sentry/mappings?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    mappingById: (workspaceUrl: string, id: string) =>
+      `/api/sentry/mappings/${id}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
