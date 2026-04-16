@@ -191,6 +191,55 @@ export const taskService = {
   },
 
   /**
+   * Create a task without a human actor — used by automated webhook-driven
+   * flows (e.g. Sentry alerts). Delegates to `taskRepository.createWithSequence`
+   * and associates tags if provided. Skips the human-authored notification
+   * path (`dispatchCreateTaskSideEffects`), which requires an actor id;
+   * callers that need notifications are responsible for dispatching them.
+   */
+  async createFromAutomation(
+    projectId: string,
+    input: {
+      title: string
+      description: string | null
+      priority: TaskPriority
+      assigneeActorId: string | null
+      tagIds: string[]
+    }
+  ) {
+    const project = await projectRepository.findByIdWithDefaults(projectId)
+    if (!project) {
+      throw Object.assign(new Error('Project not found'), { status: 404 })
+    }
+
+    const maxOrderTask = await taskRepository.findMaxOrder(projectId, null)
+    const order = (maxOrderTask?.order ?? 0) + 1
+
+    const task = await taskRepository.createWithSequence({
+      projectId,
+      teamId: project.teamId,
+      title: input.title,
+      description: input.description,
+      status: 'TODO',
+      priority: input.priority,
+      assigneeActorId: input.assigneeActorId,
+      agentStatus: null,
+      reviewerActorId: null,
+      parentTaskId: null,
+      repositoryId: null,
+      order,
+      dueDate: null,
+      defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
+    })
+
+    if (input.tagIds.length > 0) {
+      await tagRepository.syncTaskTags(task.id, input.tagIds)
+    }
+
+    return { task }
+  },
+
+  /**
    * Get full task detail with PR status sync.
    * Returns null if task not found.
    */
