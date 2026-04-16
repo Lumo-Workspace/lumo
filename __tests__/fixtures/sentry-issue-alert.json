@@ -1,0 +1,82 @@
+{
+  "action": "triggered",
+  "installation": { "uuid": "11111111-1111-1111-1111-111111111111" },
+  "data": {
+    "event": {
+      "event_id": "ffffffffffffffffffffffffffffffff",
+      "project": 1,
+      "release": "frontend@1.2.3",
+      "dist": null,
+      "platform": "javascript",
+      "message": "",
+      "datetime": "2026-04-16T09:15:30.000Z",
+      "tags": [
+        ["level", "error"],
+        ["browser", "Chrome 124.0"]
+      ],
+      "culprit": "renderDashboard(app/dashboard/page.tsx)",
+      "issue_id": "4555555555",
+      "issue_url": "https://sentry.io/api/0/issues/4555555555/",
+      "url": "https://sentry.io/api/0/projects/acme-inc/frontend/events/ffffffffffffffffffffffffffffffff/",
+      "web_url": "https://acme-inc.sentry.io/issues/4555555555/",
+      "level": "error",
+      "title": "TypeError: Cannot read properties of undefined (reading 'map')",
+      "metadata": {
+        "type": "TypeError",
+        "value": "Cannot read properties of undefined (reading 'map')",
+        "filename": "app/dashboard/page.tsx",
+        "function": "renderDashboard"
+      },
+      "entries": [
+        {
+          "type": "exception",
+          "data": {
+            "values": [
+              {
+                "type": "TypeError",
+                "value": "Cannot read properties of undefined (reading 'map')",
+                "stacktrace": {
+                  "frames": [
+                    {
+                      "function": "handleRequest",
+                      "filename": "app/api/route.ts",
+                      "lineno": 12
+                    },
+                    {
+                      "function": "fetchData",
+                      "filename": "lib/api-client/tasks.ts",
+                      "lineno": 48
+                    },
+                    {
+                      "function": "renderDashboard",
+                      "filename": "app/dashboard/page.tsx",
+                      "lineno": 87
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "project_slug": "frontend",
+      "suggestedOwners": [
+        {
+          "owner": {
+            "type": "user",
+            "id": "12345",
+            "name": "Ada Lovelace",
+            "email": "ada@example.com"
+          },
+          "rules": [["codeowners", "app/dashboard/**"]]
+        }
+      ]
+    },
+    "triggered_rule": "High-priority JS errors",
+    "issue_alert": {
+      "id": "999",
+      "title": "High-priority JS errors"
+    }
+  },
+  "actor": { "type": "application", "id": "sentry", "name": "Sentry" }
+}
