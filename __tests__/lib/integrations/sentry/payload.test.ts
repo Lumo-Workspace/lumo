@@ -1,8 +1,10 @@
 import {
+  extractIssueFields,
   mapLevelToPriority,
   pickSuggestedOwnerEmails,
 } from '@/lib/integrations/sentry/payload'
 import type { SentryIssueAlertPayload } from '@/lib/integrations/sentry/types'
+import alertFixture from '@/__tests__/fixtures/sentry-issue-alert.json'
 
 function makePayload(
   overrides: Partial<SentryIssueAlertPayload['data']['event']> = {}
@@ -90,5 +92,88 @@ describe('pickSuggestedOwnerEmails', () => {
       ],
     })
     expect(pickSuggestedOwnerEmails(payload)).toEqual(['c@example.com'])
+  })
+})
+
+describe('extractIssueFields', () => {
+  const fixture = alertFixture as unknown as SentryIssueAlertPayload
+
+  it('extracts fields from the happy-path fixture', () => {
+    const fields = extractIssueFields(fixture)
+    expect(fields).toMatchObject({
+      sentryIssueId: '4555555555',
+      sentryProjectSlug: 'frontend',
+      title: "TypeError: Cannot read properties of undefined (reading 'map')",
+      culprit: 'renderDashboard(app/dashboard/page.tsx)',
+      level: 'error',
+      webUrl: 'https://acme-inc.sentry.io/issues/4555555555/',
+      triggeredRule: 'High-priority JS errors',
+    })
+    expect(fields.stackFrames.length).toBeGreaterThan(0)
+  })
+
+  it('returns null for missing optional fields', () => {
+    const minimal: SentryIssueAlertPayload = {
+      action: 'triggered',
+      data: {
+        event: {
+          project_slug: 'x',
+          issue_id: '1',
+          title: 'Err',
+          web_url: 'https://example.com/issues/1',
+        },
+      },
+    }
+    const fields = extractIssueFields(minimal)
+    expect(fields.culprit).toBeNull()
+    expect(fields.triggeredRule).toBeNull()
+    expect(fields.stackFrames).toEqual([])
+    expect(fields.level).toBe('info') // default
+  })
+
+  it('truncates title to 200 chars', () => {
+    const long = 'x'.repeat(500)
+    const fields = extractIssueFields({
+      action: 't',
+      data: {
+        event: {
+          project_slug: 'x',
+          issue_id: '1',
+          title: long,
+          web_url: 'https://example.com',
+        },
+      },
+    } as SentryIssueAlertPayload)
+    expect(fields.title).toHaveLength(200)
+  })
+
+  it('throws when sentryIssueId is absent', () => {
+    expect(() =>
+      extractIssueFields({
+        action: 't',
+        data: {
+          event: {
+            project_slug: 'x',
+            title: 't',
+            web_url: 'https://example.com',
+          },
+        },
+      } as SentryIssueAlertPayload)
+    ).toThrow(/issue_id/)
+  })
+
+  it('throws when sentryProjectSlug is absent', () => {
+    expect(() =>
+      extractIssueFields({
+        action: 't',
+        data: {
+          event: {
+            issue_id: '1',
+            title: 't',
+            web_url: 'https://example.com',
+          },
+        },
+      } as SentryIssueAlertPayload)
+    ).toThrow(/project_slug/)
   })
 })
