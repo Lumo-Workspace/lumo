@@ -10,7 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { copyLink } from '../utils/copyLink'
+import { copyLink } from '@/lib/utils/copyLink'
 import { slugifyProjectName } from '../utils'
 import {
   ApiTask,
