@@ -1,5 +1,7 @@
 import { encrypt, decrypt } from '@/lib/crypto'
 import { sentryRepository } from '@/lib/repositories/sentry.repository'
+import { tagRepository } from '@/lib/repositories/tag.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 
 export const sentryService = {
   async getIntegrationStatus(workspaceId: string) {
@@ -106,6 +108,37 @@ export const sentryService = {
       throw Object.assign(new Error('Not found'), { status: 404 })
     }
     return sentryRepository.deleteMapping(mappingId)
+  },
+
+  async _ensureBugTag(workspaceId: string): Promise<string> {
+    const existing = await tagRepository.findByName(workspaceId, 'bug')
+    if (existing) return existing.id
+    try {
+      const created = await tagRepository.create({
+        workspaceId,
+        name: 'bug',
+        color: '#ef4444',
+      })
+      return created.id
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2002') {
+        const raced = await tagRepository.findByName(workspaceId, 'bug')
+        if (raced) return raced.id
+      }
+      throw err
+    }
+  },
+
+  async _resolveAssignee(
+    workspaceId: string,
+    emails: string[]
+  ): Promise<string | null> {
+    if (emails.length === 0) return null
+    const actorIds = await memberRepository.findActorsByEmailInWorkspace(
+      workspaceId,
+      emails
+    )
+    return actorIds[0] ?? null
   },
 }
 

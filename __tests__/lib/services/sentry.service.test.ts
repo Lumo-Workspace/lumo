@@ -22,10 +22,18 @@ jest.mock('@/lib/crypto', () => ({
   encrypt: jest.fn((s: string) => `enc(${s})`),
   decrypt: jest.fn((s: string) => s.replace(/^enc\(|\)$/g, '')),
 }))
+jest.mock('@/lib/repositories/tag.repository', () => ({
+  tagRepository: { findByName: jest.fn(), create: jest.fn() },
+}))
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: { findActorsByEmailInWorkspace: jest.fn() },
+}))
 
 import { sentryService } from '@/lib/services/sentry.service'
 import { sentryRepository } from '@/lib/repositories/sentry.repository'
 import { encrypt } from '@/lib/crypto'
+import { tagRepository } from '@/lib/repositories/tag.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 
 describe('sentryService status/connect/disconnect', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -207,5 +215,67 @@ describe('sentryService mappings CRUD', () => {
     })
     await sentryService.deleteMapping('ws1', 'OWNER', 'map1')
     expect(sentryRepository.deleteMapping).toHaveBeenCalledWith('map1')
+  })
+})
+
+describe('sentryService._ensureBugTag', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('returns existing bug tag id', async () => {
+    ;(tagRepository.findByName as jest.Mock).mockResolvedValue({ id: 'tag1' })
+    const id = await sentryService._ensureBugTag('ws1')
+    expect(id).toBe('tag1')
+    expect(tagRepository.create).not.toHaveBeenCalled()
+  })
+
+  it('creates bug tag with red colour when missing', async () => {
+    ;(tagRepository.findByName as jest.Mock).mockResolvedValue(null)
+    ;(tagRepository.create as jest.Mock).mockResolvedValue({ id: 'tag2' })
+    const id = await sentryService._ensureBugTag('ws1')
+    expect(id).toBe('tag2')
+    expect(tagRepository.create).toHaveBeenCalledWith({
+      workspaceId: 'ws1',
+      name: 'bug',
+      color: '#ef4444',
+    })
+  })
+
+  it('recovers from race (P2002) by re-finding', async () => {
+    ;(tagRepository.findByName as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'tag3' })
+    ;(tagRepository.create as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('unique'), { code: 'P2002' })
+    )
+    const id = await sentryService._ensureBugTag('ws1')
+    expect(id).toBe('tag3')
+  })
+})
+
+describe('sentryService._resolveAssignee', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('returns first matched actor id', async () => {
+    ;(
+      memberRepository.findActorsByEmailInWorkspace as jest.Mock
+    ).mockResolvedValue(['actor-ada', 'actor-bob'])
+    const id = await sentryService._resolveAssignee('ws1', [
+      'ada@example.com',
+      'bob@example.com',
+    ])
+    expect(id).toBe('actor-ada')
+  })
+
+  it('returns null when no emails match', async () => {
+    ;(
+      memberRepository.findActorsByEmailInWorkspace as jest.Mock
+    ).mockResolvedValue([])
+    const id = await sentryService._resolveAssignee('ws1', ['x@example.com'])
+    expect(id).toBeNull()
+  })
+
+  it('returns null when emails list is empty', async () => {
+    const id = await sentryService._resolveAssignee('ws1', [])
+    expect(id).toBeNull()
   })
 })
