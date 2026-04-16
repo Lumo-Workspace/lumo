@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 import { apiFetch } from '@/lib/api-client'
 import type { TaskDetail, ApiPriority } from '../types'
 
@@ -52,7 +52,7 @@ export function SubtasksSection({
 
   function handleChildClick(childNumber: number) {
     const identifier = `${task.teamIdentifier}-${childNumber}`
-    const projectSlug = slugifyProjectName(task.project.name)
+    const projectSlug = slugify(task.project.name)
     router.push(
       `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${identifier}`
     )

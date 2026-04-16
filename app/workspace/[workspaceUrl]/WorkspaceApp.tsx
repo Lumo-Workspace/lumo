@@ -22,7 +22,8 @@ import {
   ApiPriority,
   TaskPreFillFields,
 } from './types'
-import { slugifyProjectName, pageToPath as pageToPathUtil } from './utils'
+import { pageToPath as pageToPathUtil } from './utils'
+import { slugify } from '@/lib/utils/slugify'
 import { clearCache } from './cache'
 
 // Hooks
@@ -452,9 +453,7 @@ export default function DashboardApp() {
       )
       setCurrentPage(page)
       if (page === 'project-detail' && projectSlug) {
-        const match = projects.find(
-          p => slugifyProjectName(p.name) === projectSlug
-        )
+        const match = projects.find(p => slugify(p.name) === projectSlug)
         if (match) setSelectedProject(match)
       }
       if (page === 'document-editor' && projectSlug) {
@@ -484,9 +483,7 @@ export default function DashboardApp() {
       !selectedProject &&
       projects.length > 0
     ) {
-      const match = projects.find(
-        p => slugifyProjectName(p.name) === pendingProjectSlug
-      )
+      const match = projects.find(p => slugify(p.name) === pendingProjectSlug)
       if (match) setSelectedProject(match)
     }
   }, [pendingProjectSlug, currentPage, selectedProject, projects])

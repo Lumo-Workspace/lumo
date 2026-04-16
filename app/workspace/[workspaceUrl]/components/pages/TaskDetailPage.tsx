@@ -26,7 +26,8 @@ import {
 } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { slugifyProjectName, pageToPath } from '../../utils'
+import { pageToPath } from '../../utils'
+import { slugify } from '@/lib/utils/slugify'
 import { tasksClient, workspacesClient, projectsClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -296,7 +297,7 @@ export function TaskDetailPage({
                 <div className='space-y-1'>
                   {initialTask.children!.map(child => {
                     const childIdentifier = `${task.teamIdentifier}-${child.number}`
-                    const projectSlug = slugifyProjectName(task.project.name)
+                    const projectSlug = slugify(task.project.name)
                     const isDone = child.status === 'DONE'
                     return (
                       <button

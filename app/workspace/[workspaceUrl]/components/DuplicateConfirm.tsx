@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import { AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 export interface DuplicateMatch {
   taskId: string
@@ -52,7 +52,7 @@ export function DuplicateConfirm({
   onCancel,
 }: DuplicateConfirmProps) {
   const intl = useIntl()
-  const projectSlug = slugifyProjectName(projectName)
+  const projectSlug = slugify(projectName)
 
   return (
     <div className='space-y-4'>

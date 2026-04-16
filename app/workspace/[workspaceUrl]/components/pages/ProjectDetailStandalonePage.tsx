@@ -19,7 +19,7 @@ import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
 import { copyLink } from '@/lib/utils/copyLink'
-import { slugifyProjectName } from '../../utils'
+import { slugify } from '@/lib/utils/slugify'
 import {
   apiFetchQuiet,
   tasksClient,
@@ -51,7 +51,7 @@ export function ProjectDetailStandalonePage({
   const [copied, triggerCopy] = useCopyState()
   const handleCopyLink = useCallback(async () => {
     await copyLink(
-      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(initialProject.name)}`
+      `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(initialProject.name)}`
     )
     triggerCopy()
   }, [workspaceUrl, initialProject.id, triggerCopy])
@@ -323,7 +323,7 @@ export function ProjectDetailStandalonePage({
             }}
             onTaskClick={task =>
               router.push(
-                `/workspace/${workspaceUrl}/project/${slugifyProjectName(project.name)}/tasks/${task.teamIdentifier}-${task.number}`
+                `/workspace/${workspaceUrl}/project/${slugify(project.name)}/tasks/${task.teamIdentifier}-${task.number}`
               )
             }
             onDeleteTask={handleDeleteTask}

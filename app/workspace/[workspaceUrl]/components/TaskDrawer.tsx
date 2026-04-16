@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { copyLink } from '@/lib/utils/copyLink'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 import {
   ApiTask,
   MyTask,
@@ -76,7 +76,7 @@ export function TaskDrawer({
     (forSource: string) =>
       forSource === 'my-tasks'
         ? `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}`
-        : `/workspace/${workspaceUrl}/project/${slugifyProjectName(projectName)}/tasks/${taskIdentifier}`,
+        : `/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${taskIdentifier}`,
     [workspaceUrl, taskIdentifier, projectName]
   )
 

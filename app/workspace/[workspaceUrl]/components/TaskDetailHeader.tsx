@@ -26,7 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 interface TaskDetailHeaderProps {
   workspaceUrl: string
@@ -68,7 +68,7 @@ export function TaskDetailHeader({
                 router.push(`/workspace/${workspaceUrl}/my-tasks`)
               } else {
                 router.push(
-                  `/workspace/${workspaceUrl}/projects/${slugifyProjectName(projectName)}`
+                  `/workspace/${workspaceUrl}/projects/${slugify(projectName)}`
                 )
               }
             }}
