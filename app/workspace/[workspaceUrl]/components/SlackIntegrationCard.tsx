@@ -1,7 +1,9 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { MessageSquare, Check, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
+import { SlackIcon } from './SlackIcon'
+import { IntegrationCard } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -27,45 +29,29 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
     handleDisconnect,
   } = useSlackIntegration()
 
+  const headerAction = loading ? (
+    <Loader2 size={16} className='animate-spin text-zinc-400' />
+  ) : status?.connected ? (
+    <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
+      <Check size={12} />
+      {intl.formatMessage({ id: 'slack.connected' })}
+    </span>
+  ) : isOwner ? (
+    <Button size='sm' onClick={handleConnect}>
+      {intl.formatMessage({ id: 'slack.connectSlack' })}
+    </Button>
+  ) : null
+
   return (
     <>
-      <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
-        {/* Header */}
-        <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
-          <div className='flex items-center gap-3'>
-            <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0'>
-              <MessageSquare
-                size={18}
-                className='text-zinc-700 dark:text-zinc-300'
-              />
-            </div>
-            <div>
-              <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                {intl.formatMessage({ id: 'slack.title' })}
-              </p>
-              <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                {intl.formatMessage({ id: 'slack.description' })}
-              </p>
-            </div>
-          </div>
-
-          {loading ? (
-            <Loader2 size={16} className='animate-spin text-zinc-400' />
-          ) : status?.connected ? (
-            <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-              <Check size={12} />
-              {intl.formatMessage({ id: 'slack.connected' })}
-            </span>
-          ) : isOwner ? (
-            <Button size='sm' onClick={handleConnect}>
-              {intl.formatMessage({ id: 'slack.connectSlack' })}
-            </Button>
-          ) : null}
-        </div>
-
-        {/* Connected state */}
-        {status?.connected && (
-          <div className='border-t border-zinc-100 dark:border-zinc-800 px-6 py-5 bg-zinc-50 dark:bg-zinc-900/50 space-y-4'>
+      <IntegrationCard
+        icon={<SlackIcon className='h-[18px] w-[18px]' />}
+        title={intl.formatMessage({ id: 'slack.title' })}
+        description={intl.formatMessage({ id: 'slack.description' })}
+        headerAction={headerAction}
+      >
+        {status?.connected ? (
+          <>
             <p className='text-xs text-zinc-500 dark:text-zinc-400'>
               {intl.formatMessage(
                 { id: 'slack.connectedTo' },
@@ -95,9 +81,9 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
                 </Button>
               </div>
             )}
-          </div>
-        )}
-      </div>
+          </>
+        ) : null}
+      </IntegrationCard>
 
       {/* Disconnect confirmation */}
       <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>

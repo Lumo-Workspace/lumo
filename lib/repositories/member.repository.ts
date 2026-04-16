@@ -105,4 +105,60 @@ export const memberRepository = {
     })
     return profile
   },
+
+  /**
+   * Resolve a list of emails to Actor IDs within a workspace.
+   * Flow: emails → Clerk user IDs → WorkspaceMember records → Actor IDs.
+   * Preserves the input order of matched emails. Silently skips emails
+   * with no Clerk user or no workspace membership.
+   */
+  async findActorsByEmailInWorkspace(
+    workspaceId: string,
+    emails: string[]
+  ): Promise<string[]> {
+    if (emails.length === 0) return []
+
+    const { createClerkClient } = await import('@clerk/nextjs/server')
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY!,
+    })
+
+    const { data: users } = await clerk.users.getUserList({
+      emailAddress: emails,
+      limit: Math.min(emails.length * 2, 100),
+    })
+
+    // Map email → clerkId (preserve first match per email)
+    const emailToClerkId = new Map<string, string>()
+    for (const user of users) {
+      for (const ea of user.emailAddresses) {
+        if (
+          emails.includes(ea.emailAddress) &&
+          !emailToClerkId.has(ea.emailAddress)
+        ) {
+          emailToClerkId.set(ea.emailAddress, user.id)
+        }
+      }
+    }
+
+    const orderedClerkIds = emails
+      .map(e => emailToClerkId.get(e))
+      .filter((id): id is string => !!id)
+
+    if (orderedClerkIds.length === 0) return []
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId, clerkId: { in: orderedClerkIds } },
+      select: { clerkId: true, actor: { select: { id: true } } },
+    })
+
+    const clerkIdToActor = new Map<string, string>()
+    for (const m of members) {
+      if (m.actor?.id) clerkIdToActor.set(m.clerkId, m.actor.id)
+    }
+
+    return orderedClerkIds
+      .map(id => clerkIdToActor.get(id))
+      .filter((a): a is string => !!a)
+  },
 }

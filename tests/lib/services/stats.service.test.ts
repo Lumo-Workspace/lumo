@@ -25,10 +25,7 @@ jest.mock('@/lib/summaries/risk', () => ({
   }),
 }))
 
-import {
-  getProjectStats,
-  getWorkspaceStats,
-} from '@/lib/services/stats.service'
+import { getProjectStats } from '@/lib/services/stats.service'
 import { prisma } from '@/lib/db/prisma'
 import { aggregateProjectStats } from '@/lib/summaries/stats'
 import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'

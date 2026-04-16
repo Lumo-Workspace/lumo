@@ -118,6 +118,7 @@ enum TaskActivityType {
   AGENT_RUN_COMPLETED
   AGENT_RUN_FAILED
   AGENT_INPUT_REQUIRED
+  SENTRY_ALERT
 }
 
 enum AgentType {
@@ -150,6 +151,7 @@ model Workspace {
   githubIntegrations GitHubIntegration[]
   pullRequests       PullRequest[]
   slackIntegration   SlackIntegration?
+  sentryIntegration  SentryIntegration?
   actors             Actor[]
   agentProfiles      AgentProfile[]
   documents          Document[]
@@ -224,6 +226,7 @@ model WorkspaceMember {
   sentInvites            WorkspaceInvite[]
   githubIntegrations     GitHubIntegration[]
   slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
+  sentryInstalled        SentryIntegration[] @relation("SentryInstaller")
   actor                  Actor?
   agentProfiles          AgentProfile[]
   apiKeys                ApiKey[]
@@ -306,8 +309,9 @@ model Project {
   defaultReviewer WorkspaceMember?    @relation("ProjectDefaultReviewer", fields: [defaultReviewerId], references: [id], onDelete: SetNull)
   tasks             Task[]
   views             View[]
-  slackChannels     SlackChannel[]
-  repositories      ProjectRepository[]
+  slackChannels         SlackChannel[]
+  repositories          ProjectRepository[]
+  sentryProjectMappings SentryProjectMapping[]
   documents         Document[]
   priorityOverrides PriorityOverride[]
   summaries         ProjectSummary[]
@@ -375,7 +379,8 @@ model Task {
   activities     TaskActivity[]
   documentMentions  DocumentMention[]
   priorityOverrides PriorityOverride[]
-  taskTags       TaskTag[]
+  taskTags          TaskTag[]
+  sentryIssueLinks  SentryIssueLink[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -959,4 +964,58 @@ model GenerationJob {
   createdAt DateTime @default(now())
 
   @@index([targetId, createdAt(sort: Desc)])
+}
+
+// ─── Sentry Integration ──────────────────────────────────────────────────────
+
+model SentryIntegration {
+  id             String   @id @default(cuid())
+  workspaceId    String   @unique
+  installedBy    String?
+  installer      WorkspaceMember? @relation("SentryInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+
+  orgSlug        String   @unique
+  clientSecret   String   // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  lastWebhookAt  DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace       Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectMappings SentryProjectMapping[]
+  issueLinks      SentryIssueLink[]
+
+  @@index([orgSlug])
+  @@map("sentry_integrations")
+}
+
+model SentryProjectMapping {
+  id                String   @id @default(cuid())
+  integrationId     String
+  sentryProjectSlug String
+  projectId         String
+  createdAt         DateTime @default(now())
+
+  integration SentryIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, sentryProjectSlug])
+  @@index([integrationId])
+  @@index([projectId])
+  @@map("sentry_project_mappings")
+}
+
+model SentryIssueLink {
+  id            String   @id @default(cuid())
+  integrationId String
+  sentryIssueId String
+  taskId        String
+  createdAt     DateTime @default(now())
+
+  integration SentryIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  task        Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, sentryIssueId])
+  @@index([taskId])
+  @@map("sentry_issue_links")
 }
