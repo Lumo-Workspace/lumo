@@ -1,0 +1,116 @@
+/**
+ * @jest-environment node
+ */
+import { NextRequest } from 'next/server'
+
+jest.mock('@/lib/auth', () => ({
+  requireAuth: jest.fn(async () => ({ userId: 'user1' })),
+  requireWorkspaceMember: jest.fn(async () => ({
+    id: 'mem1',
+    role: 'OWNER',
+  })),
+}))
+jest.mock('@/lib/api/helpers', () => ({
+  requireWorkspaceByUrl: jest.fn(async () => ({ workspaceId: 'ws1' })),
+}))
+jest.mock('@/lib/services/sentry.service', () => ({
+  sentryService: {
+    getIntegrationStatus: jest.fn(),
+    connectIntegration: jest.fn(),
+    disconnectIntegration: jest.fn(),
+  },
+}))
+
+import { GET, POST, DELETE } from '@/app/api/sentry/integration/route'
+import { sentryService } from '@/lib/services/sentry.service'
+
+function req(url: string, body?: unknown, method = 'GET'): NextRequest {
+  if (body !== undefined) {
+    return new NextRequest(url, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+  return new NextRequest(url, { method })
+}
+
+describe('GET /api/sentry/integration', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('returns status from service', async () => {
+    ;(sentryService.getIntegrationStatus as jest.Mock).mockResolvedValue({
+      connected: true,
+      orgSlug: 'acme',
+    })
+    const res = await GET(
+      req('http://x/api/sentry/integration?workspaceUrl=acme')
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ connected: true, orgSlug: 'acme' })
+  })
+})
+
+describe('POST /api/sentry/integration', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('rejects invalid payload with 400', async () => {
+    const res = await POST(
+      req(
+        'http://x/api/sentry/integration?workspaceUrl=acme',
+        { orgSlug: 'INVALID_UPPER', clientSecret: 'short' },
+        'POST'
+      )
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('calls connectIntegration on valid payload', async () => {
+    ;(sentryService.connectIntegration as jest.Mock).mockResolvedValue({
+      id: 'int1',
+    })
+    const res = await POST(
+      req(
+        'http://x/api/sentry/integration?workspaceUrl=acme',
+        { orgSlug: 'acme-inc', clientSecret: 'secret-value-long' },
+        'POST'
+      )
+    )
+    expect(res.status).toBe(200)
+    expect(sentryService.connectIntegration).toHaveBeenCalled()
+  })
+
+  it('returns 403 when service throws 403', async () => {
+    ;(sentryService.connectIntegration as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('owner only'), { status: 403 })
+    )
+    const res = await POST(
+      req(
+        'http://x/api/sentry/integration?workspaceUrl=acme',
+        { orgSlug: 'acme', clientSecret: 'secret-value-long' },
+        'POST'
+      )
+    )
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('DELETE /api/sentry/integration', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('calls disconnect and returns 200', async () => {
+    const res = await DELETE(
+      req(
+        'http://x/api/sentry/integration?workspaceUrl=acme',
+        undefined,
+        'DELETE'
+      )
+    )
+    expect(res.status).toBe(200)
+    expect(sentryService.disconnectIntegration).toHaveBeenCalledWith(
+      'ws1',
+      'OWNER'
+    )
+  })
+})
