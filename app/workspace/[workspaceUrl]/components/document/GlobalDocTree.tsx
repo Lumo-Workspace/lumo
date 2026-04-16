@@ -191,7 +191,13 @@ function TreeItemRow({
       )}
 
       {/* Label */}
-      <span className='truncate flex-1'>{node.title || 'Untitled'}</span>
+      <span className='truncate flex-1'>
+        {node.title ||
+          intl.formatMessage({
+            id: 'documents.untitled',
+            defaultMessage: 'Untitled',
+          })}
+      </span>
 
       {/* Hover actions — `+` first, `…` second (Notion-style) */}
       <div className='shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
@@ -219,7 +225,19 @@ function TreeItemRow({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='start' className='w-40'>
-            <DropdownMenuItem onClick={onAddChild}>
+            {/*
+             * stopPropagation on every menu item is required because Radix's
+             * Portal-rendered menus still bubble React synthetic events up the
+             * React component tree (not the DOM tree). Without it, clicking a
+             * menu item also fires the row's onClick → navigates to the doc the
+             * user was just trying to rename/delete.
+             */}
+            <DropdownMenuItem
+              onClick={e => {
+                e.stopPropagation()
+                onAddChild()
+              }}
+            >
               <Plus size={14} className='mr-2' />
               {intl.formatMessage({
                 id: 'documentToc.addSubPage',
@@ -227,7 +245,12 @@ function TreeItemRow({
               })}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onRename}>
+            <DropdownMenuItem
+              onClick={e => {
+                e.stopPropagation()
+                onRename()
+              }}
+            >
               <Pencil size={14} className='mr-2' />
               {intl.formatMessage({
                 id: 'documentToc.rename',
@@ -236,7 +259,10 @@ function TreeItemRow({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={onDelete}
+              onClick={e => {
+                e.stopPropagation()
+                onDelete()
+              }}
               className='text-destructive focus:text-destructive'
             >
               <Trash2 size={14} className='mr-2' />
@@ -255,7 +281,13 @@ function TreeItemRow({
     <ContextMenu>
       <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
       <ContextMenuContent className='w-40'>
-        <ContextMenuItem onClick={onAddChild}>
+        {/* See note on DropdownMenuItem above — same React-portal bubbling. */}
+        <ContextMenuItem
+          onClick={e => {
+            e.stopPropagation()
+            onAddChild()
+          }}
+        >
           <Plus size={14} className='mr-2' />
           {intl.formatMessage({
             id: 'documentToc.addSubPage',
@@ -263,7 +295,12 @@ function TreeItemRow({
           })}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={onRename}>
+        <ContextMenuItem
+          onClick={e => {
+            e.stopPropagation()
+            onRename()
+          }}
+        >
           <Pencil size={14} className='mr-2' />
           {intl.formatMessage({
             id: 'documentToc.rename',
@@ -272,7 +309,10 @@ function TreeItemRow({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={onDelete}
+          onClick={e => {
+            e.stopPropagation()
+            onDelete()
+          }}
           className='text-destructive focus:text-destructive'
         >
           <Trash2 size={14} className='mr-2' />
@@ -513,14 +553,7 @@ export function GlobalDocTree({
       </div>
 
       <div className='flex-1 overflow-y-auto pb-1 px-1.5'>
-        {roots.length === 0 ? (
-          <div className='px-2 py-8 text-center text-[13px] text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'documentTree.empty',
-              defaultMessage: 'No documents yet',
-            })}
-          </div>
-        ) : (
+        {roots.length > 0 && (
           <TreeNodeGroup
             nodes={roots}
             depth={0}

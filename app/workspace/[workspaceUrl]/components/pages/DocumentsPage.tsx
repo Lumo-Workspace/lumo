@@ -211,7 +211,13 @@ export function DocumentsPage({
           >
             <span className='text-lg shrink-0'>{doc.emoji ?? '📄'}</span>
             <div className='min-w-0 flex-1'>
-              <div className='font-medium text-sm truncate'>{doc.title}</div>
+              <div className='font-medium text-sm truncate'>
+                {doc.title ||
+                  intl.formatMessage({
+                    id: 'documents.untitled',
+                    defaultMessage: 'Untitled',
+                  })}
+              </div>
               <div className='text-xs text-muted-foreground truncate'>
                 {getSubtitle(doc)}
               </div>
@@ -337,7 +343,13 @@ export function DocumentsPage({
                     <span className='text-base shrink-0'>
                       {doc.emoji ?? '📄'}
                     </span>
-                    <span className='truncate font-medium'>{doc.title}</span>
+                    <span className='truncate font-medium'>
+                      {doc.title ||
+                        intl.formatMessage({
+                          id: 'documents.untitled',
+                          defaultMessage: 'Untitled',
+                        })}
+                    </span>
                   </div>
                 </td>
                 <td className='py-2 px-3'>

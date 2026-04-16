@@ -104,6 +104,12 @@ export function DocumentEditorPage({
       CACHE_KEY.documentDetail(documentId)
     )
 
+    // Reset TOC immediately when switching docs. The editor only emits
+    // onTocUpdate after it (re)mounts and parses content, so an empty doc
+    // would otherwise inherit the previous doc's headings until the next
+    // emit — which never comes if there are no headings to find.
+    setTocItems([])
+
     // When switching documents, seed from cache synchronously.
     if (cached) {
       setDoc(cached)

@@ -319,7 +319,11 @@ export function ShareDialog({
           <DialogTitle>{intl.formatMessage({ id: 'share.title' })}</DialogTitle>
           <p className='flex items-center gap-1 text-sm text-muted-foreground'>
             {documentEmoji && <span>{documentEmoji}</span>}
-            {documentTitle || 'Untitled'}
+            {documentTitle ||
+              intl.formatMessage({
+                id: 'documents.untitled',
+                defaultMessage: 'Untitled',
+              })}
           </p>
         </DialogHeader>
 

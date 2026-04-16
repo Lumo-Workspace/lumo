@@ -118,6 +118,7 @@ interface WorkspaceModalsProps {
   docTree: DocTreeActions
   selectedDocumentId: string | null
   setCurrentPage: Dispatch<SetStateAction<string>>
+  onDeleteDocument: (id: string) => void
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -169,6 +170,7 @@ export function WorkspaceModals({
   docTree,
   selectedDocumentId,
   setCurrentPage,
+  onDeleteDocument,
 }: WorkspaceModalsProps) {
   const intl = useIntl()
 
@@ -360,7 +362,14 @@ export function WorkspaceModals({
                   defaultMessage:
                     'Are you sure you want to delete "{title}"? This action cannot be undone.',
                 },
-                { title: treeDeleteDoc?.title || 'Untitled' }
+                {
+                  title:
+                    treeDeleteDoc?.title ||
+                    intl.formatMessage({
+                      id: 'documents.untitled',
+                      defaultMessage: 'Untitled',
+                    }),
+                }
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -377,7 +386,6 @@ export function WorkspaceModals({
                 if (!treeDeleteDoc) return
                 const deletedId = treeDeleteDoc.id
                 setTreeDeleteDoc(null)
-                docTree.removeNode(deletedId)
                 if (selectedDocumentId === deletedId) {
                   setCurrentPage('documents')
                   window.history.pushState(
@@ -386,7 +394,9 @@ export function WorkspaceModals({
                     `/workspace/${workspaceUrl}/documents`
                   )
                 }
-                documentsClient.delete(deletedId)
+                // Single source of truth: removes from documents list,
+                // removes from tree, and fires the API delete.
+                onDeleteDocument(deletedId)
               }}
             >
               {intl.formatMessage({

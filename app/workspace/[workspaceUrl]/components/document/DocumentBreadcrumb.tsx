@@ -21,6 +21,10 @@ export function DocumentBreadcrumb({
   onNavigate,
 }: DocumentBreadcrumbProps) {
   const intl = useIntl()
+  const untitledLabel = intl.formatMessage({
+    id: 'documents.untitled',
+    defaultMessage: 'Untitled',
+  })
 
   return (
     <nav className='flex items-center gap-1 text-xs text-muted-foreground'>
@@ -40,14 +44,14 @@ export function DocumentBreadcrumb({
             onClick={() => onNavigate(item.id)}
           >
             {item.emoji ? `${item.emoji} ` : ''}
-            {item.title}
+            {item.title || untitledLabel}
           </button>
         </span>
       ))}
       <ChevronRight className='size-3' />
       <span className='text-foreground'>
         {current.emoji ? `${current.emoji} ` : ''}
-        {current.title}
+        {current.title || untitledLabel}
       </span>
     </nav>
   )

@@ -777,7 +777,7 @@ model WaitlistEntry {
 
 model Document {
   id          String        @id @default(cuid())
-  title       String        @default("Untitled")
+  title       String        @default("")
   content     String?       @db.Text
   emoji       String?
 

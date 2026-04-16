@@ -61,10 +61,16 @@ export async function GET(request: NextRequest) {
 
   const memberId = ws.member.id
 
-  // Permission filter: own docs + workspace-visible (shared docs belong in the Shared tab)
+  // Permission filter: own docs + workspace-visible + docs shared with me.
+  // Kept in sync with documentRepository.findByWorkspace so the sidebar tree
+  // and the documents home page show the same set of documents.
   const permissionFilter = {
     workspaceId: ws.workspaceId,
-    OR: [{ createdById: memberId }, { visibility: 'WORKSPACE' as const }],
+    OR: [
+      { createdById: memberId },
+      { visibility: 'WORKSPACE' as const },
+      { shares: { some: { memberId } } },
+    ],
   }
 
   // 2. Fetch root documents

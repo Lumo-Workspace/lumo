@@ -584,6 +584,12 @@ export function DescriptionEditor({
     const incoming = value || ''
     if (editor.getHTML() !== incoming) {
       editor.commands.setContent(incoming, { emitUpdate: false })
+      // setContent with emitUpdate:false intentionally skips the editor's
+      // onUpdate (avoids a write-back loop), but that also skips the
+      // TableOfContents extension's onUpdate which drives our emitter. Push
+      // a fresh TOC ourselves so the sidebar populates on doc switch instead
+      // of staying empty until the first scroll.
+      emitTocRef.current()
     }
   }, [value, editor])
 

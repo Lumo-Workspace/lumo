@@ -210,7 +210,10 @@ export const checkDuplicatesSchema = z.object({
 // ── Documents ─────────────────────────────────────────────────────────────
 
 export const createDocumentSchema = z.object({
-  title: z.string().trim().max(500).optional().default('Untitled'),
+  // Default to empty string so the UI can render a localised "Untitled"
+  // placeholder via i18n (en: "Untitled", zh-CN: "无标题", …) instead of
+  // showing a hard-coded English literal.
+  title: z.string().trim().max(500).optional().default(''),
   emoji: z.string().max(10).nullable().optional(),
   parentId: z.string().cuid().nullable().optional(),
   projectId: z.string().cuid().nullable().optional(),

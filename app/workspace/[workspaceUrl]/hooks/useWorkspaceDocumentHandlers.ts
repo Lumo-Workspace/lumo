@@ -11,7 +11,14 @@ import { documentsClient } from '@/lib/api-client'
 interface DocTreeActions {
   expandPathTo: (id: string) => void
   addNode: (parentId: string | null, node: TreeNode) => void
+  removeNode: (nodeId: string) => void
   replaceNodeId: (oldId: string, newId: string) => void
+}
+
+/** Minimal current-user shape needed to seed the optimistic createdBy field. */
+interface OptimisticAuthor {
+  displayName: string
+  imageUrl: string | null
 }
 
 interface UseWorkspaceDocumentHandlersOptions {
@@ -20,6 +27,7 @@ interface UseWorkspaceDocumentHandlersOptions {
   setCurrentPage: Dispatch<SetStateAction<string>>
   setSelectedDocumentId: Dispatch<SetStateAction<string | null>>
   docTree: DocTreeActions
+  currentUser: OptimisticAuthor | null
 }
 
 // ── Hook ────────────────────────────────────────────────────────────────────
@@ -30,6 +38,7 @@ export function useWorkspaceDocumentHandlers({
   setCurrentPage,
   setSelectedDocumentId,
   docTree,
+  currentUser,
 }: UseWorkspaceDocumentHandlersOptions) {
   const navigateToDocument = useCallback(
     (id: string) => {
@@ -87,7 +96,11 @@ export function useWorkspaceDocumentHandlers({
         project: null,
         workspaceId: '',
         createdById: '',
-        createdBy: { id: '', name: '', imageUrl: null },
+        createdBy: {
+          id: '',
+          name: currentUser?.displayName ?? '',
+          imageUrl: currentUser?.imageUrl ?? null,
+        },
       })
       // Background sync
       documentsClient
@@ -104,6 +117,9 @@ export function useWorkspaceDocumentHandlers({
           } catch {
             /* */
           }
+          // Mirror into the flat documents list that powers the Doc home page,
+          // so the new doc shows up there as well as in the tree.
+          setDocuments(prev => [data.document, ...prev])
           setSelectedDocumentId(prev => {
             if (prev === tempId) return realId
             return prev
@@ -117,31 +133,35 @@ export function useWorkspaceDocumentHandlers({
           }
         })
     },
-    [workspaceUrl, docTree, setSelectedDocumentId, setCurrentPage]
+    [
+      workspaceUrl,
+      docTree,
+      setDocuments,
+      setSelectedDocumentId,
+      setCurrentPage,
+      currentUser,
+    ]
   )
 
-  const handleNewDocument = useCallback(async () => {
-    try {
-      const data = await documentsClient.create<{ document: ApiDocument }>({})
-      setDocuments(prev => [data.document, ...prev])
-      setCurrentPage('document-editor')
-      setSelectedDocumentId(data.document.id)
-      window.history.pushState(
-        null,
-        '',
-        `/workspace/${workspaceUrl}/documents/${data.document.id}`
-      )
-    } catch {}
-  }, [workspaceUrl, setDocuments, setCurrentPage, setSelectedDocumentId])
+  // Doc home page "+ New document" — reuse the tree's optimistic flow so the
+  // user sees the editor instantly instead of waiting for the create round-trip
+  // (which includes a Clerk lookup on the server).
+  const handleNewDocument = useCallback(() => {
+    handleTreeCreateChild(null)
+  }, [handleTreeCreateChild])
 
+  // Optimistic delete — mirrors the sidebar delete flow: remove locally from
+  // both the documents list and the tree immediately, then fire-and-forget
+  // the API call.
   const handleDeleteDocument = useCallback(
-    async (id: string) => {
-      try {
-        await documentsClient.delete(id)
-        setDocuments(prev => prev.filter(d => d.id !== id))
-      } catch {}
+    (id: string) => {
+      setDocuments(prev => prev.filter(d => d.id !== id))
+      docTree.removeNode(id)
+      documentsClient.delete(id).catch(() => {
+        /* best-effort */
+      })
     },
-    [setDocuments]
+    [setDocuments, docTree]
   )
 
   return {

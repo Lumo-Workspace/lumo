@@ -285,6 +285,7 @@ export default function DashboardApp() {
     setCurrentPage: setCurrentPage as Dispatch<SetStateAction<string>>,
     setSelectedDocumentId,
     docTree,
+    currentUser: user,
   })
 
   // ─── Derived task arrays ──────────────────────────────────────────────────
@@ -413,9 +414,22 @@ export default function DashboardApp() {
     }
     if (currentPage === 'projects' || currentPage === 'project-detail')
       fetchProjects()
-    if (currentPage === 'documents') fetchDocuments()
+    if (currentPage === 'documents') {
+      fetchDocuments()
+      // Keep the sidebar tree in sync with the home page list. Without this,
+      // the tree only refreshes on mount + window focus, so it can lag behind
+      // the home page (which re-fetches on every navigation).
+      docTree.refresh()
+    }
     if (currentPage === 'document-editor') fetchMembers()
-  }, [currentPage, fetchMyTasks, fetchProjects, fetchDocuments, fetchMembers])
+  }, [
+    currentPage,
+    fetchMyTasks,
+    fetchProjects,
+    fetchDocuments,
+    fetchMembers,
+    docTree.refresh,
+  ])
 
   useEffect(() => {
     if (currentPage === 'project-detail' && selectedProject) {
@@ -752,6 +766,7 @@ export default function DashboardApp() {
           docTree={docTree}
           selectedDocumentId={selectedDocumentId}
           setCurrentPage={setCurrentPage as Dispatch<SetStateAction<string>>}
+          onDeleteDocument={documentHandlers.handleDeleteDocument}
         />
       </SidebarProvider>
     </motion.div>
