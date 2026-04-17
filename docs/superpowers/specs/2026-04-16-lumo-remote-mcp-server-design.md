@@ -44,8 +44,8 @@ Expose Lumo as a public, remote MCP server that any Lumo user can connect to fro
 │  └ mcp-handler + @clerk/mcp-tools                │◄─ verifyClerkToken
 │    ├ withMcpAuth (verify token → clerkUserId)    │
 │    ├ resolveLumoContext(clerkUserId)             │
-│    │  └ → { lumoUser, activeWorkspaceId?,        │
-│    │        memberId?, memberRole? }             │
+│    │  └ → { clerkUserId, activeWorkspaceId?,     │
+│    │        memberId?, memberRole?, connectionId}│
 │    └ tool dispatch                               │
 │        ├ lib/mcp/tools/* (transport-agnostic)    │
 │        └ reuses lib/services/* + lib/repositories/*
@@ -60,10 +60,10 @@ Expose Lumo as a public, remote MCP server that any Lumo user can connect to fro
 1. Claude sends MCP request to `/api/mcp` with `Authorization: Bearer <clerk-token>`
 2. `withMcpAuth` verifies token → `clerkUserId`
 3. `resolveLumoContext(clerkUserId)` queries Lumo DB:
-   - Finds `User` record (Clerk user ↔ Lumo user mapping already exists)
-   - Queries `McpConnection` table for this user's active workspace
+   - Queries `WorkspaceMember` rows where `clerkId === clerkUserId` to enumerate the user's workspaces
+   - Queries `McpConnection` table for this user's (`clerkUserId`, `clientId`) binding
    - Applies auto-bind rules (see below)
-4. Tool handler receives `{ workspaceId, memberId, memberRole, lumoUserId }` as context
+4. Tool handler receives `{ clerkUserId, workspaceId, memberId, memberRole, connectionId }` as context
 5. Handler calls `lib/services/*` (business logic)
 6. Returns MCP response; audit log row written
 
@@ -80,12 +80,13 @@ This split is forced by Clerk's current OAuth limitations but is also the cleane
 
 One row per (Clerk user, MCP client instance). Stores the active workspace binding.
 
+**Note:** Lumo has no separate `User` table. `WorkspaceMember.clerkId` is the Clerk user ID directly; a Lumo "user" is identified by `clerkId`, and their workspaces come from `WorkspaceMember` rows.
+
 ```prisma
 model McpConnection {
   id                 String   @id @default(cuid())
-  clerkUserId        String   // Clerk sub claim
-  lumoUserId         String   // FK to existing User.id
-  activeWorkspaceId  String?  // null = needs selection; auto-bound if user has exactly 1 workspace
+  clerkUserId        String   // Clerk sub claim — the sole identity key
+  activeWorkspaceId  String?  // null = needs selection; auto-bound if user has exactly 1 workspace membership
   clientName         String?  // reported via OAuth DCR (e.g., "Claude Desktop 0.8.0")
   clientId           String?  // Clerk-issued DCR client_id (for revoke/audit)
   autoBoundAt        DateTime? // populated if binding was auto-selected (single-workspace user)
@@ -93,11 +94,9 @@ model McpConnection {
   lastUsedAt         DateTime @default(now())
   revokedAt          DateTime?
 
-  user               User       @relation(fields: [lumoUserId], references: [id], onDelete: Cascade)
   activeWorkspace    Workspace? @relation(fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
 
   @@index([clerkUserId])
-  @@index([lumoUserId])
   @@unique([clerkUserId, clientId])
 }
 ```
