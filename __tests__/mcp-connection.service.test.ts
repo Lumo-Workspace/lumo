@@ -1,7 +1,6 @@
 import { mcpConnectionService } from '@/lib/services/mcp-connection.service'
 
 const mockUpsert = jest.fn()
-const mockFindByClerkAndClient = jest.fn()
 const mockSetActiveWorkspace = jest.fn()
 const mockRevoke = jest.fn()
 const mockListActiveByClerkUser = jest.fn()
@@ -10,7 +9,6 @@ const mockFindById = jest.fn()
 jest.mock('@/lib/repositories/mcp-connection.repository', () => ({
   mcpConnectionRepository: {
     upsertOnConnect: (...a: any[]) => mockUpsert(...a),
-    findByClerkUserAndClient: (...a: any[]) => mockFindByClerkAndClient(...a),
     setActiveWorkspace: (...a: any[]) => mockSetActiveWorkspace(...a),
     revoke: (...a: any[]) => mockRevoke(...a),
     listActiveByClerkUser: (...a: any[]) => mockListActiveByClerkUser(...a),
@@ -78,6 +76,14 @@ describe('mcpConnectionService', () => {
   })
 
   describe('disconnect', () => {
+    it('rejects when connection does not exist', async () => {
+      mockFindById.mockResolvedValue(null)
+      await expect(
+        mcpConnectionService.disconnect('missing', 'u1')
+      ).rejects.toMatchObject({ status: 404 })
+      expect(mockRevoke).not.toHaveBeenCalled()
+    })
+
     it('rejects if connection is not owned by user', async () => {
       mockFindById.mockResolvedValue({ id: 'c1', clerkUserId: 'OTHER' })
       await expect(

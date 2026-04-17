@@ -41,7 +41,7 @@ export const mcpConnectionService = {
   async disconnect(connectionId: string, clerkUserId: string) {
     const existing = await mcpConnectionRepository.findById(connectionId)
     if (!existing || existing.clerkUserId !== clerkUserId) {
-      throw httpError(404, `Connection ${connectionId} not found`)
+      throw httpError(404, 'Connection not found')
     }
     return mcpConnectionRepository.revoke(connectionId)
   },
