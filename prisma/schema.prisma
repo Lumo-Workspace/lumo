@@ -36,9 +36,9 @@ enum ViewType {
 }
 
 enum ViewVisibility {
-  PRIVATE    // only the creator (memberId owner)
-  WORKSPACE  // all workspace members
-  SHARED     // only members listed in ViewMember
+  PRIVATE // only the creator (memberId owner)
+  WORKSPACE // all workspace members
+  SHARED // only members listed in ViewMember
 }
 
 enum InviteStatus {
@@ -60,17 +60,17 @@ enum DocShareRole {
 }
 
 enum NotificationType {
-  TASK_IN_REVIEW    // task moved to IN_REVIEW — sent to reviewer / OWNERs
-  TASK_MENTIONED    // someone @mentioned you in a comment
-  TASK_SENT_BACK    // owner sent a task back to IN_PROGRESS — sent to assignee
-  TASK_ASSIGNED     // task assigned to you
-  TASK_SPEC_READY   // agent generated a spec draft — sent to reviewer
-  TASK_DONE         // task marked as done — sent to assignee
-  AGENT_CLARIFY     // agent needs clarification — requires reply to continue
-  AGENT_AUTHORIZE   // agent needs authorization for a high-risk operation
-  AGENT_VERIFY      // agent finished, requests human verification before DONE
-  AGENT_FAILED      // agent execution failed — informational
-  AGENT_DONE        // agent finished, PR created — informational
+  TASK_IN_REVIEW // task moved to IN_REVIEW — sent to reviewer / OWNERs
+  TASK_MENTIONED // someone @mentioned you in a comment
+  TASK_SENT_BACK // owner sent a task back to IN_PROGRESS — sent to assignee
+  TASK_ASSIGNED // task assigned to you
+  TASK_SPEC_READY // agent generated a spec draft — sent to reviewer
+  TASK_DONE // task marked as done — sent to assignee
+  AGENT_CLARIFY // agent needs clarification — requires reply to continue
+  AGENT_AUTHORIZE // agent needs authorization for a high-risk operation
+  AGENT_VERIFY // agent finished, requests human verification before DONE
+  AGENT_FAILED // agent execution failed — informational
+  AGENT_DONE // agent finished, PR created — informational
 }
 
 enum CommentType {
@@ -158,6 +158,7 @@ model Workspace {
   drafts             Draft[]
   summaries          WorkspaceSummary[]
   tags               Tag[]
+  mcpConnections     McpConnection[]     @relation("WorkspaceMcpConnections")
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -179,7 +180,7 @@ model Team {
   id          String   @id @default(cuid())
   workspaceId String
   name        String
-  identifier  String   // task ID prefix e.g. "ENG"
+  identifier  String // task ID prefix e.g. "ENG"
   isDefault   Boolean  @default(false)
   taskSeq     Int      @default(0)
   createdAt   DateTime @default(now())
@@ -216,24 +217,24 @@ model WorkspaceMember {
   role        WorkspaceRole @default(MEMBER)
   joinedAt    DateTime      @default(now())
 
-  workspace              Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  teams                  TeamMember[]
-  createdProjects        Project[]    @relation("ProjectCreator")
-  defaultReviewerFor     Project[]    @relation("ProjectDefaultReviewer")
-  ownedViews             View[]       @relation("ViewOwner")
-  createdViews           View[]       @relation("ViewCreator")
-  sharedViews            ViewMember[]
-  sentInvites            WorkspaceInvite[]
-  githubIntegrations     GitHubIntegration[]
-  slackInstalled         SlackIntegration[]  @relation("SlackInstaller")
-  sentryInstalled        SentryIntegration[] @relation("SentryInstaller")
-  actor                  Actor?
-  agentProfiles          AgentProfile[]
-  apiKeys                ApiKey[]
-  preference             UserPreference?
-  createdDocuments       Document[]      @relation("DocumentCreator")
-  documentShares         DocumentShare[] @relation("DocumentShareMember")
-  documentEdits          DocumentEditor[]
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teams              TeamMember[]
+  createdProjects    Project[]           @relation("ProjectCreator")
+  defaultReviewerFor Project[]           @relation("ProjectDefaultReviewer")
+  ownedViews         View[]              @relation("ViewOwner")
+  createdViews       View[]              @relation("ViewCreator")
+  sharedViews        ViewMember[]
+  sentInvites        WorkspaceInvite[]
+  githubIntegrations GitHubIntegration[]
+  slackInstalled     SlackIntegration[]  @relation("SlackInstaller")
+  sentryInstalled    SentryIntegration[] @relation("SentryInstaller")
+  actor              Actor?
+  agentProfiles      AgentProfile[]
+  apiKeys            ApiKey[]
+  preference         UserPreference?
+  createdDocuments   Document[]          @relation("DocumentCreator")
+  documentShares     DocumentShare[]     @relation("DocumentShareMember")
+  documentEdits      DocumentEditor[]
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -245,8 +246,8 @@ model WorkspaceMember {
 model AgentProfile {
   id          String    @id @default(cuid())
   workspaceId String
-  memberId    String?   // null = workspace-shared agent; set = personal agent (Phase 4)
-  name        String    // "Coding Agent"
+  memberId    String? // null = workspace-shared agent; set = personal agent (Phase 4)
+  name        String // "Coding Agent"
   type        AgentType
   avatarColor String    @default("#6366f1")
   isActive    Boolean   @default(true)
@@ -303,18 +304,18 @@ model Project {
   riskStalePrDays     Int?
   riskThroughputDrop  Float?
 
-  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy       WorkspaceMember     @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
-  defaultReviewer WorkspaceMember?    @relation("ProjectDefaultReviewer", fields: [defaultReviewerId], references: [id], onDelete: SetNull)
-  tasks             Task[]
-  views             View[]
+  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy             WorkspaceMember        @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
+  defaultReviewer       WorkspaceMember?       @relation("ProjectDefaultReviewer", fields: [defaultReviewerId], references: [id], onDelete: SetNull)
+  tasks                 Task[]
+  views                 View[]
   slackChannels         SlackChannel[]
   repositories          ProjectRepository[]
   sentryProjectMappings SentryProjectMapping[]
-  documents         Document[]
-  priorityOverrides PriorityOverride[]
-  summaries         ProjectSummary[]
+  documents             Document[]
+  priorityOverrides     PriorityOverride[]
+  summaries             ProjectSummary[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -325,8 +326,8 @@ model Project {
 model ProjectRepository {
   id        String   @id @default(cuid())
   projectId String
-  fullName  String   // "owner/repo"
-  name      String   // short repo name
+  fullName  String // "owner/repo"
+  name      String // short repo name
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -341,42 +342,42 @@ model ProjectRepository {
 // ─── Task (self-referencing tree) ───────────────────────────────────────────
 
 model Task {
-  id               String       @id @default(cuid())
-  projectId        String
-  teamId           String
-  number           Int
-  parentTaskId     String?
-  assigneeActorId  String?
-  reviewerActorId  String?
-  repositoryId     String?      // optional link to ProjectRepository
-  title            String
-  description      String?
-  spec             String?
-  status           TaskStatus   @default(TODO)
-  priority         TaskPriority @default(MEDIUM)
-  order            Float        @default(0)
-  agentStatus       AgentStatus?
-  agentError        String?
-  inputReason       String?       // Why INPUT_REQUIRED: "spec_review" | "clarify" | etc.
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  dueDate          DateTime?
+  id              String       @id @default(cuid())
+  projectId       String
+  teamId          String
+  number          Int
+  parentTaskId    String?
+  assigneeActorId String?
+  reviewerActorId String?
+  repositoryId    String? // optional link to ProjectRepository
+  title           String
+  description     String?
+  spec            String?
+  status          TaskStatus   @default(TODO)
+  priority        TaskPriority @default(MEDIUM)
+  order           Float        @default(0)
+  agentStatus     AgentStatus?
+  agentError      String?
+  inputReason     String? // Why INPUT_REQUIRED: "spec_review" | "clarify" | etc.
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  dueDate         DateTime?
 
-  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  team       Team                @relation(fields: [teamId], references: [id])
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team       Team               @relation(fields: [teamId], references: [id])
   repository ProjectRepository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
-  parent     Task?               @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  children   Task[]              @relation("TaskChildren")
-  assignee   Actor?              @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
-  reviewer   Actor?              @relation("TaskReviewer", fields: [reviewerActorId], references: [id], onDelete: SetNull)
+  parent     Task?              @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children   Task[]             @relation("TaskChildren")
+  assignee   Actor?             @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
+  reviewer   Actor?             @relation("TaskReviewer", fields: [reviewerActorId], references: [id], onDelete: SetNull)
 
-  viewTaskOrders ViewTaskOrder[]
-  comments       Comment[]
-  pullRequests   PullRequest[]
-  branches       TaskBranch[]
-  clarifies      AgentClarify[]
-  agentRuns      AgentRun[]
-  activities     TaskActivity[]
+  viewTaskOrders    ViewTaskOrder[]
+  comments          Comment[]
+  pullRequests      PullRequest[]
+  branches          TaskBranch[]
+  clarifies         AgentClarify[]
+  agentRuns         AgentRun[]
+  activities        TaskActivity[]
   documentMentions  DocumentMention[]
   priorityOverrides PriorityOverride[]
   taskTags          TaskTag[]
@@ -396,9 +397,9 @@ model Task {
 
 model View {
   id          String   @id @default(cuid())
-  workspaceId String   // security boundary — always required
-  projectId   String?  // set for project-level views
-  memberId    String?  // set for personal views (My Tasks); null = workspace-shared view
+  workspaceId String // security boundary — always required
+  projectId   String? // set for project-level views
+  memberId    String? // set for personal views (My Tasks); null = workspace-shared view
   name        String
   type        ViewType
   config      Json     @default("{}")
@@ -407,7 +408,7 @@ model View {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  visibility        ViewVisibility   @default(WORKSPACE)
+  visibility        ViewVisibility @default(WORKSPACE)
   createdByMemberId String?
 
   workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -463,18 +464,18 @@ model Comment {
   id              String      @id @default(cuid())
   taskId          String
   authorActorId   String?
-  body            String      // HTML; @mentions encoded as data-id attributes
-  parentId        String?     // null = top-level; non-null = reply (max 1 level deep)
-  quotedCommentId String?     // which specific comment this reply is quoting
+  body            String // HTML; @mentions encoded as data-id attributes
+  parentId        String? // null = top-level; non-null = reply (max 1 level deep)
+  quotedCommentId String? // which specific comment this reply is quoting
   type            CommentType @default(USER)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author        Actor?    @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
-  parent        Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies       Comment[] @relation("CommentReplies")
+  task    Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author  Actor?    @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
 
   @@index([taskId])
   @@index([parentId])
@@ -503,15 +504,15 @@ model TaskActivity {
 model Notification {
   id               String           @id @default(cuid())
   workspaceId      String
-  recipientActorId String           // Actor.id — who receives this notification
+  recipientActorId String // Actor.id — who receives this notification
   type             NotificationType
   taskId           String?
-  commentId        String?          // set for TASK_MENTIONED — scroll to comment
-  clarifyId        String?          // set for AGENT_CLARIFY — link to AgentClarify
-  triggerActorId   String?          // Actor.id — who/what triggered it; null for system
+  commentId        String? // set for TASK_MENTIONED — scroll to comment
+  clarifyId        String? // set for AGENT_CLARIFY — link to AgentClarify
+  triggerActorId   String? // Actor.id — who/what triggered it; null for system
   read             Boolean          @default(false)
   requiresAction   Boolean          @default(false) // AGENT_CLARIFY / AGENT_AUTHORIZE / AGENT_VERIFY
-  actionTakenAt    DateTime?        // when the user responded to an actionable notification
+  actionTakenAt    DateTime? // when the user responded to an actionable notification
   createdAt        DateTime         @default(now())
 
   recipient Actor  @relation("NotificationRecipient", fields: [recipientActorId], references: [id], onDelete: Cascade)
@@ -523,20 +524,20 @@ model Notification {
 }
 
 model GitHubIntegration {
-  id           String   @id @default(cuid())
-  workspaceId  String
-  memberId     String
-  accessToken  String   // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
-  tokenType    String   @default("oauth")
-  githubUserId String
-  githubLogin  String
+  id            String   @id @default(cuid())
+  workspaceId   String
+  memberId      String
+  accessToken   String // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  tokenType     String   @default("oauth")
+  githubUserId  String
+  githubLogin   String
   repositories  String[]
   webhookSecret String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  member       WorkspaceMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member       WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
   webhooks     GitHubWebhook[]
   pullRequests PullRequest[]
 
@@ -546,10 +547,10 @@ model GitHubIntegration {
 }
 
 model GitHubWebhook {
-  id            String   @id @default(cuid())
+  id            String @id @default(cuid())
   integrationId String
-  repo          String   // "owner/repo"
-  githubHookId  Int      // GitHub's webhook ID, needed for deletion
+  repo          String // "owner/repo"
+  githubHookId  Int // GitHub's webhook ID, needed for deletion
 
   createdAt DateTime @default(now())
 
@@ -561,16 +562,16 @@ model GitHubWebhook {
 }
 
 model SlackIntegration {
-  id            String   @id @default(cuid())
-  workspaceId   String   @unique
+  id            String           @id @default(cuid())
+  workspaceId   String           @unique
   installedBy   String?
   installer     WorkspaceMember? @relation("SlackInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
   accessToken   String
   slackTeamId   String
   slackTeamName String
   slackUserId   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   channels  SlackChannel[]
@@ -600,17 +601,17 @@ model PullRequest {
   id            String    @id @default(cuid())
   workspaceId   String
   taskId        String?
-  integrationId String?   // null for agent-created PRs (GitHub App, not OAuth)
-  repo          String    // "owner/repo"
+  integrationId String? // null for agent-created PRs (GitHub App, not OAuth)
+  repo          String // "owner/repo"
   number        Int
   title         String
   url           String
-  state         String    // "open" | "closed" | "merged"
+  state         String // "open" | "closed" | "merged"
   authorLogin   String
   headBranch    String
   baseBranch    String
   isDraft       Boolean   @default(false)
-  ciStatus      String?   // null | "pending" | "success" | "failure"
+  ciStatus      String? // null | "pending" | "success" | "failure"
   mergedAt      DateTime?
   closedAt      DateTime?
   createdAt     DateTime  @default(now())
@@ -630,7 +631,7 @@ model PullRequest {
 model TaskBranch {
   id                String    @id @default(cuid())
   taskId            String
-  repo              String    // "owner/repo"
+  repo              String // "owner/repo"
   branchName        String
   lastCommitSha     String?
   lastCommitMessage String?
@@ -646,24 +647,24 @@ model TaskBranch {
 }
 
 model AgentRun {
-  id            String       @id @default(cuid())
-  taskId        String
-  runNumber     Int
-  status        AgentStatus  // WORKING while active, terminal when done
-  trigger       String?      // "initial"|"retry"|"comment"|"confirm_spec"|"clarify_reply"|"send_back"
-  errorCode     String?
-  errorMessage  String?
-  sandboxId     String?
-  mcpToken      String?      @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
-  summary       String?
-  steps         Json?        // JSON array of { text, elapsedMs, status } persisted for resume after refresh
-  changedFiles  Json?
-  durationMs    Int?
-  prNumber      Int?
-  prUrl         String?
-  branchName    String?
-  startedAt     DateTime     @default(now())
-  finishedAt    DateTime?
+  id           String      @id @default(cuid())
+  taskId       String
+  runNumber    Int
+  status       AgentStatus // WORKING while active, terminal when done
+  trigger      String? // "initial"|"retry"|"comment"|"confirm_spec"|"clarify_reply"|"send_back"
+  errorCode    String?
+  errorMessage String?
+  sandboxId    String?
+  mcpToken     String?     @unique // ephemeral token injected into sandbox; validated by mcp-clarify routes
+  summary      String?
+  steps        Json? // JSON array of { text, elapsedMs, status } persisted for resume after refresh
+  changedFiles Json?
+  durationMs   Int?
+  prNumber     Int?
+  prUrl        String?
+  branchName   String?
+  startedAt    DateTime    @default(now())
+  finishedAt   DateTime?
 
   task      Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   clarifies AgentClarify[]
@@ -695,9 +696,9 @@ model WorkspaceInvite {
   id          String       @id @default(cuid())
   token       String       @unique @default(cuid())
   workspaceId String
-  email       String       // always stored lowercase
-  inviterName String       // denormalized from Clerk at invite time
-  invitedById String       // WorkspaceMember.id
+  email       String // always stored lowercase
+  inviterName String // denormalized from Clerk at invite time
+  invitedById String // WorkspaceMember.id
   status      InviteStatus @default(PENDING)
   expiresAt   DateTime
   acceptedAt  DateTime?
@@ -713,12 +714,12 @@ model WorkspaceInvite {
 // ─── API Keys (per-user, long-lived, for MCP servers) ───────────────────────
 
 model ApiKey {
-  id                String          @id @default(cuid())
+  id                String    @id @default(cuid())
   workspaceMemberId String
-  label             String          // user-given name, e.g. "My laptop"
-  keyHash           String          @unique // SHA-256(fullKey) as hex
-  keyPrefix         String          // first 16 chars of key, for display ("lum_xxxxxxxx...")
-  createdAt         DateTime        @default(now())
+  label             String // user-given name, e.g. "My laptop"
+  keyHash           String    @unique // SHA-256(fullKey) as hex
+  keyPrefix         String // first 16 chars of key, for display ("lum_xxxxxxxx...")
+  createdAt         DateTime  @default(now())
   lastUsedAt        DateTime?
   revokedAt         DateTime?
 
@@ -731,14 +732,14 @@ model ApiKey {
 // ─── User Preferences ────────────────────────────────────────────────────────
 
 model UserPreference {
-  id       String @id @default(cuid())
-  memberId String @unique
+  id       String          @id @default(cuid())
+  memberId String          @unique
   member   WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   // Appearance
   theme    String @default("system") // "light" | "dark" | "system"
-  locale   String @default("en")     // "en" | "zh"
-  timezone String @default("auto")   // IANA tz string or "auto"
+  locale   String @default("en") // "en" | "zh"
+  timezone String @default("auto") // IANA tz string or "auto"
 
   // In-app notification toggles
   notifyInAppAssigned   Boolean @default(true)
@@ -776,33 +777,33 @@ model WaitlistEntry {
 // ─── Documents ──────────────────────────────────────────────────────────────
 
 model Document {
-  id          String        @id @default(cuid())
-  title       String        @default("")
-  content     String?       @db.Text
-  emoji       String?
+  id      String  @id @default(cuid())
+  title   String  @default("")
+  content String? @db.Text
+  emoji   String?
 
-  parentId    String?
-  parent      Document?     @relation("DocTree", fields: [parentId], references: [id])
-  children    Document[]    @relation("DocTree")
-  sortOrder   Float         @default(0)
-  publicToken String?       @unique
-  tags         String[]  @default([])  // @deprecated — migrating to Tag relation
+  parentId     String?
+  parent       Document?        @relation("DocTree", fields: [parentId], references: [id])
+  children     Document[]       @relation("DocTree")
+  sortOrder    Float            @default(0)
+  publicToken  String?          @unique
+  tags         String[]         @default([]) // @deprecated — migrating to Tag relation
   editors      DocumentEditor[]
   documentTags DocumentTag[]
 
   projectId   String?
-  project     Project?      @relation(fields: [projectId], references: [id])
+  project     Project?        @relation(fields: [projectId], references: [id])
   workspaceId String
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
   createdById String
   createdBy   WorkspaceMember @relation("DocumentCreator", fields: [createdById], references: [id])
 
-  visibility  DocVisibility @default(PRIVATE)
-  shares      DocumentShare[]
-  mentions    DocumentMention[]
+  visibility DocVisibility     @default(PRIVATE)
+  shares     DocumentShare[]
+  mentions   DocumentMention[]
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([parentId])
@@ -811,26 +812,26 @@ model Document {
 }
 
 model DocumentShare {
-  id          String       @id @default(cuid())
-  documentId  String
-  document    Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  memberId    String
-  member      WorkspaceMember @relation("DocumentShareMember", fields: [memberId], references: [id])
-  role        DocShareRole @default(VIEWER)
+  id         String          @id @default(cuid())
+  documentId String
+  document   Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     WorkspaceMember @relation("DocumentShareMember", fields: [memberId], references: [id])
+  role       DocShareRole    @default(VIEWER)
 
-  createdAt   DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([documentId, memberId])
 }
 
 model DocumentMention {
-  id          String   @id @default(cuid())
-  documentId  String
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([documentId, taskId])
 }
@@ -868,14 +869,14 @@ model PriorityOverride {
 // ─── Drafts ─────────────────────────────────────────────────────────────────
 
 model Draft {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creatorId   String   // actorId — drafts are private to creator
-  type        String   // "TASK" | "PROJECT"
-  data        Json     // serialized form field snapshot
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  creatorId   String // actorId — drafts are private to creator
+  type        String // "TASK" | "PROJECT"
+  data        Json // serialized form field snapshot
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId, creatorId])
   @@map("drafts")
@@ -884,13 +885,13 @@ model Draft {
 // ─── Summaries ──────────────────────────────────────────────────────────────
 
 model ProjectSummary {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  stats       Json
-  tldr        String
-  report      String
+  stats  Json
+  tldr   String
+  report String
 
   generatedAt DateTime @default(now())
   createdAt   DateTime @default(now())
@@ -899,16 +900,16 @@ model ProjectSummary {
 }
 
 model WorkspaceSummary {
-  id           String    @id @default(cuid())
-  workspaceId  String
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  stats        Json
-  tldr         String
-  report       String
+  stats  Json
+  tldr   String
+  report String
 
-  generatedAt  DateTime  @default(now())
-  createdAt    DateTime  @default(now())
+  generatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   @@index([workspaceId, generatedAt(sort: Desc)])
 }
@@ -922,8 +923,8 @@ model Tag {
   workspaceId String
   createdAt   DateTime @default(now())
 
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  taskTags    TaskTag[]
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  taskTags     TaskTag[]
   documentTags DocumentTag[]
 
   @@unique([workspaceId, name])
@@ -957,10 +958,10 @@ model DocumentTag {
 
 model GenerationJob {
   id        String   @id @default(cuid())
-  type      String   // 'project' | 'workspace'
-  targetId  String   // projectId or workspaceId
+  type      String // 'project' | 'workspace'
+  targetId  String // projectId or workspaceId
   status    String   @default("pending") // pending | completed | failed
-  summaryId String?  // populated on success
+  summaryId String? // populated on success
   createdAt DateTime @default(now())
 
   @@index([targetId, createdAt(sort: Desc)])
@@ -969,17 +970,17 @@ model GenerationJob {
 // ─── Sentry Integration ──────────────────────────────────────────────────────
 
 model SentryIntegration {
-  id             String   @id @default(cuid())
-  workspaceId    String   @unique
-  installedBy    String?
-  installer      WorkspaceMember? @relation("SentryInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  id          String           @id @default(cuid())
+  workspaceId String           @unique
+  installedBy String?
+  installer   WorkspaceMember? @relation("SentryInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
 
-  orgSlug        String   @unique
-  clientSecret   String   // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
-  lastWebhookAt  DateTime?
+  orgSlug       String    @unique
+  clientSecret  String // AES-256-GCM encrypted: "iv:authTag:ciphertext" (hex)
+  lastWebhookAt DateTime?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   workspace       Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMappings SentryProjectMapping[]
@@ -1018,4 +1019,36 @@ model SentryIssueLink {
   @@unique([integrationId, sentryIssueId])
   @@index([taskId])
   @@map("sentry_issue_links")
+}
+
+model McpConnection {
+  id                String    @id @default(cuid())
+  clerkUserId       String
+  activeWorkspaceId String?
+  clientName        String?
+  clientId          String?
+  autoBoundAt       DateTime?
+  createdAt         DateTime  @default(now())
+  lastUsedAt        DateTime  @default(now())
+  revokedAt         DateTime?
+
+  activeWorkspace Workspace? @relation("WorkspaceMcpConnections", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
+
+  @@unique([clerkUserId, clientId])
+  @@index([clerkUserId])
+}
+
+model McpAuditLog {
+  id           String   @id @default(cuid())
+  connectionId String
+  clerkUserId  String
+  workspaceId  String?
+  toolName     String
+  status       String
+  errorCode    String?
+  durationMs   Int
+  createdAt    DateTime @default(now())
+
+  @@index([connectionId, createdAt])
+  @@index([workspaceId, createdAt])
 }
