@@ -2,6 +2,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { registerWorkspaceTools } from './workspace'
 import { registerProjectTools } from './projects'
+import { registerMemberTools } from './members'
 
 export function registerAllTools(server: McpServer): void {
   // Always exposed (bootstrap)
@@ -10,4 +11,5 @@ export function registerAllTools(server: McpServer): void {
   // Domain tools — each handler calls requireWorkspace(ctx) and throws
   // WORKSPACE_REQUIRED when a workspace has not yet been bound.
   registerProjectTools(server)
+  registerMemberTools(server)
 }
