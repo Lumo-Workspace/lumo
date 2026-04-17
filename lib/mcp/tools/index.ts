@@ -1,11 +1,13 @@
 // lib/mcp/tools/index.ts
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { registerWorkspaceTools } from './workspace'
+import { registerProjectTools } from './projects'
 
 export function registerAllTools(server: McpServer): void {
-  // Always exposed
+  // Always exposed (bootstrap)
   registerWorkspaceTools(server)
 
-  // Additional tools registered only when a workspace is bound.
-  // Phase 3 and 4 will add domain tools here, guarded by a check.
+  // Domain tools — each handler calls requireWorkspace(ctx) and throws
+  // WORKSPACE_REQUIRED when a workspace has not yet been bound.
+  registerProjectTools(server)
 }
