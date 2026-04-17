@@ -106,4 +106,26 @@ describe('mcpConnectionRepository', () => {
       })
     })
   })
+
+  describe('findById', () => {
+    it('returns connection by id', async () => {
+      mockPrisma.mcpConnection.findUnique.mockResolvedValue({ id: 'c1' })
+      const result = await mcpConnectionRepository.findById('c1')
+      expect(mockPrisma.mcpConnection.findUnique).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+      })
+      expect(result).toEqual({ id: 'c1' })
+    })
+  })
+
+  describe('touchLastUsed', () => {
+    it('updates lastUsedAt to now', async () => {
+      mockPrisma.mcpConnection.update.mockResolvedValue({ id: 'c1' })
+      await mcpConnectionRepository.touchLastUsed('c1')
+      expect(mockPrisma.mcpConnection.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { lastUsedAt: expect.any(Date) },
+      })
+    })
+  })
 })
