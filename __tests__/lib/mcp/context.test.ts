@@ -84,6 +84,20 @@ describe('resolveLumoContext', () => {
     ])
     const ctx = await resolveLumoContext(input)
     expect(ctx.workspaceId).toBeUndefined()
+    expect(mockSetActiveWorkspace).not.toHaveBeenCalled()
+  })
+
+  it('returns bootstrap context when user has zero memberships', async () => {
+    mockUpsertOnConnect.mockResolvedValue({
+      id: 'c1',
+      activeWorkspaceId: null,
+    })
+    mockFindByClerkId.mockResolvedValue([])
+    const ctx = await resolveLumoContext(input)
+    expect(ctx.workspaceId).toBeUndefined()
+    expect(ctx.memberRole).toBeUndefined()
+    expect(ctx.connectionId).toBe('c1')
+    expect(mockSetActiveWorkspace).not.toHaveBeenCalled()
   })
 
   it('auto-binds when bound workspace gone but user has exactly 1 remaining', async () => {

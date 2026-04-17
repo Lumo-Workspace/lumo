@@ -4,7 +4,7 @@ import { McpError, McpErrorCode } from '@/lib/mcp/errors'
 describe('requireRole', () => {
   it('allows when memberRole is in the allowed list', () => {
     expect(() =>
-      requireRole({ memberRole: 'MEMBER' } as any, ['MEMBER', 'ADMIN'])
+      requireRole({ memberRole: 'MEMBER' } as any, ['MEMBER', 'OWNER'])
     ).not.toThrow()
   })
   it('throws McpError Forbidden when role is not allowed', () => {

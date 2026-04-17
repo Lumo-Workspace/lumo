@@ -1,6 +1,6 @@
 import { McpError, McpErrorCode } from './errors'
 
-export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER'
+export type WorkspaceRole = 'OWNER' | 'MEMBER'
 
 export interface ToolContext {
   clerkUserId: string
