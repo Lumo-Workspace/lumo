@@ -21,6 +21,8 @@ export type {
 } from './slack.repository'
 export { inviteRepository } from './invite.repository'
 export type { CreateInviteData } from './invite.repository'
+export { mcpConnectionRepository } from './mcp-connection.repository'
+export type { UpsertOnConnectInput } from './mcp-connection.repository'
 export { memberRepository } from './member.repository'
 export { viewRepository } from './view.repository'
 export type { CreateViewData } from './view.repository'

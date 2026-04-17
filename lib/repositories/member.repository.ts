@@ -48,6 +48,19 @@ export const memberRepository = {
     })
   },
 
+  /** Find all workspace memberships for a given Clerk user across all workspaces. */
+  async findByClerkId(clerkId: string) {
+    return prisma.workspaceMember.findMany({
+      where: { clerkId },
+      select: {
+        id: true,
+        workspaceId: true,
+        role: true,
+        workspace: { select: { id: true, name: true, slug: true } },
+      },
+    })
+  },
+
   /** Find the first member for a clerk user (any workspace). */
   async findFirstByClerkId(clerkId: string) {
     return prisma.workspaceMember.findFirst({
