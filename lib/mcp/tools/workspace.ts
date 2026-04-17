@@ -53,19 +53,17 @@ export function makeWorkspaceHandlers(ctxProvider: CtxProvider) {
 
 // ── Registration (wires handlers into an McpServer) ─────────────────────────
 
-export function registerWorkspaceTools(
-  server: McpServer,
-  ctxProvider: CtxProvider
-) {
-  const h = makeWorkspaceHandlers(ctxProvider)
-
+export function registerWorkspaceTools(server: McpServer) {
   server.registerTool(
     'list_my_workspaces',
     {
       description: 'List all workspaces the current user belongs to.',
       inputSchema: {},
     },
-    async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (_args: unknown, extra: any) => {
+      const ctx = extra.ctx as ToolContext
+      const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.list_my_workspaces()
       return { content: [{ type: 'text' as const, text: JSON.stringify({ workspaces: result }, null, 2) }] }
     }
@@ -80,7 +78,10 @@ export function registerWorkspaceTools(
         workspaceId: z.string().describe('Workspace ID (from list_my_workspaces)'),
       },
     },
-    async (args) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (args, extra: any) => {
+      const ctx = extra.ctx as ToolContext
+      const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.select_workspace(args)
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
     }
@@ -92,7 +93,10 @@ export function registerWorkspaceTools(
       description: 'Return the currently-bound workspace for this connection.',
       inputSchema: {},
     },
-    async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (_args: unknown, extra: any) => {
+      const ctx = extra.ctx as ToolContext
+      const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.get_active_workspace()
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
     }
