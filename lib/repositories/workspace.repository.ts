@@ -82,6 +82,11 @@ export const workspaceRepository = {
     })
   },
 
+  /** Find full workspace row by ID. */
+  async findById(id: string) {
+    return prisma.workspace.findUnique({ where: { id } })
+  },
+
   /** Find workspace name and slug by ID. */
   async findNameAndSlug(id: string) {
     return prisma.workspace.findUnique({
