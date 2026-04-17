@@ -175,6 +175,27 @@ describe('memberRepository', () => {
     })
   })
 
+  describe('findByClerkId', () => {
+    it('returns all workspace memberships for a clerk user', async () => {
+      const fixture = [
+        { id: 'm1', workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Foo', slug: 'foo' } },
+        { id: 'm2', workspaceId: 'ws-2', role: 'MEMBER', workspace: { id: 'ws-2', name: 'Bar', slug: 'bar' } },
+      ]
+      mockMemberFindMany.mockResolvedValue(fixture)
+      const result = await memberRepository.findByClerkId('user_abc')
+      expect(mockMemberFindMany).toHaveBeenCalledWith({
+        where: { clerkId: 'user_abc' },
+        select: {
+          id: true,
+          workspaceId: true,
+          role: true,
+          workspace: { select: { id: true, name: true, slug: true } },
+        },
+      })
+      expect(result).toEqual(fixture)
+    })
+  })
+
   describe('findActorsByEmailInWorkspace', () => {
     it('returns actor ids for matching emails within the workspace', async () => {
       mockClerkGetUserList.mockResolvedValue({
