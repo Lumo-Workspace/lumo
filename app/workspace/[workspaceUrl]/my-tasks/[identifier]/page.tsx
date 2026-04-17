@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { TaskDetailPage } from '../../components/pages/TaskDetailPage'
-import { slugifyProjectName } from '../../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 /**
  * My Tasks task detail page: /workspace/[slug]/my-tasks/LUM-2
@@ -94,7 +94,7 @@ export default async function MyTaskDetailPage({
   const isMyTask = rawTask.assignee?.member?.clerkId === userId
   if (!isMyTask) {
     redirect(
-      `/workspace/${workspaceUrl}/project/${slugifyProjectName(rawTask.project.name)}/tasks/${identifier}`
+      `/workspace/${workspaceUrl}/project/${slugify(rawTask.project.name)}/tasks/${identifier}`
     )
   }
 

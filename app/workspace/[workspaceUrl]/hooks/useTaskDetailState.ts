@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl'
 import type { TaskDetail, WorkspaceMemberInfo, ApiProject } from '../types'
 import { CACHE_KEY } from '../constants'
 import { readCache } from '../cache'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 interface UseTaskDetailStateParams {
   initialTask: TaskDetail
@@ -49,7 +49,7 @@ export function useTaskDetailState({
     const base = `${origin}/workspace/${workspaceUrl}`
     return from === 'my-tasks'
       ? `${base}/my-tasks/${taskIdentifier}`
-      : `${base}/project/${slugifyProjectName(task.project.name)}/tasks/${taskIdentifier}`
+      : `${base}/project/${slugify(task.project.name)}/tasks/${taskIdentifier}`
   }, [origin, workspaceUrl, from, taskIdentifier, task.project.name])
 
   // ── Delete dialog ──────────────────────────────────────────────────────

@@ -25,8 +25,8 @@ import {
 } from '../../hooks/useTableSort'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
-import { copyLink } from '../../utils/copyLink'
-import { slugifyProjectName } from '../../utils'
+import { copyLink } from '@/lib/utils/copyLink'
+import { slugify } from '@/lib/utils/slugify'
 import {
   Tooltip,
   TooltipContent,
@@ -261,7 +261,7 @@ export function ProjectsPage({
                             onClick={e => {
                               e.stopPropagation()
                               copyLink(
-                                `${window.location.origin}/workspace/${workspaceUrl}/project/${slugifyProjectName(project.name)}`
+                                `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(project.name)}`
                               )
                             }}
                           >

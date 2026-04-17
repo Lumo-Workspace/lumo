@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { SimilarTaskMatch } from '@/lib/similarity'
 import { ApiTask } from '../types'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 interface DuplicateWarningProps {
   matches: SimilarTaskMatch<ApiTask>[]
@@ -55,7 +55,7 @@ export function DuplicateWarning({
               task.project?.name ??
               projects.find(p => p.id === task.projectId)?.name ??
               ''
-            const slug = slugifyProjectName(projectName)
+            const slug = slugify(projectName)
             const identifier = `${task.teamIdentifier}-${task.number}`
             const url = `/workspace/${workspaceUrl}/project/${slug}/tasks/${identifier}`
 

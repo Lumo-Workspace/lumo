@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { GitPullRequest, GitBranch } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { slugifyProjectName } from '../utils'
+import { slugify } from '@/lib/utils/slugify'
 import {
   TaskDetail,
   ApiTask,
@@ -110,7 +110,7 @@ export function TaskDetailPanel({
     const parent = task.parent
     if (!parent) return
     const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
-    const projectSlug = slugifyProjectName(projectName)
+    const projectSlug = slugify(projectName)
     router.push(
       `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
     )

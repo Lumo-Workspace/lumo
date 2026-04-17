@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { tasksClient } from '@/lib/api-client'
-import { copyLink } from '../utils/copyLink'
+import { copyLink } from '@/lib/utils/copyLink'
 import { useCopyState } from './useCopyState'
 import type { TaskDetail } from '../types'
 

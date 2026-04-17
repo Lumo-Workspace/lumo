@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
 import { ProjectDetailStandalonePage } from '../../components/pages/ProjectDetailStandalonePage'
-import { slugifyProjectName } from '../../utils'
+import { slugify } from '@/lib/utils/slugify'
 
 export default async function ProjectSlugPage({
   params,
@@ -27,7 +27,7 @@ export default async function ProjectSlugPage({
     },
   })
 
-  const project = projects.find(p => slugifyProjectName(p.name) === slug)
+  const project = projects.find(p => slugify(p.name) === slug)
 
   if (!project) notFound()
 
