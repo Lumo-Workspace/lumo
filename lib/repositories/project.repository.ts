@@ -26,9 +26,8 @@ export const projectRepository = {
       where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
-        tasks: {
-          where: { status: 'IN_PROGRESS' },
-          select: { id: true },
+        defaultReviewer: {
+          include: { user: { select: { name: true } } },
         },
         repositories: {
           orderBy: [

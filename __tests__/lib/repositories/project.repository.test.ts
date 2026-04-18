@@ -28,14 +28,14 @@ beforeEach(() => jest.clearAllMocks())
 // ── findByWorkspace ────────────────────────────────────────────────────────
 
 describe('findByWorkspace', () => {
-  it('returns filtered projects for workspace and member', async () => {
+  it('returns projects with defaultReviewer flattened-ready and repositories', async () => {
     const mockProjects = [
       {
         id: 'p1',
         name: 'Public Project',
         isIdea: false,
         _count: { tasks: 5 },
-        tasks: [{ id: 't1' }],
+        defaultReviewer: { id: 'm1', user: { name: 'Alice' } },
         repositories: [],
       },
       {
@@ -44,7 +44,7 @@ describe('findByWorkspace', () => {
         isIdea: true,
         createdByMemberId: 'member-1',
         _count: { tasks: 2 },
-        tasks: [],
+        defaultReviewer: null,
         repositories: [],
       },
     ]
@@ -62,9 +62,18 @@ describe('findByWorkspace', () => {
             { isIdea: true, createdByMemberId: 'member-1' },
           ],
         },
+        include: expect.objectContaining({
+          _count: { select: { tasks: true } },
+          defaultReviewer: {
+            include: { user: { select: { name: true } } },
+          },
+        }),
         orderBy: { updatedAt: 'desc' },
       })
     )
+    // No inline tasks include — counts come from countTasksByStatus
+    const call = mockFindMany.mock.calls[0][0] as { include: Record<string, unknown> }
+    expect(call.include.tasks).toBeUndefined()
   })
 })
 
