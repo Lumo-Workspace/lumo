@@ -4,6 +4,8 @@ import { registerWorkspaceTools } from './workspace'
 import { registerProjectTools } from './projects'
 import { registerMemberTools } from './members'
 import { registerTagTools } from './tags'
+import { registerDraftTools } from './drafts'
+import { registerNotificationTools } from './notifications'
 
 export function registerAllTools(server: McpServer): void {
   // Always exposed (bootstrap)
@@ -14,4 +16,6 @@ export function registerAllTools(server: McpServer): void {
   registerProjectTools(server)
   registerMemberTools(server)
   registerTagTools(server)
+  registerDraftTools(server)
+  registerNotificationTools(server)
 }
