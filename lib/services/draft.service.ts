@@ -34,6 +34,19 @@ export const draftService = {
     return draftRepository.create({ workspaceId, creatorId, type, data })
   },
 
+  /** Get a single draft by ID. Verifies ownership and workspace membership. */
+  async getDraft(draftId: string, creatorId: string, workspaceId: string) {
+    const draft = await draftRepository.findById(draftId)
+    if (
+      !draft ||
+      draft.workspaceId !== workspaceId ||
+      draft.creatorId !== creatorId
+    ) {
+      throw Object.assign(new Error('Draft not found'), { status: 404 })
+    }
+    return draft
+  },
+
   /** Delete a draft. Verifies ownership before deletion. */
   async deleteDraft(id: string, creatorId: string) {
     const existing = await draftRepository.findById(id)
