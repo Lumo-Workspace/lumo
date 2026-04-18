@@ -444,7 +444,7 @@
   "project.draft": "Bản nháp",
   "project.description": "Mô tả",
   "project.descriptionPlaceholder": "Thêm mô tả…",
-  "project.lead": "Trưởng dự án",
+  "project.owner": "Trưởng dự án",
   "project.repositories": "Kho lưu trữ",
   "project.default": "Mặc định",
   "project.openOnGithub": "Mở trên GitHub",

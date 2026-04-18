@@ -513,7 +513,7 @@
   "project.draft": "草稿",
   "project.description": "描述",
   "project.descriptionPlaceholder": "添加描述…",
-  "project.lead": "负责人",
+  "project.owner": "负责人",
   "project.repositories": "仓库",
   "project.default": "默认",
   "project.openOnGithub": "在 GitHub 上打开",

@@ -132,10 +132,7 @@ export function ProjectsPage({
           return applyDir(cmpNumber(a.doneCount, b.doneCount), sort.dir)
         case 'owner':
           return applyDir(
-            cmpString(
-              a.owner?.name ?? '',
-              b.owner?.name ?? ''
-            ),
+            cmpString(a.owner?.name ?? '', b.owner?.name ?? ''),
             sort.dir
           )
         case 'updatedAt':
@@ -383,7 +380,10 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='owner'
-                  label='Owner'
+                  label={intl.formatMessage({
+                    id: 'project.owner',
+                    defaultMessage: 'Owner',
+                  })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-32'

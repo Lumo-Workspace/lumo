@@ -444,7 +444,7 @@
   "project.draft": "下書き",
   "project.description": "説明",
   "project.descriptionPlaceholder": "説明を追加…",
-  "project.lead": "リード",
+  "project.owner": "リード",
   "project.repositories": "リポジトリ",
   "project.default": "デフォルト",
   "project.openOnGithub": "GitHubで開く",

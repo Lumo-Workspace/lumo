@@ -513,7 +513,7 @@
   "project.draft": "Draft",
   "project.description": "Description",
   "project.descriptionPlaceholder": "Add a description…",
-  "project.lead": "Lead",
+  "project.owner": "Owner",
   "project.repositories": "Repositories",
   "project.default": "Default",
   "project.openOnGithub": "Open on GitHub",

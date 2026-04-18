@@ -444,7 +444,7 @@
   "project.draft": "Entwurf",
   "project.description": "Beschreibung",
   "project.descriptionPlaceholder": "Beschreibung hinzufügen…",
-  "project.lead": "Projektleiter",
+  "project.owner": "Projektleiter",
   "project.repositories": "Repositories",
   "project.default": "Standard",
   "project.openOnGithub": "Auf GitHub öffnen",

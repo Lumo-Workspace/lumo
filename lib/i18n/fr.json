@@ -444,7 +444,7 @@
   "project.draft": "Brouillon",
   "project.description": "Description",
   "project.descriptionPlaceholder": "Ajouter une description…",
-  "project.lead": "Responsable",
+  "project.owner": "Responsable",
   "project.repositories": "Dépôts",
   "project.default": "Par défaut",
   "project.openOnGithub": "Ouvrir sur GitHub",

@@ -444,7 +444,7 @@
   "project.draft": "Borrador",
   "project.description": "Descripción",
   "project.descriptionPlaceholder": "Añadir una descripción…",
-  "project.lead": "Responsable",
+  "project.owner": "Responsable",
   "project.repositories": "Repositorios",
   "project.default": "Predeterminado",
   "project.openOnGithub": "Abrir en GitHub",

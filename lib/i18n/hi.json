@@ -444,7 +444,7 @@
   "project.draft": "ड्राफ्ट",
   "project.description": "विवरण",
   "project.descriptionPlaceholder": "विवरण जोड़ें…",
-  "project.lead": "लीड",
+  "project.owner": "लीड",
   "project.repositories": "रिपॉज़िटरी",
   "project.default": "डिफ़ॉल्ट",
   "project.openOnGithub": "GitHub पर खोलें",

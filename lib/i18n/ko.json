@@ -444,7 +444,7 @@
   "project.draft": "임시저장",
   "project.description": "설명",
   "project.descriptionPlaceholder": "설명 추가…",
-  "project.lead": "리드",
+  "project.owner": "리드",
   "project.repositories": "저장소",
   "project.default": "기본",
   "project.openOnGithub": "GitHub에서 열기",

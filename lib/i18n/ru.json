@@ -444,7 +444,7 @@
   "project.draft": "Черновик",
   "project.description": "Описание",
   "project.descriptionPlaceholder": "Добавить описание…",
-  "project.lead": "Руководитель",
+  "project.owner": "Руководитель",
   "project.repositories": "Репозитории",
   "project.default": "По умолчанию",
   "project.openOnGithub": "Открыть на GitHub",

@@ -444,7 +444,7 @@
   "project.draft": "Draf",
   "project.description": "Deskripsi",
   "project.descriptionPlaceholder": "Tambahkan deskripsi…",
-  "project.lead": "Penanggung Jawab",
+  "project.owner": "Penanggung Jawab",
   "project.repositories": "Repositori",
   "project.default": "Default",
   "project.openOnGithub": "Buka di GitHub",

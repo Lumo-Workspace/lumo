@@ -444,7 +444,7 @@
   "project.draft": "Draf",
   "project.description": "Keterangan",
   "project.descriptionPlaceholder": "Tambah keterangan…",
-  "project.lead": "Ketua",
+  "project.owner": "Ketua",
   "project.repositories": "Repositori",
   "project.default": "Lalai",
   "project.openOnGithub": "Buka di GitHub",
