@@ -30,11 +30,17 @@ const bootstrapCtx = { clerkUserId: 'u1', connectionId: 'c1' }
 describe('list_my_workspaces', () => {
   it('lists workspace memberships for the current user', async () => {
     mockFindByClerkId.mockResolvedValue([
-      { workspaceId: 'ws-1', role: 'OWNER', workspace: { name: 'Foo', slug: 'foo' } },
+      {
+        workspaceId: 'ws-1',
+        role: 'OWNER',
+        workspace: { name: 'Foo', slug: 'foo' },
+      },
     ])
     const h = makeWorkspaceHandlers(async () => bootstrapCtx as any)
     const out = await h.list_my_workspaces()
-    expect(out).toEqual([{ workspaceId: 'ws-1', name: 'Foo', slug: 'foo', role: 'OWNER' }])
+    expect(out).toEqual([
+      { workspaceId: 'ws-1', name: 'Foo', slug: 'foo', role: 'OWNER' },
+    ])
   })
 })
 
@@ -43,7 +49,9 @@ describe('select_workspace', () => {
     mockBindWorkspace.mockResolvedValue({ activeWorkspaceId: 'ws-1' })
     const h = makeWorkspaceHandlers(async () => bootstrapCtx as any)
     const out = await h.select_workspace({ workspaceId: 'ws-1' })
-    expect(mockBindWorkspace).toHaveBeenCalledWith('c1', 'u1', 'ws-1', { auto: false })
+    expect(mockBindWorkspace).toHaveBeenCalledWith('c1', 'u1', 'ws-1', {
+      auto: false,
+    })
     expect(out.activeWorkspaceId).toBe('ws-1')
   })
 })
@@ -71,5 +79,38 @@ describe('get_active_workspace', () => {
     await expect(h.get_active_workspace()).rejects.toMatchObject({
       code: -32001,
     })
+  })
+})
+
+describe('get_workspace', () => {
+  it('returns workspace details when bound', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'ws-1',
+      name: 'Foo',
+      slug: 'foo',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    })
+    const h = makeWorkspaceHandlers(async () => boundCtx as any)
+    const out = await h.get_workspace()
+    expect(out.workspace).toEqual({
+      id: 'ws-1',
+      name: 'Foo',
+      slug: 'foo',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    })
+  })
+
+  it('throws WORKSPACE_REQUIRED in bootstrap mode', async () => {
+    const bootstrap = { clerkUserId: 'u1', connectionId: 'c1' }
+    const h = makeWorkspaceHandlers(async () => bootstrap as any)
+    await expect(h.get_workspace()).rejects.toMatchObject({
+      code: 'WORKSPACE_REQUIRED',
+    })
+  })
+
+  it('throws ResourceNotFound when workspaceId points to missing row', async () => {
+    mockFindById.mockResolvedValue(null)
+    const h = makeWorkspaceHandlers(async () => boundCtx as any)
+    await expect(h.get_workspace()).rejects.toMatchObject({ code: -32001 })
   })
 })

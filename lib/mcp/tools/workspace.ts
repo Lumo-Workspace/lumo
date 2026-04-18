@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolContext } from '@/lib/mcp/auth'
+import { requireWorkspace } from '@/lib/mcp/auth'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { mcpConnectionService } from '@/lib/services/mcp-connection.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
@@ -40,13 +41,41 @@ export function makeWorkspaceHandlers(ctxProvider: CtxProvider) {
     async get_active_workspace() {
       const ctx = await ctxProvider()
       if (!ctx.workspaceId) {
-        return { activeWorkspaceId: null, note: 'Bootstrap mode — call select_workspace.' }
+        return {
+          activeWorkspaceId: null,
+          note: 'Bootstrap mode — call select_workspace.',
+        }
       }
       const ws = await workspaceRepository.findById(ctx.workspaceId)
       if (!ws) {
-        throw new McpError(McpErrorCode.ResourceNotFound, 'Active workspace not found')
+        throw new McpError(
+          McpErrorCode.ResourceNotFound,
+          'Active workspace not found'
+        )
       }
-      return { activeWorkspaceId: ws.id, name: ws.name, slug: ws.slug, memberRole: ctx.memberRole }
+      return {
+        activeWorkspaceId: ws.id,
+        name: ws.name,
+        slug: ws.slug,
+        memberRole: ctx.memberRole,
+      }
+    },
+
+    async get_workspace() {
+      const ctx = await ctxProvider()
+      requireWorkspace(ctx)
+      const ws = await workspaceRepository.findById(ctx.workspaceId)
+      if (!ws) {
+        throw new McpError(McpErrorCode.ResourceNotFound, 'Workspace not found')
+      }
+      return {
+        workspace: {
+          id: ws.id,
+          name: ws.name,
+          slug: ws.slug,
+          createdAt: ws.createdAt,
+        },
+      }
     },
   }
 }
@@ -60,12 +89,19 @@ export function registerWorkspaceTools(server: McpServer) {
       description: 'List all workspaces the current user belongs to.',
       inputSchema: {},
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async (_args: unknown, extra: any) => {
       const ctx = extra.ctx as ToolContext
       const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.list_my_workspaces()
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ workspaces: result }, null, 2) }] }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ workspaces: result }, null, 2),
+          },
+        ],
+      }
     }
   )
 
@@ -75,15 +111,21 @@ export function registerWorkspaceTools(server: McpServer) {
       description:
         'Bind this MCP connection to a workspace. Required before calling most tools when you have multiple workspaces.',
       inputSchema: {
-        workspaceId: z.string().describe('Workspace ID (from list_my_workspaces)'),
+        workspaceId: z
+          .string()
+          .describe('Workspace ID (from list_my_workspaces)'),
       },
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async (args, extra: any) => {
       const ctx = extra.ctx as ToolContext
       const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.select_workspace(args)
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify(result, null, 2) },
+        ],
+      }
     }
   )
 
@@ -93,12 +135,36 @@ export function registerWorkspaceTools(server: McpServer) {
       description: 'Return the currently-bound workspace for this connection.',
       inputSchema: {},
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     async (_args: unknown, extra: any) => {
       const ctx = extra.ctx as ToolContext
       const h = makeWorkspaceHandlers(async () => ctx)
       const result = await h.get_active_workspace()
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify(result, null, 2) },
+        ],
+      }
+    }
+  )
+
+  server.registerTool(
+    'get_workspace',
+    {
+      description:
+        'Get full details of the active workspace (name, slug, createdAt).',
+      inputSchema: {},
+    },
+
+    async (_args: unknown, extra: any) => {
+      const ctx = extra.ctx as ToolContext
+      const h = makeWorkspaceHandlers(async () => ctx)
+      const result = await h.get_workspace()
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify(result, null, 2) },
+        ],
+      }
     }
   )
 }

@@ -135,6 +135,41 @@ describe('memberService', () => {
     })
   })
 
+  describe('getMember', () => {
+    it('returns member when found in workspace', async () => {
+      mockFindById.mockResolvedValue({
+        id: 'm-1',
+        workspaceId: 'ws-1',
+        role: 'MEMBER',
+      })
+
+      const result = await memberService.getMember('m-1', 'ws-1')
+
+      expect(result.id).toBe('m-1')
+      expect(mockFindById).toHaveBeenCalledWith('m-1')
+    })
+
+    it('throws 404 when member belongs to another workspace', async () => {
+      mockFindById.mockResolvedValue({
+        id: 'm-1',
+        workspaceId: 'ws-other',
+        role: 'MEMBER',
+      })
+
+      await expect(
+        memberService.getMember('m-1', 'ws-1')
+      ).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('throws 404 when member does not exist', async () => {
+      mockFindById.mockResolvedValue(null)
+
+      await expect(
+        memberService.getMember('m-missing', 'ws-1')
+      ).rejects.toMatchObject({ status: 404 })
+    })
+  })
+
   describe('leaveWorkspace', () => {
     it('deletes member when not last OWNER', async () => {
       await memberService.leaveWorkspace('m-1', 'MEMBER', 'ws-1')
