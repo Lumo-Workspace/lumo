@@ -32,6 +32,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type ProjectSortKey =
   | 'name'
@@ -92,6 +93,7 @@ export function ProjectsPage({
   const [open, setOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const { sort, toggle } = useTableSort<ProjectSortKey>('updatedAt', 'desc')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const filtered = query.trim()
     ? projects.filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
@@ -125,6 +127,42 @@ export function ProjectsPage({
       }
     })
   }, [projects, sort])
+
+  const visibleIds = useMemo(() => sorted.map(p => p.id), [sorted])
+  const selectedVisibleCount = useMemo(
+    () => visibleIds.filter(id => selected.has(id)).length,
+    [visibleIds, selected]
+  )
+  const headerCheckboxState: boolean | 'indeterminate' =
+    selectedVisibleCount === 0
+      ? false
+      : selectedVisibleCount === visibleIds.length
+        ? true
+        : 'indeterminate'
+
+  const toggleAll = () => {
+    setSelected(prev => {
+      if (selectedVisibleCount === visibleIds.length) {
+        // All selected → clear those
+        const next = new Set(prev)
+        visibleIds.forEach(id => next.delete(id))
+        return next
+      }
+      // Otherwise select all visible
+      const next = new Set(prev)
+      visibleIds.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -231,6 +269,13 @@ export function ProjectsPage({
           <table className='w-full border-collapse'>
             <thead className='sticky top-0 bg-white dark:bg-zinc-950 z-10'>
               <tr>
+                <th className='py-3 px-4 w-10'>
+                  <Checkbox
+                    checked={headerCheckboxState}
+                    onCheckedChange={toggleAll}
+                    aria-label='Select all projects'
+                  />
+                </th>
                 <SortableHeader
                   col='name'
                   label='Project'
@@ -296,6 +341,16 @@ export function ProjectsPage({
                   onClick={() => onSelectProject(project)}
                   className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer group'
                 >
+                  <td
+                    className='py-4 px-4 border-b border-zinc-200 dark:border-zinc-800'
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selected.has(project.id)}
+                      onCheckedChange={() => toggleOne(project.id)}
+                      aria-label={`Select ${project.name}`}
+                    />
+                  </td>
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center gap-3'>
                       <span className='font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
