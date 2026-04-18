@@ -7,14 +7,23 @@ export interface ProjectUpdateData {
   defaultReviewerId?: string | null
 }
 
+// Visibility filter shared by every project-listing query.
+// Keep in sync: dropping/adding a clause here affects findByWorkspace AND countTasksByStatus.
+function projectVisibilityWhere(workspaceId: string, memberId: string) {
+  return {
+    workspaceId,
+    OR: [
+      { isIdea: false },
+      { isIdea: true, createdByMemberId: memberId },
+    ],
+  }
+}
+
 export const projectRepository = {
   /** Find all projects in workspace, filtered by member visibility (public + own ideas). */
   async findByWorkspace(workspaceId: string, memberId: string) {
     return prisma.project.findMany({
-      where: {
-        workspaceId,
-        OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
-      },
+      where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
         tasks: {
@@ -37,10 +46,7 @@ export const projectRepository = {
     const rows = await prisma.task.groupBy({
       by: ['projectId', 'status'],
       where: {
-        project: {
-          workspaceId,
-          OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
-        },
+        project: projectVisibilityWhere(workspaceId, memberId),
       },
       _count: { _all: true },
     })
@@ -50,6 +56,7 @@ export const projectRepository = {
       { TODO: number; IN_PROGRESS: number; IN_REVIEW: number; DONE: number }
     >()
     for (const row of rows) {
+      // Type guard only: groupBy widens `by` keys to nullable; runtime always has projectId.
       if (!row.projectId) continue
       const bucket = map.get(row.projectId) ?? {
         TODO: 0,
