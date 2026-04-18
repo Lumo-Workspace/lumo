@@ -13,11 +13,18 @@ jest.mock('@/lib/db/prisma', () => ({
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     findByWorkspace: jest.fn(),
+    countTasksByStatus: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
+}))
+
+jest.mock('@clerk/nextjs/server', () => ({
+  clerkClient: jest.fn().mockResolvedValue({
+    users: { getUserList: jest.fn() },
+  }),
 }))
 
 jest.mock('@/lib/team', () => ({
@@ -28,8 +35,10 @@ import { prisma } from '@/lib/db/prisma'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { getDefaultTeam } from '@/lib/team'
 import { projectService } from '@/lib/services/project.service'
+import { clerkClient } from '@clerk/nextjs/server'
 
 const mockFindByWorkspace = projectRepository.findByWorkspace as jest.Mock
+const mockCountTasksByStatus = projectRepository.countTasksByStatus as jest.Mock
 const mockFindById = projectRepository.findById as jest.Mock
 const mockCreate = projectRepository.create as jest.Mock
 const mockUpdate = projectRepository.update as jest.Mock
@@ -37,40 +46,86 @@ const mockDelete = projectRepository.delete as jest.Mock
 const mockGetDefaultTeam = getDefaultTeam as jest.Mock
 const mockMemberFindUnique = prisma.workspaceMember.findUnique as jest.Mock
 
-beforeEach(() => jest.clearAllMocks())
+let mockClerkGetUserList: jest.Mock
+beforeEach(async () => {
+  jest.clearAllMocks()
+  const c = await (clerkClient as unknown as jest.Mock)()
+  mockClerkGetUserList = c.users.getUserList as jest.Mock
+})
 
 // ── listProjects ───────────────────────────────────────────────────────────
 
 describe('listProjects', () => {
-  it('returns projects with inProgressCount', async () => {
+  it('returns projects with all 4 status counts and flattened defaultReviewer (name resolved from Clerk)', async () => {
     mockFindByWorkspace.mockResolvedValue([
       {
         id: 'p1',
         name: 'Project A',
-        _count: { tasks: 5 },
-        tasks: [{ id: 't1' }, { id: 't2' }],
+        _count: { tasks: 6 },
+        defaultReviewer: { id: 'm1', clerkId: 'user_alice' },
         repositories: [],
       },
       {
         id: 'p2',
         name: 'Project B',
-        _count: { tasks: 3 },
-        tasks: [],
+        _count: { tasks: 0 },
+        defaultReviewer: null,
         repositories: [],
       },
     ])
+    mockCountTasksByStatus.mockResolvedValue(
+      new Map([['p1', { TODO: 2, IN_PROGRESS: 3, IN_REVIEW: 1, DONE: 0 }]])
+    )
+    mockClerkGetUserList.mockResolvedValue({
+      data: [
+        {
+          id: 'user_alice',
+          firstName: 'Alice',
+          lastName: 'Liddell',
+          emailAddresses: [{ emailAddress: 'alice@example.com' }],
+        },
+      ],
+    })
 
     const result = await projectService.listProjects('ws-1', 'member-1')
 
     expect(result).toHaveLength(2)
     expect(result[0]).toEqual(
-      expect.objectContaining({ id: 'p1', inProgressCount: 2 })
+      expect.objectContaining({
+        id: 'p1',
+        todoCount: 2,
+        inProgressCount: 3,
+        inReviewCount: 1,
+        doneCount: 0,
+        defaultReviewer: { id: 'm1', name: 'Alice Liddell' },
+      })
     )
     expect(result[1]).toEqual(
-      expect.objectContaining({ id: 'p2', inProgressCount: 0 })
+      expect.objectContaining({
+        id: 'p2',
+        todoCount: 0,
+        inProgressCount: 0,
+        inReviewCount: 0,
+        doneCount: 0,
+        defaultReviewer: null,
+      })
     )
-    // tasks array should be removed
-    expect(result[0]).not.toHaveProperty('tasks')
+    expect(mockClerkGetUserList).toHaveBeenCalledWith({
+      userId: ['user_alice'],
+      limit: 1,
+    })
+  })
+
+  it('skips Clerk lookup when no project has a reviewer', async () => {
+    mockFindByWorkspace.mockResolvedValue([
+      { id: 'p1', name: 'X', _count: { tasks: 0 }, defaultReviewer: null, repositories: [] },
+    ])
+    mockCountTasksByStatus.mockResolvedValue(new Map())
+
+    const result = await projectService.listProjects('ws-1', 'member-1')
+
+    expect(result[0]!.defaultReviewer).toBeNull()
+    expect(mockClerkGetUserList).not.toHaveBeenCalled()
   })
 })
 

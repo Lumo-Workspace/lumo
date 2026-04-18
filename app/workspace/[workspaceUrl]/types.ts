@@ -121,7 +121,11 @@ export interface ApiProject {
   updatedAt: string
   createdAt: string
   _count: { tasks: number }
+  todoCount: number
   inProgressCount: number
+  inReviewCount: number
+  doneCount: number
+  defaultReviewer: { id: string; name: string } | null
   kanbanViewId?: string
   riskOverdueRatio?: number | null
   riskStalledDays?: number | null

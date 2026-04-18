@@ -7,20 +7,26 @@ export interface ProjectUpdateData {
   defaultReviewerId?: string | null
 }
 
+// Visibility filter shared by every project-listing query.
+// Keep in sync: dropping/adding a clause here affects findByWorkspace AND countTasksByStatus.
+function projectVisibilityWhere(workspaceId: string, memberId: string) {
+  return {
+    workspaceId,
+    OR: [
+      { isIdea: false },
+      { isIdea: true, createdByMemberId: memberId },
+    ],
+  }
+}
+
 export const projectRepository = {
   /** Find all projects in workspace, filtered by member visibility (public + own ideas). */
   async findByWorkspace(workspaceId: string, memberId: string) {
     return prisma.project.findMany({
-      where: {
-        workspaceId,
-        OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
-      },
+      where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
-        tasks: {
-          where: { status: 'IN_PROGRESS' },
-          select: { id: true },
-        },
+        defaultReviewer: { select: { id: true, clerkId: true } },
         repositories: {
           orderBy: [
             { isDefault: 'desc' as const },
@@ -30,6 +36,35 @@ export const projectRepository = {
       },
       orderBy: { updatedAt: 'desc' },
     })
+  },
+
+  /** Group tasks by (projectId, status) for the workspace, return buckets per project. */
+  async countTasksByStatus(workspaceId: string, memberId: string) {
+    const rows = await prisma.task.groupBy({
+      by: ['projectId', 'status'],
+      where: {
+        project: projectVisibilityWhere(workspaceId, memberId),
+      },
+      _count: { _all: true },
+    })
+
+    const map = new Map<
+      string,
+      { TODO: number; IN_PROGRESS: number; IN_REVIEW: number; DONE: number }
+    >()
+    for (const row of rows) {
+      // Type guard only: groupBy widens `by` keys to nullable; runtime always has projectId.
+      if (!row.projectId) continue
+      const bucket = map.get(row.projectId) ?? {
+        TODO: 0,
+        IN_PROGRESS: 0,
+        IN_REVIEW: 0,
+        DONE: 0,
+      }
+      bucket[row.status] = row._count._all
+      map.set(row.projectId, bucket)
+    }
+    return map
   },
 
   /** Find project by ID with task/view counts. */

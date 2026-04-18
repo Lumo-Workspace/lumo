@@ -34,17 +34,19 @@ Out of scope (explicitly deferred): grid/list view toggle, "Create Project" butt
 
 `findByWorkspace` is split into two concerns:
 
-1. **Project rows + reviewer name + counts/repos**:
+1. **Project rows + reviewer reference + counts/repos**:
 
    ```ts
    include: {
      _count: { select: { tasks: true } },
-     defaultReviewer: { include: { user: { select: { name: true } } } },
+     defaultReviewer: { select: { id: true, clerkId: true } },
      repositories: { orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] },
    }
    ```
 
    Drop the existing inlined `tasks: { where: { status: 'IN_PROGRESS' }, select: { id: true } }` — it is replaced by groupBy below.
+
+   Note: `WorkspaceMember` has no `user` relation in the local schema; display names live in Clerk. The repository fetches `clerkId`, the service resolves names via `clerkClient` (see Service section). Same pattern as `task.repository.ts:130`.
 
 2. **Status counts** in a single grouped query:
    ```ts
@@ -64,13 +66,38 @@ A new repository method `countTasksByStatus(workspaceId, memberId)` wraps the gr
 
 ### Service — `lib/services/project.service.ts`
 
-`listProjects` orchestrates the two repository calls and produces the API shape:
+`listProjects` orchestrates the two repository calls, batch-resolves reviewer display names from Clerk, and produces the API shape:
 
 ```ts
 const [projects, statusCounts] = await Promise.all([
   projectRepository.findByWorkspace(workspaceId, memberId),
   projectRepository.countTasksByStatus(workspaceId, memberId),
 ])
+
+// Batch-resolve reviewer display names from Clerk (one call, all reviewers).
+const clerkIds = Array.from(
+  new Set(
+    projects
+      .map(p => p.defaultReviewer?.clerkId)
+      .filter((c): c is string => !!c)
+  )
+)
+const nameByClerkId = new Map<string, string>()
+if (clerkIds.length > 0) {
+  const { clerkClient } = await import('@clerk/nextjs/server')
+  const clerk = await clerkClient()
+  const { data: users } = await clerk.users.getUserList({
+    userId: clerkIds,
+    limit: clerkIds.length,
+  })
+  for (const u of users) {
+    const trimmed = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
+    nameByClerkId.set(
+      u.id,
+      trimmed || u.emailAddresses[0]?.emailAddress || 'Unknown'
+    )
+  }
+}
 
 return projects.map(p => {
   const counts = statusCounts.get(p.id) ?? {
@@ -86,13 +113,16 @@ return projects.map(p => {
     inReviewCount: counts.IN_REVIEW,
     doneCount: counts.DONE,
     defaultReviewer: p.defaultReviewer
-      ? { id: p.defaultReviewer.id, name: p.defaultReviewer.user.name }
+      ? {
+          id: p.defaultReviewer.id,
+          name: nameByClerkId.get(p.defaultReviewer.clerkId) ?? 'Unknown',
+        }
       : null,
   }
 })
 ```
 
-The `defaultReviewer` relation chain is flattened in the service (LoD: components shouldn't reach into `p.defaultReviewer.user.name`).
+The reviewer reference is flattened in the service (LoD: components shouldn't reach into the full Prisma object). Display-name resolution mirrors the existing pattern in `lib/services/quick-dispatch.service.ts:213-218`.
 
 ### Type — `app/workspace/[workspaceUrl]/types.ts`
 

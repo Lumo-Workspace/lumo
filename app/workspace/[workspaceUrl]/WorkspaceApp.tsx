@@ -281,6 +281,7 @@ export default function DashboardApp() {
     navigateTo,
     onDeleteProjectTasks: taskHandlers.handleDeleteProjectTasks,
     setSelectedTask: setSelectedTask as Dispatch<SetStateAction<unknown>>,
+    fetchProjects,
   })
 
   const documentHandlers = useWorkspaceDocumentHandlers({
@@ -539,6 +540,7 @@ export default function DashboardApp() {
             onRetry={fetchProjects}
             onSelectProject={projectHandlers.handleSelectProject}
             onNewProject={() => setIsNewProjectModalOpen(true)}
+            onBulkDelete={projectHandlers.handleBulkDeleteProjects}
           />
         )
 
