@@ -33,7 +33,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
-type ProjectSortKey = 'name' | 'tasks' | 'inProgress' | 'updatedAt'
+type ProjectSortKey =
+  | 'name'
+  | 'tasks'
+  | 'todo'
+  | 'inProgress'
+  | 'inReview'
+  | 'done'
+  | 'owner'
+  | 'updatedAt'
 
 interface ProjectsPageProps {
   projects: ApiProject[]
@@ -42,6 +50,32 @@ interface ProjectsPageProps {
   onRetry: () => void
   onSelectProject: (project: ApiProject) => void
   onNewProject: () => void
+}
+
+const STATUS_DOT_CLS = {
+  TODO: 'bg-zinc-300 dark:bg-zinc-600',
+  IN_PROGRESS: 'bg-blue-500',
+  IN_REVIEW: 'bg-purple-500',
+  DONE: 'bg-green-500',
+} as const
+
+function StatusCell({
+  count,
+  status,
+}: {
+  count: number
+  status: keyof typeof STATUS_DOT_CLS
+}) {
+  return (
+    <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
+      <div className='flex items-center gap-2'>
+        <div className={`size-2 rounded-full ${STATUS_DOT_CLS[status]}`} />
+        <span className='text-xs text-zinc-700 dark:text-zinc-300'>
+          {count}
+        </span>
+      </div>
+    </td>
+  )
 }
 
 export function ProjectsPage({
@@ -71,9 +105,17 @@ export function ProjectsPage({
           return applyDir(cmpString(a.name, b.name), sort.dir)
         case 'tasks':
           return applyDir(cmpNumber(a._count.tasks, b._count.tasks), sort.dir)
+        case 'todo':
+          return applyDir(cmpNumber(a.todoCount, b.todoCount), sort.dir)
         case 'inProgress':
+          return applyDir(cmpNumber(a.inProgressCount, b.inProgressCount), sort.dir)
+        case 'inReview':
+          return applyDir(cmpNumber(a.inReviewCount, b.inReviewCount), sort.dir)
+        case 'done':
+          return applyDir(cmpNumber(a.doneCount, b.doneCount), sort.dir)
+        case 'owner':
           return applyDir(
-            cmpNumber(a.inProgressCount, b.inProgressCount),
+            cmpString(a.defaultReviewer?.name ?? '', b.defaultReviewer?.name ?? ''),
             sort.dir
           )
         case 'updatedAt':
@@ -201,11 +243,39 @@ export function ProjectsPage({
                   label='Tasks'
                   sort={sort}
                   onToggle={toggle}
-                  className='text-left py-3 px-6 w-28'
+                  className='text-left py-3 px-6 w-24'
+                />
+                <SortableHeader
+                  col='todo'
+                  label='To Do'
+                  sort={sort}
+                  onToggle={toggle}
+                  className='text-left py-3 px-6 w-24'
                 />
                 <SortableHeader
                   col='inProgress'
                   label='In Progress'
+                  sort={sort}
+                  onToggle={toggle}
+                  className='text-left py-3 px-6 w-28'
+                />
+                <SortableHeader
+                  col='inReview'
+                  label='In Review'
+                  sort={sort}
+                  onToggle={toggle}
+                  className='text-left py-3 px-6 w-28'
+                />
+                <SortableHeader
+                  col='done'
+                  label='Done'
+                  sort={sort}
+                  onToggle={toggle}
+                  className='text-left py-3 px-6 w-24'
+                />
+                <SortableHeader
+                  col='owner'
+                  label='Owner'
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-32'
@@ -231,29 +301,24 @@ export function ProjectsPage({
                       <span className='font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                         {project.name}
                       </span>
-                      {project.isIdea && (
-                        <span className={IDEA_BADGE_CLS}>Draft</span>
-                      )}
+                      {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
                     </div>
                   </td>
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
                     <span className='px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[11px] font-medium text-zinc-600 dark:text-zinc-400'>
-                      {project._count.tasks} tasks
+                      {project._count.tasks}
                     </span>
                   </td>
-                  <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
-                    <div className='flex items-center gap-2'>
-                      <div className='size-2 rounded-full bg-blue-500' />
-                      <span className='text-xs text-zinc-700 dark:text-zinc-300'>
-                        {project.inProgressCount} in progress
-                      </span>
-                    </div>
+                  <StatusCell count={project.todoCount} status='TODO' />
+                  <StatusCell count={project.inProgressCount} status='IN_PROGRESS' />
+                  <StatusCell count={project.inReviewCount} status='IN_REVIEW' />
+                  <StatusCell count={project.doneCount} status='DONE' />
+                  <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300'>
+                    {project.defaultReviewer?.name ?? '—'}
                   </td>
                   <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center justify-end gap-2'>
-                      <span>
-                        {new Date(project.updatedAt).toLocaleDateString()}
-                      </span>
+                      <span>{new Date(project.updatedAt).toLocaleDateString()}</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
