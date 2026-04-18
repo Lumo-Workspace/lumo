@@ -122,14 +122,20 @@ export function ProjectsPage({
         case 'todo':
           return applyDir(cmpNumber(a.todoCount, b.todoCount), sort.dir)
         case 'inProgress':
-          return applyDir(cmpNumber(a.inProgressCount, b.inProgressCount), sort.dir)
+          return applyDir(
+            cmpNumber(a.inProgressCount, b.inProgressCount),
+            sort.dir
+          )
         case 'inReview':
           return applyDir(cmpNumber(a.inReviewCount, b.inReviewCount), sort.dir)
         case 'done':
           return applyDir(cmpNumber(a.doneCount, b.doneCount), sort.dir)
         case 'owner':
           return applyDir(
-            cmpString(a.defaultReviewer?.name ?? '', b.defaultReviewer?.name ?? ''),
+            cmpString(
+              a.defaultReviewer?.name ?? '',
+              b.defaultReviewer?.name ?? ''
+            ),
             sort.dir
           )
         case 'updatedAt':
@@ -265,13 +271,12 @@ export function ProjectsPage({
         </div>
       </header>
 
-      {/* Spacer — matches the h-12 toolbar in MyTasksPage so empty state aligns */}
-      <div className='h-12 shrink-0' />
-
-      {/* Body */}
-      <div className='flex-1 overflow-auto'>
+      {/* Spacer — matches the h-12 toolbar in MyTasksPage so empty state aligns.
+          Doubles as the host slot for the bulk-selection bar (absolute overlay
+          so it never pushes the table headers down). */}
+      <div className='h-12 shrink-0 relative'>
         {selectedCount > 0 && (
-          <div className='sticky top-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-2.5'>
+          <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
             <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
               {selectedCount} selected
             </span>
@@ -295,6 +300,10 @@ export function ProjectsPage({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Body */}
+      <div className='flex-1 overflow-auto'>
         <AsyncContent
           loading={loading}
           error={error}
@@ -410,7 +419,9 @@ export function ProjectsPage({
                       <span className='font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
                         {project.name}
                       </span>
-                      {project.isIdea && <span className={IDEA_BADGE_CLS}>Draft</span>}
+                      {project.isIdea && (
+                        <span className={IDEA_BADGE_CLS}>Draft</span>
+                      )}
                     </div>
                   </td>
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
@@ -419,15 +430,23 @@ export function ProjectsPage({
                     </span>
                   </td>
                   <StatusCell count={project.todoCount} status='TODO' />
-                  <StatusCell count={project.inProgressCount} status='IN_PROGRESS' />
-                  <StatusCell count={project.inReviewCount} status='IN_REVIEW' />
+                  <StatusCell
+                    count={project.inProgressCount}
+                    status='IN_PROGRESS'
+                  />
+                  <StatusCell
+                    count={project.inReviewCount}
+                    status='IN_REVIEW'
+                  />
                   <StatusCell count={project.doneCount} status='DONE' />
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300'>
                     {project.defaultReviewer?.name ?? '—'}
                   </td>
                   <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center justify-end gap-2'>
-                      <span>{new Date(project.updatedAt).toLocaleDateString()}</span>
+                      <span>
+                        {new Date(project.updatedAt).toLocaleDateString()}
+                      </span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
