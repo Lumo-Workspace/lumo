@@ -189,14 +189,14 @@ Replace the existing `findByWorkspace` describe block in `__tests__/lib/reposito
 
 ```ts
 describe('findByWorkspace', () => {
-  it('returns projects with defaultReviewer flattened-ready and repositories', async () => {
+  it('returns projects with defaultReviewer reference and repositories', async () => {
     const mockProjects = [
       {
         id: 'p1',
         name: 'Public Project',
         isIdea: false,
         _count: { tasks: 5 },
-        defaultReviewer: { id: 'm1', user: { name: 'Alice' } },
+        defaultReviewer: { id: 'm1', clerkId: 'user_alice' },
         repositories: [],
       },
       {
@@ -225,9 +225,7 @@ describe('findByWorkspace', () => {
         },
         include: expect.objectContaining({
           _count: { select: { tasks: true } },
-          defaultReviewer: {
-            include: { user: { select: { name: true } } },
-          },
+          defaultReviewer: { select: { id: true, clerkId: true } },
         }),
         orderBy: { updatedAt: 'desc' },
       })
@@ -251,20 +249,15 @@ Expected: assertion fails — `tasks` is still in `include`, `defaultReviewer` i
 
 - [ ] **Step 3: Update `findByWorkspace` in the repository**
 
-Replace the body of `findByWorkspace` in `lib/repositories/project.repository.ts:12-32` with:
+Replace the body of `findByWorkspace` with (uses the `projectVisibilityWhere` helper added in Task 1's follow-up):
 
 ```ts
 async findByWorkspace(workspaceId: string, memberId: string) {
   return prisma.project.findMany({
-    where: {
-      workspaceId,
-      OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
-    },
+    where: projectVisibilityWhere(workspaceId, memberId),
     include: {
       _count: { select: { tasks: true } },
-      defaultReviewer: {
-        include: { user: { select: { name: true } } },
-      },
+      defaultReviewer: { select: { id: true, clerkId: true } },
       repositories: {
         orderBy: [
           { isDefault: 'desc' as const },
@@ -276,6 +269,8 @@ async findByWorkspace(workspaceId: string, memberId: string) {
   })
 },
 ```
+
+> **Schema note:** `WorkspaceMember` has no `user` relation in the Prisma schema. Display names live in Clerk. The repository fetches `clerkId`; the service resolves names via `clerkClient` (see Task 3, mirroring `lib/services/quick-dispatch.service.ts:213-218`).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -330,13 +325,13 @@ Replace lines 44–75 with:
 
 ```ts
 describe('listProjects', () => {
-  it('returns projects with all 4 status counts and flattened defaultReviewer', async () => {
+  it('returns projects with all 4 status counts and flattened defaultReviewer (name resolved from Clerk)', async () => {
     mockFindByWorkspace.mockResolvedValue([
       {
         id: 'p1',
         name: 'Project A',
         _count: { tasks: 6 },
-        defaultReviewer: { id: 'm1', user: { name: 'Alice' } },
+        defaultReviewer: { id: 'm1', clerkId: 'user_alice' },
         repositories: [],
       },
       {
@@ -350,6 +345,17 @@ describe('listProjects', () => {
     mockCountTasksByStatus.mockResolvedValue(
       new Map([['p1', { TODO: 2, IN_PROGRESS: 3, IN_REVIEW: 1, DONE: 0 }]])
     )
+    // Clerk batch lookup mock — defined alongside the other top-of-file mocks
+    mockClerkGetUserList.mockResolvedValue({
+      data: [
+        {
+          id: 'user_alice',
+          firstName: 'Alice',
+          lastName: 'Liddell',
+          emailAddresses: [{ emailAddress: 'alice@example.com' }],
+        },
+      ],
+    })
 
     const result = await projectService.listProjects('ws-1', 'member-1')
 
@@ -361,7 +367,7 @@ describe('listProjects', () => {
         inProgressCount: 3,
         inReviewCount: 1,
         doneCount: 0,
-        defaultReviewer: { id: 'm1', name: 'Alice' },
+        defaultReviewer: { id: 'm1', name: 'Alice Liddell' },
       })
     )
     // p2 had no entry in the map → all zeros, reviewer null
@@ -375,8 +381,54 @@ describe('listProjects', () => {
         defaultReviewer: null,
       })
     )
+    // Clerk should only be called when at least one reviewer exists
+    expect(mockClerkGetUserList).toHaveBeenCalledWith({
+      userId: ['user_alice'],
+      limit: 1,
+    })
   })
-})
+
+  it('skips Clerk lookup when no project has a reviewer', async () => {
+    mockFindByWorkspace.mockResolvedValue([
+      { id: 'p1', name: 'X', _count: { tasks: 0 }, defaultReviewer: null, repositories: [] },
+    ])
+    mockCountTasksByStatus.mockResolvedValue(new Map())
+
+    const result = await projectService.listProjects('ws-1', 'member-1')
+
+    expect(result[0].defaultReviewer).toBeNull()
+    expect(mockClerkGetUserList).not.toHaveBeenCalled()
+  })
+})```
+
+> **Top-of-file additions for the test setup**: alongside the other `jest.mock` blocks, mock `@clerk/nextjs/server`:
+>
+> ```ts
+> jest.mock('@clerk/nextjs/server', () => {
+>   const getUserList = jest.fn()
+>   return {
+>     clerkClient: jest.fn().mockResolvedValue({
+>       users: { getUserList },
+>     }),
+>   }
+> })
+>
+> // Near other mock handles (line ~32):
+> import { clerkClient } from '@clerk/nextjs/server'
+> const mockClerkGetUserList = (await (clerkClient as jest.Mock)()).users
+>   .getUserList as jest.Mock
+> ```
+>
+> Note: the `await` in the handle initializer needs to live inside `beforeEach` since top-level `await` won't work in a Jest test file. Use:
+>
+> ```ts
+> let mockClerkGetUserList: jest.Mock
+> beforeEach(async () => {
+>   jest.clearAllMocks()
+>   const c = await (clerkClient as unknown as jest.Mock)()
+>   mockClerkGetUserList = c.users.getUserList as jest.Mock
+> })
+> ```
 ```
 
 - [ ] **Step 3: Run test to verify it fails**
@@ -389,7 +441,7 @@ Expected: assertion fails — service still emits `inProgressCount` only and unf
 
 - [ ] **Step 4: Update the service**
 
-Replace `listProjects` in `lib/services/project.service.ts:18-28` with:
+Replace `listProjects` in `lib/services/project.service.ts:18-28` with the version below. It batch-resolves reviewer display names from Clerk in a single API call (mirrors `lib/services/quick-dispatch.service.ts:213-218`).
 
 ```ts
 async listProjects(workspaceId: string, memberId: string) {
@@ -397,6 +449,31 @@ async listProjects(workspaceId: string, memberId: string) {
     projectRepository.findByWorkspace(workspaceId, memberId),
     projectRepository.countTasksByStatus(workspaceId, memberId),
   ])
+
+  // Batch-resolve reviewer display names from Clerk (one call for all reviewers).
+  const clerkIds = Array.from(
+    new Set(
+      projects
+        .map(p => p.defaultReviewer?.clerkId)
+        .filter((c): c is string => !!c)
+    )
+  )
+  const nameByClerkId = new Map<string, string>()
+  if (clerkIds.length > 0) {
+    const { clerkClient } = await import('@clerk/nextjs/server')
+    const clerk = await clerkClient()
+    const { data: users } = await clerk.users.getUserList({
+      userId: clerkIds,
+      limit: clerkIds.length,
+    })
+    for (const u of users) {
+      const trimmed = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
+      nameByClerkId.set(
+        u.id,
+        trimmed || u.emailAddresses[0]?.emailAddress || 'Unknown'
+      )
+    }
+  }
 
   return projects.map(p => {
     const counts = statusCounts.get(p.id) ?? {
@@ -413,7 +490,10 @@ async listProjects(workspaceId: string, memberId: string) {
       inReviewCount: counts.IN_REVIEW,
       doneCount: counts.DONE,
       defaultReviewer: defaultReviewer
-        ? { id: defaultReviewer.id, name: defaultReviewer.user.name }
+        ? {
+            id: defaultReviewer.id,
+            name: nameByClerkId.get(defaultReviewer.clerkId) ?? 'Unknown',
+          }
         : null,
     }
   })
