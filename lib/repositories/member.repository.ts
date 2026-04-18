@@ -75,6 +75,22 @@ export const memberRepository = {
     })
   },
 
+  /**
+   * Resolve a HUMAN actor id back to the workspace member that backs it.
+   * Returns null if the actor doesn't exist or has no member (e.g. AGENT actors).
+   */
+  async findByActorId(actorId: string) {
+    const actor = await prisma.actor.findUnique({
+      where: { id: actorId },
+      select: {
+        workspaceId: true,
+        member: { select: { id: true } },
+      },
+    })
+    if (!actor?.member) return null
+    return { id: actor.member.id, workspaceId: actor.workspaceId }
+  },
+
   /** Delete a member by ID. */
   async delete(memberId: string) {
     return prisma.workspaceMember.delete({

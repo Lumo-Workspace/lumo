@@ -64,7 +64,13 @@ describe('findByWorkspace', () => {
         },
         include: expect.objectContaining({
           _count: { select: { tasks: true } },
-          defaultReviewer: { select: { id: true, clerkId: true } },
+          defaultReviewer: {
+            select: {
+              id: true,
+              clerkId: true,
+              actor: { select: { id: true } },
+            },
+          },
         }),
         orderBy: { updatedAt: 'desc' },
       })
