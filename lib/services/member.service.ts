@@ -12,6 +12,18 @@ export const memberService = {
     return memberRepository.findByWorkspace(workspaceId)
   },
 
+  /**
+   * Get a single workspace member by ID, scoped to workspaceId.
+   * Throws 404 if the member does not exist or belongs to a different workspace.
+   */
+  async getMember(memberId: string, workspaceId: string) {
+    const member = await memberRepository.findById(memberId)
+    if (!member || member.workspaceId !== workspaceId) {
+      throw Object.assign(new Error('Member not found'), { status: 404 })
+    }
+    return member
+  },
+
   /** Get agent actors for a workspace, lazy-creating the coding agent if needed. */
   async getAgentActors(workspaceId: string) {
     const existingAgent =
