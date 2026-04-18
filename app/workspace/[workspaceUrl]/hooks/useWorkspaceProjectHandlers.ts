@@ -57,7 +57,7 @@ export function useWorkspaceProjectHandlers({
         name,
         description: description.trim() || null,
         isIdea: false,
-        defaultReviewerId: null,
+        ownerId: null,
         createdAt: now,
         updatedAt: now,
         _count: { tasks: 0 },
@@ -65,7 +65,7 @@ export function useWorkspaceProjectHandlers({
         inProgressCount: 0,
         inReviewCount: 0,
         doneCount: 0,
-        defaultReviewer: null,
+        owner: null,
       }
 
       setProjects(prev => [optimistic, ...prev])
@@ -95,7 +95,7 @@ export function useWorkspaceProjectHandlers({
         inProgressCount: 0,
         inReviewCount: 0,
         doneCount: 0,
-        defaultReviewer: null,
+        owner: null,
       }
       setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
       setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
@@ -112,7 +112,7 @@ export function useWorkspaceProjectHandlers({
       data: {
         name?: string
         description?: string
-        defaultReviewerId?: string | null
+        ownerId?: string | null
       }
     ) => {
       const { project: updated } = await projectsClient.update<{

@@ -43,7 +43,7 @@ describe('handleNotifyTaskInReview', () => {
   it('notifies reviewer when task transitions to IN_REVIEW', async () => {
     mockTaskFindUnique.mockResolvedValue({
       reviewerActorId: 'actor-reviewer',
-      project: { workspaceId: 'ws-1', defaultReviewerId: null },
+      project: { workspaceId: 'ws-1', ownerId: null },
     })
 
     await handleNotifyTaskInReview(inReviewEvent)
@@ -52,15 +52,15 @@ describe('handleNotifyTaskInReview', () => {
       workspaceId: 'ws-1',
       taskId: 'task-1',
       reviewerActorId: 'actor-reviewer',
-      defaultReviewerActorId: null,
+      ownerActorId: null,
       triggerActorId: null,
     })
   })
 
-  it('resolves defaultReviewerId to actor ID when no task reviewer', async () => {
+  it('resolves ownerId to actor ID when no task reviewer', async () => {
     mockTaskFindUnique.mockResolvedValue({
       reviewerActorId: null,
-      project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
+      project: { workspaceId: 'ws-1', ownerId: 'member-default' },
     })
     mockGetHumanActorId.mockResolvedValue('actor-default')
 
@@ -70,22 +70,22 @@ describe('handleNotifyTaskInReview', () => {
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewerActorId: null,
-        defaultReviewerActorId: 'actor-default',
+        ownerActorId: 'actor-default',
       })
     )
   })
 
-  it('passes null defaultReviewerActorId when actor not found', async () => {
+  it('passes null ownerActorId when actor not found', async () => {
     mockTaskFindUnique.mockResolvedValue({
       reviewerActorId: null,
-      project: { workspaceId: 'ws-1', defaultReviewerId: 'member-gone' },
+      project: { workspaceId: 'ws-1', ownerId: 'member-gone' },
     })
     mockGetHumanActorId.mockResolvedValue(null)
 
     await handleNotifyTaskInReview(inReviewEvent)
 
     expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ defaultReviewerActorId: null })
+      expect.objectContaining({ ownerActorId: null })
     )
   })
 

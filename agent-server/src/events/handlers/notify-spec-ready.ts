@@ -22,7 +22,7 @@ export async function handleNotifySpecReady(
     select: {
       reviewerActorId: true,
       project: {
-        select: { workspaceId: true, defaultReviewerId: true },
+        select: { workspaceId: true, ownerId: true },
       },
     },
   })
@@ -33,7 +33,7 @@ export async function handleNotifySpecReady(
     taskId: event.taskId,
     type: 'TASK_SPEC_READY',
     reviewerActorId: task.reviewerActorId,
-    defaultReviewerMemberId: task.project.defaultReviewerId,
+    ownerMemberId: task.project.ownerId,
     triggerActorId: null,
   })
 }

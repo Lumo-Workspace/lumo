@@ -8,14 +8,14 @@ import type { NotificationType } from '@prisma/client'
  * Send an inbox notification to the effective reviewer, falling back to
  * all workspace owners if no reviewer is assigned.
  *
- * Resolves reviewerActorId → defaultReviewerId (member → actor) internally.
+ * Resolves reviewerActorId → ownerId (member → actor) internally.
  */
 export async function notifyReviewerOrOwners(params: {
   workspaceId: string
   taskId: string
   type: NotificationType
   reviewerActorId: string | null
-  defaultReviewerMemberId: string | null
+  ownerMemberId: string | null
   triggerActorId: string | null
 }): Promise<void> {
   const {
@@ -23,14 +23,14 @@ export async function notifyReviewerOrOwners(params: {
     taskId,
     type,
     reviewerActorId,
-    defaultReviewerMemberId,
+    ownerMemberId,
     triggerActorId,
   } = params
 
   // Resolve effective reviewer Actor ID
   let effectiveActorId = reviewerActorId
-  if (!effectiveActorId && defaultReviewerMemberId) {
-    effectiveActorId = await getHumanActorId(defaultReviewerMemberId)
+  if (!effectiveActorId && ownerMemberId) {
+    effectiveActorId = await getHumanActorId(ownerMemberId)
   }
 
   if (effectiveActorId) {

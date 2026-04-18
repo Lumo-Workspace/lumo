@@ -29,7 +29,7 @@ export async function loadTask(taskId: string) {
           id: true,
           name: true,
           workspaceId: true,
-          defaultReviewerId: true,
+          ownerId: true,
           repositories: {
             where: { isDefault: true },
             select: { fullName: true },

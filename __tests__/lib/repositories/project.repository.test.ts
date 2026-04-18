@@ -28,14 +28,14 @@ beforeEach(() => jest.clearAllMocks())
 // ── findByWorkspace ────────────────────────────────────────────────────────
 
 describe('findByWorkspace', () => {
-  it('returns projects with defaultReviewer reference and repositories', async () => {
+  it('returns projects with owner reference and repositories', async () => {
     const mockProjects = [
       {
         id: 'p1',
         name: 'Public Project',
         isIdea: false,
         _count: { tasks: 5 },
-        defaultReviewer: { id: 'm1', clerkId: 'user_alice' },
+        owner: { id: 'm1', clerkId: 'user_alice' },
         repositories: [],
       },
       {
@@ -44,7 +44,7 @@ describe('findByWorkspace', () => {
         isIdea: true,
         createdByMemberId: 'member-1',
         _count: { tasks: 2 },
-        defaultReviewer: null,
+        owner: null,
         repositories: [],
       },
     ]
@@ -64,7 +64,7 @@ describe('findByWorkspace', () => {
         },
         include: expect.objectContaining({
           _count: { select: { tasks: true } },
-          defaultReviewer: {
+          owner: {
             select: {
               id: true,
               clerkId: true,

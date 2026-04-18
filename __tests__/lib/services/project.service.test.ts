@@ -54,13 +54,13 @@ beforeEach(async () => {
 // ── listProjects ───────────────────────────────────────────────────────────
 
 describe('listProjects', () => {
-  it('returns projects with all 4 status counts and flattened defaultReviewer (name resolved from Clerk)', async () => {
+  it('returns projects with all 4 status counts and flattened owner (name resolved from Clerk)', async () => {
     mockFindByWorkspace.mockResolvedValue([
       {
         id: 'p1',
         name: 'Project A',
         _count: { tasks: 6 },
-        defaultReviewer: {
+        owner: {
           id: 'm1',
           clerkId: 'user_alice',
           actor: { id: 'actor_alice' },
@@ -71,7 +71,7 @@ describe('listProjects', () => {
         id: 'p2',
         name: 'Project B',
         _count: { tasks: 0 },
-        defaultReviewer: null,
+        owner: null,
         repositories: [],
       },
     ])
@@ -97,23 +97,23 @@ describe('listProjects', () => {
         id: 'p1',
         // Reviewer ids exposed to the API are actor ids — both the FK field
         // and the flattened object use actor.id, not WorkspaceMember.id.
-        defaultReviewerId: 'actor_alice',
+        ownerId: 'actor_alice',
         todoCount: 2,
         inProgressCount: 3,
         inReviewCount: 1,
         doneCount: 0,
-        defaultReviewer: { id: 'actor_alice', name: 'Alice Liddell' },
+        owner: { id: 'actor_alice', name: 'Alice Liddell' },
       })
     )
     expect(result[1]).toEqual(
       expect.objectContaining({
         id: 'p2',
-        defaultReviewerId: null,
+        ownerId: null,
         todoCount: 0,
         inProgressCount: 0,
         inReviewCount: 0,
         doneCount: 0,
-        defaultReviewer: null,
+        owner: null,
       })
     )
     expect(mockClerkGetUserList).toHaveBeenCalledWith({
@@ -124,13 +124,13 @@ describe('listProjects', () => {
 
   it('skips Clerk lookup when no project has a reviewer', async () => {
     mockFindByWorkspace.mockResolvedValue([
-      { id: 'p1', name: 'X', _count: { tasks: 0 }, defaultReviewer: null, repositories: [] },
+      { id: 'p1', name: 'X', _count: { tasks: 0 }, owner: null, repositories: [] },
     ])
     mockCountTasksByStatus.mockResolvedValue(new Map())
 
     const result = await projectService.listProjects('ws-1', 'member-1')
 
-    expect(result[0]!.defaultReviewer).toBeNull()
+    expect(result[0]!.owner).toBeNull()
     expect(mockClerkGetUserList).not.toHaveBeenCalled()
   })
 })
@@ -249,7 +249,7 @@ describe('updateProject', () => {
 
     await expect(
       projectService.updateProject('p1', 'member-1', {
-        defaultReviewerId: 'actor_someone',
+        ownerId: 'actor_someone',
       })
     ).rejects.toMatchObject({
       message: 'Reviewer is not a member of this workspace',
@@ -269,7 +269,7 @@ describe('updateProject', () => {
 
     await expect(
       projectService.updateProject('p1', 'member-1', {
-        defaultReviewerId: 'actor_unknown',
+        ownerId: 'actor_unknown',
       })
     ).rejects.toMatchObject({
       message: 'Reviewer is not a member of this workspace',
@@ -291,7 +291,7 @@ describe('updateProject', () => {
     mockUpdate.mockResolvedValue({
       id: 'p1',
       name: 'P',
-      defaultReviewer: {
+      owner: {
         id: 'reviewer-member-1',
         clerkId: 'user_x',
         actor: { id: 'actor_x' },
@@ -299,22 +299,22 @@ describe('updateProject', () => {
     })
 
     const result = await projectService.updateProject('p1', 'member-1', {
-      defaultReviewerId: 'actor_x',
+      ownerId: 'actor_x',
     })
 
     // Repository stores the resolved memberId
     expect(mockUpdate).toHaveBeenCalledWith('p1', {
-      defaultReviewerId: 'reviewer-member-1',
+      ownerId: 'reviewer-member-1',
     })
     // Response surfaces the actor id back to the UI
     expect(result).toEqual({
       id: 'p1',
       name: 'P',
-      defaultReviewerId: 'actor_x',
+      ownerId: 'actor_x',
     })
   })
 
-  it('clears the reviewer when defaultReviewerId is null', async () => {
+  it('clears the reviewer when ownerId is null', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
@@ -324,16 +324,16 @@ describe('updateProject', () => {
     mockUpdate.mockResolvedValue({
       id: 'p1',
       name: 'P',
-      defaultReviewer: null,
+      owner: null,
     })
 
     const result = await projectService.updateProject('p1', 'member-1', {
-      defaultReviewerId: null,
+      ownerId: null,
     })
 
-    expect(mockUpdate).toHaveBeenCalledWith('p1', { defaultReviewerId: null })
+    expect(mockUpdate).toHaveBeenCalledWith('p1', { ownerId: null })
     expect(mockMemberFindByActorId).not.toHaveBeenCalled()
-    expect(result.defaultReviewerId).toBeNull()
+    expect(result.ownerId).toBeNull()
   })
 
   it('updates non-reviewer fields without touching the reviewer FK', async () => {
@@ -346,7 +346,7 @@ describe('updateProject', () => {
     mockUpdate.mockResolvedValue({
       id: 'p1',
       name: 'Updated',
-      defaultReviewer: null,
+      owner: null,
     })
 
     const result = await projectService.updateProject('p1', 'member-1', {
@@ -357,7 +357,7 @@ describe('updateProject', () => {
     expect(result).toEqual({
       id: 'p1',
       name: 'Updated',
-      defaultReviewerId: null,
+      ownerId: null,
     })
   })
 })

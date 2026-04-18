@@ -277,7 +277,7 @@ export function ProjectDetailStandalonePage({
       data: {
         name?: string
         description?: string
-        defaultReviewerId?: string | null
+        ownerId?: string | null
       }
     ) => {
       const { project: updated } = await projectsClient.update<{

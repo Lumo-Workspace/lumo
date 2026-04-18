@@ -42,7 +42,7 @@ describe('handleNotifySpecReady', () => {
       .mockResolvedValueOnce({ inputReason: 'spec_review' })
       .mockResolvedValueOnce({
         reviewerActorId: 'actor-reviewer',
-        project: { workspaceId: 'ws-1', defaultReviewerId: 'member-default' },
+        project: { workspaceId: 'ws-1', ownerId: 'member-default' },
       })
 
     await handleNotifySpecReady(specReviewEvent)
@@ -52,7 +52,7 @@ describe('handleNotifySpecReady', () => {
       taskId: 'task-1',
       type: 'TASK_SPEC_READY',
       reviewerActorId: 'actor-reviewer',
-      defaultReviewerMemberId: 'member-default',
+      ownerMemberId: 'member-default',
       triggerActorId: null,
     })
   })
@@ -90,7 +90,7 @@ describe('handleNotifySpecReady', () => {
       .mockResolvedValueOnce({ inputReason: 'spec_review' })
       .mockResolvedValueOnce({
         reviewerActorId: null,
-        project: { workspaceId: 'ws-1', defaultReviewerId: null },
+        project: { workspaceId: 'ws-1', ownerId: null },
       })
 
     await handleNotifySpecReady(specReviewEvent)
@@ -98,7 +98,7 @@ describe('handleNotifySpecReady', () => {
     expect(mockNotify).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewerActorId: null,
-        defaultReviewerMemberId: null,
+        ownerMemberId: null,
       })
     )
   })

@@ -10,7 +10,7 @@ interface TaskForNotify {
   assigneeActorId: string | null
   reviewerActorId: string | null
   team: { workspace: { id: string } }
-  project: { defaultReviewerId: string | null }
+  project: { ownerId: string | null }
 }
 
 async function loadTask(taskId: string): Promise<TaskForNotify | null> {
@@ -20,7 +20,7 @@ async function loadTask(taskId: string): Promise<TaskForNotify | null> {
       assigneeActorId: true,
       reviewerActorId: true,
       team: { select: { workspace: { select: { id: true } } } },
-      project: { select: { defaultReviewerId: true } },
+      project: { select: { ownerId: true } },
     },
   })
 }
@@ -85,19 +85,19 @@ async function resolveAssigneeActorId(
 
 /**
  * Resolve the actor to notify for agent verify / reviewer-targeted events.
- * Tries reviewerActorId, then project.defaultReviewerId (member → actor),
+ * Tries reviewerActorId, then project.ownerId (member → actor),
  * then falls back to workspace owners.
  */
 async function resolveReviewerActorId(
   reviewerActorId: string | null,
-  defaultReviewerMemberId: string | null,
+  ownerMemberId: string | null,
   workspaceId: string
 ): Promise<string[]> {
   if (reviewerActorId) return [reviewerActorId]
 
-  if (defaultReviewerMemberId) {
+  if (ownerMemberId) {
     const actor = await prisma.actor.findUnique({
-      where: { memberId: defaultReviewerMemberId },
+      where: { memberId: ownerMemberId },
       select: { id: true },
     })
     if (actor) return [actor.id]
@@ -158,7 +158,7 @@ export async function notifyAgentVerify(
 
   const recipients = await resolveReviewerActorId(
     task.reviewerActorId,
-    task.project.defaultReviewerId,
+    task.project.ownerId,
     task.team.workspace.id
   )
   // Don't notify the agent itself

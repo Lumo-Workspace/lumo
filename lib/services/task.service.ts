@@ -169,7 +169,7 @@ export const taskService = {
       repositoryId: repositoryId ?? null,
       order: taskOrder,
       dueDate: dueDate ?? null,
-      defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
+      ownerMemberId: project.owner?.id ?? null,
     })
 
     // Fire-and-forget side-effects
@@ -230,7 +230,7 @@ export const taskService = {
       repositoryId: null,
       order,
       dueDate: null,
-      defaultReviewerMemberId: project.defaultReviewer?.id ?? null,
+      ownerMemberId: project.owner?.id ?? null,
     })
 
     if (input.tagIds.length > 0) {

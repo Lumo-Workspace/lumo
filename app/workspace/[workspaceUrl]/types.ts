@@ -116,7 +116,7 @@ export interface ApiProject {
   name: string
   description: string | null
   isIdea: boolean
-  defaultReviewerId: string | null
+  ownerId: string | null
   repositories?: ApiRepository[]
   updatedAt: string
   createdAt: string
@@ -125,7 +125,7 @@ export interface ApiProject {
   inProgressCount: number
   inReviewCount: number
   doneCount: number
-  defaultReviewer: { id: string; name: string } | null
+  owner: { id: string; name: string } | null
   kanbanViewId?: string
   riskOverdueRatio?: number | null
   riskStalledDays?: number | null
@@ -286,7 +286,7 @@ export interface TaskDetail {
     id: string
     name: string
     workspaceId?: string
-    defaultReviewerId?: string | null
+    ownerId?: string | null
     repositories?: ApiRepository[]
   }
   parentTaskId: string | null

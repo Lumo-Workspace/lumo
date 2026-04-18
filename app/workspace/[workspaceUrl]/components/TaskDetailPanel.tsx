@@ -99,7 +99,7 @@ export function TaskDetailPanel({
   }))
 
   const projectName = task.project?.name ?? ''
-  const projectDefaultReviewerId = task.project?.defaultReviewerId ?? null
+  const projectDefaultReviewerId = task.project?.ownerId ?? null
   const projectRepositories = task.project?.repositories
 
   const { user } = useCurrentUser()
@@ -228,7 +228,7 @@ export function TaskDetailPanel({
           projectId={task.projectId}
           dueDate={task.dueDate ?? null}
           assignee={task.assignee}
-          defaultReviewerId={projectDefaultReviewerId}
+          ownerId={projectDefaultReviewerId}
           parent={task.parent}
           membersWithActorId={membersWithActorId}
           agentActors={agentActors ?? []}

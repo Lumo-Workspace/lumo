@@ -52,7 +52,7 @@ async function findTaskForBranch(
   workspaceId: string
 ): Promise<
   | (Task & {
-      project: Pick<Project, 'defaultReviewerId' | 'workspaceId'>
+      project: Pick<Project, 'ownerId' | 'workspaceId'>
       team: { identifier: string }
     })
   | null

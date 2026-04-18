@@ -146,7 +146,7 @@ export const quickDispatchService = {
             repositoryId: null,
             order: undefined,
             dueDate: action.dueDate ? new Date(action.dueDate) : null,
-            defaultReviewerMemberId: null,
+            ownerMemberId: null,
           })
 
           results.push({
