@@ -16,6 +16,8 @@ interface UseWorkspaceProjectHandlersOptions {
   /** Cleanup task data when deleting a project */
   onDeleteProjectTasks: (projectId: string) => void
   setSelectedTask: Dispatch<SetStateAction<unknown>>
+  /** Re-fetch the project list (used to reconcile partial bulk-delete failures) */
+  fetchProjects: () => Promise<void> | void
 }
 
 // ── Hook ────────────────────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ export function useWorkspaceProjectHandlers({
   navigateTo,
   onDeleteProjectTasks,
   setSelectedTask,
+  fetchProjects,
 }: UseWorkspaceProjectHandlersOptions) {
   const intl = useIntl()
 
@@ -147,6 +150,47 @@ export function useWorkspaceProjectHandlers({
     ]
   )
 
+  const handleBulkDeleteProjects = useCallback(
+    async (projectIds: string[]) => {
+      if (projectIds.length === 0) return
+
+      const idSet = new Set(projectIds)
+
+      // Optimistic local cleanup
+      projectIds.forEach(id => onDeleteProjectTasks(id))
+      setSelectedProject(prev => (prev && idSet.has(prev.id) ? null : prev))
+      setSelectedTask((prev: unknown) => {
+        const t = prev as { id?: string; projectId?: string } | null
+        return t && t.projectId && idSet.has(t.projectId) ? null : prev
+      })
+      setProjects(prev => prev.filter(p => !idSet.has(p.id)))
+
+      const results = await Promise.allSettled(
+        projectIds.map(id => projectsClient.delete(id))
+      )
+      const failed = results.filter(r => r.status === 'rejected').length
+
+      if (failed > 0) {
+        // Reconcile by re-fetching from the server
+        await fetchProjects()
+        toast.error(
+          `Failed to delete ${failed} of ${projectIds.length} project${projectIds.length === 1 ? '' : 's'}`
+        )
+      } else {
+        toast.success(
+          `${projectIds.length} project${projectIds.length === 1 ? '' : 's'} deleted`
+        )
+      }
+    },
+    [
+      fetchProjects,
+      onDeleteProjectTasks,
+      setProjects,
+      setSelectedProject,
+      setSelectedTask,
+    ]
+  )
+
   return {
     handleSelectProject,
     handleBack,
@@ -154,5 +198,6 @@ export function useWorkspaceProjectHandlers({
     handleCreateProject,
     handleUpdateProject,
     handleDeleteProject,
+    handleBulkDeleteProjects,
   }
 }
