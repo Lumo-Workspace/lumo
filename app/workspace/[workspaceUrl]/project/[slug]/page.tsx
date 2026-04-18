@@ -32,11 +32,16 @@ export default async function ProjectSlugPage({
   if (!project) notFound()
 
   const { tasks: inProgressTasks, ...projectFields } = project
+  // Detail page hydration only — list-page counts are recomputed on client refetch.
   const serialized = {
     ...projectFields,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
+    todoCount: 0,
     inProgressCount: inProgressTasks.length,
+    inReviewCount: 0,
+    doneCount: 0,
+    defaultReviewer: null,
   }
 
   return (
