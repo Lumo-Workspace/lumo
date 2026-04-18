@@ -14,17 +14,60 @@ export interface UpdateProjectInput {
 // ── Project Service ─────────────────────────────────────────────────────────
 
 export const projectService = {
-  /** List projects with permission filtering and inProgressCount shaping. */
+  /** List projects with permission filtering, status counts, and Clerk-resolved reviewer name. */
   async listProjects(workspaceId: string, memberId: string) {
-    const projects = await projectRepository.findByWorkspace(
-      workspaceId,
-      memberId
-    )
+    const [projects, statusCounts] = await Promise.all([
+      projectRepository.findByWorkspace(workspaceId, memberId),
+      projectRepository.countTasksByStatus(workspaceId, memberId),
+    ])
 
-    return projects.map(({ tasks, ...p }) => ({
-      ...p,
-      inProgressCount: tasks.length,
-    }))
+    // Batch-resolve reviewer display names from Clerk (one call for all reviewers).
+    const clerkIds = Array.from(
+      new Set(
+        projects
+          .map(p => p.defaultReviewer?.clerkId)
+          .filter((c): c is string => !!c)
+      )
+    )
+    const nameByClerkId = new Map<string, string>()
+    if (clerkIds.length > 0) {
+      const { clerkClient } = await import('@clerk/nextjs/server')
+      const clerk = await clerkClient()
+      const { data: users } = await clerk.users.getUserList({
+        userId: clerkIds,
+        limit: clerkIds.length,
+      })
+      for (const u of users) {
+        const trimmed = `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()
+        nameByClerkId.set(
+          u.id,
+          trimmed || u.emailAddresses[0]?.emailAddress || 'Unknown'
+        )
+      }
+    }
+
+    return projects.map(p => {
+      const counts = statusCounts.get(p.id) ?? {
+        TODO: 0,
+        IN_PROGRESS: 0,
+        IN_REVIEW: 0,
+        DONE: 0,
+      }
+      const { defaultReviewer, ...rest } = p
+      return {
+        ...rest,
+        todoCount: counts.TODO,
+        inProgressCount: counts.IN_PROGRESS,
+        inReviewCount: counts.IN_REVIEW,
+        doneCount: counts.DONE,
+        defaultReviewer: defaultReviewer
+          ? {
+              id: defaultReviewer.id,
+              name: nameByClerkId.get(defaultReviewer.clerkId) ?? 'Unknown',
+            }
+          : null,
+      }
+    })
   },
 
   /** Get a single project. Throws 404 if not found or if idea not owned by member. */
