@@ -50,6 +50,18 @@ export const notificationService = {
     return rawNotifications
   },
 
+  /** Get a single notification by ID. Verifies recipient ownership. */
+  async getNotification(notificationId: string, actorId: string) {
+    const notification = await notificationRepository.findById(notificationId)
+    if (!notification) {
+      throw Object.assign(new Error('Notification not found'), { status: 404 })
+    }
+    if (notification.recipientActorId !== actorId) {
+      throw Object.assign(new Error('Notification not found'), { status: 404 })
+    }
+    return notification
+  },
+
   /** Mark a single notification as read or unread, with ownership check. */
   async updateRead(
     notificationId: string,
