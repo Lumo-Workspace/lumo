@@ -26,9 +26,7 @@ export const projectRepository = {
       where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
-        defaultReviewer: {
-          include: { user: { select: { name: true } } },
-        },
+        defaultReviewer: { select: { id: true, clerkId: true } },
         repositories: {
           orderBy: [
             { isDefault: 'desc' as const },
