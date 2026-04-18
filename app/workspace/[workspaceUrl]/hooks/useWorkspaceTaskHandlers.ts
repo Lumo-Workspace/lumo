@@ -298,25 +298,34 @@ export function useWorkspaceTaskHandlers({
     [projectTaskIds, taskMap, upsertTasks, setProjectTaskIds]
   )
 
-  // ─── Status change tracking for inProgressCount ─────────────────────────
+  // ─── Status change tracking for per-status counts ──────────────────────
   const handleProjectTaskStatusChanged = useCallback(
     (_taskId: string, oldStatus: string, newStatus: string) => {
       if (!selectedProject) return
-      const delta =
-        (newStatus === 'IN_PROGRESS' ? 1 : 0) -
-        (oldStatus === 'IN_PROGRESS' ? 1 : 0)
-      if (delta !== 0) {
-        setProjects(prev =>
-          prev.map(p =>
-            p.id === selectedProject.id
-              ? {
-                  ...p,
-                  inProgressCount: Math.max(0, p.inProgressCount + delta),
-                }
-              : p
-          )
-        )
+      const KEY: Record<
+        string,
+        'todoCount' | 'inProgressCount' | 'inReviewCount' | 'doneCount'
+      > = {
+        TODO: 'todoCount',
+        IN_PROGRESS: 'inProgressCount',
+        IN_REVIEW: 'inReviewCount',
+        DONE: 'doneCount',
       }
+      const oldKey = KEY[oldStatus]
+      const newKey = KEY[newStatus]
+      if (!oldKey || !newKey || oldKey === newKey) return
+
+      setProjects(prev =>
+        prev.map(p =>
+          p.id === selectedProject.id
+            ? {
+                ...p,
+                [oldKey]: Math.max(0, p[oldKey] - 1),
+                [newKey]: p[newKey] + 1,
+              }
+            : p
+        )
+      )
     },
     [selectedProject, setProjects]
   )
