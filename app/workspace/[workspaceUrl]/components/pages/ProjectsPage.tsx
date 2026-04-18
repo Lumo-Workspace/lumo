@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useParams } from 'next/navigation'
-import { Search, Plus, Layers, Link as LinkIcon } from 'lucide-react'
+import { Search, Plus, Layers, Link as LinkIcon, Trash2 } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
@@ -33,6 +33,16 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type ProjectSortKey =
   | 'name'
@@ -51,6 +61,7 @@ interface ProjectsPageProps {
   onRetry: () => void
   onSelectProject: (project: ApiProject) => void
   onNewProject: () => void
+  onBulkDelete: (projectIds: string[]) => Promise<void> | void
 }
 
 const STATUS_DOT_CLS = {
@@ -86,6 +97,7 @@ export function ProjectsPage({
   onRetry,
   onSelectProject,
   onNewProject,
+  onBulkDelete,
 }: ProjectsPageProps) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -162,6 +174,23 @@ export function ProjectsPage({
       else next.add(id)
       return next
     })
+  }
+
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const selectedIds = useMemo(() => Array.from(selected), [selected])
+  const selectedCount = selectedIds.length
+
+  const runBulkDelete = async () => {
+    setDeleting(true)
+    try {
+      await onBulkDelete(selectedIds)
+      setSelected(new Set())
+    } finally {
+      setDeleting(false)
+      setConfirmOpen(false)
+    }
   }
 
   // Close dropdown when clicking outside
@@ -241,6 +270,31 @@ export function ProjectsPage({
 
       {/* Body */}
       <div className='flex-1 overflow-auto'>
+        {selectedCount > 0 && (
+          <div className='sticky top-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-2.5'>
+            <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
+              {selectedCount} selected
+            </span>
+            <div className='flex items-center gap-2'>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => setSelected(new Set())}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant='destructive'
+                size='sm'
+                className='gap-1.5'
+                onClick={() => setConfirmOpen(true)}
+              >
+                <Trash2 size={14} />
+                Delete {selectedCount} project{selectedCount === 1 ? '' : 's'}
+              </Button>
+            </div>
+          </div>
+        )}
         <AsyncContent
           loading={loading}
           error={error}
@@ -398,6 +452,36 @@ export function ProjectsPage({
           </table>
         </AsyncContent>
       </div>
+
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={open => !deleting && setConfirmOpen(open)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedCount} project{selectedCount === 1 ? '' : 's'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All tasks, views, and documents in{' '}
+              {selectedCount === 1
+                ? 'this project'
+                : `these ${selectedCount} projects`}{' '}
+              will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={runBulkDelete}
+              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
