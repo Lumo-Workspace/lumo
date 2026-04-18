@@ -58,7 +58,11 @@ export function useWorkspaceProjectHandlers({
         createdAt: now,
         updatedAt: now,
         _count: { tasks: 0 },
+        todoCount: 0,
         inProgressCount: 0,
+        inReviewCount: 0,
+        doneCount: 0,
+        defaultReviewer: null,
       }
 
       setProjects(prev => [optimistic, ...prev])
@@ -84,7 +88,11 @@ export function useWorkspaceProjectHandlers({
       const confirmed: ApiProject = {
         ...project,
         _count: { tasks: 0 },
+        todoCount: 0,
         inProgressCount: 0,
+        inReviewCount: 0,
+        doneCount: 0,
+        defaultReviewer: null,
       }
       setProjects(prev => prev.map(p => (p.id === tempId ? confirmed : p)))
       setSelectedProject(prev => (prev?.id === tempId ? confirmed : prev))
