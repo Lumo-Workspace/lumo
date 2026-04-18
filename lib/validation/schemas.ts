@@ -73,7 +73,7 @@ export const updateProjectSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
   isIdea: z.boolean().optional(),
-  defaultReviewerId: z.string().nullable().optional(),
+  ownerId: z.string().nullable().optional(),
   riskOverdueRatio: z.number().min(0).max(1).nullable().optional(),
   riskStalledDays: z.number().int().min(1).max(30).nullable().optional(),
   riskStalledMinCount: z.number().int().min(1).max(50).nullable().optional(),

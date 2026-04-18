@@ -8,7 +8,7 @@ export interface UpdateProjectInput {
   name?: string | undefined
   description?: string | null | undefined
   isIdea?: boolean | undefined
-  defaultReviewerId?: string | null | undefined
+  ownerId?: string | null | undefined
 }
 
 // ── Project Service ─────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ export const projectService = {
     const clerkIds = Array.from(
       new Set(
         projects
-          .map(p => p.defaultReviewer?.clerkId)
+          .map(p => p.owner?.clerkId)
           .filter((c): c is string => !!c)
       )
     )
@@ -53,23 +53,23 @@ export const projectService = {
         IN_REVIEW: 0,
         DONE: 0,
       }
-      const { defaultReviewer, ...rest } = p
+      const { owner, ...rest } = p
       // Reviewer ids exposed to the API are actor ids — the same id space the
       // UI's ReviewerSelect uses for tasks. The DB stores WorkspaceMember.id
       // on the FK; we translate via the joined `actor` row.
-      const reviewerActorId = defaultReviewer?.actor?.id ?? null
+      const reviewerActorId = owner?.actor?.id ?? null
       return {
         ...rest,
-        defaultReviewerId: reviewerActorId,
+        ownerId: reviewerActorId,
         todoCount: counts.TODO,
         inProgressCount: counts.IN_PROGRESS,
         inReviewCount: counts.IN_REVIEW,
         doneCount: counts.DONE,
-        defaultReviewer:
-          defaultReviewer && reviewerActorId
+        owner:
+          owner && reviewerActorId
             ? {
                 id: reviewerActorId,
-                name: nameByClerkId.get(defaultReviewer.clerkId) ?? 'Unknown',
+                name: nameByClerkId.get(owner.clerkId) ?? 'Unknown',
               }
             : null,
       }
@@ -114,7 +114,7 @@ export const projectService = {
 
   /**
    * Update a project. Validates idea edit permission and reviewer workspace
-   * membership. `input.defaultReviewerId` is interpreted as an Actor.id (the
+   * membership. `input.ownerId` is interpreted as an Actor.id (the
    * same id space the UI's ReviewerSelect uses for tasks); the service
    * resolves it to the underlying WorkspaceMember.id for storage and
    * translates the response back to actor.id for the UI.
@@ -138,10 +138,10 @@ export const projectService = {
     if (input.name !== undefined) data.name = input.name
     if (input.description !== undefined) data.description = input.description
     if (input.isIdea !== undefined) data.isIdea = input.isIdea
-    if (input.defaultReviewerId !== undefined) {
-      if (input.defaultReviewerId !== null) {
+    if (input.ownerId !== undefined) {
+      if (input.ownerId !== null) {
         const reviewerMember = await memberRepository.findByActorId(
-          input.defaultReviewerId
+          input.ownerId
         )
         if (
           !reviewerMember ||
@@ -152,17 +152,17 @@ export const projectService = {
             { status: 400 }
           )
         }
-        data.defaultReviewerId = reviewerMember.id
+        data.ownerId = reviewerMember.id
       } else {
-        data.defaultReviewerId = null
+        data.ownerId = null
       }
     }
 
     const updated = await projectRepository.update(projectId, data)
-    const { defaultReviewer, ...rest } = updated
+    const { owner, ...rest } = updated
     return {
       ...rest,
-      defaultReviewerId: defaultReviewer?.actor?.id ?? null,
+      ownerId: owner?.actor?.id ?? null,
     }
   },
 

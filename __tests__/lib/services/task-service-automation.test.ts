@@ -50,7 +50,7 @@ describe('taskService.createFromAutomation', () => {
       id: 'proj1',
       workspaceId: 'ws1',
       teamId: 'team1',
-      defaultReviewer: null,
+      owner: null,
       workspace: { slug: 'acme' },
     })
     ;(taskRepository.findMaxOrder as jest.Mock).mockResolvedValue({ order: 3 })

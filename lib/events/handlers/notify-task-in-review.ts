@@ -17,21 +17,21 @@ export async function handleNotifyTaskInReview(
     select: {
       reviewerActorId: true,
       project: {
-        select: { workspaceId: true, defaultReviewerId: true },
+        select: { workspaceId: true, ownerId: true },
       },
     },
   })
   if (!task) return
 
-  const defaultReviewerActorId = task.project.defaultReviewerId
-    ? await getHumanActorId(task.project.defaultReviewerId)
+  const ownerActorId = task.project.ownerId
+    ? await getHumanActorId(task.project.ownerId)
     : null
 
   await notifyTaskInReview({
     workspaceId: task.project.workspaceId,
     taskId: event.taskId,
     reviewerActorId: task.reviewerActorId,
-    defaultReviewerActorId,
+    ownerActorId,
     triggerActorId: null,
   })
 }

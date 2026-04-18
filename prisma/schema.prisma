@@ -220,7 +220,7 @@ model WorkspaceMember {
   workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   teams              TeamMember[]
   createdProjects    Project[]           @relation("ProjectCreator")
-  defaultReviewerFor Project[]           @relation("ProjectDefaultReviewer")
+  ownsProjects       Project[]           @relation("ProjectOwner")
   ownedViews         View[]              @relation("ViewOwner")
   createdViews       View[]              @relation("ViewCreator")
   sharedViews        ViewMember[]
@@ -290,7 +290,7 @@ model Project {
   workspaceId       String
   teamId            String
   createdByMemberId String
-  defaultReviewerId String?
+  ownerId           String?
   name              String
   description       String?
   isIdea            Boolean  @default(false)
@@ -307,7 +307,7 @@ model Project {
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy             WorkspaceMember        @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
-  defaultReviewer       WorkspaceMember?       @relation("ProjectDefaultReviewer", fields: [defaultReviewerId], references: [id], onDelete: SetNull)
+  owner                 WorkspaceMember?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   tasks                 Task[]
   views                 View[]
   slackChannels         SlackChannel[]

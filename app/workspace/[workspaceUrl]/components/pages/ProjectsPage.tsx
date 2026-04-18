@@ -133,8 +133,8 @@ export function ProjectsPage({
         case 'owner':
           return applyDir(
             cmpString(
-              a.defaultReviewer?.name ?? '',
-              b.defaultReviewer?.name ?? ''
+              a.owner?.name ?? '',
+              b.owner?.name ?? ''
             ),
             sort.dir
           )
@@ -440,7 +440,7 @@ export function ProjectsPage({
                   />
                   <StatusCell count={project.doneCount} status='DONE' />
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300'>
-                    {project.defaultReviewer?.name ?? '—'}
+                    {project.owner?.name ?? '—'}
                   </td>
                   <td className='py-4 px-6 text-right text-zinc-500 dark:text-zinc-400 text-xs border-b border-zinc-200 dark:border-zinc-800'>
                     <div className='flex items-center justify-end gap-2'>

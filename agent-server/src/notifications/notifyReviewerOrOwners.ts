@@ -12,7 +12,7 @@ export async function notifyReviewerOrOwners(params: {
   taskId: string
   type: NotificationType
   reviewerActorId: string | null
-  defaultReviewerMemberId: string | null
+  ownerMemberId: string | null
   triggerActorId: string | null
 }): Promise<void> {
   const {
@@ -20,13 +20,13 @@ export async function notifyReviewerOrOwners(params: {
     taskId,
     type,
     reviewerActorId,
-    defaultReviewerMemberId,
+    ownerMemberId,
     triggerActorId,
   } = params
 
   let effectiveActorId = reviewerActorId
-  if (!effectiveActorId && defaultReviewerMemberId) {
-    effectiveActorId = await getHumanActorId(defaultReviewerMemberId)
+  if (!effectiveActorId && ownerMemberId) {
+    effectiveActorId = await getHumanActorId(ownerMemberId)
   }
 
   if (effectiveActorId) {

@@ -18,17 +18,17 @@ export async function notifyTaskInReview(params: {
   workspaceId: string
   taskId: string
   reviewerActorId: string | null
-  defaultReviewerActorId: string | null
+  ownerActorId: string | null
   triggerActorId: string | null
 }): Promise<void> {
   const {
     workspaceId,
     taskId,
     reviewerActorId,
-    defaultReviewerActorId,
+    ownerActorId,
     triggerActorId,
   } = params
-  const effectiveActorId = reviewerActorId ?? defaultReviewerActorId ?? null
+  const effectiveActorId = reviewerActorId ?? ownerActorId ?? null
 
   // Resolve effective reviewer actor → clerkId for Slack DM
   const effectiveReviewerClerkId = effectiveActorId
@@ -87,7 +87,7 @@ export async function notifyTaskInReview(params: {
     taskId,
     type: 'TASK_IN_REVIEW',
     reviewerActorId: effectiveActorId,
-    defaultReviewerMemberId: null,
+    ownerMemberId: null,
     triggerActorId,
   })
 }

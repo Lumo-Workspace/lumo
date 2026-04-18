@@ -41,7 +41,7 @@ export default async function MyTaskDetailPage({
           id: true,
           name: true,
           workspaceId: true,
-          defaultReviewerId: true,
+          ownerId: true,
           repositories: true,
         },
       },

@@ -41,7 +41,7 @@ export default async function ProjectSlugPage({
     inProgressCount: inProgressTasks.length,
     inReviewCount: 0,
     doneCount: 0,
-    defaultReviewer: null,
+    owner: null,
   }
 
   return (

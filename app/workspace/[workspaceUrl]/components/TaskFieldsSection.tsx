@@ -31,7 +31,7 @@ export interface TaskFieldsSectionProps {
   projectId: string
   dueDate: string | null
   assignee: ActorInfo | null
-  defaultReviewerId: string | null
+  ownerId: string | null
   parent: TaskDetail['parent']
   membersWithActorId: (WorkspaceMemberInfo & { actorId: string })[]
   agentActors: { actorId: string; name: string; avatarColor: string }[]
@@ -50,7 +50,7 @@ export function TaskFieldsSection({
   projectId,
   dueDate,
   assignee,
-  defaultReviewerId,
+  ownerId,
   parent,
   membersWithActorId,
   agentActors,
@@ -79,7 +79,7 @@ export function TaskFieldsSection({
         value={reviewerActorId}
         onChange={v => onPatch({ reviewerActorId: v })}
         members={membersWithActorId}
-        inheritedId={defaultReviewerId}
+        inheritedId={ownerId}
         triggerClassName={FIELD_TRIGGER_CLS}
       />
       <SeparatorDot />

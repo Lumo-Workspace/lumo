@@ -33,7 +33,7 @@ export default async function ProjectTaskIdentifierPage({
           id: true,
           name: true,
           workspaceId: true,
-          defaultReviewerId: true,
+          ownerId: true,
           repositories: true,
         },
       },

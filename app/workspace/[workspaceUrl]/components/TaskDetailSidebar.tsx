@@ -136,7 +136,7 @@ export function TaskDetailSidebar({
                     (m): m is WorkspaceMemberInfo & { actorId: string } =>
                       m.actorId !== null
                   )}
-                  inheritedId={task.project?.defaultReviewerId ?? null}
+                  inheritedId={task.project?.ownerId ?? null}
                   triggerClassName={FIELD_TRIGGER_CLS}
                 />
               ),

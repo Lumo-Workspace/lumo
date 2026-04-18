@@ -43,7 +43,7 @@ interface ProjectDetailPageProps {
     data: {
       name?: string
       description?: string
-      defaultReviewerId?: string | null
+      ownerId?: string | null
     }
   ) => Promise<void>
   onDeleteProject: (projectId: string) => Promise<void>

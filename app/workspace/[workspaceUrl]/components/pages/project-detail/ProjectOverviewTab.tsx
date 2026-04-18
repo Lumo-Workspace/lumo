@@ -50,7 +50,7 @@ interface ProjectOverviewTabProps {
     data: {
       name?: string
       description?: string
-      defaultReviewerId?: string | null
+      ownerId?: string | null
     }
   ) => Promise<void>
 }
@@ -231,9 +231,9 @@ export function ProjectOverviewTab({
                 })}
               </p>
               <ReviewerSelect
-                value={project.defaultReviewerId ?? null}
+                value={project.ownerId ?? null}
                 onChange={v =>
-                  onUpdateProject(project.id, { defaultReviewerId: v })
+                  onUpdateProject(project.id, { ownerId: v })
                 }
                 members={members.filter(
                   (m): m is WorkspaceMemberInfo & { actorId: string } =>

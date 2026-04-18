@@ -4,7 +4,7 @@ export interface ProjectUpdateData {
   name?: string
   description?: string | null
   isIdea?: boolean
-  defaultReviewerId?: string | null
+  ownerId?: string | null
 }
 
 // Visibility filter shared by every project-listing query.
@@ -26,7 +26,7 @@ export const projectRepository = {
       where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
-        defaultReviewer: {
+        owner: {
           select: {
             id: true,
             clerkId: true,
@@ -118,7 +118,7 @@ export const projectRepository = {
 
   /**
    * Update project fields. Returns the updated row including the
-   * defaultReviewer's clerkId + actor.id so the service can flatten
+   * owner's clerkId + actor.id so the service can flatten
    * to the same shape as listProjects/getProject.
    */
   async update(id: string, data: ProjectUpdateData) {
@@ -126,7 +126,7 @@ export const projectRepository = {
       where: { id },
       data,
       include: {
-        defaultReviewer: {
+        owner: {
           select: {
             id: true,
             clerkId: true,
@@ -152,7 +152,7 @@ export const projectRepository = {
     return prisma.project.findUnique({
       where: { id },
       include: {
-        defaultReviewer: { select: { id: true } },
+        owner: { select: { id: true } },
         workspace: { select: { slug: true } },
       },
     })

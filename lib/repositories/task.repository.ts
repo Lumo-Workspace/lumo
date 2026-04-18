@@ -25,7 +25,7 @@ const TASK_DETAIL_INCLUDE = {
       id: true,
       name: true,
       workspaceId: true,
-      defaultReviewerId: true,
+      ownerId: true,
       repositories: {
         orderBy: [
           { isDefault: 'desc' as const },
@@ -127,7 +127,7 @@ const TASK_DETAIL_INCLUDE = {
 const TASK_UPDATE_INCLUDE = {
   project: {
     include: {
-      defaultReviewer: { select: { id: true, clerkId: true } },
+      owner: { select: { id: true, clerkId: true } },
       workspace: { select: { slug: true } },
     },
   },
@@ -469,7 +469,7 @@ export const taskRepository = {
     repositoryId: string | null
     order: number | undefined
     dueDate: Date | string | null
-    defaultReviewerMemberId: string | null
+    ownerMemberId: string | null
   }) {
     const taskId = await prisma.$transaction(async tx => {
       const { taskSeq } = await tx.team.update({
@@ -479,12 +479,12 @@ export const taskRepository = {
       })
 
       // Resolve default reviewer to actor
-      let defaultReviewerActorId: string | null = null
-      if (data.defaultReviewerMemberId) {
+      let ownerActorId: string | null = null
+      if (data.ownerMemberId) {
         const reviewerActor = await tx.actor.findUnique({
-          where: { memberId: data.defaultReviewerMemberId },
+          where: { memberId: data.ownerMemberId },
         })
-        defaultReviewerActorId = reviewerActor?.id ?? null
+        ownerActorId = reviewerActor?.id ?? null
       }
 
       const task = await tx.task.create({
@@ -498,7 +498,7 @@ export const taskRepository = {
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
           agentStatus: data.agentStatus,
-          reviewerActorId: defaultReviewerActorId,
+          reviewerActorId: ownerActorId,
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
           ...(data.order !== undefined ? { order: data.order } : {}),
