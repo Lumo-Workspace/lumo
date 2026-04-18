@@ -26,7 +26,13 @@ export const projectRepository = {
       where: projectVisibilityWhere(workspaceId, memberId),
       include: {
         _count: { select: { tasks: true } },
-        defaultReviewer: { select: { id: true, clerkId: true } },
+        defaultReviewer: {
+          select: {
+            id: true,
+            clerkId: true,
+            actor: { select: { id: true } },
+          },
+        },
         repositories: {
           orderBy: [
             { isDefault: 'desc' as const },
@@ -110,9 +116,25 @@ export const projectRepository = {
     })
   },
 
-  /** Update project fields. */
+  /**
+   * Update project fields. Returns the updated row including the
+   * defaultReviewer's clerkId + actor.id so the service can flatten
+   * to the same shape as listProjects/getProject.
+   */
   async update(id: string, data: ProjectUpdateData) {
-    return prisma.project.update({ where: { id }, data })
+    return prisma.project.update({
+      where: { id },
+      data,
+      include: {
+        defaultReviewer: {
+          select: {
+            id: true,
+            clerkId: true,
+            actor: { select: { id: true } },
+          },
+        },
+      },
+    })
   },
 
   /** Delete project (cascades). */

@@ -54,18 +54,24 @@ export const projectService = {
         DONE: 0,
       }
       const { defaultReviewer, ...rest } = p
+      // Reviewer ids exposed to the API are actor ids — the same id space the
+      // UI's ReviewerSelect uses for tasks. The DB stores WorkspaceMember.id
+      // on the FK; we translate via the joined `actor` row.
+      const reviewerActorId = defaultReviewer?.actor?.id ?? null
       return {
         ...rest,
+        defaultReviewerId: reviewerActorId,
         todoCount: counts.TODO,
         inProgressCount: counts.IN_PROGRESS,
         inReviewCount: counts.IN_REVIEW,
         doneCount: counts.DONE,
-        defaultReviewer: defaultReviewer
-          ? {
-              id: defaultReviewer.id,
-              name: nameByClerkId.get(defaultReviewer.clerkId) ?? 'Unknown',
-            }
-          : null,
+        defaultReviewer:
+          defaultReviewer && reviewerActorId
+            ? {
+                id: reviewerActorId,
+                name: nameByClerkId.get(defaultReviewer.clerkId) ?? 'Unknown',
+              }
+            : null,
       }
     })
   },
@@ -106,7 +112,13 @@ export const projectService = {
     })
   },
 
-  /** Update a project. Validates idea edit permission and reviewer workspace membership. */
+  /**
+   * Update a project. Validates idea edit permission and reviewer workspace
+   * membership. `input.defaultReviewerId` is interpreted as an Actor.id (the
+   * same id space the UI's ReviewerSelect uses for tasks); the service
+   * resolves it to the underlying WorkspaceMember.id for storage and
+   * translates the response back to actor.id for the UI.
+   */
   async updateProject(
     projectId: string,
     memberId: string,
@@ -128,20 +140,30 @@ export const projectService = {
     if (input.isIdea !== undefined) data.isIdea = input.isIdea
     if (input.defaultReviewerId !== undefined) {
       if (input.defaultReviewerId !== null) {
-        const reviewer = await memberRepository.findById(
+        const reviewerMember = await memberRepository.findByActorId(
           input.defaultReviewerId
         )
-        if (!reviewer || reviewer.workspaceId !== project.workspaceId) {
+        if (
+          !reviewerMember ||
+          reviewerMember.workspaceId !== project.workspaceId
+        ) {
           throw Object.assign(
             new Error('Reviewer is not a member of this workspace'),
             { status: 400 }
           )
         }
+        data.defaultReviewerId = reviewerMember.id
+      } else {
+        data.defaultReviewerId = null
       }
-      data.defaultReviewerId = input.defaultReviewerId
     }
 
-    return projectRepository.update(projectId, data)
+    const updated = await projectRepository.update(projectId, data)
+    const { defaultReviewer, ...rest } = updated
+    return {
+      ...rest,
+      defaultReviewerId: defaultReviewer?.actor?.id ?? null,
+    }
   },
 
   /** Delete a project. Validates idea delete permission. */

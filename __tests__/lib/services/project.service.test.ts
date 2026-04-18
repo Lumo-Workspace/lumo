@@ -2,14 +2,6 @@
  * @jest-environment node
  */
 
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    workspaceMember: {
-      findUnique: jest.fn(),
-    },
-  },
-}))
-
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     findByWorkspace: jest.fn(),
@@ -18,6 +10,12 @@ jest.mock('@/lib/repositories/project.repository', () => ({
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+  },
+}))
+
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findByActorId: jest.fn(),
   },
 }))
 
@@ -31,8 +29,8 @@ jest.mock('@/lib/team', () => ({
   getDefaultTeam: jest.fn(),
 }))
 
-import { prisma } from '@/lib/db/prisma'
 import { projectRepository } from '@/lib/repositories/project.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import { getDefaultTeam } from '@/lib/team'
 import { projectService } from '@/lib/services/project.service'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -44,7 +42,7 @@ const mockCreate = projectRepository.create as jest.Mock
 const mockUpdate = projectRepository.update as jest.Mock
 const mockDelete = projectRepository.delete as jest.Mock
 const mockGetDefaultTeam = getDefaultTeam as jest.Mock
-const mockMemberFindUnique = prisma.workspaceMember.findUnique as jest.Mock
+const mockMemberFindByActorId = memberRepository.findByActorId as jest.Mock
 
 let mockClerkGetUserList: jest.Mock
 beforeEach(async () => {
@@ -62,7 +60,11 @@ describe('listProjects', () => {
         id: 'p1',
         name: 'Project A',
         _count: { tasks: 6 },
-        defaultReviewer: { id: 'm1', clerkId: 'user_alice' },
+        defaultReviewer: {
+          id: 'm1',
+          clerkId: 'user_alice',
+          actor: { id: 'actor_alice' },
+        },
         repositories: [],
       },
       {
@@ -93,16 +95,20 @@ describe('listProjects', () => {
     expect(result[0]).toEqual(
       expect.objectContaining({
         id: 'p1',
+        // Reviewer ids exposed to the API are actor ids — both the FK field
+        // and the flattened object use actor.id, not WorkspaceMember.id.
+        defaultReviewerId: 'actor_alice',
         todoCount: 2,
         inProgressCount: 3,
         inReviewCount: 1,
         doneCount: 0,
-        defaultReviewer: { id: 'm1', name: 'Alice Liddell' },
+        defaultReviewer: { id: 'actor_alice', name: 'Alice Liddell' },
       })
     )
     expect(result[1]).toEqual(
       expect.objectContaining({
         id: 'p2',
+        defaultReviewerId: null,
         todoCount: 0,
         inProgressCount: 0,
         inReviewCount: 0,
@@ -229,21 +235,41 @@ describe('updateProject', () => {
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
   })
 
-  it('validates reviewer belongs to workspace', async () => {
+  it('throws 400 when reviewer actor belongs to a different workspace', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'member-1',
       workspaceId: 'ws-1',
     })
-    mockMemberFindUnique.mockResolvedValue({
-      id: 'reviewer-1',
+    mockMemberFindByActorId.mockResolvedValue({
+      id: 'reviewer-member-1',
       workspaceId: 'ws-other',
     })
 
     await expect(
       projectService.updateProject('p1', 'member-1', {
-        defaultReviewerId: 'reviewer-1',
+        defaultReviewerId: 'actor_someone',
+      })
+    ).rejects.toMatchObject({
+      message: 'Reviewer is not a member of this workspace',
+      status: 400,
+    })
+    expect(mockMemberFindByActorId).toHaveBeenCalledWith('actor_someone')
+  })
+
+  it('throws 400 when actor id does not resolve to a workspace member', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
+    })
+    mockMemberFindByActorId.mockResolvedValue(null)
+
+    await expect(
+      projectService.updateProject('p1', 'member-1', {
+        defaultReviewerId: 'actor_unknown',
       })
     ).rejects.toMatchObject({
       message: 'Reviewer is not a member of this workspace',
@@ -251,21 +277,88 @@ describe('updateProject', () => {
     })
   })
 
-  it('updates project fields', async () => {
+  it('translates actor id to member id when storing the reviewer FK', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'member-1',
       workspaceId: 'ws-1',
     })
-    mockUpdate.mockResolvedValue({ id: 'p1', name: 'Updated' })
+    mockMemberFindByActorId.mockResolvedValue({
+      id: 'reviewer-member-1',
+      workspaceId: 'ws-1',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'p1',
+      name: 'P',
+      defaultReviewer: {
+        id: 'reviewer-member-1',
+        clerkId: 'user_x',
+        actor: { id: 'actor_x' },
+      },
+    })
+
+    const result = await projectService.updateProject('p1', 'member-1', {
+      defaultReviewerId: 'actor_x',
+    })
+
+    // Repository stores the resolved memberId
+    expect(mockUpdate).toHaveBeenCalledWith('p1', {
+      defaultReviewerId: 'reviewer-member-1',
+    })
+    // Response surfaces the actor id back to the UI
+    expect(result).toEqual({
+      id: 'p1',
+      name: 'P',
+      defaultReviewerId: 'actor_x',
+    })
+  })
+
+  it('clears the reviewer when defaultReviewerId is null', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'p1',
+      name: 'P',
+      defaultReviewer: null,
+    })
+
+    const result = await projectService.updateProject('p1', 'member-1', {
+      defaultReviewerId: null,
+    })
+
+    expect(mockUpdate).toHaveBeenCalledWith('p1', { defaultReviewerId: null })
+    expect(mockMemberFindByActorId).not.toHaveBeenCalled()
+    expect(result.defaultReviewerId).toBeNull()
+  })
+
+  it('updates non-reviewer fields without touching the reviewer FK', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'p1',
+      name: 'Updated',
+      defaultReviewer: null,
+    })
 
     const result = await projectService.updateProject('p1', 'member-1', {
       name: 'Updated',
     })
 
-    expect(result).toEqual({ id: 'p1', name: 'Updated' })
     expect(mockUpdate).toHaveBeenCalledWith('p1', { name: 'Updated' })
+    expect(result).toEqual({
+      id: 'p1',
+      name: 'Updated',
+      defaultReviewerId: null,
+    })
   })
 })
 
