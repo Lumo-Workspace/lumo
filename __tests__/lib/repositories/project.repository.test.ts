@@ -10,6 +10,9 @@ jest.mock('@/lib/db/prisma', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    task: {
+      groupBy: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }))
@@ -91,5 +94,59 @@ describe('findById', () => {
     const result = await projectRepository.findById('nonexistent')
 
     expect(result).toBeNull()
+  })
+})
+
+// ── countTasksByStatus ─────────────────────────────────────────────────────
+
+describe('countTasksByStatus', () => {
+  it('returns map of project id → status count buckets, filling zeros', async () => {
+    // mock prisma.task.groupBy
+    ;(prisma as unknown as { task: { groupBy: jest.Mock } }).task = {
+      groupBy: jest.fn().mockResolvedValue([
+        { projectId: 'p1', status: 'TODO', _count: { _all: 3 } },
+        { projectId: 'p1', status: 'IN_PROGRESS', _count: { _all: 1 } },
+        { projectId: 'p2', status: 'DONE', _count: { _all: 7 } },
+      ]),
+    }
+
+    const result = await projectRepository.countTasksByStatus(
+      'ws-1',
+      'member-1'
+    )
+
+    expect(result.get('p1')).toEqual({
+      TODO: 3,
+      IN_PROGRESS: 1,
+      IN_REVIEW: 0,
+      DONE: 0,
+    })
+    expect(result.get('p2')).toEqual({
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 7,
+    })
+  })
+
+  it('passes the workspace + idea-visibility filter to groupBy', async () => {
+    const groupBy = jest.fn().mockResolvedValue([])
+    ;(prisma as unknown as { task: { groupBy: jest.Mock } }).task = { groupBy }
+
+    await projectRepository.countTasksByStatus('ws-1', 'member-1')
+
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ['projectId', 'status'],
+      where: {
+        project: {
+          workspaceId: 'ws-1',
+          OR: [
+            { isIdea: false },
+            { isIdea: true, createdByMemberId: 'member-1' },
+          ],
+        },
+      },
+      _count: { _all: true },
+    })
   })
 })

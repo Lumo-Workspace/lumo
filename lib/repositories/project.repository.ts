@@ -32,6 +32,37 @@ export const projectRepository = {
     })
   },
 
+  /** Group tasks by (projectId, status) for the workspace, return buckets per project. */
+  async countTasksByStatus(workspaceId: string, memberId: string) {
+    const rows = await prisma.task.groupBy({
+      by: ['projectId', 'status'],
+      where: {
+        project: {
+          workspaceId,
+          OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
+        },
+      },
+      _count: { _all: true },
+    })
+
+    const map = new Map<
+      string,
+      { TODO: number; IN_PROGRESS: number; IN_REVIEW: number; DONE: number }
+    >()
+    for (const row of rows) {
+      if (!row.projectId) continue
+      const bucket = map.get(row.projectId) ?? {
+        TODO: 0,
+        IN_PROGRESS: 0,
+        IN_REVIEW: 0,
+        DONE: 0,
+      }
+      bucket[row.status] = row._count._all
+      map.set(row.projectId, bucket)
+    }
+    return map
+  },
+
   /** Find project by ID with task/view counts. */
   async findById(id: string) {
     return prisma.project.findUnique({
