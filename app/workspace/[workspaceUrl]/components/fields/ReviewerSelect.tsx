@@ -22,6 +22,10 @@ export interface ReviewerSelectProps {
   /** The project-level default reviewer ID — used to show "inherited" state */
   inheritedId?: string | null
   triggerClassName?: string
+  /** Text shown in the trigger and dropdown when no value is selected. */
+  unassignedLabel?: string
+  /** Tooltip text shown on hover of the trigger. */
+  tooltipText?: string
 }
 
 export function ReviewerSelect({
@@ -30,6 +34,8 @@ export function ReviewerSelect({
   members,
   inheritedId,
   triggerClassName,
+  unassignedLabel = 'No reviewer',
+  tooltipText = 'Reviewer — notified when task moves to In Review',
 }: ReviewerSelectProps) {
   const reviewer = members.find(m => m.actorId === value)
   const inherited =
@@ -56,20 +62,18 @@ export function ReviewerSelect({
             ) : (
               <div className='flex items-center gap-1.5 text-zinc-400'>
                 <Eye size={14} />
-                <span>No reviewer</span>
+                <span>{unassignedLabel}</span>
               </div>
             )}
           </SelectTrigger>
         </TooltipTrigger>
-        <TooltipContent>
-          Reviewer — notified when task moves to In Review
-        </TooltipContent>
+        <TooltipContent>{tooltipText}</TooltipContent>
       </Tooltip>
       <SelectContent>
         <SelectItem value='__unassigned__'>
           <div className='flex items-center gap-2'>
             <Eye size={14} className='text-zinc-400 shrink-0' />
-            <span className='text-zinc-400'>No reviewer</span>
+            <span className='text-zinc-400'>{unassignedLabel}</span>
           </div>
         </SelectItem>
         {members

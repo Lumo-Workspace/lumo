@@ -222,24 +222,24 @@ export function ProjectOverviewTab({
 
           {/* ── Right: Properties sidebar ── */}
           <div className='w-56 shrink-0 space-y-6'>
-            {/* Lead */}
+            {/* Owner */}
             <div className='space-y-2'>
               <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
                 {intl.formatMessage({
-                  id: 'project.lead',
-                  defaultMessage: 'Lead',
+                  id: 'project.owner',
+                  defaultMessage: 'Owner',
                 })}
               </p>
               <ReviewerSelect
                 value={project.ownerId ?? null}
-                onChange={v =>
-                  onUpdateProject(project.id, { ownerId: v })
-                }
+                onChange={v => onUpdateProject(project.id, { ownerId: v })}
                 members={members.filter(
                   (m): m is WorkspaceMemberInfo & { actorId: string } =>
                     m.actorId !== null
                 )}
                 triggerClassName={cn(FIELD_TRIGGER_CLS, 'h-7 text-xs w-full')}
+                unassignedLabel='No owner'
+                tooltipText='Owner — primary contact for this project'
               />
             </div>
 
