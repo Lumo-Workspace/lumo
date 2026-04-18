@@ -7,6 +7,7 @@ import { registerTagTools } from './tags'
 import { registerDraftTools } from './drafts'
 import { registerNotificationTools } from './notifications'
 import { registerDocumentTools } from './documents'
+import { registerCommentTools } from './comments'
 
 export function registerAllTools(server: McpServer): void {
   // Always exposed (bootstrap)
@@ -20,4 +21,5 @@ export function registerAllTools(server: McpServer): void {
   registerDraftTools(server)
   registerNotificationTools(server)
   registerDocumentTools(server)
+  registerCommentTools(server)
 }
