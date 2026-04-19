@@ -141,7 +141,13 @@ export function MyTasksPage({
     const failed = results.filter(r => r.status === 'rejected').length
     if (failed > 0) {
       toast.error(
-        `Failed to update ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+        intl.formatMessage(
+          {
+            id: 'task.bulkUpdateFailure',
+            defaultMessage: 'Failed to update {failed} of {total} tasks',
+          },
+          { failed, total: ids.length }
+        )
       )
       onRetry()
     } else {
@@ -162,7 +168,16 @@ export function MyTasksPage({
             : t
         )
       )
-      toast.success(`Updated ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+      toast.success(
+        intl.formatMessage(
+          {
+            id: 'task.bulkUpdateSuccess',
+            defaultMessage:
+              'Updated {count, plural, one {# task} other {# tasks}}',
+          },
+          { count: ids.length }
+        )
+      )
     }
     setSelected(new Set())
   }
@@ -177,14 +192,27 @@ export function MyTasksPage({
       const failed = results.filter(r => r.status === 'rejected').length
       if (failed > 0) {
         toast.error(
-          `Failed to delete ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+          intl.formatMessage(
+            {
+              id: 'task.bulkDeleteFailure',
+              defaultMessage: 'Failed to delete {failed} of {total} tasks',
+            },
+            { failed, total: ids.length }
+          )
         )
         onRetry()
       } else {
         const idSet = new Set(ids)
         setTasks(prev => prev.filter(t => !idSet.has(t.id)))
         toast.success(
-          `Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`
+          intl.formatMessage(
+            {
+              id: 'task.bulkDeleteSuccess',
+              defaultMessage:
+                'Deleted {count, plural, one {# task} other {# tasks}}',
+            },
+            { count: ids.length }
+          )
         )
       }
       setSelected(new Set())
@@ -203,7 +231,10 @@ export function MyTasksPage({
         </h1>
         <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />
-          Create Task
+          {intl.formatMessage({
+            id: 'task.create',
+            defaultMessage: 'Create Task',
+          })}
         </Button>
       </header>
 
@@ -223,7 +254,10 @@ export function MyTasksPage({
         {selected.size > 0 && (
           <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
             <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
-              {selected.size} selected
+              {intl.formatMessage(
+                { id: 'common.selected', defaultMessage: '{count} selected' },
+                { count: selected.size }
+              )}
             </span>
             <div className='flex items-center gap-2'>
               <BulkStatusPicker onPick={status => runBulkUpdate({ status })} />
@@ -241,14 +275,20 @@ export function MyTasksPage({
                 onClick={() => setConfirmDeleteOpen(true)}
               >
                 <Trash2 size={14} />
-                Delete
+                {intl.formatMessage({
+                  id: 'common.delete',
+                  defaultMessage: 'Delete',
+                })}
               </Button>
               <Button
                 variant='ghost'
                 size='sm'
                 onClick={() => setSelected(new Set())}
               >
-                Cancel
+                {intl.formatMessage({
+                  id: 'common.cancel',
+                  defaultMessage: 'Cancel',
+                })}
               </Button>
             </div>
           </div>
@@ -269,15 +309,26 @@ export function MyTasksPage({
                 <EmptyMedia variant='icon'>
                   <CheckSquare />
                 </EmptyMedia>
-                <EmptyTitle>No tasks yet</EmptyTitle>
+                <EmptyTitle>
+                  {intl.formatMessage({
+                    id: 'task.empty.title',
+                    defaultMessage: 'No tasks yet',
+                  })}
+                </EmptyTitle>
                 <EmptyDescription>
-                  Tasks assigned to you will appear here.
+                  {intl.formatMessage({
+                    id: 'task.empty.description',
+                    defaultMessage: 'Tasks assigned to you will appear here.',
+                  })}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button onClick={() => onNewTask()}>
                   <Plus size={16} />
-                  Create Task
+                  {intl.formatMessage({
+                    id: 'task.create',
+                    defaultMessage: 'Create Task',
+                  })}
                 </Button>
               </EmptyContent>
             </Empty>
@@ -326,20 +377,44 @@ export function MyTasksPage({
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete tasks?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({
+                id: 'task.bulkDeleteConfirmTitle',
+                defaultMessage: 'Delete tasks?',
+              })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selected.size} task
-              {selected.size === 1 ? '' : 's'}. This action cannot be undone.
+              {intl.formatMessage(
+                {
+                  id: 'task.bulkDeleteConfirmDesc',
+                  defaultMessage:
+                    'This will permanently delete {count, plural, one {# task} other {# tasks}}. This action cannot be undone.',
+                },
+                { count: selected.size }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {intl.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              })}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={runBulkDelete}
               disabled={deleting}
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting
+                ? intl.formatMessage({
+                    id: 'common.deleting',
+                    defaultMessage: 'Deleting…',
+                  })
+                : intl.formatMessage({
+                    id: 'common.delete',
+                    defaultMessage: 'Delete',
+                  })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -458,40 +533,58 @@ function TaskListTable({
             <Checkbox
               checked={headerCheckboxState}
               onCheckedChange={toggleAll}
-              aria-label='Select all tasks'
+              aria-label={intl.formatMessage({
+                id: 'task.selectAll',
+                defaultMessage: 'Select all tasks',
+              })}
             />
           </th>
           <SortableHeader
             col='title'
-            label='Title'
+            label={intl.formatMessage({
+              id: 'task.title',
+              defaultMessage: 'Title',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 min-w-[300px]'
           />
           <SortableHeader
             col='project'
-            label='Project'
+            label={intl.formatMessage({
+              id: 'task.project',
+              defaultMessage: 'Project',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-40'
           />
           <SortableHeader
             col='status'
-            label='Status'
+            label={intl.formatMessage({
+              id: 'task.status',
+              defaultMessage: 'Status',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-32'
           />
           <SortableHeader
             col='priority'
-            label='Priority'
+            label={intl.formatMessage({
+              id: 'task.priority',
+              defaultMessage: 'Priority',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-24'
           />
           <SortableHeader
             col='assignee'
-            label='Assignee'
+            label={intl.formatMessage({
+              id: 'task.assignee',
+              defaultMessage: 'Assignee',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-24'
@@ -508,7 +601,10 @@ function TaskListTable({
           />
           <SortableHeader
             col='updatedAt'
-            label='Updated'
+            label={intl.formatMessage({
+              id: 'common.updated',
+              defaultMessage: 'Updated',
+            })}
             sort={sort}
             onToggle={toggle}
             className='text-right py-2 px-8 pr-8'
@@ -529,7 +625,10 @@ function TaskListTable({
               <Checkbox
                 checked={selected.has(task.id)}
                 onCheckedChange={() => toggleOne(task.id)}
-                aria-label={`Select task ${task.title}`}
+                aria-label={intl.formatMessage(
+                  { id: 'task.selectOne', defaultMessage: 'Select {title}' },
+                  { title: task.title }
+                )}
               />
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
@@ -590,13 +689,14 @@ function TaskListTable({
 // ─── Bulk pickers ──────────────────────────────────────────────────────────────
 
 function BulkStatusPicker({ onPick }: { onPick: (s: ApiStatus) => void }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Status
+          {intl.formatMessage({ id: 'task.status', defaultMessage: 'Status' })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-48 p-0' align='end'>
@@ -623,13 +723,17 @@ function BulkStatusPicker({ onPick }: { onPick: (s: ApiStatus) => void }) {
 }
 
 function BulkPriorityPicker({ onPick }: { onPick: (p: ApiPriority) => void }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Priority
+          {intl.formatMessage({
+            id: 'task.priority',
+            defaultMessage: 'Priority',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-48 p-0' align='end'>
@@ -667,6 +771,7 @@ function BulkAssigneePicker({
   members: WorkspaceMemberInfo[]
   onPick: (actorId: string | null) => void
 }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   const assignableMembers = members.filter(m => m.actorId)
   return (
@@ -674,12 +779,20 @@ function BulkAssigneePicker({
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Assignee
+          {intl.formatMessage({
+            id: 'task.assignee',
+            defaultMessage: 'Assignee',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-56 p-0' align='end'>
         <Command>
-          <CommandInput placeholder='Search members…' />
+          <CommandInput
+            placeholder={intl.formatMessage({
+              id: 'member.searchPlaceholder',
+              defaultMessage: 'Search members…',
+            })}
+          />
           <CommandList>
             <CommandItem
               onSelect={() => {
@@ -688,7 +801,10 @@ function BulkAssigneePicker({
               }}
               className='gap-2 text-zinc-400'
             >
-              Unassigned
+              {intl.formatMessage({
+                id: 'task.unassigned',
+                defaultMessage: 'Unassigned',
+              })}
             </CommandItem>
             {assignableMembers.map(m => (
               <CommandItem

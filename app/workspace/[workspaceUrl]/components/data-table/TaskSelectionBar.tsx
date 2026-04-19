@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import { Trash2, ChevronDown } from 'lucide-react'
 import { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
@@ -36,13 +37,14 @@ export function BulkStatusPicker({
 }: {
   onPick: (s: ApiStatus) => void
 }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Status
+          {intl.formatMessage({ id: 'task.status', defaultMessage: 'Status' })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-48 p-0' align='end'>
@@ -73,13 +75,17 @@ export function BulkPriorityPicker({
 }: {
   onPick: (p: ApiPriority) => void
 }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Priority
+          {intl.formatMessage({
+            id: 'task.priority',
+            defaultMessage: 'Priority',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-48 p-0' align='end'>
@@ -117,6 +123,7 @@ export function BulkAssigneePicker({
   members: WorkspaceMemberInfo[]
   onPick: (actorId: string | null) => void
 }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   const assignableMembers = members.filter(m => m.actorId)
   return (
@@ -124,12 +131,20 @@ export function BulkAssigneePicker({
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
           <ChevronDown size={14} />
-          Assignee
+          {intl.formatMessage({
+            id: 'task.assignee',
+            defaultMessage: 'Assignee',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-56 p-0' align='end'>
         <Command>
-          <CommandInput placeholder='Search members…' />
+          <CommandInput
+            placeholder={intl.formatMessage({
+              id: 'member.searchPlaceholder',
+              defaultMessage: 'Search members…',
+            })}
+          />
           <CommandList>
             <CommandItem
               onSelect={() => {
@@ -138,7 +153,10 @@ export function BulkAssigneePicker({
               }}
               className='gap-2 text-zinc-400'
             >
-              Unassigned
+              {intl.formatMessage({
+                id: 'task.unassigned',
+                defaultMessage: 'Unassigned',
+              })}
             </CommandItem>
             {assignableMembers.map(m => (
               <CommandItem
@@ -180,6 +198,7 @@ export function TaskSelectionBar({
   onDelete,
   onCancel,
 }: TaskSelectionBarProps) {
+  const intl = useIntl()
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -199,7 +218,10 @@ export function TaskSelectionBar({
     <>
       <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
         <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
-          {selectedCount} selected
+          {intl.formatMessage(
+            { id: 'common.selected', defaultMessage: '{count} selected' },
+            { count: selectedCount }
+          )}
         </span>
         <div className='flex items-center gap-2'>
           <BulkStatusPicker onPick={onStatusPick} />
@@ -212,10 +234,16 @@ export function TaskSelectionBar({
             onClick={() => setConfirmDeleteOpen(true)}
           >
             <Trash2 size={14} />
-            Delete
+            {intl.formatMessage({
+              id: 'common.delete',
+              defaultMessage: 'Delete',
+            })}
           </Button>
           <Button variant='ghost' size='sm' onClick={onCancel}>
-            Cancel
+            {intl.formatMessage({
+              id: 'common.cancel',
+              defaultMessage: 'Cancel',
+            })}
           </Button>
         </div>
       </div>
@@ -223,20 +251,44 @@ export function TaskSelectionBar({
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete tasks?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({
+                id: 'task.bulkDeleteConfirmTitle',
+                defaultMessage: 'Delete tasks?',
+              })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedCount} task
-              {selectedCount === 1 ? '' : 's'}. This action cannot be undone.
+              {intl.formatMessage(
+                {
+                  id: 'task.bulkDeleteConfirmDesc',
+                  defaultMessage:
+                    'This will permanently delete {count, plural, one {# task} other {# tasks}}. This action cannot be undone.',
+                },
+                { count: selectedCount }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {intl.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              })}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={deleting}
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting
+                ? intl.formatMessage({
+                    id: 'common.deleting',
+                    defaultMessage: 'Deleting…',
+                  })
+                : intl.formatMessage({
+                    id: 'common.delete',
+                    defaultMessage: 'Delete',
+                  })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

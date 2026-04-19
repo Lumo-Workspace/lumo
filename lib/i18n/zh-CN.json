@@ -294,6 +294,8 @@
   "summary.noReport": "尚未生成报告，点击「刷新报告」即可生成。",
 
   "common.delete": "删除",
+  "common.selected": "已选 {count} 项",
+  "common.updated": "更新时间",
   "common.edit": "编辑",
   "common.remove": "移除",
   "common.add": "添加",
@@ -370,6 +372,8 @@
   "sentry.loadFailed": "加载 Sentry 状态失败",
   "sentry.disconnectSuccess": "Sentry 已断开",
   "sentry.disconnectFailed": "Sentry 断开失败",
+
+  "member.searchPlaceholder": "搜索成员…",
 
   "members.title": "成员",
   "members.active": "活跃",
@@ -468,6 +472,13 @@
   "apiKeys.empty": "暂无 API 密钥",
   "apiKeys.lastUsed": "最后使用于 {date}",
 
+  "task.bulkDeleteConfirmDesc": "此操作将永久删除 {count} 个任务，且无法撤销。",
+  "task.bulkDeleteConfirmTitle": "删除任务？",
+  "task.bulkDeleteFailure": "{failed}/{total} 个任务删除失败",
+  "task.bulkDeleteSuccess": "已删除 {count} 个任务",
+  "task.bulkUpdateFailure": "{failed}/{total} 个任务更新失败",
+  "task.bulkUpdateSuccess": "已更新 {count} 个任务",
+  "task.create": "新建任务",
   "task.createFailed": "创建任务失败",
   "task.createSuccess": "任务已创建",
   "task.projectCreateFailed": "创建项目失败",
@@ -532,6 +543,11 @@
   "project.noTasksDesc": "此项目还没有任务，创建第一个任务开始吧。",
   "project.createTask": "创建任务",
 
+  "task.empty.description": "分配给您的任务将显示在这里。",
+  "task.empty.title": "暂无任务",
+  "task.project": "项目",
+  "task.selectAll": "全选任务",
+  "task.selectOne": "选择 {title}",
   "task.spec": "规格",
   "task.agentReadsThis": "Agent 会读取此内容",
   "task.specPlaceholder": "+ 为 Agent 添加规格…",
@@ -545,6 +561,8 @@
   "task.noRepository": "无仓库",
   "task.repoDefault": "{name}（默认）",
   "task.tags": "标签",
+  "task.title": "标题",
+  "task.unassigned": "未分配",
   "task.branch": "分支",
   "task.openOnGitHub": "在 GitHub 上打开",
   "task.createBranch": "创建分支",
