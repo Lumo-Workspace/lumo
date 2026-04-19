@@ -112,6 +112,17 @@ export const API = {
     mappingById: (workspaceUrl: string, id: string) =>
       `/api/sentry/mappings/${id}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
+  sprints: {
+    listByTeam: (teamId: string) => `/api/teams/${teamId}/sprints`,
+    byId: (sprintId: string) => `/api/sprints/${sprintId}`,
+    start: (sprintId: string) => `/api/sprints/${sprintId}/start`,
+    close: (sprintId: string) => `/api/sprints/${sprintId}/close`,
+    tasks: (sprintId: string) => `/api/sprints/${sprintId}/tasks`,
+    taskById: (sprintId: string, taskId: string) =>
+      `/api/sprints/${sprintId}/tasks/${taskId}`,
+    summary: (sprintId: string) => `/api/sprints/${sprintId}/summary`,
+    cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
