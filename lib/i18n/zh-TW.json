@@ -18,6 +18,7 @@
   "drafts.untitled": "無標題草稿",
   "sidebar.drafts": "草稿箱",
   "sidebar.myTasks": "我的任務",
+  "myTasks.currentSprintOnly": "僅目前衝刺",
   "sidebar.inbox": "收件匣",
   "sidebar.workspace": "工作區",
   "sidebar.projects": "專案",
@@ -748,8 +749,11 @@
   "notification.verb.agentVerify": "完成了任務：",
   "notification.verb.agentFailed": "在任務上失敗：",
   "notification.verb.agentDone": "完成了任務：",
+  "notification.verb.sprintStarted": "啟動了迭代",
+  "notification.verb.sprintClosed": "關閉了迭代",
   "notification.defaultActor": "Lumo AI",
   "notification.unspecifiedTask": "一個任務",
+  "notification.unspecifiedSprint": "一個迭代",
   "notification.action.done": "完成",
   "notification.action.sendBack": "退回",
   "notification.menu.markRead": "標為已讀",
@@ -781,5 +785,11 @@
   "drafts.deleteConfirmTitle": "刪除草稿？",
   "drafts.deleteConfirmDesc": "此草稿將被永久刪除，且無法復原。",
   "drafts.deleteAction": "刪除草稿",
-  "documents.editorPlaceholder": "輸入 / 叫用命令…"
+  "documents.editorPlaceholder": "輸入 / 叫用命令…",
+  "sprints.retro.title": "復盤",
+  "sprints.retro.loading": "載入復盤中…",
+  "sprints.retro.generating": "復盤正在生成中…",
+  "sprints.retro.retrying": "重試中…",
+  "sprints.retro.retry": "重新生成",
+  "sprints.retro.generatedAt": "生成於 {date}"
 }

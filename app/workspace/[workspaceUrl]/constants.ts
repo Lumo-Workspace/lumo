@@ -121,6 +121,8 @@ export const API = {
     taskById: (sprintId: string, taskId: string) =>
       `/api/sprints/${sprintId}/tasks/${taskId}`,
     summary: (sprintId: string) => `/api/sprints/${sprintId}/summary`,
+    summaryRetry: (sprintId: string) =>
+      `/api/sprints/${sprintId}/summary/retry`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   teams: {

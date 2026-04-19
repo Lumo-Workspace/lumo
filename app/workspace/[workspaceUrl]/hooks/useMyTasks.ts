@@ -9,7 +9,10 @@ import { tasksClient } from '@/lib/api-client'
 type NewFormat = { taskIds: string[]; myTasksViewId: string | null }
 type LegacyFull = { tasks: MyTask[]; myTasksViewId: string | null }
 
-export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
+export function useMyTasks(
+  upsertTasks: (tasks: ApiTask[]) => void,
+  opts: { sprintIds?: string[] } = {}
+) {
   const [taskIds, setTaskIds] = useState<string[]>([])
   const [myTasksViewId, setMyTasksViewId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,14 +46,18 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Stable key so useCallback doesn't get a new array reference each render
+  const sprintIdsKey = opts.sprintIds?.join(',') ?? ''
+
   const fetchMyTasks = useCallback(async () => {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
+      const sprintIds = sprintIdsKey ? sprintIdsKey.split(',') : undefined
       const data = await tasksClient.listMine<{
         tasks: MyTask[]
         myTasksViewId: string
-      }>()
+      }>(sprintIds ? { sprintIds } : {})
       upsertTasks(data.tasks)
       const ids = data.tasks.map(t => t.id)
       setTaskIds(ids)
@@ -65,7 +72,7 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     } finally {
       setLoading(false)
     }
-  }, [upsertTasks])
+  }, [upsertTasks, sprintIdsKey])
 
   return { taskIds, setTaskIds, myTasksViewId, loading, error, fetchMyTasks }
 }

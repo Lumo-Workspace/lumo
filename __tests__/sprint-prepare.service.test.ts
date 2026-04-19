@@ -18,13 +18,9 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
     listByTeam: (...a: any[]) => mockListByTeam(...a),
   },
 }))
-jest.mock('@/lib/services/sprint.service', () => {
-  const actual = jest.requireActual('@/lib/services/sprint.service')
-  return {
-    ...actual,
-    sprintService: { createDraft: (...a: any[]) => mockCreateDraft(...a) },
-  }
-})
+jest.mock('@/lib/services/sprint.service', () => ({
+  sprintService: { createDraft: (...a: any[]) => mockCreateDraft(...a) },
+}))
 
 beforeEach(() => jest.clearAllMocks())
 

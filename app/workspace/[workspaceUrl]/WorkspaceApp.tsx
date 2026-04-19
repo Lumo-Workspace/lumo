@@ -29,6 +29,7 @@ import { clearCache } from './cache'
 // Hooks
 import { useTaskStore } from './hooks/useTaskStore'
 import { useMyTasks } from './hooks/useMyTasks'
+import { useMyActiveSprints } from './hooks/useMyActiveSprints'
 import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
@@ -127,6 +128,11 @@ export default function DashboardApp() {
   // ─── Slack ─────────────────────────────────────────────────────────────────
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
+  // ─── My Tasks sprint filter ────────────────────────────────────────────────
+  const [currentSprintOnly, setCurrentSprintOnly] = useState(false)
+  const { sprintIds: activeSprintIds } = useMyActiveSprints()
+  const myTasksSprintFilter = currentSprintOnly ? activeSprintIds : undefined
+
   // ─── Normalized task store ─────────────────────────────────────────────────
   const {
     taskMap,
@@ -145,7 +151,10 @@ export default function DashboardApp() {
     loading: myTasksLoading,
     error: myTasksError,
     fetchMyTasks,
-  } = useMyTasks(upsertTasks)
+  } = useMyTasks(
+    upsertTasks,
+    myTasksSprintFilter ? { sprintIds: myTasksSprintFilter } : {}
+  )
 
   const {
     projects,
@@ -530,6 +539,8 @@ export default function DashboardApp() {
             onNewTask={openNewTaskModalForMe}
             members={members}
             projects={projects}
+            currentSprintOnly={currentSprintOnly}
+            onCurrentSprintOnlyChange={setCurrentSprintOnly}
           />
         )
 

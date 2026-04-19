@@ -65,7 +65,8 @@ export function NotificationItem({
   onRespond,
 }: NotificationItemProps) {
   const intlLocal = useIntl()
-  const { actor, task, type, commentPreview, createdAt, read } = notification
+  const { actor, task, sprint, type, commentPreview, createdAt, read } =
+    notification
 
   // Track which review action was taken this session so buttons stay visible
   // after clicking instead of disappearing when read flips to true.
@@ -118,6 +119,14 @@ export function NotificationItem({
     AGENT_DONE: intlLocal.formatMessage({
       id: 'notification.verb.agentDone',
       defaultMessage: 'finished work on',
+    }),
+    SPRINT_STARTED: intlLocal.formatMessage({
+      id: 'notification.verb.sprintStarted',
+      defaultMessage: 'started sprint',
+    }),
+    SPRINT_CLOSED: intlLocal.formatMessage({
+      id: 'notification.verb.sprintClosed',
+      defaultMessage: 'closed sprint',
     }),
   }
   const verb =
@@ -188,16 +197,28 @@ export function NotificationItem({
                   })}
               </span>{' '}
               {verb}{' '}
-              <span className='font-medium'>
-                {task
-                  ? `${task.teamIdentifier}-${task.number}`
-                  : intlLocal.formatMessage({
-                      id: 'notification.unspecifiedTask',
-                      defaultMessage: 'a task',
+              {type === 'SPRINT_STARTED' || type === 'SPRINT_CLOSED' ? (
+                <span className='font-medium'>
+                  {sprint?.name ??
+                    intlLocal.formatMessage({
+                      id: 'notification.unspecifiedSprint',
+                      defaultMessage: 'a sprint',
                     })}
-              </span>
-              {task && (
-                <span className='text-muted-foreground'>{` ${task.title}`}</span>
+                </span>
+              ) : (
+                <>
+                  <span className='font-medium'>
+                    {task
+                      ? `${task.teamIdentifier}-${task.number}`
+                      : intlLocal.formatMessage({
+                          id: 'notification.unspecifiedTask',
+                          defaultMessage: 'a task',
+                        })}
+                  </span>
+                  {task && (
+                    <span className='text-muted-foreground'>{` ${task.title}`}</span>
+                  )}
+                </>
               )}
             </p>
 

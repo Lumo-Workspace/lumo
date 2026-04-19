@@ -315,9 +315,15 @@ export const taskRepository = {
   },
 
   /** Find all tasks assigned to an actor, with project/team/parent/children details. */
-  async findAssignedTasks(actorId: string) {
+  async findAssignedTasks(
+    actorId: string,
+    opts: { sprintIds?: string[] } = {}
+  ) {
     return prisma.task.findMany({
-      where: { assigneeActorId: actorId },
+      where: {
+        assigneeActorId: actorId,
+        ...(opts.sprintIds?.length ? { sprintId: { in: opts.sprintIds } } : {}),
+      },
       include: {
         project: {
           select: {

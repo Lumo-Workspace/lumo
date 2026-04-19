@@ -18,6 +18,7 @@
   "drafts.untitled": "Untitled draft",
   "sidebar.drafts": "Drafts",
   "sidebar.myTasks": "My Tasks",
+  "myTasks.currentSprintOnly": "Current sprint only",
   "sidebar.inbox": "Inbox",
   "sidebar.workspace": "Workspace",
   "sidebar.projects": "Projects",
@@ -691,8 +692,11 @@
   "notification.verb.agentVerify": "completed work on",
   "notification.verb.agentFailed": "failed on",
   "notification.verb.agentDone": "finished work on",
+  "notification.verb.sprintStarted": "started sprint",
+  "notification.verb.sprintClosed": "closed sprint",
   "notification.defaultActor": "Lumo AI",
   "notification.unspecifiedTask": "a task",
+  "notification.unspecifiedSprint": "a sprint",
   "notification.action.done": "Done",
   "notification.action.sendBack": "Send back",
   "notification.menu.markRead": "Mark as read",
@@ -781,5 +785,11 @@
   "sprints.settings.save": "Save",
   "sprints.settings.loading": "Loading teams…",
   "sprints.taskField.label": "Sprint",
-  "sprints.taskField.noSprint": "No sprint (backlog)"
+  "sprints.taskField.noSprint": "No sprint (backlog)",
+  "sprints.retro.title": "Retro",
+  "sprints.retro.loading": "Loading retro…",
+  "sprints.retro.generating": "Retro is being generated…",
+  "sprints.retro.retrying": "Retrying…",
+  "sprints.retro.retry": "Retry generation",
+  "sprints.retro.generatedAt": "Generated {date}"
 }

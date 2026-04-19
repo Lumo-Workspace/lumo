@@ -161,6 +161,11 @@ export const notificationService = {
           .map(n => n.clarifyId) as string[]
       ),
     ]
+    const sprintIds = [
+      ...new Set(
+        rawNotifications.map(n => n.sprintId).filter(Boolean) as string[]
+      ),
+    ]
 
     // Batch-fetch Clerk profiles for HUMAN trigger actors
     const { clerkClient } = await import('@clerk/nextjs/server')
@@ -185,12 +190,18 @@ export const notificationService = {
       ])
     )
 
-    // Batch-fetch tasks, comments, clarifies
-    const { taskMap, commentMap, clarifyMap } =
-      await this.batchFetchRelatedData(taskIds, commentIds, clarifyIds)
+    // Batch-fetch tasks, comments, clarifies, sprints
+    const { taskMap, commentMap, clarifyMap, sprintMap } =
+      await this.batchFetchRelatedData(
+        taskIds,
+        commentIds,
+        clarifyIds,
+        sprintIds
+      )
 
     return rawNotifications.map(n => {
       const task = n.taskId ? taskMap.get(n.taskId) : null
+      const sprint = n.sprintId ? sprintMap.get(n.sprintId) : null
       // Resolve actor display info from the trigger relation
       let actor: { name: string; imageUrl: string | null } | null = null
       if (n.trigger) {
@@ -214,6 +225,7 @@ export const notificationService = {
         taskId: n.taskId,
         commentId: n.commentId,
         clarifyId: n.clarifyId,
+        sprintId: n.sprintId,
         triggerActorId: n.triggerActorId,
         actor,
         task: task
@@ -222,6 +234,14 @@ export const notificationService = {
               title: task.title,
               number: task.number,
               teamIdentifier: task.team.identifier,
+            }
+          : null,
+        sprint: sprint
+          ? {
+              id: sprint.id,
+              name: sprint.name,
+              number: sprint.number,
+              teamId: sprint.teamId,
             }
           : null,
         commentPreview: n.commentId
@@ -239,14 +259,15 @@ export const notificationService = {
 
   /**
    * Batch-fetch related data for notification enrichment.
-   * Returns maps for tasks, comments, and clarifies keyed by ID.
+   * Returns maps for tasks, comments, clarifies, and sprints keyed by ID.
    */
   async batchFetchRelatedData(
     taskIds: string[],
     commentIds: string[],
-    clarifyIds: string[]
+    clarifyIds: string[],
+    sprintIds: string[] = []
   ) {
-    const [tasks, comments, clarifies] = await Promise.all([
+    const [tasks, comments, clarifies, sprints] = await Promise.all([
       taskIds.length > 0
         ? notificationRepository.batchFetchTasksByIds(taskIds)
         : [],
@@ -256,12 +277,16 @@ export const notificationService = {
       clarifyIds.length > 0
         ? notificationRepository.batchFetchClarifyByIds(clarifyIds)
         : [],
+      sprintIds.length > 0
+        ? notificationRepository.batchFetchSprintsByIds(sprintIds)
+        : [],
     ])
 
     return {
       taskMap: new Map(tasks.map(t => [t.id, t])),
       commentMap: new Map(comments.map(c => [c.id, c.body])),
       clarifyMap: new Map(clarifies.map(c => [c.id, c])),
+      sprintMap: new Map(sprints.map(s => [s.id, s])),
     }
   },
 }

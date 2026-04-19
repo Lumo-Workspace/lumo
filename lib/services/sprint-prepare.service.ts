@@ -1,10 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
-import {
-  sprintService,
-  addDays,
-  nextUtcMondayMidnight,
-} from '@/lib/services/sprint.service'
+import { sprintService } from '@/lib/services/sprint.service'
+import { addDays, nextUtcMondayMidnight } from '@/lib/services/sprint-date'
 
 const SYSTEM_ACTOR = { memberId: null } as const
 

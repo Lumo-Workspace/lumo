@@ -1,6 +1,15 @@
 import { prisma } from '@/lib/db/prisma'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
+import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
+import {
+  nextUtcMondayMidnight as _nextUtcMondayMidnight,
+  addDays as _addDays,
+} from '@/lib/services/sprint-date'
+
+// Re-export for backward compatibility
+export { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint-date'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -38,8 +47,8 @@ export const sprintService = {
           'team has no cadence; startDate and endDate are required'
         )
       }
-      if (!startDate) startDate = nextUtcMondayMidnight(new Date())
-      if (!endDate) endDate = addDays(startDate, team.sprintCadenceDays)
+      if (!startDate) startDate = _nextUtcMondayMidnight(new Date())
+      if (!endDate) endDate = _addDays(startDate, team.sprintCadenceDays)
     }
 
     const number = await sprintRepository.nextNumberForTeam(teamId)
@@ -48,11 +57,11 @@ export const sprintService = {
     return sprintRepository.create({ teamId, number, name, startDate, endDate })
   },
 
-  async start(sprintId: string, _actor: ActorRef) {
+  async start(sprintId: string, actor: ActorRef & { id?: string }) {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    return prisma.$transaction(async tx => {
+    const started = await prisma.$transaction(async tx => {
       const locked = await sprintRepository.lockForUpdate(tx, sprintId)
       if (!locked) httpError(404, 'sprint not found')
       if (locked.status !== 'DRAFT')
@@ -74,6 +83,16 @@ export const sprintService = {
         throw err
       }
     })
+
+    dispatchSprintNotification(
+      sprintId,
+      sprint.teamId,
+      sprint.team.workspaceId,
+      'SPRINT_STARTED',
+      actor.id ?? null
+    ).catch(err => void err)
+
+    return started
   },
 
   async close(
@@ -84,7 +103,7 @@ export const sprintService = {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    return prisma.$transaction(async tx => {
+    const closed = await prisma.$transaction(async tx => {
       const locked = await sprintRepository.lockForUpdate(tx, sprintId)
       if (!locked) httpError(404, 'sprint not found')
       if (locked.status !== 'ACTIVE')
@@ -128,7 +147,7 @@ export const sprintService = {
           const cadence = teamRow?.sprintCadenceDays ?? 14
           const startDate =
             sprint.endDate > new Date() ? sprint.endDate : new Date()
-          const endDate = addDays(startDate, cadence)
+          const endDate = _addDays(startDate, cadence)
           const created = await sprintRepository.create({
             teamId: sprint.teamId,
             number: nextNumber,
@@ -191,6 +210,23 @@ export const sprintService = {
 
       return closed
     })
+
+    // Fire-and-forget: kick off retro generation without blocking the HTTP response.
+    // The GenerationJob created above (status: 'pending') will be updated to
+    // 'completed' or 'failed' by sprintSummaryService.generate's own try/catch.
+    sprintSummaryService.generate(sprintId).catch(err => {
+      void err
+    })
+
+    dispatchSprintNotification(
+      sprintId,
+      sprint.teamId,
+      sprint.team.workspaceId,
+      'SPRINT_CLOSED',
+      actor.id ?? null
+    ).catch(err => void err)
+
+    return closed
   },
 
   async addTaskToSprint(
@@ -304,22 +340,4 @@ export const sprintService = {
       },
     })
   },
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-export function nextUtcMondayMidnight(from: Date): Date {
-  const d = new Date(
-    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate())
-  )
-  const day = d.getUTCDay() // 0 Sun … 6 Sat
-  const delta = (8 - day) % 7 || 7
-  d.setUTCDate(d.getUTCDate() + delta)
-  return d
-}
-
-export function addDays(d: Date, days: number): Date {
-  const r = new Date(d)
-  r.setUTCDate(r.getUTCDate() + days)
-  return r
 }

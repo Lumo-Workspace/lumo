@@ -2,8 +2,11 @@ import { apiFetch, ApiClientError } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 
 export const tasksClient = {
-  listMine<T>() {
-    return apiFetch<T>(API.tasks.me)
+  listMine<T>(opts: { sprintIds?: string[] } = {}) {
+    const q = new URLSearchParams()
+    if (opts.sprintIds?.length) q.set('sprintIds', opts.sprintIds.join(','))
+    const path = q.toString() ? `${API.tasks.me}?${q}` : API.tasks.me
+    return apiFetch<T>(path)
   },
 
   /**

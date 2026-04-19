@@ -234,6 +234,8 @@ export interface ApiNotification {
     | 'AGENT_VERIFY'
     | 'AGENT_FAILED'
     | 'AGENT_DONE'
+    | 'SPRINT_STARTED'
+    | 'SPRINT_CLOSED'
   read: boolean
   requiresAction: boolean
   actionTakenAt: string | null
@@ -241,6 +243,7 @@ export interface ApiNotification {
   taskId: string | null
   commentId: string | null
   clarifyId: string | null
+  sprintId: string | null
   triggerActorId: string | null
   actor: { name: string; imageUrl: string | null } | null
   task: {
@@ -248,6 +251,12 @@ export interface ApiNotification {
     title: string
     number: number
     teamIdentifier: string
+  } | null
+  sprint: {
+    id: string
+    name: string
+    number: number
+    teamId: string
   } | null
   commentPreview: string | null
   /** Populated for AGENT_CLARIFY notifications */

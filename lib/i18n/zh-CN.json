@@ -18,6 +18,7 @@
   "drafts.untitled": "无标题草稿",
   "sidebar.drafts": "草稿箱",
   "sidebar.myTasks": "我的任务",
+  "myTasks.currentSprintOnly": "仅当前冲刺",
   "sidebar.inbox": "收件箱",
   "sidebar.workspace": "工作区",
   "sidebar.projects": "项目",
@@ -691,8 +692,11 @@
   "notification.verb.agentVerify": "完成了任务：",
   "notification.verb.agentFailed": "在任务上失败：",
   "notification.verb.agentDone": "完成了任务：",
+  "notification.verb.sprintStarted": "启动了迭代",
+  "notification.verb.sprintClosed": "关闭了迭代",
   "notification.defaultActor": "Lumo AI",
   "notification.unspecifiedTask": "一个任务",
+  "notification.unspecifiedSprint": "一个迭代",
   "notification.action.done": "完成",
   "notification.action.sendBack": "退回",
   "notification.menu.markRead": "标为已读",
@@ -781,5 +785,11 @@
   "sprints.settings.save": "保存",
   "sprints.settings.loading": "加载团队中…",
   "sprints.taskField.label": "冲刺",
-  "sprints.taskField.noSprint": "无（待办池）"
+  "sprints.taskField.noSprint": "无（待办池）",
+  "sprints.retro.title": "复盘",
+  "sprints.retro.loading": "加载复盘中…",
+  "sprints.retro.generating": "复盘正在生成中…",
+  "sprints.retro.retrying": "重试中…",
+  "sprints.retro.retry": "重新生成",
+  "sprints.retro.generatedAt": "生成于 {date}"
 }
