@@ -1,0 +1,28 @@
+'use client'
+
+import { useWorkspaceTeams } from '../../hooks/useWorkspaceTeams'
+import { CadencePanel } from '../../sprints/components/CadencePanel'
+import { useIntl } from 'react-intl'
+
+export function SettingsSprintsClient() {
+  const intl = useIntl()
+  const { teams, isLoading, error, refetch } = useWorkspaceTeams()
+
+  if (isLoading)
+    return <p>{intl.formatMessage({ id: 'sprints.settings.loading' })}</p>
+  if (error) return <p className='text-destructive'>{error.message}</p>
+
+  return (
+    <div className='flex flex-col gap-4'>
+      <h2 className='text-xl font-semibold'>
+        {intl.formatMessage({ id: 'sprints.settings.title' })}
+      </h2>
+      <p className='text-sm text-muted-foreground'>
+        {intl.formatMessage({ id: 'sprints.settings.intro' })}
+      </p>
+      {teams?.map(team => (
+        <CadencePanel key={team.id} team={team} onSaved={refetch} />
+      ))}
+    </div>
+  )
+}

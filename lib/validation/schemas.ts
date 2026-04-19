@@ -120,6 +120,7 @@ export const updateTaskSchema = z.object({
   order: z.number().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   tagIds: z.array(z.string().cuid()).max(20).optional(),
+  sprintId: z.string().nullable().optional(),
 })
 
 // ─── Batch Task Creation ───────────────────────────────────────────────────

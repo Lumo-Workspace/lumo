@@ -123,6 +123,9 @@ export const API = {
     summary: (sprintId: string) => `/api/sprints/${sprintId}/summary`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
+  teams: {
+    tasks: (teamId: string) => `/api/teams/${teamId}/tasks`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────

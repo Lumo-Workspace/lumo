@@ -13,6 +13,7 @@ import {
   FileEdit,
   BarChart3,
   Search,
+  CalendarClock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
@@ -326,6 +327,24 @@ export function AppSidebar({
                     <span>
                       {intl.formatMessage({ id: 'sidebar.projects' })}
                     </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPage === 'sprints'}
+                  tooltip={intl.formatMessage({ id: 'sidebar.sprints' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/sprints`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('sprints')
+                    }}
+                  >
+                    <CalendarClock />
+                    <span>{intl.formatMessage({ id: 'sidebar.sprints' })}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
