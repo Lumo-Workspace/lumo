@@ -14,6 +14,7 @@ export interface TaskUpdateData {
   reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
+  sprintId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
 }
@@ -489,6 +490,7 @@ export const taskRepository = {
     reviewerActorId: string | null
     parentTaskId: string | null
     repositoryId: string | null
+    sprintId?: string | null
     order: number | undefined
     dueDate: Date | string | null
     ownerMemberId: string | null
@@ -523,6 +525,7 @@ export const taskRepository = {
           reviewerActorId: ownerActorId,
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
+          sprintId: data.sprintId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
           dueDate: data.dueDate,
         },
