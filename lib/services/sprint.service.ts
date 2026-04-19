@@ -192,6 +192,118 @@ export const sprintService = {
       return closed
     })
   },
+
+  async addTaskToSprint(
+    taskId: string,
+    sprintId: string,
+    actor: ActorRef & { id?: string }
+  ) {
+    const [task, sprint] = await Promise.all([
+      prisma.task.findUnique({
+        where: { id: taskId },
+        select: { id: true, teamId: true, sprintId: true },
+      }),
+      sprintRepository.findById(sprintId),
+    ])
+    if (!task) httpError(404, 'task not found')
+    if (!sprint) httpError(404, 'sprint not found')
+    if (task.teamId !== sprint.teamId)
+      httpError(400, 'task and sprint belong to different teams')
+    if (sprint.status === 'CLOSED') httpError(409, 'sprint is closed')
+
+    return prisma.$transaction(async tx => {
+      await sprintRepository.lockForUpdate(tx, sprintId)
+      const fromSprintId = task.sprintId
+      await taskRepository.bulkUpdateSprint([taskId], sprintId)
+      await (tx as any).taskActivity.create({
+        data: {
+          taskId,
+          actorId: actor.id ?? null,
+          type: 'SPRINT_CHANGED',
+          payload: { fromSprintId, toSprintId: sprintId, reason: 'planning' },
+        },
+      })
+      return { taskId, sprintId }
+    })
+  },
+
+  async removeTaskFromSprint(
+    taskId: string,
+    actor: ActorRef & { id?: string }
+  ) {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, sprintId: true },
+    })
+    if (!task) httpError(404, 'task not found')
+    if (!task.sprintId) return { taskId, sprintId: null }
+
+    const sprint = await sprintRepository.findById(task.sprintId)
+    if (sprint && sprint.status === 'CLOSED') {
+      httpError(409, 'cannot remove task from closed sprint')
+    }
+
+    return prisma.$transaction(async tx => {
+      if (task.sprintId) await sprintRepository.lockForUpdate(tx, task.sprintId)
+      await taskRepository.bulkUpdateSprint([taskId], null)
+      await (tx as any).taskActivity.create({
+        data: {
+          taskId,
+          actorId: actor.id ?? null,
+          type: 'SPRINT_CHANGED',
+          payload: {
+            fromSprintId: task.sprintId,
+            toSprintId: null,
+            reason: 'planning',
+          },
+        },
+      })
+      return { taskId, sprintId: null }
+    })
+  },
+
+  async moveTaskBetweenSprints(
+    taskId: string,
+    toSprintId: string,
+    actor: ActorRef & { id?: string }
+  ) {
+    return sprintService.addTaskToSprint(taskId, toSprintId, actor)
+  },
+
+  async removeDraft(sprintId: string, _actor: ActorRef) {
+    const sprint = await sprintRepository.findById(sprintId)
+    if (!sprint) httpError(404, 'sprint not found')
+    if (sprint.status !== 'DRAFT')
+      httpError(409, `cannot delete sprint in ${sprint.status} state`)
+    await sprintRepository.remove(sprintId)
+  },
+
+  async configureCadence(
+    teamId: string,
+    input: { cadenceDays: number | null; autoPrepare?: boolean },
+    _actor: ActorRef
+  ) {
+    if (input.cadenceDays !== null) {
+      if (
+        !(
+          Number.isInteger(input.cadenceDays) &&
+          input.cadenceDays > 0 &&
+          input.cadenceDays <= 90
+        )
+      ) {
+        httpError(400, 'cadenceDays must be a positive integer ≤ 90 or null')
+      }
+    }
+    return prisma.team.update({
+      where: { id: teamId },
+      data: {
+        sprintCadenceDays: input.cadenceDays,
+        ...(input.autoPrepare !== undefined
+          ? { sprintAutoPrepare: input.autoPrepare }
+          : {}),
+      },
+    })
+  },
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
