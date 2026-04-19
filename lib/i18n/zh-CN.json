@@ -735,5 +735,21 @@
   "sprints.landing.daysLeft": "剩余 {count} 天",
   "sprints.landing.overdue": "已逾期 {count} 天",
   "sprints.landing.empty": "暂无冲刺。请在团队设置中启用冲刺功能。",
-  "sprints.landing.viewRetro": "查看回顾"
+  "sprints.landing.viewRetro": "查看回顾",
+  "sprints.detail.loading": "加载中…",
+  "sprints.detail.notFound": "未找到该冲刺",
+  "sprints.detail.startSprint": "开始冲刺",
+  "sprints.detail.closeSprint": "结束冲刺",
+  "sprints.detail.deleteDraft": "删除草稿",
+  "sprints.detail.planTasks": "规划任务",
+  "sprints.detail.viewRetro": "查看回顾",
+  "sprints.detail.addTask": "添加任务",
+  "sprints.detail.progress": "进度",
+  "sprints.status.draft": "草稿",
+  "sprints.status.active": "进行中",
+  "sprints.status.closed": "已结束",
+  "sprints.status.todo": "待处理",
+  "sprints.status.inProgress": "进行中",
+  "sprints.status.inReview": "审核中",
+  "sprints.status.done": "已完成"
 }
