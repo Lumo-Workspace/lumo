@@ -18,6 +18,7 @@
   "drafts.untitled": "无标题草稿",
   "sidebar.drafts": "草稿箱",
   "sidebar.myTasks": "我的任务",
+  "myTasks.currentSprintOnly": "仅当前冲刺",
   "sidebar.inbox": "收件箱",
   "sidebar.workspace": "工作区",
   "sidebar.projects": "项目",

@@ -8,6 +8,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  CalendarClock,
 } from 'lucide-react'
 import {
   MyTask,
@@ -103,6 +104,8 @@ interface MyTasksPageProps {
   onNewTask: (status?: ApiStatus) => void
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
+  currentSprintOnly?: boolean
+  onCurrentSprintOnlyChange?: (value: boolean) => void
 }
 
 export function MyTasksPage({
@@ -117,6 +120,8 @@ export function MyTasksPage({
   onNewTask,
   members,
   projects,
+  currentSprintOnly = false,
+  onCurrentSprintOnlyChange,
 }: MyTasksPageProps) {
   const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
@@ -256,16 +261,36 @@ export function MyTasksPage({
 
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
       <div className='h-12 shrink-0 relative bg-white dark:bg-zinc-950'>
-        <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8'>
-          <DisplayOptionsMenu
-            completedFilter={options.completedFilter}
-            onCompletedFilterChange={setCompletedFilter}
-            ordering={options.ordering}
-            onOrderingChange={setOrdering}
-            showSubtasks={options.showSubtasks}
-            onShowSubtasksChange={setShowSubtasks}
-          />
-          <ViewToggle value={viewMode} onChange={setViewMode} />
+        <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>
+          {/* Left: filter chips */}
+          <div className='flex items-center gap-2'>
+            {onCurrentSprintOnlyChange && (
+              <Button
+                variant={currentSprintOnly ? 'default' : 'outline'}
+                size='sm'
+                className='gap-1.5 h-7 text-xs'
+                onClick={() => onCurrentSprintOnlyChange(!currentSprintOnly)}
+              >
+                <CalendarClock className='h-3 w-3' />
+                {intl.formatMessage({
+                  id: 'myTasks.currentSprintOnly',
+                  defaultMessage: 'Current sprint only',
+                })}
+              </Button>
+            )}
+          </div>
+          {/* Right: display options + view toggle */}
+          <div className='flex items-center gap-2'>
+            <DisplayOptionsMenu
+              completedFilter={options.completedFilter}
+              onCompletedFilterChange={setCompletedFilter}
+              ordering={options.ordering}
+              onOrderingChange={setOrdering}
+              showSubtasks={options.showSubtasks}
+              onShowSubtasksChange={setShowSubtasks}
+            />
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
         {selected.size > 0 && (
           <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
