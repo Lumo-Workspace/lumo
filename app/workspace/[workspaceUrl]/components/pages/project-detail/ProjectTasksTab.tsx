@@ -3,7 +3,12 @@
 import { useState, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { Layers, Plus } from 'lucide-react'
-import { ApiTask, ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../../types'
+import {
+  ApiTask,
+  ApiStatus,
+  ApiPriority,
+  WorkspaceMemberInfo,
+} from '../../../types'
 import { BoardView } from '../../board/BoardView'
 import { ProjectTaskCard } from '../../board/SortableTaskCard'
 import { ViewToggle } from '../../ViewToggle'
@@ -103,7 +108,13 @@ export function ProjectTasksTab({
 
   // ─── Memoised columns ───────────────────────────────────────────────────────
   const taskColumns = useMemo(
-    () => createTaskColumns(onTaskClick, onDeleteTask, members, projectOwnerActorId),
+    () =>
+      createTaskColumns(
+        onTaskClick,
+        onDeleteTask,
+        members,
+        projectOwnerActorId
+      ),
     [onTaskClick, onDeleteTask, members, projectOwnerActorId]
   )
 
@@ -133,7 +144,9 @@ export function ProjectTasksTab({
             ? {
                 ...t,
                 ...(patch.status !== undefined ? { status: patch.status } : {}),
-                ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+                ...(patch.priority !== undefined
+                  ? { priority: patch.priority }
+                  : {}),
                 ...(patch.assigneeActorId !== undefined
                   ? { assigneeActorId: patch.assigneeActorId }
                   : {}),
@@ -148,7 +161,9 @@ export function ProjectTasksTab({
 
   const runBulkDelete = async () => {
     const ids = selectedIds
-    const results = await Promise.allSettled(ids.map(id => tasksClient.delete(id)))
+    const results = await Promise.allSettled(
+      ids.map(id => tasksClient.delete(id))
+    )
     const failed = results.filter(r => r.status === 'rejected').length
     if (failed > 0) {
       toast.error(
@@ -166,16 +181,27 @@ export function ProjectTasksTab({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Toolbar */}
-      <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8 shrink-0'>
-        <DisplayOptionsMenu
-          completedFilter={displayOptions.completedFilter}
-          onCompletedFilterChange={setCompletedFilter}
-          ordering={displayOptions.ordering}
-          onOrderingChange={setOrdering}
-          showSubtasks={displayOptions.showSubtasks}
-          onShowSubtasksChange={setShowSubtasks}
+      <div className='h-12 shrink-0 relative'>
+        <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8'>
+          <DisplayOptionsMenu
+            completedFilter={displayOptions.completedFilter}
+            onCompletedFilterChange={setCompletedFilter}
+            ordering={displayOptions.ordering}
+            onOrderingChange={setOrdering}
+            showSubtasks={displayOptions.showSubtasks}
+            onShowSubtasksChange={setShowSubtasks}
+          />
+          <ViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
+        <TaskSelectionBar
+          selectedCount={selectedCount}
+          members={members}
+          onStatusPick={status => runBulkUpdate({ status })}
+          onPriorityPick={priority => runBulkUpdate({ priority })}
+          onAssigneePick={assigneeActorId => runBulkUpdate({ assigneeActorId })}
+          onDelete={runBulkDelete}
+          onCancel={() => setRowSelection({})}
         />
-        <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {/* Content */}
@@ -234,15 +260,6 @@ export function ProjectTasksTab({
                   getRowId: (task: ApiTask) => task.id,
                 },
               })}
-            />
-            <TaskSelectionBar
-              selectedCount={selectedCount}
-              members={members}
-              onStatusPick={status => runBulkUpdate({ status })}
-              onPriorityPick={priority => runBulkUpdate({ priority })}
-              onAssigneePick={assigneeActorId => runBulkUpdate({ assigneeActorId })}
-              onDelete={runBulkDelete}
-              onCancel={() => setRowSelection({})}
             />
           </div>
         ) : (
