@@ -140,6 +140,34 @@ const TASK_UPDATE_INCLUDE = {
   team: { select: { identifier: true } },
 } as const
 
+/** Shared include for list endpoints (project, sprint, team task lists).
+ * Matches the shape expected by BoardView and the Kanban board.
+ */
+const TASK_LIST_INCLUDE = {
+  team: { select: { identifier: true } },
+  assignee: {
+    select: {
+      id: true,
+      type: true,
+      member: { select: { id: true, clerkId: true } },
+      agent: { select: { id: true, name: true, avatarColor: true } },
+    },
+  },
+  parent: {
+    select: {
+      id: true,
+      title: true,
+      number: true,
+      team: { select: { identifier: true } },
+    },
+  },
+  _count: { select: { children: true } },
+  children: {
+    where: { status: 'DONE' as const },
+    select: { id: true },
+  },
+} as const
+
 export const taskRepository = {
   /** Find a task by ID with full detail relations. */
   async findById(id: string) {
@@ -429,30 +457,34 @@ export const taskRepository = {
     }
     return prisma.task.findMany({
       where,
-      include: {
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { id: true, clerkId: true } },
-            agent: { select: { id: true, name: true, avatarColor: true } },
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            title: true,
-            number: true,
-            team: { select: { identifier: true } },
-          },
-        },
-        _count: { select: { children: true } },
-        children: {
-          where: { status: 'DONE' },
-          select: { id: true },
-        },
-      },
+      include: TASK_LIST_INCLUDE,
+      orderBy: { order: 'asc' },
+    })
+  },
+
+  /** Find all tasks for a sprint (across all projects in the team).
+   * Used by GET /api/sprints/[sprintId]/tasks for the Sprint Board.
+   */
+  async findBySprint(sprintId: string) {
+    return prisma.task.findMany({
+      where: { sprintId },
+      include: TASK_LIST_INCLUDE,
+      orderBy: { order: 'asc' },
+    })
+  },
+
+  /** Find all tasks for a team (across all projects).
+   * @param sprintId - undefined: no sprint filter; null: only backlog (sprintId IS NULL); string: only that sprint
+   * Used by GET /api/teams/[teamId]/tasks for the Backlog panel.
+   */
+  async findByTeamWithDetails(teamId: string, sprintId?: string | null) {
+    const where: Prisma.TaskWhereInput = { teamId }
+    if (sprintId !== undefined) {
+      where.sprintId = sprintId === null ? null : sprintId
+    }
+    return prisma.task.findMany({
+      where,
+      include: TASK_LIST_INCLUDE,
       orderBy: { order: 'asc' },
     })
   },
