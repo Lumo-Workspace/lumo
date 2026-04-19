@@ -64,23 +64,35 @@ function ActiveSprintCard({
           <Progress value={pct} className='h-2' />
         </div>
         <div className='flex items-center justify-between'>
-          <span
-            className={
-              overdue
-                ? 'text-xs font-medium text-destructive'
-                : 'text-xs text-muted-foreground'
-            }
-          >
-            {overdue
-              ? intl.formatMessage(
-                  { id: 'sprints.landing.overdue' },
-                  { count: Math.abs(remaining) }
-                )
-              : intl.formatMessage(
+          <div className='flex items-center gap-2'>
+            {overdue && (
+              <div className='inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950'>
+                <span
+                  className='text-xs font-semibold text-destructive'
+                  aria-label={intl.formatMessage(
+                    { id: 'sprints.landing.overdue' },
+                    { count: Math.abs(remaining) }
+                  )}
+                >
+                  ⚠
+                </span>
+                <span className='text-xs font-medium text-destructive'>
+                  {intl.formatMessage(
+                    { id: 'sprints.landing.overdue' },
+                    { count: Math.abs(remaining) }
+                  )}
+                </span>
+              </div>
+            )}
+            {!overdue && (
+              <span className='text-xs text-muted-foreground'>
+                {intl.formatMessage(
                   { id: 'sprints.landing.daysLeft' },
                   { count: remaining }
                 )}
-          </span>
+              </span>
+            )}
+          </div>
           <div className='flex gap-2'>
             <Button asChild size='sm' variant='default'>
               <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
