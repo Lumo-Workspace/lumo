@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { API, CACHE_KEY } from '../constants'
 import { readCache, writeCache } from '../cache'
@@ -126,7 +127,7 @@ export function useDrafts(): UseDraftsReturn {
           { method: 'DELETE' }
         )
         return true
-      } catch {
+      } catch (err) {
         // Rollback on network error
         if (removed) {
           setDrafts(prev => {
@@ -135,6 +136,9 @@ export function useDrafts(): UseDraftsReturn {
             return next
           })
         }
+        const message =
+          err instanceof Error ? err.message : 'Failed to delete draft'
+        toast.error(message)
         return false
       }
     },

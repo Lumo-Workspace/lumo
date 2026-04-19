@@ -680,5 +680,8 @@
   "projects.column.todo": "करना है",
   "projects.column.inProgress": "प्रगति में",
   "projects.column.inReview": "समीक्षा में",
-  "projects.column.done": "पूर्ण"
+  "projects.column.done": "पूर्ण",
+  "drafts.deleteConfirmTitle": "ड्राफ़्ट हटाएँ?",
+  "drafts.deleteConfirmDesc": "यह ड्राफ़्ट स्थायी रूप से हटा दिया जाएगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+  "drafts.deleteAction": "ड्राफ़्ट हटाएँ"
 }

@@ -680,5 +680,8 @@
   "projects.column.todo": "К выполнению",
   "projects.column.inProgress": "В работе",
   "projects.column.inReview": "На проверке",
-  "projects.column.done": "Выполнено"
+  "projects.column.done": "Выполнено",
+  "drafts.deleteConfirmTitle": "Удалить черновик?",
+  "drafts.deleteConfirmDesc": "Этот черновик будет удалён без возможности восстановления.",
+  "drafts.deleteAction": "Удалить черновик"
 }

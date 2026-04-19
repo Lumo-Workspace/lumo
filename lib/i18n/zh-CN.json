@@ -1,7 +1,6 @@
 {
   "common.cancel": "取消",
   "common.save": "保存",
-
   "drafts.delete": "删除草稿",
   "drafts.deleteConfirm": "确定删除这个草稿？",
   "drafts.discard": "清空",
@@ -17,7 +16,6 @@
   "drafts.tabTasks": "任务",
   "drafts.title": "草稿箱",
   "drafts.untitled": "无标题草稿",
-
   "sidebar.drafts": "草稿箱",
   "sidebar.myTasks": "我的任务",
   "sidebar.inbox": "收件箱",
@@ -26,7 +24,6 @@
   "sidebar.manageMembers": "管理成员",
   "sidebar.settings": "设置",
   "sidebar.signOut": "退出登录",
-
   "settings.backToApp": "返回应用",
   "settings.administration": "管理",
   "settings.personal": "个人",
@@ -55,7 +52,6 @@
   "settings.preferences": "偏好设置",
   "settings.notifications": "通知",
   "settings.apiKeys": "API 密钥",
-
   "preferences.title": "偏好设置",
   "preferences.subtitle": "自定义你的使用体验。",
   "preferences.theme": "主题",
@@ -66,7 +62,6 @@
   "preferences.timezone": "时区",
   "preferences.timezoneAuto": "自动（{detected}）",
   "preferences.timezoneAutoBrowser": "自动（浏览器）",
-
   "notifications.title": "通知",
   "notifications.subtitle": "选择你想接收的通知。",
   "notifications.inApp": "站内通知",
@@ -76,19 +71,16 @@
   "notifications.agentDone": "Agent 完成/需要审核",
   "notifications.agentInput": "Agent 等待输入",
   "notifications.mentioned": "评论中被提及",
-
   "newTask.title": "新建任务",
   "newTask.titlePlaceholder": "任务标题",
   "newTask.descriptionPlaceholder": "添加描述…",
   "newTask.cancel": "取消",
   "newTask.create": "创建任务",
   "newTask.checking": "检测中...",
-
   "priority.aiRecommended": "AI 推荐",
   "priority.preferenceRecorded": "已记录偏好",
   "priority.recommended": "推荐: {priority}",
   "priority.similarTasks": "{count} 个类似任务:",
-
   "aiDesc.generating": "正在生成描述...",
   "aiDesc.preview": "AI 生成预览",
   "aiDesc.useThis": "使用",
@@ -97,13 +89,11 @@
   "aiDesc.generate": "AI 生成描述",
   "aiDesc.generateHint": "根据标题和项目上下文生成 1–2 条执行说明",
   "aiDesc.refine": "优化",
-
   "duplicate.similarFound": "发现 {count} 个相似任务",
   "duplicate.confirmMessage": "发现 {count} 个相似任务，请确认是否重复创建",
   "duplicate.match": "相似度 {score}%",
   "duplicate.view": "查看",
   "duplicate.createAnyway": "仍然创建",
-
   "dueDate.label": "截止日期",
   "dueDate.today": "今天",
   "dueDate.tomorrow": "明天",
@@ -118,9 +108,7 @@
   "dueDate.cancel": "取消",
   "dueDate.due": "{date} 截止",
   "taskColumns.dueDate": "截止日期",
-
   "sidebar.documents": "文档",
-
   "documents.title": "所有文档",
   "documents.subtitle": "创建和分享团队文档",
   "documents.newDocument": "新建文档",
@@ -150,7 +138,6 @@
   "documents.duplicate": "复制",
   "documents.copyLink": "复制链接",
   "documents.sharedWith": "已分享给 {count} 位成员",
-
   "documentEditor.updated": "更新于",
   "documentEditor.saving": "保存中...",
   "documentEditor.saved": "已保存",
@@ -168,18 +155,15 @@
   "documentEditor.visibility": "可见性",
   "documentEditor.share": "分享",
   "documentEditor.project": "项目",
-
   "documentTree.empty": "暂无文档",
   "documentTree.newDoc": "新建文档",
   "documentTree.collapse": "收起侧边栏 (⌘+\\)",
   "documentTree.expand": "展开侧边栏 (⌘+\\)",
   "documentTree.home": "所有文档",
   "documentTree.allDocs": "Lumo 文档",
-
   "documentToc.untitledHeading": "未命名标题",
   "documentToc.collapse": "隐藏目录",
   "documentToc.expand": "显示目录",
-
   "share.title": "分享文档",
   "share.searchPlaceholder": "搜索成员...",
   "share.invite": "邀请",
@@ -213,7 +197,6 @@
   "quickDispatch.fieldDescription": "描述",
   "quickDispatch.none": "无",
   "quickDispatch.created": "任务已创建",
-
   "sidebar.dashboard": "仪表盘",
   "summary.title": "摘要",
   "summary.tldr": "TL;DR",
@@ -292,7 +275,6 @@
   "summary.refreshSuccess": "报告已刷新",
   "summary.refreshFailed": "刷新报告失败",
   "summary.noReport": "尚未生成报告，点击「刷新报告」即可生成。",
-
   "common.delete": "删除",
   "common.selected": "已选 {count} 项",
   "common.updated": "更新时间",
@@ -318,7 +300,6 @@
   "common.leaving": "离开中…",
   "common.revoking": "撤销中…",
   "common.disconnecting": "断开中…",
-
   "slack.title": "Slack",
   "slack.description": "从 Slack 发送通知和管理任务。",
   "slack.connected": "已连接",
@@ -335,7 +316,6 @@
   "slack.configRefreshed": "配置已从服务器刷新",
   "slack.channelCreated": "#{name} 已创建并选中",
   "slack.notificationsFor": "{projectName} 的 Slack 通知",
-
   "github.title": "GitHub",
   "github.description": "将仓库关联到任务并自动化工作流。",
   "github.connected": "已连接",
@@ -358,7 +338,6 @@
   "github.connectFailed": "GitHub 连接失败，请重试。",
   "github.loadFailed": "加载集成信息失败",
   "github.private": "私有",
-
   "sentry.title": "Sentry",
   "sentry.description": "自动从 Sentry 告警创建任务。",
   "sentry.connected": "已连接",
@@ -372,9 +351,7 @@
   "sentry.loadFailed": "加载 Sentry 状态失败",
   "sentry.disconnectSuccess": "Sentry 已断开",
   "sentry.disconnectFailed": "Sentry 断开失败",
-
   "member.searchPlaceholder": "搜索成员…",
-
   "members.title": "成员",
   "members.active": "活跃",
   "members.invited": "已邀请",
@@ -405,7 +382,6 @@
   "members.sendInvites": "发送邀请",
   "members.invitesSent": "已发送 {count} 封邀请",
   "members.inviteFailed": "发送邀请失败",
-
   "profile.title": "个人资料",
   "profile.subtitle": "管理你的个人信息。",
   "profile.avatar": "头像",
@@ -421,7 +397,6 @@
   "profile.saveFailed": "保存失败",
   "profile.fileTooLarge": "文件不能超过 2 MB",
   "profile.invalidType": "仅支持 JPG、PNG 和 WebP 格式",
-
   "workspaceSettings.title": "工作区",
   "workspaceSettings.logo": "Logo",
   "workspaceSettings.logoHint": "推荐尺寸 256×256px",
@@ -454,10 +429,8 @@
   "workspaceSettings.deleteFailed": "删除工作区失败",
   "workspaceSettings.deleteWorkspace": "删除工作区",
   "workspaceSettings.noPermission": "你没有权限修改工作区设置。",
-
   "integrations.title": "集成",
   "integrations.description": "连接外部服务以增强你的工作流程。",
-
   "apiKeys.title": "API 密钥",
   "apiKeys.subtitle": "使用 API 密钥认证本地 MCP 服务器（Claude Code）。密钥绑定到你的用户和工作区。",
   "apiKeys.loadFailed": "加载 API 密钥失败",
@@ -471,7 +444,6 @@
   "apiKeys.newKeyDesc": "请立即复制此密钥——它不会再次显示。",
   "apiKeys.empty": "暂无 API 密钥",
   "apiKeys.lastUsed": "最后使用于 {date}",
-
   "task.bulkDeleteConfirmDesc": "此操作将永久删除 {count} 个任务，且无法撤销。",
   "task.bulkDeleteConfirmTitle": "删除任务？",
   "task.bulkDeleteFailure": "{failed}/{total} 个任务删除失败",
@@ -496,15 +468,12 @@
   "task.copyLink": "复制链接",
   "task.linkCopied": "链接已复制",
   "task.imageUploadFailed": "图片上传失败",
-
   "branch.createBranch": "创建分支",
   "branch.searchRepos": "搜索仓库…",
-
   "subtask.removeDraft": "移除子任务草稿",
   "subtask.addAll": "全部添加",
   "subtask.edit": "编辑",
   "subtask.delete": "删除",
-
   "table.addRowAbove": "在上方添加行",
   "table.addRowBelow": "在下方添加行",
   "table.addColLeft": "在左侧添加列",
@@ -512,10 +481,9 @@
   "table.deleteRow": "删除行",
   "table.deleteCol": "删除列",
   "table.deleteTable": "删除表格",
-
   "project.deleteProject": "删除项目",
   "project.deleteTitle": "删除项目？",
-  "project.deleteDesc": "\u201c{name}\u201d及其所有任务将被永久删除，此操作无法撤销。",
+  "project.deleteDesc": "“{name}”及其所有任务将被永久删除，此操作无法撤销。",
   "project.slackNotifications": "Slack 通知",
   "project.copyLink": "复制链接",
   "project.tab.overview": "概览",
@@ -542,7 +510,6 @@
   "project.noTasksYet": "暂无任务",
   "project.noTasksDesc": "此项目还没有任务，创建第一个任务开始吧。",
   "project.createTask": "创建任务",
-
   "task.empty.description": "分配给您的任务将显示在这里。",
   "task.empty.title": "暂无任务",
   "task.project": "项目",
@@ -584,13 +551,10 @@
   "task.copyCommentLink": "复制链接",
   "task.reply": "回复",
   "task.comment": "评论",
-
   "task.deleteTask": "删除任务",
   "task.deleteTitle": "删除任务？",
-  "task.deleteDesc": "\u201c{title}\u201d将被永久删除，此操作无法撤销。",
-
+  "task.deleteDesc": "“{title}”将被永久删除，此操作无法撤销。",
   "common.project": "项目",
-
   "quickDispatch.noResults": "没有找到结果",
   "quickDispatch.mentionTasks": "任务",
   "quickDispatch.mentionProjects": "项目",
@@ -656,13 +620,11 @@
   "activity.filter.branch": "PR",
   "activity.filter.other": "其他",
   "activity.filter.noResults": "没有匹配的动态",
-
   "time.justNow": "刚刚",
   "time.mAgo": "{m}分钟前",
   "time.today": "今天",
   "time.yesterday": "昨天",
   "time.tomorrow": "明天",
-
   "projects.tooltip.name": "项目名称。可排序定位特定项目。",
   "projects.tooltip.tasks": "项目内任务总数。",
   "projects.tooltip.todo": "尚未开始的任务。",
@@ -671,21 +633,17 @@
   "projects.tooltip.done": "已完成的任务。",
   "projects.tooltip.owner": "项目负责人——本项目的主要联系人。",
   "projects.tooltip.updated": "最近活动时间。",
-
   "tasks.tooltip.title": "任务标题。",
   "tasks.tooltip.project": "任务所属的项目。",
   "tasks.tooltip.status": "工作流阶段：待办、进行中、待审核、已完成。",
   "tasks.tooltip.priority": "优先级：紧急、高、中、低。",
   "tasks.tooltip.assignee": "负责完成此任务的人员。",
   "tasks.tooltip.updated": "任务最近一次更新的时间。",
-
   "tasks.bulkTooltip.status": "修改所选任务的状态。",
   "tasks.bulkTooltip.priority": "修改所选任务的优先级。",
   "tasks.bulkTooltip.assignee": "修改所选任务的负责人。",
   "tasks.bulkTooltip.delete": "删除所选任务。",
-
   "common.tooltip.cancel": "取消选择。",
-
   "display.menuTrigger": "显示",
   "display.section.ordering": "排序",
   "display.section.orderingHint": "选择列表视图中任务的排序方式",
@@ -715,7 +673,6 @@
   "display.completed.pastMonthHint": "仅显示过去 30 天内完成的任务",
   "display.completed.none": "无",
   "display.completed.noneHint": "隐藏所有已完成任务",
-
   "inbox.markAllRead": "全部标为已读",
   "common.retry": "重试",
   "inbox.section.actionable": "需要你处理",
@@ -723,7 +680,6 @@
   "inbox.empty.allCaughtUp": "已全部处理完",
   "inbox.noLinkedTask": "此通知未关联任务。",
   "inbox.unreadCount": "{count, plural, other {# 条未读通知}}",
-
   "notification.verb.taskInReview": "提交了审核",
   "notification.verb.taskSentBack": "退回到进行中",
   "notification.verb.taskAssigned": "把任务分配给你：",
@@ -741,7 +697,6 @@
   "notification.menu.markRead": "标为已读",
   "notification.menu.markUnread": "标为未读",
   "notification.menu.delete": "删除通知",
-
   "agent.clarify.placeholder": "回复 agent...",
   "agent.clarify.send": "发送回复",
   "agent.verify.confirm": "确认",
@@ -764,5 +719,8 @@
   "projects.column.todo": "待办",
   "projects.column.inProgress": "进行中",
   "projects.column.inReview": "待审核",
-  "projects.column.done": "已完成"
+  "projects.column.done": "已完成",
+  "drafts.deleteConfirmTitle": "删除草稿？",
+  "drafts.deleteConfirmDesc": "此草稿将被永久删除，且无法撤销。",
+  "drafts.deleteAction": "删除草稿"
 }

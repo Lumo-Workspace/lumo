@@ -680,5 +680,8 @@
   "projects.column.todo": "Zu erledigen",
   "projects.column.inProgress": "In Bearbeitung",
   "projects.column.inReview": "In Überprüfung",
-  "projects.column.done": "Erledigt"
+  "projects.column.done": "Erledigt",
+  "drafts.deleteConfirmTitle": "Entwurf löschen?",
+  "drafts.deleteConfirmDesc": "Dieser Entwurf wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "drafts.deleteAction": "Entwurf löschen"
 }

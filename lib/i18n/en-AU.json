@@ -301,7 +301,6 @@
   "github.connectFailed": "GitHub connection failed. Please try again.",
   "github.loadFailed": "Failed to load integrations",
   "github.private": "private",
-
   "sentry.title": "Sentry",
   "sentry.description": "Automatically create tasks from Sentry alerts.",
   "sentry.connected": "Connected",
@@ -316,7 +315,6 @@
   "sentry.disconnectSuccess": "Sentry disconnected",
   "sentry.disconnectFailed": "Failed to disconnect Sentry",
   "member.searchPlaceholder": "Search members…",
-
   "members.title": "Members",
   "members.active": "Active",
   "members.invited": "Invited",
@@ -588,7 +586,6 @@
   "time.today": "Today",
   "time.yesterday": "Yesterday",
   "time.tomorrow": "Tomorrow",
-
   "projects.tooltip.name": "Project name. Sort to find a specific project.",
   "projects.tooltip.tasks": "Total task count in this project.",
   "projects.tooltip.todo": "Tasks not yet started.",
@@ -597,21 +594,17 @@
   "projects.tooltip.done": "Completed tasks.",
   "projects.tooltip.owner": "Project owner — primary contact for this project.",
   "projects.tooltip.updated": "Most recent activity timestamp.",
-
   "tasks.tooltip.title": "Task title.",
   "tasks.tooltip.project": "Project this task belongs to.",
   "tasks.tooltip.status": "Workflow stage: To Do, In Progress, In Review, or Done.",
   "tasks.tooltip.priority": "Priority level: Urgent, High, Medium, or Low.",
   "tasks.tooltip.assignee": "Person responsible for completing this task.",
   "tasks.tooltip.updated": "Last time this task was modified.",
-
   "tasks.bulkTooltip.status": "Set status for selected tasks.",
   "tasks.bulkTooltip.priority": "Set priority for selected tasks.",
   "tasks.bulkTooltip.assignee": "Set assignee for selected tasks.",
   "tasks.bulkTooltip.delete": "Delete selected tasks.",
-
   "common.tooltip.cancel": "Clear selection.",
-
   "display.menuTrigger": "Display",
   "display.section.ordering": "Ordering",
   "display.section.orderingHint": "Choose how tasks are sorted in the list view",
@@ -641,7 +634,6 @@
   "display.completed.pastMonthHint": "Only show tasks completed in the past 30 days",
   "display.completed.none": "None",
   "display.completed.noneHint": "Hide all completed tasks",
-
   "inbox.markAllRead": "Mark all as read",
   "common.retry": "Retry",
   "inbox.section.actionable": "Needs your response",
@@ -649,7 +641,6 @@
   "inbox.empty.allCaughtUp": "You're all caught up",
   "inbox.noLinkedTask": "No task linked to this notification.",
   "inbox.unreadCount": "{count, plural, one {# unread notification} other {# unread notifications}}",
-
   "notification.verb.taskInReview": "submitted for review",
   "notification.verb.taskSentBack": "sent back to In Progress",
   "notification.verb.taskAssigned": "assigned you to",
@@ -667,7 +658,6 @@
   "notification.menu.markRead": "Mark as read",
   "notification.menu.markUnread": "Mark as unread",
   "notification.menu.delete": "Delete notification",
-
   "agent.clarify.placeholder": "Reply to the agent...",
   "agent.clarify.send": "Send reply",
   "agent.verify.confirm": "Confirm",
@@ -690,5 +680,8 @@
   "projects.column.todo": "To Do",
   "projects.column.inProgress": "In Progress",
   "projects.column.inReview": "In Review",
-  "projects.column.done": "Done"
+  "projects.column.done": "Done",
+  "drafts.deleteConfirmTitle": "Delete draft?",
+  "drafts.deleteConfirmDesc": "This draft will be permanently removed. This action cannot be undone.",
+  "drafts.deleteAction": "Delete draft"
 }

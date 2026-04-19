@@ -680,5 +680,8 @@
   "projects.column.todo": "Por hacer",
   "projects.column.inProgress": "En progreso",
   "projects.column.inReview": "En revisión",
-  "projects.column.done": "Completado"
+  "projects.column.done": "Completado",
+  "drafts.deleteConfirmTitle": "¿Eliminar borrador?",
+  "drafts.deleteConfirmDesc": "Este borrador se eliminará permanentemente. Esta acción no se puede deshacer.",
+  "drafts.deleteAction": "Eliminar borrador"
 }

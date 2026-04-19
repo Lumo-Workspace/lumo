@@ -1,7 +1,6 @@
 {
   "common.cancel": "Cancel",
   "common.save": "Save",
-
   "drafts.delete": "Delete draft",
   "drafts.deleteConfirm": "Delete this draft?",
   "drafts.discard": "Discard",
@@ -17,7 +16,6 @@
   "drafts.tabTasks": "Tasks",
   "drafts.title": "Drafts",
   "drafts.untitled": "Untitled draft",
-
   "sidebar.drafts": "Drafts",
   "sidebar.myTasks": "My Tasks",
   "sidebar.inbox": "Inbox",
@@ -26,7 +24,6 @@
   "sidebar.manageMembers": "Manage members",
   "sidebar.settings": "Settings",
   "sidebar.signOut": "Sign out",
-
   "settings.backToApp": "Back to app",
   "settings.administration": "Administration",
   "settings.personal": "Personal",
@@ -55,7 +52,6 @@
   "settings.preferences": "Preferences",
   "settings.notifications": "Notifications",
   "settings.apiKeys": "API Keys",
-
   "preferences.title": "Preferences",
   "preferences.subtitle": "Customize your experience.",
   "preferences.theme": "Theme",
@@ -66,7 +62,6 @@
   "preferences.timezone": "Timezone",
   "preferences.timezoneAuto": "Auto ({detected})",
   "preferences.timezoneAutoBrowser": "Auto (browser)",
-
   "notifications.title": "Notifications",
   "notifications.subtitle": "Choose what you get notified about.",
   "notifications.inApp": "In-App Notifications",
@@ -76,19 +71,16 @@
   "notifications.agentDone": "Agent completed / needs review",
   "notifications.agentInput": "Agent waiting for input",
   "notifications.mentioned": "Mentioned in a comment",
-
   "newTask.title": "New task",
   "newTask.titlePlaceholder": "Task title",
   "newTask.descriptionPlaceholder": "Add description…",
   "newTask.cancel": "Cancel",
   "newTask.create": "Create task",
   "newTask.checking": "Checking...",
-
   "priority.aiRecommended": "AI Recommended",
   "priority.preferenceRecorded": "Preference recorded",
   "priority.recommended": "Recommended: {priority}",
   "priority.similarTasks": "{count} similar tasks:",
-
   "aiDesc.generating": "Generating description...",
   "aiDesc.preview": "AI Generated Preview",
   "aiDesc.useThis": "Use this",
@@ -97,13 +89,11 @@
   "aiDesc.generate": "AI generate description",
   "aiDesc.generateHint": "Generate 1–2 execution instructions from title + project context",
   "aiDesc.refine": "Refine",
-
   "duplicate.similarFound": "{count, plural, one {# similar task found} other {# similar tasks found}}",
   "duplicate.confirmMessage": "{count, plural, one {# similar task found} other {# similar tasks found}} — are you sure you want to create a duplicate?",
   "duplicate.match": "{score}% match",
   "duplicate.view": "View",
   "duplicate.createAnyway": "Create anyway",
-
   "dueDate.label": "Due date",
   "dueDate.today": "Today",
   "dueDate.tomorrow": "Tomorrow",
@@ -118,9 +108,7 @@
   "dueDate.cancel": "Cancel",
   "dueDate.due": "Due {date}",
   "taskColumns.dueDate": "Due Date",
-
   "sidebar.documents": "Documents",
-
   "documents.title": "All Documents",
   "documents.subtitle": "Create and share docs with your team",
   "documents.newDocument": "New Document",
@@ -150,7 +138,6 @@
   "documents.duplicate": "Duplicate",
   "documents.copyLink": "Copy link",
   "documents.sharedWith": "Shared with {count} members",
-
   "documentEditor.updated": "Updated",
   "documentEditor.saving": "Saving...",
   "documentEditor.saved": "Saved",
@@ -168,18 +155,15 @@
   "documentEditor.visibility": "Visibility",
   "documentEditor.share": "Share",
   "documentEditor.project": "Project",
-
   "documentTree.empty": "No documents yet",
   "documentTree.newDoc": "New document",
   "documentTree.collapse": "Collapse sidebar (⌘+\\)",
   "documentTree.expand": "Expand sidebar (⌘+\\)",
   "documentTree.home": "All documents",
   "documentTree.allDocs": "Lumo Docs",
-
   "documentToc.untitledHeading": "Untitled heading",
   "documentToc.collapse": "Hide table of contents",
   "documentToc.expand": "Show table of contents",
-
   "share.title": "Share document",
   "share.searchPlaceholder": "Search members...",
   "share.invite": "Invite",
@@ -213,7 +197,6 @@
   "quickDispatch.fieldDescription": "Description",
   "quickDispatch.none": "None",
   "quickDispatch.created": "Task created",
-
   "sidebar.dashboard": "Dashboard",
   "summary.title": "Summary",
   "summary.tldr": "TL;DR",
@@ -292,7 +275,6 @@
   "summary.refreshSuccess": "Report refreshed",
   "summary.refreshFailed": "Failed to refresh report",
   "summary.noReport": "No report generated yet. Click \"Refresh\" to generate one.",
-
   "common.delete": "Delete",
   "common.deleting": "Deleting…",
   "common.disconnecting": "Disconnecting…",
@@ -318,7 +300,6 @@
   "common.saving": "Saving…",
   "common.creating": "Creating…",
   "common.updated": "Updated",
-
   "slack.title": "Slack",
   "slack.description": "Send notifications and manage tasks from Slack.",
   "slack.connected": "Connected",
@@ -335,7 +316,6 @@
   "slack.configRefreshed": "Configuration refreshed from server",
   "slack.channelCreated": "#{name} created and selected",
   "slack.notificationsFor": "Slack notifications for {projectName}",
-
   "github.title": "GitHub",
   "github.description": "Link repositories to tasks and automate workflows.",
   "github.connected": "Connected",
@@ -358,7 +338,6 @@
   "github.connectFailed": "GitHub connection failed. Please try again.",
   "github.loadFailed": "Failed to load integrations",
   "github.private": "private",
-
   "sentry.title": "Sentry",
   "sentry.description": "Automatically create tasks from Sentry alerts.",
   "sentry.connected": "Connected",
@@ -372,9 +351,7 @@
   "sentry.loadFailed": "Failed to load Sentry status",
   "sentry.disconnectSuccess": "Sentry disconnected",
   "sentry.disconnectFailed": "Failed to disconnect Sentry",
-
   "member.searchPlaceholder": "Search members…",
-
   "members.title": "Members",
   "members.active": "Active",
   "members.invited": "Invited",
@@ -405,7 +382,6 @@
   "members.sendInvites": "Send invites",
   "members.invitesSent": "{count} invite{count, plural, one {} other {s}} sent",
   "members.inviteFailed": "Failed to send invites",
-
   "profile.title": "Profile",
   "profile.subtitle": "Manage your personal information.",
   "profile.avatar": "Avatar",
@@ -421,7 +397,6 @@
   "profile.saveFailed": "Save failed",
   "profile.fileTooLarge": "File must be 2 MB or smaller",
   "profile.invalidType": "Only JPG, PNG, and WebP are allowed",
-
   "workspaceSettings.title": "Workspace",
   "workspaceSettings.logo": "Logo",
   "workspaceSettings.logoHint": "Recommended size is 256×256px",
@@ -454,10 +429,8 @@
   "workspaceSettings.deleteFailed": "Failed to delete workspace",
   "workspaceSettings.deleteWorkspace": "Delete workspace",
   "workspaceSettings.noPermission": "You don't have permission to modify workspace settings.",
-
   "integrations.title": "Integrations",
   "integrations.description": "Connect external services to enhance your workflow.",
-
   "apiKeys.title": "API Keys",
   "apiKeys.subtitle": "Use API keys to authenticate local MCP servers (Claude Code). Keys are scoped to your user and workspace.",
   "apiKeys.loadFailed": "Failed to load API keys",
@@ -471,7 +444,6 @@
   "apiKeys.newKeyDesc": "Copy this key now — it won't be shown again.",
   "apiKeys.empty": "No API keys yet",
   "apiKeys.lastUsed": "last used {date}",
-
   "task.bulkDeleteConfirmDesc": "This will permanently delete {count, plural, one {# task} other {# tasks}}. This action cannot be undone.",
   "task.bulkDeleteConfirmTitle": "Delete tasks?",
   "task.bulkDeleteFailure": "Failed to delete {failed} of {total} tasks",
@@ -496,15 +468,12 @@
   "task.copyLink": "Copy link",
   "task.linkCopied": "Link copied",
   "task.imageUploadFailed": "Image upload failed",
-
   "branch.createBranch": "Create branch",
   "branch.searchRepos": "Search repositories…",
-
   "subtask.removeDraft": "Remove draft subtask",
   "subtask.addAll": "Add all",
   "subtask.edit": "Edit",
   "subtask.delete": "Delete",
-
   "table.addRowAbove": "Add row above",
   "table.addRowBelow": "Add row below",
   "table.addColLeft": "Add column left",
@@ -512,7 +481,6 @@
   "table.deleteRow": "Delete row",
   "table.deleteCol": "Delete column",
   "table.deleteTable": "Delete table",
-
   "project.deleteProject": "Delete project",
   "project.deleteTitle": "Delete project?",
   "project.deleteDesc": "\"{name}\" and all its tasks will be permanently deleted. This action cannot be undone.",
@@ -542,7 +510,6 @@
   "project.noTasksYet": "No tasks yet",
   "project.noTasksDesc": "This project has no tasks. Add the first one to get started.",
   "project.createTask": "Create Task",
-
   "task.empty.description": "Tasks assigned to you will appear here.",
   "task.empty.title": "No tasks yet",
   "task.project": "Project",
@@ -584,13 +551,10 @@
   "task.copyCommentLink": "Copy link",
   "task.reply": "Reply",
   "task.comment": "Comment",
-
   "task.deleteTask": "Delete task",
   "task.deleteTitle": "Delete task?",
   "task.deleteDesc": "\"{title}\" will be permanently deleted. This action cannot be undone.",
-
   "common.project": "Project",
-
   "quickDispatch.noResults": "No results found",
   "quickDispatch.mentionTasks": "Tasks",
   "quickDispatch.mentionProjects": "Projects",
@@ -656,13 +620,11 @@
   "activity.filter.branch": "PR",
   "activity.filter.other": "Other",
   "activity.filter.noResults": "No matching activities",
-
   "time.justNow": "just now",
   "time.mAgo": "{m}m ago",
   "time.today": "Today",
   "time.yesterday": "Yesterday",
   "time.tomorrow": "Tomorrow",
-
   "projects.tooltip.name": "Project name. Sort to find a specific project.",
   "projects.tooltip.tasks": "Total task count in this project.",
   "projects.tooltip.todo": "Tasks not yet started.",
@@ -671,21 +633,17 @@
   "projects.tooltip.done": "Completed tasks.",
   "projects.tooltip.owner": "Project owner — primary contact for this project.",
   "projects.tooltip.updated": "Most recent activity timestamp.",
-
   "tasks.tooltip.title": "Task title.",
   "tasks.tooltip.project": "Project this task belongs to.",
   "tasks.tooltip.status": "Workflow stage: To Do, In Progress, In Review, or Done.",
   "tasks.tooltip.priority": "Priority level: Urgent, High, Medium, or Low.",
   "tasks.tooltip.assignee": "Person responsible for completing this task.",
   "tasks.tooltip.updated": "Last time this task was modified.",
-
   "tasks.bulkTooltip.status": "Set status for selected tasks.",
   "tasks.bulkTooltip.priority": "Set priority for selected tasks.",
   "tasks.bulkTooltip.assignee": "Set assignee for selected tasks.",
   "tasks.bulkTooltip.delete": "Delete selected tasks.",
-
   "common.tooltip.cancel": "Clear selection.",
-
   "display.menuTrigger": "Display",
   "display.section.ordering": "Ordering",
   "display.section.orderingHint": "Choose how tasks are sorted in the list view",
@@ -715,7 +673,6 @@
   "display.completed.pastMonthHint": "Only show tasks completed in the past 30 days",
   "display.completed.none": "None",
   "display.completed.noneHint": "Hide all completed tasks",
-
   "inbox.markAllRead": "Mark all as read",
   "common.retry": "Retry",
   "inbox.section.actionable": "Needs your response",
@@ -723,7 +680,6 @@
   "inbox.empty.allCaughtUp": "You're all caught up",
   "inbox.noLinkedTask": "No task linked to this notification.",
   "inbox.unreadCount": "{count, plural, one {# unread notification} other {# unread notifications}}",
-
   "notification.verb.taskInReview": "submitted for review",
   "notification.verb.taskSentBack": "sent back to In Progress",
   "notification.verb.taskAssigned": "assigned you to",
@@ -741,7 +697,6 @@
   "notification.menu.markRead": "Mark as read",
   "notification.menu.markUnread": "Mark as unread",
   "notification.menu.delete": "Delete notification",
-
   "agent.clarify.placeholder": "Reply to the agent...",
   "agent.clarify.send": "Send reply",
   "agent.verify.confirm": "Confirm",
@@ -764,5 +719,8 @@
   "projects.column.todo": "To Do",
   "projects.column.inProgress": "In Progress",
   "projects.column.inReview": "In Review",
-  "projects.column.done": "Done"
+  "projects.column.done": "Done",
+  "drafts.deleteConfirmTitle": "Delete draft?",
+  "drafts.deleteConfirmDesc": "This draft will be permanently removed. This action cannot be undone.",
+  "drafts.deleteAction": "Delete draft"
 }

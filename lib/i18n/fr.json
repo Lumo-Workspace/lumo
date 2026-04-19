@@ -680,5 +680,8 @@
   "projects.column.todo": "À faire",
   "projects.column.inProgress": "En cours",
   "projects.column.inReview": "En révision",
-  "projects.column.done": "Terminé"
+  "projects.column.done": "Terminé",
+  "drafts.deleteConfirmTitle": "Supprimer le brouillon ?",
+  "drafts.deleteConfirmDesc": "Ce brouillon sera définitivement supprimé. Cette action est irréversible.",
+  "drafts.deleteAction": "Supprimer le brouillon"
 }

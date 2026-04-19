@@ -680,5 +680,8 @@
   "projects.column.todo": "Harus dikerjakan",
   "projects.column.inProgress": "Sedang dikerjakan",
   "projects.column.inReview": "Sedang ditinjau",
-  "projects.column.done": "Selesai"
+  "projects.column.done": "Selesai",
+  "drafts.deleteConfirmTitle": "Hapus draf?",
+  "drafts.deleteConfirmDesc": "Draf ini akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.",
+  "drafts.deleteAction": "Hapus draf"
 }

@@ -680,5 +680,8 @@
   "projects.column.todo": "Perlu dilakukan",
   "projects.column.inProgress": "Sedang dijalankan",
   "projects.column.inReview": "Sedang disemak",
-  "projects.column.done": "Selesai"
+  "projects.column.done": "Selesai",
+  "drafts.deleteConfirmTitle": "Padam draf?",
+  "drafts.deleteConfirmDesc": "Draf ini akan dipadam secara kekal. Tindakan ini tidak boleh dibatalkan.",
+  "drafts.deleteAction": "Padam draf"
 }

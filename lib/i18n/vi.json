@@ -680,5 +680,8 @@
   "projects.column.todo": "Cần làm",
   "projects.column.inProgress": "Đang thực hiện",
   "projects.column.inReview": "Đang xem xét",
-  "projects.column.done": "Hoàn thành"
+  "projects.column.done": "Hoàn thành",
+  "drafts.deleteConfirmTitle": "Xoá bản nháp?",
+  "drafts.deleteConfirmDesc": "Bản nháp này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác.",
+  "drafts.deleteAction": "Xoá bản nháp"
 }

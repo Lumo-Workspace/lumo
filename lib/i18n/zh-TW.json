@@ -338,7 +338,6 @@
   "github.connectFailed": "GitHub 連線失敗，請重試。",
   "github.loadFailed": "載入整合資訊失敗",
   "github.private": "私有",
-
   "sentry.title": "Sentry",
   "sentry.description": "自動從 Sentry 警報建立任務。",
   "sentry.connected": "已連線",
@@ -353,7 +352,6 @@
   "sentry.disconnectSuccess": "Sentry 已中斷",
   "sentry.disconnectFailed": "Sentry 中斷失敗",
   "member.searchPlaceholder": "搜尋成員…",
-
   "members.title": "成員",
   "members.active": "活躍",
   "members.invited": "已邀請",
@@ -627,7 +625,6 @@
   "time.today": "今天",
   "time.yesterday": "昨天",
   "time.tomorrow": "明天",
-
   "projects.tooltip.name": "專案名稱。可排序定位特定專案。",
   "projects.tooltip.tasks": "專案內任務總數。",
   "projects.tooltip.todo": "尚未開始的任務。",
@@ -636,21 +633,17 @@
   "projects.tooltip.done": "已完成的任務。",
   "projects.tooltip.owner": "專案負責人——本專案的主要聯絡人。",
   "projects.tooltip.updated": "最近活動時間。",
-
   "tasks.tooltip.title": "任務標題。",
   "tasks.tooltip.project": "任務所屬的專案。",
   "tasks.tooltip.status": "工作流程階段：待辦、進行中、待審核、已完成。",
   "tasks.tooltip.priority": "優先級：緊急、高、中、低。",
   "tasks.tooltip.assignee": "負責完成此任務的人員。",
   "tasks.tooltip.updated": "任務最近一次更新的時間。",
-
   "tasks.bulkTooltip.status": "修改所選任務的狀態。",
   "tasks.bulkTooltip.priority": "修改所選任務的優先級。",
   "tasks.bulkTooltip.assignee": "修改所選任務的負責人。",
   "tasks.bulkTooltip.delete": "刪除所選任務。",
-
   "common.tooltip.cancel": "取消選取。",
-
   "display.menuTrigger": "顯示",
   "display.section.ordering": "排序",
   "display.section.orderingHint": "選擇清單視圖中任務的排序方式",
@@ -680,7 +673,6 @@
   "display.completed.pastMonthHint": "僅顯示過去 30 天內完成的任務",
   "display.completed.none": "無",
   "display.completed.noneHint": "隱藏所有已完成任務",
-
   "inbox.markAllRead": "全部標為已讀",
   "common.retry": "重試",
   "inbox.section.actionable": "需要你處理",
@@ -688,7 +680,6 @@
   "inbox.empty.allCaughtUp": "已全部處理完",
   "inbox.noLinkedTask": "此通知未關聯任務。",
   "inbox.unreadCount": "{count, plural, other {# 條未讀通知}}",
-
   "notification.verb.taskInReview": "提交了審核",
   "notification.verb.taskSentBack": "退回到進行中",
   "notification.verb.taskAssigned": "把任務分配給你：",
@@ -706,7 +697,6 @@
   "notification.menu.markRead": "標為已讀",
   "notification.menu.markUnread": "標為未讀",
   "notification.menu.delete": "刪除通知",
-
   "agent.clarify.placeholder": "回覆 agent...",
   "agent.clarify.send": "發送回覆",
   "agent.verify.confirm": "確認",
@@ -729,5 +719,8 @@
   "projects.column.todo": "待辦",
   "projects.column.inProgress": "進行中",
   "projects.column.inReview": "待審核",
-  "projects.column.done": "已完成"
+  "projects.column.done": "已完成",
+  "drafts.deleteConfirmTitle": "刪除草稿？",
+  "drafts.deleteConfirmDesc": "此草稿將被永久刪除，且無法復原。",
+  "drafts.deleteAction": "刪除草稿"
 }

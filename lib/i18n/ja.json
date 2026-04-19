@@ -680,5 +680,8 @@
   "projects.column.todo": "未着手",
   "projects.column.inProgress": "進行中",
   "projects.column.inReview": "レビュー中",
-  "projects.column.done": "完了"
+  "projects.column.done": "完了",
+  "drafts.deleteConfirmTitle": "下書きを削除しますか？",
+  "drafts.deleteConfirmDesc": "この下書きは完全に削除されます。この操作は取り消せません。",
+  "drafts.deleteAction": "下書きを削除"
 }

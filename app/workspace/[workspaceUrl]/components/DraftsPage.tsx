@@ -1,9 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { FileEdit, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useFormatDate } from '../hooks/useFormatDate'
 import type { ApiDraft, ApiProject, ApiPriority } from '../types'
 import { PRIORITY_CONFIG } from './fields'
@@ -29,26 +39,17 @@ export function DraftsPage({
 }: DraftsPageProps) {
   const intl = useIntl()
   const [activeTab, setActiveTab] = useState<'tasks' | 'projects'>('tasks')
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const taskDrafts = drafts.filter(d => d.type === 'TASK')
   const projectDrafts = drafts.filter(d => d.type === 'PROJECT')
 
-  const handleDelete = (id: string) => {
-    if (confirmDeleteId === id) {
-      onDeleteDraft(id)
-      setConfirmDeleteId(null)
-    } else {
-      setConfirmDeleteId(id)
+  const confirmDelete = () => {
+    if (pendingDeleteId) {
+      onDeleteDraft(pendingDeleteId)
+      setPendingDeleteId(null)
     }
   }
-
-  // Reset confirm state after 3 seconds
-  useEffect(() => {
-    if (!confirmDeleteId) return
-    const timer = setTimeout(() => setConfirmDeleteId(null), 3000)
-    return () => clearTimeout(timer)
-  }, [confirmDeleteId])
 
   const tabCls = (active: boolean) =>
     `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -104,9 +105,8 @@ export function DraftsPage({
                     }
                     subtitle={getDraftSubtitle(draft)}
                     updatedAt={draft.updatedAt}
-                    confirmDelete={confirmDeleteId === draft.id}
                     onClick={() => onRestoreTaskDraft(draft)}
-                    onDelete={() => handleDelete(draft.id)}
+                    onDelete={() => setPendingDeleteId(draft.id)}
                     intl={intl}
                   />
                 ))
@@ -135,9 +135,8 @@ export function DraftsPage({
                           | undefined
                       }
                       updatedAt={draft.updatedAt}
-                      confirmDelete={confirmDeleteId === draft.id}
                       onClick={() => onRestoreProjectDraft(draft)}
-                      onDelete={() => handleDelete(draft.id)}
+                      onDelete={() => setPendingDeleteId(draft.id)}
                       intl={intl}
                     />
                   ))}
@@ -163,6 +162,47 @@ export function DraftsPage({
           )}
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!pendingDeleteId}
+        onOpenChange={open => !open && setPendingDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {intl.formatMessage({
+                id: 'drafts.deleteConfirmTitle',
+                defaultMessage: 'Delete draft?',
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage({
+                id: 'drafts.deleteConfirmDesc',
+                defaultMessage:
+                  'This draft will be permanently removed. This action cannot be undone.',
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {intl.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
+            >
+              {intl.formatMessage({
+                id: 'common.delete',
+                defaultMessage: 'Delete',
+              })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -171,7 +211,6 @@ function DraftCard({
   title,
   subtitle,
   updatedAt,
-  confirmDelete,
   onClick,
   onDelete,
   intl,
@@ -179,7 +218,6 @@ function DraftCard({
   title: string | undefined
   subtitle: string | undefined
   updatedAt: string
-  confirmDelete: boolean
   onClick: () => void
   onDelete: () => void
   intl: ReturnType<typeof useIntl>
@@ -208,15 +246,15 @@ function DraftCard({
         <Button
           variant='ghost'
           size='sm'
-          className={`h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
-            confirmDelete
-              ? 'text-red-600 dark:text-red-400 opacity-100'
-              : 'text-zinc-400 hover:text-red-600 dark:hover:text-red-400'
-          }`}
+          className='h-7 w-7 p-0 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
           onClick={e => {
             e.stopPropagation()
             onDelete()
           }}
+          aria-label={intl.formatMessage({
+            id: 'drafts.deleteAction',
+            defaultMessage: 'Delete draft',
+          })}
         >
           <Trash2 className='size-3.5' />
         </Button>
