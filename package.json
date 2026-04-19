@@ -131,6 +131,11 @@
     "vaul": "^1.1.2",
     "zod": "^4.3.6"
   },
+  "overrides": {
+    "mcp-handler": {
+      "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk"
+    }
+  },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@tailwindcss/postcss": "^4.2.2",
