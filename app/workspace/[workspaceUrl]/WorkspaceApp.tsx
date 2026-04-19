@@ -528,6 +528,7 @@ export default function DashboardApp() {
             onRetry={fetchMyTasks}
             onTaskClick={handleOpenTask}
             onNewTask={openNewTaskModalForMe}
+            members={members}
           />
         )
 
