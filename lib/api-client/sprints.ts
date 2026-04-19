@@ -6,8 +6,6 @@ import { API } from '@/app/workspace/[workspaceUrl]/constants'
 interface SprintProgress {
   total: number
   done: number
-  inProgress: number
-  todo: number
 }
 
 interface SprintWithProgress {

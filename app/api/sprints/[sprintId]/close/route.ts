@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       id: userId,
     })
 
-    return NextResponse.json({ sprint: closed })
+    return NextResponse.json(closed)
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

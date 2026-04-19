@@ -5,6 +5,7 @@ import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { createSprintSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
+import { z } from 'zod'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
 
 type Params = { params: Promise<{ teamId: string }> }
@@ -82,12 +83,18 @@ export async function GET(req: NextRequest, { params }: Params) {
     await requireTeamMemberOrOwner(team.workspaceId, team.id, userId)
 
     const url = new URL(req.url)
-    const statusParam = url.searchParams.get('status') as any
+    const statusRaw = url.searchParams.get('status')
+    const statusParsed = z
+      .enum(['DRAFT', 'ACTIVE', 'CLOSED'])
+      .optional()
+      .safeParse(statusRaw ?? undefined)
+    if (!statusParsed.success) return zodError(statusParsed)
+    const statusParam = statusParsed.data
     const cursorParam = url.searchParams.get('cursor')
     const limit = Number(url.searchParams.get('limit') ?? 20)
 
     const sprints = await sprintRepository.listByTeam(team.id, {
-      ...(statusParam !== null ? { status: statusParam } : {}),
+      ...(statusParam !== undefined ? { status: statusParam } : {}),
       ...(cursorParam !== null ? { cursor: cursorParam } : {}),
       limit,
     })

@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(endDate !== undefined ? { endDate } : {}),
     })
 
-    return NextResponse.json({ sprint: updated })
+    return NextResponse.json(updated)
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

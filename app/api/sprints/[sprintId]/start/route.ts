@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
     const updated = await sprintService.start(sprintId, { memberId })
 
-    return NextResponse.json({ sprint: updated })
+    return NextResponse.json(updated)
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

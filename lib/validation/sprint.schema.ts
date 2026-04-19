@@ -34,7 +34,7 @@ export const addTaskToSprintSchema = z.object({
 })
 
 export const cadenceSchema = z.object({
-  cadenceDays: z.number().int().min(1).max(90).nullable().optional(),
+  cadenceDays: z.number().int().min(1).max(90).nullable(),
   autoPrepare: z.boolean().optional(),
 })
 

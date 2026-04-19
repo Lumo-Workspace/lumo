@@ -193,7 +193,11 @@ describe('cadenceSchema', () => {
     ).toBe(true)
   })
 
-  it('allows no fields', () => {
-    expect(cadenceSchema.safeParse({}).success).toBe(true)
+  it('rejects empty body (cadenceDays is required)', () => {
+    expect(cadenceSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('accepts cadenceDays with autoPrepare omitted', () => {
+    expect(cadenceSchema.safeParse({ cadenceDays: 14 }).success).toBe(true)
   })
 })
