@@ -57,7 +57,7 @@ describe('createSprintSchema', () => {
       endDate: '2026-04-20',
     })
     expect(r.success).toBe(false)
-    expect(r.error?.issues[0].path).toContain('endDate')
+    expect(r.error?.issues[0]?.path).toContain('endDate')
   })
 
   it('rejects endDate < startDate (earlier date)', () => {
@@ -66,7 +66,7 @@ describe('createSprintSchema', () => {
       endDate: '2026-04-20',
     })
     expect(r.success).toBe(false)
-    expect(r.error?.issues[0].path).toContain('endDate')
+    expect(r.error?.issues[0]?.path).toContain('endDate')
   })
 
   it('allows only startDate without endDate', () => {
@@ -88,7 +88,7 @@ describe('updateSprintSchema', () => {
       { startDate: '2026-05-01', endDate: '2026-05-01' }, // should fail
     ]
 
-    testCases.forEach((testCase, i) => {
+    testCases.forEach((testCase, _i) => {
       const create = createSprintSchema.safeParse(testCase)
       const update = updateSprintSchema.safeParse(testCase)
       expect(create.success).toBe(update.success)
