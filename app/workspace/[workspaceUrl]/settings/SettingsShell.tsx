@@ -14,6 +14,7 @@ import {
   Settings2,
   Bell,
   Tag,
+  CalendarClock,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -51,6 +52,11 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.tags' }),
       href: `/workspace/${workspaceUrl}/settings/tags`,
       icon: Tag,
+    },
+    {
+      label: intl.formatMessage({ id: 'settings.nav.sprints' }),
+      href: `/workspace/${workspaceUrl}/settings/sprints`,
+      icon: CalendarClock,
     },
   ]
 

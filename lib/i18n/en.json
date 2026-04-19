@@ -766,5 +766,14 @@
   "sprints.plan.backlogTitle": "Backlog",
   "sprints.plan.backlogHint": "Click + to add to {sprintName}",
   "sprints.plan.loading": "Loading backlog…",
-  "sprints.plan.empty": "Backlog is empty"
+  "sprints.plan.empty": "Backlog is empty",
+  "settings.nav.sprints": "Sprints",
+  "sprints.settings.title": "Sprint cadence",
+  "sprints.settings.intro": "Configure sprint cadence for each team.",
+  "sprints.settings.enable": "Enable sprints for this team",
+  "sprints.settings.cadence": "Cadence",
+  "sprints.settings.autoPrepare": "Auto-prepare next sprint as draft",
+  "sprints.settings.custom": "Custom",
+  "sprints.settings.save": "Save",
+  "sprints.settings.loading": "Loading teams…"
 }

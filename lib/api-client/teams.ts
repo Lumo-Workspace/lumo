@@ -6,6 +6,7 @@ export interface ApiTeam {
   identifier: string
   isDefault: boolean
   sprintCadenceDays: number | null
+  sprintAutoPrepare: boolean
 }
 
 interface TeamListResult {

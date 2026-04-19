@@ -23,6 +23,7 @@ export async function GET() {
         identifier: true,
         isDefault: true,
         sprintCadenceDays: true,
+        sprintAutoPrepare: true,
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     })
