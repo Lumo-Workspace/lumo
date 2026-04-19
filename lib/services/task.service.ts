@@ -47,6 +47,7 @@ export interface UpdateTaskInput {
   reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
+  sprintId?: string | null | undefined
   tagIds?: string[] | undefined
 }
 
@@ -98,6 +99,7 @@ export const taskService = {
       assigneeActorId?: string | null | undefined
       parentTaskId?: string | null | undefined
       repositoryId?: string | null | undefined
+      sprintId?: string | null | undefined
       order?: number | undefined
       dueDate?: string | null | undefined
     },
@@ -121,7 +123,9 @@ export const taskService = {
       dueDate,
     } = input
 
-    // Validate parentTaskId belongs to the same project
+    // Validate parentTaskId belongs to the same project, and resolve sprint inheritance
+    let resolvedSprintId: string | null =
+      input.sprintId !== undefined ? (input.sprintId ?? null) : null
     if (parentTaskId) {
       const parent = await taskRepository.findWithProject(parentTaskId)
       if (!parent || parent.projectId !== projectId) {
@@ -129,6 +133,10 @@ export const taskService = {
           new Error('Parent task not found in this project'),
           { status: 400 }
         )
+      }
+      // Inherit parent's sprintId when caller did not explicitly set one
+      if (input.sprintId === undefined && parent.sprintId) {
+        resolvedSprintId = parent.sprintId
       }
     }
 
@@ -167,6 +175,7 @@ export const taskService = {
       reviewerActorId: null,
       parentTaskId: parentTaskId ?? null,
       repositoryId: repositoryId ?? null,
+      sprintId: resolvedSprintId,
       order: taskOrder,
       dueDate: dueDate ?? null,
       ownerMemberId: project.owner?.id ?? null,
@@ -320,7 +329,8 @@ export const taskService = {
    */
   async updateTask(
     taskId: string,
-    input: UpdateTaskInput
+    input: UpdateTaskInput,
+    actorId?: string | null
   ): Promise<TaskUpdateResult> {
     const task = await taskRepository.findForUpdate(taskId)
     if (!task) {
@@ -333,6 +343,7 @@ export const taskService = {
       reviewerActorId,
       projectId,
       repositoryId,
+      sprintId,
       tagIds,
       ...rest
     } = input
@@ -435,6 +446,21 @@ export const taskService = {
     if (reviewerActorId !== undefined) data.reviewerActorId = reviewerActorId
     if (projectId !== undefined) data.projectId = projectId
     if (repositoryId !== undefined) data.repositoryId = repositoryId
+    if (sprintId !== undefined) data.sprintId = sprintId
+
+    // Write SPRINT_CHANGED activity when sprintId changes
+    if ('sprintId' in input && sprintId !== task.sprintId) {
+      await activityRepository.create({
+        taskId,
+        actorId: actorId ?? null,
+        type: 'SPRINT_CHANGED',
+        payload: {
+          fromSprintId: task.sprintId ?? null,
+          toSprintId: sprintId ?? null,
+          reason: 'manual',
+        },
+      })
+    }
 
     // Sync tag associations if tagIds provided
     if (tagIds !== undefined) {
@@ -465,7 +491,7 @@ export const taskService = {
     actorId: string | null,
     actorClerkId: string
   ): Promise<TaskUpdateResult> {
-    const result = await this.updateTask(taskId, input)
+    const result = await this.updateTask(taskId, input, actorId)
 
     dispatchUpdateTaskSideEffects({
       taskId,

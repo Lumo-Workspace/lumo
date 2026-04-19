@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
-import type { TaskStatus, TaskPriority, AgentStatus } from '@prisma/client'
+import type {
+  Prisma,
+  TaskStatus,
+  TaskPriority,
+  AgentStatus,
+} from '@prisma/client'
 
 export interface TaskUpdateData {
   title?: string | undefined
@@ -14,6 +19,7 @@ export interface TaskUpdateData {
   reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
+  sprintId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
 }
@@ -247,6 +253,32 @@ export const taskRepository = {
     })
   },
 
+  /** Update a single task's sprintId. */
+  async updateSprint(
+    taskId: string,
+    sprintId: string | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.task.update({
+      where: { id: taskId },
+      data: { sprintId },
+    })
+  },
+
+  /** Bulk update multiple tasks' sprintId. */
+  async bulkUpdateSprint(
+    taskIds: string[],
+    sprintId: string | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.task.updateMany({
+      where: { id: { in: taskIds } },
+      data: { sprintId },
+    })
+  },
+
   /** Find all tasks assigned to an actor, with project/team/parent/children details. */
   async findAssignedTasks(actorId: string) {
     return prisma.task.findMany({
@@ -473,6 +505,7 @@ export const taskRepository = {
     reviewerActorId: string | null
     parentTaskId: string | null
     repositoryId: string | null
+    sprintId?: string | null
     order: number | undefined
     dueDate: Date | string | null
     ownerMemberId: string | null
@@ -507,6 +540,7 @@ export const taskRepository = {
           reviewerActorId: ownerActorId,
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
+          sprintId: data.sprintId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
           dueDate: data.dueDate,
         },
