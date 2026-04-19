@@ -222,7 +222,9 @@ export function ProjectsPage({
             />
             <input
               className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
-              placeholder='Search projects...'
+              placeholder={intl.formatMessage({
+                id: 'projects.searchPlaceholder',
+              })}
               type='text'
               value={query}
               onChange={e => {
@@ -235,7 +237,7 @@ export function ProjectsPage({
               <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>
                 {filtered.length === 0 ? (
                   <p className='px-3 py-2.5 text-xs text-zinc-400'>
-                    No projects match.
+                    {intl.formatMessage({ id: 'projects.searchNoMatch' })}
                   </p>
                 ) : (
                   filtered.map(p => (
@@ -252,7 +254,7 @@ export function ProjectsPage({
                       <span className='font-medium truncate'>{p.name}</span>
                       {p.isIdea && (
                         <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
-                          Draft
+                          {intl.formatMessage({ id: 'projects.draftBadge' })}
                         </span>
                       )}
                     </Button>
@@ -263,7 +265,7 @@ export function ProjectsPage({
           </div>
           <Button onClick={onNewProject} size='sm' className='gap-1.5'>
             <Plus size={14} />
-            New Project
+            {intl.formatMessage({ id: 'projects.create' })}
           </Button>
         </div>
       </header>
@@ -275,7 +277,10 @@ export function ProjectsPage({
         {selectedCount > 0 && (
           <div className='absolute inset-0 z-20 flex items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6'>
             <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
-              {selectedCount} selected
+              {intl.formatMessage(
+                { id: 'common.selected' },
+                { count: selectedCount }
+              )}
             </span>
             <div className='flex items-center gap-2'>
               <Button
@@ -283,7 +288,7 @@ export function ProjectsPage({
                 size='sm'
                 onClick={() => setSelected(new Set())}
               >
-                Cancel
+                {intl.formatMessage({ id: 'common.cancel' })}
               </Button>
               <Button
                 variant='destructive'
@@ -292,7 +297,10 @@ export function ProjectsPage({
                 onClick={() => setConfirmOpen(true)}
               >
                 <Trash2 size={14} />
-                Delete {selectedCount} project{selectedCount === 1 ? '' : 's'}
+                {intl.formatMessage(
+                  { id: 'projects.bulkDelete.button' },
+                  { count: selectedCount }
+                )}
               </Button>
             </div>
           </div>
@@ -312,15 +320,17 @@ export function ProjectsPage({
                 <EmptyMedia variant='icon'>
                   <Layers />
                 </EmptyMedia>
-                <EmptyTitle>No projects yet</EmptyTitle>
+                <EmptyTitle>
+                  {intl.formatMessage({ id: 'projects.empty.title' })}
+                </EmptyTitle>
                 <EmptyDescription>
-                  Projects you create will appear here.
+                  {intl.formatMessage({ id: 'projects.empty.description' })}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button onClick={onNewProject}>
                   <Plus size={16} />
-                  New Project
+                  {intl.formatMessage({ id: 'projects.create' })}
                 </Button>
               </EmptyContent>
             </Empty>
@@ -333,12 +343,14 @@ export function ProjectsPage({
                   <Checkbox
                     checked={headerCheckboxState}
                     onCheckedChange={toggleAll}
-                    aria-label='Select all projects'
+                    aria-label={intl.formatMessage({
+                      id: 'projects.selectAll',
+                    })}
                   />
                 </th>
                 <SortableHeader
                   col='name'
-                  label='Project'
+                  label={intl.formatMessage({ id: 'projects.column.name' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6'
@@ -350,7 +362,7 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='tasks'
-                  label='Tasks'
+                  label={intl.formatMessage({ id: 'projects.column.tasks' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
@@ -361,7 +373,7 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='todo'
-                  label='To Do'
+                  label={intl.formatMessage({ id: 'projects.column.todo' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
@@ -372,7 +384,9 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='inProgress'
-                  label='In Progress'
+                  label={intl.formatMessage({
+                    id: 'projects.column.inProgress',
+                  })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-28'
@@ -383,7 +397,7 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='inReview'
-                  label='In Review'
+                  label={intl.formatMessage({ id: 'projects.column.inReview' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-28'
@@ -394,7 +408,7 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='done'
-                  label='Done'
+                  label={intl.formatMessage({ id: 'projects.column.done' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
@@ -420,7 +434,7 @@ export function ProjectsPage({
                 />
                 <SortableHeader
                   col='updatedAt'
-                  label='Updated'
+                  label={intl.formatMessage({ id: 'common.updated' })}
                   sort={sort}
                   onToggle={toggle}
                   className='text-right py-3 px-6'
@@ -445,7 +459,10 @@ export function ProjectsPage({
                     <Checkbox
                       checked={selected.has(project.id)}
                       onCheckedChange={() => toggleOne(project.id)}
-                      aria-label={`Select ${project.name}`}
+                      aria-label={intl.formatMessage(
+                        { id: 'projects.selectOne' },
+                        { name: project.name }
+                      )}
                     />
                   </td>
                   <td className='py-4 px-6 border-b border-zinc-200 dark:border-zinc-800'>
@@ -454,7 +471,9 @@ export function ProjectsPage({
                         {project.name}
                       </span>
                       {project.isIdea && (
-                        <span className={IDEA_BADGE_CLS}>Draft</span>
+                        <span className={IDEA_BADGE_CLS}>
+                          {intl.formatMessage({ id: 'projects.draftBadge' })}
+                        </span>
                       )}
                     </div>
                   </td>
@@ -495,7 +514,9 @@ export function ProjectsPage({
                             <LinkIcon size={12} />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>Copy link</TooltipContent>
+                        <TooltipContent>
+                          {intl.formatMessage({ id: 'projects.copyLink' })}
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                   </td>
@@ -513,24 +534,30 @@ export function ProjectsPage({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {selectedCount} project{selectedCount === 1 ? '' : 's'}?
+              {intl.formatMessage(
+                { id: 'projects.bulkDelete.confirmTitle' },
+                { count: selectedCount }
+              )}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All tasks, views, and documents in{' '}
-              {selectedCount === 1
-                ? 'this project'
-                : `these ${selectedCount} projects`}{' '}
-              will be permanently removed.
+              {intl.formatMessage(
+                { id: 'projects.bulkDelete.confirmDesc' },
+                { count: selectedCount }
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={runBulkDelete}
               className='bg-red-600 hover:bg-red-700 focus:ring-red-600'
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting
+                ? intl.formatMessage({ id: 'common.deleting' })
+                : intl.formatMessage({ id: 'common.delete' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
