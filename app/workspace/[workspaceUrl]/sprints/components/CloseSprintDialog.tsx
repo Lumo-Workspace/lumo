@@ -142,7 +142,9 @@ export function CloseSprintDialog({
 
         <div className='flex flex-col gap-4'>
           {loading ? (
-            <p className='text-sm text-muted-foreground'>Loading…</p>
+            <p className='text-sm text-muted-foreground'>
+              {intl.formatMessage({ id: 'sprints.detail.loading' })}
+            </p>
           ) : tasks.length === 0 ? (
             <p className='text-sm text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.close.allDone' })}

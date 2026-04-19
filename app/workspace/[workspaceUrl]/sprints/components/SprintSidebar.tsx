@@ -98,22 +98,30 @@ export function SprintSidebar({
         {/* Dates */}
         <div className='flex flex-col gap-1 text-sm'>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Start</span>
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({ id: 'sprints.detail.dateStart' })}
+            </span>
             <span>{formatDate(sprint.startDate)}</span>
           </div>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>End</span>
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({ id: 'sprints.detail.dateEnd' })}
+            </span>
             <span>{formatDate(sprint.endDate)}</span>
           </div>
           {sprint.startedAt && (
             <div className='flex justify-between'>
-              <span className='text-muted-foreground'>Started</span>
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({ id: 'sprints.detail.dateStarted' })}
+              </span>
               <span>{formatDate(sprint.startedAt)}</span>
             </div>
           )}
           {sprint.closedAt && (
             <div className='flex justify-between'>
-              <span className='text-muted-foreground'>Closed</span>
+              <span className='text-muted-foreground'>
+                {intl.formatMessage({ id: 'sprints.detail.dateClosed' })}
+              </span>
               <span>{formatDate(sprint.closedAt)}</span>
             </div>
           )}
