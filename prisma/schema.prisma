@@ -195,10 +195,14 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  sprintCadenceDays Int?
+  sprintAutoPrepare Boolean @default(true)
+
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]
   members   TeamMember[]
   tasks     Task[]
+  sprints   Sprint[]
 
   @@unique([workspaceId, identifier])
   @@index([workspaceId])
@@ -359,6 +363,7 @@ model Task {
   assigneeActorId String?
   reviewerActorId String?
   repositoryId    String? // optional link to ProjectRepository
+  sprintId        String?
   title           String
   description     String?
   spec            String?
@@ -375,6 +380,7 @@ model Task {
   project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   team       Team               @relation(fields: [teamId], references: [id])
   repository ProjectRepository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  sprint     Sprint?            @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   parent     Task?              @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
   children   Task[]             @relation("TaskChildren")
   assignee   Actor?             @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
@@ -399,6 +405,7 @@ model Task {
   @@index([assigneeActorId])
   @@index([reviewerActorId])
   @@index([repositoryId])
+  @@index([sprintId])
   @@map("tasks")
 }
 
@@ -555,6 +562,7 @@ model Notification {
   taskId           String?
   commentId        String? // set for TASK_MENTIONED — scroll to comment
   clarifyId        String? // set for AGENT_CLARIFY — link to AgentClarify
+  sprintId         String?
   triggerActorId   String? // Actor.id — who/what triggered it; null for system
   read             Boolean          @default(false)
   requiresAction   Boolean          @default(false) // AGENT_CLARIFY / AGENT_AUTHORIZE / AGENT_VERIFY
