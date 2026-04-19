@@ -714,5 +714,37 @@
   "display.completed.pastMonth": "过去一个月",
   "display.completed.pastMonthHint": "仅显示过去 30 天内完成的任务",
   "display.completed.none": "无",
-  "display.completed.noneHint": "隐藏所有已完成任务"
+  "display.completed.noneHint": "隐藏所有已完成任务",
+
+  "inbox.markAllRead": "全部标为已读",
+  "common.retry": "重试",
+  "inbox.section.actionable": "需要你处理",
+  "inbox.section.other": "其他",
+  "inbox.empty.allCaughtUp": "已全部处理完",
+  "inbox.noLinkedTask": "此通知未关联任务。",
+  "inbox.unreadCount": "{count, plural, other {# 条未读通知}}",
+
+  "notification.verb.taskInReview": "提交了审核",
+  "notification.verb.taskSentBack": "退回到进行中",
+  "notification.verb.taskAssigned": "把任务分配给你：",
+  "notification.verb.taskSpecReady": "生成了任务说明草稿：",
+  "notification.verb.taskMentioned": "在评论中提到了你：",
+  "notification.verb.agentClarify": "有一个问题需要你确认：",
+  "notification.verb.agentAuthorize": "需要你授权：",
+  "notification.verb.agentVerify": "完成了任务：",
+  "notification.verb.agentFailed": "在任务上失败：",
+  "notification.verb.agentDone": "完成了任务：",
+  "notification.defaultActor": "Lumo AI",
+  "notification.unspecifiedTask": "一个任务",
+  "notification.action.done": "完成",
+  "notification.action.sendBack": "退回",
+  "notification.menu.markRead": "标为已读",
+  "notification.menu.markUnread": "标为未读",
+  "notification.menu.delete": "删除通知",
+
+  "agent.clarify.placeholder": "回复 agent...",
+  "agent.clarify.send": "发送回复",
+  "agent.verify.confirm": "确认",
+  "agent.authorize.approve": "批准",
+  "agent.authorize.deny": "拒绝"
 }

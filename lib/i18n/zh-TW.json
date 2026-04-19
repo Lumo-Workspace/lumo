@@ -679,5 +679,37 @@
   "display.completed.pastMonth": "過去一個月",
   "display.completed.pastMonthHint": "僅顯示過去 30 天內完成的任務",
   "display.completed.none": "無",
-  "display.completed.noneHint": "隱藏所有已完成任務"
+  "display.completed.noneHint": "隱藏所有已完成任務",
+
+  "inbox.markAllRead": "全部標為已讀",
+  "common.retry": "重試",
+  "inbox.section.actionable": "需要你處理",
+  "inbox.section.other": "其他",
+  "inbox.empty.allCaughtUp": "已全部處理完",
+  "inbox.noLinkedTask": "此通知未關聯任務。",
+  "inbox.unreadCount": "{count, plural, other {# 條未讀通知}}",
+
+  "notification.verb.taskInReview": "提交了審核",
+  "notification.verb.taskSentBack": "退回到進行中",
+  "notification.verb.taskAssigned": "把任務分配給你：",
+  "notification.verb.taskSpecReady": "生成了任務說明草稿：",
+  "notification.verb.taskMentioned": "在評論中提到了你：",
+  "notification.verb.agentClarify": "有一個問題需要你確認：",
+  "notification.verb.agentAuthorize": "需要你授權：",
+  "notification.verb.agentVerify": "完成了任務：",
+  "notification.verb.agentFailed": "在任務上失敗：",
+  "notification.verb.agentDone": "完成了任務：",
+  "notification.defaultActor": "Lumo AI",
+  "notification.unspecifiedTask": "一個任務",
+  "notification.action.done": "完成",
+  "notification.action.sendBack": "退回",
+  "notification.menu.markRead": "標為已讀",
+  "notification.menu.markUnread": "標為未讀",
+  "notification.menu.delete": "刪除通知",
+
+  "agent.clarify.placeholder": "回覆 agent...",
+  "agent.clarify.send": "發送回覆",
+  "agent.verify.confirm": "確認",
+  "agent.authorize.approve": "批准",
+  "agent.authorize.deny": "拒絕"
 }

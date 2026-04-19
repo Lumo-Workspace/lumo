@@ -714,5 +714,37 @@
   "display.completed.pastMonth": "Past month",
   "display.completed.pastMonthHint": "Only show tasks completed in the past 30 days",
   "display.completed.none": "None",
-  "display.completed.noneHint": "Hide all completed tasks"
+  "display.completed.noneHint": "Hide all completed tasks",
+
+  "inbox.markAllRead": "Mark all as read",
+  "common.retry": "Retry",
+  "inbox.section.actionable": "Needs your response",
+  "inbox.section.other": "Other",
+  "inbox.empty.allCaughtUp": "You're all caught up",
+  "inbox.noLinkedTask": "No task linked to this notification.",
+  "inbox.unreadCount": "{count, plural, one {# unread notification} other {# unread notifications}}",
+
+  "notification.verb.taskInReview": "submitted for review",
+  "notification.verb.taskSentBack": "sent back to In Progress",
+  "notification.verb.taskAssigned": "assigned you to",
+  "notification.verb.taskSpecReady": "generated a spec draft for",
+  "notification.verb.taskMentioned": "mentioned you in",
+  "notification.verb.agentClarify": "has a question about",
+  "notification.verb.agentAuthorize": "needs your approval for",
+  "notification.verb.agentVerify": "completed work on",
+  "notification.verb.agentFailed": "failed on",
+  "notification.verb.agentDone": "finished work on",
+  "notification.defaultActor": "Lumo AI",
+  "notification.unspecifiedTask": "a task",
+  "notification.action.done": "Done",
+  "notification.action.sendBack": "Send back",
+  "notification.menu.markRead": "Mark as read",
+  "notification.menu.markUnread": "Mark as unread",
+  "notification.menu.delete": "Delete notification",
+
+  "agent.clarify.placeholder": "Reply to the agent...",
+  "agent.clarify.send": "Send reply",
+  "agent.verify.confirm": "Confirm",
+  "agent.authorize.approve": "Approve",
+  "agent.authorize.deny": "Deny"
 }

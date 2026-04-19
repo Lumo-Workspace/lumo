@@ -79,18 +79,53 @@ export function NotificationItem({
   const pendingAction = isPendingAction(notification)
 
   const VERB: Partial<Record<ApiNotification['type'], string>> = {
-    TASK_IN_REVIEW: 'submitted for review',
-    TASK_SENT_BACK: 'sent back to In Progress',
-    TASK_ASSIGNED: 'assigned you to',
-    TASK_SPEC_READY: 'generated a spec draft for',
-    TASK_MENTIONED: 'mentioned you in',
-    AGENT_CLARIFY: 'has a question about',
-    AGENT_AUTHORIZE: 'needs your approval for',
-    AGENT_VERIFY: 'completed work on',
-    AGENT_FAILED: 'failed on',
-    AGENT_DONE: 'finished work on',
+    TASK_IN_REVIEW: intlLocal.formatMessage({
+      id: 'notification.verb.taskInReview',
+      defaultMessage: 'submitted for review',
+    }),
+    TASK_SENT_BACK: intlLocal.formatMessage({
+      id: 'notification.verb.taskSentBack',
+      defaultMessage: 'sent back to In Progress',
+    }),
+    TASK_ASSIGNED: intlLocal.formatMessage({
+      id: 'notification.verb.taskAssigned',
+      defaultMessage: 'assigned you to',
+    }),
+    TASK_SPEC_READY: intlLocal.formatMessage({
+      id: 'notification.verb.taskSpecReady',
+      defaultMessage: 'generated a spec draft for',
+    }),
+    TASK_MENTIONED: intlLocal.formatMessage({
+      id: 'notification.verb.taskMentioned',
+      defaultMessage: 'mentioned you in',
+    }),
+    AGENT_CLARIFY: intlLocal.formatMessage({
+      id: 'notification.verb.agentClarify',
+      defaultMessage: 'has a question about',
+    }),
+    AGENT_AUTHORIZE: intlLocal.formatMessage({
+      id: 'notification.verb.agentAuthorize',
+      defaultMessage: 'needs your approval for',
+    }),
+    AGENT_VERIFY: intlLocal.formatMessage({
+      id: 'notification.verb.agentVerify',
+      defaultMessage: 'completed work on',
+    }),
+    AGENT_FAILED: intlLocal.formatMessage({
+      id: 'notification.verb.agentFailed',
+      defaultMessage: 'failed on',
+    }),
+    AGENT_DONE: intlLocal.formatMessage({
+      id: 'notification.verb.agentDone',
+      defaultMessage: 'finished work on',
+    }),
   }
-  const verb = VERB[type] ?? 'mentioned you in'
+  const verb =
+    VERB[type] ??
+    intlLocal.formatMessage({
+      id: 'notification.verb.taskMentioned',
+      defaultMessage: 'mentioned you in',
+    })
 
   const timeAgo = (() => {
     const rtf = new Intl.RelativeTimeFormat(intlLocal.locale, {
@@ -145,10 +180,21 @@ export function NotificationItem({
 
           <ItemContent>
             <p className='text-xs leading-snug text-foreground'>
-              <span className='font-semibold'>{actor?.name ?? 'Lumo AI'}</span>{' '}
+              <span className='font-semibold'>
+                {actor?.name ??
+                  intlLocal.formatMessage({
+                    id: 'notification.defaultActor',
+                    defaultMessage: 'Lumo AI',
+                  })}
+              </span>{' '}
               {verb}{' '}
               <span className='font-medium'>
-                {task ? `${task.teamIdentifier}-${task.number}` : 'a task'}
+                {task
+                  ? `${task.teamIdentifier}-${task.number}`
+                  : intlLocal.formatMessage({
+                      id: 'notification.unspecifiedTask',
+                      defaultMessage: 'a task',
+                    })}
               </span>
               {task && (
                 <span className='text-muted-foreground'>{` ${task.title}`}</span>
@@ -206,7 +252,10 @@ export function NotificationItem({
                   }}
                 >
                   <CheckCheck data-icon='inline-start' />
-                  Done
+                  {intlLocal.formatMessage({
+                    id: 'notification.action.done',
+                    defaultMessage: 'Done',
+                  })}
                 </Button>
                 <Button
                   size='sm'
@@ -222,7 +271,10 @@ export function NotificationItem({
                   }}
                 >
                   <RotateCcw data-icon='inline-start' />
-                  Send back
+                  {intlLocal.formatMessage({
+                    id: 'notification.action.sendBack',
+                    defaultMessage: 'Send back',
+                  })}
                 </Button>
               </ItemActions>
             )}
@@ -236,7 +288,15 @@ export function NotificationItem({
             read ? onMarkUnread() : onMarkRead()
           }}
         >
-          Mark as {read ? 'unread' : 'read'}
+          {read
+            ? intlLocal.formatMessage({
+                id: 'notification.menu.markUnread',
+                defaultMessage: 'Mark as unread',
+              })
+            : intlLocal.formatMessage({
+                id: 'notification.menu.markRead',
+                defaultMessage: 'Mark as read',
+              })}
           <ContextMenuShortcut>U</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
@@ -246,7 +306,10 @@ export function NotificationItem({
             onDelete()
           }}
         >
-          Delete notification
+          {intlLocal.formatMessage({
+            id: 'notification.menu.delete',
+            defaultMessage: 'Delete notification',
+          })}
           <ContextMenuShortcut>⌫</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>

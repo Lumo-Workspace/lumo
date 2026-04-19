@@ -266,7 +266,10 @@ export function InboxPage({
               className='h-7 text-xs gap-1.5 text-zinc-500'
             >
               <CheckCheck size={13} />
-              Mark all as read
+              {intl.formatMessage({
+                id: 'inbox.markAllRead',
+                defaultMessage: 'Mark all as read',
+              })}
             </Button>
           )}
         </PageBreadcrumb>
@@ -297,7 +300,10 @@ export function InboxPage({
             <div className='flex flex-col items-center justify-center h-full gap-3 text-zinc-400 p-4'>
               <p className='text-sm text-center'>{error}</p>
               <Button variant='outline' size='sm' onClick={onRetry}>
-                Retry
+                {intl.formatMessage({
+                  id: 'common.retry',
+                  defaultMessage: 'Retry',
+                })}
               </Button>
             </div>
           ) : (
@@ -308,7 +314,10 @@ export function InboxPage({
                   <div className='flex items-center gap-1.5 px-1 pb-1'>
                     <MessageSquare size={11} className='text-blue-500' />
                     <span className='text-[10px] font-medium text-blue-500 uppercase tracking-wide'>
-                      Needs your response
+                      {intl.formatMessage({
+                        id: 'inbox.section.actionable',
+                        defaultMessage: 'Needs your response',
+                      })}
                     </span>
                   </div>
                   <ItemGroup className='flex flex-col gap-1'>
@@ -323,7 +332,10 @@ export function InboxPage({
                   {actionable.length > 0 && (
                     <div className='flex items-center gap-1.5 px-1 pb-1'>
                       <span className='text-[10px] font-medium text-muted-foreground uppercase tracking-wide'>
-                        Other
+                        {intl.formatMessage({
+                          id: 'inbox.section.other',
+                          defaultMessage: 'Other',
+                        })}
                       </span>
                     </div>
                   )}
@@ -338,7 +350,10 @@ export function InboxPage({
                 <div className='flex flex-col items-center justify-center py-16 gap-2 text-zinc-400'>
                   <Inbox size={24} className='text-muted-foreground/30' />
                   <p className='text-xs text-muted-foreground'>
-                    {"You're all caught up"}
+                    {intl.formatMessage({
+                      id: 'inbox.empty.allCaughtUp',
+                      defaultMessage: "You're all caught up",
+                    })}
                   </p>
                 </div>
               )}
@@ -408,7 +423,12 @@ export function InboxPage({
               transition={{ duration: 0.1 }}
               className='absolute inset-0 flex items-center justify-center text-zinc-400'
             >
-              <p className='text-sm'>No task linked to this notification.</p>
+              <p className='text-sm'>
+                {intl.formatMessage({
+                  id: 'inbox.noLinkedTask',
+                  defaultMessage: 'No task linked to this notification.',
+                })}
+              </p>
             </motion.div>
           ) : (
             <motion.div
@@ -422,8 +442,18 @@ export function InboxPage({
               <Inbox size={32} className='text-muted-foreground/30' />
               <p className='text-sm text-muted-foreground'>
                 {unreadCount > 0
-                  ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                  : "You're all caught up"}
+                  ? intl.formatMessage(
+                      {
+                        id: 'inbox.unreadCount',
+                        defaultMessage:
+                          '{count, plural, one {# unread notification} other {# unread notifications}}',
+                      },
+                      { count: unreadCount }
+                    )
+                  : intl.formatMessage({
+                      id: 'inbox.empty.allCaughtUp',
+                      defaultMessage: "You're all caught up",
+                    })}
               </p>
             </motion.div>
           )}

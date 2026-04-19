@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import {
   Loader2,
   SendHorizonal,
@@ -23,6 +24,7 @@ export function AgentClarifyWidget({
   notification,
   onRespond,
 }: AgentClarifyWidgetProps) {
+  const intl = useIntl()
   const [reply, setReply] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -54,7 +56,10 @@ export function AgentClarifyWidget({
             handleSubmit()
           }
         }}
-        placeholder='Reply to the agent...'
+        placeholder={intl.formatMessage({
+          id: 'agent.clarify.placeholder',
+          defaultMessage: 'Reply to the agent...',
+        })}
         className='text-xs min-h-[56px] resize-none'
         disabled={submitting}
         autoFocus={false}
@@ -74,7 +79,10 @@ export function AgentClarifyWidget({
         ) : (
           <SendHorizonal size={11} data-icon='inline-start' />
         )}
-        Send reply
+        {intl.formatMessage({
+          id: 'agent.clarify.send',
+          defaultMessage: 'Send reply',
+        })}
       </Button>
     </div>
   )
@@ -84,6 +92,7 @@ export function AgentVerifyWidget({
   notification,
   onRespond,
 }: AgentVerifyWidgetProps) {
+  const intl = useIntl()
   const [actionTaken, setActionTaken] = useState<
     'confirm' | 'send_back' | null
   >(null)
@@ -103,7 +112,10 @@ export function AgentVerifyWidget({
         }}
       >
         <ThumbsUp size={11} data-icon='inline-start' />
-        Confirm
+        {intl.formatMessage({
+          id: 'agent.verify.confirm',
+          defaultMessage: 'Confirm',
+        })}
       </Button>
       <Button
         size='sm'
@@ -119,7 +131,10 @@ export function AgentVerifyWidget({
         }}
       >
         <RotateCcw size={11} data-icon='inline-start' />
-        Send back
+        {intl.formatMessage({
+          id: 'notification.action.sendBack',
+          defaultMessage: 'Send back',
+        })}
       </Button>
     </ItemActions>
   )
@@ -129,6 +144,7 @@ export function AgentAuthorizeWidget({
   notification,
   onRespond,
 }: AgentAuthorizeWidgetProps) {
+  const intl = useIntl()
   const [actionTaken, setActionTaken] = useState<'approve' | 'deny' | null>(
     null
   )
@@ -148,7 +164,10 @@ export function AgentAuthorizeWidget({
         }}
       >
         <ShieldCheck size={11} data-icon='inline-start' />
-        Approve
+        {intl.formatMessage({
+          id: 'agent.authorize.approve',
+          defaultMessage: 'Approve',
+        })}
       </Button>
       <Button
         size='sm'
@@ -164,7 +183,10 @@ export function AgentAuthorizeWidget({
         }}
       >
         <ShieldX size={11} data-icon='inline-start' />
-        Deny
+        {intl.formatMessage({
+          id: 'agent.authorize.deny',
+          defaultMessage: 'Deny',
+        })}
       </Button>
     </ItemActions>
   )
