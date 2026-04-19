@@ -247,6 +247,22 @@ export const taskRepository = {
     })
   },
 
+  /** Update a single task's sprintId. */
+  async updateSprint(taskId: string, sprintId: string | null) {
+    return prisma.task.update({
+      where: { id: taskId },
+      data: { sprintId },
+    })
+  },
+
+  /** Bulk update multiple tasks' sprintId. */
+  async bulkUpdateSprint(taskIds: string[], sprintId: string | null) {
+    return prisma.task.updateMany({
+      where: { id: { in: taskIds } },
+      data: { sprintId },
+    })
+  },
+
   /** Find all tasks assigned to an actor, with project/team/parent/children details. */
   async findAssignedTasks(actorId: string) {
     return prisma.task.findMany({
