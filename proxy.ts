@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/(.*)',
   '/invite(.*)',
   '/share(.*)',
+  '/.well-known/(.*)', // OAuth metadata for MCP clients (RFC 8414, RFC 9728)
 ])
 
 export default clerkMiddleware(async (auth, request) => {

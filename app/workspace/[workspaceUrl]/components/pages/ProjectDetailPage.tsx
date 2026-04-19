@@ -231,7 +231,6 @@ export function ProjectDetailPage({
           members={members}
           currentActorId={currentActorId}
           isOwner={isOwner}
-          projectOwnerActorId={project.owner?.id ?? null}
           viewMode={viewMode}
           setViewMode={setViewMode}
           displayOptions={displayOptions}

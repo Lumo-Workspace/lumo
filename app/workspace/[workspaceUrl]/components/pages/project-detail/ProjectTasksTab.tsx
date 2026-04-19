@@ -56,7 +56,6 @@ interface ProjectTasksTabProps {
   members: WorkspaceMemberInfo[]
   currentActorId?: string | null | undefined
   isOwner?: boolean | undefined
-  projectOwnerActorId: string | null
   viewMode: 'list' | 'board'
   setViewMode: (mode: 'list' | 'board') => void
   displayOptions: DisplayOptions
@@ -83,7 +82,6 @@ export function ProjectTasksTab({
   members,
   currentActorId,
   isOwner,
-  projectOwnerActorId,
   viewMode,
   setViewMode,
   displayOptions,
@@ -108,15 +106,8 @@ export function ProjectTasksTab({
 
   // ─── Memoised columns ───────────────────────────────────────────────────────
   const taskColumns = useMemo(
-    () =>
-      createTaskColumns(
-        onTaskClick,
-        onDeleteTask,
-        members,
-        projectOwnerActorId,
-        intl
-      ),
-    [onTaskClick, onDeleteTask, members, projectOwnerActorId, intl]
+    () => createTaskColumns(onTaskClick, onDeleteTask, members, intl),
+    [onTaskClick, onDeleteTask, members, intl]
   )
 
   // ─── Bulk actions ───────────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ const mcpHandler = createMcpHandler(
   }
 )
 
-const handler = withMcpAuth(
+const authedHandler = withMcpAuth(
   mcpHandler,
   async (_req, bearerToken) => {
     // `auth({ acceptsToken: 'oauth_token' })` returns a MachineAuthObject
@@ -34,5 +34,34 @@ const handler = withMcpAuth(
     resourceMetadataPath: '/.well-known/oauth-protected-resource',
   }
 )
+
+// CORS for browser-based MCP clients (MCP Inspector, etc.). Native clients
+// like Claude Desktop do not care about these headers but they are harmless.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers':
+    'Content-Type, Authorization, Accept, mcp-session-id, mcp-protocol-version',
+  'Access-Control-Expose-Headers': 'mcp-session-id, www-authenticate',
+  'Access-Control-Max-Age': '86400',
+}
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers)
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v)
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  })
+}
+
+async function handler(req: Request): Promise<Response> {
+  return withCors(await authedHandler(req))
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
 
 export { handler as GET, handler as POST, handler as DELETE }

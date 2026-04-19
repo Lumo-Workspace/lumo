@@ -4,6 +4,10 @@
 //
 // The Clerk-aware helper derives the Clerk issuer URL from
 // NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY at runtime — no extra env var required.
-import { protectedResourceHandlerClerk } from '@clerk/mcp-tools/next'
+import {
+  protectedResourceHandlerClerk,
+  metadataCorsOptionsRequestHandler,
+} from '@clerk/mcp-tools/next'
 
 export const GET = protectedResourceHandlerClerk()
+export const OPTIONS = metadataCorsOptionsRequestHandler()

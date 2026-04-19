@@ -161,7 +161,6 @@ export function createTaskColumns(
   onTaskClick: (task: ApiTask) => void,
   onDeleteTask: (taskId: string) => Promise<void>,
   members: WorkspaceMemberInfo[] = [],
-  projectOwnerActorId: string | null = null,
   intl?: IntlShape
 ): ColumnDef<ApiTask>[] {
   const memberByActorId = new Map(
@@ -469,31 +468,6 @@ export function createTaskColumns(
         const assigneeActorId = row.original.assignee?.id ?? null
         const member = assigneeActorId
           ? memberByActorId.get(assigneeActorId)
-          : null
-        return member ? (
-          <MemberAvatar member={member} />
-        ) : (
-          <span className='text-xs text-muted-foreground'>—</span>
-        )
-      },
-    },
-
-    // ── Owner ──────────────────────────────────────────────────────────────
-    {
-      id: 'owner',
-      enableSorting: false,
-      meta: {
-        headerClassName: 'w-24 px-8',
-        cellClassName: 'px-8',
-      },
-      header: () => (
-        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-          Owner
-        </span>
-      ),
-      cell: () => {
-        const member = projectOwnerActorId
-          ? memberByActorId.get(projectOwnerActorId)
           : null
         return member ? (
           <MemberAvatar member={member} />

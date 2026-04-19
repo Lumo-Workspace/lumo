@@ -79,7 +79,6 @@ type MyTaskSortKey =
   | 'status'
   | 'priority'
   | 'assignee'
-  | 'owner'
   | 'updatedAt'
 
 interface MyTasksPageProps {
@@ -535,14 +534,6 @@ function TaskListTable({
             ),
             sort.dir
           )
-        case 'owner':
-          return applyDir(
-            cmpString(
-              memberByActorId.get(a.project.ownerActorId ?? '')?.name ?? '',
-              memberByActorId.get(b.project.ownerActorId ?? '')?.name ?? ''
-            ),
-            sort.dir
-          )
         case 'updatedAt':
           return applyDir(cmpDate(a.updatedAt, b.updatedAt), sort.dir)
         default:
@@ -676,21 +667,6 @@ function TaskListTable({
             })}
           />
           <SortableHeader
-            col='owner'
-            label={intl.formatMessage({
-              id: 'project.owner',
-              defaultMessage: 'Owner',
-            })}
-            sort={sort}
-            onToggle={toggle}
-            className='text-left py-2 px-8 w-24'
-            tooltip={intl.formatMessage({
-              id: 'projects.tooltip.owner',
-              defaultMessage:
-                'Project owner — primary contact for this project.',
-            })}
-          />
-          <SortableHeader
             col='updatedAt'
             label={intl.formatMessage({
               id: 'common.updated',
@@ -751,18 +727,6 @@ function TaskListTable({
               {(() => {
                 const m = task.assignee?.id
                   ? memberByActorId.get(task.assignee.id)
-                  : null
-                return m ? (
-                  <MemberAvatar member={m} />
-                ) : (
-                  <span className='text-xs text-zinc-400'>—</span>
-                )
-              })()}
-            </td>
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              {(() => {
-                const m = task.project.ownerActorId
-                  ? memberByActorId.get(task.project.ownerActorId)
                   : null
                 return m ? (
                   <MemberAvatar member={m} />
