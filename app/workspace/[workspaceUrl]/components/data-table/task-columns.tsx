@@ -53,7 +53,7 @@ import { Spinner } from '@/components/ui/spinner'
 
 // ─── Ghost trigger style for inline pickers ───────────────────────────────────
 const GHOST_TRIGGER =
-  'h-7 px-2 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 bg-transparent shadow-none text-xs'
+  'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-xs'
 
 // ─── Update patch type ────────────────────────────────────────────────────────
 export type TaskPatch = Partial<{
@@ -161,7 +161,7 @@ function TitleCell({
             cancel()
           }
         }}
-        className='w-full text-sm font-medium bg-transparent border-0 border-b border-blue-400 outline-none focus:ring-0'
+        className='w-full text-sm font-medium bg-transparent border-0 outline-none focus:ring-0'
         onClick={e => e.stopPropagation()}
       />
     )
