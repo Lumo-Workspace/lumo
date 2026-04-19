@@ -402,6 +402,43 @@ model Task {
   @@map("tasks")
 }
 
+// ─── Sprint & SprintSummary ───────────────────────────────────────────────
+
+model Sprint {
+  id        String       @id @default(cuid())
+  teamId    String
+  number    Int
+  name      String
+  status    SprintStatus @default(DRAFT)
+  startDate DateTime
+  endDate   DateTime
+  startedAt DateTime?
+  closedAt  DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  team    Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+  summary SprintSummary?
+
+  @@unique([teamId, number])
+  @@index([teamId, status])
+  @@map("sprints")
+}
+
+model SprintSummary {
+  id          String   @id @default(cuid())
+  sprintId    String   @unique
+  stats       Json
+  tldr        String
+  report      String
+  generatedAt DateTime @default(now())
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@map("sprint_summaries")
+}
+
 // ─── View system (Document / Kanban / future) ───────────────────────────────
 
 model View {
