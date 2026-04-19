@@ -19,7 +19,7 @@ type Params = { params: Promise<{ id: string }> }
  * GET /api/projects/[id]/tasks — Get all tasks as a tree, with per-view ordering.
  * Also lazy-creates the KANBAN view for the project on first access.
  */
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -37,7 +37,20 @@ export async function GET(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const tasks = await taskRepository.findByProjectWithDetails(id)
+    // Parse optional sprintId filter:
+    //   ?sprintId=<id>   → tasks in that sprint
+    //   ?sprintId=null   → backlog tasks (sprintId IS NULL)
+    //   (omitted)        → all tasks (no sprint filter)
+    const { searchParams } = new URL(request.url)
+    const sprintIdParam = searchParams.get('sprintId')
+    const sprintId: string | null | undefined =
+      sprintIdParam === null
+        ? undefined
+        : sprintIdParam === 'null'
+          ? null
+          : sprintIdParam
+
+    const tasks = await taskRepository.findByProjectWithDetails(id, sprintId)
 
     // Lazy-create KANBAN view for this project
     const kanbanView = await viewRepository.findOrCreateProjectKanban(
