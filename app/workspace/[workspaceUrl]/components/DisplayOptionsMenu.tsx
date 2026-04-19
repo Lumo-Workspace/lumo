@@ -1,6 +1,7 @@
 'use client'
 
 import { SlidersHorizontal, Check, Info } from 'lucide-react'
+import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -12,15 +13,8 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '@/components/ui/tooltip'
-import {
-  COMPLETED_FILTER_LABELS,
-  type CompletedFilter,
-} from '../utils/filterCompletedTasks'
-import {
-  ORDERING_LABELS,
-  ORDERING_OPTIONS,
-  type TaskOrdering,
-} from '../utils/sortTasks'
+import { type CompletedFilter } from '../utils/filterCompletedTasks'
+import { ORDERING_OPTIONS, type TaskOrdering } from '../utils/sortTasks'
 import { Switch } from '@/components/ui/switch'
 
 const FILTER_OPTIONS: CompletedFilter[] = [
@@ -30,23 +24,6 @@ const FILTER_OPTIONS: CompletedFilter[] = [
   'past_month',
   'none',
 ]
-
-const ORDERING_TOOLTIPS: Record<TaskOrdering, string> = {
-  manual: 'Sort by your custom order, drag to reorder',
-  title: 'Sort alphabetically by task title',
-  priority: 'Sort by priority level (Urgent first)',
-  assignee: 'Sort alphabetically by assignee name',
-  created: 'Sort by creation date (newest first)',
-  updated: 'Sort by last updated date (newest first)',
-}
-
-const COMPLETED_FILTER_TOOLTIPS: Record<CompletedFilter, string> = {
-  all: 'Show all completed tasks',
-  past_day: 'Only show tasks completed in the past 24 hours',
-  past_week: 'Only show tasks completed in the past 7 days',
-  past_month: 'Only show tasks completed in the past 30 days',
-  none: 'Hide all completed tasks',
-}
 
 interface DisplayOptionsMenuProps {
   completedFilter: CompletedFilter
@@ -65,6 +42,108 @@ export function DisplayOptionsMenu({
   showSubtasks,
   onShowSubtasksChange,
 }: DisplayOptionsMenuProps) {
+  const intl = useIntl()
+
+  const orderingLabels: Record<TaskOrdering, string> = {
+    manual: intl.formatMessage({
+      id: 'display.ordering.manual',
+      defaultMessage: 'Manual',
+    }),
+    title: intl.formatMessage({
+      id: 'display.ordering.title',
+      defaultMessage: 'Title',
+    }),
+    priority: intl.formatMessage({
+      id: 'display.ordering.priority',
+      defaultMessage: 'Priority',
+    }),
+    assignee: intl.formatMessage({
+      id: 'display.ordering.assignee',
+      defaultMessage: 'Assignee',
+    }),
+    created: intl.formatMessage({
+      id: 'display.ordering.created',
+      defaultMessage: 'Created',
+    }),
+    updated: intl.formatMessage({
+      id: 'display.ordering.updated',
+      defaultMessage: 'Updated',
+    }),
+  }
+
+  const orderingTooltips: Record<TaskOrdering, string> = {
+    manual: intl.formatMessage({
+      id: 'display.ordering.manualHint',
+      defaultMessage: 'Sort by your custom order, drag to reorder',
+    }),
+    title: intl.formatMessage({
+      id: 'display.ordering.titleHint',
+      defaultMessage: 'Sort alphabetically by task title',
+    }),
+    priority: intl.formatMessage({
+      id: 'display.ordering.priorityHint',
+      defaultMessage: 'Sort by priority level (Urgent first)',
+    }),
+    assignee: intl.formatMessage({
+      id: 'display.ordering.assigneeHint',
+      defaultMessage: 'Sort alphabetically by assignee name',
+    }),
+    created: intl.formatMessage({
+      id: 'display.ordering.createdHint',
+      defaultMessage: 'Sort by creation date (newest first)',
+    }),
+    updated: intl.formatMessage({
+      id: 'display.ordering.updatedHint',
+      defaultMessage: 'Sort by last updated date (newest first)',
+    }),
+  }
+
+  const completedFilterLabels: Record<CompletedFilter, string> = {
+    all: intl.formatMessage({
+      id: 'display.completed.all',
+      defaultMessage: 'All',
+    }),
+    past_day: intl.formatMessage({
+      id: 'display.completed.pastDay',
+      defaultMessage: 'Past day',
+    }),
+    past_week: intl.formatMessage({
+      id: 'display.completed.pastWeek',
+      defaultMessage: 'Past week',
+    }),
+    past_month: intl.formatMessage({
+      id: 'display.completed.pastMonth',
+      defaultMessage: 'Past month',
+    }),
+    none: intl.formatMessage({
+      id: 'display.completed.none',
+      defaultMessage: 'None',
+    }),
+  }
+
+  const completedFilterTooltips: Record<CompletedFilter, string> = {
+    all: intl.formatMessage({
+      id: 'display.completed.allHint',
+      defaultMessage: 'Show all completed tasks',
+    }),
+    past_day: intl.formatMessage({
+      id: 'display.completed.pastDayHint',
+      defaultMessage: 'Only show tasks completed in the past 24 hours',
+    }),
+    past_week: intl.formatMessage({
+      id: 'display.completed.pastWeekHint',
+      defaultMessage: 'Only show tasks completed in the past 7 days',
+    }),
+    past_month: intl.formatMessage({
+      id: 'display.completed.pastMonthHint',
+      defaultMessage: 'Only show tasks completed in the past 30 days',
+    }),
+    none: intl.formatMessage({
+      id: 'display.completed.noneHint',
+      defaultMessage: 'Hide all completed tasks',
+    }),
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -74,13 +153,19 @@ export function DisplayOptionsMenu({
           className='h-8 gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
         >
           <SlidersHorizontal size={14} />
-          Display
+          {intl.formatMessage({
+            id: 'display.menuTrigger',
+            defaultMessage: 'Display',
+          })}
         </Button>
       </PopoverTrigger>
       <PopoverContent align='end' className='w-56 p-2'>
         <div className='flex items-center gap-1 px-2 py-1.5'>
           <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
-            Ordering
+            {intl.formatMessage({
+              id: 'display.section.ordering',
+              defaultMessage: 'Ordering',
+            })}
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -90,7 +175,10 @@ export function DisplayOptionsMenu({
               />
             </TooltipTrigger>
             <TooltipContent side='top'>
-              Choose how tasks are sorted in the list view
+              {intl.formatMessage({
+                id: 'display.section.orderingHint',
+                defaultMessage: 'Choose how tasks are sorted in the list view',
+              })}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -102,7 +190,7 @@ export function DisplayOptionsMenu({
                 className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
               >
                 <span className='text-zinc-700 dark:text-zinc-300'>
-                  {ORDERING_LABELS[opt]}
+                  {orderingLabels[opt]}
                 </span>
                 {ordering === opt && (
                   <Check
@@ -112,9 +200,7 @@ export function DisplayOptionsMenu({
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side='left'>
-              {ORDERING_TOOLTIPS[opt]}
-            </TooltipContent>
+            <TooltipContent side='left'>{orderingTooltips[opt]}</TooltipContent>
           </Tooltip>
         ))}
 
@@ -122,7 +208,10 @@ export function DisplayOptionsMenu({
 
         <div className='flex items-center gap-1 px-2 py-1.5'>
           <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
-            Completed issues
+            {intl.formatMessage({
+              id: 'display.section.completed',
+              defaultMessage: 'Completed issues',
+            })}
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -132,7 +221,10 @@ export function DisplayOptionsMenu({
               />
             </TooltipTrigger>
             <TooltipContent side='top'>
-              Filter which completed tasks are visible
+              {intl.formatMessage({
+                id: 'display.section.completedHint',
+                defaultMessage: 'Filter which completed tasks are visible',
+              })}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -144,7 +236,7 @@ export function DisplayOptionsMenu({
                 className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
               >
                 <span className='text-zinc-700 dark:text-zinc-300'>
-                  {COMPLETED_FILTER_LABELS[opt]}
+                  {completedFilterLabels[opt]}
                 </span>
                 {completedFilter === opt && (
                   <Check
@@ -155,7 +247,7 @@ export function DisplayOptionsMenu({
               </button>
             </TooltipTrigger>
             <TooltipContent side='left'>
-              {COMPLETED_FILTER_TOOLTIPS[opt]}
+              {completedFilterTooltips[opt]}
             </TooltipContent>
           </Tooltip>
         ))}
@@ -164,12 +256,18 @@ export function DisplayOptionsMenu({
 
         <div className='flex items-center gap-1 px-2 py-1.5'>
           <p className='text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider'>
-            Subtasks
+            {intl.formatMessage({
+              id: 'display.section.subtasks',
+              defaultMessage: 'Subtasks',
+            })}
           </p>
         </div>
         <label className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer'>
           <span className='text-zinc-700 dark:text-zinc-300'>
-            Show subtasks
+            {intl.formatMessage({
+              id: 'display.showSubtasks',
+              defaultMessage: 'Show subtasks',
+            })}
           </span>
           <Switch
             checked={showSubtasks}
