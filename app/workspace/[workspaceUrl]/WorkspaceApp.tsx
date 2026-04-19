@@ -529,6 +529,7 @@ export default function DashboardApp() {
             onTaskClick={handleOpenTask}
             onNewTask={openNewTaskModalForMe}
             members={members}
+            projects={projects}
           />
         )
 

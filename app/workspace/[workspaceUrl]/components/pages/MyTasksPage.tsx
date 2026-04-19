@@ -13,6 +13,7 @@ import {
   MyTask,
   ApiStatus,
   ApiPriority,
+  ApiProject,
   WorkspaceMemberInfo,
 } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
@@ -78,6 +79,7 @@ import {
 import { StatusSelect } from '../fields/StatusSelect'
 import { PrioritySelect } from '../fields/PrioritySelect'
 import { AssigneeSelect } from '../fields/AssigneeSelect'
+import { ProjectSelect } from '../fields/ProjectSelect'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
 
@@ -100,6 +102,7 @@ interface MyTasksPageProps {
   onTaskClick: (task: MyTask) => void
   onNewTask: (status?: ApiStatus) => void
   members: WorkspaceMemberInfo[]
+  projects: ApiProject[]
 }
 
 export function MyTasksPage({
@@ -113,6 +116,7 @@ export function MyTasksPage({
   onTaskClick,
   onNewTask,
   members,
+  projects,
 }: MyTasksPageProps) {
   const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
@@ -412,6 +416,7 @@ export function MyTasksPage({
                 tasks={filteredTasks}
                 setTasks={setTasks}
                 members={members}
+                projects={projects}
                 onTaskClick={onTaskClick}
                 onRetry={onRetry}
                 selected={selected}
@@ -600,6 +605,7 @@ function TaskListTable({
   tasks,
   setTasks,
   members,
+  projects,
   onTaskClick,
   onRetry,
   selected,
@@ -608,6 +614,7 @@ function TaskListTable({
   tasks: MyTask[]
   setTasks: React.Dispatch<React.SetStateAction<MyTask[]>>
   members: WorkspaceMemberInfo[]
+  projects: ApiProject[]
   onTaskClick: (task: MyTask) => void
   onRetry: () => void
   selected: Set<string>
@@ -692,9 +699,33 @@ function TaskListTable({
         status: ApiStatus
         priority: ApiPriority
         assigneeActorId: string | null
+        projectId: string
       }>
     ) => {
-      setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...patch } : t)))
+      setTasks(prev =>
+        prev.map(t => {
+          if (t.id !== id) return t
+          // When project changes, also refresh the embedded { id, name, ownerActorId }
+          // so the row updates without waiting for a refetch.
+          if (patch.projectId && patch.projectId !== t.projectId) {
+            const np = projects.find(p => p.id === patch.projectId)
+            return {
+              ...t,
+              ...patch,
+              project: np
+                ? {
+                    id: np.id,
+                    name: np.name,
+                    ownerActorId:
+                      (np as { ownerActorId?: string | null }).ownerActorId ??
+                      null,
+                  }
+                : t.project,
+            }
+          }
+          return { ...t, ...patch }
+        })
+      )
       try {
         await tasksClient.update(id, patch)
       } catch {
@@ -702,7 +733,7 @@ function TaskListTable({
         onRetry()
       }
     },
-    [setTasks, onRetry]
+    [setTasks, projects, onRetry]
   )
 
   const assignableMembers = useMemo(
@@ -840,11 +871,17 @@ function TaskListTable({
                 onDetailsClick={() => onTaskClick(task)}
               />
             </td>
-            {/* Project — read-only */}
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <span className='text-xs text-zinc-500 dark:text-zinc-400'>
-                {task.project.name}
-              </span>
+            {/* Project — inline picker */}
+            <td
+              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
+              onClick={e => e.stopPropagation()}
+            >
+              <ProjectSelect
+                value={task.projectId}
+                projects={projects}
+                onChange={projectId => updateTask(task.id, { projectId })}
+                triggerClassName={GHOST_TRIGGER}
+              />
             </td>
             {/* Status — inline picker */}
             <td
