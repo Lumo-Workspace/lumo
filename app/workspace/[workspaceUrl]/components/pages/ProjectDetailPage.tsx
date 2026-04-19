@@ -220,6 +220,7 @@ export function ProjectDetailPage({
       {tab === 'tasks' && (
         <ProjectTasksTab
           tasks={tasks}
+          setTasks={setTasks}
           filteredTasks={filteredTasks}
           loading={loading}
           error={error}
@@ -230,6 +231,7 @@ export function ProjectDetailPage({
           members={members}
           currentActorId={currentActorId}
           isOwner={isOwner}
+          projectOwnerActorId={project.owner?.id ?? null}
           viewMode={viewMode}
           setViewMode={setViewMode}
           displayOptions={displayOptions}

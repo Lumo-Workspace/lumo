@@ -10,10 +10,12 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ApiTask } from '../../types'
+import { ApiTask, WorkspaceMemberInfo } from '../../types'
 import { API_STATUS_LABEL, formatDueDate, isOverdue } from '../../utils'
 import { StatusIcon } from '../StatusIcon'
 import { PriorityBadge } from '../PriorityBadge'
+import { MemberAvatar } from '../fields/shared'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -140,9 +142,46 @@ function TaskRowActions({
 // ─── Column definitions ───────────────────────────────────────────────────────
 export function createTaskColumns(
   onTaskClick: (task: ApiTask) => void,
-  onDeleteTask: (taskId: string) => Promise<void>
+  onDeleteTask: (taskId: string) => Promise<void>,
+  members: WorkspaceMemberInfo[] = [],
+  projectOwnerActorId: string | null = null
 ): ColumnDef<ApiTask>[] {
+  const memberByActorId = new Map(
+    members.filter(m => m.actorId).map(m => [m.actorId!, m])
+  )
+
   return [
+    // ── Checkbox ───────────────────────────────────────────────────────────
+    {
+      id: 'select',
+      enableSorting: false,
+      meta: {
+        headerClassName: 'w-10 px-4',
+        cellClassName: 'px-4',
+        stopPropagation: true,
+      },
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected()
+              ? true
+              : table.getIsSomePageRowsSelected()
+                ? 'indeterminate'
+                : false
+          }
+          onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
+          aria-label='Select all tasks'
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={value => row.toggleSelected(!!value)}
+          aria-label={`Select ${(row.original as ApiTask).title}`}
+        />
+      ),
+    },
+
     // ── ID ─────────────────────────────────────────────────────────────────
     {
       id: 'identifier',
@@ -351,6 +390,55 @@ export function createTaskColumns(
           {new Date(row.original.updatedAt).toLocaleDateString()}
         </span>
       ),
+    },
+
+    // ── Assignee ───────────────────────────────────────────────────────────
+    {
+      id: 'assignee',
+      enableSorting: false,
+      meta: {
+        headerClassName: 'w-24 px-8',
+        cellClassName: 'px-8',
+      },
+      header: () => (
+        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
+          Assignee
+        </span>
+      ),
+      cell: ({ row }) => {
+        const assigneeActorId = row.original.assignee?.id ?? null
+        const member = assigneeActorId ? memberByActorId.get(assigneeActorId) : null
+        return member ? (
+          <MemberAvatar member={member} />
+        ) : (
+          <span className='text-xs text-muted-foreground'>—</span>
+        )
+      },
+    },
+
+    // ── Owner ──────────────────────────────────────────────────────────────
+    {
+      id: 'owner',
+      enableSorting: false,
+      meta: {
+        headerClassName: 'w-24 px-8',
+        cellClassName: 'px-8',
+      },
+      header: () => (
+        <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
+          Owner
+        </span>
+      ),
+      cell: () => {
+        const member = projectOwnerActorId
+          ? memberByActorId.get(projectOwnerActorId)
+          : null
+        return member ? (
+          <MemberAvatar member={member} />
+        ) : (
+          <span className='text-xs text-muted-foreground'>—</span>
+        )
+      },
     },
 
     // ── Row actions ────────────────────────────────────────────────────────
