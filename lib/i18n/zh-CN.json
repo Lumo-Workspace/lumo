@@ -724,5 +724,16 @@
   "drafts.deleteConfirmTitle": "删除草稿？",
   "drafts.deleteConfirmDesc": "此草稿将被永久删除，且无法撤销。",
   "drafts.deleteAction": "删除草稿",
-  "documents.editorPlaceholder": "输入 / 调用命令…"
+  "documents.editorPlaceholder": "输入 / 调用命令…",
+  "sprints.landing.active": "进行中",
+  "sprints.landing.next": "下一个",
+  "sprints.landing.recent": "近期",
+  "sprints.landing.openBoard": "打开看板",
+  "sprints.landing.close": "结束冲刺",
+  "sprints.landing.plan": "规划",
+  "sprints.landing.start": "开始",
+  "sprints.landing.daysLeft": "剩余 {count} 天",
+  "sprints.landing.overdue": "已逾期 {count} 天",
+  "sprints.landing.empty": "暂无冲刺。请在团队设置中启用冲刺功能。",
+  "sprints.landing.viewRetro": "查看回顾"
 }

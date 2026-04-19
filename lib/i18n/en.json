@@ -724,5 +724,16 @@
   "drafts.deleteConfirmTitle": "Delete draft?",
   "drafts.deleteConfirmDesc": "This draft will be permanently removed. This action cannot be undone.",
   "drafts.deleteAction": "Delete draft",
-  "documents.editorPlaceholder": "Type / for commands…"
+  "documents.editorPlaceholder": "Type / for commands…",
+  "sprints.landing.active": "Active",
+  "sprints.landing.next": "Next",
+  "sprints.landing.recent": "Recent",
+  "sprints.landing.openBoard": "Open board",
+  "sprints.landing.close": "Close sprint",
+  "sprints.landing.plan": "Plan",
+  "sprints.landing.start": "Start",
+  "sprints.landing.daysLeft": "{count} days left",
+  "sprints.landing.overdue": "Overdue by {count} days",
+  "sprints.landing.empty": "No sprints yet. Enable sprints in team settings.",
+  "sprints.landing.viewRetro": "View retro"
 }
