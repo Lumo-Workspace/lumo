@@ -97,9 +97,11 @@ export interface WorkspaceMemberInfo {
   actorId: string | null
 }
 
-/** Task assigned to the current user — always has `project` populated */
+/** Task assigned to the current user — always has `project` populated.
+ * `ownerActorId` is the project owner's Actor.id, suitable for the
+ * shared MemberAvatar resolver. */
 export type MyTask = Omit<ApiTask, 'project'> & {
-  project: { id: string; name: string }
+  project: { id: string; name: string; ownerActorId: string | null }
 }
 
 export interface ApiRepository {

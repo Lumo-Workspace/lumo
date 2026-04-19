@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { Layers, Plus } from 'lucide-react'
-import { ApiTask, ApiStatus, WorkspaceMemberInfo } from '../../../types'
+import { ApiTask, ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../../types'
 import { BoardView } from '../../board/BoardView'
 import { ProjectTaskCard } from '../../board/SortableTaskCard'
 import { ViewToggle } from '../../ViewToggle'
@@ -22,6 +22,9 @@ import {
 } from '@/components/ui/empty'
 import { DataTable } from '../../data-table/data-table'
 import { createTaskColumns } from '../../data-table/task-columns'
+import { TaskSelectionBar } from '../../data-table/TaskSelectionBar'
+import { tasksClient } from '@/lib/api-client'
+import { toast } from 'sonner'
 import type {
   SensorDescriptor,
   SensorOptions,
@@ -37,6 +40,7 @@ interface DisplayOptions {
 
 interface ProjectTasksTabProps {
   tasks: ApiTask[]
+  setTasks: React.Dispatch<React.SetStateAction<ApiTask[]>>
   filteredTasks: ApiTask[]
   loading: boolean
   error: string | null
@@ -47,6 +51,7 @@ interface ProjectTasksTabProps {
   members: WorkspaceMemberInfo[]
   currentActorId?: string | null | undefined
   isOwner?: boolean | undefined
+  projectOwnerActorId: string | null
   viewMode: 'list' | 'board'
   setViewMode: (mode: 'list' | 'board') => void
   displayOptions: DisplayOptions
@@ -62,6 +67,7 @@ interface ProjectTasksTabProps {
 
 export function ProjectTasksTab({
   tasks,
+  setTasks,
   filteredTasks,
   loading,
   error,
@@ -72,6 +78,7 @@ export function ProjectTasksTab({
   members,
   currentActorId,
   isOwner,
+  projectOwnerActorId,
   viewMode,
   setViewMode,
   displayOptions,
@@ -86,11 +93,75 @@ export function ProjectTasksTab({
 }: ProjectTasksTabProps) {
   const intl = useIntl()
 
-  // Memoised columns — stable reference so TanStack Table doesn't re-create on every render
-  const taskColumns = useMemo(
-    () => createTaskColumns(onTaskClick, onDeleteTask),
-    [onTaskClick, onDeleteTask]
+  // ─── Row selection ──────────────────────────────────────────────────────────
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+  const selectedIds = useMemo(
+    () => Object.keys(rowSelection).filter(id => rowSelection[id]),
+    [rowSelection]
   )
+  const selectedCount = selectedIds.length
+
+  // ─── Memoised columns ───────────────────────────────────────────────────────
+  const taskColumns = useMemo(
+    () => createTaskColumns(onTaskClick, onDeleteTask, members, projectOwnerActorId),
+    [onTaskClick, onDeleteTask, members, projectOwnerActorId]
+  )
+
+  // ─── Bulk actions ───────────────────────────────────────────────────────────
+  const runBulkUpdate = async (
+    patch: Partial<{
+      status: ApiStatus
+      priority: ApiPriority
+      assigneeActorId: string | null
+    }>
+  ) => {
+    const ids = selectedIds
+    const results = await Promise.allSettled(
+      ids.map(id => tasksClient.update(id, patch))
+    )
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) {
+      toast.error(
+        `Failed to update ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+      )
+      onRetry()
+    } else {
+      const idSet = new Set(ids)
+      setTasks(prev =>
+        prev.map(t =>
+          idSet.has(t.id)
+            ? {
+                ...t,
+                ...(patch.status !== undefined ? { status: patch.status } : {}),
+                ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+                ...(patch.assigneeActorId !== undefined
+                  ? { assigneeActorId: patch.assigneeActorId }
+                  : {}),
+              }
+            : t
+        )
+      )
+      toast.success(`Updated ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+    }
+    setRowSelection({})
+  }
+
+  const runBulkDelete = async () => {
+    const ids = selectedIds
+    const results = await Promise.allSettled(ids.map(id => tasksClient.delete(id)))
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) {
+      toast.error(
+        `Failed to delete ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+      )
+      onRetry()
+    } else {
+      const idSet = new Set(ids)
+      setTasks(prev => prev.filter(t => !idSet.has(t.id)))
+      toast.success(`Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+    }
+    setRowSelection({})
+  }
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
@@ -152,6 +223,10 @@ export function ProjectTasksTab({
               columns={taskColumns}
               data={filteredTasks}
               onRowClick={onTaskClick}
+              enableSelection
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+              getRowId={(row: ApiTask) => row.id}
               {...(displayOptions.showSubtasks && {
                 treeConfig: {
                   getParentId: (task: ApiTask) => task.parentTaskId,
@@ -159,6 +234,15 @@ export function ProjectTasksTab({
                   getRowId: (task: ApiTask) => task.id,
                 },
               })}
+            />
+            <TaskSelectionBar
+              selectedCount={selectedCount}
+              members={members}
+              onStatusPick={status => runBulkUpdate({ status })}
+              onPriorityPick={priority => runBulkUpdate({ priority })}
+              onAssigneePick={assigneeActorId => runBulkUpdate({ assigneeActorId })}
+              onDelete={runBulkDelete}
+              onCancel={() => setRowSelection({})}
             />
           </div>
         ) : (

@@ -7,7 +7,9 @@ import {
   useReactTable,
   type ColumnDef,
   type RowData,
+  type RowSelectionState,
   type SortingState,
+  type Updater,
 } from '@tanstack/react-table'
 import { useState, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -47,6 +49,10 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   onRowClick?: (row: TData) => void
   treeConfig?: TreeConfig<TData>
+  enableSelection?: boolean
+  rowSelection?: RowSelectionState
+  onRowSelectionChange?: (selection: RowSelectionState) => void
+  getRowId?: (row: TData) => string
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -55,6 +61,10 @@ export function DataTable<TData, TValue>({
   data,
   onRowClick,
   treeConfig,
+  enableSelection,
+  rowSelection,
+  onRowSelectionChange,
+  getRowId,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -106,7 +116,19 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
-    state: { sorting },
+    enableRowSelection: enableSelection ?? false,
+    state: { sorting, rowSelection: rowSelection ?? {} },
+    onRowSelectionChange: (updater: Updater<RowSelectionState>) => {
+      const next =
+        typeof updater === 'function'
+          ? updater(rowSelection ?? {})
+          : updater
+      onRowSelectionChange?.(next)
+    },
+    getRowId:
+      getRowId ??
+      ((row, index) =>
+        String((row as { id?: string }).id ?? index)),
     meta: treeConfig
       ? {
           expanded,
