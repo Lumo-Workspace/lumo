@@ -45,6 +45,7 @@ import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
 import { sortTasks, ORDERING_LABELS } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
+import { PageBreadcrumb } from '../PageBreadcrumb'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MemberAvatar } from '../fields/shared'
 import { PRIORITY_CONFIG } from '../fields/shared'
@@ -235,11 +236,11 @@ export function MyTasksPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Page header */}
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-between shrink-0'>
-        <h1 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
-          {intl.formatMessage({ id: 'sidebar.myTasks' })}
-        </h1>
+      {/* Breadcrumb */}
+      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.myTasks' })} />
+
+      {/* Page header — Create Task button right-aligned */}
+      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
         <Button onClick={() => onNewTask()} size='sm' className='gap-1.5'>
           <Plus size={18} />
           {intl.formatMessage({
