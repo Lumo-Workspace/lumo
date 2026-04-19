@@ -79,7 +79,8 @@ export const notificationRepository = {
     workspaceId: string
     recipientActorId: string
     type: NotificationType
-    taskId: string
+    taskId?: string | null
+    sprintId?: string | null
     triggerActorId: string | null
     commentId?: string
   }) {
@@ -92,7 +93,8 @@ export const notificationRepository = {
       workspaceId: string
       recipientActorId: string
       type: NotificationType
-      taskId: string
+      taskId?: string | null
+      sprintId?: string | null
       triggerActorId: string | null
       commentId?: string
     }[]
@@ -158,6 +160,14 @@ export const notificationRepository = {
     return prisma.comment.findMany({
       where: { id: { in: ids } },
       select: { id: true, body: true },
+    })
+  },
+
+  /** Batch-fetch sprint info by IDs (for notification display). */
+  async batchFetchSprintsByIds(ids: string[]) {
+    return prisma.sprint.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, number: true, teamId: true },
     })
   },
 }

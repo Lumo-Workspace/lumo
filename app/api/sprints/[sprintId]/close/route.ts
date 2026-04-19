@@ -5,6 +5,7 @@ import { sprintRepository } from '@/lib/repositories'
 import { closeSprintSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
@@ -28,13 +29,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       userId
     )
 
+    const actorId = await getHumanActorId(memberId)
+
     const body = await req.json()
     const parsed = closeSprintSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const closed = await sprintService.close(sprintId, parsed.data.decisions, {
       memberId,
-      id: userId,
+      ...(actorId ? { id: actorId } : {}),
     })
 
     return NextResponse.json(closed)

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
@@ -26,7 +27,11 @@ export async function POST(_req: NextRequest, { params }: Params) {
       userId
     )
 
-    const updated = await sprintService.start(sprintId, { memberId })
+    const actorId = await getHumanActorId(memberId)
+    const updated = await sprintService.start(sprintId, {
+      memberId,
+      ...(actorId ? { id: actorId } : {}),
+    })
 
     return NextResponse.json(updated)
   } catch (error) {

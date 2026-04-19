@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
+import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -49,11 +50,11 @@ export const sprintService = {
     return sprintRepository.create({ teamId, number, name, startDate, endDate })
   },
 
-  async start(sprintId: string, _actor: ActorRef) {
+  async start(sprintId: string, actor: ActorRef & { id?: string }) {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    return prisma.$transaction(async tx => {
+    const started = await prisma.$transaction(async tx => {
       const locked = await sprintRepository.lockForUpdate(tx, sprintId)
       if (!locked) httpError(404, 'sprint not found')
       if (locked.status !== 'DRAFT')
@@ -75,6 +76,16 @@ export const sprintService = {
         throw err
       }
     })
+
+    dispatchSprintNotification(
+      sprintId,
+      sprint.teamId,
+      sprint.team.workspaceId,
+      'SPRINT_STARTED',
+      actor.id ?? null
+    ).catch(err => void err)
+
+    return started
   },
 
   async close(
@@ -199,6 +210,14 @@ export const sprintService = {
     sprintSummaryService.generate(sprintId).catch(err => {
       void err
     })
+
+    dispatchSprintNotification(
+      sprintId,
+      sprint.teamId,
+      sprint.team.workspaceId,
+      'SPRINT_CLOSED',
+      actor.id ?? null
+    ).catch(err => void err)
 
     return closed
   },

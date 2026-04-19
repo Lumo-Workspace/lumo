@@ -71,6 +71,10 @@ jest.mock('@/lib/services/sprint-summary.service', () => ({
   },
 }))
 
+jest.mock('@/lib/services/sprint-notifications.service', () => ({
+  dispatchSprintNotification: jest.fn().mockResolvedValue(undefined),
+}))
+
 beforeEach(() => jest.clearAllMocks())
 
 describe('sprintService.createDraft', () => {
@@ -141,6 +145,7 @@ describe('sprintService.start', () => {
       id: 's1',
       teamId: 'team-1',
       status: 'DRAFT',
+      team: { workspaceId: 'ws-1' },
     })
     mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'DRAFT' })
     mockFindActive.mockResolvedValueOnce(null)
@@ -189,6 +194,7 @@ describe('sprintService.close', () => {
     teamId: 'team-1',
     status: 'ACTIVE',
     endDate: new Date('2026-04-30T00:00:00Z'),
+    team: { workspaceId: 'ws-1' },
   }
 
   it('400 when decisions omit an unfinished task', async () => {
