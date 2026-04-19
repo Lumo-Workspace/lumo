@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import type { IntlShape } from 'react-intl'
 import {
@@ -11,11 +11,17 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ApiTask, WorkspaceMemberInfo } from '../../types'
+import {
+  ApiTask,
+  ApiStatus,
+  ApiPriority,
+  WorkspaceMemberInfo,
+} from '../../types'
 import { API_STATUS_LABEL, formatDueDate, isOverdue } from '../../utils'
-import { StatusIcon } from '../StatusIcon'
-import { PriorityBadge } from '../PriorityBadge'
-import { MemberAvatar } from '../fields/shared'
+import { StatusSelect } from '../fields/StatusSelect'
+import { PrioritySelect } from '../fields/PrioritySelect'
+import { AssigneeSelect } from '../fields/AssigneeSelect'
+import { DueDatePicker } from '../fields/DueDatePicker'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,6 +50,19 @@ import {
 import { Trash2 } from 'lucide-react'
 import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
 import { Spinner } from '@/components/ui/spinner'
+
+// ─── Ghost trigger style for inline pickers ───────────────────────────────────
+const GHOST_TRIGGER =
+  'h-7 px-2 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 bg-transparent shadow-none text-xs'
+
+// ─── Update patch type ────────────────────────────────────────────────────────
+export type TaskPatch = Partial<{
+  title: string
+  status: ApiStatus
+  priority: ApiPriority
+  assigneeActorId: string | null
+  dueDate: string | null
+}>
 
 // ─── Sortable column header ───────────────────────────────────────────────────
 function SortableColHeader({
@@ -86,6 +105,112 @@ function SortableColHeader({
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
+  )
+}
+
+// ─── Inline title cell ─────────────────────────────────────────────────────────
+function TitleCell({
+  task,
+  onCommit,
+  onDetailsClick,
+  intl,
+}: {
+  task: ApiTask
+  onCommit: (title: string) => void
+  onDetailsClick: () => void
+  intl?: IntlShape | undefined
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEdit = useCallback(() => {
+    setDraft(task.title)
+    setEditing(true)
+  }, [task.title])
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim()
+    setEditing(false)
+    if (trimmed && trimmed !== task.title) {
+      onCommit(trimmed)
+    }
+  }, [draft, task.title, onCommit])
+
+  const cancel = useCallback(() => {
+    setEditing(false)
+  }, [])
+
+  const childCount = task._count?.children ?? 0
+  const doneCount = task.childrenDoneCount ?? 0
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onFocus={e => e.target.select()}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            cancel()
+          }
+        }}
+        className='w-full text-sm font-medium bg-transparent border-0 border-b border-blue-400 outline-none focus:ring-0'
+        onClick={e => e.stopPropagation()}
+      />
+    )
+  }
+
+  return (
+    <div className='flex items-center gap-2 group/title'>
+      {task.parentTaskId != null && (
+        <span className='w-3 h-px bg-muted-foreground/30 inline-block shrink-0' />
+      )}
+      <span
+        className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors cursor-text flex-1 min-w-0'
+        onClick={e => {
+          e.stopPropagation()
+          startEdit()
+        }}
+      >
+        {task.title}
+      </span>
+      {childCount > 0 && (
+        <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0'>
+          <span className='inline-block w-8 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+            <span
+              className='block h-full bg-blue-500 rounded-full'
+              style={{
+                width: `${Math.round((doneCount / childCount) * 100)}%`,
+              }}
+            />
+          </span>
+          {doneCount}/{childCount}
+        </span>
+      )}
+      <button
+        type='button'
+        onClick={e => {
+          e.stopPropagation()
+          onDetailsClick()
+        }}
+        className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0'
+        aria-label={
+          intl?.formatMessage({
+            id: 'task.openDetails',
+            defaultMessage: 'Open details',
+          }) ?? 'Open details'
+        }
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
   )
 }
 
@@ -161,10 +286,15 @@ export function createTaskColumns(
   onTaskClick: (task: ApiTask) => void,
   onDeleteTask: (taskId: string) => Promise<void>,
   members: WorkspaceMemberInfo[] = [],
-  intl?: IntlShape
+  intl?: IntlShape,
+  updateTask?: (id: string, patch: TaskPatch) => Promise<void> | void
 ): ColumnDef<ApiTask>[] {
   const memberByActorId = new Map(
     members.filter(m => m.actorId).map(m => [m.actorId!, m])
+  )
+
+  const assignableMembers = members.filter(
+    (m): m is WorkspaceMemberInfo & { actorId: string } => !!m.actorId
   )
 
   return [
@@ -262,6 +392,7 @@ export function createTaskColumns(
       meta: {
         headerClassName: 'min-w-[300px] px-8',
         cellClassName: 'px-8',
+        stopPropagation: true,
       },
       header: ({ column }) => (
         <SortableColHeader
@@ -281,30 +412,13 @@ export function createTaskColumns(
       ),
       cell: ({ row }) => {
         const task = row.original
-        const childCount = task._count?.children ?? 0
-        const doneCount = task.childrenDoneCount ?? 0
         return (
-          <div className='flex items-center gap-2'>
-            {task.parentTaskId != null && (
-              <span className='w-3 h-px bg-muted-foreground/30 inline-block shrink-0' />
-            )}
-            <span className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors'>
-              {task.title}
-            </span>
-            {childCount > 0 && (
-              <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0'>
-                <span className='inline-block w-8 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
-                  <span
-                    className='block h-full bg-blue-500 rounded-full'
-                    style={{
-                      width: `${Math.round((doneCount / childCount) * 100)}%`,
-                    }}
-                  />
-                </span>
-                {doneCount}/{childCount}
-              </span>
-            )}
-          </div>
+          <TitleCell
+            task={task}
+            onCommit={title => updateTask?.(task.id, { title })}
+            onDetailsClick={() => onTaskClick(task)}
+            intl={intl}
+          />
         )
       },
     },
@@ -315,6 +429,7 @@ export function createTaskColumns(
       meta: {
         headerClassName: 'w-36 px-8',
         cellClassName: 'px-8',
+        stopPropagation: true,
       },
       sortingFn: (rowA, rowB) =>
         cmpStatus(rowA.original.status, rowB.original.status),
@@ -335,14 +450,25 @@ export function createTaskColumns(
           })}
         />
       ),
-      cell: ({ row }) => (
-        <div className='flex items-center gap-2 text-muted-foreground'>
-          <StatusIcon status={row.original.status} />
-          <span className='text-xs'>
-            {API_STATUS_LABEL[row.original.status] ?? row.original.status}
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const task = row.original
+        if (updateTask) {
+          return (
+            <StatusSelect
+              value={task.status}
+              onChange={status => updateTask(task.id, { status })}
+              triggerClassName={GHOST_TRIGGER}
+            />
+          )
+        }
+        return (
+          <div className='flex items-center gap-2 text-muted-foreground'>
+            <span className='text-xs'>
+              {API_STATUS_LABEL[task.status] ?? task.status}
+            </span>
+          </div>
+        )
+      },
     },
 
     // ── Priority ───────────────────────────────────────────────────────────
@@ -351,6 +477,7 @@ export function createTaskColumns(
       meta: {
         headerClassName: 'w-28 px-8',
         cellClassName: 'px-8',
+        stopPropagation: true,
       },
       sortingFn: (rowA, rowB) =>
         cmpPriority(rowA.original.priority, rowB.original.priority),
@@ -370,7 +497,21 @@ export function createTaskColumns(
           })}
         />
       ),
-      cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
+      cell: ({ row }) => {
+        const task = row.original
+        if (updateTask) {
+          return (
+            <PrioritySelect
+              value={task.priority}
+              onChange={priority => updateTask(task.id, { priority })}
+              triggerClassName={GHOST_TRIGGER}
+            />
+          )
+        }
+        return (
+          <span className='text-xs text-muted-foreground'>{task.priority}</span>
+        )
+      },
     },
 
     // ── Due Date ──────────────────────────────────────────────────────────
@@ -379,6 +520,7 @@ export function createTaskColumns(
       meta: {
         headerClassName: 'w-28 px-8',
         cellClassName: 'px-8',
+        stopPropagation: true,
       },
       sortingFn: (rowA, rowB) => {
         const a = rowA.original.dueDate
@@ -402,7 +544,22 @@ export function createTaskColumns(
         />
       ),
       cell: ({ row }) => {
-        const dueDate = row.original.dueDate
+        const task = row.original
+        const dueDate = task.dueDate ?? null
+        if (updateTask) {
+          return (
+            <DueDatePicker
+              value={dueDate}
+              onChange={v => updateTask(task.id, { dueDate: v })}
+              triggerClassName={cn(
+                GHOST_TRIGGER,
+                'text-xs',
+                !dueDate && 'text-muted-foreground',
+                dueDate && isOverdue(dueDate) && 'text-red-500 font-medium'
+              )}
+            />
+          )
+        }
         if (!dueDate) {
           return <span className='text-xs text-muted-foreground'>—</span>
         }
@@ -458,6 +615,7 @@ export function createTaskColumns(
       meta: {
         headerClassName: 'w-24 px-8',
         cellClassName: 'px-8',
+        stopPropagation: true,
       },
       header: () => (
         <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
@@ -465,12 +623,24 @@ export function createTaskColumns(
         </span>
       ),
       cell: ({ row }) => {
-        const assigneeActorId = row.original.assignee?.id ?? null
+        const task = row.original
+        const assigneeActorId = task.assignee?.id ?? null
+        if (updateTask) {
+          return (
+            <AssigneeSelect
+              value={assigneeActorId}
+              onChange={v => updateTask(task.id, { assigneeActorId: v })}
+              members={assignableMembers}
+              assignee={task.assignee ?? null}
+              triggerClassName={GHOST_TRIGGER}
+            />
+          )
+        }
         const member = assigneeActorId
           ? memberByActorId.get(assigneeActorId)
           : null
         return member ? (
-          <MemberAvatar member={member} />
+          <span className='text-xs text-muted-foreground'>{member.name}</span>
         ) : (
           <span className='text-xs text-muted-foreground'>—</span>
         )

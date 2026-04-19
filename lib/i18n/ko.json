@@ -478,6 +478,7 @@
   "task.project": "Project",
   "task.selectAll": "Select all tasks",
   "task.selectOne": "Select {title}",
+  "task.openDetails": "Open details",
   "task.spec": "명세",
   "task.agentReadsThis": "에이전트가 읽습니다",
   "task.specPlaceholder": "+ 에이전트를 위한 명세 추가…",

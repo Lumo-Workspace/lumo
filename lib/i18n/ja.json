@@ -478,6 +478,7 @@
   "task.project": "Project",
   "task.selectAll": "Select all tasks",
   "task.selectOne": "Select {title}",
+  "task.openDetails": "Open details",
   "task.spec": "仕様",
   "task.agentReadsThis": "エージェントはここを読みます",
   "task.specPlaceholder": "+ エージェント用の仕様を追加…",

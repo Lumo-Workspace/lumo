@@ -478,6 +478,7 @@
   "task.project": "Project",
   "task.selectAll": "Select all tasks",
   "task.selectOne": "Select {title}",
+  "task.openDetails": "Open details",
   "task.spec": "Thông số",
   "task.agentReadsThis": "Tác nhân đọc tệp này",
   "task.specPlaceholder": "+ Thêm thông số cho tác nhân…",

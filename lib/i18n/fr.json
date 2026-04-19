@@ -478,6 +478,7 @@
   "task.project": "Project",
   "task.selectAll": "Select all tasks",
   "task.selectOne": "Select {title}",
+  "task.openDetails": "Open details",
   "task.spec": "Spécification",
   "task.agentReadsThis": "L'agent lit ceci",
   "task.specPlaceholder": "+ Ajouter une spécification pour l'agent…",

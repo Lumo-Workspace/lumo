@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { Layers, Plus } from 'lucide-react'
 import {
@@ -26,7 +26,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { DataTable } from '../../data-table/data-table'
-import { createTaskColumns } from '../../data-table/task-columns'
+import { createTaskColumns, TaskPatch } from '../../data-table/task-columns'
 import { TaskSelectionBar } from '../../data-table/TaskSelectionBar'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
@@ -104,9 +104,25 @@ export function ProjectTasksTab({
   )
   const selectedCount = selectedIds.length
 
+  // ─── Single-row inline update ───────────────────────────────────────────────
+  const updateTask = useCallback(
+    async (id: string, patch: TaskPatch) => {
+      setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...patch } : t)))
+      try {
+        await tasksClient.update(id, patch)
+      } catch {
+        toast.error('Failed to update task')
+        onRetry()
+      }
+    },
+    [setTasks, onRetry]
+  )
+
   // ─── Memoised columns ───────────────────────────────────────────────────────
   const taskColumns = useMemo(
-    () => createTaskColumns(onTaskClick, onDeleteTask, members, intl),
+    () =>
+      createTaskColumns(onTaskClick, onDeleteTask, members, intl, updateTask),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onTaskClick, onDeleteTask, members, intl]
   )
 
@@ -240,7 +256,6 @@ export function ProjectTasksTab({
             <DataTable
               columns={taskColumns}
               data={filteredTasks}
-              onRowClick={onTaskClick}
               enableSelection
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}

@@ -478,6 +478,7 @@
   "task.project": "Project",
   "task.selectAll": "Select all tasks",
   "task.selectOne": "Select {title}",
+  "task.openDetails": "Open details",
   "task.spec": "स्पेक",
   "task.agentReadsThis": "एजेंट इसे पढ़ता है",
   "task.specPlaceholder": "+ एजेंट के लिए स्पेक जोड़ें…",

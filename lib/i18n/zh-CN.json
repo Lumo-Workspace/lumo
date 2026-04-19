@@ -548,6 +548,7 @@
   "task.project": "项目",
   "task.selectAll": "全选任务",
   "task.selectOne": "选择 {title}",
+  "task.openDetails": "打开详情",
   "task.spec": "规格",
   "task.agentReadsThis": "Agent 会读取此内容",
   "task.specPlaceholder": "+ 为 Agent 添加规格…",

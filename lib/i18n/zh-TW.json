@@ -517,6 +517,7 @@
   "task.project": "專案",
   "task.selectAll": "全選任務",
   "task.selectOne": "選擇 {title}",
+  "task.openDetails": "打開詳情",
   "task.spec": "規格",
   "task.agentReadsThis": "Agent 會讀取此內容",
   "task.specPlaceholder": "+ 為 Agent 新增規格…",

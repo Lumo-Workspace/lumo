@@ -1,8 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useIntl } from 'react-intl'
-import { Plus, CheckSquare, Trash2, ChevronDown } from 'lucide-react'
+import {
+  Plus,
+  CheckSquare,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import {
   MyTask,
   ApiStatus,
@@ -10,8 +16,6 @@ import {
   WorkspaceMemberInfo,
 } from '../../types'
 import { API_STATUS_LABEL } from '../../utils'
-import { StatusIcon } from '../StatusIcon'
-import { PriorityBadge } from '../PriorityBadge'
 import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -70,6 +74,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { StatusSelect } from '../fields/StatusSelect'
+import { PrioritySelect } from '../fields/PrioritySelect'
+import { AssigneeSelect } from '../fields/AssigneeSelect'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
 
@@ -487,7 +494,96 @@ export function MyTasksPage({
   )
 }
 
+// ─── Inline title cell ─────────────────────────────────────────────────────────
+
+function TitleCell({
+  task,
+  onCommit,
+  onDetailsClick,
+}: {
+  task: MyTask
+  onCommit: (title: string) => void
+  onDetailsClick: () => void
+}) {
+  const intl = useIntl()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEdit = useCallback(() => {
+    setDraft(task.title)
+    setEditing(true)
+    // focus happens via autoFocus / useEffect after render
+  }, [task.title])
+
+  const commit = useCallback(() => {
+    const trimmed = draft.trim()
+    setEditing(false)
+    if (trimmed && trimmed !== task.title) {
+      onCommit(trimmed)
+    }
+  }, [draft, task.title, onCommit])
+
+  const cancel = useCallback(() => {
+    setEditing(false)
+  }, [])
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onFocus={e => e.target.select()}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            cancel()
+          }
+        }}
+        className='w-full text-sm font-medium bg-transparent border-0 border-b border-blue-400 outline-none focus:ring-0 text-zinc-900 dark:text-zinc-100'
+        onClick={e => e.stopPropagation()}
+      />
+    )
+  }
+
+  return (
+    <div className='flex items-center justify-between gap-2 group/title'>
+      <span
+        className='text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 transition-colors cursor-text flex-1 min-w-0 truncate'
+        onClick={e => {
+          e.stopPropagation()
+          startEdit()
+        }}
+      >
+        {task.title}
+      </span>
+      <button
+        type='button'
+        onClick={e => {
+          e.stopPropagation()
+          onDetailsClick()
+        }}
+        className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0'
+        aria-label={intl.formatMessage({
+          id: 'task.openDetails',
+          defaultMessage: 'Open details',
+        })}
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  )
+}
+
 // ─── TaskListTable ─────────────────────────────────────────────────────────────
+
+const GHOST_TRIGGER =
+  'h-7 px-2 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 bg-transparent shadow-none text-xs'
 
 function TaskListTable({
   tasks,
@@ -576,10 +672,35 @@ function TaskListTable({
     })
   }
 
-  // suppress unused-var lint for setTasks — kept in props for future use
-  void setTasks
-  // suppress unused-var lint for onRetry — kept in props for future use
-  void onRetry
+  // ─── Single-row inline update ────────────────────────────────────────────────
+  const updateTask = useCallback(
+    async (
+      id: string,
+      patch: Partial<{
+        title: string
+        status: ApiStatus
+        priority: ApiPriority
+        assigneeActorId: string | null
+      }>
+    ) => {
+      setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...patch } : t)))
+      try {
+        await tasksClient.update(id, patch)
+      } catch {
+        toast.error('Failed to update task')
+        onRetry()
+      }
+    },
+    [setTasks, onRetry]
+  )
+
+  const assignableMembers = useMemo(
+    () =>
+      members.filter(
+        (m): m is WorkspaceMemberInfo & { actorId: string } => !!m.actorId
+      ),
+    [members]
+  )
 
   return (
     <table className='w-full border-collapse'>
@@ -686,8 +807,7 @@ function TaskListTable({
         {sorted.map(task => (
           <tr
             key={task.id}
-            onClick={() => onTaskClick(task)}
-            className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer group'
+            className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors group'
           >
             <td
               className='py-2.5 px-4 border-b border-zinc-200 dark:border-zinc-800 w-10'
@@ -703,38 +823,56 @@ function TaskListTable({
               />
             </td>
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <span className='text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-500 transition-colors'>
-                {task.title}
-              </span>
+              <TitleCell
+                task={task}
+                onCommit={title => updateTask(task.id, { title })}
+                onDetailsClick={() => onTaskClick(task)}
+              />
             </td>
+            {/* Project — read-only */}
             <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
               <span className='text-xs text-zinc-500 dark:text-zinc-400'>
                 {task.project.name}
               </span>
             </td>
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <div className='flex items-center gap-2'>
-                <StatusIcon status={task.status} />
-                <span className='text-xs text-zinc-600 dark:text-zinc-400'>
-                  {API_STATUS_LABEL[task.status] ?? task.status}
-                </span>
-              </div>
+            {/* Status — inline picker */}
+            <td
+              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
+              onClick={e => e.stopPropagation()}
+            >
+              <StatusSelect
+                value={task.status}
+                onChange={status => updateTask(task.id, { status })}
+                triggerClassName={GHOST_TRIGGER}
+              />
             </td>
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <PriorityBadge priority={task.priority} />
+            {/* Priority — inline picker */}
+            <td
+              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
+              onClick={e => e.stopPropagation()}
+            >
+              <PrioritySelect
+                value={task.priority}
+                onChange={priority => updateTask(task.id, { priority })}
+                triggerClassName={GHOST_TRIGGER}
+              />
             </td>
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              {(() => {
-                const m = task.assignee?.id
-                  ? memberByActorId.get(task.assignee.id)
-                  : null
-                return m ? (
-                  <MemberAvatar member={m} />
-                ) : (
-                  <span className='text-xs text-zinc-400'>—</span>
-                )
-              })()}
+            {/* Assignee — inline picker */}
+            <td
+              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
+              onClick={e => e.stopPropagation()}
+            >
+              <AssigneeSelect
+                value={task.assigneeActorId}
+                onChange={assigneeActorId =>
+                  updateTask(task.id, { assigneeActorId })
+                }
+                members={assignableMembers}
+                assignee={task.assignee ?? null}
+                triggerClassName={GHOST_TRIGGER}
+              />
             </td>
+            {/* Updated — read-only */}
             <td className='py-2.5 px-8 text-xs text-zinc-400 text-right border-b border-zinc-200 dark:border-zinc-800 pr-8'>
               {new Date(task.updatedAt).toLocaleDateString()}
             </td>
@@ -770,7 +908,6 @@ function BulkStatusPicker({ onPick }: { onPick: (s: ApiStatus) => void }) {
                 }}
                 className='gap-2'
               >
-                <StatusIcon status={s} />
                 {API_STATUS_LABEL[s] ?? s}
               </CommandItem>
             ))}
