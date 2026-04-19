@@ -342,6 +342,11 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.name',
+                    defaultMessage:
+                      'Project name. Sort to find a specific project.',
+                  })}
                 />
                 <SortableHeader
                   col='tasks'
@@ -349,6 +354,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.tasks',
+                    defaultMessage: 'Total task count in this project.',
+                  })}
                 />
                 <SortableHeader
                   col='todo'
@@ -356,6 +365,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.todo',
+                    defaultMessage: 'Tasks not yet started.',
+                  })}
                 />
                 <SortableHeader
                   col='inProgress'
@@ -363,6 +376,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-28'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.inProgress',
+                    defaultMessage: 'Tasks currently being worked on.',
+                  })}
                 />
                 <SortableHeader
                   col='inReview'
@@ -370,6 +387,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-28'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.inReview',
+                    defaultMessage: 'Tasks waiting for review.',
+                  })}
                 />
                 <SortableHeader
                   col='done'
@@ -377,6 +398,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-24'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.done',
+                    defaultMessage: 'Completed tasks.',
+                  })}
                 />
                 <SortableHeader
                   col='owner'
@@ -387,6 +412,11 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-left py-3 px-6 w-32'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.owner',
+                    defaultMessage:
+                      'Project owner — primary contact for this project.',
+                  })}
                 />
                 <SortableHeader
                   col='updatedAt'
@@ -394,6 +424,10 @@ export function ProjectsPage({
                   sort={sort}
                   onToggle={toggle}
                   className='text-right py-3 px-6'
+                  tooltip={intl.formatMessage({
+                    id: 'projects.tooltip.updated',
+                    defaultMessage: 'Most recent activity timestamp.',
+                  })}
                 />
               </tr>
             </thead>

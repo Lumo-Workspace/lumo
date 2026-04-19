@@ -56,6 +56,11 @@ import {
   CommandInput,
 } from '@/components/ui/command'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -260,36 +265,96 @@ export function MyTasksPage({
               )}
             </span>
             <div className='flex items-center gap-2'>
-              <BulkStatusPicker onPick={status => runBulkUpdate({ status })} />
-              <BulkPriorityPicker
-                onPick={priority => runBulkUpdate({ priority })}
-              />
-              <BulkAssigneePicker
-                members={members}
-                onPick={assigneeActorId => runBulkUpdate({ assigneeActorId })}
-              />
-              <Button
-                variant='destructive'
-                size='sm'
-                className='gap-1.5'
-                onClick={() => setConfirmDeleteOpen(true)}
-              >
-                <Trash2 size={14} />
-                {intl.formatMessage({
-                  id: 'common.delete',
-                  defaultMessage: 'Delete',
-                })}
-              </Button>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => setSelected(new Set())}
-              >
-                {intl.formatMessage({
-                  id: 'common.cancel',
-                  defaultMessage: 'Cancel',
-                })}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <BulkStatusPicker
+                      onPick={status => runBulkUpdate({ status })}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: 'tasks.bulkTooltip.status',
+                    defaultMessage: 'Set status for selected tasks.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <BulkPriorityPicker
+                      onPick={priority => runBulkUpdate({ priority })}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: 'tasks.bulkTooltip.priority',
+                    defaultMessage: 'Set priority for selected tasks.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <BulkAssigneePicker
+                      members={members}
+                      onPick={assigneeActorId =>
+                        runBulkUpdate({ assigneeActorId })
+                      }
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: 'tasks.bulkTooltip.assignee',
+                    defaultMessage: 'Set assignee for selected tasks.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant='destructive'
+                    size='sm'
+                    className='gap-1.5'
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    <Trash2 size={14} />
+                    {intl.formatMessage({
+                      id: 'common.delete',
+                      defaultMessage: 'Delete',
+                    })}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: 'tasks.bulkTooltip.delete',
+                    defaultMessage: 'Delete selected tasks.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => setSelected(new Set())}
+                  >
+                    {intl.formatMessage({
+                      id: 'common.cancel',
+                      defaultMessage: 'Cancel',
+                    })}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({
+                    id: 'common.tooltip.cancel',
+                    defaultMessage: 'Clear selection.',
+                  })}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         )}
@@ -548,6 +613,10 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 min-w-[300px]'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.title',
+              defaultMessage: 'Task title.',
+            })}
           />
           <SortableHeader
             col='project'
@@ -558,6 +627,10 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-40'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.project',
+              defaultMessage: 'Project this task belongs to.',
+            })}
           />
           <SortableHeader
             col='status'
@@ -568,6 +641,11 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-32'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.status',
+              defaultMessage:
+                'Workflow stage: To Do, In Progress, In Review, or Done.',
+            })}
           />
           <SortableHeader
             col='priority'
@@ -578,6 +656,10 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-24'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.priority',
+              defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
+            })}
           />
           <SortableHeader
             col='assignee'
@@ -588,6 +670,10 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-24'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.assignee',
+              defaultMessage: 'Person responsible for completing this task.',
+            })}
           />
           <SortableHeader
             col='owner'
@@ -598,6 +684,11 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-left py-2 px-8 w-24'
+            tooltip={intl.formatMessage({
+              id: 'projects.tooltip.owner',
+              defaultMessage:
+                'Project owner — primary contact for this project.',
+            })}
           />
           <SortableHeader
             col='updatedAt'
@@ -608,6 +699,10 @@ function TaskListTable({
             sort={sort}
             onToggle={toggle}
             className='text-right py-2 px-8 pr-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.updated',
+              defaultMessage: 'Last time this task was modified.',
+            })}
           />
         </tr>
       </thead>

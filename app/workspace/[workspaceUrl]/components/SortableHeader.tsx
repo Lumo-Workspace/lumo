@@ -4,6 +4,11 @@ import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SortState } from '../hooks/useTableSort'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface SortableHeaderProps<K extends string> {
   col: K
@@ -11,6 +16,7 @@ interface SortableHeaderProps<K extends string> {
   sort: SortState<K>
   onToggle: (key: K) => void
   className?: string
+  tooltip?: string
 }
 
 export function SortableHeader<K extends string>({
@@ -19,30 +25,42 @@ export function SortableHeader<K extends string>({
   sort,
   onToggle,
   className,
+  tooltip,
 }: SortableHeaderProps<K>) {
   const active = sort.key === col
 
+  const button = (
+    <Button
+      variant='ghost'
+      onClick={() => onToggle(col)}
+      className={cn(
+        'h-auto px-0 gap-1 text-[11px] font-medium uppercase tracking-wider select-none hover:bg-transparent',
+        active
+          ? 'text-foreground'
+          : 'text-muted-foreground hover:text-foreground'
+      )}
+    >
+      {label}
+      {active && sort.dir === 'asc' ? (
+        <ChevronUp size={12} />
+      ) : active && sort.dir === 'desc' ? (
+        <ChevronDown size={12} />
+      ) : (
+        <ChevronsUpDown size={12} className='opacity-40' />
+      )}
+    </Button>
+  )
+
   return (
     <th className={cn('border-b border-border', className)}>
-      <Button
-        variant='ghost'
-        onClick={() => onToggle(col)}
-        className={cn(
-          'h-auto px-0 gap-1 text-[11px] font-medium uppercase tracking-wider select-none hover:bg-transparent',
-          active
-            ? 'text-foreground'
-            : 'text-muted-foreground hover:text-foreground'
-        )}
-      >
-        {label}
-        {active && sort.dir === 'asc' ? (
-          <ChevronUp size={12} />
-        ) : active && sort.dir === 'desc' ? (
-          <ChevronDown size={12} />
-        ) : (
-          <ChevronsUpDown size={12} className='opacity-40' />
-        )}
-      </Button>
+      {tooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        button
+      )}
     </th>
   )
 }

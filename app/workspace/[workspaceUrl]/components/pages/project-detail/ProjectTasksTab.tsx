@@ -113,9 +113,10 @@ export function ProjectTasksTab({
         onTaskClick,
         onDeleteTask,
         members,
-        projectOwnerActorId
+        projectOwnerActorId,
+        intl
       ),
-    [onTaskClick, onDeleteTask, members, projectOwnerActorId]
+    [onTaskClick, onDeleteTask, members, projectOwnerActorId, intl]
   )
 
   // ─── Bulk actions ───────────────────────────────────────────────────────────

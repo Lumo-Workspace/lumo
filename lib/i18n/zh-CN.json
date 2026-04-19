@@ -660,5 +660,28 @@
   "time.mAgo": "{m}分钟前",
   "time.today": "今天",
   "time.yesterday": "昨天",
-  "time.tomorrow": "明天"
+  "time.tomorrow": "明天",
+
+  "projects.tooltip.name": "项目名称。可排序定位特定项目。",
+  "projects.tooltip.tasks": "项目内任务总数。",
+  "projects.tooltip.todo": "尚未开始的任务。",
+  "projects.tooltip.inProgress": "进行中的任务。",
+  "projects.tooltip.inReview": "待审核的任务。",
+  "projects.tooltip.done": "已完成的任务。",
+  "projects.tooltip.owner": "项目负责人——本项目的主要联系人。",
+  "projects.tooltip.updated": "最近活动时间。",
+
+  "tasks.tooltip.title": "任务标题。",
+  "tasks.tooltip.project": "任务所属的项目。",
+  "tasks.tooltip.status": "工作流阶段：待办、进行中、待审核、已完成。",
+  "tasks.tooltip.priority": "优先级：紧急、高、中、低。",
+  "tasks.tooltip.assignee": "负责完成此任务的人员。",
+  "tasks.tooltip.updated": "任务最近一次更新的时间。",
+
+  "tasks.bulkTooltip.status": "修改所选任务的状态。",
+  "tasks.bulkTooltip.priority": "修改所选任务的优先级。",
+  "tasks.bulkTooltip.assignee": "修改所选任务的负责人。",
+  "tasks.bulkTooltip.delete": "删除所选任务。",
+
+  "common.tooltip.cancel": "取消选择。"
 }

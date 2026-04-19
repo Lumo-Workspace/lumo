@@ -586,5 +586,28 @@
   "time.mAgo": "{m} мин. назад",
   "time.today": "Сегодня",
   "time.yesterday": "Вчера",
-  "time.tomorrow": "Завтра"
+  "time.tomorrow": "Завтра",
+
+  "projects.tooltip.name": "Project name. Sort to find a specific project.",
+  "projects.tooltip.tasks": "Total task count in this project.",
+  "projects.tooltip.todo": "Tasks not yet started.",
+  "projects.tooltip.inProgress": "Tasks currently being worked on.",
+  "projects.tooltip.inReview": "Tasks waiting for review.",
+  "projects.tooltip.done": "Completed tasks.",
+  "projects.tooltip.owner": "Project owner — primary contact for this project.",
+  "projects.tooltip.updated": "Most recent activity timestamp.",
+
+  "tasks.tooltip.title": "Task title.",
+  "tasks.tooltip.project": "Project this task belongs to.",
+  "tasks.tooltip.status": "Workflow stage: To Do, In Progress, In Review, or Done.",
+  "tasks.tooltip.priority": "Priority level: Urgent, High, Medium, or Low.",
+  "tasks.tooltip.assignee": "Person responsible for completing this task.",
+  "tasks.tooltip.updated": "Last time this task was modified.",
+
+  "tasks.bulkTooltip.status": "Set status for selected tasks.",
+  "tasks.bulkTooltip.priority": "Set priority for selected tasks.",
+  "tasks.bulkTooltip.assignee": "Set assignee for selected tasks.",
+  "tasks.bulkTooltip.delete": "Delete selected tasks.",
+
+  "common.tooltip.cancel": "Clear selection."
 }

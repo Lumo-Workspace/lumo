@@ -9,6 +9,11 @@ import { StatusIcon } from '../StatusIcon'
 import { PRIORITY_CONFIG } from '../fields/shared'
 import { Button } from '@/components/ui/button'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -224,27 +229,83 @@ export function TaskSelectionBar({
           )}
         </span>
         <div className='flex items-center gap-2'>
-          <BulkStatusPicker onPick={onStatusPick} />
-          <BulkPriorityPicker onPick={onPriorityPick} />
-          <BulkAssigneePicker members={members} onPick={onAssigneePick} />
-          <Button
-            variant='destructive'
-            size='sm'
-            className='gap-1.5'
-            onClick={() => setConfirmDeleteOpen(true)}
-          >
-            <Trash2 size={14} />
-            {intl.formatMessage({
-              id: 'common.delete',
-              defaultMessage: 'Delete',
-            })}
-          </Button>
-          <Button variant='ghost' size='sm' onClick={onCancel}>
-            {intl.formatMessage({
-              id: 'common.cancel',
-              defaultMessage: 'Cancel',
-            })}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <BulkStatusPicker onPick={onStatusPick} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'tasks.bulkTooltip.status',
+                defaultMessage: 'Set status for selected tasks.',
+              })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <BulkPriorityPicker onPick={onPriorityPick} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'tasks.bulkTooltip.priority',
+                defaultMessage: 'Set priority for selected tasks.',
+              })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <BulkAssigneePicker members={members} onPick={onAssigneePick} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'tasks.bulkTooltip.assignee',
+                defaultMessage: 'Set assignee for selected tasks.',
+              })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant='destructive'
+                size='sm'
+                className='gap-1.5'
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 size={14} />
+                {intl.formatMessage({
+                  id: 'common.delete',
+                  defaultMessage: 'Delete',
+                })}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'tasks.bulkTooltip.delete',
+                defaultMessage: 'Delete selected tasks.',
+              })}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant='ghost' size='sm' onClick={onCancel}>
+                {intl.formatMessage({
+                  id: 'common.cancel',
+                  defaultMessage: 'Cancel',
+                })}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {intl.formatMessage({
+                id: 'common.tooltip.cancel',
+                defaultMessage: 'Clear selection.',
+              })}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

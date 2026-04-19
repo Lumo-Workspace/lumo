@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
+import type { IntlShape } from 'react-intl'
 import {
   ChevronUp,
   ChevronDown,
@@ -17,6 +18,11 @@ import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../fields/shared'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,12 +50,14 @@ function SortableColHeader({
   label,
   onClick,
   sorted,
+  tooltip,
 }: {
   label: string
   onClick: () => void
   sorted: false | 'asc' | 'desc'
+  tooltip?: string | undefined
 }) {
-  return (
+  const button = (
     <Button
       variant='ghost'
       onClick={onClick}
@@ -69,6 +77,15 @@ function SortableColHeader({
         <ChevronsUpDown size={12} className='opacity-40' />
       )}
     </Button>
+  )
+
+  if (!tooltip) return button
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -144,7 +161,8 @@ export function createTaskColumns(
   onTaskClick: (task: ApiTask) => void,
   onDeleteTask: (taskId: string) => Promise<void>,
   members: WorkspaceMemberInfo[] = [],
-  projectOwnerActorId: string | null = null
+  projectOwnerActorId: string | null = null,
+  intl?: IntlShape
 ): ColumnDef<ApiTask>[] {
   const memberByActorId = new Map(
     members.filter(m => m.actorId).map(m => [m.actorId!, m])
@@ -248,9 +266,18 @@ export function createTaskColumns(
       },
       header: ({ column }) => (
         <SortableColHeader
-          label='Title'
+          label={
+            intl?.formatMessage({
+              id: 'task.title',
+              defaultMessage: 'Title',
+            }) ?? 'Title'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.title',
+            defaultMessage: 'Task title.',
+          })}
         />
       ),
       cell: ({ row }) => {
@@ -294,9 +321,19 @@ export function createTaskColumns(
         cmpStatus(rowA.original.status, rowB.original.status),
       header: ({ column }) => (
         <SortableColHeader
-          label='Status'
+          label={
+            intl?.formatMessage({
+              id: 'task.status',
+              defaultMessage: 'Status',
+            }) ?? 'Status'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.status',
+            defaultMessage:
+              'Workflow stage: To Do, In Progress, In Review, or Done.',
+          })}
         />
       ),
       cell: ({ row }) => (
@@ -320,9 +357,18 @@ export function createTaskColumns(
         cmpPriority(rowA.original.priority, rowB.original.priority),
       header: ({ column }) => (
         <SortableColHeader
-          label='Priority'
+          label={
+            intl?.formatMessage({
+              id: 'task.priority',
+              defaultMessage: 'Priority',
+            }) ?? 'Priority'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.priority',
+            defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
+          })}
         />
       ),
       cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
@@ -346,7 +392,12 @@ export function createTaskColumns(
       },
       header: ({ column }) => (
         <SortableColHeader
-          label='Due Date'
+          label={
+            intl?.formatMessage({
+              id: 'taskColumns.dueDate',
+              defaultMessage: 'Due Date',
+            }) ?? 'Due Date'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
         />
@@ -380,9 +431,18 @@ export function createTaskColumns(
       },
       header: ({ column }) => (
         <SortableColHeader
-          label='Updated'
+          label={
+            intl?.formatMessage({
+              id: 'common.updated',
+              defaultMessage: 'Updated',
+            }) ?? 'Updated'
+          }
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.updated',
+            defaultMessage: 'Last time this task was modified.',
+          })}
         />
       ),
       cell: ({ row }) => (
@@ -407,7 +467,9 @@ export function createTaskColumns(
       ),
       cell: ({ row }) => {
         const assigneeActorId = row.original.assignee?.id ?? null
-        const member = assigneeActorId ? memberByActorId.get(assigneeActorId) : null
+        const member = assigneeActorId
+          ? memberByActorId.get(assigneeActorId)
+          : null
         return member ? (
           <MemberAvatar member={member} />
         ) : (
