@@ -88,6 +88,12 @@ export const sprintsClient = {
     return apiFetch<SprintSummary>(API.sprints.summary(sprintId))
   },
 
+  retrySummary(sprintId: string) {
+    return apiFetch<{ status: 'queued' }>(API.sprints.summaryRetry(sprintId), {
+      method: 'POST',
+    })
+  },
+
   setCadence(
     teamId: string,
     input: { cadenceDays: number | null; autoPrepare?: boolean }

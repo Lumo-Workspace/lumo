@@ -65,6 +65,12 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/services/sprint-summary.service', () => ({
+  sprintSummaryService: {
+    generate: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
 beforeEach(() => jest.clearAllMocks())
 
 describe('sprintService.createDraft', () => {

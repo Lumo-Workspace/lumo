@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -84,7 +85,7 @@ export const sprintService = {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    return prisma.$transaction(async tx => {
+    const closed = await prisma.$transaction(async tx => {
       const locked = await sprintRepository.lockForUpdate(tx, sprintId)
       if (!locked) httpError(404, 'sprint not found')
       if (locked.status !== 'ACTIVE')
@@ -191,6 +192,15 @@ export const sprintService = {
 
       return closed
     })
+
+    // Fire-and-forget: kick off retro generation without blocking the HTTP response.
+    // The GenerationJob created above (status: 'pending') will be updated to
+    // 'completed' or 'failed' by sprintSummaryService.generate's own try/catch.
+    sprintSummaryService.generate(sprintId).catch(err => {
+      void err
+    })
+
+    return closed
   },
 
   async addTaskToSprint(
