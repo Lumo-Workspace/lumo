@@ -1012,7 +1012,7 @@ model DocumentTag {
 
 model GenerationJob {
   id        String   @id @default(cuid())
-  type      String // 'project' | 'workspace'
+  type      String // 'project' | 'workspace' | 'sprint'
   targetId  String // projectId or workspaceId
   status    String   @default("pending") // pending | completed | failed
   summaryId String? // populated on success

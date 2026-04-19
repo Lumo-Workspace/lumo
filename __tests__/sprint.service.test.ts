@@ -245,9 +245,17 @@ describe('sprintService.close', () => {
       { memberId: 'm1', id: 'actor-1' }
     )
 
-    // bulkUpdateSprint called twice: toNext and toBacklog
-    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t1'], 's-next')
-    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t2'], null)
+    // bulkUpdateSprint called twice: toNext and toBacklog (tx is passed as 3rd arg)
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(
+      ['t1'],
+      's-next',
+      expect.anything()
+    )
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(
+      ['t2'],
+      null,
+      expect.anything()
+    )
 
     // taskActivity.createMany called with 2 SPRINT_CHANGED entries
     expect(mockTxTaskActivityCreateMany).toHaveBeenCalledWith(
@@ -309,7 +317,11 @@ describe('sprintService.addTaskToSprint', () => {
       id: 'a1',
     })
 
-    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t1'], 's1')
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(
+      ['t1'],
+      's1',
+      expect.anything()
+    )
     expect(mockTxTaskActivityCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         taskId: 't1',
@@ -376,7 +388,11 @@ describe('sprintService.removeTaskFromSprint', () => {
       id: 'a1',
     })
 
-    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t1'], null)
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(
+      ['t1'],
+      null,
+      expect.anything()
+    )
     expect(mockTxTaskActivityCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         taskId: 't1',

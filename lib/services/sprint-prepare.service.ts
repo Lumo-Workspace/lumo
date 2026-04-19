@@ -36,19 +36,22 @@ export const sprintPrepareService = {
     )
   },
 
-  async prepareAll(): Promise<{ processed: number }> {
+  async prepareAll(): Promise<{
+    processed: number
+    failures: Array<{ teamId: string; error: string }>
+  }> {
     const teams = await prisma.team.findMany({
       where: { sprintCadenceDays: { not: null }, sprintAutoPrepare: true },
       select: { id: true, sprintCadenceDays: true, sprintAutoPrepare: true },
     })
+    const failures: Array<{ teamId: string; error: string }> = []
     for (const team of teams) {
       try {
         await sprintPrepareService.prepareNextDraft(team.id)
       } catch (e) {
-        // swallow per-team errors; log for observability
-        console.error(`[sprint-prepare] team ${team.id} failed`, e)
+        failures.push({ teamId: team.id, error: (e as Error).message })
       }
     }
-    return { processed: teams.length }
+    return { processed: teams.length, failures }
   },
 }

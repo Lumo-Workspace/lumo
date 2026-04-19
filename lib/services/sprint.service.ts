@@ -147,10 +147,10 @@ export const sprintService = {
         else toBacklog.push(taskId)
       }
       if (toNext.length) {
-        await taskRepository.bulkUpdateSprint(toNext, nextSprintId!)
+        await taskRepository.bulkUpdateSprint(toNext, nextSprintId!, tx)
       }
       if (toBacklog.length) {
-        await taskRepository.bulkUpdateSprint(toBacklog, null)
+        await taskRepository.bulkUpdateSprint(toBacklog, null, tx)
       }
 
       const actorId = actor.id ?? null
@@ -214,7 +214,7 @@ export const sprintService = {
     return prisma.$transaction(async tx => {
       await sprintRepository.lockForUpdate(tx, sprintId)
       const fromSprintId = task.sprintId
-      await taskRepository.bulkUpdateSprint([taskId], sprintId)
+      await taskRepository.bulkUpdateSprint([taskId], sprintId, tx)
       await (tx as any).taskActivity.create({
         data: {
           taskId,
@@ -245,7 +245,7 @@ export const sprintService = {
 
     return prisma.$transaction(async tx => {
       if (task.sprintId) await sprintRepository.lockForUpdate(tx, task.sprintId)
-      await taskRepository.bulkUpdateSprint([taskId], null)
+      await taskRepository.bulkUpdateSprint([taskId], null, tx)
       await (tx as any).taskActivity.create({
         data: {
           taskId,

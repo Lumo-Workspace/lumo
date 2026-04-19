@@ -124,7 +124,7 @@ describe('sprintPrepareService.prepareAll', () => {
       where: { sprintCadenceDays: { not: null }, sprintAutoPrepare: true },
       select: { id: true, sprintCadenceDays: true, sprintAutoPrepare: true },
     })
-    expect(result).toEqual({ processed: 2 })
+    expect(result).toEqual({ processed: 2, failures: [] })
   })
 
   it('swallows per-team errors without stopping the loop', async () => {
@@ -140,10 +140,9 @@ describe('sprintPrepareService.prepareAll', () => {
         sprintAutoPrepare: true,
       })
     mockListByTeam.mockResolvedValue([{ id: 'draft-exists' }])
-    const warnSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
     const result = await sprintPrepareService.prepareAll()
-    expect(result).toEqual({ processed: 2 })
-    warnSpy.mockRestore()
+    expect(result.processed).toBe(2)
+    expect(result.failures).toEqual([{ teamId: 'team-1', error: 'boom' }])
   })
 })

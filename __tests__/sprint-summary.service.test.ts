@@ -5,6 +5,8 @@ const mockFindTasks = jest.fn()
 const mockFindActivities = jest.fn()
 const mockSave = jest.fn()
 const mockLLM = jest.fn()
+const mockGenerationJobFindFirst = jest.fn()
+const mockGenerationJobUpdate = jest.fn()
 
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: { findById: (...a: any[]) => mockFindSprint(...a) },
@@ -16,13 +18,21 @@ jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findMany: (...a: any[]) => mockFindTasks(...a) },
     taskActivity: { findMany: (...a: any[]) => mockFindActivities(...a) },
+    generationJob: {
+      findFirst: (...a: any[]) => mockGenerationJobFindFirst(...a),
+      update: (...a: any[]) => mockGenerationJobUpdate(...a),
+    },
   },
 }))
 jest.mock('@/lib/llm/sprint-summary-client', () => ({
   callSprintSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  // Default: no pending GenerationJob (manual retrigger / not-yet-created case)
+  mockGenerationJobFindFirst.mockResolvedValue(null)
+})
 
 describe('sprintSummaryService.generate', () => {
   it('computes stats and persists summary', async () => {
@@ -182,6 +192,61 @@ describe('sprintSummaryService.generate', () => {
     mockFindSprint.mockResolvedValueOnce(null)
     await expect(sprintSummaryService.generate('s1')).rejects.toMatchObject({
       status: 404,
+    })
+  })
+
+  it('updates pending GenerationJob to completed with summaryId on success', async () => {
+    mockGenerationJobFindFirst.mockResolvedValueOnce({ id: 'job-1' })
+    mockFindSprint.mockResolvedValueOnce({
+      id: 's1',
+      teamId: 'team-1',
+      name: 'Sprint 3',
+      status: 'CLOSED',
+      startDate: new Date('2026-04-06'),
+      endDate: new Date('2026-04-20'),
+    })
+    mockFindTasks.mockResolvedValueOnce([])
+    mockFindActivities.mockResolvedValueOnce([])
+    mockLLM.mockResolvedValueOnce({ tldr: 'Done.', report: '## Retro' })
+    mockSave.mockResolvedValueOnce({ id: 'ss-42' })
+    mockGenerationJobUpdate.mockResolvedValueOnce({
+      id: 'job-1',
+      status: 'completed',
+    })
+
+    await sprintSummaryService.generate('s1')
+
+    expect(mockGenerationJobUpdate).toHaveBeenCalledWith({
+      where: { id: 'job-1' },
+      data: { status: 'completed', summaryId: 'ss-42' },
+    })
+  })
+
+  it('updates pending GenerationJob to failed when LLM throws', async () => {
+    mockGenerationJobFindFirst.mockResolvedValueOnce({ id: 'job-2' })
+    mockFindSprint.mockResolvedValueOnce({
+      id: 's1',
+      teamId: 'team-1',
+      name: 'Sprint 3',
+      status: 'CLOSED',
+      startDate: new Date('2026-04-06'),
+      endDate: new Date('2026-04-20'),
+    })
+    mockFindTasks.mockResolvedValueOnce([])
+    mockFindActivities.mockResolvedValueOnce([])
+    mockLLM.mockRejectedValueOnce(new Error('LLM timeout'))
+    mockGenerationJobUpdate.mockResolvedValueOnce({
+      id: 'job-2',
+      status: 'failed',
+    })
+
+    await expect(sprintSummaryService.generate('s1')).rejects.toThrow(
+      'LLM timeout'
+    )
+
+    expect(mockGenerationJobUpdate).toHaveBeenCalledWith({
+      where: { id: 'job-2' },
+      data: { status: 'failed' },
     })
   })
 })

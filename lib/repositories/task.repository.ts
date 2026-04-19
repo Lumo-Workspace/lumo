@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
-import type { TaskStatus, TaskPriority, AgentStatus } from '@prisma/client'
+import type {
+  Prisma,
+  TaskStatus,
+  TaskPriority,
+  AgentStatus,
+} from '@prisma/client'
 
 export interface TaskUpdateData {
   title?: string | undefined
@@ -249,16 +254,26 @@ export const taskRepository = {
   },
 
   /** Update a single task's sprintId. */
-  async updateSprint(taskId: string, sprintId: string | null) {
-    return prisma.task.update({
+  async updateSprint(
+    taskId: string,
+    sprintId: string | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.task.update({
       where: { id: taskId },
       data: { sprintId },
     })
   },
 
   /** Bulk update multiple tasks' sprintId. */
-  async bulkUpdateSprint(taskIds: string[], sprintId: string | null) {
-    return prisma.task.updateMany({
+  async bulkUpdateSprint(
+    taskIds: string[],
+    sprintId: string | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.task.updateMany({
       where: { id: { in: taskIds } },
       data: { sprintId },
     })
