@@ -762,5 +762,9 @@
   "sprints.close.irreversible": "This is irreversible.",
   "sprints.close.cancel": "Cancel",
   "sprints.close.closeSprint": "Close sprint",
-  "sprints.close.membershipChanged": "Sprint membership changed; please retry."
+  "sprints.close.membershipChanged": "Sprint membership changed; please retry.",
+  "sprints.plan.backlogTitle": "Backlog",
+  "sprints.plan.backlogHint": "Click + to add to {sprintName}",
+  "sprints.plan.loading": "Loading backlog…",
+  "sprints.plan.empty": "Backlog is empty"
 }

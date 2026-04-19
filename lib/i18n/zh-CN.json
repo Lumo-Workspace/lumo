@@ -762,5 +762,9 @@
   "sprints.close.irreversible": "此操作不可撤销。",
   "sprints.close.cancel": "取消",
   "sprints.close.closeSprint": "结束冲刺",
-  "sprints.close.membershipChanged": "冲刺成员已变更，请重试。"
+  "sprints.close.membershipChanged": "冲刺成员已变更，请重试。",
+  "sprints.plan.backlogTitle": "待办池",
+  "sprints.plan.backlogHint": "点击 + 添加到 {sprintName}",
+  "sprints.plan.loading": "加载待办…",
+  "sprints.plan.empty": "待办池为空"
 }
