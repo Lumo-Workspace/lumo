@@ -77,6 +77,7 @@ export type Page =
   | 'document-editor'
   | 'drafts'
   | 'dashboard'
+  | 'sprints'
 
 export interface ApiDraft {
   id: string
