@@ -8,11 +8,27 @@ const mockFindUnique = jest.fn()
 const mockLockForUpdate = jest.fn()
 const mockFindActive = jest.fn()
 const mockUpdate = jest.fn()
+const mockListByTeam = jest.fn()
+
+// tx-level mocks for close()
+const mockTxTaskFindMany = jest.fn()
+const mockTxTeamFindUnique = jest.fn()
+const mockTxTaskActivityCreateMany = jest.fn()
+const mockTxGenerationJobCreate = jest.fn()
+
+const txMock = {
+  task: { findMany: (...a: any[]) => mockTxTaskFindMany(...a) },
+  team: { findUnique: (...a: any[]) => mockTxTeamFindUnique(...a) },
+  taskActivity: {
+    createMany: (...a: any[]) => mockTxTaskActivityCreateMany(...a),
+  },
+  generationJob: { create: (...a: any[]) => mockTxGenerationJobCreate(...a) },
+}
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     team: { findUnique: (...a: any[]) => mockTeamFindUnique(...a) },
-    $transaction: (fn: (tx: any) => any) => fn({}),
+    $transaction: (fn: (tx: any) => any) => fn(txMock),
   },
 }))
 
@@ -24,6 +40,15 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
     lockForUpdate: (...a: any[]) => mockLockForUpdate(...a),
     findActiveByTeam: (...a: any[]) => mockFindActive(...a),
     update: (...a: any[]) => mockUpdate(...a),
+    listByTeam: (...a: any[]) => mockListByTeam(...a),
+  },
+}))
+
+const mockBulkUpdateSprint = jest.fn()
+
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    bulkUpdateSprint: (...a: any[]) => mockBulkUpdateSprint(...a),
   },
 }))
 
@@ -136,5 +161,116 @@ describe('sprintService.start', () => {
     await expect(
       sprintService.start('s1', { memberId: 'm1' } as any)
     ).rejects.toMatchObject({ status: 409 })
+  })
+})
+
+describe('sprintService.close', () => {
+  const activeSprint = {
+    id: 's1',
+    teamId: 'team-1',
+    status: 'ACTIVE',
+    endDate: new Date('2026-04-30T00:00:00Z'),
+  }
+
+  it('400 when decisions omit an unfinished task', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeSprint)
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
+    mockTxTaskFindMany.mockResolvedValueOnce([
+      { id: 't1', status: 'TODO' },
+      { id: 't2', status: 'IN_PROGRESS' },
+    ])
+
+    await expect(
+      sprintService.close('s1', { t1: 'moveToNext' }, { memberId: 'm1' })
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('409 when decisions contain a taskId not in unfinished set (stale)', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeSprint)
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
+    mockTxTaskFindMany.mockResolvedValueOnce([{ id: 't1', status: 'TODO' }])
+
+    // t99 is in decisions but not in unfinished
+    await expect(
+      sprintService.close(
+        's1',
+        { t1: 'moveToNext', t99: 'backToBacklog' },
+        { memberId: 'm1' }
+      )
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('moves tasks per decisions, creates next DRAFT when needed, sets CLOSED', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeSprint)
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
+    mockTxTaskFindMany.mockResolvedValueOnce([
+      { id: 't1', status: 'TODO' },
+      { id: 't2', status: 'IN_PROGRESS' },
+    ])
+
+    // no existing DRAFT sprint
+    mockListByTeam.mockResolvedValueOnce([])
+    // next sprint number
+    mockNextNumber.mockResolvedValueOnce(4)
+    // team cadence from tx
+    mockTxTeamFindUnique.mockResolvedValueOnce({ sprintCadenceDays: 14 })
+    // created next sprint
+    mockSprintCreate.mockResolvedValueOnce({
+      id: 's-next',
+      teamId: 'team-1',
+      number: 4,
+    })
+
+    mockBulkUpdateSprint.mockResolvedValue({ count: 1 })
+    mockTxTaskActivityCreateMany.mockResolvedValueOnce({ count: 2 })
+    mockUpdate.mockResolvedValueOnce({ id: 's1', status: 'CLOSED' })
+    mockTxGenerationJobCreate.mockResolvedValueOnce({ id: 'job-1' })
+
+    const result = await sprintService.close(
+      's1',
+      { t1: 'moveToNext', t2: 'backToBacklog' },
+      { memberId: 'm1', id: 'actor-1' }
+    )
+
+    // bulkUpdateSprint called twice: toNext and toBacklog
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t1'], 's-next')
+    expect(mockBulkUpdateSprint).toHaveBeenCalledWith(['t2'], null)
+
+    // taskActivity.createMany called with 2 SPRINT_CHANGED entries
+    expect(mockTxTaskActivityCreateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            taskId: 't1',
+            type: 'SPRINT_CHANGED',
+            payload: expect.objectContaining({
+              toSprintId: 's-next',
+              reason: 'spillover',
+            }),
+          }),
+          expect.objectContaining({
+            taskId: 't2',
+            type: 'SPRINT_CHANGED',
+            payload: expect.objectContaining({
+              toSprintId: null,
+              reason: 'spillover',
+            }),
+          }),
+        ]),
+      })
+    )
+
+    // sprint updated to CLOSED with closedAt
+    expect(mockUpdate).toHaveBeenCalledWith(
+      's1',
+      expect.objectContaining({ status: 'CLOSED', closedAt: expect.any(Date) })
+    )
+
+    // generationJob enqueued
+    expect(mockTxGenerationJobCreate).toHaveBeenCalledWith({
+      data: { type: 'sprint', targetId: 's1', status: 'pending' },
+    })
+
+    expect(result).toMatchObject({ id: 's1', status: 'CLOSED' })
   })
 })
