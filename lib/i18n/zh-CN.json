@@ -775,5 +775,7 @@
   "sprints.settings.autoPrepare": "自动将下一个冲刺准备为草稿",
   "sprints.settings.custom": "自定义",
   "sprints.settings.save": "保存",
-  "sprints.settings.loading": "加载团队中…"
+  "sprints.settings.loading": "加载团队中…",
+  "sprints.taskField.label": "冲刺",
+  "sprints.taskField.noSprint": "无（待办池）"
 }

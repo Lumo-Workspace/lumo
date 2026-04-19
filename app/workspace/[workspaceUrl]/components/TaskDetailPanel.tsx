@@ -96,6 +96,9 @@ export function TaskDetailPanel({
     repositoryId:
       'repositoryId' in initialTask ? (initialTask.repositoryId ?? null) : null,
     parent: 'parent' in initialTask ? (initialTask.parent ?? null) : null,
+    ...(initialTask.teamId !== undefined ? { teamId: initialTask.teamId } : {}),
+    sprintId: initialTask.sprintId ?? null,
+    sprint: initialTask.sprint ?? null,
   }))
 
   const projectName = task.project?.name ?? ''
@@ -219,7 +222,7 @@ export function TaskDetailPanel({
           {task.title}
         </TypographyH3>
 
-        {/* Status · Assignee · Reviewer · Project · Priority */}
+        {/* Status · Assignee · Reviewer · Project · Priority · Sprint */}
         <TaskFieldsSection
           status={task.status}
           priority={task.priority}
@@ -235,6 +238,9 @@ export function TaskDetailPanel({
           projects={projects}
           onPatch={handlePatch}
           onNavigateToParent={navigateToParent}
+          teamId={task.teamId ?? ''}
+          sprintId={task.sprintId ?? null}
+          sprint={task.sprint ?? null}
         />
 
         <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>

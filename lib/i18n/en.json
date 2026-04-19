@@ -775,5 +775,7 @@
   "sprints.settings.autoPrepare": "Auto-prepare next sprint as draft",
   "sprints.settings.custom": "Custom",
   "sprints.settings.save": "Save",
-  "sprints.settings.loading": "Loading teams…"
+  "sprints.settings.loading": "Loading teams…",
+  "sprints.taskField.label": "Sprint",
+  "sprints.taskField.noSprint": "No sprint (backlog)"
 }

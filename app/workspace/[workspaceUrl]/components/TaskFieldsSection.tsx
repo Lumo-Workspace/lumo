@@ -20,6 +20,8 @@ import {
 } from './fields'
 import { cn } from '@/lib/utils'
 import type { TaskPatchData } from '../hooks/useTaskMutation'
+import type { SprintStatus } from '@prisma/client'
+import { TaskSprintField } from '../sprints/components/TaskSprintField'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,9 @@ export interface TaskFieldsSectionProps {
   projects: ApiProject[]
   onPatch: (data: TaskPatchData) => void
   onNavigateToParent: () => void
+  teamId: string
+  sprintId: string | null
+  sprint?: { id: string; status: SprintStatus; name: string } | null
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -57,6 +62,9 @@ export function TaskFieldsSection({
   projects,
   onPatch,
   onNavigateToParent,
+  teamId,
+  sprintId,
+  sprint,
 }: TaskFieldsSectionProps) {
   return (
     <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
@@ -115,6 +123,17 @@ export function TaskFieldsSection({
           </button>
         </>
       )}
+      <SeparatorDot />
+      <TaskSprintField
+        task={{
+          id: '',
+          teamId,
+          sprintId: sprintId ?? null,
+          sprint: sprint ?? null,
+        }}
+        onChange={v => onPatch({ sprintId: v })}
+        triggerClassName={FIELD_TRIGGER_CLS}
+      />
     </div>
   )
 }

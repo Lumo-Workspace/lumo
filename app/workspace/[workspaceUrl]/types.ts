@@ -152,6 +152,7 @@ export interface ApiTask {
   status: ApiStatus
   priority: ApiPriority
   projectId: string
+  teamId?: string
   parentTaskId: string | null
   assigneeActorId: string | null
   reviewerActorId: string | null
@@ -174,6 +175,12 @@ export interface ApiTask {
   } | null
   _count?: { children: number }
   childrenDoneCount?: number
+  sprintId?: string | null
+  sprint?: {
+    id: string
+    status: import('@prisma/client').SprintStatus
+    name: string
+  } | null
 }
 
 export interface ApiPullRequest {
@@ -319,6 +326,13 @@ export interface TaskDetail {
   agentRuns?: ApiAgentRun[]
   spec?: string | null
   tags?: ApiTag[]
+  sprintId?: string | null
+  sprint?: {
+    id: string
+    status: import('@prisma/client').SprintStatus
+    name: string
+  } | null
+  teamId?: string
 }
 
 // ── Tags ─────────────────────────────────────────────────────────────────
