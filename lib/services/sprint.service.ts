@@ -43,6 +43,34 @@ export const sprintService = {
 
     return sprintRepository.create({ teamId, number, name, startDate, endDate })
   },
+
+  async start(sprintId: string, _actor: ActorRef) {
+    const sprint = await sprintRepository.findById(sprintId)
+    if (!sprint) httpError(404, 'sprint not found')
+
+    return prisma.$transaction(async tx => {
+      const locked = await sprintRepository.lockForUpdate(tx, sprintId)
+      if (!locked) httpError(404, 'sprint not found')
+      if (locked.status !== 'DRAFT')
+        httpError(409, `cannot start sprint in ${locked.status} state`)
+
+      const active = await sprintRepository.findActiveByTeam(sprint.teamId)
+      if (active && active.id !== sprintId) {
+        httpError(409, `team already has ACTIVE sprint ${active.id}`)
+      }
+
+      try {
+        return await sprintRepository.update(sprintId, {
+          status: 'ACTIVE',
+          startedAt: new Date(),
+        })
+      } catch (err: any) {
+        if (err?.code === 'P2002')
+          httpError(409, 'team already has ACTIVE sprint')
+        throw err
+      }
+    })
+  },
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -4,10 +4,15 @@ import { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint.service'
 const mockTeamFindUnique = jest.fn()
 const mockSprintCreate = jest.fn()
 const mockNextNumber = jest.fn()
+const mockFindUnique = jest.fn()
+const mockLockForUpdate = jest.fn()
+const mockFindActive = jest.fn()
+const mockUpdate = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     team: { findUnique: (...a: any[]) => mockTeamFindUnique(...a) },
+    $transaction: (fn: (tx: any) => any) => fn({}),
   },
 }))
 
@@ -15,6 +20,10 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: {
     nextNumberForTeam: (...a: any[]) => mockNextNumber(...a),
     create: (...a: any[]) => mockSprintCreate(...a),
+    findById: (...a: any[]) => mockFindUnique(...a),
+    lockForUpdate: (...a: any[]) => mockLockForUpdate(...a),
+    findActiveByTeam: (...a: any[]) => mockFindActive(...a),
+    update: (...a: any[]) => mockUpdate(...a),
   },
 }))
 
@@ -79,5 +88,53 @@ describe('addDays', () => {
     expect(addDays(new Date('2026-04-20T00:00:00Z'), 14).toISOString()).toBe(
       '2026-05-04T00:00:00.000Z'
     )
+  })
+})
+
+describe('sprintService.start', () => {
+  it('marks DRAFT sprint as ACTIVE, sets startedAt', async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: 's1',
+      teamId: 'team-1',
+      status: 'DRAFT',
+    })
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'DRAFT' })
+    mockFindActive.mockResolvedValueOnce(null)
+    mockUpdate.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
+
+    const result = await sprintService.start('s1', { memberId: 'm1' } as any)
+    expect(mockUpdate).toHaveBeenCalledWith(
+      's1',
+      expect.objectContaining({
+        status: 'ACTIVE',
+        startedAt: expect.any(Date),
+      })
+    )
+    expect(result.status).toBe('ACTIVE')
+  })
+
+  it('409 when team already has ACTIVE', async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: 's1',
+      teamId: 'team-1',
+      status: 'DRAFT',
+    })
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'DRAFT' })
+    mockFindActive.mockResolvedValueOnce({ id: 's-other' })
+    await expect(
+      sprintService.start('s1', { memberId: 'm1' } as any)
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('409 when sprint is not DRAFT', async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: 's1',
+      teamId: 'team-1',
+      status: 'CLOSED',
+    })
+    mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'CLOSED' })
+    await expect(
+      sprintService.start('s1', { memberId: 'm1' } as any)
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
