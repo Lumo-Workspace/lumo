@@ -751,5 +751,16 @@
   "sprints.status.todo": "待处理",
   "sprints.status.inProgress": "进行中",
   "sprints.status.inReview": "审核中",
-  "sprints.status.done": "已完成"
+  "sprints.status.done": "已完成",
+  "sprints.close.title": "结束冲刺？",
+  "sprints.close.unfinishedCount": "有 {count} 个未完成任务，请逐一处理：",
+  "sprints.close.allDone": "所有任务已完成，可以安全关闭。",
+  "sprints.close.moveAllNext": "全部移至下个冲刺",
+  "sprints.close.allToBacklog": "全部移至待办",
+  "sprints.close.moveToNext": "移至下个冲刺",
+  "sprints.close.toBacklog": "移至待办",
+  "sprints.close.irreversible": "此操作不可撤销。",
+  "sprints.close.cancel": "取消",
+  "sprints.close.closeSprint": "结束冲刺",
+  "sprints.close.membershipChanged": "冲刺成员已变更，请重试。"
 }

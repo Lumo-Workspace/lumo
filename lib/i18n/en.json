@@ -751,5 +751,16 @@
   "sprints.status.todo": "To Do",
   "sprints.status.inProgress": "In Progress",
   "sprints.status.inReview": "In Review",
-  "sprints.status.done": "Done"
+  "sprints.status.done": "Done",
+  "sprints.close.title": "Close sprint?",
+  "sprints.close.unfinishedCount": "{count} unfinished task(s). Decide for each:",
+  "sprints.close.allDone": "All tasks complete — safe to close.",
+  "sprints.close.moveAllNext": "Move all to next",
+  "sprints.close.allToBacklog": "All to backlog",
+  "sprints.close.moveToNext": "Move to next",
+  "sprints.close.toBacklog": "To backlog",
+  "sprints.close.irreversible": "This is irreversible.",
+  "sprints.close.cancel": "Cancel",
+  "sprints.close.closeSprint": "Close sprint",
+  "sprints.close.membershipChanged": "Sprint membership changed; please retry."
 }
