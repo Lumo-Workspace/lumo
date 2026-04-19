@@ -1,10 +1,10 @@
-import { SprintsLandingClient } from './components/SprintsLandingClient'
+import WorkspaceApp from '../WorkspaceApp'
 
 /**
  * Sprints landing page.
  * Auth + workspace access are already validated by the parent WorkspaceLayout.
- * Client-side data fetching is delegated to SprintsLandingClient.
+ * Routing to the sprints landing view is handled by WorkspaceApp's pathToPage.
  */
 export default function SprintsPage() {
-  return <SprintsLandingClient />
+  return <WorkspaceApp />
 }

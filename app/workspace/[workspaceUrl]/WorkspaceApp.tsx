@@ -54,6 +54,8 @@ import { DocumentsPage } from './components/pages/DocumentsPage'
 import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
 import { DraftsPage } from './components/DraftsPage'
 import { DashboardPage } from './components/pages/DashboardPage'
+import { SprintsLandingClient } from './sprints/components/SprintsLandingClient'
+import { SprintDetailClient } from './sprints/[sprintId]/SprintDetailClient'
 import {
   GlobalDocTree,
   CollapsedDocTreeRail,
@@ -85,6 +87,11 @@ function pathToPage(
   }
   if (rest.startsWith('/projects')) return { page: 'projects' }
   if (rest.startsWith('/drafts')) return { page: 'drafts' }
+  if (rest.startsWith('/sprints/')) {
+    const sprintId = rest.slice('/sprints/'.length).split('/')[0]
+    return { page: 'sprint-detail', projectSlug: sprintId }
+  }
+  if (rest.startsWith('/sprints')) return { page: 'sprints' }
   return { page: 'my-tasks' }
 }
 
@@ -673,6 +680,12 @@ export default function DashboardApp() {
             onDeleteDraft={handleDeleteDraft}
           />
         )
+
+      case 'sprints':
+        return <SprintsLandingClient />
+
+      case 'sprint-detail':
+        return <SprintDetailClient />
 
       case 'inbox':
         return (

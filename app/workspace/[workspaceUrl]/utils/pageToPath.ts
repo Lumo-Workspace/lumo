@@ -30,6 +30,10 @@ export function pageToPath(
       return `${base}/documents/${project?.id ?? ''}`
     case 'drafts':
       return `${base}/drafts`
+    case 'sprints':
+      return `${base}/sprints`
+    case 'sprint-detail':
+      return project?.id ? `${base}/sprints/${project.id}` : `${base}/sprints`
     default:
       return `${base}/my-tasks`
   }
