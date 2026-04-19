@@ -252,7 +252,13 @@ export const taskRepository = {
     return prisma.task.findMany({
       where: { assigneeActorId: actorId },
       include: {
-        project: { select: { id: true, name: true } },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            owner: { select: { actor: { select: { id: true } } } },
+          },
+        },
         team: { select: { identifier: true } },
         assignee: {
           select: {

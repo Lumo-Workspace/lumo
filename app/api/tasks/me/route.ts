@@ -36,21 +36,28 @@ export async function GET() {
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     return NextResponse.json({
-      tasks: tasks.map(t => ({
-        ...t,
-        teamIdentifier: t.team.identifier,
-        viewOrder: orderMap.get(t.id) ?? null,
-        parent: t.parent
-          ? {
-              id: t.parent.id,
-              title: t.parent.title,
-              number: t.parent.number,
-              teamIdentifier: t.parent.team.identifier,
-            }
-          : null,
-        _count: t._count,
-        childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
-      })),
+      tasks: tasks.map(t => {
+        const { owner, ...projectFields } = t.project
+        return {
+          ...t,
+          project: {
+            ...projectFields,
+            ownerActorId: owner?.actor?.id ?? null,
+          },
+          teamIdentifier: t.team.identifier,
+          viewOrder: orderMap.get(t.id) ?? null,
+          parent: t.parent
+            ? {
+                id: t.parent.id,
+                title: t.parent.title,
+                number: t.parent.number,
+                teamIdentifier: t.parent.team.identifier,
+              }
+            : null,
+          _count: t._count,
+          childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
+        }
+      }),
       myTasksViewId: myView.id,
     })
   } catch (error) {
