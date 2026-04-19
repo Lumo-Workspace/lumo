@@ -683,5 +683,6 @@
   "projects.column.done": "Completado",
   "drafts.deleteConfirmTitle": "¿Eliminar borrador?",
   "drafts.deleteConfirmDesc": "Este borrador se eliminará permanentemente. Esta acción no se puede deshacer.",
-  "drafts.deleteAction": "Eliminar borrador"
+  "drafts.deleteAction": "Eliminar borrador",
+  "documents.editorPlaceholder": "Escribe / para los comandos…"
 }

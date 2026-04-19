@@ -683,5 +683,6 @@
   "projects.column.done": "Selesai",
   "drafts.deleteConfirmTitle": "Padam draf?",
   "drafts.deleteConfirmDesc": "Draf ini akan dipadam secara kekal. Tindakan ini tidak boleh dibatalkan.",
-  "drafts.deleteAction": "Padam draf"
+  "drafts.deleteAction": "Padam draf",
+  "documents.editorPlaceholder": "Taip / untuk arahan…"
 }

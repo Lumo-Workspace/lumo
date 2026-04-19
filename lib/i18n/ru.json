@@ -683,5 +683,6 @@
   "projects.column.done": "Выполнено",
   "drafts.deleteConfirmTitle": "Удалить черновик?",
   "drafts.deleteConfirmDesc": "Этот черновик будет удалён без возможности восстановления.",
-  "drafts.deleteAction": "Удалить черновик"
+  "drafts.deleteAction": "Удалить черновик",
+  "documents.editorPlaceholder": "Введите /, чтобы открыть команды…"
 }

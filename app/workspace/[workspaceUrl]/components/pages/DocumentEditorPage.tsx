@@ -433,7 +433,10 @@ export function DocumentEditorPage({
                 value={doc.content}
                 onCommit={handleContentCommit}
                 onChange={handleContentChange}
-                placeholder='Type / for commands…'
+                placeholder={intl.formatMessage({
+                  id: 'documents.editorPlaceholder',
+                  defaultMessage: 'Type / for commands…',
+                })}
                 documentId={doc.id}
                 onTocUpdate={setTocItems}
                 tocScrollRoot={scrollRoot}

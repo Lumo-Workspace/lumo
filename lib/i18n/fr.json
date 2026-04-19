@@ -683,5 +683,6 @@
   "projects.column.done": "Terminé",
   "drafts.deleteConfirmTitle": "Supprimer le brouillon ?",
   "drafts.deleteConfirmDesc": "Ce brouillon sera définitivement supprimé. Cette action est irréversible.",
-  "drafts.deleteAction": "Supprimer le brouillon"
+  "drafts.deleteAction": "Supprimer le brouillon",
+  "documents.editorPlaceholder": "Tapez / pour les commandes…"
 }

@@ -683,5 +683,6 @@
   "projects.column.done": "Erledigt",
   "drafts.deleteConfirmTitle": "Entwurf löschen?",
   "drafts.deleteConfirmDesc": "Dieser Entwurf wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
-  "drafts.deleteAction": "Entwurf löschen"
+  "drafts.deleteAction": "Entwurf löschen",
+  "documents.editorPlaceholder": "Tippe / für Befehle…"
 }

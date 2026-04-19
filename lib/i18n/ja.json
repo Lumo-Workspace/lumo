@@ -683,5 +683,6 @@
   "projects.column.done": "完了",
   "drafts.deleteConfirmTitle": "下書きを削除しますか？",
   "drafts.deleteConfirmDesc": "この下書きは完全に削除されます。この操作は取り消せません。",
-  "drafts.deleteAction": "下書きを削除"
+  "drafts.deleteAction": "下書きを削除",
+  "documents.editorPlaceholder": "/ を入力してコマンド…"
 }

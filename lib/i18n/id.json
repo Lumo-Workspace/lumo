@@ -683,5 +683,6 @@
   "projects.column.done": "Selesai",
   "drafts.deleteConfirmTitle": "Hapus draf?",
   "drafts.deleteConfirmDesc": "Draf ini akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.",
-  "drafts.deleteAction": "Hapus draf"
+  "drafts.deleteAction": "Hapus draf",
+  "documents.editorPlaceholder": "Ketik / untuk perintah…"
 }

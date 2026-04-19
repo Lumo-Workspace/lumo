@@ -683,5 +683,6 @@
   "projects.column.done": "Hoàn thành",
   "drafts.deleteConfirmTitle": "Xoá bản nháp?",
   "drafts.deleteConfirmDesc": "Bản nháp này sẽ bị xoá vĩnh viễn. Hành động này không thể hoàn tác.",
-  "drafts.deleteAction": "Xoá bản nháp"
+  "drafts.deleteAction": "Xoá bản nháp",
+  "documents.editorPlaceholder": "Nhập / để xem các lệnh…"
 }

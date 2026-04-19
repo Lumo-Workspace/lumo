@@ -722,5 +722,6 @@
   "projects.column.done": "已完成",
   "drafts.deleteConfirmTitle": "刪除草稿？",
   "drafts.deleteConfirmDesc": "此草稿將被永久刪除，且無法復原。",
-  "drafts.deleteAction": "刪除草稿"
+  "drafts.deleteAction": "刪除草稿",
+  "documents.editorPlaceholder": "輸入 / 叫用命令…"
 }

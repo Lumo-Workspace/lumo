@@ -722,5 +722,6 @@
   "projects.column.done": "Done",
   "drafts.deleteConfirmTitle": "Delete draft?",
   "drafts.deleteConfirmDesc": "This draft will be permanently removed. This action cannot be undone.",
-  "drafts.deleteAction": "Delete draft"
+  "drafts.deleteAction": "Delete draft",
+  "documents.editorPlaceholder": "Type / for commands…"
 }
