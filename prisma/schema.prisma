@@ -41,6 +41,12 @@ enum ViewVisibility {
   SHARED // only members listed in ViewMember
 }
 
+enum SprintStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 enum InviteStatus {
   PENDING
   ACCEPTED
@@ -71,6 +77,8 @@ enum NotificationType {
   AGENT_VERIFY // agent finished, requests human verification before DONE
   AGENT_FAILED // agent execution failed — informational
   AGENT_DONE // agent finished, PR created — informational
+  SPRINT_STARTED
+  SPRINT_CLOSED
 }
 
 enum CommentType {
@@ -119,6 +127,7 @@ enum TaskActivityType {
   AGENT_RUN_FAILED
   AGENT_INPUT_REQUIRED
   SENTRY_ALERT
+  SPRINT_CHANGED
 }
 
 enum AgentType {
