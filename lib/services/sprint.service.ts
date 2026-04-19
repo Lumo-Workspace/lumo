@@ -3,6 +3,13 @@ import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
+import {
+  nextUtcMondayMidnight as _nextUtcMondayMidnight,
+  addDays as _addDays,
+} from '@/lib/services/sprint-date'
+
+// Re-export for backward compatibility
+export { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint-date'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -40,8 +47,8 @@ export const sprintService = {
           'team has no cadence; startDate and endDate are required'
         )
       }
-      if (!startDate) startDate = nextUtcMondayMidnight(new Date())
-      if (!endDate) endDate = addDays(startDate, team.sprintCadenceDays)
+      if (!startDate) startDate = _nextUtcMondayMidnight(new Date())
+      if (!endDate) endDate = _addDays(startDate, team.sprintCadenceDays)
     }
 
     const number = await sprintRepository.nextNumberForTeam(teamId)
@@ -140,7 +147,7 @@ export const sprintService = {
           const cadence = teamRow?.sprintCadenceDays ?? 14
           const startDate =
             sprint.endDate > new Date() ? sprint.endDate : new Date()
-          const endDate = addDays(startDate, cadence)
+          const endDate = _addDays(startDate, cadence)
           const created = await sprintRepository.create({
             teamId: sprint.teamId,
             number: nextNumber,
@@ -333,22 +340,4 @@ export const sprintService = {
       },
     })
   },
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-export function nextUtcMondayMidnight(from: Date): Date {
-  const d = new Date(
-    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate())
-  )
-  const day = d.getUTCDay() // 0 Sun … 6 Sat
-  const delta = (8 - day) % 7 || 7
-  d.setUTCDate(d.getUTCDate() + delta)
-  return d
-}
-
-export function addDays(d: Date, days: number): Date {
-  const r = new Date(d)
-  r.setUTCDate(r.getUTCDate() + days)
-  return r
 }
