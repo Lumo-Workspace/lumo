@@ -6,6 +6,7 @@ import { useSprint, useSprintTasks } from '../../hooks/useSprints'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { PlanBacklogPanel } from '../components/PlanBacklogPanel'
+import { RetroPanel } from '../components/RetroPanel'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 
 export function SprintDetailClient() {
@@ -44,7 +45,9 @@ export function SprintDetailClient() {
       <PageBreadcrumb title={sprint.name} />
       <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
         <SprintBoard tasks={tasks ?? []} onTaskMoved={refetchTasks} />
-        {planMode ? (
+        {sprint.status === 'CLOSED' ? (
+          <RetroPanel sprintId={sprint.id} />
+        ) : planMode ? (
           <PlanBacklogPanel
             sprint={sprint}
             teamId={sprint.teamId}

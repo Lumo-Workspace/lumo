@@ -781,5 +781,11 @@
   "sprints.settings.save": "保存",
   "sprints.settings.loading": "加载团队中…",
   "sprints.taskField.label": "冲刺",
-  "sprints.taskField.noSprint": "无（待办池）"
+  "sprints.taskField.noSprint": "无（待办池）",
+  "sprints.retro.title": "复盘",
+  "sprints.retro.loading": "加载复盘中…",
+  "sprints.retro.generating": "复盘正在生成中…",
+  "sprints.retro.retrying": "重试中…",
+  "sprints.retro.retry": "重新生成",
+  "sprints.retro.generatedAt": "生成于 {date}"
 }

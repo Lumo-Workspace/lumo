@@ -178,14 +178,7 @@ export function SprintSidebar({
             </>
           )}
 
-          {sprint.status === 'CLOSED' && (
-            <Button size='sm' variant='outline' asChild>
-              {/* TODO(P4.2): wire retro page */}
-              <a href='./retro'>
-                {intl.formatMessage({ id: 'sprints.detail.viewRetro' })}
-              </a>
-            </Button>
-          )}
+          {/* CLOSED: retro renders inline as RetroPanel in SprintDetailClient */}
         </div>
       </aside>
 

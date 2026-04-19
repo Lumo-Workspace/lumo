@@ -781,5 +781,11 @@
   "drafts.deleteConfirmTitle": "刪除草稿？",
   "drafts.deleteConfirmDesc": "此草稿將被永久刪除，且無法復原。",
   "drafts.deleteAction": "刪除草稿",
-  "documents.editorPlaceholder": "輸入 / 叫用命令…"
+  "documents.editorPlaceholder": "輸入 / 叫用命令…",
+  "sprints.retro.title": "復盤",
+  "sprints.retro.loading": "載入復盤中…",
+  "sprints.retro.generating": "復盤正在生成中…",
+  "sprints.retro.retrying": "重試中…",
+  "sprints.retro.retry": "重新生成",
+  "sprints.retro.generatedAt": "生成於 {date}"
 }

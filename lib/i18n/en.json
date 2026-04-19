@@ -781,5 +781,11 @@
   "sprints.settings.save": "Save",
   "sprints.settings.loading": "Loading teams…",
   "sprints.taskField.label": "Sprint",
-  "sprints.taskField.noSprint": "No sprint (backlog)"
+  "sprints.taskField.noSprint": "No sprint (backlog)",
+  "sprints.retro.title": "Retro",
+  "sprints.retro.loading": "Loading retro…",
+  "sprints.retro.generating": "Retro is being generated…",
+  "sprints.retro.retrying": "Retrying…",
+  "sprints.retro.retry": "Retry generation",
+  "sprints.retro.generatedAt": "Generated {date}"
 }
