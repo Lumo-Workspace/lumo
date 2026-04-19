@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useIntl } from 'react-intl'
 import { UserCircle2, Bot } from 'lucide-react'
 import {
   Select,
@@ -36,6 +37,7 @@ export function AssigneeSelect({
   assignee,
   triggerClassName,
 }: AssigneeSelectProps) {
+  const intl = useIntl()
   const assigneeMember = members.find(m => m.actorId === value)
   // Merge agentActors list with a fallback entry from the task's assignee
   // so the dropdown always shows the current agent even before agentActors loads
@@ -84,7 +86,21 @@ export function AssigneeSelect({
             )}
           </SelectTrigger>
         </TooltipTrigger>
-        <TooltipContent>Assignee</TooltipContent>
+        <TooltipContent>
+          {intl.formatMessage({
+            id: 'task.assignee',
+            defaultMessage: 'Assignee',
+          })}
+          :{' '}
+          {resolvedAgent
+            ? resolvedAgent.name
+            : assigneeMember
+              ? assigneeMember.name
+              : intl.formatMessage({
+                  id: 'task.unassigned',
+                  defaultMessage: 'Unassigned',
+                })}
+        </TooltipContent>
       </Tooltip>
       <SelectContent>
         <SelectItem value='__unassigned__'>

@@ -194,22 +194,32 @@ function TitleCell({
           {doneCount}/{childCount}
         </span>
       )}
-      <button
-        type='button'
-        onClick={e => {
-          e.stopPropagation()
-          onDetailsClick()
-        }}
-        className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0'
-        aria-label={
-          intl?.formatMessage({
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            onClick={e => {
+              e.stopPropagation()
+              onDetailsClick()
+            }}
+            className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0'
+            aria-label={
+              intl?.formatMessage({
+                id: 'task.openDetails',
+                defaultMessage: 'Open details',
+              }) ?? 'Open details'
+            }
+          >
+            <ChevronRight size={14} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {intl?.formatMessage({
             id: 'task.openDetails',
             defaultMessage: 'Open details',
-          }) ?? 'Open details'
-        }
-      >
-        <ChevronRight size={14} />
-      </button>
+          }) ?? 'Open details'}
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }

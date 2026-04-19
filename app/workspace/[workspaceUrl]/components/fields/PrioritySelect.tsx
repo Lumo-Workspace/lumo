@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ export function PrioritySelect({
   onChange,
   triggerClassName,
 }: PrioritySelectProps) {
+  const intl = useIntl()
   const { label } = PRIORITY_CONFIG[value] ?? PRIORITY_CONFIG.MEDIUM
   return (
     <Select value={value} onValueChange={v => onChange(v as ApiPriority)}>
@@ -37,7 +39,13 @@ export function PrioritySelect({
             </div>
           </SelectTrigger>
         </TooltipTrigger>
-        <TooltipContent>Priority</TooltipContent>
+        <TooltipContent>
+          {intl.formatMessage({
+            id: 'task.priority',
+            defaultMessage: 'Priority',
+          })}
+          : {label}
+        </TooltipContent>
       </Tooltip>
       <SelectContent>
         {(

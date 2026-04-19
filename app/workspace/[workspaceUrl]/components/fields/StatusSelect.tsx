@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ export function StatusSelect({
   onChange,
   triggerClassName,
 }: StatusSelectProps) {
+  const intl = useIntl()
   return (
     <Select value={value} onValueChange={v => onChange(v as ApiStatus)}>
       <Tooltip>
@@ -37,7 +39,10 @@ export function StatusSelect({
             </div>
           </SelectTrigger>
         </TooltipTrigger>
-        <TooltipContent>Status</TooltipContent>
+        <TooltipContent>
+          {intl.formatMessage({ id: 'task.status', defaultMessage: 'Status' })}:{' '}
+          {API_STATUS_LABEL[value]}
+        </TooltipContent>
       </Tooltip>
       <SelectContent>
         {(Object.entries(API_STATUS_LABEL) as [ApiStatus, string][]).map(
