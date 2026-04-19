@@ -7,6 +7,10 @@
     {
       "path": "/api/summaries/generate",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/sprints/prepare",
+      "schedule": "0 1 * * *"
     }
   ]
 }
