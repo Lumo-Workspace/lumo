@@ -57,10 +57,18 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
     )
   }
 
-  const reportHtml =
-    typeof marked.parse(summary.report) === 'string'
-      ? (marked.parse(summary.report) as string)
-      : ''
+  // Some legacy responses wrapped the row in `{ summary }`; if that's still
+  // in flight in dev, unwrap defensively. Also handle missing report safely.
+  const safe = (summary as unknown as { summary?: typeof summary }).summary
+    ? (summary as unknown as { summary: typeof summary }).summary
+    : summary
+  const reportText: string = safe?.report ?? ''
+  const tldrText: string = safe?.tldr ?? ''
+  const generatedAt: Date = safe?.generatedAt
+    ? new Date(safe.generatedAt)
+    : new Date()
+  const parsed = reportText ? marked.parse(reportText) : ''
+  const reportHtml: string = typeof parsed === 'string' ? parsed : ''
 
   return (
     <aside className='flex flex-col gap-3 overflow-y-auto border-l pl-4 pr-2'>
@@ -71,13 +79,13 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
         <p className='text-xs text-muted-foreground'>
           {intl.formatMessage(
             { id: 'sprints.retro.generatedAt' },
-            { date: new Date(summary.generatedAt).toLocaleString() }
+            { date: generatedAt.toLocaleString() }
           )}
         </p>
       </header>
 
       <section className='rounded border bg-muted/30 p-3'>
-        <p className='text-sm font-medium'>{summary.tldr}</p>
+        <p className='text-sm font-medium'>{tldrText}</p>
       </section>
 
       <section>
