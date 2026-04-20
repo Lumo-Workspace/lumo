@@ -550,9 +550,9 @@ export default function DashboardApp() {
             members={members}
             projects={projects}
             currentSprintOnly={currentSprintOnly}
-            onCurrentSprintOnlyChange={
-              anySprintEnabledTeam ? setCurrentSprintOnly : undefined
-            }
+            {...(anySprintEnabledTeam
+              ? { onCurrentSprintOnlyChange: setCurrentSprintOnly }
+              : {})}
             noActiveSprint={currentSprintOnly && activeSprintIds.length === 0}
           />
         )
