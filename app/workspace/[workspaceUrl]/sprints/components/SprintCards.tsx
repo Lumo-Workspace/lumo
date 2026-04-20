@@ -236,11 +236,11 @@ export function SprintCards({ teamId }: { teamId: string }) {
       setCreating(false)
     }
   }
-  const noUpcoming = !activeSprint && !draftSprint
 
   const activeSprint = activeSprints?.[0]
   const draftSprint = draftSprints?.[0]
   const recent = closedSprints?.slice(0, 5) ?? []
+  const noUpcoming = !activeSprint && !draftSprint
 
   const isLoading = loadingActive || loadingDraft || loadingClosed
 
