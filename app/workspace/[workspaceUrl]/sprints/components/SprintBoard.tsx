@@ -1,40 +1,10 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { useDroppable, useDraggable } from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
 import type { TaskStatus } from '@prisma/client'
-import { PriorityBadge } from '../../components/PriorityBadge'
-import { Bot } from 'lucide-react'
-
-/**
- * Shape of a task returned by /api/sprints/[sprintId]/tasks after flattening.
- * Matches ApiTask so we can lean on the same visual conventions as the project Kanban.
- */
-export interface SprintTask {
-  id: string
-  title: string
-  number: number
-  status: TaskStatus
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string
-  dueDate?: string | null
-  updatedAt: string
-  teamIdentifier: string
-  assigneeActorId: string | null
-  assignee?: {
-    id: string
-    type: string
-    member: { id: string; clerkId: string } | null
-    agent: { id: string; name: string; avatarColor: string } | null
-  } | null
-  parent: {
-    id: string
-    title: string
-    number: number
-    teamIdentifier: string
-  } | null
-  _count?: { children: number }
-  childrenDoneCount?: number
-}
+import { ProjectTaskCard } from '../../components/board/SortableTaskCard'
+import type { ApiTask, WorkspaceMemberInfo } from '../../types'
 
 const ACTIVE_STATUS_ORDER = [
   'TODO',
@@ -68,10 +38,13 @@ interface SprintBoardProps {
   onTaskMoved?: () => void
   /** When true, columns accept @dnd-kit drops. */
   droppable?: boolean
-  /** When true, render a 2-column [Backlog | Planned] view (status doesn't
-   * matter during planning). When false, render the 4 status columns. */
+  /** When true, render a 2-column [Backlog | Planned] view. */
   planMode?: boolean
   backlogTasks?: unknown[]
+  /** Members passed through to ProjectTaskCard for assignee avatar/hover. */
+  members?: WorkspaceMemberInfo[] | undefined
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
 }
 
 export function SprintBoard({
@@ -79,25 +52,34 @@ export function SprintBoard({
   droppable = false,
   planMode = false,
   backlogTasks = [],
+  members,
+  currentActorId,
+  isOwner,
 }: SprintBoardProps) {
-  const sprintList = tasks as SprintTask[]
-  const backlogList = (backlogTasks as SprintTask[]) ?? []
+  const sprintList = tasks as ApiTask[]
+  const backlogList = (backlogTasks as ApiTask[]) ?? []
 
   if (planMode) {
     // Planning is membership-only: 2 columns, no status concern.
     return (
       <div className='grid grid-cols-2 gap-3 overflow-auto'>
-        <BacklogPlanningColumn
+        <PlanColumn
           columnKey='BACKLOG'
           tasks={backlogList}
           droppable={droppable}
-          draggableKind='backlog-task'
+          dragKind='backlog-task'
+          members={members}
+          currentActorId={currentActorId}
+          isOwner={isOwner}
         />
-        <BacklogPlanningColumn
+        <PlanColumn
           columnKey='PLANNED'
           tasks={sprintList}
           droppable={droppable}
-          draggableKind='sprint-task'
+          dragKind='sprint-task'
+          members={members}
+          currentActorId={currentActorId}
+          isOwner={isOwner}
         />
       </div>
     )
@@ -105,8 +87,8 @@ export function SprintBoard({
 
   // Execution view: status columns.
   const byStatus = Object.fromEntries(
-    ACTIVE_STATUS_ORDER.map(s => [s, [] as SprintTask[]])
-  ) as Record<TaskStatus, SprintTask[]>
+    ACTIVE_STATUS_ORDER.map(s => [s, [] as ApiTask[]])
+  ) as Record<TaskStatus, ApiTask[]>
   for (const t of sprintList) {
     if (t.status in byStatus) byStatus[t.status]!.push(t)
   }
@@ -119,22 +101,31 @@ export function SprintBoard({
           status={status}
           tasks={byStatus[status] ?? []}
           droppable={droppable}
+          members={members}
+          currentActorId={currentActorId}
+          isOwner={isOwner}
         />
       ))}
     </div>
   )
 }
 
-function BacklogPlanningColumn({
+function PlanColumn({
   columnKey,
   tasks,
   droppable,
-  draggableKind,
+  dragKind,
+  members,
+  currentActorId,
+  isOwner,
 }: {
   columnKey: 'BACKLOG' | 'PLANNED'
-  tasks: SprintTask[]
+  tasks: ApiTask[]
   droppable: boolean
-  draggableKind: 'backlog-task' | 'sprint-task'
+  dragKind: 'backlog-task' | 'sprint-task'
+  members?: WorkspaceMemberInfo[] | undefined
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
 }) {
   const intl = useIntl()
   const { setNodeRef, isOver } = useDroppable({
@@ -160,33 +151,19 @@ function BacklogPlanningColumn({
       </header>
       <div className='flex flex-col gap-2'>
         {tasks.map(t => (
-          <DraggablePlanCard key={t.id} task={t} kind={draggableKind} />
+          <ProjectTaskCard
+            key={t.id}
+            task={t}
+            isOverlay={false}
+            {...(members ? { members } : {})}
+            {...(currentActorId !== undefined ? { currentActorId } : {})}
+            {...(isOwner !== undefined ? { isOwner } : {})}
+            dragMode='simple'
+            dragData={{ kind: dragKind, taskId: t.id }}
+          />
         ))}
       </div>
     </section>
-  )
-}
-
-function DraggablePlanCard({
-  task,
-  kind,
-}: {
-  task: SprintTask
-  kind: 'backlog-task' | 'sprint-task'
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `${kind}:${task.id}`,
-    data: { kind, taskId: task.id },
-  })
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
-    >
-      <TaskCard task={task} />
-    </div>
   )
 }
 
@@ -194,10 +171,16 @@ function BoardColumn({
   status,
   tasks,
   droppable,
+  members,
+  currentActorId,
+  isOwner,
 }: {
   status: TaskStatus
-  tasks: SprintTask[]
+  tasks: ApiTask[]
   droppable: boolean
+  members?: WorkspaceMemberInfo[] | undefined
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
 }) {
   const intl = useIntl()
   const { setNodeRef, isOver } = useDroppable({
@@ -223,85 +206,17 @@ function BoardColumn({
       </header>
       <div className='flex flex-col gap-2'>
         {tasks.map(t => (
-          <TaskCard key={t.id} task={t} />
+          <ProjectTaskCard
+            key={t.id}
+            task={t}
+            isOverlay={false}
+            {...(members ? { members } : {})}
+            {...(currentActorId !== undefined ? { currentActorId } : {})}
+            {...(isOwner !== undefined ? { isOwner } : {})}
+            dragMode='none'
+          />
         ))}
       </div>
     </section>
-  )
-}
-
-function TaskCard({ task: t }: { task: SprintTask }) {
-  const prefix = t.teamIdentifier
-    ? `${t.teamIdentifier}-${t.number}`
-    : `#${t.number}`
-  const isAgent = t.assignee?.type === 'AGENT'
-  const childrenTotal = t._count?.children ?? 0
-  const childrenDone = t.childrenDoneCount ?? 0
-  const hasChildren = childrenTotal > 0
-
-  const bottomText = t.dueDate
-    ? `Due ${new Date(t.dueDate).toLocaleDateString()}`
-    : `Updated ${new Date(t.updatedAt).toLocaleDateString()}`
-
-  return (
-    <article className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
-      <div className='flex justify-between items-start mb-2'>
-        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
-          {prefix}
-        </span>
-        <PriorityBadge priority={t.priority as any} />
-      </div>
-
-      {t.parent && (
-        <div className='mb-1'>
-          <span className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded'>
-            ↑ {t.parent.teamIdentifier}-{t.parent.number}
-          </span>
-        </div>
-      )}
-
-      <h4 className='text-sm font-medium mb-3 leading-relaxed line-clamp-2'>
-        {t.title}
-      </h4>
-
-      {hasChildren && (
-        <div className='flex items-center gap-1.5 mb-2'>
-          <div className='flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
-            <div
-              className='h-full bg-blue-500 rounded-full transition-all'
-              style={{
-                width: `${Math.round((childrenDone / childrenTotal) * 100)}%`,
-              }}
-            />
-          </div>
-          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums'>
-            {childrenDone}/{childrenTotal}
-          </span>
-        </div>
-      )}
-
-      <div className='flex justify-between items-center'>
-        {isAgent ? (
-          <div
-            className='flex items-center justify-center size-5 rounded-full'
-            style={{
-              backgroundColor: t.assignee?.agent?.avatarColor ?? '#ede9fe',
-            }}
-            title={t.assignee?.agent?.name ?? 'Agent'}
-          >
-            <Bot size={11} className='text-white' />
-          </div>
-        ) : t.assigneeActorId ? (
-          <div
-            className='size-5 rounded-full bg-zinc-200 dark:bg-zinc-700'
-            title='Assigned'
-          />
-        ) : (
-          <div className='size-5 rounded-full border border-dashed border-zinc-300 dark:border-zinc-600' />
-        )}
-
-        <span className='text-[10px] text-zinc-400'>{bottomText}</span>
-      </div>
-    </article>
   )
 }

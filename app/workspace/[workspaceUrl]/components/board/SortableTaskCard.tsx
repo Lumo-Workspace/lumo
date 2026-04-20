@@ -1,6 +1,7 @@
 'use client'
 
 import { useSortable } from '@dnd-kit/sortable'
+import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import {
@@ -107,12 +108,25 @@ function AgentStatusBadge({
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
+/**
+ * Drag behavior of a card.
+ *  - 'sortable': participates in @dnd-kit/sortable (default; project Kanban / My Tasks).
+ *  - 'simple': participates only in cross-zone @dnd-kit/core useDraggable. Used by
+ *    Sprint Planning where a card moves between Backlog ↔ Planned columns without
+ *    needing within-column ordering. Pass `dragData` so the parent's onDragEnd can
+ *    distinguish what was dragged.
+ *  - 'none': no drag affordance, static card.
+ */
+export type DragMode = 'sortable' | 'simple' | 'none'
+
 interface CardShellProps {
   taskId: string
   isOverlay: boolean
   needsAttention?: boolean
   onClick?: (() => void) | undefined
   children: React.ReactNode
+  dragMode?: DragMode
+  dragData?: Record<string, unknown>
 }
 
 function CardShell({
@@ -121,31 +135,22 @@ function CardShell({
   needsAttention,
   onClick,
   children,
+  dragMode = 'sortable',
+  dragData,
 }: CardShellProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: taskId,
-  })
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    opacity: isDragging && !isOverlay ? 0.4 : 1,
-  }
+  const drag = useDragForMode(taskId, dragMode, dragData)
+  const cursorClass =
+    dragMode === 'none' ? '' : 'cursor-grab active:cursor-grabbing select-none'
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
+      ref={drag.setNodeRef}
+      style={drag.style}
+      {...drag.attributes}
+      {...drag.listeners}
       onClick={onClick}
       className={cn(
-        'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing select-none',
+        'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow',
+        cursorClass,
         isOverlay && 'shadow-xl border-blue-500/50 rotate-2 cursor-grabbing',
         needsAttention && 'border-l-3 border-l-orange-400'
       )}
@@ -153,6 +158,46 @@ function CardShell({
       {children}
     </div>
   )
+}
+
+/** Branch on dragMode and return a uniform drag-binding shape. */
+function useDragForMode(
+  taskId: string,
+  mode: DragMode,
+  data: Record<string, unknown> | undefined
+) {
+  // Hooks must be called unconditionally — we always call both, then pick.
+  const sortable = useSortable({ id: taskId })
+  const draggable = useDraggable({ id: taskId, data: data ?? {} })
+
+  if (mode === 'none') {
+    return {
+      setNodeRef: () => {},
+      style: undefined as React.CSSProperties | undefined,
+      attributes: {},
+      listeners: {},
+    }
+  }
+  if (mode === 'simple') {
+    return {
+      setNodeRef: draggable.setNodeRef,
+      style: {
+        opacity: draggable.isDragging ? 0.4 : 1,
+      } as React.CSSProperties,
+      attributes: draggable.attributes,
+      listeners: draggable.listeners,
+    }
+  }
+  return {
+    setNodeRef: sortable.setNodeRef,
+    style: {
+      transform: CSS.Translate.toString(sortable.transform),
+      transition: sortable.transition,
+      opacity: sortable.isDragging ? 0.4 : 1,
+    } as React.CSSProperties,
+    attributes: sortable.attributes,
+    listeners: sortable.listeners,
+  }
 }
 
 // ─── Project task card ────────────────────────────────────────────────────────
@@ -167,6 +212,10 @@ interface ProjectTaskCardProps {
   isOwner?: boolean | undefined
   onClick?: () => void
   onParentClick?: (parentId: string) => void
+  /** Drag behavior — see CardShell. Defaults to 'sortable' for backward compat. */
+  dragMode?: DragMode
+  /** Arbitrary metadata attached to the @dnd-kit drag event. Used when dragMode='simple'. */
+  dragData?: Record<string, unknown>
 }
 
 export function ProjectTaskCard({
@@ -177,6 +226,8 @@ export function ProjectTaskCard({
   isOwner,
   onClick,
   onParentClick,
+  dragMode,
+  dragData,
 }: ProjectTaskCardProps) {
   const assignee =
     members?.find(m => m.actorId === task.assigneeActorId) ?? null
@@ -198,6 +249,8 @@ export function ProjectTaskCard({
       isOverlay={isOverlay}
       needsAttention={needsAttention}
       onClick={onClick}
+      {...(dragMode ? { dragMode } : {})}
+      {...(dragData ? { dragData } : {})}
     >
       <div className='flex justify-between items-start mb-2'>
         {task.number === 0 ? (

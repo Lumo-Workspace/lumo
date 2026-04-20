@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import {
@@ -14,6 +15,7 @@ import {
   useSprintTasks,
   useBacklogTasks,
 } from '../../hooks/useSprints'
+import { useMembers } from '../../hooks/useMembers'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { RetroPanel } from '../components/RetroPanel'
@@ -31,6 +33,11 @@ export function SprintDetailClient() {
   const { tasks: backlogTasks, refetch: refetchBacklog } = useBacklogTasks(
     planMode && sprint ? sprint.teamId : null
   )
+  const { members, fetchMembers } = useMembers()
+  // Members are needed by ProjectTaskCard for assignee avatars/hover.
+  useEffect(() => {
+    void fetchMembers()
+  }, [fetchMembers])
   // Require a few pixels of movement before drag activates so the + button
   // stays clickable.
   const sensors = useSensors(
@@ -94,6 +101,7 @@ export function SprintDetailClient() {
       droppable={planMode}
       planMode={planMode}
       backlogTasks={backlogTasks ?? []}
+      members={members}
     />
   )
 
