@@ -146,7 +146,6 @@ export function SprintSidebar({
               <Button size='sm' disabled={busy} onClick={handleStart}>
                 {intl.formatMessage({ id: 'sprints.detail.startSprint' })}
               </Button>
-              {/* TODO(P3.6): wire PlanBacklogPanel for full plan mode */}
               <Button size='sm' variant='outline' asChild>
                 <a href='?plan=1'>
                   {intl.formatMessage({ id: 'sprints.detail.planTasks' })}

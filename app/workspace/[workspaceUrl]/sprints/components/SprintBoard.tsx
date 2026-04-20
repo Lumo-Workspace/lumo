@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { useDroppable } from '@dnd-kit/core'
+import { useDroppable, useDraggable } from '@dnd-kit/core'
 import type { TaskStatus } from '@prisma/client'
 import { PriorityBadge } from '../../components/PriorityBadge'
 import { Bot } from 'lucide-react'
@@ -36,16 +36,26 @@ export interface SprintTask {
   childrenDoneCount?: number
 }
 
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
+const ACTIVE_STATUS_ORDER = [
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+] as const
+const PLAN_STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW'] as const
 
-const STATUS_I18N_KEY: Record<TaskStatus, string> = {
+type ColumnKey = TaskStatus | 'BACKLOG'
+
+const COLUMN_I18N_KEY: Record<ColumnKey, string> = {
+  BACKLOG: 'sprints.plan.backlogTitle',
   TODO: 'sprints.status.todo',
   IN_PROGRESS: 'sprints.status.inProgress',
   IN_REVIEW: 'sprints.status.inReview',
   DONE: 'sprints.status.done',
 }
 
-const STATUS_HEADER_CLASS: Record<TaskStatus, string> = {
+const COLUMN_HEADER_CLASS: Record<ColumnKey, string> = {
+  BACKLOG: 'text-zinc-500 dark:text-zinc-400',
   TODO: 'text-muted-foreground',
   IN_PROGRESS: 'text-blue-600 dark:text-blue-400',
   IN_REVIEW: 'text-yellow-600 dark:text-yellow-400',
@@ -55,34 +65,86 @@ const STATUS_HEADER_CLASS: Record<TaskStatus, string> = {
 interface SprintBoardProps {
   tasks: unknown[]
   onTaskMoved?: () => void
-  /** When true, columns accept @dnd-kit drops (id = `col:<status>`). */
+  /** When true, columns accept @dnd-kit drops. */
   droppable?: boolean
+  /** When true, show Backlog column and hide DONE column. Backlog items come
+   * from `backlogTasks` (team-scoped, sprintId=null). */
+  planMode?: boolean
+  backlogTasks?: unknown[]
 }
 
-export function SprintBoard({ tasks, droppable = false }: SprintBoardProps) {
-  // Group tasks by status
+export function SprintBoard({
+  tasks,
+  droppable = false,
+  planMode = false,
+  backlogTasks = [],
+}: SprintBoardProps) {
+  const statuses = planMode ? PLAN_STATUS_ORDER : ACTIVE_STATUS_ORDER
   const byStatus = Object.fromEntries(
-    STATUS_ORDER.map(s => [s, [] as SprintTask[]])
+    statuses.map(s => [s, [] as SprintTask[]])
   ) as Record<TaskStatus, SprintTask[]>
 
   for (const raw of tasks) {
     const t = raw as SprintTask
     if (t.status in byStatus) {
-      byStatus[t.status].push(t)
+      byStatus[t.status]!.push(t)
     }
   }
 
+  const backlogList = (backlogTasks as SprintTask[]) ?? []
+
   return (
     <div className='grid grid-cols-4 gap-3 overflow-auto'>
-      {STATUS_ORDER.map(status => (
+      {planMode && <BacklogColumn tasks={backlogList} droppable={droppable} />}
+      {statuses.map(status => (
         <BoardColumn
           key={status}
           status={status}
-          tasks={byStatus[status]}
+          tasks={byStatus[status] ?? []}
           droppable={droppable}
+          draggable={planMode}
         />
       ))}
     </div>
+  )
+}
+
+function BacklogColumn({
+  tasks,
+  droppable,
+}: {
+  tasks: SprintTask[]
+  droppable: boolean
+}) {
+  const intl = useIntl()
+  // Droppable so sprint tasks can be dragged back out of the sprint.
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col:BACKLOG`,
+    data: { kind: 'sprint-column', status: 'BACKLOG' },
+    disabled: !droppable,
+  })
+
+  return (
+    <section
+      ref={setNodeRef}
+      className={`flex flex-col gap-2 rounded-lg border bg-muted/20 p-2 min-h-full transition-colors ${
+        isOver ? 'ring-2 ring-primary bg-primary/5' : ''
+      }`}
+    >
+      <header className='flex items-center justify-between px-1 py-0.5'>
+        <span
+          className={`text-xs font-semibold uppercase tracking-wide ${COLUMN_HEADER_CLASS.BACKLOG}`}
+        >
+          {intl.formatMessage({ id: COLUMN_I18N_KEY.BACKLOG })}
+        </span>
+        <span className='text-xs text-muted-foreground'>{tasks.length}</span>
+      </header>
+      <div className='flex flex-col gap-2'>
+        {tasks.map(t => (
+          <DraggableBacklogCard key={t.id} task={t} />
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -90,10 +152,14 @@ function BoardColumn({
   status,
   tasks,
   droppable,
+  draggable,
 }: {
   status: TaskStatus
   tasks: SprintTask[]
   droppable: boolean
+  /** When true, task cards in this column are draggable (e.g. plan mode, so
+   * you can pull a planned task back to the Backlog). */
+  draggable: boolean
 }) {
   const intl = useIntl()
   const { setNodeRef, isOver } = useDroppable({
@@ -111,18 +177,56 @@ function BoardColumn({
     >
       <header className='flex items-center justify-between px-1 py-0.5'>
         <span
-          className={`text-xs font-semibold uppercase tracking-wide ${STATUS_HEADER_CLASS[status]}`}
+          className={`text-xs font-semibold uppercase tracking-wide ${COLUMN_HEADER_CLASS[status]}`}
         >
-          {intl.formatMessage({ id: STATUS_I18N_KEY[status] })}
+          {intl.formatMessage({ id: COLUMN_I18N_KEY[status] })}
         </span>
         <span className='text-xs text-muted-foreground'>{tasks.length}</span>
       </header>
       <div className='flex flex-col gap-2'>
-        {tasks.map(t => (
-          <TaskCard key={t.id} task={t} />
-        ))}
+        {tasks.map(t =>
+          draggable ? (
+            <DraggableSprintCard key={t.id} task={t} />
+          ) : (
+            <TaskCard key={t.id} task={t} />
+          )
+        )}
       </div>
     </section>
+  )
+}
+
+function DraggableBacklogCard({ task }: { task: SprintTask }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `backlog:${task.id}`,
+    data: { kind: 'backlog-task', taskId: task.id },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
+    >
+      <TaskCard task={task} />
+    </div>
+  )
+}
+
+function DraggableSprintCard({ task }: { task: SprintTask }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `sprint-task:${task.id}`,
+    data: { kind: 'sprint-task', taskId: task.id },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
+    >
+      <TaskCard task={task} />
+    </div>
   )
 }
 

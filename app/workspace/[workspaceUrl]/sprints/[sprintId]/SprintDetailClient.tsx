@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import {
@@ -10,10 +9,13 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { useSprint, useSprintTasks } from '../../hooks/useSprints'
+import {
+  useSprint,
+  useSprintTasks,
+  useBacklogTasks,
+} from '../../hooks/useSprints'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
-import { PlanBacklogPanel } from '../components/PlanBacklogPanel'
 import { RetroPanel } from '../components/RetroPanel'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
@@ -26,7 +28,9 @@ export function SprintDetailClient() {
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprintId)
   const planMode =
     searchParams.get('plan') === '1' && sprint?.status === 'DRAFT'
-  const [backlogReloadKey, setBacklogReloadKey] = useState(0)
+  const { tasks: backlogTasks, refetch: refetchBacklog } = useBacklogTasks(
+    planMode && sprint ? sprint.teamId : null
+  )
   // Require a few pixels of movement before drag activates so the + button
   // stays clickable.
   const sensors = useSensors(
@@ -40,17 +44,17 @@ export function SprintDetailClient() {
     const overData = e.over?.data.current as
       | { kind: string; status: string }
       | undefined
-    if (
-      !sprint ||
-      activeData?.kind !== 'backlog-task' ||
-      overData?.kind !== 'sprint-column'
-    ) {
-      return
-    }
+    if (!sprint || !activeData || overData?.kind !== 'sprint-column') return
+
     try {
-      await sprintsClient.addTask(sprint.id, activeData.taskId)
-      // Match the column the user dropped on by updating the task's status.
-      if (overData.status) {
+      // Case 1: drag a Backlog task onto a status column → add to sprint,
+      // set its status to match the column.
+      if (
+        activeData.kind === 'backlog-task' &&
+        overData.status &&
+        overData.status !== 'BACKLOG'
+      ) {
+        await sprintsClient.addTask(sprint.id, activeData.taskId)
         try {
           await tasksClient.update(activeData.taskId, {
             status: overData.status,
@@ -59,8 +63,27 @@ export function SprintDetailClient() {
           // Non-fatal: task is in sprint; status stays as-is.
         }
       }
+      // Case 2: drag a Sprint task onto the Backlog column → remove from sprint.
+      else if (
+        activeData.kind === 'sprint-task' &&
+        overData.status === 'BACKLOG'
+      ) {
+        await sprintsClient.removeTask(sprint.id, activeData.taskId)
+      }
+      // Case 3: drag a Sprint task onto a different status column → update status.
+      else if (
+        activeData.kind === 'sprint-task' &&
+        overData.status &&
+        overData.status !== 'BACKLOG'
+      ) {
+        await tasksClient.update(activeData.taskId, {
+          status: overData.status,
+        })
+      } else {
+        return
+      }
       refetchTasks()
-      setBacklogReloadKey(k => k + 1)
+      refetchBacklog()
     } catch (err) {
       alert((err as Error).message)
     }
@@ -93,19 +116,14 @@ export function SprintDetailClient() {
       tasks={tasks ?? []}
       onTaskMoved={refetchTasks}
       droppable={planMode}
+      planMode={planMode}
+      backlogTasks={backlogTasks ?? []}
     />
   )
 
   const sidePanel =
     sprint.status === 'CLOSED' ? (
       <RetroPanel sprintId={sprint.id} />
-    ) : planMode ? (
-      <PlanBacklogPanel
-        sprint={sprint}
-        teamId={sprint.teamId}
-        onAdded={refetchTasks}
-        reloadKey={backlogReloadKey}
-      />
     ) : (
       <SprintSidebar
         sprint={sprint}
@@ -113,6 +131,7 @@ export function SprintDetailClient() {
         onRefresh={() => {
           refetch()
           refetchTasks()
+          refetchBacklog()
         }}
       />
     )
