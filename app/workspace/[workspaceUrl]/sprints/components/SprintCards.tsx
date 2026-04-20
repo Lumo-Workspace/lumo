@@ -224,6 +224,20 @@ export function SprintCards({ teamId }: { teamId: string }) {
     refetchActive()
   }
 
+  const [creating, setCreating] = useState(false)
+  async function createNew() {
+    setCreating(true)
+    try {
+      await sprintsClient.createDraft(teamId, {})
+      refetchDraft()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setCreating(false)
+    }
+  }
+  const noUpcoming = !activeSprint && !draftSprint
+
   const activeSprint = activeSprints?.[0]
   const draftSprint = draftSprints?.[0]
   const recent = closedSprints?.slice(0, 5) ?? []
@@ -235,14 +249,32 @@ export function SprintCards({ teamId }: { teamId: string }) {
 
   if (isEmpty) {
     return (
-      <p className='text-sm text-muted-foreground py-4'>
-        {intl.formatMessage({ id: 'sprints.landing.empty' })}
-      </p>
+      <div className='py-4 space-y-3'>
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'sprints.landing.empty' })}
+        </p>
+        <Button onClick={createNew} disabled={creating} size='sm'>
+          {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
+        </Button>
+      </div>
     )
   }
 
   return (
     <div className='space-y-6'>
+      {/* When team has no Active and no Draft (e.g. just closed the last
+          sprint and waiting on cron), surface a manual escape hatch. */}
+      {noUpcoming && (
+        <div className='rounded border border-dashed p-4 flex items-center justify-between gap-3'>
+          <p className='text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'sprints.landing.noUpcoming' })}
+          </p>
+          <Button onClick={createNew} disabled={creating} size='sm'>
+            {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
+          </Button>
+        </div>
+      )}
+
       {/* Active */}
       {activeSprint && (
         <section className='space-y-2'>

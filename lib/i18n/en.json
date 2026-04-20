@@ -740,6 +740,8 @@
   "sprints.landing.daysLeft": "{count} days left",
   "sprints.landing.overdue": "Overdue by {count} days",
   "sprints.landing.empty": "No sprints yet. Enable sprints in team settings.",
+  "sprints.landing.noUpcoming": "No upcoming sprint. The next one is auto-prepared overnight, or create one now.",
+  "sprints.landing.newSprint": "New sprint",
   "sprints.landing.viewRetro": "View retro",
   "sprints.detail.loading": "Loading…",
   "sprints.detail.notFound": "Sprint not found",

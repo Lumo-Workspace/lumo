@@ -239,6 +239,20 @@ export const sprintService = {
       actor.id ?? null
     ).catch(err => void err)
 
+    // Eager-prepare the next DRAFT so cadence-enabled teams aren't stuck
+    // waiting for the daily cron after closing a sprint. Idempotent — skips
+    // if a DRAFT already exists (e.g. when close auto-created one for
+    // moveToNext spillover).
+    ;(async () => {
+      try {
+        const { sprintPrepareService } =
+          await import('@/lib/services/sprint-prepare.service')
+        await sprintPrepareService.prepareNextDraft(sprint.teamId)
+      } catch (err) {
+        void err
+      }
+    })()
+
     return closed
   },
 
