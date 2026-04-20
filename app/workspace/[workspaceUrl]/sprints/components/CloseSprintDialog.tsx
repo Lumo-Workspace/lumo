@@ -183,9 +183,9 @@ export function CloseSprintDialog({
                 {tasks.map(task => (
                   <div
                     key={task.id}
-                    className='flex items-center justify-between gap-2 rounded border p-2'
+                    className='flex items-center justify-between gap-2 rounded border p-2 min-w-0'
                   >
-                    <span className='text-sm truncate flex-1'>
+                    <span className='text-sm truncate flex-1 min-w-0'>
                       {task.title}
                     </span>
                     <DecisionToggle
