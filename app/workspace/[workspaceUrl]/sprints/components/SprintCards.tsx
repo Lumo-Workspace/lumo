@@ -100,9 +100,15 @@ function DatePickerField({
   )
 }
 
-// ─── Active sprint card ───────────────────────────────────────────────────────
+// ─── Sprint landing card ──────────────────────────────────────────────────────
 
-function ActiveSprintCard({
+/**
+ * Single card used for both the Current and Upcoming sections. Shape stays
+ * constant so the eye doesn't have to re-parse a different layout between
+ * sections — what changes is the time-relative subtitle (days left / starts
+ * in / overdue by).
+ */
+function SprintLandingCard({
   sprint,
   workspaceUrl,
 }: {
@@ -114,8 +120,10 @@ function ActiveSprintCard({
   const done = progress?.done ?? 0
   const total = progress?.total ?? 0
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const remaining = daysFromNow(sprint.endDate)
-  const overdue = remaining < 0
+  const daysToStart = daysFromNow(sprint.startDate)
+  const daysToEnd = daysFromNow(sprint.endDate)
+  const upcoming = daysToStart > 0
+  const overdue = !upcoming && daysToEnd < 0
 
   return (
     <Link
@@ -148,58 +156,34 @@ function ActiveSprintCard({
               <div className='inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950'>
                 <span
                   className='text-xs font-semibold text-destructive'
-                  aria-label={intl.formatMessage(
-                    { id: 'sprints.landing.overdue' },
-                    { count: Math.abs(remaining) }
-                  )}
+                  aria-hidden
                 >
                   ⚠
                 </span>
                 <span className='text-xs font-medium text-destructive'>
                   {intl.formatMessage(
                     { id: 'sprints.landing.overdue' },
-                    { count: Math.abs(remaining) }
+                    { count: Math.abs(daysToEnd) }
                   )}
                 </span>
               </div>
+            ) : upcoming ? (
+              <span className='text-xs text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'sprints.landing.startsIn' },
+                  { count: daysToStart }
+                )}
+              </span>
             ) : (
               <span className='text-xs text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'sprints.landing.daysLeft' },
-                  { count: remaining }
+                  { count: daysToEnd }
                 )}
               </span>
             )}
           </div>
         </CardContent>
-      </Card>
-    </Link>
-  )
-}
-
-// ─── Draft sprint card ────────────────────────────────────────────────────────
-
-function DraftSprintCard({
-  sprint,
-  workspaceUrl,
-}: {
-  sprint: Sprint
-  workspaceUrl: string
-}) {
-  return (
-    <Link
-      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}
-      className='block'
-    >
-      <Card className='transition-colors hover:bg-accent/40'>
-        <CardHeader className='pb-2'>
-          <div className='flex items-start justify-between gap-2'>
-            <CardTitle className='text-base'>{sprint.name}</CardTitle>
-            <span className='text-xs text-muted-foreground shrink-0'>
-              {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
-            </span>
-          </div>
-        </CardHeader>
       </Card>
     </Link>
   )
@@ -425,7 +409,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.active' })}
           </h2>
-          <ActiveSprintCard
+          <SprintLandingCard
             sprint={currentSprint}
             workspaceUrl={workspaceUrl}
           />
@@ -438,7 +422,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
           </h2>
-          <DraftSprintCard
+          <SprintLandingCard
             sprint={upcomingSprint}
             workspaceUrl={workspaceUrl}
           />

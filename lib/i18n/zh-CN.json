@@ -738,6 +738,7 @@
   "sprints.landing.plan": "规划",
   "sprints.landing.start": "开始",
   "sprints.landing.daysLeft": "剩余 {count} 天",
+  "sprints.landing.startsIn": "还有 {count} 天开始",
   "sprints.landing.overdue": "已逾期 {count} 天",
   "sprints.landing.empty": "暂无冲刺。请先在团队设置中启用冲刺，再新建一个。",
   "sprints.landing.noUpcoming": "当前没有待启动的冲刺。立即新建一个开始吧。",

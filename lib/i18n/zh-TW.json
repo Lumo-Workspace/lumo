@@ -33,6 +33,7 @@
   "sprints.landing.plan": "規劃",
   "sprints.landing.start": "開始",
   "sprints.landing.daysLeft": "剩餘 {count} 天",
+  "sprints.landing.startsIn": "還有 {count} 天開始",
   "sprints.landing.overdue": "已逾期 {count} 天",
   "sprints.landing.empty": "尚無衝刺。請先在團隊設定中啟用衝刺，再新建一個。",
   "sprints.landing.noUpcoming": "目前沒有待啟動的衝刺。立即新建一個開始吧。",

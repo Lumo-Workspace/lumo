@@ -738,6 +738,7 @@
   "sprints.landing.plan": "Plan",
   "sprints.landing.start": "Start",
   "sprints.landing.daysLeft": "{count} days left",
+  "sprints.landing.startsIn": "Starts in {count} days",
   "sprints.landing.overdue": "Overdue by {count} days",
   "sprints.landing.empty": "No sprints yet. Enable sprints in team settings, then create one.",
   "sprints.landing.noUpcoming": "No upcoming sprint. Create one to get started.",
