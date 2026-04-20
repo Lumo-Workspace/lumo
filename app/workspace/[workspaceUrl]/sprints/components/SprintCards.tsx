@@ -192,57 +192,26 @@ function ActiveSprintCard({
 function DraftSprintCard({
   sprint,
   workspaceUrl,
-  onChanged,
 }: {
   sprint: Sprint
   workspaceUrl: string
-  onChanged: () => void
 }) {
-  const intl = useIntl()
-  const [starting, setStarting] = useState(false)
-
-  async function handleStart() {
-    setStarting(true)
-    try {
-      await sprintsClient.start(sprint.id)
-      onChanged()
-    } catch (e) {
-      alert((e as Error).message)
-    } finally {
-      setStarting(false)
-    }
-  }
-
   return (
-    <Card>
-      <CardHeader className='pb-2'>
-        <div className='flex items-start justify-between gap-2'>
-          <CardTitle className='text-base'>{sprint.name}</CardTitle>
-          <span className='text-xs text-muted-foreground shrink-0'>
-            {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className='flex gap-2'>
-          <Button asChild size='sm' variant='default'>
-            <Link
-              href={`/workspace/${workspaceUrl}/sprints/${sprint.id}?plan=1`}
-            >
-              {intl.formatMessage({ id: 'sprints.landing.plan' })}
-            </Link>
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={handleStart}
-            disabled={starting}
-          >
-            {intl.formatMessage({ id: 'sprints.landing.start' })}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <Link
+      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}?plan=1`}
+      className='block'
+    >
+      <Card className='transition-colors hover:bg-accent/40'>
+        <CardHeader className='pb-2'>
+          <div className='flex items-start justify-between gap-2'>
+            <CardTitle className='text-base'>{sprint.name}</CardTitle>
+            <span className='text-xs text-muted-foreground shrink-0'>
+              {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
+            </span>
+          </div>
+        </CardHeader>
+      </Card>
+    </Link>
   )
 }
 
@@ -394,11 +363,8 @@ export function SprintCards({ teamId }: { teamId: string }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
 
-  const {
-    sprints: activeSprints,
-    isLoading: loadingActive,
-    refetch: refetchActive,
-  } = useSprintsForTeam(teamId, 'ACTIVE')
+  const { sprints: activeSprints, isLoading: loadingActive } =
+    useSprintsForTeam(teamId, 'ACTIVE')
   const {
     sprints: draftSprints,
     isLoading: loadingDraft,
@@ -406,11 +372,6 @@ export function SprintCards({ teamId }: { teamId: string }) {
   } = useSprintsForTeam(teamId, 'DRAFT')
   const { sprints: closedSprints, isLoading: loadingClosed } =
     useSprintsForTeam(teamId, 'CLOSED')
-
-  const onStarted = () => {
-    refetchDraft()
-    refetchActive()
-  }
 
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -475,11 +436,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
           </h2>
-          <DraftSprintCard
-            sprint={draftSprint}
-            workspaceUrl={workspaceUrl}
-            onChanged={onStarted}
-          />
+          <DraftSprintCard sprint={draftSprint} workspaceUrl={workspaceUrl} />
         </section>
       )}
 
