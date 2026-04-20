@@ -182,6 +182,9 @@ function useDragForMode(
     return {
       setNodeRef: draggable.setNodeRef,
       style: {
+        // Without this transform the element wouldn't visually follow the
+        // cursor during drag — making it feel like nothing is happening.
+        transform: CSS.Translate.toString(draggable.transform),
         opacity: draggable.isDragging ? 0.4 : 1,
       } as React.CSSProperties,
       attributes: draggable.attributes,
