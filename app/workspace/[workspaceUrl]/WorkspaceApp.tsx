@@ -30,6 +30,7 @@ import { clearCache } from './cache'
 import { useTaskStore } from './hooks/useTaskStore'
 import { useMyTasks } from './hooks/useMyTasks'
 import { useMyActiveSprints } from './hooks/useMyActiveSprints'
+import { useWorkspaceTeams } from './hooks/useWorkspaceTeams'
 import { useProjects } from './hooks/useProjects'
 import { useProjectTasks } from './hooks/useProjectTasks'
 import { useMembers } from './hooks/useMembers'
@@ -138,6 +139,8 @@ export default function DashboardApp() {
   // ─── My Tasks sprint filter ────────────────────────────────────────────────
   const [currentSprintOnly, setCurrentSprintOnly] = useState(false)
   const { sprintIds: activeSprintIds } = useMyActiveSprints()
+  const { teams: myTeams } = useWorkspaceTeams()
+  const anySprintEnabledTeam = myTeams.some(t => t.sprintCadenceDays != null)
   const myTasksSprintFilter = currentSprintOnly ? activeSprintIds : undefined
 
   // ─── Normalized task store ─────────────────────────────────────────────────
@@ -547,7 +550,9 @@ export default function DashboardApp() {
             members={members}
             projects={projects}
             currentSprintOnly={currentSprintOnly}
-            onCurrentSprintOnlyChange={setCurrentSprintOnly}
+            onCurrentSprintOnlyChange={
+              anySprintEnabledTeam ? setCurrentSprintOnly : undefined
+            }
             noActiveSprint={currentSprintOnly && activeSprintIds.length === 0}
           />
         )
