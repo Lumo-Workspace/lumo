@@ -192,7 +192,7 @@ function ClosedSprintRow({
         </span>
       </div>
       <Button asChild size='sm' variant='ghost'>
-        <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}/retro`}>
+        <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
           {intl.formatMessage({ id: 'sprints.landing.viewRetro' })}
         </Link>
       </Button>
