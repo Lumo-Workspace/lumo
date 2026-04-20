@@ -19,6 +19,7 @@
   "sidebar.drafts": "草稿箱",
   "sidebar.myTasks": "我的任務",
   "myTasks.currentSprintOnly": "僅目前衝刺",
+  "myTasks.noActiveSprint": "目前沒有進行中的衝刺——到「衝刺」頁啟動一期。",
   "sidebar.inbox": "收件匣",
   "sidebar.workspace": "工作區",
   "sidebar.projects": "專案",

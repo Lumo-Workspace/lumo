@@ -49,9 +49,31 @@ export function useMyTasks(
   // Stable key so useCallback doesn't get a new array reference each render
   const sprintIdsKey = opts.sprintIds?.join(',') ?? ''
 
+  // Distinguish "caller passed an empty sprintIds list" (match nothing)
+  // from "caller passed nothing at all" (no sprint filter). Empty array means
+  // the user toggled "current sprint only" but has no active sprint — we should
+  // show zero tasks, not fall through to "all tasks".
+  const sprintFilterProvided = opts.sprintIds !== undefined
+  const sprintFilterEmpty = sprintFilterProvided && opts.sprintIds!.length === 0
+
   const fetchMyTasks = useCallback(async () => {
     if (!seeded.current) setLoading(true)
     setError(null)
+
+    // Short-circuit: user asked for current-sprint-only tasks but has no
+    // active sprint. Render an empty list without hitting the API.
+    if (sprintFilterEmpty) {
+      upsertTasks([])
+      setTaskIds([])
+      writeCache(CACHE_KEY.myTasks, {
+        taskIds: [],
+        myTasksViewId,
+      })
+      seeded.current = true
+      setLoading(false)
+      return
+    }
+
     try {
       const sprintIds = sprintIdsKey ? sprintIdsKey.split(',') : undefined
       const data = await tasksClient.listMine<{
@@ -72,7 +94,7 @@ export function useMyTasks(
     } finally {
       setLoading(false)
     }
-  }, [upsertTasks, sprintIdsKey])
+  }, [upsertTasks, sprintIdsKey, sprintFilterEmpty, myTasksViewId])
 
   return { taskIds, setTaskIds, myTasksViewId, loading, error, fetchMyTasks }
 }

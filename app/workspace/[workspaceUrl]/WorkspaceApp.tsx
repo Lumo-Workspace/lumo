@@ -548,6 +548,7 @@ export default function DashboardApp() {
             projects={projects}
             currentSprintOnly={currentSprintOnly}
             onCurrentSprintOnlyChange={setCurrentSprintOnly}
+            noActiveSprint={currentSprintOnly && activeSprintIds.length === 0}
           />
         )
 

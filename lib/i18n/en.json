@@ -19,6 +19,7 @@
   "sidebar.drafts": "Drafts",
   "sidebar.myTasks": "My Tasks",
   "myTasks.currentSprintOnly": "Current sprint only",
+  "myTasks.noActiveSprint": "No active sprint — start one from the Sprints page.",
   "sidebar.inbox": "Inbox",
   "sidebar.workspace": "Workspace",
   "sidebar.projects": "Projects",
