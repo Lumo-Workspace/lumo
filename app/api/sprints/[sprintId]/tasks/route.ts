@@ -32,7 +32,24 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     const tasks = await taskRepository.findBySprint(sprintId)
 
-    return NextResponse.json({ tasks })
+    // Flatten to the shape ApiTask / ProjectTaskCard expects.
+    // Mirrors the transform in /api/projects/[id]/tasks/route.ts.
+    const shaped = tasks.map((t: any) => ({
+      ...t,
+      teamIdentifier: t.team?.identifier ?? '',
+      parent: t.parent
+        ? {
+            id: t.parent.id,
+            title: t.parent.title,
+            number: t.parent.number,
+            teamIdentifier: t.parent.team?.identifier ?? '',
+          }
+        : null,
+      _count: t._count,
+      childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
+    }))
+
+    return NextResponse.json({ tasks: shaped })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

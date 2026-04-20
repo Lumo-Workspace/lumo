@@ -3,20 +3,24 @@
 import { useIntl } from 'react-intl'
 import { useDroppable } from '@dnd-kit/core'
 import type { TaskStatus } from '@prisma/client'
+import { PriorityBadge } from '../../components/PriorityBadge'
+import { Bot } from 'lucide-react'
 
 /**
- * Shape of a task returned by tasksClient.listBySprint / taskRepository.findBySprint.
- * Derived from the TASK_LIST_INCLUDE clause in commit f89faee.
+ * Shape of a task returned by /api/sprints/[sprintId]/tasks after flattening.
+ * Matches ApiTask so we can lean on the same visual conventions as the project Kanban.
  */
 export interface SprintTask {
   id: string
   title: string
   number: number
   status: TaskStatus
-  priority: string
-  projectId: string | null
-  team: { identifier: string } | null
-  assignee: {
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string
+  dueDate?: string | null
+  updatedAt: string
+  teamIdentifier: string
+  assigneeActorId: string | null
+  assignee?: {
     id: string
     type: string
     member: { id: string; clerkId: string } | null
@@ -26,10 +30,10 @@ export interface SprintTask {
     id: string
     title: string
     number: number
-    team: { identifier: string } | null
+    teamIdentifier: string
   } | null
-  _count: { children: number }
-  children: { id: string }[]
+  _count?: { children: number }
+  childrenDoneCount?: number
 }
 
 const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
@@ -123,24 +127,77 @@ function BoardColumn({
 }
 
 function TaskCard({ task: t }: { task: SprintTask }) {
-  const prefix = t.team?.identifier
-    ? `${t.team.identifier}-${t.number}`
+  const prefix = t.teamIdentifier
+    ? `${t.teamIdentifier}-${t.number}`
     : `#${t.number}`
+  const isAgent = t.assignee?.type === 'AGENT'
+  const childrenTotal = t._count?.children ?? 0
+  const childrenDone = t.childrenDoneCount ?? 0
+  const hasChildren = childrenTotal > 0
+
+  const bottomText = t.dueDate
+    ? `Due ${new Date(t.dueDate).toLocaleDateString()}`
+    : `Updated ${new Date(t.updatedAt).toLocaleDateString()}`
 
   return (
-    <article className='rounded border bg-background p-2 text-sm shadow-sm hover:shadow-md transition-shadow'>
-      <div className='flex items-center justify-between gap-1 text-xs text-muted-foreground'>
-        <span className='shrink-0 font-mono'>{prefix}</span>
-        {t.parent && (
-          <span className='truncate text-muted-foreground/70'>
-            ↳{' '}
-            {t.parent.team?.identifier
-              ? `${t.parent.team.identifier}-${t.parent.number}`
-              : `#${t.parent.number}`}
-          </span>
-        )}
+    <article className='bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+      <div className='flex justify-between items-start mb-2'>
+        <span className='text-xs font-mono text-zinc-500 dark:text-zinc-400'>
+          {prefix}
+        </span>
+        <PriorityBadge priority={t.priority as any} />
       </div>
-      <p className='mt-1 font-medium leading-snug line-clamp-2'>{t.title}</p>
+
+      {t.parent && (
+        <div className='mb-1'>
+          <span className='text-[10px] text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded'>
+            ↑ {t.parent.teamIdentifier}-{t.parent.number}
+          </span>
+        </div>
+      )}
+
+      <h4 className='text-sm font-medium mb-3 leading-relaxed line-clamp-2'>
+        {t.title}
+      </h4>
+
+      {hasChildren && (
+        <div className='flex items-center gap-1.5 mb-2'>
+          <div className='flex-1 h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden'>
+            <div
+              className='h-full bg-blue-500 rounded-full transition-all'
+              style={{
+                width: `${Math.round((childrenDone / childrenTotal) * 100)}%`,
+              }}
+            />
+          </div>
+          <span className='text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums'>
+            {childrenDone}/{childrenTotal}
+          </span>
+        </div>
+      )}
+
+      <div className='flex justify-between items-center'>
+        {isAgent ? (
+          <div
+            className='flex items-center justify-center size-5 rounded-full'
+            style={{
+              backgroundColor: t.assignee?.agent?.avatarColor ?? '#ede9fe',
+            }}
+            title={t.assignee?.agent?.name ?? 'Agent'}
+          >
+            <Bot size={11} className='text-white' />
+          </div>
+        ) : t.assigneeActorId ? (
+          <div
+            className='size-5 rounded-full bg-zinc-200 dark:bg-zinc-700'
+            title='Assigned'
+          />
+        ) : (
+          <div className='size-5 rounded-full border border-dashed border-zinc-300 dark:border-zinc-600' />
+        )}
+
+        <span className='text-[10px] text-zinc-400'>{bottomText}</span>
+      </div>
     </article>
   )
 }
