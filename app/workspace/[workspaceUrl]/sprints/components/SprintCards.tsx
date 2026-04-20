@@ -118,30 +118,33 @@ function ActiveSprintCard({
   const overdue = remaining < 0
 
   return (
-    <Card>
-      <CardHeader className='pb-2'>
-        <div className='flex items-start justify-between gap-2'>
-          <CardTitle className='text-base'>
-            {detail?.name ?? sprint.name}
-          </CardTitle>
-          <span className='text-xs text-muted-foreground shrink-0'>
-            {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className='space-y-3'>
-        <div className='space-y-1'>
-          <div className='flex justify-between text-xs text-muted-foreground'>
-            <span>
-              {done} / {total}
+    <Link
+      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}
+      className='block'
+    >
+      <Card className='transition-colors hover:bg-accent/40'>
+        <CardHeader className='pb-2'>
+          <div className='flex items-start justify-between gap-2'>
+            <CardTitle className='text-base'>
+              {detail?.name ?? sprint.name}
+            </CardTitle>
+            <span className='text-xs text-muted-foreground shrink-0'>
+              {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
             </span>
-            <span>{pct}%</span>
           </div>
-          <Progress value={pct} className='h-2' />
-        </div>
-        <div className='flex items-center justify-between'>
+        </CardHeader>
+        <CardContent className='space-y-3'>
+          <div className='space-y-1'>
+            <div className='flex justify-between text-xs text-muted-foreground'>
+              <span>
+                {done} / {total}
+              </span>
+              <span>{pct}%</span>
+            </div>
+            <Progress value={pct} className='h-2' />
+          </div>
           <div className='flex items-center gap-2'>
-            {overdue && (
+            {overdue ? (
               <div className='inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950'>
                 <span
                   className='text-xs font-semibold text-destructive'
@@ -159,8 +162,7 @@ function ActiveSprintCard({
                   )}
                 </span>
               </div>
-            )}
-            {!overdue && (
+            ) : (
               <span className='text-xs text-muted-foreground'>
                 {intl.formatMessage(
                   { id: 'sprints.landing.daysLeft' },
@@ -169,21 +171,9 @@ function ActiveSprintCard({
               </span>
             )}
           </div>
-          <div className='flex gap-2'>
-            <Button asChild size='sm' variant='default'>
-              <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
-                {intl.formatMessage({ id: 'sprints.landing.openBoard' })}
-              </Link>
-            </Button>
-            <Button asChild size='sm' variant='outline'>
-              <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
-                {intl.formatMessage({ id: 'sprints.landing.close' })}
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
 
