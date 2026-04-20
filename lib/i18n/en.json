@@ -793,6 +793,7 @@
   "sprints.settings.enable": "Enable sprints for this team",
   "sprints.settings.enableHint": "Sprints can be created and managed from the Sprints page in the sidebar.",
   "sprints.settings.save": "Save",
+  "sprints.settings.saved": "Saved",
   "sprints.settings.loading": "Loading teams…",
   "sprints.taskField.label": "Sprint",
   "sprints.taskField.noSprint": "No sprint (backlog)",

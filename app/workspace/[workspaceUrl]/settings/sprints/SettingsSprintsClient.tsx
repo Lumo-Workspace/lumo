@@ -6,9 +6,9 @@ import { useIntl } from 'react-intl'
 
 export function SettingsSprintsClient() {
   const intl = useIntl()
-  const { teams, isLoading, error, refetch } = useWorkspaceTeams()
+  const { teams, isLoading, error } = useWorkspaceTeams()
 
-  if (isLoading)
+  if (isLoading && teams.length === 0)
     return <p>{intl.formatMessage({ id: 'sprints.settings.loading' })}</p>
   if (error) return <p className='text-destructive'>{error.message}</p>
 
@@ -21,7 +21,7 @@ export function SettingsSprintsClient() {
         {intl.formatMessage({ id: 'sprints.settings.intro' })}
       </p>
       {teams?.map(team => (
-        <CadencePanel key={team.id} team={team} onSaved={refetch} />
+        <CadencePanel key={team.id} team={team} />
       ))}
     </div>
   )

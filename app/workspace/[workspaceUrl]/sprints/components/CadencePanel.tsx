@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -13,26 +14,18 @@ interface Team {
   sprintsEnabled: boolean
 }
 
-export function CadencePanel({
-  team,
-  onSaved,
-}: {
-  team: Team
-  onSaved?: () => void
-}) {
+export function CadencePanel({ team }: { team: Team }) {
   const intl = useIntl()
   const [enabled, setEnabled] = useState(team.sprintsEnabled)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function save() {
-    setError(null)
     setSaving(true)
     try {
       await sprintsClient.setCadence(team.id, { enabled })
-      onSaved?.()
+      toast.success(intl.formatMessage({ id: 'sprints.settings.saved' }))
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      toast.error(e instanceof Error ? e.message : 'Save failed')
     } finally {
       setSaving(false)
     }
@@ -58,8 +51,6 @@ export function CadencePanel({
       <p className='text-xs text-muted-foreground'>
         {intl.formatMessage({ id: 'sprints.settings.enableHint' })}
       </p>
-
-      {error && <p className='text-sm text-destructive'>{error}</p>}
 
       <div>
         <Button onClick={save} disabled={saving}>

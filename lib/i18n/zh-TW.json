@@ -87,6 +87,7 @@
   "sprints.settings.enable": "為此團隊啟用衝刺",
   "sprints.settings.enableHint": "可在側邊欄的「衝刺」頁面新建與管理衝刺。",
   "sprints.settings.save": "儲存",
+  "sprints.settings.saved": "已儲存",
   "sprints.settings.loading": "載入團隊中…",
   "sprints.taskField.label": "衝刺",
   "sprints.taskField.noSprint": "無（待辦池）",

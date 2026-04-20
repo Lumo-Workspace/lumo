@@ -793,6 +793,7 @@
   "sprints.settings.enable": "为该团队启用冲刺",
   "sprints.settings.enableHint": "可在侧边栏的“冲刺”页面新建和管理冲刺。",
   "sprints.settings.save": "保存",
+  "sprints.settings.saved": "已保存",
   "sprints.settings.loading": "加载团队中…",
   "sprints.taskField.label": "冲刺",
   "sprints.taskField.noSprint": "无（待办池）",
