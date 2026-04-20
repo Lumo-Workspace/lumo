@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { useDroppable } from '@dnd-kit/core'
 import type { TaskStatus } from '@prisma/client'
 
 /**
@@ -50,11 +51,11 @@ const STATUS_HEADER_CLASS: Record<TaskStatus, string> = {
 interface SprintBoardProps {
   tasks: unknown[]
   onTaskMoved?: () => void
+  /** When true, columns accept @dnd-kit drops (id = `col:<status>`). */
+  droppable?: boolean
 }
 
-export function SprintBoard({ tasks }: SprintBoardProps) {
-  const intl = useIntl()
-
+export function SprintBoard({ tasks, droppable = false }: SprintBoardProps) {
   // Group tasks by status
   const byStatus = Object.fromEntries(
     STATUS_ORDER.map(s => [s, [] as SprintTask[]])
@@ -70,28 +71,54 @@ export function SprintBoard({ tasks }: SprintBoardProps) {
   return (
     <div className='grid grid-cols-4 gap-3 overflow-auto'>
       {STATUS_ORDER.map(status => (
-        <section
+        <BoardColumn
           key={status}
-          className='flex flex-col gap-2 rounded-lg border bg-muted/20 p-2 min-h-full'
-        >
-          <header className='flex items-center justify-between px-1 py-0.5'>
-            <span
-              className={`text-xs font-semibold uppercase tracking-wide ${STATUS_HEADER_CLASS[status]}`}
-            >
-              {intl.formatMessage({ id: STATUS_I18N_KEY[status] })}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {byStatus[status].length}
-            </span>
-          </header>
-          <div className='flex flex-col gap-2'>
-            {byStatus[status].map(t => (
-              <TaskCard key={t.id} task={t} />
-            ))}
-          </div>
-        </section>
+          status={status}
+          tasks={byStatus[status]}
+          droppable={droppable}
+        />
       ))}
     </div>
+  )
+}
+
+function BoardColumn({
+  status,
+  tasks,
+  droppable,
+}: {
+  status: TaskStatus
+  tasks: SprintTask[]
+  droppable: boolean
+}) {
+  const intl = useIntl()
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col:${status}`,
+    data: { kind: 'sprint-column', status },
+    disabled: !droppable,
+  })
+
+  return (
+    <section
+      ref={setNodeRef}
+      className={`flex flex-col gap-2 rounded-lg border bg-muted/20 p-2 min-h-full transition-colors ${
+        isOver ? 'ring-2 ring-primary bg-primary/5' : ''
+      }`}
+    >
+      <header className='flex items-center justify-between px-1 py-0.5'>
+        <span
+          className={`text-xs font-semibold uppercase tracking-wide ${STATUS_HEADER_CLASS[status]}`}
+        >
+          {intl.formatMessage({ id: STATUS_I18N_KEY[status] })}
+        </span>
+        <span className='text-xs text-muted-foreground'>{tasks.length}</span>
+      </header>
+      <div className='flex flex-col gap-2'>
+        {tasks.map(t => (
+          <TaskCard key={t.id} task={t} />
+        ))}
+      </div>
+    </section>
   )
 }
 

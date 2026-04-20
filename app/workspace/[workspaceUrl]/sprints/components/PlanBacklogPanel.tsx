@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useDraggable } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import { useIntl } from 'react-intl'
@@ -16,10 +17,13 @@ export function PlanBacklogPanel({
   sprint,
   teamId,
   onAdded,
+  reloadKey = 0,
 }: {
   sprint: { id: string; name: string }
   teamId: string
   onAdded?: () => void
+  /** Bump to force a re-fetch after an external add (e.g. drag-drop). */
+  reloadKey?: number
 }) {
   const intl = useIntl()
   const [tasks, setTasks] = useState<BacklogTask[] | undefined>(undefined)
@@ -47,7 +51,10 @@ export function PlanBacklogPanel({
 
   useEffect(() => {
     void load()
-  }, [teamId])
+    // `load` is a stable-enough local function; ESLint exhaustive-deps
+    // can't see that we only want to re-run on teamId / reloadKey changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId, reloadKey])
 
   async function add(taskId: string) {
     setBusyIds(prev => new Set(prev).add(taskId))
@@ -92,28 +99,64 @@ export function PlanBacklogPanel({
           </p>
         )}
         {tasks?.map(t => (
-          <div
+          <BacklogRow
             key={t.id}
-            className='flex items-center justify-between gap-2 p-2'
-          >
-            <div className='min-w-0 flex-1'>
-              <p className='text-xs text-muted-foreground'>
-                {t.teamIdentifier}-{t.number}
-                {t.project?.name && ` · ${t.project.name}`}
-              </p>
-              <p className='truncate text-sm'>{t.title}</p>
-            </div>
-            <Button
-              size='sm'
-              variant='ghost'
-              disabled={busyIds.has(t.id)}
-              onClick={() => add(t.id)}
-            >
-              +
-            </Button>
-          </div>
+            task={t}
+            busy={busyIds.has(t.id)}
+            onAdd={() => add(t.id)}
+          />
         ))}
       </div>
     </aside>
+  )
+}
+
+function BacklogRow({
+  task,
+  busy,
+  onAdd,
+}: {
+  task: BacklogTask
+  busy: boolean
+  onAdd: () => void
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `backlog:${task.id}`,
+    data: { kind: 'backlog-task', taskId: task.id },
+    disabled: busy,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`flex items-center justify-between gap-2 p-2 select-none ${
+        isDragging
+          ? 'opacity-40 cursor-grabbing'
+          : busy
+            ? 'cursor-wait'
+            : 'cursor-grab'
+      }`}
+    >
+      <div className='min-w-0 flex-1'>
+        <p className='text-xs text-muted-foreground'>
+          {task.teamIdentifier}-{task.number}
+          {task.project?.name && ` · ${task.project.name}`}
+        </p>
+        <p className='truncate text-sm'>{task.title}</p>
+      </div>
+      <Button
+        size='sm'
+        variant='ghost'
+        disabled={busy}
+        // Buttons inside a draggable need these listeners stopped so clicks
+        // don't get swallowed by the drag sensor.
+        onPointerDown={e => e.stopPropagation()}
+        onClick={onAdd}
+      >
+        +
+      </Button>
+    </div>
   )
 }
