@@ -363,27 +363,36 @@ export function SprintCards({ teamId }: { teamId: string }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
 
-  const { sprints: activeSprints, isLoading: loadingActive } =
-    useSprintsForTeam(teamId, 'ACTIVE')
-  const {
-    sprints: draftSprints,
-    isLoading: loadingDraft,
-    refetch: refetchDraft,
-  } = useSprintsForTeam(teamId, 'DRAFT')
-  const { sprints: closedSprints, isLoading: loadingClosed } =
-    useSprintsForTeam(teamId, 'CLOSED')
+  const { sprints, isLoading, refetch: refetchAll } = useSprintsForTeam(teamId)
 
   const [createOpen, setCreateOpen] = useState(false)
 
-  const activeSprint = activeSprints?.[0]
-  const draftSprint = draftSprints?.[0]
-  const recent = closedSprints?.slice(0, 5) ?? []
-  const noUpcoming = !activeSprint && !draftSprint
-
-  const isLoading = loadingActive || loadingDraft || loadingClosed
+  // Partition purely by date so the landing page never lies about what's
+  // "current" vs "upcoming" just because nobody clicked a state-transition
+  // button.
+  const now = Date.now()
+  const bySortedStart = (sprints ?? [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    )
+  const currentSprint = bySortedStart.find(
+    s =>
+      new Date(s.startDate).getTime() <= now &&
+      now <= new Date(s.endDate).getTime()
+  )
+  const upcomingSprint = bySortedStart.find(
+    s => new Date(s.startDate).getTime() > now
+  )
+  const completedSprints = bySortedStart
+    .filter(s => new Date(s.endDate).getTime() < now)
+    .reverse() // most-recent first
+  const recent = completedSprints.slice(0, 5)
+  const noUpcoming = !currentSprint && !upcomingSprint
 
   const isEmpty =
-    !isLoading && !activeSprint && !draftSprint && recent.length === 0
+    !isLoading && !currentSprint && !upcomingSprint && recent.length === 0
 
   if (isEmpty) {
     return (
@@ -400,7 +409,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
           teamId={teamId}
           open={createOpen}
           onOpenChange={setCreateOpen}
-          onCreated={refetchDraft}
+          onCreated={refetchAll}
         />
       </>
     )
@@ -408,7 +417,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
 
   return (
     <div className='space-y-6'>
-      {/* No active and no draft — let the user create one explicitly. */}
+      {/* No current and no upcoming — let the user create one explicitly. */}
       {noUpcoming && (
         <div className='rounded border border-dashed p-4 flex items-center justify-between gap-3'>
           <p className='text-sm text-muted-foreground'>
@@ -420,23 +429,29 @@ export function SprintCards({ teamId }: { teamId: string }) {
         </div>
       )}
 
-      {/* Active */}
-      {activeSprint && (
+      {/* Current */}
+      {currentSprint && (
         <section className='space-y-2'>
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.active' })}
           </h2>
-          <ActiveSprintCard sprint={activeSprint} workspaceUrl={workspaceUrl} />
+          <ActiveSprintCard
+            sprint={currentSprint}
+            workspaceUrl={workspaceUrl}
+          />
         </section>
       )}
 
-      {/* Next (Draft) */}
-      {draftSprint && (
+      {/* Upcoming */}
+      {upcomingSprint && (
         <section className='space-y-2'>
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
           </h2>
-          <DraftSprintCard sprint={draftSprint} workspaceUrl={workspaceUrl} />
+          <DraftSprintCard
+            sprint={upcomingSprint}
+            workspaceUrl={workspaceUrl}
+          />
         </section>
       )}
 
@@ -464,7 +479,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
         teamId={teamId}
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={refetchDraft}
+        onCreated={refetchAll}
       />
     </div>
   )

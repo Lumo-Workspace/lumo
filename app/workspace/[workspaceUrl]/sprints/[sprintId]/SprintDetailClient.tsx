@@ -7,7 +7,6 @@ import { useSprint, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
-import { RetroPanel } from '../components/RetroPanel'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 
 export function SprintDetailClient() {
@@ -52,19 +51,16 @@ export function SprintDetailClient() {
     />
   )
 
-  const sidePanel =
-    sprint.status === 'CLOSED' ? (
-      <RetroPanel sprintId={sprint.id} />
-    ) : (
-      <SprintSidebar
-        sprint={sprint}
-        progress={progress ?? { done: 0, total: 0 }}
-        onRefresh={() => {
-          refetch()
-          refetchTasks()
-        }}
-      />
-    )
+  const sidePanel = (
+    <SprintSidebar
+      sprint={sprint}
+      progress={progress ?? { done: 0, total: 0 }}
+      onRefresh={() => {
+        refetch()
+        refetchTasks()
+      }}
+    />
+  )
 
   return (
     <div className='flex flex-col h-full overflow-hidden'>
