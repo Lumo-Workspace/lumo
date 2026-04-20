@@ -85,7 +85,7 @@ function DatePickerField({
       <PopoverContent className='w-auto p-0' align='start'>
         <Calendar
           mode='single'
-          style={{ '--cell-size': '2.5rem' } as React.CSSProperties}
+          className='![--cell-size:2.5rem]'
           selected={value}
           onSelect={d => {
             if (d) {
