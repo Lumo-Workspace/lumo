@@ -42,12 +42,12 @@ const ACTIVE_STATUS_ORDER = [
   'IN_REVIEW',
   'DONE',
 ] as const
-const PLAN_STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW'] as const
 
-type ColumnKey = TaskStatus | 'BACKLOG'
+type ColumnKey = TaskStatus | 'BACKLOG' | 'PLANNED'
 
 const COLUMN_I18N_KEY: Record<ColumnKey, string> = {
   BACKLOG: 'sprints.plan.backlogTitle',
+  PLANNED: 'sprints.plan.plannedTitle',
   TODO: 'sprints.status.todo',
   IN_PROGRESS: 'sprints.status.inProgress',
   IN_REVIEW: 'sprints.status.inReview',
@@ -56,6 +56,7 @@ const COLUMN_I18N_KEY: Record<ColumnKey, string> = {
 
 const COLUMN_HEADER_CLASS: Record<ColumnKey, string> = {
   BACKLOG: 'text-zinc-500 dark:text-zinc-400',
+  PLANNED: 'text-blue-600 dark:text-blue-400',
   TODO: 'text-muted-foreground',
   IN_PROGRESS: 'text-blue-600 dark:text-blue-400',
   IN_REVIEW: 'text-yellow-600 dark:text-yellow-400',
@@ -67,8 +68,8 @@ interface SprintBoardProps {
   onTaskMoved?: () => void
   /** When true, columns accept @dnd-kit drops. */
   droppable?: boolean
-  /** When true, show Backlog column and hide DONE column. Backlog items come
-   * from `backlogTasks` (team-scoped, sprintId=null). */
+  /** When true, render a 2-column [Backlog | Planned] view (status doesn't
+   * matter during planning). When false, render the 4 status columns. */
   planMode?: boolean
   backlogTasks?: unknown[]
 }
@@ -79,48 +80,67 @@ export function SprintBoard({
   planMode = false,
   backlogTasks = [],
 }: SprintBoardProps) {
-  const statuses = planMode ? PLAN_STATUS_ORDER : ACTIVE_STATUS_ORDER
-  const byStatus = Object.fromEntries(
-    statuses.map(s => [s, [] as SprintTask[]])
-  ) as Record<TaskStatus, SprintTask[]>
+  const sprintList = tasks as SprintTask[]
+  const backlogList = (backlogTasks as SprintTask[]) ?? []
 
-  for (const raw of tasks) {
-    const t = raw as SprintTask
-    if (t.status in byStatus) {
-      byStatus[t.status]!.push(t)
-    }
+  if (planMode) {
+    // Planning is membership-only: 2 columns, no status concern.
+    return (
+      <div className='grid grid-cols-2 gap-3 overflow-auto'>
+        <BacklogPlanningColumn
+          columnKey='BACKLOG'
+          tasks={backlogList}
+          droppable={droppable}
+          draggableKind='backlog-task'
+        />
+        <BacklogPlanningColumn
+          columnKey='PLANNED'
+          tasks={sprintList}
+          droppable={droppable}
+          draggableKind='sprint-task'
+        />
+      </div>
+    )
   }
 
-  const backlogList = (backlogTasks as SprintTask[]) ?? []
+  // Execution view: status columns.
+  const byStatus = Object.fromEntries(
+    ACTIVE_STATUS_ORDER.map(s => [s, [] as SprintTask[]])
+  ) as Record<TaskStatus, SprintTask[]>
+  for (const t of sprintList) {
+    if (t.status in byStatus) byStatus[t.status]!.push(t)
+  }
 
   return (
     <div className='grid grid-cols-4 gap-3 overflow-auto'>
-      {planMode && <BacklogColumn tasks={backlogList} droppable={droppable} />}
-      {statuses.map(status => (
+      {ACTIVE_STATUS_ORDER.map(status => (
         <BoardColumn
           key={status}
           status={status}
           tasks={byStatus[status] ?? []}
           droppable={droppable}
-          draggable={planMode}
+          draggable={false}
         />
       ))}
     </div>
   )
 }
 
-function BacklogColumn({
+function BacklogPlanningColumn({
+  columnKey,
   tasks,
   droppable,
+  draggableKind,
 }: {
+  columnKey: 'BACKLOG' | 'PLANNED'
   tasks: SprintTask[]
   droppable: boolean
+  draggableKind: 'backlog-task' | 'sprint-task'
 }) {
   const intl = useIntl()
-  // Droppable so sprint tasks can be dragged back out of the sprint.
   const { setNodeRef, isOver } = useDroppable({
-    id: `col:BACKLOG`,
-    data: { kind: 'sprint-column', status: 'BACKLOG' },
+    id: `col:${columnKey}`,
+    data: { kind: 'sprint-column', status: columnKey },
     disabled: !droppable,
   })
 
@@ -133,18 +153,41 @@ function BacklogColumn({
     >
       <header className='flex items-center justify-between px-1 py-0.5'>
         <span
-          className={`text-xs font-semibold uppercase tracking-wide ${COLUMN_HEADER_CLASS.BACKLOG}`}
+          className={`text-xs font-semibold uppercase tracking-wide ${COLUMN_HEADER_CLASS[columnKey]}`}
         >
-          {intl.formatMessage({ id: COLUMN_I18N_KEY.BACKLOG })}
+          {intl.formatMessage({ id: COLUMN_I18N_KEY[columnKey] })}
         </span>
         <span className='text-xs text-muted-foreground'>{tasks.length}</span>
       </header>
       <div className='flex flex-col gap-2'>
         {tasks.map(t => (
-          <DraggableBacklogCard key={t.id} task={t} />
+          <DraggablePlanCard key={t.id} task={t} kind={draggableKind} />
         ))}
       </div>
     </section>
+  )
+}
+
+function DraggablePlanCard({
+  task,
+  kind,
+}: {
+  task: SprintTask
+  kind: 'backlog-task' | 'sprint-task'
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `${kind}:${task.id}`,
+    data: { kind, taskId: task.id },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
+    >
+      <TaskCard task={task} />
+    </div>
   )
 }
 
@@ -152,14 +195,10 @@ function BoardColumn({
   status,
   tasks,
   droppable,
-  draggable,
 }: {
   status: TaskStatus
   tasks: SprintTask[]
   droppable: boolean
-  /** When true, task cards in this column are draggable (e.g. plan mode, so
-   * you can pull a planned task back to the Backlog). */
-  draggable: boolean
 }) {
   const intl = useIntl()
   const { setNodeRef, isOver } = useDroppable({
@@ -184,49 +223,11 @@ function BoardColumn({
         <span className='text-xs text-muted-foreground'>{tasks.length}</span>
       </header>
       <div className='flex flex-col gap-2'>
-        {tasks.map(t =>
-          draggable ? (
-            <DraggableSprintCard key={t.id} task={t} />
-          ) : (
-            <TaskCard key={t.id} task={t} />
-          )
-        )}
+        {tasks.map(t => (
+          <TaskCard key={t.id} task={t} />
+        ))}
       </div>
     </section>
-  )
-}
-
-function DraggableBacklogCard({ task }: { task: SprintTask }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `backlog:${task.id}`,
-    data: { kind: 'backlog-task', taskId: task.id },
-  })
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
-    >
-      <TaskCard task={task} />
-    </div>
-  )
-}
-
-function DraggableSprintCard({ task }: { task: SprintTask }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `sprint-task:${task.id}`,
-    data: { kind: 'sprint-task', taskId: task.id },
-  })
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={`${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'} select-none`}
-    >
-      <TaskCard task={task} />
-    </div>
   )
 }
 

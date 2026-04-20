@@ -18,7 +18,7 @@ import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { RetroPanel } from '../components/RetroPanel'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
-import { sprintsClient, tasksClient } from '@/lib/api-client'
+import { sprintsClient } from '@/lib/api-client'
 
 export function SprintDetailClient() {
   const { sprintId } = useParams<{ sprintId: string }>()
@@ -46,39 +46,15 @@ export function SprintDetailClient() {
       | undefined
     if (!sprint || !activeData || overData?.kind !== 'sprint-column') return
 
+    // Plan mode is membership-only: Backlog ↔ Planned. Status is untouched.
     try {
-      // Case 1: drag a Backlog task onto a status column → add to sprint,
-      // set its status to match the column.
-      if (
-        activeData.kind === 'backlog-task' &&
-        overData.status &&
-        overData.status !== 'BACKLOG'
-      ) {
+      if (activeData.kind === 'backlog-task' && overData.status === 'PLANNED') {
         await sprintsClient.addTask(sprint.id, activeData.taskId)
-        try {
-          await tasksClient.update(activeData.taskId, {
-            status: overData.status,
-          })
-        } catch {
-          // Non-fatal: task is in sprint; status stays as-is.
-        }
-      }
-      // Case 2: drag a Sprint task onto the Backlog column → remove from sprint.
-      else if (
+      } else if (
         activeData.kind === 'sprint-task' &&
         overData.status === 'BACKLOG'
       ) {
         await sprintsClient.removeTask(sprint.id, activeData.taskId)
-      }
-      // Case 3: drag a Sprint task onto a different status column → update status.
-      else if (
-        activeData.kind === 'sprint-task' &&
-        overData.status &&
-        overData.status !== 'BACKLOG'
-      ) {
-        await tasksClient.update(activeData.taskId, {
-          status: overData.status,
-        })
       } else {
         return
       }

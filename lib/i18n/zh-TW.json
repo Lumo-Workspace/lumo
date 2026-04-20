@@ -68,6 +68,7 @@
   "sprints.close.closeSprint": "結束衝刺",
   "sprints.close.membershipChanged": "衝刺成員已變更，請重試。",
   "sprints.plan.backlogTitle": "待辦池",
+  "sprints.plan.plannedTitle": "已規劃",
   "sprints.plan.backlogHint": "點擊 + 新增至 {sprintName}",
   "sprints.plan.loading": "載入待辦中…",
   "sprints.plan.empty": "待辦池為空",
