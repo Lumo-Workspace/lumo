@@ -198,7 +198,7 @@ function DraftSprintCard({
 }) {
   return (
     <Link
-      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}?plan=1`}
+      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}
       className='block'
     >
       <Card className='transition-colors hover:bg-accent/40'>

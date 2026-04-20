@@ -1,13 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import {
-  useSprint,
-  useSprintTasks,
-  useBacklogTasks,
-} from '../../hooks/useSprints'
+import { useSprint, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
@@ -16,25 +12,14 @@ import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBr
 
 export function SprintDetailClient() {
   const { sprintId } = useParams<{ sprintId: string }>()
-  const searchParams = useSearchParams()
   const intl = useIntl()
   const { sprint, progress, isLoading, error, refetch } = useSprint(sprintId)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprintId)
-  const planMode =
-    searchParams.get('plan') === '1' && sprint?.status === 'DRAFT'
-  const { tasks: backlogTasks, refetch: refetchBacklog } = useBacklogTasks(
-    planMode && sprint ? sprint.teamId : null
-  )
   const { members, fetchMembers } = useMembers()
   // Members are needed by ProjectTaskCard for assignee avatars/hover.
   useEffect(() => {
     void fetchMembers()
   }, [fetchMembers])
-
-  function handleBoardChanged() {
-    refetchTasks()
-    refetchBacklog()
-  }
 
   if (isLoading) {
     return (
@@ -61,9 +46,7 @@ export function SprintDetailClient() {
   const board = (
     <SprintBoard
       tasks={tasks ?? []}
-      onTaskMoved={planMode ? handleBoardChanged : refetchTasks}
-      planMode={planMode}
-      backlogTasks={backlogTasks ?? []}
+      onTaskMoved={refetchTasks}
       sprintId={sprint.id}
       members={members}
     />
@@ -79,7 +62,6 @@ export function SprintDetailClient() {
         onRefresh={() => {
           refetch()
           refetchTasks()
-          refetchBacklog()
         }}
       />
     )

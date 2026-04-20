@@ -146,11 +146,6 @@ export function SprintSidebar({
               <Button size='sm' disabled={busy} onClick={handleStart}>
                 {intl.formatMessage({ id: 'sprints.detail.startSprint' })}
               </Button>
-              <Button size='sm' variant='outline' asChild>
-                <a href='?plan=1'>
-                  {intl.formatMessage({ id: 'sprints.detail.planTasks' })}
-                </a>
-              </Button>
               <Button
                 size='sm'
                 variant='destructive'
