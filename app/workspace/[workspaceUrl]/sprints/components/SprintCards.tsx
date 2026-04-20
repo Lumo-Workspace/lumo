@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { CalendarDays } from 'lucide-react'
+import { enUS, zhCN, zhTW } from 'date-fns/locale'
+import type { Locale as DateFnsLocale } from 'date-fns'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -15,10 +18,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
+
+const CALENDAR_LOCALES: Record<string, DateFnsLocale> = {
+  en: enUS,
+  'zh-CN': zhCN,
+  'zh-TW': zhTW,
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,13 +51,53 @@ function formatDate(date: Date | string): string {
   })
 }
 
-function toDateInputValue(date: Date): string {
-  // <input type="date"> expects YYYY-MM-DD in *local* time. Match what the
-  // user sees on a calendar rather than UTC.
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function DatePickerField({
+  id,
+  value,
+  onChange,
+  locale,
+}: {
+  id: string
+  value: Date
+  onChange: (d: Date) => void
+  locale: DateFnsLocale
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          variant='outline'
+          className={cn(
+            'w-full justify-start text-left font-normal',
+            !value && 'text-muted-foreground'
+          )}
+        >
+          <CalendarDays className='mr-2 size-4' />
+          {formatDate(value)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className='w-auto p-0' align='start'>
+        <Calendar
+          mode='single'
+          selected={value}
+          onSelect={d => {
+            if (d) {
+              onChange(startOfDay(d))
+              setOpen(false)
+            }
+          }}
+          locale={locale}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 // ─── Active sprint card ───────────────────────────────────────────────────────
@@ -232,15 +288,18 @@ function CreateSprintDialog({
   onCreated: () => void
 }) {
   const intl = useIntl()
-  const today = new Date()
-  const twoWeeks = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
+  const today = startOfDay(new Date())
+  const twoWeeks = startOfDay(
+    new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
+  )
   const [name, setName] = useState('')
-  const [start, setStart] = useState(toDateInputValue(today))
-  const [end, setEnd] = useState(toDateInputValue(twoWeeks))
+  const [start, setStart] = useState<Date>(today)
+  const [end, setEnd] = useState<Date>(twoWeeks)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const valid = !!start && !!end && new Date(end) > new Date(start)
+  const calendarLocale = CALENDAR_LOCALES[intl.locale] ?? enUS
+  const valid = end > start
 
   async function submit() {
     if (!valid) return
@@ -249,8 +308,8 @@ function CreateSprintDialog({
     try {
       await sprintsClient.createDraft(teamId, {
         ...(name.trim() ? { name: name.trim() } : {}),
-        startDate: new Date(start).toISOString(),
-        endDate: new Date(end).toISOString(),
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
       })
       onCreated()
       onOpenChange(false)
@@ -290,22 +349,22 @@ function CreateSprintDialog({
               <Label htmlFor='sprint-start'>
                 {intl.formatMessage({ id: 'sprints.create.startDate' })}
               </Label>
-              <Input
+              <DatePickerField
                 id='sprint-start'
-                type='date'
                 value={start}
-                onChange={e => setStart(e.target.value)}
+                onChange={setStart}
+                locale={calendarLocale}
               />
             </div>
             <div className='space-y-1'>
               <Label htmlFor='sprint-end'>
                 {intl.formatMessage({ id: 'sprints.create.endDate' })}
               </Label>
-              <Input
+              <DatePickerField
                 id='sprint-end'
-                type='date'
                 value={end}
-                onChange={e => setEnd(e.target.value)}
+                onChange={setEnd}
+                locale={calendarLocale}
               />
             </div>
           </div>
