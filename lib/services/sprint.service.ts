@@ -330,7 +330,7 @@ export const sprintService = {
         httpError(400, 'cadenceDays must be a positive integer ≤ 90 or null')
       }
     }
-    return prisma.team.update({
+    const updated = await prisma.team.update({
       where: { id: teamId },
       data: {
         sprintCadenceDays: input.cadenceDays,
@@ -339,5 +339,21 @@ export const sprintService = {
           : {}),
       },
     })
+
+    // If cadence is now enabled, immediately prepare the next DRAFT sprint
+    // so users don't have to wait for the daily cron. `prepareNextDraft` is
+    // idempotent — safe to call even if a DRAFT already exists.
+    if (updated.sprintCadenceDays != null && updated.sprintAutoPrepare) {
+      try {
+        const { sprintPrepareService } =
+          await import('@/lib/services/sprint-prepare.service')
+        await sprintPrepareService.prepareNextDraft(teamId)
+      } catch (err) {
+        // Non-fatal: team-update already succeeded. Cron will retry next run.
+        void err
+      }
+    }
+
+    return updated
   },
 }
