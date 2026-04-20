@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,9 +102,7 @@ function ActiveSprintCard({
               </Link>
             </Button>
             <Button asChild size='sm' variant='outline'>
-              <Link
-                href={`/workspace/${workspaceUrl}/sprints/${sprint.id}/close`}
-              >
+              <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
                 {intl.formatMessage({ id: 'sprints.landing.close' })}
               </Link>
             </Button>
@@ -118,11 +118,26 @@ function ActiveSprintCard({
 function DraftSprintCard({
   sprint,
   workspaceUrl,
+  onChanged,
 }: {
   sprint: Sprint
   workspaceUrl: string
+  onChanged: () => void
 }) {
   const intl = useIntl()
+  const [starting, setStarting] = useState(false)
+
+  async function handleStart() {
+    setStarting(true)
+    try {
+      await sprintsClient.start(sprint.id)
+      onChanged()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setStarting(false)
+    }
+  }
 
   return (
     <Card>
@@ -137,16 +152,19 @@ function DraftSprintCard({
       <CardContent>
         <div className='flex gap-2'>
           <Button asChild size='sm' variant='default'>
-            <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
+            <Link
+              href={`/workspace/${workspaceUrl}/sprints/${sprint.id}?plan=1`}
+            >
               {intl.formatMessage({ id: 'sprints.landing.plan' })}
             </Link>
           </Button>
-          <Button asChild size='sm' variant='outline'>
-            <Link
-              href={`/workspace/${workspaceUrl}/sprints/${sprint.id}/start`}
-            >
-              {intl.formatMessage({ id: 'sprints.landing.start' })}
-            </Link>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={handleStart}
+            disabled={starting}
+          >
+            {intl.formatMessage({ id: 'sprints.landing.start' })}
           </Button>
         </div>
       </CardContent>
@@ -188,14 +206,23 @@ export function SprintCards({ teamId }: { teamId: string }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
 
-  const { sprints: activeSprints, isLoading: loadingActive } =
-    useSprintsForTeam(teamId, 'ACTIVE')
-  const { sprints: draftSprints, isLoading: loadingDraft } = useSprintsForTeam(
-    teamId,
-    'DRAFT'
-  )
+  const {
+    sprints: activeSprints,
+    isLoading: loadingActive,
+    refetch: refetchActive,
+  } = useSprintsForTeam(teamId, 'ACTIVE')
+  const {
+    sprints: draftSprints,
+    isLoading: loadingDraft,
+    refetch: refetchDraft,
+  } = useSprintsForTeam(teamId, 'DRAFT')
   const { sprints: closedSprints, isLoading: loadingClosed } =
     useSprintsForTeam(teamId, 'CLOSED')
+
+  const onStarted = () => {
+    refetchDraft()
+    refetchActive()
+  }
 
   const activeSprint = activeSprints?.[0]
   const draftSprint = draftSprints?.[0]
@@ -232,7 +259,11 @@ export function SprintCards({ teamId }: { teamId: string }) {
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
           </h2>
-          <DraftSprintCard sprint={draftSprint} workspaceUrl={workspaceUrl} />
+          <DraftSprintCard
+            sprint={draftSprint}
+            workspaceUrl={workspaceUrl}
+            onChanged={onStarted}
+          />
         </section>
       )}
 
