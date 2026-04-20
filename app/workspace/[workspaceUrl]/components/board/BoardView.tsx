@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useState, type ReactNode } from 'react'
 import {
   DndContext,
   closestCorners,
@@ -174,7 +174,9 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                     </div>
                   ) : (
                     <>
-                      {col.map(task => renderCard(task, false))}
+                      {col.map(task =>
+                        keyedCard(task.id, renderCard(task, false))
+                      )}
                       {onAddTask && (
                         <Button
                           variant='ghost'
@@ -207,4 +209,12 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
       </DragOverlay>
     </DndContext>
   )
+}
+
+/** Inject a stable React key onto whatever the caller's renderCard returned, so
+ * callers don't have to remember and we don't add an extra wrapper DOM element
+ * (which would break dnd-kit's drag math). */
+function keyedCard(key: string, node: ReactNode): ReactNode {
+  if (isValidElement(node)) return cloneElement(node, { key })
+  return node
 }
