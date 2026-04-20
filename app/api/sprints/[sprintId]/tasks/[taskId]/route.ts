@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ sprintId: string; taskId: string }> }
 
@@ -26,7 +27,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       userId
     )
 
-    await sprintService.removeTaskFromSprint(taskId, { memberId, id: userId })
+    const actorId = await getHumanActorId(memberId)
+    await sprintService.removeTaskFromSprint(taskId, {
+      memberId,
+      ...(actorId ? { id: actorId } : {}),
+    })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

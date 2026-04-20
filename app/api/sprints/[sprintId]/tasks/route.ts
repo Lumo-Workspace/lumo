@@ -5,6 +5,7 @@ import { sprintRepository, taskRepository } from '@/lib/repositories'
 import { addTaskToSprintSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getHumanActorId } from '@/lib/actor'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
@@ -70,10 +71,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     const parsed = addTaskToSprintSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
+    const actorId = await getHumanActorId(memberId)
     const result = await sprintService.addTaskToSprint(
       parsed.data.taskId,
       sprintId,
-      { memberId, id: userId }
+      { memberId, ...(actorId ? { id: actorId } : {}) }
     )
 
     return NextResponse.json(result, { status: 201 })
