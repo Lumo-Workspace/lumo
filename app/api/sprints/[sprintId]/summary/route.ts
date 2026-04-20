@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         { status: 404 }
       )
 
-    return NextResponse.json({ summary })
+    return NextResponse.json(summary)
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(
