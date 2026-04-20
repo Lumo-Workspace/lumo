@@ -1,34 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useIntl } from 'react-intl'
-import { useDroppable, type DragEndEvent } from '@dnd-kit/core'
+import { type DragEndEvent } from '@dnd-kit/core'
 import { ProjectTaskCard } from '../../components/board/SortableTaskCard'
-import { BoardView } from '../../components/board/BoardView'
+import {
+  BoardView,
+  type BoardColumn as BoardColumnConfig,
+} from '../../components/board/BoardView'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
-import { tasksClient } from '@/lib/api-client'
+import { sprintsClient, tasksClient } from '@/lib/api-client'
 import type { ApiStatus, ApiTask, WorkspaceMemberInfo } from '../../types'
-
-// Plan-mode column metadata (BACKLOG / PLANNED). Active mode uses BoardView,
-// which has its own status-column constants.
-const PLAN_COLUMN_I18N_KEY: Record<'BACKLOG' | 'PLANNED', string> = {
-  BACKLOG: 'sprints.plan.backlogTitle',
-  PLANNED: 'sprints.plan.plannedTitle',
-}
-
-const PLAN_COLUMN_HEADER_CLASS: Record<'BACKLOG' | 'PLANNED', string> = {
-  BACKLOG: 'text-zinc-500 dark:text-zinc-400',
-  PLANNED: 'text-blue-600 dark:text-blue-400',
-}
 
 interface SprintBoardProps {
   tasks: unknown[]
   onTaskMoved?: () => void
-  /** When true, columns accept @dnd-kit drops. */
-  droppable?: boolean
   /** When true, render a 2-column [Backlog | Planned] view. */
   planMode?: boolean
   backlogTasks?: unknown[]
+  /** Sprint id — used in plan mode to bucket each task into Backlog vs Planned. */
+  sprintId?: string
   /** Members passed through to ProjectTaskCard for assignee avatar/hover. */
   members?: WorkspaceMemberInfo[] | undefined
   currentActorId?: string | null | undefined
@@ -41,9 +32,9 @@ interface SprintBoardProps {
 export function SprintBoard({
   tasks,
   onTaskMoved,
-  droppable = false,
   planMode = false,
   backlogTasks = [],
+  sprintId,
   members,
   currentActorId,
   isOwner,
@@ -53,28 +44,16 @@ export function SprintBoard({
   const backlogList = (backlogTasks as ApiTask[]) ?? []
 
   if (planMode) {
-    // Planning is membership-only: 2 columns, no status concern.
     return (
-      <div className='grid grid-cols-2 gap-3 overflow-auto'>
-        <PlanColumn
-          columnKey='BACKLOG'
-          tasks={backlogList}
-          droppable={droppable}
-          dragKind='backlog-task'
-          members={members}
-          currentActorId={currentActorId}
-          isOwner={isOwner}
-        />
-        <PlanColumn
-          columnKey='PLANNED'
-          tasks={sprintList}
-          droppable={droppable}
-          dragKind='sprint-task'
-          members={members}
-          currentActorId={currentActorId}
-          isOwner={isOwner}
-        />
-      </div>
+      <PlanBoard
+        sprintId={sprintId ?? ''}
+        sprintTasks={sprintList}
+        backlogTasks={backlogList}
+        members={members}
+        currentActorId={currentActorId}
+        isOwner={isOwner}
+        onChanged={onTaskMoved}
+      />
     )
   }
 
@@ -164,59 +143,101 @@ function ActiveBoard({
   )
 }
 
-function PlanColumn({
-  columnKey,
-  tasks,
-  droppable,
-  dragKind,
+function PlanBoard({
+  sprintId,
+  sprintTasks,
+  backlogTasks,
   members,
   currentActorId,
   isOwner,
+  onChanged,
 }: {
-  columnKey: 'BACKLOG' | 'PLANNED'
-  tasks: ApiTask[]
-  droppable: boolean
-  dragKind: 'backlog-task' | 'sprint-task'
+  sprintId: string
+  sprintTasks: ApiTask[]
+  backlogTasks: ApiTask[]
   members?: WorkspaceMemberInfo[] | undefined
   currentActorId?: string | null | undefined
   isOwner?: boolean | undefined
+  onChanged?: (() => void) | undefined
 }) {
   const intl = useIntl()
-  const { setNodeRef, isOver } = useDroppable({
-    id: `col:${columnKey}`,
-    data: { kind: 'sprint-column', status: columnKey },
-    disabled: !droppable,
-  })
+  const sensors = useBoardSensors()
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  const columns = useMemo<BoardColumnConfig[]>(
+    () => [
+      {
+        id: 'BACKLOG',
+        label: intl.formatMessage({ id: 'sprints.plan.backlogTitle' }),
+      },
+      {
+        id: 'PLANNED',
+        label: intl.formatMessage({ id: 'sprints.plan.plannedTitle' }),
+      },
+    ],
+    [intl]
+  )
+
+  // Merge so BoardView can bucket via getColumnId.
+  const allTasks = useMemo(
+    () => [...backlogTasks, ...sprintTasks],
+    [backlogTasks, sprintTasks]
+  )
+
+  function getColumnId(t: ApiTask): string {
+    return t.sprintId === sprintId ? 'PLANNED' : 'BACKLOG'
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    setActiveId(null)
+    const { active, over } = e
+    if (!over) return
+    const activeTask = allTasks.find(t => t.id === active.id)
+    if (!activeTask) return
+
+    const fromCol = getColumnId(activeTask)
+    let toCol: 'BACKLOG' | 'PLANNED' | null = null
+    const overStr = String(over.id)
+    if (overStr === 'BACKLOG' || overStr === 'PLANNED') {
+      toCol = overStr
+    } else {
+      const overTask = allTasks.find(t => t.id === overStr)
+      if (overTask)
+        toCol = getColumnId(overTask) === 'PLANNED' ? 'PLANNED' : 'BACKLOG'
+    }
+    if (!toCol || toCol === fromCol) return
+
+    try {
+      if (toCol === 'PLANNED') {
+        await sprintsClient.addTask(sprintId, activeTask.id)
+      } else {
+        await sprintsClient.removeTask(sprintId, activeTask.id)
+      }
+      onChanged?.()
+    } catch (err) {
+      alert((err as Error).message)
+    }
+  }
 
   return (
-    <section
-      ref={setNodeRef}
-      className={`flex flex-col gap-2 rounded-lg border bg-muted/20 p-2 min-h-full transition-colors ${
-        isOver ? 'ring-2 ring-primary bg-primary/5' : ''
-      }`}
-    >
-      <header className='flex items-center justify-between px-1 py-0.5'>
-        <span
-          className={`text-xs font-semibold uppercase tracking-wide ${PLAN_COLUMN_HEADER_CLASS[columnKey]}`}
-        >
-          {intl.formatMessage({ id: PLAN_COLUMN_I18N_KEY[columnKey] })}
-        </span>
-        <span className='text-xs text-muted-foreground'>{tasks.length}</span>
-      </header>
-      <div className='flex flex-col gap-2'>
-        {tasks.map(t => (
-          <ProjectTaskCard
-            key={t.id}
-            task={t}
-            isOverlay={false}
-            {...(members ? { members } : {})}
-            {...(currentActorId !== undefined ? { currentActorId } : {})}
-            {...(isOwner !== undefined ? { isOwner } : {})}
-            dragMode='simple'
-            dragData={{ kind: dragKind, taskId: t.id }}
-          />
-        ))}
-      </div>
-    </section>
+    <BoardView
+      tasks={allTasks}
+      columns={columns}
+      getColumnId={getColumnId}
+      sensors={sensors}
+      activeId={activeId}
+      onDragStart={e => setActiveId(String(e.active.id))}
+      onDragOver={() => {}}
+      onDragEnd={handleDragEnd}
+      renderCard={(task, isOverlay) => (
+        <ProjectTaskCard
+          task={task}
+          isOverlay={isOverlay}
+          {...(members ? { members } : {})}
+          {...(currentActorId !== undefined ? { currentActorId } : {})}
+          {...(isOwner !== undefined ? { isOwner } : {})}
+        />
+      )}
+    />
   )
 }

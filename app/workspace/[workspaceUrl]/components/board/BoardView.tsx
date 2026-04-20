@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   DndContext,
   closestCorners,
@@ -17,7 +17,6 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
 import { StatusIcon } from '../StatusIcon'
 import { Button } from '@/components/ui/button'
-import { ApiStatus } from '../../types'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -47,22 +46,33 @@ function DroppableColumn({
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
-const COLUMNS = [
-  { status: 'TODO' as const, label: 'Todo' },
-  { status: 'IN_PROGRESS' as const, label: 'In Progress' },
-  { status: 'IN_REVIEW' as const, label: 'In Review' },
-  { status: 'DONE' as const, label: 'Done' },
+export interface BoardColumn {
+  /** Unique id used as the droppable id and the SortableContext id. */
+  id: string
+  /** Header label shown to the user. */
+  label: string
+  /** Optional decorative icon rendered next to the label. */
+  icon?: ReactNode
+}
+
+const STATUS_COLUMNS: BoardColumn[] = [
+  { id: 'TODO', label: 'Todo', icon: <StatusIcon status='TODO' size={13} /> },
+  {
+    id: 'IN_PROGRESS',
+    label: 'In Progress',
+    icon: <StatusIcon status='IN_PROGRESS' size={13} />,
+  },
+  {
+    id: 'IN_REVIEW',
+    label: 'In Review',
+    icon: <StatusIcon status='IN_REVIEW' size={13} />,
+  },
+  { id: 'DONE', label: 'Done', icon: <StatusIcon status='DONE' size={13} /> },
 ]
 
 // ─── BoardView ────────────────────────────────────────────────────────────────
 
-interface BoardViewProps<
-  T extends {
-    id: string
-    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
-    viewOrder: number | null
-  },
-> {
+interface BoardViewProps<T extends { id: string; viewOrder: number | null }> {
   tasks: T[]
   sensors: SensorDescriptor<SensorOptions>[]
   activeId: string | null
@@ -72,18 +82,16 @@ interface BoardViewProps<
   /** Render a task card. Pass isOverlay=true when rendering inside DragOverlay. */
   renderCard: (task: T, isOverlay: boolean) => React.ReactNode
   /** If provided, shows "Add task" button at the bottom of each column. */
-  onAddTask?: (status: ApiStatus) => void
+  onAddTask?: (columnId: string) => void
   /** When set, drag reordering within a column is blocked and a hint is shown. */
   orderingLabel?: string | undefined
+  /** Custom column list. Defaults to the four task-status columns. */
+  columns?: BoardColumn[]
+  /** Map a task to the id of the column it belongs in. Defaults to `t.status`. */
+  getColumnId?: (task: T) => string
 }
 
-export function BoardView<
-  T extends {
-    id: string
-    status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
-    viewOrder: number | null
-  },
->({
+export function BoardView<T extends { id: string; viewOrder: number | null }>({
   tasks,
   sensors,
   activeId,
@@ -93,6 +101,8 @@ export function BoardView<
   renderCard,
   onAddTask,
   orderingLabel,
+  columns = STATUS_COLUMNS,
+  getColumnId = (t: T) => String((t as unknown as { status: string }).status),
 }: BoardViewProps<T>) {
   // When orderingLabel is set, we intercept drag events to prevent reordering
   // but still show the drag overlay + hint. We track a local dragging ID
@@ -123,23 +133,22 @@ export function BoardView<
       onDragEnd={handleDragEnd}
     >
       <div className='border-t border-zinc-200 dark:border-zinc-800 p-8 flex gap-3 flex-1 bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto'>
-        {COLUMNS.map(({ status, label }) => {
+        {columns.map(column => {
+          const filtered = tasks.filter(t => getColumnId(t) === column.id)
           const col = orderingLabel
-            ? tasks.filter(t => t.status === status)
-            : tasks
-                .filter(t => t.status === status)
-                .sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
+            ? filtered
+            : filtered.sort((a, b) => (a.viewOrder ?? 0) - (b.viewOrder ?? 0))
           return (
             <div
-              key={status}
+              key={column.id}
               className='w-80 min-w-[320px] flex flex-col overflow-hidden'
             >
               {/* Column header */}
               <div className='flex items-center justify-between px-1 mb-3 shrink-0'>
                 <div className='flex items-center gap-2'>
-                  <StatusIcon status={status} size={13} />
+                  {column.icon}
                   <span className='text-xs font-semibold text-zinc-500 uppercase tracking-wider'>
-                    {label}
+                    {column.label}
                   </span>
                   <span className='bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold'>
                     {col.length}
@@ -149,12 +158,12 @@ export function BoardView<
 
               {/* Cards — scrollable */}
               <SortableContext
-                id={status}
+                id={column.id}
                 items={col.map(t => t.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <DroppableColumn
-                  id={status}
+                  id={column.id}
                   stretch={!!(orderingLabel && effectiveActiveId)}
                 >
                   {orderingLabel && effectiveActiveId ? (
@@ -170,7 +179,7 @@ export function BoardView<
                         <Button
                           variant='ghost'
                           size='sm'
-                          onClick={() => onAddTask(status)}
+                          onClick={() => onAddTask(column.id)}
                           className='w-full justify-start gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
                         >
                           <Plus size={16} />

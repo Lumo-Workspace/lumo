@@ -480,7 +480,7 @@ export function MyTasksPage({
                   onClick={() => onTaskClick(task)}
                 />
               )}
-              onAddTask={status => onNewTask(status)}
+              onAddTask={columnId => onNewTask(columnId as ApiStatus)}
             />
           )}
         </AsyncContent>

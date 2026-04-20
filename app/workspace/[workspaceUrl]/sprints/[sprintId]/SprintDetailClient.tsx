@@ -4,13 +4,6 @@ import { useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
   useSprint,
   useSprintTasks,
   useBacklogTasks,
@@ -20,7 +13,6 @@ import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { RetroPanel } from '../components/RetroPanel'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
-import { sprintsClient } from '@/lib/api-client'
 
 export function SprintDetailClient() {
   const { sprintId } = useParams<{ sprintId: string }>()
@@ -38,38 +30,10 @@ export function SprintDetailClient() {
   useEffect(() => {
     void fetchMembers()
   }, [fetchMembers])
-  // Require a few pixels of movement before drag activates so the + button
-  // stays clickable.
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
-  )
 
-  async function handleDragEnd(e: DragEndEvent) {
-    const activeData = e.active.data.current as
-      | { kind: string; taskId: string }
-      | undefined
-    const overData = e.over?.data.current as
-      | { kind: string; status: string }
-      | undefined
-    if (!sprint || !activeData || overData?.kind !== 'sprint-column') return
-
-    // Plan mode is membership-only: Backlog ↔ Planned. Status is untouched.
-    try {
-      if (activeData.kind === 'backlog-task' && overData.status === 'PLANNED') {
-        await sprintsClient.addTask(sprint.id, activeData.taskId)
-      } else if (
-        activeData.kind === 'sprint-task' &&
-        overData.status === 'BACKLOG'
-      ) {
-        await sprintsClient.removeTask(sprint.id, activeData.taskId)
-      } else {
-        return
-      }
-      refetchTasks()
-      refetchBacklog()
-    } catch (err) {
-      alert((err as Error).message)
-    }
+  function handleBoardChanged() {
+    refetchTasks()
+    refetchBacklog()
   }
 
   if (isLoading) {
@@ -97,10 +61,10 @@ export function SprintDetailClient() {
   const board = (
     <SprintBoard
       tasks={tasks ?? []}
-      onTaskMoved={refetchTasks}
-      droppable={planMode}
+      onTaskMoved={planMode ? handleBoardChanged : refetchTasks}
       planMode={planMode}
       backlogTasks={backlogTasks ?? []}
+      sprintId={sprint.id}
       members={members}
     />
   )
@@ -120,23 +84,13 @@ export function SprintDetailClient() {
       />
     )
 
-  const content = (
-    <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
-      {board}
-      {sidePanel}
-    </div>
-  )
-
   return (
     <div className='flex flex-col h-full overflow-hidden'>
       <PageBreadcrumb title={sprint.name} />
-      {planMode ? (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          {content}
-        </DndContext>
-      ) : (
-        content
-      )}
+      <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
+        {board}
+        {sidePanel}
+      </div>
     </div>
   )
 }
