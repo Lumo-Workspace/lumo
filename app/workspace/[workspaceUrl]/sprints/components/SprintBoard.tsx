@@ -119,7 +119,6 @@ export function SprintBoard({
           status={status}
           tasks={byStatus[status] ?? []}
           droppable={droppable}
-          draggable={false}
         />
       ))}
     </div>
