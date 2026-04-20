@@ -8,6 +8,15 @@ import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
 
@@ -24,6 +33,15 @@ function formatDate(date: Date | string): string {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function toDateInputValue(date: Date): string {
+  // <input type="date"> expects YYYY-MM-DD in *local* time. Match what the
+  // user sees on a calendar rather than UTC.
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 // ─── Active sprint card ───────────────────────────────────────────────────────
@@ -200,6 +218,117 @@ function ClosedSprintRow({
   )
 }
 
+// ─── Create-sprint dialog ─────────────────────────────────────────────────────
+
+function CreateSprintDialog({
+  teamId,
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  teamId: string
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  onCreated: () => void
+}) {
+  const intl = useIntl()
+  const today = new Date()
+  const twoWeeks = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
+  const [name, setName] = useState('')
+  const [start, setStart] = useState(toDateInputValue(today))
+  const [end, setEnd] = useState(toDateInputValue(twoWeeks))
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const valid = !!start && !!end && new Date(end) > new Date(start)
+
+  async function submit() {
+    if (!valid) return
+    setError(null)
+    setSubmitting(true)
+    try {
+      await sprintsClient.createDraft(teamId, {
+        ...(name.trim() ? { name: name.trim() } : {}),
+        startDate: new Date(start).toISOString(),
+        endDate: new Date(end).toISOString(),
+      })
+      onCreated()
+      onOpenChange(false)
+      setName('')
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {intl.formatMessage({ id: 'sprints.create.title' })}
+          </DialogTitle>
+        </DialogHeader>
+        <div className='space-y-3'>
+          <div className='space-y-1'>
+            <Label htmlFor='sprint-name'>
+              {intl.formatMessage({ id: 'sprints.create.name' })}
+            </Label>
+            <Input
+              id='sprint-name'
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={intl.formatMessage({
+                id: 'sprints.create.namePlaceholder',
+              })}
+              maxLength={120}
+            />
+          </div>
+          <div className='grid grid-cols-2 gap-3'>
+            <div className='space-y-1'>
+              <Label htmlFor='sprint-start'>
+                {intl.formatMessage({ id: 'sprints.create.startDate' })}
+              </Label>
+              <Input
+                id='sprint-start'
+                type='date'
+                value={start}
+                onChange={e => setStart(e.target.value)}
+              />
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='sprint-end'>
+                {intl.formatMessage({ id: 'sprints.create.endDate' })}
+              </Label>
+              <Input
+                id='sprint-end'
+                type='date'
+                value={end}
+                onChange={e => setEnd(e.target.value)}
+              />
+            </div>
+          </div>
+          {!valid && (
+            <p className='text-xs text-muted-foreground'>
+              {intl.formatMessage({ id: 'sprints.create.invalidRange' })}
+            </p>
+          )}
+          {error && <p className='text-sm text-destructive'>{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant='ghost' onClick={() => onOpenChange(false)}>
+            {intl.formatMessage({ id: 'sprints.create.cancel' })}
+          </Button>
+          <Button onClick={submit} disabled={!valid || submitting}>
+            {intl.formatMessage({ id: 'sprints.create.submit' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function SprintCards({ teamId }: { teamId: string }) {
@@ -224,18 +353,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
     refetchActive()
   }
 
-  const [creating, setCreating] = useState(false)
-  async function createNew() {
-    setCreating(true)
-    try {
-      await sprintsClient.createDraft(teamId, {})
-      refetchDraft()
-    } catch (e) {
-      alert((e as Error).message)
-    } finally {
-      setCreating(false)
-    }
-  }
+  const [createOpen, setCreateOpen] = useState(false)
 
   const activeSprint = activeSprints?.[0]
   const draftSprint = draftSprints?.[0]
@@ -249,27 +367,34 @@ export function SprintCards({ teamId }: { teamId: string }) {
 
   if (isEmpty) {
     return (
-      <div className='py-4 space-y-3'>
-        <p className='text-sm text-muted-foreground'>
-          {intl.formatMessage({ id: 'sprints.landing.empty' })}
-        </p>
-        <Button onClick={createNew} disabled={creating} size='sm'>
-          {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
-        </Button>
-      </div>
+      <>
+        <div className='py-4 space-y-3'>
+          <p className='text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'sprints.landing.empty' })}
+          </p>
+          <Button onClick={() => setCreateOpen(true)} size='sm'>
+            {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
+          </Button>
+        </div>
+        <CreateSprintDialog
+          teamId={teamId}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onCreated={refetchDraft}
+        />
+      </>
     )
   }
 
   return (
     <div className='space-y-6'>
-      {/* When team has no Active and no Draft (e.g. just closed the last
-          sprint and waiting on cron), surface a manual escape hatch. */}
+      {/* No active and no draft — let the user create one explicitly. */}
       {noUpcoming && (
         <div className='rounded border border-dashed p-4 flex items-center justify-between gap-3'>
           <p className='text-sm text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.landing.noUpcoming' })}
           </p>
-          <Button onClick={createNew} disabled={creating} size='sm'>
+          <Button onClick={() => setCreateOpen(true)} size='sm'>
             {intl.formatMessage({ id: 'sprints.landing.newSprint' })}
           </Button>
         </div>
@@ -318,6 +443,13 @@ export function SprintCards({ teamId }: { teamId: string }) {
           </Card>
         </section>
       )}
+
+      <CreateSprintDialog
+        teamId={teamId}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={refetchDraft}
+      />
     </div>
   )
 }

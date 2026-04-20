@@ -3,10 +3,10 @@ import { z } from 'zod'
 export const createSprintSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
-    startDate: z.coerce.date().optional(),
-    endDate: z.coerce.date().optional(),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
   })
-  .refine(v => !v.startDate || !v.endDate || v.endDate > v.startDate, {
+  .refine(v => v.endDate > v.startDate, {
     message: 'endDate must be after startDate',
     path: ['endDate'],
   })
@@ -34,8 +34,7 @@ export const addTaskToSprintSchema = z.object({
 })
 
 export const cadenceSchema = z.object({
-  cadenceDays: z.number().int().min(1).max(90).nullable(),
-  autoPrepare: z.boolean().optional(),
+  enabled: z.boolean(),
 })
 
 export type CreateSprintInput = z.infer<typeof createSprintSchema>

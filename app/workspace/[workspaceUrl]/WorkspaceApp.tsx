@@ -140,7 +140,7 @@ export default function DashboardApp() {
   const [currentSprintOnly, setCurrentSprintOnly] = useState(false)
   const { sprintIds: activeSprintIds } = useMyActiveSprints()
   const { teams: myTeams } = useWorkspaceTeams()
-  const anySprintEnabledTeam = myTeams.some(t => t.sprintCadenceDays != null)
+  const anySprintEnabledTeam = myTeams.some(t => t.sprintsEnabled)
   const myTasksSprintFilter = currentSprintOnly ? activeSprintIds : undefined
 
   // ─── Normalized task store ─────────────────────────────────────────────────

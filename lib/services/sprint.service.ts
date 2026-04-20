@@ -3,10 +3,6 @@ import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
-import {
-  nextUtcMondayMidnight as _nextUtcMondayMidnight,
-  addDays as _addDays,
-} from '@/lib/services/sprint-date'
 
 // Re-export for backward compatibility
 export { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint-date'
@@ -33,28 +29,25 @@ export const sprintService = {
   async createDraft(teamId: string, input: CreateDraftInput, _actor: ActorRef) {
     const team = await prisma.team.findUnique({
       where: { id: teamId },
-      select: { id: true, sprintCadenceDays: true },
+      select: { id: true, sprintsEnabled: true },
     })
     if (!team) httpError(404, 'team not found')
+    if (!team.sprintsEnabled) httpError(409, 'sprints not enabled for team')
 
-    let startDate = input.startDate
-    let endDate = input.endDate
-
-    if (!startDate || !endDate) {
-      if (!team.sprintCadenceDays) {
-        httpError(
-          400,
-          'team has no cadence; startDate and endDate are required'
-        )
-      }
-      if (!startDate) startDate = _nextUtcMondayMidnight(new Date())
-      if (!endDate) endDate = _addDays(startDate, team.sprintCadenceDays)
+    if (!input.startDate || !input.endDate) {
+      httpError(400, 'startDate and endDate are required')
     }
 
     const number = await sprintRepository.nextNumberForTeam(teamId)
     const name = input.name?.trim() || `Sprint ${number}`
 
-    return sprintRepository.create({ teamId, number, name, startDate, endDate })
+    return sprintRepository.create({
+      teamId,
+      number,
+      name,
+      startDate: input.startDate,
+      endDate: input.endDate,
+    })
   },
 
   async start(sprintId: string, actor: ActorRef & { id?: string }) {
@@ -141,25 +134,10 @@ export const sprintService = {
           if (drafts.length > 0 && drafts[0]) {
             nextSprintId = drafts[0].id
           } else {
-            const nextNumber = await sprintRepository.nextNumberForTeam(
-              sprint.teamId
+            httpError(
+              409,
+              'no draft sprint to receive spillover; create one first'
             )
-            const teamRow = await (tx as any).team.findUnique({
-              where: { id: sprint.teamId },
-              select: { sprintCadenceDays: true },
-            })
-            const cadence = teamRow?.sprintCadenceDays ?? 14
-            const startDate =
-              sprint.endDate > new Date() ? sprint.endDate : new Date()
-            const endDate = _addDays(startDate, cadence)
-            const created = await sprintRepository.create({
-              teamId: sprint.teamId,
-              number: nextNumber,
-              name: `Sprint ${nextNumber}`,
-              startDate,
-              endDate,
-            })
-            nextSprintId = created.id
           }
         }
 
@@ -238,20 +216,6 @@ export const sprintService = {
       'SPRINT_CLOSED',
       actor.id ?? null
     ).catch(err => void err)
-
-    // Eager-prepare the next DRAFT so cadence-enabled teams aren't stuck
-    // waiting for the daily cron after closing a sprint. Idempotent — skips
-    // if a DRAFT already exists (e.g. when close auto-created one for
-    // moveToNext spillover).
-    ;(async () => {
-      try {
-        const { sprintPrepareService } =
-          await import('@/lib/services/sprint-prepare.service')
-        await sprintPrepareService.prepareNextDraft(sprint.teamId)
-      } catch (err) {
-        void err
-      }
-    })()
 
     return closed
   },
@@ -350,44 +314,12 @@ export const sprintService = {
 
   async configureCadence(
     teamId: string,
-    input: { cadenceDays: number | null; autoPrepare?: boolean },
+    input: { enabled: boolean },
     _actor: ActorRef
   ) {
-    if (input.cadenceDays !== null) {
-      if (
-        !(
-          Number.isInteger(input.cadenceDays) &&
-          input.cadenceDays > 0 &&
-          input.cadenceDays <= 90
-        )
-      ) {
-        httpError(400, 'cadenceDays must be a positive integer ≤ 90 or null')
-      }
-    }
-    const updated = await prisma.team.update({
+    return prisma.team.update({
       where: { id: teamId },
-      data: {
-        sprintCadenceDays: input.cadenceDays,
-        ...(input.autoPrepare !== undefined
-          ? { sprintAutoPrepare: input.autoPrepare }
-          : {}),
-      },
+      data: { sprintsEnabled: input.enabled },
     })
-
-    // If cadence is now enabled, immediately prepare the next DRAFT sprint
-    // so users don't have to wait for the daily cron. `prepareNextDraft` is
-    // idempotent — safe to call even if a DRAFT already exists.
-    if (updated.sprintCadenceDays != null && updated.sprintAutoPrepare) {
-      try {
-        const { sprintPrepareService } =
-          await import('@/lib/services/sprint-prepare.service')
-        await sprintPrepareService.prepareNextDraft(teamId)
-      } catch (err) {
-        // Non-fatal: team-update already succeeded. Cron will retry next run.
-        void err
-      }
-    }
-
-    return updated
   },
 }

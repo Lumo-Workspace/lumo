@@ -3,18 +3,14 @@
 import { useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { sprintsClient } from '@/lib/api-client'
 import { useIntl } from 'react-intl'
 
-const PRESETS = [7, 14, 28]
-
 interface Team {
   id: string
   name: string
-  sprintCadenceDays: number | null
-  sprintAutoPrepare: boolean
+  sprintsEnabled: boolean
 }
 
 export function CadencePanel({
@@ -25,16 +21,7 @@ export function CadencePanel({
   onSaved?: () => void
 }) {
   const intl = useIntl()
-  const [enabled, setEnabled] = useState(team.sprintCadenceDays != null)
-  const [mode, setMode] = useState<number | 'custom'>(
-    team.sprintCadenceDays && PRESETS.includes(team.sprintCadenceDays)
-      ? team.sprintCadenceDays
-      : team.sprintCadenceDays != null
-        ? 'custom'
-        : 14
-  )
-  const [custom, setCustom] = useState<number>(team.sprintCadenceDays ?? 14)
-  const [autoPrepare, setAutoPrepare] = useState(team.sprintAutoPrepare ?? true)
+  const [enabled, setEnabled] = useState(team.sprintsEnabled)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,8 +29,7 @@ export function CadencePanel({
     setError(null)
     setSaving(true)
     try {
-      const cadenceDays = !enabled ? null : mode === 'custom' ? custom : mode
-      await sprintsClient.setCadence(team.id, { cadenceDays, autoPrepare })
+      await sprintsClient.setCadence(team.id, { enabled })
       onSaved?.()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Save failed')
@@ -69,57 +55,9 @@ export function CadencePanel({
         </Label>
       </div>
 
-      {enabled && (
-        <>
-          <fieldset className='flex flex-col gap-2'>
-            <legend className='text-sm font-medium'>
-              {intl.formatMessage({ id: 'sprints.settings.cadence' })}
-            </legend>
-            <div className='flex flex-wrap gap-2'>
-              {PRESETS.map(p => (
-                <Button
-                  key={p}
-                  type='button'
-                  size='sm'
-                  variant={mode === p ? 'default' : 'outline'}
-                  onClick={() => setMode(p)}
-                >
-                  {p === 7 ? '1 week' : p === 14 ? '2 weeks' : '4 weeks'}
-                </Button>
-              ))}
-              <Button
-                type='button'
-                size='sm'
-                variant={mode === 'custom' ? 'default' : 'outline'}
-                onClick={() => setMode('custom')}
-              >
-                {intl.formatMessage({ id: 'sprints.settings.custom' })}
-              </Button>
-              {mode === 'custom' && (
-                <Input
-                  type='number'
-                  min={1}
-                  max={90}
-                  value={custom}
-                  onChange={e => setCustom(Number(e.target.value))}
-                  className='w-24'
-                />
-              )}
-            </div>
-          </fieldset>
-
-          <div className='flex items-center gap-2'>
-            <Switch
-              checked={autoPrepare}
-              onCheckedChange={setAutoPrepare}
-              id={`ap-${team.id}`}
-            />
-            <Label htmlFor={`ap-${team.id}`}>
-              {intl.formatMessage({ id: 'sprints.settings.autoPrepare' })}
-            </Label>
-          </div>
-        </>
-      )}
+      <p className='text-xs text-muted-foreground'>
+        {intl.formatMessage({ id: 'sprints.settings.enableHint' })}
+      </p>
 
       {error && <p className='text-sm text-destructive'>{error}</p>}
 

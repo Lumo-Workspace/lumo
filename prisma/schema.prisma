@@ -195,8 +195,7 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  sprintCadenceDays Int?
-  sprintAutoPrepare Boolean @default(true)
+  sprintsEnabled Boolean @default(false)
 
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]

@@ -31,8 +31,7 @@ export async function GET() {
         name: true,
         identifier: true,
         isDefault: true,
-        sprintCadenceDays: true,
-        sprintAutoPrepare: true,
+        sprintsEnabled: true,
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     })

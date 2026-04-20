@@ -26,7 +26,7 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
           {teams.map(t => (
             <TabsTrigger key={t.id} value={t.id}>
               {t.name}
-              {t.sprintCadenceDays == null && (
+              {!t.sprintsEnabled && (
                 <span className='ml-2 text-xs text-muted-foreground'>
                   (disabled)
                 </span>
