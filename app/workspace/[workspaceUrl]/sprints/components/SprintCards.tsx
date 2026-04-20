@@ -82,10 +82,9 @@ function DatePickerField({
           {formatDate(value)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className='w-auto p-0' align='start'>
+      <PopoverContent className='w-auto p-0'>
         <Calendar
           mode='single'
-          className='![--cell-size:2.5rem]'
           selected={value}
           onSelect={d => {
             if (d) {
@@ -94,7 +93,6 @@ function DatePickerField({
             }
           }}
           locale={locale}
-          initialFocus
         />
       </PopoverContent>
     </Popover>
