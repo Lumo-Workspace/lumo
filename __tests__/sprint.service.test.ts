@@ -492,29 +492,25 @@ describe('sprintService.configureCadence', () => {
   })
 })
 
-describe('sprintService.removeDraft', () => {
-  it('removes DRAFT sprint', async () => {
-    mockFindUnique.mockResolvedValueOnce({
-      id: 's1',
-      status: 'DRAFT',
-      teamId: 'team-1',
-    })
-    mockSprintRemove.mockResolvedValueOnce({ id: 's1' })
-
-    await sprintService.removeDraft('s1', { memberId: 'm1' })
-
-    expect(mockSprintRemove).toHaveBeenCalledWith('s1')
-  })
-
-  it('409 when not DRAFT', async () => {
+describe('sprintService.remove', () => {
+  it('removes a sprint regardless of stored status', async () => {
     mockFindUnique.mockResolvedValueOnce({
       id: 's1',
       status: 'ACTIVE',
       teamId: 'team-1',
     })
+    mockSprintRemove.mockResolvedValueOnce({ id: 's1' })
+
+    await sprintService.remove('s1', { memberId: 'm1' })
+
+    expect(mockSprintRemove).toHaveBeenCalledWith('s1')
+  })
+
+  it('404 when the sprint is missing', async () => {
+    mockFindUnique.mockResolvedValueOnce(null)
 
     await expect(
-      sprintService.removeDraft('s1', { memberId: 'm1' })
-    ).rejects.toMatchObject({ status: 409 })
+      sprintService.remove('s1', { memberId: 'm1' })
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

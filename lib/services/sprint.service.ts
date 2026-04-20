@@ -304,11 +304,12 @@ export const sprintService = {
     return sprintService.addTaskToSprint(taskId, toSprintId, actor)
   },
 
-  async removeDraft(sprintId: string, _actor: ActorRef) {
+  async remove(sprintId: string, _actor: ActorRef) {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
-    if (sprint.status !== 'DRAFT')
-      httpError(409, `cannot delete sprint in ${sprint.status} state`)
+    // Sprints are deletable in any state — the model is time-based, and the
+    // Task FK uses onDelete: SetNull so any tasks still on the sprint simply
+    // return to the backlog.
     await sprintRepository.remove(sprintId)
   },
 
