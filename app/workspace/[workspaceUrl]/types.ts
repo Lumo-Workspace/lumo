@@ -78,6 +78,7 @@ export type Page =
   | 'drafts'
   | 'dashboard'
   | 'sprints'
+  | 'sprint-detail'
 
 export interface ApiDraft {
   id: string

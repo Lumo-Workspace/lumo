@@ -4,7 +4,10 @@ import { requireUserWorkspace } from '@/lib/api/helpers'
 import { prisma } from '@/lib/db/prisma'
 
 /**
- * GET /api/teams — List all teams in the current user's workspace.
+ * GET /api/teams — List teams in the current user's workspace.
+ *
+ * Non-OWNERs see only teams they are a member of.
+ * OWNERs see every team in the workspace (they can manage any team).
  */
 export async function GET() {
   try {
@@ -15,8 +18,14 @@ export async function GET() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
+    const isOwner = ws.member.role === 'OWNER'
+    const where = {
+      workspaceId: ws.workspaceId,
+      ...(isOwner ? {} : { members: { some: { memberId: ws.member.id } } }),
+    }
+
     const teams = await prisma.team.findMany({
-      where: { workspaceId: ws.workspaceId },
+      where,
       select: {
         id: true,
         name: true,

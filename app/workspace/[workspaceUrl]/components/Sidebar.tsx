@@ -23,6 +23,7 @@ import { useParams } from 'next/navigation'
 import { Page } from '../types'
 import { CACHE_KEY } from '../constants'
 import { workspacesClient } from '@/lib/api-client'
+import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
 import { clearCache, readCache, writeCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -72,6 +73,8 @@ export function AppSidebar({
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const { isMobile } = useSidebar()
   const intl = useIntl()
+  const { teams } = useWorkspaceTeams()
+  const sprintsEnabled = teams.some(t => t.sprintCadenceDays != null)
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
@@ -330,24 +333,28 @@ export function AppSidebar({
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={currentPage === 'sprints'}
-                  tooltip={intl.formatMessage({ id: 'sidebar.sprints' })}
-                >
-                  <Link
-                    href={`/workspace/${workspaceUrl}/sprints`}
-                    onClick={e => {
-                      e.preventDefault()
-                      onNavigate('sprints')
-                    }}
+              {sprintsEnabled && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={currentPage === 'sprints'}
+                    tooltip={intl.formatMessage({ id: 'sidebar.sprints' })}
                   >
-                    <CalendarClock />
-                    <span>{intl.formatMessage({ id: 'sidebar.sprints' })}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <Link
+                      href={`/workspace/${workspaceUrl}/sprints`}
+                      onClick={e => {
+                        e.preventDefault()
+                        onNavigate('sprints')
+                      }}
+                    >
+                      <CalendarClock />
+                      <span>
+                        {intl.formatMessage({ id: 'sidebar.sprints' })}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
