@@ -133,14 +133,14 @@ export function CloseSprintDialog({
         if (!open) onClose()
       }}
     >
-      <DialogContent className='max-w-lg'>
+      <DialogContent className='max-w-lg overflow-hidden'>
         <DialogHeader>
           <DialogTitle>
             {intl.formatMessage({ id: 'sprints.close.title' })}
           </DialogTitle>
         </DialogHeader>
 
-        <div className='flex flex-col gap-4'>
+        <div className='flex flex-col gap-4 min-w-0 max-w-full'>
           {loading ? (
             <p className='text-sm text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.detail.loading' })}
@@ -179,19 +179,21 @@ export function CloseSprintDialog({
               </div>
 
               {/* Per-task decisions */}
-              <div className='flex flex-col gap-2 max-h-64 overflow-y-auto'>
+              <div className='flex flex-col gap-2 max-h-64 overflow-y-auto w-full min-w-0'>
                 {tasks.map(task => (
                   <div
                     key={task.id}
-                    className='flex items-center justify-between gap-2 rounded border p-2 min-w-0'
+                    className='flex w-full items-center justify-between gap-2 rounded border p-2 min-w-0'
                   >
                     <span className='text-sm truncate flex-1 min-w-0'>
                       {task.title}
                     </span>
-                    <DecisionToggle
-                      value={decisions[task.id]}
-                      onChange={v => setDecision(task.id, v)}
-                    />
+                    <div className='shrink-0'>
+                      <DecisionToggle
+                        value={decisions[task.id]}
+                        onChange={v => setDecision(task.id, v)}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
