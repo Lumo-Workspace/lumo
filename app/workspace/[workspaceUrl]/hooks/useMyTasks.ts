@@ -18,6 +18,11 @@ export function useMyTasks(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const seeded = useRef(false)
+  // Monotonic token: every fetchMyTasks invocation bumps this; only the
+  // latest invocation's result is allowed to commit to state. Prevents
+  // stale in-flight API responses from overwriting a fresher short-circuit
+  // result when the sprint filter toggles.
+  const fetchTokenRef = useRef(0)
 
   // Hydrate from localStorage on mount so data shows immediately on refresh.
   // Handles three cache formats:
@@ -57,12 +62,16 @@ export function useMyTasks(
   const sprintFilterEmpty = sprintFilterProvided && opts.sprintIds!.length === 0
 
   const fetchMyTasks = useCallback(async () => {
+    const myToken = ++fetchTokenRef.current
+    const isLatest = () => myToken === fetchTokenRef.current
+
     if (!seeded.current) setLoading(true)
     setError(null)
 
     // Short-circuit: user asked for current-sprint-only tasks but has no
     // active sprint. Render an empty list without hitting the API.
     if (sprintFilterEmpty) {
+      if (!isLatest()) return
       upsertTasks([])
       setTaskIds([])
       writeCache(CACHE_KEY.myTasks, {
@@ -80,6 +89,7 @@ export function useMyTasks(
         tasks: MyTask[]
         myTasksViewId: string
       }>(sprintIds ? { sprintIds } : {})
+      if (!isLatest()) return
       upsertTasks(data.tasks)
       const ids = data.tasks.map(t => t.id)
       setTaskIds(ids)
@@ -90,9 +100,10 @@ export function useMyTasks(
       })
       seeded.current = true
     } catch {
+      if (!isLatest()) return
       if (!seeded.current) setError('Could not load your tasks.')
     } finally {
-      setLoading(false)
+      if (isLatest()) setLoading(false)
     }
   }, [upsertTasks, sprintIdsKey, sprintFilterEmpty, myTasksViewId])
 
