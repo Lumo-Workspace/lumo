@@ -42,7 +42,7 @@ interface Props {
   /** Provided by WorkspaceApp to open the NewProjectModal directly. Optional:
    *  when absent (standalone pages), the `+ New project` row navigates to
    *  `/projects?new=1` instead so ProjectsPage can host the modal. */
-  onNewProject?: () => void
+  onNewProject?: (() => void) | undefined
 }
 
 export function ProjectsSidebarGroup({

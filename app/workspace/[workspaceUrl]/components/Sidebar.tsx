@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import {
   Home,
-  FolderKanban,
   FileText,
   Inbox,
   LogOut,
@@ -23,6 +22,8 @@ import { Page } from '../types'
 import { CACHE_KEY } from '../constants'
 import { workspacesClient } from '@/lib/api-client'
 import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
+import { useSidebarProjects } from '../hooks/useSidebarProjects'
+import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
 import { clearCache, readCache, writeCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -58,6 +59,12 @@ interface AppSidebarProps {
    * is hidden.
    */
   onOpenAskLumo?: () => void
+  /**
+   * Open the NewProjectModal. Only `WorkspaceApp`-rendered pages host the
+   * modal, so when absent (standalone deep-link pages) the Projects sidebar
+   * group falls back to navigating to `/projects?new=1`.
+   */
+  onNewProject?: () => void
 }
 
 export function AppSidebar({
@@ -66,6 +73,7 @@ export function AppSidebar({
   unreadCount,
   draftCount,
   onOpenAskLumo,
+  onNewProject,
 }: AppSidebarProps) {
   const { user } = useCurrentUser()
   const { signOut } = useClerk()
@@ -74,6 +82,7 @@ export function AppSidebar({
   const intl = useIntl()
   const { teams } = useWorkspaceTeams()
   const sprintsEnabled = teams.some(t => t.sprintsEnabled)
+  const { projects } = useSidebarProjects(workspaceUrl ?? null)
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
@@ -289,29 +298,13 @@ export function AppSidebar({
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    currentPage === 'projects' ||
-                    currentPage === 'project-detail'
-                  }
-                  tooltip={intl.formatMessage({ id: 'sidebar.projects' })}
-                >
-                  <Link
-                    href={`/workspace/${workspaceUrl}/projects`}
-                    onClick={e => {
-                      e.preventDefault()
-                      onNavigate('projects')
-                    }}
-                  >
-                    <FolderKanban />
-                    <span>
-                      {intl.formatMessage({ id: 'sidebar.projects' })}
-                    </span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <ProjectsSidebarGroup
+                currentPage={currentPage}
+                projects={projects}
+                workspaceUrl={workspaceUrl}
+                onNavigate={onNavigate}
+                onNewProject={onNewProject}
+              />
               {sprintsEnabled && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
