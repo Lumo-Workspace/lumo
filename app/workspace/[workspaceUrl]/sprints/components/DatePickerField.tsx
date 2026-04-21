@@ -69,9 +69,13 @@ export function DatePickerField({
           {formatDate(value)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className='!w-auto p-0' align='start'>
+      <PopoverContent className='w-[320px] p-0' align='start'>
         <Calendar
           mode='single'
+          // Match the DueDate picker: stretch the calendar (and its inner
+          // table) to the popover width so the cells have breathing room
+          // instead of collapsing to --cell-size.
+          className='w-full [&_[data-slot=calendar]]:w-full'
           style={{ '--cell-size': '2.5rem' } as React.CSSProperties}
           selected={value}
           onSelect={d => {
