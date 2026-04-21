@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { useSprint, useSprintTasks } from '../../hooks/useSprints'
@@ -8,9 +9,20 @@ import { useMembers } from '../../hooks/useMembers'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 
 export function SprintDetailClient() {
-  const { sprintId } = useParams<{ sprintId: string }>()
+  const { sprintId, workspaceUrl } = useParams<{
+    sprintId: string
+    workspaceUrl: string
+  }>()
   const intl = useIntl()
   const { sprint, progress, isLoading, error, refetch } = useSprint(sprintId)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprintId)
@@ -20,10 +32,33 @@ export function SprintDetailClient() {
     void fetchMembers()
   }, [fetchMembers])
 
+  const sprintsHref = `/workspace/${workspaceUrl}/sprints`
+  const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })
+
+  function breadcrumb(currentLabel: string) {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={sprintsHref}>{sprintsLabel}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className='flex flex-col h-full overflow-hidden'>
-        <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.sprints' })} />
+        <PageBreadcrumb>
+          {breadcrumb(intl.formatMessage({ id: 'sprints.detail.loading' }))}
+        </PageBreadcrumb>
         <div className='p-6 text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.detail.loading' })}
         </div>
@@ -34,7 +69,9 @@ export function SprintDetailClient() {
   if (error || !sprint) {
     return (
       <div className='flex flex-col h-full overflow-hidden'>
-        <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.sprints' })} />
+        <PageBreadcrumb>
+          {breadcrumb(intl.formatMessage({ id: 'sprints.detail.notFound' }))}
+        </PageBreadcrumb>
         <div className='p-6 text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.detail.notFound' })}
         </div>
@@ -64,7 +101,7 @@ export function SprintDetailClient() {
 
   return (
     <div className='flex flex-col h-full overflow-hidden'>
-      <PageBreadcrumb title={sprint.name} />
+      <PageBreadcrumb>{breadcrumb(sprint.name)}</PageBreadcrumb>
       <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
         {board}
         {sidePanel}
