@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
+import { CACHE_KEY } from '../constants'
+import { readCache, writeCache } from '../cache'
 
 // ---------------------------------------------------------------------------
 // Shared types inferred from the api-client return shapes
@@ -50,13 +52,25 @@ export function useSprintsForTeam(
       setSprints(undefined)
       return
     }
-    let cancelled = false
-    setIsLoading(true)
+    // Hydrate from cache so the landing page paints with last-known
+    // sprints immediately, then revalidate in the background.
+    const cacheKey = CACHE_KEY.sprints(teamId, status)
+    const cached = readCache<Sprint[]>(cacheKey)
+    if (cached) {
+      setSprints(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     setError(undefined)
+
+    let cancelled = false
     sprintsClient
       .listByTeam(teamId, status ? { status } : {})
       .then((res: SprintListResult) => {
-        if (!cancelled) setSprints(res.sprints)
+        if (cancelled) return
+        setSprints(res.sprints)
+        writeCache(cacheKey, res.sprints)
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err)
@@ -93,13 +107,23 @@ export function useSprint(sprintId: string | null) {
       setData(undefined)
       return
     }
-    let cancelled = false
-    setIsLoading(true)
+    const cacheKey = CACHE_KEY.sprint(sprintId)
+    const cached = readCache<SprintWithProgress>(cacheKey)
+    if (cached) {
+      setData(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     setError(undefined)
+
+    let cancelled = false
     sprintsClient
       .get(sprintId)
       .then((res: SprintWithProgress) => {
-        if (!cancelled) setData(res)
+        if (cancelled) return
+        setData(res)
+        writeCache(cacheKey, res)
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err)
