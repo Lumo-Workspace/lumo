@@ -59,13 +59,21 @@ export function ProjectsSidebarGroup({
   // Stored user preference — starts collapsed on first use.
   const [storedExpanded, setStoredExpanded] = useState(false)
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    setStoredExpanded(raw === '1')
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      setStoredExpanded(raw === '1')
+    } catch {
+      // localStorage may be unavailable (Safari private mode, etc.)
+    }
   }, [])
   const toggleStored = () => {
     setStoredExpanded(prev => {
       const next = !prev
-      localStorage.setItem(STORAGE_KEY, next ? '1' : '0')
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        // ignore persistence failure; in-memory state still flips
+      }
       return next
     })
   }
@@ -80,12 +88,6 @@ export function ProjectsSidebarGroup({
     () => projects.filter(p => !p.isIdea),
     [projects]
   )
-
-  const handleCaretClick: React.MouseEventHandler<HTMLButtonElement> = e => {
-    e.preventDefault()
-    e.stopPropagation()
-    toggleStored()
-  }
 
   const handleNewProject = () => {
     if (onNewProject) {
@@ -104,6 +106,7 @@ export function ProjectsSidebarGroup({
             currentPage === 'projects' || currentPage === 'project-detail'
           }
           tooltip={intl.formatMessage({ id: 'sidebar.projects' })}
+          className='pl-7'
         >
           <Link
             href={`/workspace/${workspaceUrl}/projects`}
@@ -112,25 +115,28 @@ export function ProjectsSidebarGroup({
               onNavigate('projects')
             }}
           >
-            <button
-              type='button'
-              onClick={handleCaretClick}
-              aria-label={
-                expanded
-                  ? intl.formatMessage({ id: 'sidebar.collapseProjects' })
-                  : intl.formatMessage({ id: 'sidebar.expandProjects' })
-              }
-              className='flex items-center justify-center size-4 -ml-1 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
-            >
-              <ChevronRight
-                size={12}
-                className={cn('transition-transform', expanded && 'rotate-90')}
-              />
-            </button>
             <FolderKanban />
             <span>{intl.formatMessage({ id: 'sidebar.projects' })}</span>
           </Link>
         </SidebarMenuButton>
+        {/* Caret sits as a sibling of the link (not a descendant) so we don't
+         *  nest interactive elements inside an anchor. */}
+        <button
+          type='button'
+          onClick={toggleStored}
+          aria-expanded={expanded}
+          aria-label={
+            expanded
+              ? intl.formatMessage({ id: 'sidebar.collapseProjects' })
+              : intl.formatMessage({ id: 'sidebar.expandProjects' })
+          }
+          className='absolute left-1.5 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+        >
+          <ChevronRight
+            size={12}
+            className={cn('transition-transform', expanded && 'rotate-90')}
+          />
+        </button>
       </SidebarMenuItem>
 
       {expanded && (
