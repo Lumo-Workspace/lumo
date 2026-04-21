@@ -17,7 +17,8 @@ interface TeamSelectorProps {
 }
 
 export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
-  if (teams.length === 0) return null
+  // Nothing to switch between — hide the selector entirely.
+  if (teams.length <= 1) return null
 
   if (teams.length <= 3) {
     return (
