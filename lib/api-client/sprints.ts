@@ -46,6 +46,14 @@ export const sprintsClient = {
     return apiFetch<SprintWithProgress>(API.sprints.byId(sprintId))
   },
 
+  getByNumber(workspaceUrl: string, number: number) {
+    const qs = new URLSearchParams({
+      workspaceUrl,
+      number: String(number),
+    }).toString()
+    return apiFetch<SprintWithProgress>(`/api/sprints/by-number?${qs}`)
+  },
+
   update(
     sprintId: string,
     input: { name?: string; startDate?: string; endDate?: string }

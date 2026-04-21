@@ -20,6 +20,7 @@ import {
   StatusSelect,
   AssigneeSelect,
   ProjectSelect,
+  SprintSelect,
   AiPrioritySelect,
   DueDatePicker,
   FIELD_TRIGGER_CLS,
@@ -51,6 +52,7 @@ export interface NewTaskFormData {
   projectId: string
   assigneeId: string
   repositoryId: string | null
+  sprintId: string | null
   dueDate: string | null
   aiSuggestedPriority?: ApiPriority | null
 }
@@ -64,6 +66,7 @@ export interface NewTaskPreFill {
   projectId: string
   assigneeId: string
   dueDate: string | null
+  sprintId?: string | null
 }
 
 interface NewTaskModalProps {
@@ -74,6 +77,11 @@ interface NewTaskModalProps {
   defaultProjectId?: string | undefined
   defaultAssigneeId?: string | undefined
   defaultStatus?: ApiStatus | undefined
+  /** Pre-selected sprint (e.g. when opening from the Sprint board). */
+  defaultSprintId?: string | null | undefined
+  /** Team whose sprints are offered in the Sprint picker. Without this the
+   *  picker is hidden. */
+  sprintTeamId?: string | null | undefined
   /** Pre-filled fields from Quick Dispatch AI parsing. */
   preFill?: NewTaskPreFill | undefined
   /** Parent handles optimistic create + API call. Throw to show error in modal. */
@@ -97,6 +105,8 @@ export function NewTaskModal({
   defaultProjectId,
   defaultAssigneeId,
   defaultStatus,
+  defaultSprintId,
+  sprintTeamId,
   preFill,
   onSubmit,
   tasks = [],
@@ -126,6 +136,9 @@ export function NewTaskModal({
   const [projectRepos, setProjectRepos] = useState<ApiRepository[]>([])
   const [dueDate, setDueDate] = useState<string | null>(
     preFill?.dueDate ?? null
+  )
+  const [sprintId, setSprintId] = useState<string | null>(
+    preFill?.sprintId ?? defaultSprintId ?? null
   )
 
   // ─── Form recovery (localStorage) ────────────────────────────────────────
@@ -188,6 +201,10 @@ export function NewTaskModal({
     if (isOpen) setStatus(defaultStatus ?? 'TODO')
   }, [isOpen, defaultStatus])
 
+  useEffect(() => {
+    if (isOpen) setSprintId(defaultSprintId ?? null)
+  }, [isOpen, defaultSprintId])
+
   // Load repositories for the selected project
   useEffect(() => {
     const pid = projectId || defaultProjectId
@@ -225,6 +242,7 @@ export function NewTaskModal({
     setRepositoryId(null)
     setProjectRepos([])
     setDueDate(null)
+    setSprintId(defaultSprintId ?? null)
     setPhase('editing')
     setAiMatches([])
     setUserHasOverriddenPriority(false)
@@ -324,6 +342,7 @@ export function NewTaskModal({
       projectId: effectiveProjectId,
       assigneeId,
       repositoryId,
+      sprintId,
       dueDate,
       aiSuggestedPriority: aiSuggestedRef.current,
     }
@@ -532,6 +551,14 @@ export function NewTaskModal({
                   onChange={setDueDate}
                   triggerClassName={triggerClass}
                 />
+                {sprintTeamId && (
+                  <SprintSelect
+                    teamId={sprintTeamId}
+                    value={sprintId}
+                    onChange={setSprintId}
+                    triggerClassName={triggerClass}
+                  />
+                )}
                 {projectRepos.length > 0 && (
                   <Select
                     value={repositoryId ?? '__none__'}

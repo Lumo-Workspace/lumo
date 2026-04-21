@@ -1,7 +1,6 @@
 'use client'
 
 import { useSortable } from '@dnd-kit/sortable'
-import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import {
@@ -164,11 +163,12 @@ function CardShell({
 function useDragForMode(
   taskId: string,
   mode: DragMode,
-  data: Record<string, unknown> | undefined
+  _data: Record<string, unknown> | undefined
 ) {
-  // Hooks must be called unconditionally — we always call both, then pick.
-  const sortable = useSortable({ id: taskId })
-  const draggable = useDraggable({ id: taskId, data: data ?? {} })
+  // Only `useSortable` is wired — 'simple' mode is declared in the API but
+  // no longer used in production, and calling `useDraggable` with the same
+  // id wipes the droppable half of the sortable registration.
+  const sortable = useSortable({ id: taskId, disabled: mode !== 'sortable' })
 
   if (mode === 'none') {
     return {
@@ -179,17 +179,9 @@ function useDragForMode(
     }
   }
   if (mode === 'simple') {
-    return {
-      setNodeRef: draggable.setNodeRef,
-      style: {
-        // Without this transform the element wouldn't visually follow the
-        // cursor during drag — making it feel like nothing is happening.
-        transform: CSS.Translate.toString(draggable.transform),
-        opacity: draggable.isDragging ? 0.4 : 1,
-      } as React.CSSProperties,
-      attributes: draggable.attributes,
-      listeners: draggable.listeners,
-    }
+    // No production caller uses this — fall through to sortable bindings to
+    // avoid an unused `useDraggable` registration that would conflict with
+    // useSortable's droppable.
   }
   return {
     setNodeRef: sortable.setNodeRef,

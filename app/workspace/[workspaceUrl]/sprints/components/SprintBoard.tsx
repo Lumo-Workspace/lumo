@@ -20,6 +20,9 @@ interface SprintBoardProps {
   /** When true, the board lets users drag cards between status columns and
    * persists each move via tasksClient.update. Defaults to true. */
   enableStatusDrag?: boolean
+  /** If provided, renders an "Add task" button per column. Parent is
+   *  responsible for opening the new-task modal pre-scoped to the sprint. */
+  onAddTask?: (status: ApiStatus) => void
 }
 
 export function SprintBoard({
@@ -29,6 +32,7 @@ export function SprintBoard({
   currentActorId,
   isOwner,
   enableStatusDrag = true,
+  onAddTask,
 }: SprintBoardProps) {
   const sprintList = tasks as ApiTask[]
 
@@ -40,6 +44,7 @@ export function SprintBoard({
       isOwner={isOwner}
       enableDrag={enableStatusDrag}
       onTaskMoved={onTaskMoved}
+      onAddTask={onAddTask}
     />
   )
 }
@@ -51,6 +56,7 @@ function ActiveBoard({
   isOwner,
   enableDrag,
   onTaskMoved,
+  onAddTask,
 }: {
   tasks: ApiTask[]
   members?: WorkspaceMemberInfo[] | undefined
@@ -58,6 +64,7 @@ function ActiveBoard({
   isOwner?: boolean | undefined
   enableDrag: boolean
   onTaskMoved?: (() => void) | undefined
+  onAddTask?: ((status: ApiStatus) => void) | undefined
 }) {
   const sensors = useBoardSensors()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -103,6 +110,9 @@ function ActiveBoard({
       onDragStart={e => setActiveId(String(e.active.id))}
       onDragOver={() => {}}
       onDragEnd={handleDragEnd}
+      {...(onAddTask
+        ? { onAddTask: (columnId: string) => onAddTask(columnId as ApiStatus) }
+        : {})}
       renderCard={(task, isOverlay) => (
         <ProjectTaskCard
           task={task}

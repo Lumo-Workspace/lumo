@@ -170,6 +170,7 @@ export function useWorkspaceTaskHandlers({
       projectId,
       assigneeId,
       repositoryId,
+      sprintId,
       aiSuggestedPriority,
     }: NewTaskFormData) => {
       const tempId = `optimistic-task-${Date.now()}`
@@ -214,6 +215,7 @@ export function useWorkspaceTaskHandlers({
             priority,
             assigneeActorId: assigneeId || undefined,
             repositoryId: repositoryId ?? undefined,
+            sprintId: sprintId ?? undefined,
           }
         )
         task = data.task

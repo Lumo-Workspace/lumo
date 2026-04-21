@@ -245,6 +245,12 @@ export default function DashboardApp() {
   const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<
     ApiStatus | undefined
   >(undefined)
+  const [newTaskDefaultSprintId, setNewTaskDefaultSprintId] = useState<
+    string | null | undefined
+  >(undefined)
+  const [newTaskSprintTeamId, setNewTaskSprintTeamId] = useState<
+    string | null | undefined
+  >(undefined)
   const [newTaskPreFill, setNewTaskPreFill] = useState<
     TaskPreFillFields | undefined
   >(undefined)
@@ -369,6 +375,19 @@ export default function DashboardApp() {
       openNewTaskModal(currentMemberId, status)
     },
     [openNewTaskModal, currentMemberId]
+  )
+
+  const openNewTaskForSprint = useCallback(
+    (sprintId: string, teamId: string, status?: ApiStatus) => {
+      taskHandlers.openNewTaskModal(undefined, status)
+      setNewTaskDefaultAssigneeId(undefined)
+      setNewTaskDefaultStatus(status)
+      setNewTaskDefaultSprintId(sprintId)
+      setNewTaskSprintTeamId(teamId)
+      setNewTaskPreFill(undefined)
+      setIsNewTaskModalOpen(true)
+    },
+    [taskHandlers]
   )
 
   // ─── Draft handlers ─────────────────────────────────────────────────────
@@ -686,7 +705,12 @@ export default function DashboardApp() {
         return <SprintsLandingClient />
 
       case 'sprint-detail':
-        return <SprintDetailClient />
+        return (
+          <SprintDetailClient
+            onNewTask={openNewTaskForSprint}
+            onOpenTask={handleOpenTask}
+          />
+        )
 
       case 'inbox':
         return (
@@ -766,6 +790,10 @@ export default function DashboardApp() {
           setNewTaskDefaultAssigneeId={setNewTaskDefaultAssigneeId}
           newTaskDefaultStatus={newTaskDefaultStatus}
           setNewTaskDefaultStatus={setNewTaskDefaultStatus}
+          newTaskDefaultSprintId={newTaskDefaultSprintId}
+          setNewTaskDefaultSprintId={setNewTaskDefaultSprintId}
+          newTaskSprintTeamId={newTaskSprintTeamId}
+          setNewTaskSprintTeamId={setNewTaskSprintTeamId}
           newTaskPreFill={newTaskPreFill}
           setNewTaskPreFill={setNewTaskPreFill}
           onCreateTask={taskHandlers.handleCreateTask}

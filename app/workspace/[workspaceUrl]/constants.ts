@@ -147,6 +147,8 @@ export const CACHE_KEY = {
   sprints: (teamId: string, status?: string) =>
     `lumo:sprints:${teamId}${status ? `:${status}` : ''}`,
   sprint: (sprintId: string) => `lumo:sprint:${sprintId}`,
+  sprintByNumber: (workspaceUrl: string, number: number) =>
+    `lumo:sprint:${workspaceUrl}:n:${number}`,
   notifications: 'lumo:notifications',
   agentActors: 'lumo:agentActors',
   displayMyTasks: (userId: string) => `lumo:display:my-tasks:${userId}`,
@@ -155,6 +157,7 @@ export const CACHE_KEY = {
   documentDetail: (docId: string) => `lumo:doc:${docId}`,
   documentTree: 'lumo:document-tree',
   treeExpanded: 'lumo:tree-expanded',
+  sprintSidebarCollapsed: 'lumo:sprint-sidebar-collapsed',
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',
   drafts: 'lumo:drafts',

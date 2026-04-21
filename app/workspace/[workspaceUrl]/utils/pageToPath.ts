@@ -8,7 +8,7 @@ import { slugify } from '@/lib/utils/slugify'
 export function pageToPath(
   workspaceUrl: string,
   page: Page,
-  project?: { name: string; id?: string } | null
+  project?: { name: string; id?: string; number?: number } | null
 ): string {
   const base = `/workspace/${workspaceUrl}`
   switch (page) {
@@ -33,7 +33,9 @@ export function pageToPath(
     case 'sprints':
       return `${base}/sprints`
     case 'sprint-detail':
-      return project?.id ? `${base}/sprints/${project.id}` : `${base}/sprints`
+      return project?.number
+        ? `${base}/sprints/${project.number}`
+        : `${base}/sprints`
     default:
       return `${base}/my-tasks`
   }

@@ -35,6 +35,27 @@ export const sprintRepository = {
     })
   },
 
+  /**
+   * Resolve a workspace-scoped sprint URL like `/workspace/:url/sprints/:number`.
+   * Assumes at most one sprints-enabled team per workspace, so the
+   * (workspaceId, number) pair is effectively unique.
+   */
+  async findByWorkspaceAndNumber(workspaceId: string, number: number) {
+    return prisma.sprint.findFirst({
+      where: { number, team: { workspaceId } },
+      include: {
+        team: {
+          select: {
+            id: true,
+            name: true,
+            workspaceId: true,
+            sprintsEnabled: true,
+          },
+        },
+      },
+    })
+  },
+
   async findActiveByTeam(teamId: string) {
     return prisma.sprint.findFirst({
       where: { teamId, status: 'ACTIVE' },

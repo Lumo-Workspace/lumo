@@ -32,22 +32,33 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     const tasks = await taskRepository.findBySprint(sprintId)
 
-    // Flatten to the shape ApiTask / ProjectTaskCard expects.
-    // Mirrors the transform in /api/projects/[id]/tasks/route.ts.
-    const shaped = tasks.map((t: any) => ({
-      ...t,
-      teamIdentifier: t.team?.identifier ?? '',
-      parent: t.parent
-        ? {
-            id: t.parent.id,
-            title: t.parent.title,
-            number: t.parent.number,
-            teamIdentifier: t.parent.team?.identifier ?? '',
-          }
-        : null,
-      _count: t._count,
-      childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
-    }))
+    // Flatten to the MyTask shape (mirrors /api/tasks/me) so the frontend
+    // can render the shared TaskWorkspace (list + board) on the sprint
+    // page. `viewOrder` is null because sprints don't own a kanban view;
+    // the board falls back to status-bucket ordering, and same-column
+    // reordering is disabled in useBoardDrag when viewId is null.
+    const shaped = tasks.map((t: any) => {
+      const { owner, ...projectFields } = t.project
+      return {
+        ...t,
+        project: {
+          ...projectFields,
+          ownerActorId: owner?.actor?.id ?? null,
+        },
+        teamIdentifier: t.team?.identifier ?? '',
+        viewOrder: null,
+        parent: t.parent
+          ? {
+              id: t.parent.id,
+              title: t.parent.title,
+              number: t.parent.number,
+              teamIdentifier: t.parent.team?.identifier ?? '',
+            }
+          : null,
+        _count: t._count,
+        childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
+      }
+    })
 
     return NextResponse.json({ tasks: shaped })
   } catch (error) {

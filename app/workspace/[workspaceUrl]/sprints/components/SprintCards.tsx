@@ -59,7 +59,7 @@ function SprintLandingCard({
 
   return (
     <Link
-      href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}
+      href={`/workspace/${workspaceUrl}/sprints/${sprint.number}`}
       className='block'
     >
       <Card className='transition-colors hover:bg-accent/40'>
@@ -147,7 +147,7 @@ function ClosedSprintRow({
       </div>
       <div className='flex items-center gap-1 shrink-0'>
         <Button asChild size='sm' variant='ghost'>
-          <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.id}`}>
+          <Link href={`/workspace/${workspaceUrl}/sprints/${sprint.number}`}>
             {intl.formatMessage({ id: 'sprints.landing.viewRetro' })}
           </Link>
         </Button>
@@ -326,17 +326,20 @@ export function SprintCards({ teamId }: { teamId: string }) {
       new Date(s.startDate).getTime() <= now &&
       now <= new Date(s.endDate).getTime()
   )
-  const upcomingSprint = bySortedStart.find(
+  const upcomingSprints = bySortedStart.filter(
     s => new Date(s.startDate).getTime() > now
   )
   const completedSprints = bySortedStart
     .filter(s => new Date(s.endDate).getTime() < now)
     .reverse() // most-recent first
   const recent = completedSprints.slice(0, 5)
-  const noUpcoming = !currentSprint && !upcomingSprint
+  const noUpcoming = !currentSprint && upcomingSprints.length === 0
 
   const isEmpty =
-    !isLoading && !currentSprint && !upcomingSprint && recent.length === 0
+    !isLoading &&
+    !currentSprint &&
+    upcomingSprints.length === 0 &&
+    recent.length === 0
 
   if (isEmpty) {
     return (
@@ -387,16 +390,21 @@ export function SprintCards({ teamId }: { teamId: string }) {
       )}
 
       {/* Upcoming */}
-      {upcomingSprint && (
+      {upcomingSprints.length > 0 && (
         <section className='space-y-2'>
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
           </h2>
-          <SprintLandingCard
-            sprint={upcomingSprint}
-            workspaceUrl={workspaceUrl}
-            onChanged={refetchAll}
-          />
+          <div className='space-y-3'>
+            {upcomingSprints.map(s => (
+              <SprintLandingCard
+                key={s.id}
+                sprint={s}
+                workspaceUrl={workspaceUrl}
+                onChanged={refetchAll}
+              />
+            ))}
+          </div>
         </section>
       )}
 

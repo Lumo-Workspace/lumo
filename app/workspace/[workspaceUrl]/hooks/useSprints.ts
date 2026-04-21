@@ -146,6 +146,69 @@ export function useSprint(sprintId: string | null) {
 }
 
 // ---------------------------------------------------------------------------
+// useSprintByNumber
+// ---------------------------------------------------------------------------
+
+/**
+ * Like `useSprint`, but looks up the sprint by its workspace-scoped
+ * `number` instead of CUID. Used by the detail page whose URL segment is
+ * the sprint number (e.g. `/workspace/{url}/sprints/1`).
+ */
+export function useSprintByNumber(
+  workspaceUrl: string | null,
+  number: number | null
+) {
+  const [data, setData] = useState<SprintWithProgress | undefined>(undefined)
+  const [error, setError] = useState<Error | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(false)
+  const [tick, setTick] = useState(0)
+
+  const refetch = useCallback(() => setTick(t => t + 1), [])
+
+  useEffect(() => {
+    if (!workspaceUrl || !number) {
+      setData(undefined)
+      return
+    }
+    const cacheKey = CACHE_KEY.sprintByNumber(workspaceUrl, number)
+    const cached = readCache<SprintWithProgress>(cacheKey)
+    if (cached) {
+      setData(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
+    setError(undefined)
+
+    let cancelled = false
+    sprintsClient
+      .getByNumber(workspaceUrl, number)
+      .then((res: SprintWithProgress) => {
+        if (cancelled) return
+        setData(res)
+        writeCache(cacheKey, res)
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceUrl, number, tick])
+
+  return {
+    sprint: data?.sprint,
+    progress: data?.progress,
+    isLoading,
+    error,
+    refetch,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // useSprintTasks
 // ---------------------------------------------------------------------------
 

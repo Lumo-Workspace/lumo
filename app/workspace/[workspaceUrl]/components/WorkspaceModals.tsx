@@ -70,6 +70,10 @@ interface WorkspaceModalsProps {
   setNewTaskDefaultAssigneeId: Dispatch<SetStateAction<string | undefined>>
   newTaskDefaultStatus: ApiStatus | undefined
   setNewTaskDefaultStatus: Dispatch<SetStateAction<ApiStatus | undefined>>
+  newTaskDefaultSprintId: string | null | undefined
+  setNewTaskDefaultSprintId: Dispatch<SetStateAction<string | null | undefined>>
+  newTaskSprintTeamId: string | null | undefined
+  setNewTaskSprintTeamId: Dispatch<SetStateAction<string | null | undefined>>
   newTaskPreFill: TaskPreFillFields | undefined
   setNewTaskPreFill: Dispatch<SetStateAction<TaskPreFillFields | undefined>>
   onCreateTask: (data: NewTaskFormData) => Promise<void>
@@ -141,6 +145,10 @@ export function WorkspaceModals({
   setNewTaskDefaultAssigneeId,
   newTaskDefaultStatus,
   setNewTaskDefaultStatus,
+  newTaskDefaultSprintId,
+  setNewTaskDefaultSprintId,
+  newTaskSprintTeamId,
+  setNewTaskSprintTeamId,
   newTaskPreFill,
   setNewTaskPreFill,
   onCreateTask,
@@ -228,6 +236,8 @@ export function WorkspaceModals({
               setIsNewTaskModalOpen(false)
               setNewTaskDefaultAssigneeId(undefined)
               setNewTaskDefaultStatus(undefined)
+              setNewTaskDefaultSprintId(undefined)
+              setNewTaskSprintTeamId(undefined)
               setNewTaskPreFill(undefined)
               setRestoringDraftId(undefined)
             }}
@@ -236,6 +246,8 @@ export function WorkspaceModals({
             defaultProjectId={newTaskPreFill?.projectId || selectedProject?.id}
             defaultAssigneeId={newTaskDefaultAssigneeId}
             defaultStatus={newTaskDefaultStatus}
+            defaultSprintId={newTaskDefaultSprintId}
+            sprintTeamId={newTaskSprintTeamId}
             preFill={newTaskPreFill}
             onSubmit={onCreateTask}
             tasks={Object.values(taskMap) as ApiTask[]}

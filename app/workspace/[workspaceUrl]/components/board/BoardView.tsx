@@ -1,13 +1,12 @@
 'use client'
 
-import { cloneElement, isValidElement, useState, type ReactNode } from 'react'
+import { cloneElement, isValidElement, type ReactNode } from 'react'
 import {
   DndContext,
   closestCorners,
   DragEndEvent,
   DragOverEvent,
   DragOverlay,
-  DragStartEvent,
   defaultDropAnimationSideEffects,
   useDroppable,
   SensorDescriptor,
@@ -15,6 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
+import { useIntl } from 'react-intl'
 import { StatusIcon } from '../StatusIcon'
 import { Button } from '@/components/ui/button'
 
@@ -23,21 +23,15 @@ import { Button } from '@/components/ui/button'
 function DroppableColumn({
   id,
   children,
-  stretch,
 }: {
   id: string
   children: React.ReactNode
-  stretch?: boolean | undefined
 }) {
   const { setNodeRef } = useDroppable({ id })
   return (
     <div
       ref={setNodeRef}
-      className={
-        stretch
-          ? 'flex flex-1 flex-col pb-2'
-          : 'board-col-scroll flex-1 overflow-y-auto space-y-3 min-h-[100px] pb-2'
-      }
+      className='board-col-scroll flex-1 overflow-y-auto space-y-3 min-h-[100px] pb-2'
     >
       {children}
     </div>
@@ -104,33 +98,22 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
   columns = STATUS_COLUMNS,
   getColumnId = (t: T) => String((t as unknown as { status: string }).status),
 }: BoardViewProps<T>) {
-  // When orderingLabel is set, we intercept drag events to prevent reordering
-  // but still show the drag overlay + hint. We track a local dragging ID
-  // so the parent's state stays untouched.
-  const [lockedDragId, setLockedDragId] = useState<string | null>(null)
-
-  const effectiveActiveId = orderingLabel ? lockedDragId : activeId
-  const activeTask = tasks.find(t => t.id === effectiveActiveId) ?? null
-
-  const handleDragStart = orderingLabel
-    ? (event: DragStartEvent) => {
-        setLockedDragId(String(event.active.id))
-      }
-    : onDragStart
-
-  const handleDragEnd = orderingLabel
-    ? () => {
-        setLockedDragId(null)
-      }
-    : onDragEnd
+  const intl = useIntl()
+  // Drag is always live — even with a non-manual sort applied, users expect
+  // to be able to drag a card between columns to change its status. When
+  // `orderingLabel` is set we still honour the caller's sort for display
+  // (no manual viewOrder sort), and we show a small hint at the top so
+  // users know same-column reorder persists but will be visually
+  // overridden until they switch back to Manual.
+  const activeTask = tasks.find(t => t.id === activeId) ?? null
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={orderingLabel ? () => {} : onDragOver}
-      onDragEnd={handleDragEnd}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
     >
       <div className='border-t border-zinc-200 dark:border-zinc-800 p-8 flex gap-3 flex-1 bg-zinc-50/50 dark:bg-zinc-900/10 overflow-x-auto'>
         {columns.map(column => {
@@ -162,33 +145,21 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                 items={col.map(t => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <DroppableColumn
-                  id={column.id}
-                  stretch={!!(orderingLabel && effectiveActiveId)}
-                >
-                  {orderingLabel && effectiveActiveId ? (
-                    <div className='flex flex-1 items-center justify-center rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700'>
-                      <p className='text-sm text-zinc-400 dark:text-zinc-500 font-medium'>
-                        Board ordered by {orderingLabel}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      {col.map(task =>
-                        keyedCard(task.id, renderCard(task, false))
-                      )}
-                      {onAddTask && (
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          onClick={() => onAddTask(column.id)}
-                          className='w-full justify-start gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
-                        >
-                          <Plus size={16} />
-                          Add task
-                        </Button>
-                      )}
-                    </>
+                <DroppableColumn id={column.id}>
+                  {col.map(task => keyedCard(task.id, renderCard(task, false)))}
+                  {onAddTask && (
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => onAddTask(column.id)}
+                      className='w-full justify-start gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
+                    >
+                      <Plus size={16} />
+                      {intl.formatMessage({
+                        id: 'board.addTask',
+                        defaultMessage: 'Add task',
+                      })}
+                    </Button>
                   )}
                 </DroppableColumn>
               </SortableContext>

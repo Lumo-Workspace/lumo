@@ -102,6 +102,7 @@ export const createTaskSchema = z.object({
   assigneeActorId: z.string().nullable().optional(),
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),
+  sprintId: z.string().nullable().optional(),
   order: z.number().optional(),
   dueDate: z.string().datetime().nullable().optional(),
 })

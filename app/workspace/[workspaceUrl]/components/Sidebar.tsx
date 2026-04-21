@@ -11,7 +11,6 @@ import {
   Users,
   Settings,
   FileEdit,
-  BarChart3,
   Search,
   CalendarClock,
 } from 'lucide-react'
@@ -211,26 +210,6 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={currentPage === 'dashboard'}
-                  tooltip={intl.formatMessage({ id: 'sidebar.dashboard' })}
-                >
-                  <Link
-                    href={`/workspace/${workspaceUrl}/dashboard`}
-                    onClick={e => {
-                      e.preventDefault()
-                      onNavigate('dashboard')
-                    }}
-                  >
-                    <BarChart3 />
-                    <span>
-                      {intl.formatMessage({ id: 'sidebar.dashboard' })}
-                    </span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild

@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { useSprint, useSprintTasks } from '../../hooks/useSprints'
+import { useSprintByNumber, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
-import { SprintBoard } from '../components/SprintBoard'
+import { useProjects } from '../../hooks/useProjects'
+import type { ApiStatus, MyTask } from '../../types'
+import { SprintTasksView } from '../components/SprintTasksView'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
+import { CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import {
   Breadcrumb,
@@ -19,20 +23,60 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
-export function SprintDetailClient() {
+interface SprintDetailClientProps {
+  /** Open the global NewTaskModal with the current sprint pre-selected. */
+  onNewTask?: (sprintId: string, teamId: string, status?: ApiStatus) => void
+  /** Open the global task drawer for a clicked task card. */
+  onOpenTask?: (task: MyTask) => void
+}
+
+export function SprintDetailClient({
+  onNewTask,
+  onOpenTask,
+}: SprintDetailClientProps = {}) {
   const { sprintId, workspaceUrl } = useParams<{
     sprintId: string
     workspaceUrl: string
   }>()
   const router = useRouter()
   const intl = useIntl()
-  const { sprint, progress, isLoading, error, refetch } = useSprint(sprintId)
-  const { tasks, refetch: refetchTasks } = useSprintTasks(sprintId)
+  // The `sprintId` segment is now the per-team sprint number (e.g. `1`).
+  const parsedNumber = Number(sprintId)
+  const sprintNumber = Number.isInteger(parsedNumber) ? parsedNumber : null
+  const { sprint, progress, isLoading, error, refetch } = useSprintByNumber(
+    workspaceUrl,
+    sprintNumber
+  )
+  const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
   const { members, fetchMembers } = useMembers()
-  // Members are needed by ProjectTaskCard for assignee avatars/hover.
+  const { projects, fetchProjects } = useProjects()
+  // Mirror the fetched sprint tasks into a local state tuple so
+  // SprintTasksView (which drives inline edits + DnD) owns the source of
+  // truth for list updates between refetches.
+  const [localTasks, setLocalTasks] = useState<MyTask[]>([])
+  useEffect(() => {
+    setLocalTasks((tasks ?? []) as MyTask[])
+  }, [tasks])
+
+  // Collapse / expand the right-hand sprint info panel. Preference is global
+  // across sprints (not per-sprint) so users don't have to re-toggle on every
+  // visit — matches how doc tree collapse behaves.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    const cached = readCache<boolean>(CACHE_KEY.sprintSidebarCollapsed)
+    if (cached !== null) setSidebarCollapsed(cached)
+  }, [])
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      writeCache(CACHE_KEY.sprintSidebarCollapsed, next)
+      return next
+    })
+  }
   useEffect(() => {
     void fetchMembers()
-  }, [fetchMembers])
+    void fetchProjects()
+  }, [fetchMembers, fetchProjects])
 
   const sprintsHref = `/workspace/${workspaceUrl}/sprints`
   const sprintsLabel = intl.formatMessage({ id: 'sidebar.sprints' })
@@ -81,14 +125,22 @@ export function SprintDetailClient() {
     )
   }
 
-  const taskList = (tasks ?? []) as import('../../types').ApiTask[]
-
-  const board = (
-    <SprintBoard
-      tasks={taskList}
-      onTaskMoved={refetchTasks}
-      sprintId={sprint.id}
+  const workspace = (
+    <SprintTasksView
+      tasks={localTasks}
+      setTasks={setLocalTasks}
+      loading={false}
+      error={null}
+      onRetry={refetchTasks}
+      onTaskClick={onOpenTask ?? (() => {})}
+      onNewTask={status => {
+        if (onNewTask) onNewTask(sprint.id, sprint.teamId, status)
+      }}
       members={members}
+      projects={projects}
+      displayOptionsKey={`lumo:display:sprint:${sprint.id}`}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={toggleSidebar}
     />
   )
 
@@ -96,7 +148,7 @@ export function SprintDetailClient() {
     <SprintSidebar
       sprint={sprint}
       progress={progress ?? { done: 0, total: 0 }}
-      tasks={taskList}
+      tasks={localTasks}
       members={members}
       onRefresh={() => {
         refetch()
@@ -116,9 +168,15 @@ export function SprintDetailClient() {
           />
         </div>
       </PageBreadcrumb>
-      <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
-        {board}
-        {sidePanel}
+      <div
+        className={`grid flex-1 overflow-hidden ${
+          sidebarCollapsed
+            ? 'grid-cols-[1fr]'
+            : 'grid-cols-[1fr_320px] gap-4 pr-4'
+        }`}
+      >
+        {workspace}
+        {!sidebarCollapsed && sidePanel}
       </div>
     </div>
   )

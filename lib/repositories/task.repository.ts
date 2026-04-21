@@ -477,11 +477,23 @@ export const taskRepository = {
 
   /** Find all tasks for a sprint (across all projects in the team).
    * Used by GET /api/sprints/[sprintId]/tasks for the Sprint Board.
+   *
+   * Includes the project relation (with owner actor) so the response can
+   * serve MyTask-shaped callers (TaskWorkspace view on the sprint page).
    */
   async findBySprint(sprintId: string) {
     return prisma.task.findMany({
       where: { sprintId },
-      include: TASK_LIST_INCLUDE,
+      include: {
+        ...TASK_LIST_INCLUDE,
+        project: {
+          select: {
+            id: true,
+            name: true,
+            owner: { select: { actor: { select: { id: true } } } },
+          },
+        },
+      },
       orderBy: { order: 'asc' },
     })
   },
