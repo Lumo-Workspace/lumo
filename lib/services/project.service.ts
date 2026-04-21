@@ -1,6 +1,7 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { getDefaultTeam } from '@/lib/team'
+import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,9 +25,7 @@ export const projectService = {
     // Batch-resolve reviewer display names from Clerk (one call for all reviewers).
     const clerkIds = Array.from(
       new Set(
-        projects
-          .map(p => p.owner?.clerkId)
-          .filter((c): c is string => !!c)
+        projects.map(p => p.owner?.clerkId).filter((c): c is string => !!c)
       )
     )
     const nameByClerkId = new Map<string, string>()
@@ -101,6 +100,7 @@ export const projectService = {
     }
   ) {
     const defaultTeam = await getDefaultTeam(workspaceId)
+    const maxOrder = await projectRepository.maxOrderInWorkspace(workspaceId)
 
     return projectRepository.create({
       workspaceId,
@@ -109,6 +109,7 @@ export const projectService = {
       name: data.name,
       description: data.description,
       isIdea: data.isIdea,
+      order: maxOrder + 1,
     })
   },
 
@@ -178,5 +179,51 @@ export const projectService = {
     }
 
     await projectRepository.delete(projectId)
+  },
+
+  /**
+   * Reorder a workspace's projects. Caller must pass ids that all belong to
+   * `workspaceId`; any mismatch throws 400. Publishes a pusher event so other
+   * members' sidebars can re-sort in real time.
+   *
+   * @param workspaceId  DB id of the workspace (used for repo calls).
+   * @param workspaceSlug  Workspace slug (= URL segment). Used as the Pusher
+   *   channel key so clients can subscribe using the URL param they already
+   *   have, without an id-resolution round-trip.
+   * @param memberId  The caller's workspace member id (used to scope the
+   *   visibility filter when resolving the workspace's project list).
+   * @param orderedIds  The full list of project ids in the desired order.
+   */
+  async reorderProjects(
+    workspaceId: string,
+    workspaceSlug: string,
+    memberId: string,
+    orderedIds: string[]
+  ) {
+    if (orderedIds.length === 0) {
+      throw Object.assign(new Error('orderedIds must not be empty'), {
+        status: 400,
+      })
+    }
+
+    const workspaceProjects = await projectRepository.findByWorkspace(
+      workspaceId,
+      memberId
+    )
+    const workspaceProjectIds = new Set(workspaceProjects.map(p => p.id))
+    const unknownId = orderedIds.find(id => !workspaceProjectIds.has(id))
+    if (unknownId) {
+      throw Object.assign(
+        new Error('One or more projects do not belong to this workspace'),
+        { status: 400 }
+      )
+    }
+
+    await projectRepository.reorder(workspaceId, orderedIds)
+
+    await pushWorkspaceEvent(workspaceSlug, {
+      type: 'projects-reordered',
+      orderedIds,
+    })
   },
 }

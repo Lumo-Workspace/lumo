@@ -7,9 +7,12 @@ jest.mock('@/lib/repositories/project.repository', () => ({
     findByWorkspace: jest.fn(),
     countTasksByStatus: jest.fn(),
     findById: jest.fn(),
+    findByIdSimple: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    reorder: jest.fn(),
+    maxOrderInWorkspace: jest.fn(),
   },
 }))
 
@@ -27,6 +30,10 @@ jest.mock('@clerk/nextjs/server', () => ({
 
 jest.mock('@/lib/team', () => ({
   getDefaultTeam: jest.fn(),
+}))
+
+jest.mock('@/lib/integrations/pusher/server', () => ({
+  pushWorkspaceEvent: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -124,7 +131,13 @@ describe('listProjects', () => {
 
   it('skips Clerk lookup when no project has a reviewer', async () => {
     mockFindByWorkspace.mockResolvedValue([
-      { id: 'p1', name: 'X', _count: { tasks: 0 }, owner: null, repositories: [] },
+      {
+        id: 'p1',
+        name: 'X',
+        _count: { tasks: 0 },
+        owner: null,
+        repositories: [],
+      },
     ])
     mockCountTasksByStatus.mockResolvedValue(new Map())
 
@@ -193,6 +206,7 @@ describe('getProject', () => {
 describe('createProject', () => {
   it('creates project with default team', async () => {
     mockGetDefaultTeam.mockResolvedValue({ id: 'team-1' })
+    ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
     mockCreate.mockResolvedValue({ id: 'new-project', name: 'New' })
 
     const result = await projectService.createProject('ws-1', 'member-1', {
@@ -207,6 +221,97 @@ describe('createProject', () => {
       name: 'New',
       description: undefined,
       isIdea: undefined,
+      order: 1,
+    })
+  })
+
+  it('passes order = maxOrder + 1 to the repository', async () => {
+    mockGetDefaultTeam.mockResolvedValue({ id: 'team-1' })
+    ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(4)
+    mockCreate.mockResolvedValue({ id: 'p-new' })
+
+    await projectService.createProject('ws-1', 'member-1', {
+      name: 'New project',
+    })
+
+    expect(projectRepository.maxOrderInWorkspace).toHaveBeenCalledWith('ws-1')
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'ws-1',
+        teamId: 'team-1',
+        createdByMemberId: 'member-1',
+        name: 'New project',
+        order: 5,
+      })
+    )
+  })
+
+  it('defaults to order = 1 when the workspace has no projects', async () => {
+    mockGetDefaultTeam.mockResolvedValue({ id: 'team-1' })
+    ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
+    mockCreate.mockResolvedValue({ id: 'p-new' })
+
+    await projectService.createProject('ws-1', 'member-1', { name: 'First' })
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ order: 1 })
+    )
+  })
+})
+
+// ── reorderProjects ────────────────────────────────────────────────────────
+
+describe('reorderProjects', () => {
+  const { pushWorkspaceEvent } = jest.requireMock(
+    '@/lib/integrations/pusher/server'
+  ) as { pushWorkspaceEvent: jest.Mock }
+
+  beforeEach(() => {
+    pushWorkspaceEvent.mockClear()
+  })
+
+  it('rejects when any id belongs to a different workspace', async () => {
+    mockFindByWorkspace.mockResolvedValue([
+      { id: 'p1', workspaceId: 'ws-1' },
+      { id: 'p2', workspaceId: 'ws-1' },
+    ])
+
+    await expect(
+      projectService.reorderProjects('ws-1', 'acme', 'member-1', [
+        'p1',
+        'p-other',
+      ])
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects when orderedIds is empty', async () => {
+    await expect(
+      projectService.reorderProjects('ws-1', 'acme', 'member-1', [])
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('writes the new order and publishes the pusher event on success', async () => {
+    mockFindByWorkspace.mockResolvedValue([
+      { id: 'p1', workspaceId: 'ws-1' },
+      { id: 'p2', workspaceId: 'ws-1' },
+      { id: 'p3', workspaceId: 'ws-1' },
+    ])
+    ;(projectRepository.reorder as jest.Mock).mockResolvedValue(undefined)
+
+    await projectService.reorderProjects('ws-1', 'acme', 'member-1', [
+      'p2',
+      'p1',
+      'p3',
+    ])
+
+    expect(projectRepository.reorder).toHaveBeenCalledWith('ws-1', [
+      'p2',
+      'p1',
+      'p3',
+    ])
+    expect(pushWorkspaceEvent).toHaveBeenCalledWith('acme', {
+      type: 'projects-reordered',
+      orderedIds: ['p2', 'p1', 'p3'],
     })
   })
 })
