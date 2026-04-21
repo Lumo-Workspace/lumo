@@ -181,15 +181,15 @@ describe('reorder', () => {
     await projectRepository.reorder('ws-1', ['p2', 'p1', 'p3'])
 
     expect(mockUpdate).toHaveBeenNthCalledWith(1, {
-      where: { id: 'p2' },
+      where: { id: 'p2', workspaceId: 'ws-1' },
       data: { order: 1 },
     })
     expect(mockUpdate).toHaveBeenNthCalledWith(2, {
-      where: { id: 'p1' },
+      where: { id: 'p1', workspaceId: 'ws-1' },
       data: { order: 2 },
     })
     expect(mockUpdate).toHaveBeenNthCalledWith(3, {
-      where: { id: 'p3' },
+      where: { id: 'p3', workspaceId: 'ws-1' },
       data: { order: 3 },
     })
   })

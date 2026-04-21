@@ -224,13 +224,16 @@ export const projectRepository = {
 
   /**
    * Replace the `order` field on a sequence of projects to match the given array
-   * (1-based). Runs in a transaction. Caller is expected to validate ownership.
+   * (1-based). Runs in a transaction. The `workspaceId` scope is enforced in
+   * each update's `where` so a cross-workspace id causes the transaction to
+   * abort (`P2025`) instead of silently reordering the wrong workspace. Caller
+   * is still expected to dedupe / validate input; this is defense-in-depth.
    */
-  async reorder(_workspaceId: string, orderedIds: string[]) {
+  async reorder(workspaceId: string, orderedIds: string[]) {
     return prisma.$transaction(async tx => {
       for (let i = 0; i < orderedIds.length; i++) {
         await tx.project.update({
-          where: { id: orderedIds[i]! },
+          where: { id: orderedIds[i]!, workspaceId },
           data: { order: i + 1 },
         })
       }
