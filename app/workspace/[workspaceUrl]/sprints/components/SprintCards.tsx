@@ -354,12 +354,13 @@ function CreateSprintDialog({
 }) {
   const intl = useIntl()
   const today = startOfDay(new Date())
-  const twoWeeks = startOfDay(
-    new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
+  // 14 days inclusive of both endpoints → end is start + 13.
+  const defaultEnd = startOfDay(
+    new Date(today.getTime() + 13 * 24 * 60 * 60 * 1000)
   )
   const [name, setName] = useState('')
   const [start, setStart] = useState<Date>(today)
-  const [end, setEnd] = useState<Date>(twoWeeks)
+  const [end, setEnd] = useState<Date>(defaultEnd)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
