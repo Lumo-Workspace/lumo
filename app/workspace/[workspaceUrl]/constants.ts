@@ -143,6 +143,7 @@ export const CACHE_KEY = {
   invites: 'lumo:invites',
   projectTasks: (projectId: string) => `lumo:projectTasks:${projectId}`,
   workspace: 'lumo:workspace',
+  teams: 'lumo:teams',
   notifications: 'lumo:notifications',
   agentActors: 'lumo:agentActors',
   displayMyTasks: (userId: string) => `lumo:display:my-tasks:${userId}`,
