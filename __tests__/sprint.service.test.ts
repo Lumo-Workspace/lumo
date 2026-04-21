@@ -157,6 +157,203 @@ describe('addDays', () => {
   })
 })
 
+describe('sprintService.configureCadence', () => {
+  it('updates only `sprintsEnabled` when no other fields are provided', async () => {
+    mockTeamUpdate.mockResolvedValueOnce({ id: 'team-1' })
+    await sprintService.configureCadence('team-1', { enabled: true }, {
+      memberId: 'm1',
+    } as any)
+    expect(mockTeamUpdate).toHaveBeenCalledWith({
+      where: { id: 'team-1' },
+      data: { sprintsEnabled: true },
+    })
+  })
+
+  it('persists all cadence fields when provided', async () => {
+    mockTeamUpdate.mockResolvedValueOnce({ id: 'team-1' })
+    await sprintService.configureCadence(
+      'team-1',
+      {
+        enabled: true,
+        durationDays: 14,
+        cooldownDays: 7,
+        startWeekday: 1,
+        autoCreate: 2,
+      },
+      { memberId: 'm1' } as any
+    )
+    expect(mockTeamUpdate).toHaveBeenCalledWith({
+      where: { id: 'team-1' },
+      data: {
+        sprintsEnabled: true,
+        sprintDurationDays: 14,
+        sprintCooldownDays: 7,
+        sprintStartWeekday: 1,
+        sprintAutoCreate: 2,
+      },
+    })
+  })
+})
+
+describe('sprintService.ensureFutureSprints', () => {
+  const cadenceTeam = {
+    id: 'team-1',
+    sprintsEnabled: true,
+    sprintDurationDays: 14,
+    sprintCooldownDays: 0,
+    sprintStartWeekday: 1,
+    sprintAutoCreate: 2,
+  }
+
+  it('is a no-op when sprints are disabled', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce({
+      ...cadenceTeam,
+      sprintsEnabled: false,
+    })
+    await sprintService.ensureFutureSprints('team-1')
+    expect(mockSprintCreate).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op when autoCreate is 0', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce({
+      ...cadenceTeam,
+      sprintAutoCreate: 0,
+    })
+    await sprintService.ensureFutureSprints('team-1')
+    expect(mockSprintCreate).not.toHaveBeenCalled()
+  })
+
+  it('creates `autoCreate` sprints when the team has none, all starting on Monday', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce(cadenceTeam)
+    mockListByTeam.mockResolvedValueOnce([])
+    // autoCreate=2 ⇒ two calls to nextNumberForTeam + create.
+    mockNextNumber.mockResolvedValueOnce(1).mockResolvedValueOnce(2)
+    mockSprintCreate.mockResolvedValue({ id: 'sx' })
+
+    await sprintService.ensureFutureSprints(
+      'team-1',
+      new Date('2026-04-20T00:00:00Z') // Monday
+    )
+    expect(mockSprintCreate).toHaveBeenCalledTimes(2)
+    expect(mockSprintCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        number: 1,
+        // 14-day inclusive: Mon Apr 20 → Sun May 3.
+        startDate: new Date('2026-04-20T00:00:00Z'),
+        endDate: new Date('2026-05-03T00:00:00Z'),
+      })
+    )
+    expect(mockSprintCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        number: 2,
+        // Next Mon May 4 → Sun May 17.
+        startDate: new Date('2026-05-04T00:00:00Z'),
+        endDate: new Date('2026-05-17T00:00:00Z'),
+      })
+    )
+  })
+
+  it('does nothing when future sprints already meet the quota', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce(cadenceTeam)
+    mockListByTeam.mockResolvedValueOnce([
+      {
+        id: 's1',
+        number: 1,
+        startDate: new Date('2026-04-20T00:00:00Z'),
+        endDate: new Date('2026-05-03T00:00:00Z'),
+      },
+      {
+        id: 's2',
+        number: 2,
+        startDate: new Date('2026-05-04T00:00:00Z'),
+        endDate: new Date('2026-05-17T00:00:00Z'),
+      },
+    ])
+    await sprintService.ensureFutureSprints(
+      'team-1',
+      new Date('2026-04-19T00:00:00Z')
+    )
+    expect(mockSprintCreate).not.toHaveBeenCalled()
+  })
+
+  it('tops up only the shortfall, chaining from the latest sprint', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce(cadenceTeam)
+    mockListByTeam.mockResolvedValueOnce([
+      {
+        id: 's1',
+        number: 1,
+        startDate: new Date('2026-04-20T00:00:00Z'),
+        endDate: new Date('2026-05-03T00:00:00Z'),
+      },
+    ])
+    mockNextNumber.mockResolvedValueOnce(2)
+    mockSprintCreate.mockResolvedValueOnce({ id: 's2' })
+
+    await sprintService.ensureFutureSprints(
+      'team-1',
+      new Date('2026-04-19T00:00:00Z')
+    )
+    expect(mockSprintCreate).toHaveBeenCalledTimes(1)
+    expect(mockSprintCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        number: 2,
+        startDate: new Date('2026-05-04T00:00:00Z'),
+        endDate: new Date('2026-05-17T00:00:00Z'),
+      })
+    )
+  })
+
+  it('re-bootstraps from `now` when the only sprints on record are already closed in the past', async () => {
+    // Team used sprints a month ago, stopped, then re-enables with autoCreate.
+    // We must NOT chain off the stale CLOSED anchor (that would create
+    // already-expired future sprints).
+    mockTeamFindUnique.mockResolvedValueOnce({
+      ...cadenceTeam,
+      sprintAutoCreate: 1,
+    })
+    mockListByTeam.mockResolvedValueOnce([
+      {
+        id: 's-old',
+        number: 3,
+        startDate: new Date('2026-03-02T00:00:00Z'),
+        endDate: new Date('2026-03-15T00:00:00Z'),
+      },
+    ])
+    mockNextNumber.mockResolvedValueOnce(4)
+    mockSprintCreate.mockResolvedValueOnce({ id: 's4' })
+
+    await sprintService.ensureFutureSprints(
+      'team-1',
+      new Date('2026-04-20T00:00:00Z') // Monday, weeks after the old sprint ended.
+    )
+    expect(mockSprintCreate).toHaveBeenCalledTimes(1)
+    expect(mockSprintCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        number: 4,
+        startDate: new Date('2026-04-20T00:00:00Z'),
+        endDate: new Date('2026-05-03T00:00:00Z'),
+      })
+    )
+  })
+
+  it('bails out silently on P2002 concurrent-number race', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce(cadenceTeam)
+    mockListByTeam.mockResolvedValueOnce([])
+    mockNextNumber.mockResolvedValueOnce(1)
+    mockSprintCreate.mockRejectedValueOnce(
+      Object.assign(new Error('unique violation'), { code: 'P2002' })
+    )
+    await expect(
+      sprintService.ensureFutureSprints(
+        'team-1',
+        new Date('2026-04-20T00:00:00Z')
+      )
+    ).resolves.toBeUndefined()
+  })
+})
+
 describe('sprintService.start', () => {
   it('marks DRAFT sprint as ACTIVE, sets startedAt', async () => {
     mockFindUnique.mockResolvedValueOnce({

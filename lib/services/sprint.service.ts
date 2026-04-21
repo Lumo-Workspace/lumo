@@ -3,6 +3,7 @@ import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
+import { computeNextSprintWindow } from '@/lib/services/sprint-date'
 
 // Re-export for backward compatibility
 export { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint-date'
@@ -356,12 +357,99 @@ export const sprintService = {
 
   async configureCadence(
     teamId: string,
-    input: { enabled: boolean },
+    input: {
+      enabled: boolean
+      durationDays?: number
+      cooldownDays?: number
+      startWeekday?: number
+      autoCreate?: number
+    },
     _actor: ActorRef
   ) {
     return prisma.team.update({
       where: { id: teamId },
-      data: { sprintsEnabled: input.enabled },
+      data: {
+        sprintsEnabled: input.enabled,
+        ...(input.durationDays !== undefined
+          ? { sprintDurationDays: input.durationDays }
+          : {}),
+        ...(input.cooldownDays !== undefined
+          ? { sprintCooldownDays: input.cooldownDays }
+          : {}),
+        ...(input.startWeekday !== undefined
+          ? { sprintStartWeekday: input.startWeekday }
+          : {}),
+        ...(input.autoCreate !== undefined
+          ? { sprintAutoCreate: input.autoCreate }
+          : {}),
+      },
     })
+  },
+
+  /**
+   * Lazily top up future DRAFT sprints to match `team.sprintAutoCreate`.
+   *
+   * Call from read paths (e.g. sprint list GET) so the next N future sprints
+   * always exist without needing a scheduled job. Counts any DRAFT or ACTIVE
+   * sprint with `startDate >= now` toward the quota — we only create new
+   * sprints when there's a shortfall.
+   *
+   * Silent no-op when sprints are disabled or `sprintAutoCreate == 0`. Errors
+   * are swallowed by callers (fire-and-forget) because this is opportunistic.
+   */
+  async ensureFutureSprints(teamId: string, now: Date = new Date()) {
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        sprintsEnabled: true,
+        sprintDurationDays: true,
+        sprintCooldownDays: true,
+        sprintStartWeekday: true,
+        sprintAutoCreate: true,
+      },
+    })
+    if (!team || !team.sprintsEnabled || team.sprintAutoCreate <= 0) return
+
+    // Latest sprint by startDate — either it's the anchor for the next window
+    // (if it's in the future or current) or we're bootstrapping from `now`.
+    const all = await sprintRepository.listByTeam(teamId, { limit: 100 })
+    const existingFuture = all.filter(
+      s => new Date(s.startDate).getTime() >= now.getTime()
+    )
+    const shortfall = team.sprintAutoCreate - existingFuture.length
+    if (shortfall <= 0) return
+
+    let anchorEnd: Date | null = null
+    if (all.length > 0) {
+      // `listByTeam` is ordered by number desc, so [0] is the latest sprint.
+      anchorEnd = new Date(all[0]!.endDate)
+    }
+
+    const cadence = {
+      durationDays: team.sprintDurationDays,
+      cooldownDays: team.sprintCooldownDays,
+      startWeekday: team.sprintStartWeekday,
+    }
+
+    for (let i = 0; i < shortfall; i++) {
+      const window = computeNextSprintWindow(cadence, anchorEnd, now)
+      try {
+        const number = await sprintRepository.nextNumberForTeam(teamId)
+        await sprintRepository.create({
+          teamId,
+          number,
+          name: `Sprint ${number}`,
+          startDate: window.startDate,
+          endDate: window.endDate,
+        })
+      } catch (err: any) {
+        // P2002 = unique constraint (teamId, number) — concurrent top-up race;
+        // bail out and let the other caller finish.
+        if (err?.code === 'P2002') return
+        throw err
+      }
+      anchorEnd = window.endDate
+    }
   },
 }

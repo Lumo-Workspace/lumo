@@ -178,4 +178,58 @@ describe('cadenceSchema', () => {
   it('rejects empty body', () => {
     expect(cadenceSchema.safeParse({}).success).toBe(false)
   })
+
+  it('accepts full cadence config', () => {
+    const r = cadenceSchema.safeParse({
+      enabled: true,
+      durationDays: 14,
+      cooldownDays: 7,
+      startWeekday: 1,
+      autoCreate: 2,
+    })
+    expect(r.success).toBe(true)
+  })
+
+  it('rejects durationDays outside the allowed set', () => {
+    expect(
+      cadenceSchema.safeParse({ enabled: true, durationDays: 10 }).success
+    ).toBe(false)
+    expect(
+      cadenceSchema.safeParse({ enabled: true, durationDays: 0 }).success
+    ).toBe(false)
+  })
+
+  it('rejects cooldownDays outside {0, 7}', () => {
+    // Only 0 (back-to-back) and 7 (1-week gap) are valid — keeps startDate
+    // aligned to `startWeekday`.
+    expect(
+      cadenceSchema.safeParse({ enabled: true, cooldownDays: 0 }).success
+    ).toBe(true)
+    expect(
+      cadenceSchema.safeParse({ enabled: true, cooldownDays: 7 }).success
+    ).toBe(true)
+    for (const bad of [1, 2, 3, 4, -1, 14]) {
+      expect(
+        cadenceSchema.safeParse({ enabled: true, cooldownDays: bad }).success
+      ).toBe(false)
+    }
+  })
+
+  it('rejects startWeekday out of 0..6', () => {
+    expect(
+      cadenceSchema.safeParse({ enabled: true, startWeekday: 7 }).success
+    ).toBe(false)
+    expect(
+      cadenceSchema.safeParse({ enabled: true, startWeekday: -1 }).success
+    ).toBe(false)
+  })
+
+  it('rejects autoCreate out of 0..4', () => {
+    expect(
+      cadenceSchema.safeParse({ enabled: true, autoCreate: 5 }).success
+    ).toBe(false)
+    expect(
+      cadenceSchema.safeParse({ enabled: true, autoCreate: -1 }).success
+    ).toBe(false)
+  })
 })

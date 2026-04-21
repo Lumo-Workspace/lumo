@@ -98,7 +98,16 @@ export const sprintsClient = {
     return apiFetch<{ sprintIds: string[] }>('/api/me/active-sprints')
   },
 
-  setCadence(teamId: string, input: { enabled: boolean }) {
+  setCadence(
+    teamId: string,
+    input: {
+      enabled: boolean
+      durationDays?: number
+      cooldownDays?: number
+      startWeekday?: number
+      autoCreate?: number
+    }
+  ) {
     return apiFetch<void>(API.sprints.cadence(teamId), {
       method: 'PATCH',
       body: input,

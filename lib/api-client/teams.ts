@@ -6,6 +6,10 @@ export interface ApiTeam {
   identifier: string
   isDefault: boolean
   sprintsEnabled: boolean
+  sprintDurationDays: number
+  sprintCooldownDays: number
+  sprintStartWeekday: number
+  sprintAutoCreate: number
 }
 
 interface TeamListResult {
