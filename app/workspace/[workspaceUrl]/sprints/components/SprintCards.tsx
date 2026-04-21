@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { CalendarDays, MoreHorizontal, Trash2 } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { enUS, zhCN, zhTW } from 'date-fns/locale'
 import type { Locale as DateFnsLocale } from 'date-fns'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
@@ -20,22 +20,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -46,6 +30,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
+import { SprintActionsMenu } from './SprintActionsMenu'
 
 const CALENDAR_LOCALES: Record<string, DateFnsLocale> = {
   en: enUS,
@@ -70,101 +55,6 @@ function formatDate(date: Date | string): string {
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-/**
- * Kebab menu + confirmation dialog. Stops Link/Card click propagation so
- * tapping the kebab on a card-as-link doesn't navigate.
- */
-function SprintCardActions({
-  sprint,
-  onDeleted,
-}: {
-  sprint: Sprint
-  onDeleted: () => void
-}) {
-  const intl = useIntl()
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-
-  async function handleDelete() {
-    setDeleting(true)
-    try {
-      await sprintsClient.remove(sprint.id)
-      toast.success(intl.formatMessage({ id: 'sprints.detail.deleted' }))
-      onDeleted()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Delete failed')
-    } finally {
-      setDeleting(false)
-      setConfirmOpen(false)
-    }
-  }
-
-  function stop(e: React.MouseEvent | React.KeyboardEvent) {
-    e.stopPropagation()
-    e.preventDefault()
-  }
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant='ghost'
-            size='icon'
-            className='size-7 text-muted-foreground'
-            onClick={stop}
-            aria-label={intl.formatMessage({
-              id: 'sprints.detail.openActions',
-            })}
-          >
-            <MoreHorizontal className='size-4' />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' onClick={stop}>
-          <DropdownMenuItem
-            className='text-destructive focus:text-destructive'
-            onSelect={ev => {
-              ev.preventDefault()
-              setConfirmOpen(true)
-            }}
-          >
-            <Trash2 className='size-4 mr-2' />
-            {intl.formatMessage({ id: 'sprints.detail.deleteSprint' })}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent onClick={stop}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {intl.formatMessage(
-                { id: 'sprints.detail.deleteConfirmTitle' },
-                { name: sprint.name }
-              )}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {intl.formatMessage({ id: 'sprints.detail.deleteConfirmBody' })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              {intl.formatMessage({ id: 'sprints.detail.deleteCancel' })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleting}
-              onClick={handleDelete}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-            >
-              {intl.formatMessage({ id: 'sprints.detail.deleteConfirm' })}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  )
 }
 
 function DatePickerField({
@@ -254,7 +144,7 @@ function SprintLandingCard({
               <span className='text-xs text-muted-foreground'>
                 {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)}
               </span>
-              <SprintCardActions sprint={sprint} onDeleted={onChanged} />
+              <SprintActionsMenu sprint={sprint} onDeleted={onChanged} />
             </div>
           </div>
         </CardHeader>
@@ -333,7 +223,7 @@ function ClosedSprintRow({
             {intl.formatMessage({ id: 'sprints.landing.viewRetro' })}
           </Link>
         </Button>
-        <SprintCardActions sprint={sprint} onDeleted={onChanged} />
+        <SprintActionsMenu sprint={sprint} onDeleted={onChanged} />
       </div>
     </div>
   )

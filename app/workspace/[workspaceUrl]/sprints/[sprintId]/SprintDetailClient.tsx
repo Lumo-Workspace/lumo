@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { useSprint, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
 import { SprintBoard } from '../components/SprintBoard'
 import { SprintSidebar } from '../components/SprintSidebar'
+import { SprintActionsMenu } from '../components/SprintActionsMenu'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
 import {
   Breadcrumb,
@@ -23,6 +24,7 @@ export function SprintDetailClient() {
     sprintId: string
     workspaceUrl: string
   }>()
+  const router = useRouter()
   const intl = useIntl()
   const { sprint, progress, isLoading, error, refetch } = useSprint(sprintId)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprintId)
@@ -101,7 +103,15 @@ export function SprintDetailClient() {
 
   return (
     <div className='flex flex-col h-full overflow-hidden'>
-      <PageBreadcrumb>{breadcrumb(sprint.name)}</PageBreadcrumb>
+      <PageBreadcrumb>
+        <div className='flex items-center gap-1.5'>
+          {breadcrumb(sprint.name)}
+          <SprintActionsMenu
+            sprint={sprint}
+            onDeleted={() => router.push(sprintsHref)}
+          />
+        </div>
+      </PageBreadcrumb>
       <div className='grid grid-cols-[1fr_320px] gap-4 p-4 flex-1 overflow-hidden'>
         {board}
         {sidePanel}
