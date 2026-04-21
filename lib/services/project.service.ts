@@ -100,6 +100,9 @@ export const projectService = {
     }
   ) {
     const defaultTeam = await getDefaultTeam(workspaceId)
+    // Tie-tolerant: two concurrent creates reading the same max are fine —
+    // findByWorkspace sorts by (order ASC, name ASC), so a shared order
+    // value simply falls back to the name tiebreaker.
     const maxOrder = await projectRepository.maxOrderInWorkspace(workspaceId)
 
     return projectRepository.create({
@@ -206,6 +209,10 @@ export const projectService = {
       })
     }
 
+    // Uses findByWorkspace, which applies member visibility (public + own
+    // ideas). A member cannot reorder a project they can't see; the generic
+    // error message below intentionally avoids leaking the existence of
+    // someone else's idea project.
     const workspaceProjects = await projectRepository.findByWorkspace(
       workspaceId,
       memberId
