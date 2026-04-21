@@ -65,6 +65,8 @@
   "sprints.detail.viewRetro": "查看回顧",
   "sprints.detail.addTask": "新增任務",
   "sprints.detail.progress": "進度",
+  "sprints.detail.byPriority": "按優先級",
+  "sprints.detail.byMember": "按成員",
   "sprints.detail.dateStart": "開始",
   "sprints.detail.dateEnd": "結束",
   "sprints.detail.dateStarted": "已開始",

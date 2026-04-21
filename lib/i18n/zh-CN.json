@@ -770,6 +770,8 @@
   "sprints.detail.viewRetro": "查看回顾",
   "sprints.detail.addTask": "添加任务",
   "sprints.detail.progress": "进度",
+  "sprints.detail.byPriority": "按优先级",
+  "sprints.detail.byMember": "按成员",
   "sprints.detail.dateStart": "开始",
   "sprints.detail.dateEnd": "结束",
   "sprints.detail.dateStarted": "已开始",

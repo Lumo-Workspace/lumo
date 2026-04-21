@@ -81,9 +81,11 @@ export function SprintDetailClient() {
     )
   }
 
+  const taskList = (tasks ?? []) as import('../../types').ApiTask[]
+
   const board = (
     <SprintBoard
-      tasks={tasks ?? []}
+      tasks={taskList}
       onTaskMoved={refetchTasks}
       sprintId={sprint.id}
       members={members}
@@ -94,6 +96,8 @@ export function SprintDetailClient() {
     <SprintSidebar
       sprint={sprint}
       progress={progress ?? { done: 0, total: 0 }}
+      tasks={taskList}
+      members={members}
       onRefresh={() => {
         refetch()
         refetchTasks()

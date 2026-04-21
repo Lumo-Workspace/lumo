@@ -770,6 +770,8 @@
   "sprints.detail.viewRetro": "View retro",
   "sprints.detail.addTask": "Add task",
   "sprints.detail.progress": "Progress",
+  "sprints.detail.byPriority": "By priority",
+  "sprints.detail.byMember": "By member",
   "sprints.detail.dateStart": "Start",
   "sprints.detail.dateEnd": "End",
   "sprints.detail.dateStarted": "Started",

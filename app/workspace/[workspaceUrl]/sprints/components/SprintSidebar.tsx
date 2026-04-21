@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { Progress } from '@/components/ui/progress'
@@ -10,7 +10,17 @@ import {
   deriveSprintState,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
+import {
+  priorityBreakdown,
+  memberBreakdown,
+} from '@/lib/services/sprint-breakdown'
 import { DatePickerField, startOfDay } from './DatePickerField'
+import type { ApiTask, WorkspaceMemberInfo } from '../../types'
+import {
+  PriorityIcon,
+  PRIORITY_CONFIG,
+  MemberAvatar,
+} from '../../components/fields/shared'
 
 interface SprintProgress {
   done: number
@@ -20,6 +30,8 @@ interface SprintProgress {
 interface SprintSidebarProps {
   sprint: Sprint
   progress: SprintProgress
+  tasks: ApiTask[]
+  members: WorkspaceMemberInfo[]
   onRefresh: () => void
 }
 
@@ -39,6 +51,8 @@ const STATE_I18N_KEY: Record<DerivedSprintState, string> = {
 export function SprintSidebar({
   sprint,
   progress,
+  tasks,
+  members,
   onRefresh,
 }: SprintSidebarProps) {
   const intl = useIntl()
@@ -57,6 +71,15 @@ export function SprintSidebar({
 
   const pct =
     progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+
+  const byPriority = useMemo(() => priorityBreakdown(tasks), [tasks])
+  const byMember = useMemo(
+    () => memberBreakdown(tasks, members),
+    [tasks, members]
+  )
+
+  const bucketPct = (done: number, total: number) =>
+    total > 0 ? Math.round((done / total) * 100) : 0
 
   async function applyChange(field: 'startDate' | 'endDate', next: Date) {
     const prevStart = start
@@ -125,6 +148,62 @@ export function SprintSidebar({
         <Progress value={pct} className='h-2' />
         <p className='text-xs text-muted-foreground text-right'>{pct}%</p>
       </div>
+
+      {/* Priority breakdown — hidden when sprint has no tasks */}
+      {byPriority.length > 0 && (
+        <div className='flex flex-col gap-2 border-t pt-3'>
+          <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+            {intl.formatMessage({ id: 'sprints.detail.byPriority' })}
+          </p>
+          <div className='flex flex-col gap-2'>
+            {byPriority.map(bucket => (
+              <div key={bucket.priority} className='flex flex-col gap-1'>
+                <div className='flex items-center justify-between text-xs'>
+                  <span className='flex items-center gap-1.5'>
+                    <PriorityIcon priority={bucket.priority} />
+                    <span>{PRIORITY_CONFIG[bucket.priority].label}</span>
+                  </span>
+                  <span className='text-muted-foreground tabular-nums'>
+                    {bucket.done} / {bucket.total}
+                  </span>
+                </div>
+                <Progress
+                  value={bucketPct(bucket.done, bucket.total)}
+                  className='h-1.5'
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Member breakdown — hidden when no HUMAN assignees */}
+      {byMember.length > 0 && (
+        <div className='flex flex-col gap-2 border-t pt-3'>
+          <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+            {intl.formatMessage({ id: 'sprints.detail.byMember' })}
+          </p>
+          <div className='flex flex-col gap-2'>
+            {byMember.map(bucket => (
+              <div key={bucket.member.id} className='flex flex-col gap-1'>
+                <div className='flex items-center justify-between gap-2 text-xs'>
+                  <span className='flex items-center gap-1.5 min-w-0'>
+                    <MemberAvatar member={bucket.member} size='xs' />
+                    <span className='truncate'>{bucket.member.name}</span>
+                  </span>
+                  <span className='text-muted-foreground tabular-nums shrink-0'>
+                    {bucket.done} / {bucket.total}
+                  </span>
+                </div>
+                <Progress
+                  value={bucketPct(bucket.done, bucket.total)}
+                  className='h-1.5'
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
