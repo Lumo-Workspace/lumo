@@ -104,9 +104,12 @@ interface MyTasksPageProps {
   onNewTask: (status?: ApiStatus) => void
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
-  currentSprintOnly?: boolean
-  onCurrentSprintOnlyChange?: (value: boolean) => void
-  noActiveSprint?: boolean
+  // Workspace has at least one team with sprints enabled — gates visibility
+  // of the "current sprint only" toggle.
+  sprintsAvailable?: boolean
+  // Sprint IDs the user currently has active (i.e. CURRENT time window,
+  // across all teams). Used for client-side filtering only.
+  activeSprintIds?: string[]
 }
 
 export function MyTasksPage({
@@ -121,21 +124,42 @@ export function MyTasksPage({
   onNewTask,
   members,
   projects,
-  currentSprintOnly = false,
-  onCurrentSprintOnlyChange,
-  noActiveSprint = false,
+  sprintsAvailable = false,
+  activeSprintIds = [],
 }: MyTasksPageProps) {
   const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
-  const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
-    useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
+  const {
+    options,
+    setCompletedFilter,
+    setOrdering,
+    setShowSubtasks,
+    setCurrentSprintOnly,
+  } = useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
+  const currentSprintOnly = options.currentSprintOnly
+  const noActiveSprint = currentSprintOnly && activeSprintIds.length === 0
+
   const filteredTasks = useMemo(() => {
     let result = filterCompletedTasks(tasks, options.completedFilter)
     if (!options.showSubtasks) {
       result = result.filter(t => !t.parentTaskId)
     }
+    if (currentSprintOnly) {
+      // Filter against the task's own sprintId using the active sprint set.
+      // An empty activeSprintIds collapses this to "show nothing" — the
+      // banner above informs the user there's no active sprint.
+      const active = new Set(activeSprintIds)
+      result = result.filter(t => t.sprintId && active.has(t.sprintId))
+    }
     return sortTasks(result, options.ordering)
-  }, [tasks, options.completedFilter, options.ordering, options.showSubtasks])
+  }, [
+    tasks,
+    options.completedFilter,
+    options.ordering,
+    options.showSubtasks,
+    currentSprintOnly,
+    activeSprintIds,
+  ])
 
   const sensors = useBoardSensors()
 
@@ -266,12 +290,12 @@ export function MyTasksPage({
         <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>
           {/* Left: filter chips */}
           <div className='flex items-center gap-2'>
-            {onCurrentSprintOnlyChange && (
+            {sprintsAvailable && (
               <Button
                 variant={currentSprintOnly ? 'default' : 'outline'}
                 size='sm'
                 className='gap-1.5 h-7 text-xs'
-                onClick={() => onCurrentSprintOnlyChange(!currentSprintOnly)}
+                onClick={() => setCurrentSprintOnly(!currentSprintOnly)}
               >
                 <CalendarClock className='h-3 w-3' />
                 {intl.formatMessage({

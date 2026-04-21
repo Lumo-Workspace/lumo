@@ -197,6 +197,16 @@ model Team {
 
   sprintsEnabled Boolean @default(false)
 
+  // Sprint cadence config — applied when auto-creating future sprints.
+  // startWeekday: 0=Sun … 6=Sat (ISO Monday = 1).
+  // Cooldown is the number of full days between the last day of one sprint
+  // and the first day of the next (0 = back-to-back, i.e. next sprint
+  // starts the day after the previous one ends).
+  sprintDurationDays Int @default(14)
+  sprintCooldownDays Int @default(0)
+  sprintStartWeekday Int @default(1)
+  sprintAutoCreate   Int @default(0)
+
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]
   members   TeamMember[]

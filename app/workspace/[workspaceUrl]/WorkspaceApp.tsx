@@ -137,11 +137,12 @@ export default function DashboardApp() {
   const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
   // ─── My Tasks sprint filter ────────────────────────────────────────────────
-  const [currentSprintOnly, setCurrentSprintOnly] = useState(false)
+  // The toggle state itself lives inside MyTasksPage (persisted via
+  // useDisplayOptions). We only surface the workspace-level inputs needed
+  // to do the client-side filter.
   const { sprintIds: activeSprintIds } = useMyActiveSprints()
   const { teams: myTeams } = useWorkspaceTeams()
   const anySprintEnabledTeam = myTeams.some(t => t.sprintsEnabled)
-  const myTasksSprintFilter = currentSprintOnly ? activeSprintIds : undefined
 
   // ─── Normalized task store ─────────────────────────────────────────────────
   const {
@@ -161,10 +162,7 @@ export default function DashboardApp() {
     loading: myTasksLoading,
     error: myTasksError,
     fetchMyTasks,
-  } = useMyTasks(
-    upsertTasks,
-    myTasksSprintFilter ? { sprintIds: myTasksSprintFilter } : {}
-  )
+  } = useMyTasks(upsertTasks)
 
   const {
     projects,
@@ -549,11 +547,8 @@ export default function DashboardApp() {
             onNewTask={openNewTaskModalForMe}
             members={members}
             projects={projects}
-            currentSprintOnly={currentSprintOnly}
-            {...(anySprintEnabledTeam
-              ? { onCurrentSprintOnlyChange: setCurrentSprintOnly }
-              : {})}
-            noActiveSprint={currentSprintOnly && activeSprintIds.length === 0}
+            sprintsAvailable={anySprintEnabledTeam}
+            activeSprintIds={activeSprintIds}
           />
         )
 

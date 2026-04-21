@@ -82,6 +82,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     await requireTeamMemberOrOwner(team.workspaceId, team.id, userId)
 
+    // Lazy top-up of future DRAFT sprints per cadence config. Fire-and-forget
+    // is tempting, but we await so the newly-created sprints show up in the
+    // same response the user is about to render.
+    try {
+      await sprintService.ensureFutureSprints(team.id)
+    } catch {
+      // Non-fatal — continue serving the list.
+    }
+
     const url = new URL(req.url)
     const statusRaw = url.searchParams.get('status')
     const statusParsed = z
