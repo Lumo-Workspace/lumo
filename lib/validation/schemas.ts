@@ -82,6 +82,13 @@ export const updateProjectSchema = z.object({
   riskThroughputDrop: z.number().min(0).max(1).nullable().optional(),
 })
 
+export const reorderProjectsSchema = z.object({
+  orderedIds: z
+    .array(z.string().cuid())
+    .min(1, 'orderedIds must contain at least one id')
+    .max(500, 'orderedIds is limited to 500 entries'),
+})
+
 // ─── Task ───────────────────────────────────────────────────────────────────
 
 export const createTaskSchema = z.object({
