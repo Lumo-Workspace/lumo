@@ -32,4 +32,11 @@ export const projectsClient = {
       body: data,
     })
   },
+
+  reorder<T>(orderedIds: string[]) {
+    return apiFetch<T>(API.projects.reorder, {
+      method: 'PATCH',
+      body: { orderedIds },
+    })
+  },
 }

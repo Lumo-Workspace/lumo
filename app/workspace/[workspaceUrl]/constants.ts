@@ -18,6 +18,7 @@ export const API = {
     list: '/api/projects',
     byId: (id: string) => `/api/projects/${id}`,
     tasks: (projectId: string) => `/api/projects/${projectId}/tasks`,
+    reorder: '/api/projects/reorder',
   },
   views: {
     taskOrders: (viewId: string) => `/api/views/${viewId}/task-orders`,
