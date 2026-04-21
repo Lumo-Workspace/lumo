@@ -751,6 +751,7 @@
   "sprints.create.invalidRange": "结束日期必须晚于开始日期。",
   "sprints.create.cancel": "取消",
   "sprints.create.submit": "创建",
+  "sprints.create.success": "冲刺已创建",
   "sprints.landing.viewRetro": "查看回顾",
   "sprints.detail.loading": "加载中…",
   "sprints.detail.notFound": "未找到该冲刺",

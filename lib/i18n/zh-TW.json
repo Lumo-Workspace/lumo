@@ -46,6 +46,7 @@
   "sprints.create.invalidRange": "結束日期必須晚於開始日期。",
   "sprints.create.cancel": "取消",
   "sprints.create.submit": "建立",
+  "sprints.create.success": "衝刺已建立",
   "sprints.landing.viewRetro": "查看回顧",
   "sprints.detail.loading": "載入中…",
   "sprints.detail.notFound": "找不到該衝刺",

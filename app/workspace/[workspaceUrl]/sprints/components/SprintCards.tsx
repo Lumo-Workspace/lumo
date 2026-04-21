@@ -341,16 +341,20 @@ function ClosedSprintRow({
 
 // ─── Create-sprint dialog ─────────────────────────────────────────────────────
 
+interface CreateSprintInput {
+  name?: string
+  startDate: Date
+  endDate: Date
+}
+
 function CreateSprintDialog({
-  teamId,
   open,
   onOpenChange,
-  onCreated,
+  onSubmit,
 }: {
-  teamId: string
   open: boolean
   onOpenChange: (v: boolean) => void
-  onCreated: () => void
+  onSubmit: (input: CreateSprintInput) => void
 }) {
   const intl = useIntl()
   const today = startOfDay(new Date())
@@ -361,30 +365,20 @@ function CreateSprintDialog({
   const [name, setName] = useState('')
   const [start, setStart] = useState<Date>(today)
   const [end, setEnd] = useState<Date>(defaultEnd)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const calendarLocale = CALENDAR_LOCALES[intl.locale] ?? enUS
   const valid = end > start
 
-  async function submit() {
+  function submit() {
     if (!valid) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await sprintsClient.createDraft(teamId, {
-        ...(name.trim() ? { name: name.trim() } : {}),
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-      })
-      onCreated()
-      onOpenChange(false)
-      setName('')
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setSubmitting(false)
-    }
+    onSubmit({
+      ...(name.trim() ? { name: name.trim() } : {}),
+      startDate: start,
+      endDate: end,
+    })
+    // Close immediately — parent owns the optimistic update + toast.
+    onOpenChange(false)
+    setName('')
   }
 
   return (
@@ -439,13 +433,12 @@ function CreateSprintDialog({
               {intl.formatMessage({ id: 'sprints.create.invalidRange' })}
             </p>
           )}
-          {error && <p className='text-sm text-destructive'>{error}</p>}
         </div>
         <DialogFooter>
           <Button variant='ghost' onClick={() => onOpenChange(false)}>
             {intl.formatMessage({ id: 'sprints.create.cancel' })}
           </Button>
-          <Button onClick={submit} disabled={!valid || submitting}>
+          <Button onClick={submit} disabled={!valid}>
             {intl.formatMessage({ id: 'sprints.create.submit' })}
           </Button>
         </DialogFooter>
@@ -460,9 +453,52 @@ export function SprintCards({ teamId }: { teamId: string }) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
 
-  const { sprints, isLoading, refetch: refetchAll } = useSprintsForTeam(teamId)
+  const {
+    sprints,
+    setSprints,
+    isLoading,
+    refetch: refetchAll,
+  } = useSprintsForTeam(teamId)
 
   const [createOpen, setCreateOpen] = useState(false)
+
+  async function handleCreate(input: CreateSprintInput) {
+    // Optimistic stub — same shape as Sprint so the landing card renders
+    // without flicker. Reconciled by refetch on success.
+    const optimisticId = `optimistic-${
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)
+    }`
+    const optimistic: Sprint = {
+      id: optimisticId,
+      teamId,
+      number: 0,
+      name: input.name?.trim() || '…',
+      status: 'DRAFT',
+      startDate: input.startDate,
+      endDate: input.endDate,
+      startedAt: null,
+      closedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    setSprints(prev => [...(prev ?? []), optimistic])
+
+    try {
+      await sprintsClient.createDraft(teamId, {
+        ...(input.name ? { name: input.name } : {}),
+        startDate: input.startDate.toISOString(),
+        endDate: input.endDate.toISOString(),
+      })
+      toast.success(intl.formatMessage({ id: 'sprints.create.success' }))
+      refetchAll()
+    } catch (e) {
+      // Roll back the optimistic insert.
+      setSprints(prev => (prev ?? []).filter(s => s.id !== optimisticId))
+      toast.error(e instanceof Error ? e.message : 'Create failed')
+    }
+  }
 
   // Partition purely by date so the landing page never lies about what's
   // "current" vs "upcoming" just because nobody clicked a state-transition
@@ -503,10 +539,9 @@ export function SprintCards({ teamId }: { teamId: string }) {
           </Button>
         </div>
         <CreateSprintDialog
-          teamId={teamId}
           open={createOpen}
           onOpenChange={setCreateOpen}
-          onCreated={refetchAll}
+          onSubmit={handleCreate}
         />
       </>
     )
@@ -576,10 +611,9 @@ export function SprintCards({ teamId }: { teamId: string }) {
       )}
 
       <CreateSprintDialog
-        teamId={teamId}
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={refetchAll}
+        onSubmit={handleCreate}
       />
     </div>
   )

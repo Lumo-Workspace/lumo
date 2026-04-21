@@ -751,6 +751,7 @@
   "sprints.create.invalidRange": "End date must be after start date.",
   "sprints.create.cancel": "Cancel",
   "sprints.create.submit": "Create",
+  "sprints.create.success": "Sprint created",
   "sprints.landing.viewRetro": "View retro",
   "sprints.detail.loading": "Loading…",
   "sprints.detail.notFound": "Sprint not found",

@@ -83,7 +83,7 @@ export function useSprintsForTeam(
     }
   }, [teamId, status, tick])
 
-  return { sprints, error, isLoading, refetch }
+  return { sprints, setSprints, error, isLoading, refetch }
 }
 
 // ---------------------------------------------------------------------------
