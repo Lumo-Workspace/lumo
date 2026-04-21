@@ -304,6 +304,47 @@ export const sprintService = {
     return sprintService.addTaskToSprint(taskId, toSprintId, actor)
   },
 
+  /**
+   * Update sprint metadata. Validates date ordering and checks that the new
+   * date range doesn't overlap any other sprint on the same team. Two ranges
+   * overlap iff `aStart <= bEnd && bStart <= aEnd` (endpoints inclusive).
+   */
+  async updateMeta(
+    sprintId: string,
+    input: { name?: string; startDate?: Date; endDate?: Date },
+    _actor: ActorRef
+  ) {
+    const sprint = await sprintRepository.findById(sprintId)
+    if (!sprint) httpError(404, 'sprint not found')
+
+    const newStart = input.startDate ?? sprint.startDate
+    const newEnd = input.endDate ?? sprint.endDate
+    if (newEnd <= newStart) {
+      httpError(400, 'endDate must be after startDate')
+    }
+
+    if (input.startDate || input.endDate) {
+      const others = await sprintRepository.listByTeam(sprint.teamId, {
+        limit: 1000,
+      })
+      const overlap = others.find(
+        s =>
+          s.id !== sprintId &&
+          new Date(s.startDate).getTime() <= new Date(newEnd).getTime() &&
+          new Date(newStart).getTime() <= new Date(s.endDate).getTime()
+      )
+      if (overlap) {
+        httpError(409, `dates overlap with sprint "${overlap.name}"`)
+      }
+    }
+
+    return sprintRepository.update(sprintId, {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.startDate !== undefined ? { startDate: input.startDate } : {}),
+      ...(input.endDate !== undefined ? { endDate: input.endDate } : {}),
+    })
+  },
+
   async remove(sprintId: string, _actor: ActorRef) {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')

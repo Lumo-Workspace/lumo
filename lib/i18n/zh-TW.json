@@ -60,6 +60,7 @@
   "sprints.detail.deleteCancel": "取消",
   "sprints.detail.deleteConfirm": "刪除",
   "sprints.detail.openActions": "開啟衝刺操作",
+  "sprints.detail.dateUpdated": "日期已更新",
   "sprints.detail.planTasks": "規劃任務",
   "sprints.detail.viewRetro": "查看回顧",
   "sprints.detail.addTask": "新增任務",

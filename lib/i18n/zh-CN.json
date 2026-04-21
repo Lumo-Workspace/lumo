@@ -765,6 +765,7 @@
   "sprints.detail.deleteCancel": "取消",
   "sprints.detail.deleteConfirm": "删除",
   "sprints.detail.openActions": "打开冲刺操作",
+  "sprints.detail.dateUpdated": "日期已更新",
   "sprints.detail.planTasks": "规划任务",
   "sprints.detail.viewRetro": "查看回顾",
   "sprints.detail.addTask": "添加任务",

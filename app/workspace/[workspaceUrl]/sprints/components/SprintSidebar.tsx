@@ -1,12 +1,16 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { Progress } from '@/components/ui/progress'
+import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
 import {
   deriveSprintState,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
+import { DatePickerField, startOfDay } from './DatePickerField'
 
 interface SprintProgress {
   done: number
@@ -32,17 +36,45 @@ const STATE_I18N_KEY: Record<DerivedSprintState, string> = {
   COMPLETED: 'sprints.state.completed',
 }
 
-function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString()
-}
-
-export function SprintSidebar({ sprint, progress }: SprintSidebarProps) {
+export function SprintSidebar({
+  sprint,
+  progress,
+  onRefresh,
+}: SprintSidebarProps) {
   const intl = useIntl()
   const state = deriveSprintState(sprint)
 
+  // Track edits locally so the displayed value flips immediately on pick;
+  // server response (success or error) reconciles via onRefresh / revert.
+  const [start, setStart] = useState<Date>(() => new Date(sprint.startDate))
+  const [end, setEnd] = useState<Date>(() => new Date(sprint.endDate))
+
+  // Re-sync when the parent hands us a fresh sprint (e.g. after refetch).
+  useEffect(() => {
+    setStart(new Date(sprint.startDate))
+    setEnd(new Date(sprint.endDate))
+  }, [sprint.startDate, sprint.endDate])
+
   const pct =
     progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+
+  async function applyChange(field: 'startDate' | 'endDate', next: Date) {
+    const prevStart = start
+    const prevEnd = end
+    if (field === 'startDate') setStart(next)
+    else setEnd(next)
+
+    try {
+      await sprintsClient.update(sprint.id, { [field]: next.toISOString() })
+      toast.success(intl.formatMessage({ id: 'sprints.detail.dateUpdated' }))
+      onRefresh()
+    } catch (e) {
+      // Roll back local state to whatever the server thinks is correct.
+      setStart(prevStart)
+      setEnd(prevEnd)
+      toast.error(e instanceof Error ? e.message : 'Update failed')
+    }
+  }
 
   return (
     <aside className='flex flex-col gap-4 rounded-lg border bg-muted/10 p-4 overflow-y-auto'>
@@ -58,19 +90,27 @@ export function SprintSidebar({ sprint, progress }: SprintSidebarProps) {
         </span>
       </div>
 
-      {/* Dates */}
+      {/* Editable dates */}
       <div className='flex flex-col gap-1 text-sm'>
-        <div className='flex justify-between'>
+        <div className='flex items-center justify-between gap-2'>
           <span className='text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.detail.dateStart' })}
           </span>
-          <span>{formatDate(sprint.startDate)}</span>
+          <DatePickerField
+            variant='ghost'
+            value={start}
+            onChange={d => applyChange('startDate', startOfDay(d))}
+          />
         </div>
-        <div className='flex justify-between'>
+        <div className='flex items-center justify-between gap-2'>
           <span className='text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.detail.dateEnd' })}
           </span>
-          <span>{formatDate(sprint.endDate)}</span>
+          <DatePickerField
+            variant='ghost'
+            value={end}
+            onChange={d => applyChange('endDate', startOfDay(d))}
+          />
         </div>
       </div>
 

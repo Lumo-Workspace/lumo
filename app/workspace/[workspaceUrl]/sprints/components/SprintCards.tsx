@@ -5,9 +5,6 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { CalendarDays } from 'lucide-react'
-import { enUS, zhCN, zhTW } from 'date-fns/locale'
-import type { Locale as DateFnsLocale } from 'date-fns'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -19,87 +16,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
 import { sprintsClient } from '@/lib/api-client'
 import type { Sprint } from '@prisma/client'
 import { SprintActionsMenu } from './SprintActionsMenu'
-
-const CALENDAR_LOCALES: Record<string, DateFnsLocale> = {
-  en: enUS,
-  'zh-CN': zhCN,
-  'zh-TW': zhTW,
-}
+import { DatePickerField, formatDate, startOfDay } from './DatePickerField'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function daysFromNow(date: Date | string): number {
   const ms = new Date(date).getTime() - Date.now()
   return Math.ceil(ms / (1000 * 60 * 60 * 24))
-}
-
-function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-function DatePickerField({
-  id,
-  value,
-  onChange,
-  locale,
-}: {
-  id: string
-  value: Date
-  onChange: (d: Date) => void
-  locale: DateFnsLocale
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          variant='outline'
-          className={cn(
-            'w-full justify-start text-left font-normal',
-            !value && 'text-muted-foreground'
-          )}
-        >
-          <CalendarDays className='mr-2 size-4' />
-          {formatDate(value)}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className='!w-auto p-0' align='start'>
-        <Calendar
-          mode='single'
-          style={{ '--cell-size': '2.5rem' } as React.CSSProperties}
-          selected={value}
-          onSelect={d => {
-            if (d) {
-              onChange(startOfDay(d))
-              setOpen(false)
-            }
-          }}
-          locale={locale}
-        />
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 // ─── Sprint landing card ──────────────────────────────────────────────────────
@@ -256,7 +184,6 @@ function CreateSprintDialog({
   const [start, setStart] = useState<Date>(today)
   const [end, setEnd] = useState<Date>(defaultEnd)
 
-  const calendarLocale = CALENDAR_LOCALES[intl.locale] ?? enUS
   const valid = end > start
 
   function submit() {
@@ -303,19 +230,13 @@ function CreateSprintDialog({
                 id='sprint-start'
                 value={start}
                 onChange={setStart}
-                locale={calendarLocale}
               />
             </div>
             <div className='space-y-1'>
               <Label htmlFor='sprint-end'>
                 {intl.formatMessage({ id: 'sprints.create.endDate' })}
               </Label>
-              <DatePickerField
-                id='sprint-end'
-                value={end}
-                onChange={setEnd}
-                locale={calendarLocale}
-              />
+              <DatePickerField id='sprint-end' value={end} onChange={setEnd} />
             </div>
           </div>
           {!valid && (

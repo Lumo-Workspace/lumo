@@ -49,7 +49,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 /**
- * PATCH /api/sprints/[sprintId] — Update a DRAFT sprint's metadata.
+ * PATCH /api/sprints/[sprintId] — Update sprint metadata. Editable in any
+ * state; the service rejects date ranges that overlap another sprint on the
+ * same team.
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
@@ -62,29 +64,29 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!sprint)
       return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
 
-    await requireTeamMemberOrOwner(
+    const { memberId } = await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
       userId
     )
 
-    if (sprint.status !== 'DRAFT') {
-      return NextResponse.json(
-        { error: `cannot edit sprint in ${sprint.status} state` },
-        { status: 409 }
-      )
-    }
-
     const body = await req.json()
     const parsed = updateSprintSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const { name, startDate, endDate } = parsed.data
-    const updated = await sprintRepository.update(sprintId, {
-      ...(name !== undefined ? { name } : {}),
-      ...(startDate !== undefined ? { startDate } : {}),
-      ...(endDate !== undefined ? { endDate } : {}),
-    })
+    const updated = await sprintService.updateMeta(
+      sprintId,
+      {
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.startDate !== undefined
+          ? { startDate: parsed.data.startDate }
+          : {}),
+        ...(parsed.data.endDate !== undefined
+          ? { endDate: parsed.data.endDate }
+          : {}),
+      },
+      { memberId }
+    )
 
     return NextResponse.json(updated)
   } catch (error) {

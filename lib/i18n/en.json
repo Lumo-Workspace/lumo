@@ -765,6 +765,7 @@
   "sprints.detail.deleteCancel": "Cancel",
   "sprints.detail.deleteConfirm": "Delete",
   "sprints.detail.openActions": "Open sprint actions",
+  "sprints.detail.dateUpdated": "Dates updated",
   "sprints.detail.planTasks": "Plan tasks",
   "sprints.detail.viewRetro": "View retro",
   "sprints.detail.addTask": "Add task",
