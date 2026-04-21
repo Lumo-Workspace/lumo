@@ -12,10 +12,7 @@ export interface ProjectUpdateData {
 function projectVisibilityWhere(workspaceId: string, memberId: string) {
   return {
     workspaceId,
-    OR: [
-      { isIdea: false },
-      { isIdea: true, createdByMemberId: memberId },
-    ],
+    OR: [{ isIdea: false }, { isIdea: true, createdByMemberId: memberId }],
   }
 }
 
@@ -40,7 +37,7 @@ export const projectRepository = {
           ] as unknown as { isDefault: 'desc'; createdAt: 'asc' }[],
         },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ order: 'asc' as const }, { name: 'asc' as const }],
     })
   },
 
@@ -89,6 +86,7 @@ export const projectRepository = {
     description?: string | undefined
     isIdea?: boolean | undefined
     createdByMemberId: string
+    order: number
   }) {
     return prisma.$transaction(async tx => {
       const project = await tx.project.create({
@@ -99,6 +97,7 @@ export const projectRepository = {
           name: data.name,
           description: data.description ?? null,
           isIdea: data.isIdea ?? false,
+          order: data.order,
         },
       })
 
@@ -221,5 +220,32 @@ export const projectRepository = {
   /** Delete a project repository link. */
   async deleteRepository(repoId: string) {
     return prisma.projectRepository.delete({ where: { id: repoId } })
+  },
+
+  /**
+   * Replace the `order` field on a sequence of projects to match the given array
+   * (1-based). Runs in a transaction. Caller is expected to validate ownership.
+   */
+  async reorder(_workspaceId: string, orderedIds: string[]) {
+    return prisma.$transaction(async tx => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx.project.update({
+          where: { id: orderedIds[i]! },
+          data: { order: i + 1 },
+        })
+      }
+    })
+  },
+
+  /**
+   * Max `order` currently in use for a workspace. Returns 0 when there are no
+   * projects (safe to pass `max + 1` as the next order).
+   */
+  async maxOrderInWorkspace(workspaceId: string): Promise<number> {
+    const row = await prisma.project.aggregate({
+      where: { workspaceId },
+      _max: { order: true },
+    })
+    return row._max.order ?? 0
   },
 }

@@ -9,6 +9,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      aggregate: jest.fn(),
     },
     task: {
       groupBy: jest.fn(),
@@ -72,7 +73,7 @@ describe('findByWorkspace', () => {
             },
           },
         }),
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ order: 'asc' }, { name: 'asc' }],
       })
     )
     // No inline tasks include — counts come from countTasksByStatus
@@ -163,5 +164,65 @@ describe('countTasksByStatus', () => {
       },
       _count: { _all: true },
     })
+  })
+})
+
+// ── reorder ────────────────────────────────────────────────────────────────
+
+describe('reorder', () => {
+  it('updates order sequentially in a transaction', async () => {
+    const mockUpdate = jest.fn()
+    const txProject = { update: mockUpdate }
+    const mockTx = jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+      fn({ project: txProject })
+    )
+    ;(prisma as unknown as { $transaction: jest.Mock }).$transaction = mockTx
+
+    await projectRepository.reorder('ws-1', ['p2', 'p1', 'p3'])
+
+    expect(mockUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: 'p2' },
+      data: { order: 1 },
+    })
+    expect(mockUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: 'p1' },
+      data: { order: 2 },
+    })
+    expect(mockUpdate).toHaveBeenNthCalledWith(3, {
+      where: { id: 'p3' },
+      data: { order: 3 },
+    })
+  })
+})
+
+// ── maxOrderInWorkspace ────────────────────────────────────────────────────
+
+describe('maxOrderInWorkspace', () => {
+  it('returns the current max order for the workspace or 0 when empty', async () => {
+    const aggregate = jest.fn().mockResolvedValue({ _max: { order: 7 } })
+    ;(prisma as unknown as { project: { aggregate: jest.Mock } }).project = {
+      ...(prisma.project as unknown as object),
+      aggregate,
+    } as never
+
+    const result = await projectRepository.maxOrderInWorkspace('ws-1')
+
+    expect(result).toBe(7)
+    expect(aggregate).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-1' },
+      _max: { order: true },
+    })
+  })
+
+  it('returns 0 when the workspace has no projects', async () => {
+    const aggregate = jest.fn().mockResolvedValue({ _max: { order: null } })
+    ;(prisma as unknown as { project: { aggregate: jest.Mock } }).project = {
+      ...(prisma.project as unknown as object),
+      aggregate,
+    } as never
+
+    const result = await projectRepository.maxOrderInWorkspace('ws-1')
+
+    expect(result).toBe(0)
   })
 })
