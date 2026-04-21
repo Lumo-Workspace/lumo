@@ -1,119 +1,118 @@
 'use client'
 
-import { useIntl } from 'react-intl'
-import type { TaskStatus } from '@prisma/client'
-
-/**
- * Shape of a task returned by tasksClient.listBySprint / taskRepository.findBySprint.
- * Derived from the TASK_LIST_INCLUDE clause in commit f89faee.
- */
-export interface SprintTask {
-  id: string
-  title: string
-  number: number
-  status: TaskStatus
-  priority: string
-  projectId: string | null
-  team: { identifier: string } | null
-  assignee: {
-    id: string
-    type: string
-    member: { id: string; clerkId: string } | null
-    agent: { id: string; name: string; avatarColor: string } | null
-  } | null
-  parent: {
-    id: string
-    title: string
-    number: number
-    team: { identifier: string } | null
-  } | null
-  _count: { children: number }
-  children: { id: string }[]
-}
-
-const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
-
-const STATUS_I18N_KEY: Record<TaskStatus, string> = {
-  TODO: 'sprints.status.todo',
-  IN_PROGRESS: 'sprints.status.inProgress',
-  IN_REVIEW: 'sprints.status.inReview',
-  DONE: 'sprints.status.done',
-}
-
-const STATUS_HEADER_CLASS: Record<TaskStatus, string> = {
-  TODO: 'text-muted-foreground',
-  IN_PROGRESS: 'text-blue-600 dark:text-blue-400',
-  IN_REVIEW: 'text-yellow-600 dark:text-yellow-400',
-  DONE: 'text-green-600 dark:text-green-400',
-}
+import { useState } from 'react'
+import { type DragEndEvent } from '@dnd-kit/core'
+import { ProjectTaskCard } from '../../components/board/SortableTaskCard'
+import { BoardView } from '../../components/board/BoardView'
+import { useBoardSensors } from '../../hooks/useBoardSensors'
+import { tasksClient } from '@/lib/api-client'
+import type { ApiStatus, ApiTask, WorkspaceMemberInfo } from '../../types'
 
 interface SprintBoardProps {
   tasks: unknown[]
   onTaskMoved?: () => void
+  /** Sprint id (currently unused in the kanban view, kept for future routing). */
+  sprintId?: string
+  /** Members passed through to ProjectTaskCard for assignee avatar/hover. */
+  members?: WorkspaceMemberInfo[] | undefined
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
+  /** When true, the board lets users drag cards between status columns and
+   * persists each move via tasksClient.update. Defaults to true. */
+  enableStatusDrag?: boolean
 }
 
-export function SprintBoard({ tasks }: SprintBoardProps) {
-  const intl = useIntl()
+export function SprintBoard({
+  tasks,
+  onTaskMoved,
+  members,
+  currentActorId,
+  isOwner,
+  enableStatusDrag = true,
+}: SprintBoardProps) {
+  const sprintList = tasks as ApiTask[]
 
-  // Group tasks by status
-  const byStatus = Object.fromEntries(
-    STATUS_ORDER.map(s => [s, [] as SprintTask[]])
-  ) as Record<TaskStatus, SprintTask[]>
+  return (
+    <ActiveBoard
+      tasks={sprintList}
+      members={members}
+      currentActorId={currentActorId}
+      isOwner={isOwner}
+      enableDrag={enableStatusDrag}
+      onTaskMoved={onTaskMoved}
+    />
+  )
+}
 
-  for (const raw of tasks) {
-    const t = raw as SprintTask
-    if (t.status in byStatus) {
-      byStatus[t.status].push(t)
+function ActiveBoard({
+  tasks,
+  members,
+  currentActorId,
+  isOwner,
+  enableDrag,
+  onTaskMoved,
+}: {
+  tasks: ApiTask[]
+  members?: WorkspaceMemberInfo[] | undefined
+  currentActorId?: string | null | undefined
+  isOwner?: boolean | undefined
+  enableDrag: boolean
+  onTaskMoved?: (() => void) | undefined
+}) {
+  const sensors = useBoardSensors()
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  // BoardView's column ids are the status names. When the user drops a card
+  // over a column or another card, resolve the target status either way.
+  function resolveTargetStatus(overId: string | number): ApiStatus | null {
+    const overStr = String(overId)
+    if (
+      overStr === 'TODO' ||
+      overStr === 'IN_PROGRESS' ||
+      overStr === 'IN_REVIEW' ||
+      overStr === 'DONE'
+    ) {
+      return overStr as ApiStatus
+    }
+    const overTask = tasks.find(t => t.id === overStr)
+    return (overTask?.status as ApiStatus | undefined) ?? null
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    setActiveId(null)
+    if (!enableDrag) return
+    const { active, over } = e
+    if (!over) return
+    const activeTask = tasks.find(t => t.id === active.id)
+    if (!activeTask) return
+    const targetStatus = resolveTargetStatus(over.id)
+    if (!targetStatus || targetStatus === activeTask.status) return
+    try {
+      await tasksClient.update(activeTask.id, { status: targetStatus })
+      onTaskMoved?.()
+    } catch (err) {
+      alert((err as Error).message)
     }
   }
 
   return (
-    <div className='grid grid-cols-4 gap-3 overflow-auto'>
-      {STATUS_ORDER.map(status => (
-        <section
-          key={status}
-          className='flex flex-col gap-2 rounded-lg border bg-muted/20 p-2 min-h-full'
-        >
-          <header className='flex items-center justify-between px-1 py-0.5'>
-            <span
-              className={`text-xs font-semibold uppercase tracking-wide ${STATUS_HEADER_CLASS[status]}`}
-            >
-              {intl.formatMessage({ id: STATUS_I18N_KEY[status] })}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {byStatus[status].length}
-            </span>
-          </header>
-          <div className='flex flex-col gap-2'>
-            {byStatus[status].map(t => (
-              <TaskCard key={t.id} task={t} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  )
-}
-
-function TaskCard({ task: t }: { task: SprintTask }) {
-  const prefix = t.team?.identifier
-    ? `${t.team.identifier}-${t.number}`
-    : `#${t.number}`
-
-  return (
-    <article className='rounded border bg-background p-2 text-sm shadow-sm hover:shadow-md transition-shadow'>
-      <div className='flex items-center justify-between gap-1 text-xs text-muted-foreground'>
-        <span className='shrink-0 font-mono'>{prefix}</span>
-        {t.parent && (
-          <span className='truncate text-muted-foreground/70'>
-            ↳{' '}
-            {t.parent.team?.identifier
-              ? `${t.parent.team.identifier}-${t.parent.number}`
-              : `#${t.parent.number}`}
-          </span>
-        )}
-      </div>
-      <p className='mt-1 font-medium leading-snug line-clamp-2'>{t.title}</p>
-    </article>
+    <BoardView
+      tasks={tasks}
+      sensors={sensors}
+      activeId={activeId}
+      onDragStart={e => setActiveId(String(e.active.id))}
+      onDragOver={() => {}}
+      onDragEnd={handleDragEnd}
+      renderCard={(task, isOverlay) => (
+        <ProjectTaskCard
+          task={task}
+          isOverlay={isOverlay}
+          {...(members ? { members } : {})}
+          {...(currentActorId !== undefined ? { currentActorId } : {})}
+          {...(isOwner !== undefined ? { isOwner } : {})}
+          dragMode={enableDrag ? 'sortable' : 'none'}
+        />
+      )}
+    />
   )
 }

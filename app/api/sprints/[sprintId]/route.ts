@@ -121,7 +121,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       userId
     )
 
-    await sprintService.removeDraft(sprintId, { memberId })
+    await sprintService.remove(sprintId, { memberId })
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

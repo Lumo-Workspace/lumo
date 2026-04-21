@@ -15,3 +15,22 @@ export function addDays(d: Date, days: number): Date {
   r.setUTCDate(r.getUTCDate() + days)
   return r
 }
+
+/**
+ * Derived sprint state from its date range. The DB status enum
+ * (DRAFT/ACTIVE/CLOSED) is legacy plumbing — the user-facing model is
+ * strictly time-based.
+ */
+export type DerivedSprintState = 'UPCOMING' | 'CURRENT' | 'COMPLETED'
+
+export function deriveSprintState(
+  sprint: { startDate: Date | string; endDate: Date | string },
+  now: Date = new Date()
+): DerivedSprintState {
+  const start = new Date(sprint.startDate).getTime()
+  const end = new Date(sprint.endDate).getTime()
+  const t = now.getTime()
+  if (t < start) return 'UPCOMING'
+  if (t > end) return 'COMPLETED'
+  return 'CURRENT'
+}

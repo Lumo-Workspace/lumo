@@ -106,6 +106,7 @@ interface MyTasksPageProps {
   projects: ApiProject[]
   currentSprintOnly?: boolean
   onCurrentSprintOnlyChange?: (value: boolean) => void
+  noActiveSprint?: boolean
 }
 
 export function MyTasksPage({
@@ -122,6 +123,7 @@ export function MyTasksPage({
   projects,
   currentSprintOnly = false,
   onCurrentSprintOnlyChange,
+  noActiveSprint = false,
 }: MyTasksPageProps) {
   const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
@@ -277,6 +279,15 @@ export function MyTasksPage({
                   defaultMessage: 'Current sprint only',
                 })}
               </Button>
+            )}
+            {currentSprintOnly && noActiveSprint && (
+              <span className='text-xs text-muted-foreground'>
+                {intl.formatMessage({
+                  id: 'myTasks.noActiveSprint',
+                  defaultMessage:
+                    'No active sprint — start one from the Sprints page.',
+                })}
+              </span>
             )}
           </div>
           {/* Right: display options + view toggle */}
@@ -469,7 +480,7 @@ export function MyTasksPage({
                   onClick={() => onTaskClick(task)}
                 />
               )}
-              onAddTask={status => onNewTask(status)}
+              onAddTask={columnId => onNewTask(columnId as ApiStatus)}
             />
           )}
         </AsyncContent>

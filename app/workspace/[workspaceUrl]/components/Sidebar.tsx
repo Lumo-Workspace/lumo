@@ -74,7 +74,7 @@ export function AppSidebar({
   const { isMobile } = useSidebar()
   const intl = useIntl()
   const { teams } = useWorkspaceTeams()
-  const sprintsEnabled = teams.some(t => t.sprintCadenceDays != null)
+  const sprintsEnabled = teams.some(t => t.sprintsEnabled)
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)

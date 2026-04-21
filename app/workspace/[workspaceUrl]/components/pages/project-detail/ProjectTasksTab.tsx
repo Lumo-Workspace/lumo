@@ -297,7 +297,7 @@ export function ProjectTasksTab({
                 }}
               />
             )}
-            onAddTask={onNewTask}
+            onAddTask={columnId => onNewTask(columnId as ApiStatus)}
           />
         )}
       </AsyncContent>

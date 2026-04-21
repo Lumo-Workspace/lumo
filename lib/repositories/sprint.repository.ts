@@ -28,7 +28,7 @@ export const sprintRepository = {
             id: true,
             name: true,
             workspaceId: true,
-            sprintCadenceDays: true,
+            sprintsEnabled: true,
           },
         },
       },

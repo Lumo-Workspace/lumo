@@ -78,10 +78,10 @@ jest.mock('@/lib/services/sprint-notifications.service', () => ({
 beforeEach(() => jest.clearAllMocks())
 
 describe('sprintService.createDraft', () => {
-  it('creates a DRAFT with next number, default name, and cadence-derived dates when team has cadence', async () => {
+  it('creates a DRAFT with next number and the dates the caller provided', async () => {
     mockTeamFindUnique.mockResolvedValueOnce({
       id: 'team-1',
-      sprintCadenceDays: 14,
+      sprintsEnabled: true,
     })
     mockNextNumber.mockResolvedValueOnce(3)
     mockSprintCreate.mockResolvedValueOnce({
@@ -91,7 +91,8 @@ describe('sprintService.createDraft', () => {
     })
 
     const startDate = new Date('2026-05-04T00:00:00Z')
-    await sprintService.createDraft('team-1', { startDate }, {
+    const endDate = new Date('2026-05-18T00:00:00Z')
+    await sprintService.createDraft('team-1', { startDate, endDate }, {
       memberId: 'm1',
     } as any)
 
@@ -101,15 +102,32 @@ describe('sprintService.createDraft', () => {
         number: 3,
         name: 'Sprint 3',
         startDate,
-        endDate: new Date('2026-05-18T00:00:00Z'),
+        endDate,
       })
     )
   })
 
-  it('throws 400 when team has no cadence and caller did not pass dates', async () => {
+  it('throws 409 when team has not enabled sprints', async () => {
     mockTeamFindUnique.mockResolvedValueOnce({
       id: 'team-1',
-      sprintCadenceDays: null,
+      sprintsEnabled: false,
+    })
+    await expect(
+      sprintService.createDraft(
+        'team-1',
+        {
+          startDate: new Date('2026-05-04T00:00:00Z'),
+          endDate: new Date('2026-05-18T00:00:00Z'),
+        },
+        { memberId: 'm1' } as any
+      )
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('throws 400 when caller omits startDate or endDate', async () => {
+    mockTeamFindUnique.mockResolvedValueOnce({
+      id: 'team-1',
+      sprintsEnabled: true,
     })
     await expect(
       sprintService.createDraft('team-1', {}, { memberId: 'm1' } as any)
@@ -225,7 +243,7 @@ describe('sprintService.close', () => {
     ).rejects.toMatchObject({ status: 409 })
   })
 
-  it('moves tasks per decisions, creates next DRAFT when needed, sets CLOSED', async () => {
+  it('moves tasks per decisions into the existing DRAFT and sets CLOSED', async () => {
     mockFindUnique.mockResolvedValueOnce(activeSprint)
     mockLockForUpdate.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
     mockTxTaskFindMany.mockResolvedValueOnce([
@@ -233,18 +251,10 @@ describe('sprintService.close', () => {
       { id: 't2', status: 'IN_PROGRESS' },
     ])
 
-    // no existing DRAFT sprint
-    mockListByTeam.mockResolvedValueOnce([])
-    // next sprint number
-    mockNextNumber.mockResolvedValueOnce(4)
-    // team cadence from tx
-    mockTxTeamFindUnique.mockResolvedValueOnce({ sprintCadenceDays: 14 })
-    // created next sprint
-    mockSprintCreate.mockResolvedValueOnce({
-      id: 's-next',
-      teamId: 'team-1',
-      number: 4,
-    })
+    // an existing DRAFT receives spillover (no auto-create anymore)
+    mockListByTeam.mockResolvedValueOnce([
+      { id: 's-next', teamId: 'team-1', number: 4 },
+    ])
 
     mockBulkUpdateSprint.mockResolvedValue({ count: 1 })
     mockTxTaskActivityCreateMany.mockResolvedValueOnce({ count: 2 })
@@ -445,88 +455,62 @@ describe('sprintService.removeTaskFromSprint', () => {
 })
 
 describe('sprintService.configureCadence', () => {
-  it('sets cadenceDays and autoPrepare', async () => {
+  it('flips sprintsEnabled to true', async () => {
     mockTeamUpdate.mockResolvedValueOnce({
       id: 'team-1',
-      sprintCadenceDays: 14,
-      sprintAutoPrepare: true,
+      sprintsEnabled: true,
     })
 
     await sprintService.configureCadence(
       'team-1',
-      { cadenceDays: 14, autoPrepare: true },
+      { enabled: true },
       { memberId: 'm1' }
     )
 
     expect(mockTeamUpdate).toHaveBeenCalledWith({
       where: { id: 'team-1' },
-      data: { sprintCadenceDays: 14, sprintAutoPrepare: true },
+      data: { sprintsEnabled: true },
     })
   })
 
-  it('sets cadenceDays=null to disable', async () => {
+  it('flips sprintsEnabled to false', async () => {
     mockTeamUpdate.mockResolvedValueOnce({
       id: 'team-1',
-      sprintCadenceDays: null,
-      sprintAutoPrepare: true,
+      sprintsEnabled: false,
     })
 
     await sprintService.configureCadence(
       'team-1',
-      { cadenceDays: null, autoPrepare: true },
+      { enabled: false },
       { memberId: 'm1' }
     )
 
     expect(mockTeamUpdate).toHaveBeenCalledWith({
       where: { id: 'team-1' },
-      data: { sprintCadenceDays: null, sprintAutoPrepare: true },
+      data: { sprintsEnabled: false },
     })
-  })
-
-  it('400 when cadenceDays is 0 (invalid)', async () => {
-    await expect(
-      sprintService.configureCadence(
-        'team-1',
-        { cadenceDays: 0 },
-        { memberId: 'm1' }
-      )
-    ).rejects.toMatchObject({ status: 400 })
-  })
-
-  it('400 when cadenceDays is 91 (out of range)', async () => {
-    await expect(
-      sprintService.configureCadence(
-        'team-1',
-        { cadenceDays: 91 },
-        { memberId: 'm1' }
-      )
-    ).rejects.toMatchObject({ status: 400 })
   })
 })
 
-describe('sprintService.removeDraft', () => {
-  it('removes DRAFT sprint', async () => {
-    mockFindUnique.mockResolvedValueOnce({
-      id: 's1',
-      status: 'DRAFT',
-      teamId: 'team-1',
-    })
-    mockSprintRemove.mockResolvedValueOnce({ id: 's1' })
-
-    await sprintService.removeDraft('s1', { memberId: 'm1' })
-
-    expect(mockSprintRemove).toHaveBeenCalledWith('s1')
-  })
-
-  it('409 when not DRAFT', async () => {
+describe('sprintService.remove', () => {
+  it('removes a sprint regardless of stored status', async () => {
     mockFindUnique.mockResolvedValueOnce({
       id: 's1',
       status: 'ACTIVE',
       teamId: 'team-1',
     })
+    mockSprintRemove.mockResolvedValueOnce({ id: 's1' })
+
+    await sprintService.remove('s1', { memberId: 'm1' })
+
+    expect(mockSprintRemove).toHaveBeenCalledWith('s1')
+  })
+
+  it('404 when the sprint is missing', async () => {
+    mockFindUnique.mockResolvedValueOnce(null)
 
     await expect(
-      sprintService.removeDraft('s1', { memberId: 'm1' })
-    ).rejects.toMatchObject({ status: 409 })
+      sprintService.remove('s1', { memberId: 'm1' })
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

@@ -17,7 +17,8 @@ interface TeamSelectorProps {
 }
 
 export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
-  if (teams.length === 0) return null
+  // Nothing to switch between — hide the selector entirely.
+  if (teams.length <= 1) return null
 
   if (teams.length <= 3) {
     return (
@@ -26,7 +27,7 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
           {teams.map(t => (
             <TabsTrigger key={t.id} value={t.id}>
               {t.name}
-              {t.sprintCadenceDays == null && (
+              {!t.sprintsEnabled && (
                 <span className='ml-2 text-xs text-muted-foreground'>
                   (disabled)
                 </span>

@@ -37,12 +37,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const updated = await sprintService.configureCadence(
       teamId,
-      {
-        cadenceDays: parsed.data.cadenceDays,
-        ...(parsed.data.autoPrepare !== undefined
-          ? { autoPrepare: parsed.data.autoPrepare }
-          : {}),
-      },
+      { enabled: parsed.data.enabled },
       { memberId }
     )
     return NextResponse.json(updated)
