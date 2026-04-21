@@ -1,5 +1,11 @@
 import Pusher from 'pusher'
-import type { AgentEvent, TaskEvent, ProjectEvent, UserEvent } from './types'
+import type {
+  AgentEvent,
+  TaskEvent,
+  ProjectEvent,
+  UserEvent,
+  WorkspaceEvent,
+} from './types'
 
 let _pusher: Pusher | null = null
 
@@ -76,5 +82,20 @@ export async function pushActivityEvent(
     })
   } catch (err) {
     console.error('[pusher] Failed to push activity event:', err)
+  }
+}
+
+export async function pushWorkspaceEvent(
+  workspaceSlug: string,
+  event: WorkspaceEvent
+): Promise<void> {
+  try {
+    await getPusher().trigger(
+      `workspace-${workspaceSlug}`,
+      'workspace-update',
+      event
+    )
+  } catch (err) {
+    console.error('[pusher] Failed to push workspace event:', err)
   }
 }

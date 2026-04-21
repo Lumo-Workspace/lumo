@@ -52,3 +52,10 @@ export type ActivityPusherEvent = {
   type: 'activity:created'
   entry: Record<string, unknown>
 }
+
+// ── Workspace events (cross-member sidebar, etc.) ──────────────────────────
+
+export type WorkspaceEvent = {
+  type: 'projects-reordered'
+  orderedIds: string[]
+}
