@@ -93,9 +93,11 @@ project detail page.
 ### Multi-member sync
 
 - After a successful reorder, the service publishes a
-  `projects-reordered` event on the `workspace-{id}` Pusher channel with
-  `{ orderedIds }`. Other members' sidebars merge the new order into their
-  local `projects` state.
+  `projects-reordered` event on the `workspace-{slug}` Pusher channel with
+  `{ orderedIds }`. The slug (= `Workspace.slug`, which matches the
+  `workspaceUrl` route param) is used instead of the workspace id so the
+  sidebar can subscribe without a round-trip to resolve the id. Other
+  members' sidebars merge the new order into their local `projects` state.
 
 ## Data Model
 
