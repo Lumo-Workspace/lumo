@@ -316,7 +316,7 @@ export function ProjectDetailStandalonePage({
             loading={loading}
             error={error}
             onRetry={fetchTasks}
-            onBack={() => router.push(`/workspace/${workspaceUrl}`)}
+            onBack={() => router.push(`/workspace/${workspaceUrl}/projects`)}
             onNewTask={status => {
               setNewTaskDefaultStatus(status)
               setIsNewTaskModalOpen(true)

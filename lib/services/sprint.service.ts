@@ -243,6 +243,10 @@ export const sprintService = {
       async tx => {
         await sprintRepository.lockForUpdate(tx, sprintId)
         const fromSprintId = task.sprintId
+        // No-op when the task is already in this sprint — avoids writing
+        // a SPRINT_CHANGED activity with fromSprintId === toSprintId when
+        // two concurrent planning actions race.
+        if (fromSprintId === sprintId) return { taskId, sprintId }
         await taskRepository.bulkUpdateSprint([taskId], sprintId, tx)
         await (tx as any).taskActivity.create({
           data: {

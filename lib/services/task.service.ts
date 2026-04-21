@@ -472,9 +472,19 @@ export const taskService = {
     // Attach tags to response
     const tags = await tagRepository.findByTask(taskId)
 
+    // Only report fields whose values actually changed between the pre-
+    // update row and the payload. Using `Object.keys(data)` wrote no-op
+    // activity entries (e.g. `STATUS_CHANGED from=TODO to=TODO`) whenever
+    // two concurrent patches hit with the same status.
+    const changedFields = Object.keys(data).filter(k => {
+      const before = (task as Record<string, unknown>)[k]
+      const after = (data as Record<string, unknown>)[k]
+      return before !== after
+    })
+
     return {
       task: { ...updated, teamIdentifier: updated.team.identifier, tags },
-      changedFields: Object.keys(data),
+      changedFields,
       oldStatus: task.status,
       oldAssigneeActorId: task.assigneeActorId ?? null,
     }
