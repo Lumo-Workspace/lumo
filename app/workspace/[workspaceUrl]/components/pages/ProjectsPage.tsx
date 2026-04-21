@@ -2,7 +2,12 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useIntl } from 'react-intl'
-import { useParams } from 'next/navigation'
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from 'next/navigation'
 import { Search, Plus, Layers, Link as LinkIcon, Trash2 } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
@@ -101,6 +106,24 @@ export function ProjectsPage({
 }: ProjectsPageProps) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Sidebar's `+ New project` row on standalone pages navigates here with
+  // `?new=1` because those shells don't host NewProjectModal. Open it on
+  // mount and scrub the param so a refresh does not re-trigger the modal.
+  useEffect(() => {
+    if (searchParams?.get('new') === '1') {
+      onNewProject()
+      const rest = new URLSearchParams(searchParams.toString())
+      rest.delete('new')
+      const qs = rest.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)

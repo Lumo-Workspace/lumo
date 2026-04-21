@@ -756,6 +756,7 @@ export default function DashboardApp() {
           unreadCount={unreadCount}
           draftCount={draftCount}
           onOpenAskLumo={() => setIsQuickDispatchOpen(true)}
+          onNewProject={() => setIsNewProjectModalOpen(true)}
         />
 
         <SidebarInset className='overflow-hidden flex flex-col'>
