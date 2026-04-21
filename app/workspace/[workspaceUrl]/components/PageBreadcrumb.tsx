@@ -17,7 +17,7 @@ interface PageBreadcrumbProps {
 export function PageBreadcrumb({ title, children }: PageBreadcrumbProps) {
   return (
     <div className='shrink-0'>
-      <div className='px-4 md:px-8 h-10 flex items-center justify-between'>
+      <div className='px-4 md:px-8 h-14 flex items-center justify-between'>
         <div className='flex items-center gap-2 min-w-0'>
           <SidebarTrigger className='md:hidden shrink-0' />
           {title && !children ? (

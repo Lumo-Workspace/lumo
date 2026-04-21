@@ -78,6 +78,7 @@ export function DatePickerField({
           className='w-full [&_[data-slot=calendar]]:w-full'
           style={{ '--cell-size': '2.5rem' } as React.CSSProperties}
           selected={value}
+          defaultMonth={value}
           onSelect={d => {
             if (d) {
               onChange(startOfDay(d))
