@@ -6,9 +6,9 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { useSprintsForTeam, useSprint } from '../../hooks/useSprints'
-import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,23 @@ import { DatePickerField, formatDate, startOfDay } from './DatePickerField'
 function daysFromNow(date: Date | string): number {
   const ms = new Date(date).getTime() - Date.now()
   return Math.ceil(ms / (1000 * 60 * 60 * 24))
+}
+
+/**
+ * Percentage of the sprint's calendar that has already elapsed.
+ * Renders as a faint underlay behind the task-progress bar so the eye can
+ * instantly compare "time used" vs "work done".
+ */
+function timeElapsedPct(
+  start: Date | string,
+  end: Date | string,
+  now: number = Date.now()
+): number {
+  const s = new Date(start).getTime()
+  const e = new Date(end).getTime()
+  if (now <= s) return 0
+  if (now >= e) return 100
+  return Math.round(((now - s) / (e - s)) * 100)
 }
 
 // ─── Sprint landing card ──────────────────────────────────────────────────────
@@ -56,13 +73,42 @@ function SprintLandingCard({
   const daysToEnd = daysFromNow(sprint.endDate)
   const upcoming = daysToStart > 0
   const overdue = !upcoming && daysToEnd < 0
+  const timePct = timeElapsedPct(sprint.startDate, sprint.endDate)
+  // Left accent + underlay tone match the sprint's temporal state, so the
+  // card itself signals "past / now / future" before you read the dates.
+  const tone = overdue ? 'overdue' : upcoming ? 'upcoming' : 'current'
+  // Left accent via a ::before pseudo-element rather than border-left-color:
+  // the app's globals.css has an unlayered `* { border-color: ... }` rule
+  // that, under Tailwind v4 cascade layers, beats any border-color utility.
+  // A positioned pseudo-element avoids the cascade fight entirely.
+  const accent = {
+    current: 'before:bg-emerald-500',
+    upcoming: 'before:bg-sky-500',
+    overdue: 'before:bg-destructive',
+  }[tone]
+  const underlay = {
+    current: 'bg-emerald-500/25',
+    upcoming: 'bg-sky-500/25',
+    overdue: 'bg-destructive/25',
+  }[tone]
+  const fill = {
+    current: 'bg-emerald-500',
+    upcoming: 'bg-sky-500',
+    overdue: 'bg-destructive',
+  }[tone]
 
   return (
     <Link
       href={`/workspace/${workspaceUrl}/sprints/${sprint.number}`}
       className='block'
     >
-      <Card className='transition-colors hover:bg-accent/40'>
+      <Card
+        className={cn(
+          'relative transition-colors hover:bg-accent/40',
+          'before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:content-[""]',
+          accent
+        )}
+      >
         <CardHeader className='pb-2'>
           <div className='flex items-start justify-between gap-2'>
             <CardTitle className='text-base'>
@@ -84,7 +130,29 @@ function SprintLandingCard({
               </span>
               <span>{pct}%</span>
             </div>
-            <Progress value={pct} className='h-2' />
+            {/*
+              Layered bar: muted track → time-elapsed underlay (tone-tinted) →
+              solid task-progress fill. If the fill trails the underlay the
+              sprint is behind schedule; ahead of it means ahead of plan.
+            */}
+            <div
+              className='relative h-2 w-full overflow-hidden rounded-full bg-muted'
+              role='progressbar'
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className={cn('absolute inset-y-0 left-0', underlay)}
+                style={{ width: `${timePct}%` }}
+                aria-hidden
+              />
+              <div
+                className={cn('absolute inset-y-0 left-0', fill)}
+                style={{ width: `${pct}%` }}
+                aria-hidden
+              />
+            </div>
           </div>
           <div className='flex items-center gap-2'>
             {overdue ? (
