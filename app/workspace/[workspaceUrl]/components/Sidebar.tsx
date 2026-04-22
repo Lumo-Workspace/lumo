@@ -22,7 +22,7 @@ import { Page } from '../types'
 import { CACHE_KEY } from '../constants'
 import { workspacesClient } from '@/lib/api-client'
 import { useWorkspaceTeams } from '../hooks/useWorkspaceTeams'
-import { useSidebarProjects } from '../hooks/useSidebarProjects'
+import { useProjects } from '../hooks/useProjects'
 import { ProjectsSidebarGroup } from './sidebar/ProjectsSidebarGroup'
 import { clearCache, readCache, writeCache } from '../cache'
 import { Badge } from '@/components/ui/badge'
@@ -82,7 +82,7 @@ export function AppSidebar({
   const intl = useIntl()
   const { teams } = useWorkspaceTeams()
   const sprintsEnabled = teams.some(t => t.sprintsEnabled)
-  const { projects, setProjects } = useSidebarProjects(workspaceUrl ?? null)
+  const { projects, setProjects } = useProjects()
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
