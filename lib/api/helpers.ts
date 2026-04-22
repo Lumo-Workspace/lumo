@@ -42,15 +42,21 @@ export async function requireUserWorkspace(userId: string) {
 
 /**
  * Load a project by ID and verify the caller is a workspace member.
+ * Also returns the workspace slug so routes that publish Pusher events
+ * (create/update/delete/reorder) don't need a second roundtrip.
  */
 export async function loadProjectAndMember(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({ where: { id: projectId } })
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { workspace: { select: { slug: true } } },
+  })
   if (!project) {
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
   const member = await requireWorkspaceMember(project.workspaceId, userId)
   if (member instanceof NextResponse) return member
-  return { project, member }
+  const { workspace, ...projectBase } = project
+  return { project: projectBase, member, workspaceSlug: workspace.slug }
 }
 
 /**

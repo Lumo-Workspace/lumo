@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const result = await loadProjectAndMember(id, userId)
     if (result instanceof NextResponse) return result
-    const { member } = result
+    const { member, workspaceSlug } = result
 
     const body = await request.json()
     const parsed = updateProjectSchema.safeParse(body)
@@ -59,6 +59,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const updated = await projectService.updateProject(
       id,
+      workspaceSlug,
       member.id,
       parsed.data
     )
@@ -91,9 +92,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
     const result = await loadProjectAndMember(id, userId)
     if (result instanceof NextResponse) return result
-    const { member } = result
+    const { member, workspaceSlug } = result
 
-    await projectService.deleteProject(id, member.id)
+    await projectService.deleteProject(id, workspaceSlug, member.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

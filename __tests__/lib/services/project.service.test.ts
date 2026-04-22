@@ -366,7 +366,9 @@ describe('updateProject', () => {
     mockFindById.mockResolvedValue(null)
 
     await expect(
-      projectService.updateProject('nonexistent', 'member-1', { name: 'X' })
+      projectService.updateProject('nonexistent', 'acme', 'member-1', {
+        name: 'X',
+      })
     ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
   })
 
@@ -379,7 +381,7 @@ describe('updateProject', () => {
     })
 
     await expect(
-      projectService.updateProject('p1', 'member-1', { name: 'X' })
+      projectService.updateProject('p1', 'acme', 'member-1', { name: 'X' })
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
   })
 
@@ -396,7 +398,7 @@ describe('updateProject', () => {
     })
 
     await expect(
-      projectService.updateProject('p1', 'member-1', {
+      projectService.updateProject('p1', 'acme', 'member-1', {
         ownerId: 'actor_someone',
       })
     ).rejects.toMatchObject({
@@ -416,7 +418,7 @@ describe('updateProject', () => {
     mockMemberFindByActorId.mockResolvedValue(null)
 
     await expect(
-      projectService.updateProject('p1', 'member-1', {
+      projectService.updateProject('p1', 'acme', 'member-1', {
         ownerId: 'actor_unknown',
       })
     ).rejects.toMatchObject({
@@ -446,9 +448,14 @@ describe('updateProject', () => {
       },
     })
 
-    const result = await projectService.updateProject('p1', 'member-1', {
-      ownerId: 'actor_x',
-    })
+    const result = await projectService.updateProject(
+      'p1',
+      'acme',
+      'member-1',
+      {
+        ownerId: 'actor_x',
+      }
+    )
 
     // Repository stores the resolved memberId
     expect(mockUpdate).toHaveBeenCalledWith('p1', {
@@ -475,9 +482,14 @@ describe('updateProject', () => {
       owner: null,
     })
 
-    const result = await projectService.updateProject('p1', 'member-1', {
-      ownerId: null,
-    })
+    const result = await projectService.updateProject(
+      'p1',
+      'acme',
+      'member-1',
+      {
+        ownerId: null,
+      }
+    )
 
     expect(mockUpdate).toHaveBeenCalledWith('p1', { ownerId: null })
     expect(mockMemberFindByActorId).not.toHaveBeenCalled()
@@ -497,9 +509,14 @@ describe('updateProject', () => {
       owner: null,
     })
 
-    const result = await projectService.updateProject('p1', 'member-1', {
-      name: 'Updated',
-    })
+    const result = await projectService.updateProject(
+      'p1',
+      'acme',
+      'member-1',
+      {
+        name: 'Updated',
+      }
+    )
 
     expect(mockUpdate).toHaveBeenCalledWith('p1', { name: 'Updated' })
     expect(result).toEqual({
@@ -507,6 +524,59 @@ describe('updateProject', () => {
       name: 'Updated',
       ownerId: null,
     })
+  })
+
+  it('broadcasts project-updated on successful update', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      name: 'Renamed',
+      owner: null,
+    })
+
+    await projectService.updateProject('p1', 'acme', 'member-1', {
+      name: 'Renamed',
+    })
+
+    expect(pushWorkspaceEvent).toHaveBeenCalledWith('acme', {
+      type: 'project-updated',
+      projectId: 'p1',
+    })
+  })
+
+  it('does not broadcast when the updated project is an idea draft', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
+    mockFindById.mockResolvedValue({
+      id: 'idea-1',
+      isIdea: true,
+      createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
+    })
+    mockUpdate.mockResolvedValue({
+      id: 'idea-1',
+      isIdea: true,
+      name: 'Renamed idea',
+      owner: null,
+    })
+
+    await projectService.updateProject('idea-1', 'acme', 'member-1', {
+      name: 'Renamed idea',
+    })
+
+    expect(pushWorkspaceEvent).not.toHaveBeenCalled()
   })
 })
 
@@ -517,7 +587,7 @@ describe('deleteProject', () => {
     mockFindById.mockResolvedValue(null)
 
     await expect(
-      projectService.deleteProject('nonexistent', 'member-1')
+      projectService.deleteProject('nonexistent', 'acme', 'member-1')
     ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
   })
 
@@ -529,19 +599,44 @@ describe('deleteProject', () => {
     })
 
     await expect(
-      projectService.deleteProject('p1', 'member-1')
+      projectService.deleteProject('p1', 'acme', 'member-1')
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
   })
 
-  it('deletes project when authorized', async () => {
+  it('deletes and broadcasts project-deleted when authorized', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'member-1',
     })
 
-    await projectService.deleteProject('p1', 'member-1')
+    await projectService.deleteProject('p1', 'acme', 'member-1')
 
     expect(mockDelete).toHaveBeenCalledWith('p1')
+    expect(pushWorkspaceEvent).toHaveBeenCalledWith('acme', {
+      type: 'project-deleted',
+      projectId: 'p1',
+    })
+  })
+
+  it('does not broadcast when deleting an idea draft', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
+    mockFindById.mockResolvedValue({
+      id: 'idea-1',
+      isIdea: true,
+      createdByMemberId: 'member-1',
+    })
+
+    await projectService.deleteProject('idea-1', 'acme', 'member-1')
+
+    expect(mockDelete).toHaveBeenCalledWith('idea-1')
+    expect(pushWorkspaceEvent).not.toHaveBeenCalled()
   })
 })

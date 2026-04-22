@@ -144,6 +144,7 @@ export const projectService = {
    */
   async updateProject(
     projectId: string,
+    workspaceSlug: string,
     memberId: string,
     input: UpdateProjectInput
   ) {
@@ -182,6 +183,16 @@ export const projectService = {
     }
 
     const updated = await projectRepository.update(projectId, data)
+
+    // Broadcast so other members / tabs can pick up the change. Idea drafts
+    // are private to the creator, so don't broadcast those.
+    if (!updated.isIdea) {
+      await pushWorkspaceEvent(workspaceSlug, {
+        type: 'project-updated',
+        projectId: updated.id,
+      })
+    }
+
     const { owner, ...rest } = updated
     return {
       ...rest,
@@ -190,7 +201,11 @@ export const projectService = {
   },
 
   /** Delete a project. Validates idea delete permission. */
-  async deleteProject(projectId: string, memberId: string) {
+  async deleteProject(
+    projectId: string,
+    workspaceSlug: string,
+    memberId: string
+  ) {
     const project = await projectRepository.findById(projectId)
     if (!project) {
       throw Object.assign(new Error('Project not found'), { status: 404 })
@@ -201,6 +216,15 @@ export const projectService = {
     }
 
     await projectRepository.delete(projectId)
+
+    // Idea drafts are private to the creator — only the creator's own tab
+    // needs to react, and that tab already did so optimistically.
+    if (!project.isIdea) {
+      await pushWorkspaceEvent(workspaceSlug, {
+        type: 'project-deleted',
+        projectId,
+      })
+    }
   },
 
   /**

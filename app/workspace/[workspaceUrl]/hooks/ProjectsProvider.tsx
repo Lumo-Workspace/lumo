@@ -113,6 +113,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         void fetchProjects()
         return
       }
+      if (event.type === 'project-deleted') {
+        // Short-circuit if we've already dropped it locally (same-tab
+        // optimistic delete). Otherwise remove it from the list.
+        if (!projectsRef.current.some(p => p.id === event.projectId)) return
+        setProjects(prev => prev.filter(p => p.id !== event.projectId))
+        return
+      }
+      if (event.type === 'project-updated') {
+        // Refetch to pick up the latest fields. Cheap and correct — we don't
+        // know which fields changed without a larger event payload.
+        void fetchProjects()
+        return
+      }
       if (event.type === 'projects-reordered') {
         const prev = projectsRef.current
         const byId = new Map(prev.map(p => [p.id, p]))

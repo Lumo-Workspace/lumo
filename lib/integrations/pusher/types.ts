@@ -58,3 +58,5 @@ export type ActivityPusherEvent = {
 export type WorkspaceEvent =
   | { type: 'projects-reordered'; orderedIds: string[] }
   | { type: 'project-created'; projectId: string }
+  | { type: 'project-updated'; projectId: string }
+  | { type: 'project-deleted'; projectId: string }
