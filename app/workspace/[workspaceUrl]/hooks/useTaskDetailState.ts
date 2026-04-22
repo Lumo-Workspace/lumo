@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useIntl } from 'react-intl'
-import type { TaskDetail, WorkspaceMemberInfo, ApiProject } from '../types'
+import type { TaskDetail, WorkspaceMemberInfo } from '../types'
 import { CACHE_KEY } from '../constants'
 import { readCache } from '../cache'
 import { slugify } from '@/lib/utils/slugify'
@@ -61,12 +61,16 @@ export function useTaskDetailState({
   // ── Branch copy feedback ───────────────────────────────────────────────
   const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null)
 
-  // ── Members + agents + projects (hydrate from cache) ───────────────────
+  // ── Members + agents (hydrate from cache) ───────────────────
+  // Projects are intentionally NOT held here — consumers should read from
+  // `ProjectsProvider` via `useProjects()`. Keeping a local copy here used to
+  // duplicate the projects cache/state and bypass the Provider (e.g. a stale
+  // `projectsClient.list()` on mount could write a deleted project back into
+  // the cache).
   const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
   const [agentActors, setAgentActors] = useState<
     { actorId: string; name: string; avatarColor: string }[]
   >([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
 
   useEffect(() => {
     const cachedMembers = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
@@ -75,8 +79,6 @@ export function useTaskDetailState({
       { actorId: string; name: string; avatarColor: string }[]
     >(CACHE_KEY.agentActors)
     if (cachedAgents) setAgentActors(cachedAgents)
-    const cachedProjects = readCache<ApiProject[]>(CACHE_KEY.projects)
-    if (cachedProjects) setProjects(cachedProjects)
   }, [])
 
   return {
@@ -97,7 +99,5 @@ export function useTaskDetailState({
     setMembers,
     agentActors,
     setAgentActors,
-    projects,
-    setProjects,
   }
 }

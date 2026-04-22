@@ -47,7 +47,13 @@ export function ProjectDetailStandalonePage({
 
   // ── Shared workspace projects store (so edits/deletes from this standalone
   // page propagate to the sidebar and the projects list without a refetch).
-  const { setProjects, fetchProjects } = useProjects()
+  // We also read `projects` to hydrate repositories for the current entity
+  // without a second fetch — `ProjectsProvider` already fetched the list.
+  const {
+    projects: workspaceProjects,
+    setProjects,
+    fetchProjects,
+  } = useProjects()
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const { unreadCount } = useRealtimeNotifications()
@@ -64,21 +70,21 @@ export function ProjectDetailStandalonePage({
   // ── Data state ────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ApiProject>(initialProject)
 
-  // Seed repositories from cache after mount to avoid hydration mismatch
-  // (localStorage is not available during SSR)
+  // Hydrate repositories from the shared projects store whenever the
+  // Provider's list has a richer copy than `initialProject`. `initialProject`
+  // is the server-rendered prop which may omit `repositories`; the Provider's
+  // `projects` list comes from `projectsClient.list()` which includes them.
+  // Reading from the Provider (single source of truth) replaces the old
+  // readCache(CACHE_KEY.projects) path that bypassed Provider state.
   useEffect(() => {
-    const cachedProjects = readCache<ApiProject[]>(CACHE_KEY.projects)
-    if (cachedProjects) {
-      const cached = cachedProjects.find(p => p.id === initialProject.id)
-      if (cached?.repositories) {
-        setProject(prev =>
-          prev.repositories?.length
-            ? prev
-            : { ...prev, repositories: cached.repositories! }
-        )
-      }
-    }
-  }, [initialProject.id])
+    const fresh = workspaceProjects.find(p => p.id === initialProject.id)
+    if (!fresh?.repositories?.length) return
+    setProject(prev =>
+      prev.repositories?.length
+        ? prev
+        : { ...prev, repositories: fresh.repositories! }
+    )
+  }, [initialProject.id, workspaceProjects])
   const [tasks, setTasks] = useState<ApiTask[]>(() => {
     const cached = readCache<{ tasks?: ApiTask[] }>(
       CACHE_KEY.projectTasks(initialProject.id)
@@ -165,6 +171,13 @@ export function ProjectDetailStandalonePage({
   }, [project.id])
 
   // ── Mount: background fetch (state already seeded from cache in initializers) ──
+  //
+  // Projects list is intentionally NOT fetched here — `ProjectsProvider` is the
+  // sole owner of `CACHE_KEY.projects` (both state and cache). A stale
+  // `projectsClient.list()` resolving after a concurrent delete used to
+  // repopulate the cache with the just-deleted project, which reappeared on
+  // the next refresh. `repositories` hydration happens via the effect above
+  // that reads from `useProjects().projects`.
   useEffect(() => {
     Promise.all([
       workspacesClient
@@ -176,9 +189,8 @@ export function ProjectDetailStandalonePage({
           kanbanViewId: string | null
         }>(project.id)
         .catch(() => null),
-      projectsClient.list<{ projects: ApiProject[] }>().catch(() => null),
     ])
-      .then(([membersData, tasksData, projectsData]) => {
+      .then(([membersData, tasksData]) => {
         if (membersData?.members) {
           setMembers(membersData.members)
           writeCache(CACHE_KEY.members, membersData.members)
@@ -191,19 +203,6 @@ export function ProjectDetailStandalonePage({
             taskIds: tasksData.tasks.map((t: ApiTask) => t.id),
             kanbanViewId: tasksData.kanbanViewId,
           })
-        }
-        if (projectsData?.projects) {
-          writeCache(CACHE_KEY.projects, projectsData.projects)
-          const fresh = projectsData.projects.find(
-            (p: ApiProject) => p.id === project.id
-          )
-          if (fresh?.repositories) {
-            setProject(prev => {
-              const updated = { ...prev }
-              if (fresh.repositories) updated.repositories = fresh.repositories
-              return updated as ApiProject
-            })
-          }
         }
         setLoading(false)
       })

@@ -17,18 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  TaskDetail,
-  ApiTask,
-  WorkspaceMemberInfo,
-  ApiProject,
-  Page,
-} from '../../types'
+import { TaskDetail, ApiTask, WorkspaceMemberInfo, Page } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { pageToPath } from '../../utils'
 import { slugify } from '@/lib/utils/slugify'
-import { tasksClient, workspacesClient, projectsClient } from '@/lib/api-client'
+import { tasksClient, workspacesClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
@@ -40,6 +34,7 @@ import { useTaskDescription } from '../../hooks/useTaskDescription'
 import { useTaskDetailState } from '../../hooks/useTaskDetailState'
 import { useTaskDetailActions } from '../../hooks/useTaskDetailActions'
 import { useTags } from '../../hooks/useTags'
+import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
@@ -83,9 +78,13 @@ export function TaskDetailPage({
     setMembers,
     agentActors,
     setAgentActors,
-    projects,
-    setProjects,
   } = state
+
+  // Read projects from the shared Provider instead of a local cached copy.
+  // `ProjectsProvider` is the sole owner of the projects list + cache; a
+  // per-page fetch here used to write stale data back to the cache after a
+  // concurrent delete.
+  const { projects } = useProjects()
 
   // ── Extracted hooks ────────────────────────────────────────────────────────
   const currentMember = members.find(m => m.clerkId === user?.id)
@@ -129,6 +128,11 @@ export function TaskDetailPage({
   }, [tc.comments, tc.scrollToComment])
 
   // ── Parallel fetch on mount ────────────────────────────────────────────────
+  //
+  // Projects are intentionally NOT fetched here — `ProjectsProvider` is the
+  // sole owner of the projects list + cache. A stale `projectsClient.list()`
+  // resolving after a concurrent delete from another page used to repopulate
+  // the cache with the deleted project.
   useEffect(() => {
     Promise.all([
       tasksClient
@@ -143,12 +147,9 @@ export function TaskDetailPage({
           members: [] as WorkspaceMemberInfo[],
           agentActors: undefined,
         })),
-      projectsClient
-        .list<{ projects: ApiProject[] }>()
-        .catch(() => ({ projects: [] as ApiProject[] })),
       tc.fetchComments(),
     ])
-      .then(([taskData, membersData, projectsData]) => {
+      .then(([taskData, membersData]) => {
         if (taskData.task) {
           const t = taskData.task as TaskDetail
           setTask(prev => ({ ...prev, ...t }))
@@ -165,11 +166,6 @@ export function TaskDetailPage({
         if (membersData.agentActors) {
           setAgentActors(membersData.agentActors)
           writeCache(CACHE_KEY.agentActors, membersData.agentActors)
-        }
-        const freshProjects: ApiProject[] = projectsData.projects ?? []
-        if (freshProjects.length > 0) {
-          setProjects(freshProjects)
-          writeCache(CACHE_KEY.projects, freshProjects)
         }
       })
       .catch(() => {})

@@ -40,8 +40,6 @@ import { Page, ApiProject } from '../../types'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
 import { projectsClient } from '@/lib/api-client'
-import { writeCache } from '../../cache'
-import { CACHE_KEY } from '../../constants'
 
 const STORAGE_KEY = 'lumo:sidebarProjectsExpanded'
 
@@ -150,24 +148,24 @@ export function ProjectsSidebarGroup({
     const newVisible = arrayMove(visibleProjects, fromIndex, toIndex)
     const newVisibleIds = newVisible.map(p => p.id)
 
-    // Capture current cache for revert; reorder the ENTIRE projects array so
+    // Snapshot for revert on failure; reorder the ENTIRE projects array so
     // the full list (including any isIdea projects) keeps its invariant of
-    // "visible first in user order, then idea drafts".
+    // "visible first in user order, then idea drafts". The Provider's
+    // cache-sync effect persists the new order — no direct writeCache here
+    // (ProjectsProvider is the sole writer of CACHE_KEY.projects).
     const prevProjects = projects
     const ideaProjects = projects.filter(p => p.isIdea)
     const nextProjects = [...newVisible, ...ideaProjects]
 
     setProjects(nextProjects)
-    writeCache(CACHE_KEY.projects, nextProjects)
 
     try {
       await projectsClient.reorder(newVisibleIds)
-      // Server will publish `projects-reordered` via Pusher; useSidebarProjects
+      // Server will publish `projects-reordered` via Pusher; the Provider
       // re-applies the order idempotently, so no double-write here.
     } catch {
       // Revert optimistic update on failure.
       setProjects(prevProjects)
-      writeCache(CACHE_KEY.projects, prevProjects)
       toast.error(intl.formatMessage({ id: 'sidebar.reorderFailed' }))
     }
   }
