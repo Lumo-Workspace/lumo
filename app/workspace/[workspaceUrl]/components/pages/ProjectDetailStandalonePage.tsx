@@ -27,6 +27,7 @@ import {
   workspacesClient,
 } from '@/lib/api-client'
 import { useCopyState } from '../../hooks/useCopyState'
+import { useProjects } from '../../hooks/useProjects'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { toast } from 'sonner'
@@ -43,6 +44,10 @@ export function ProjectDetailStandalonePage({
 }: Props) {
   const intl = useIntl()
   const router = useRouter()
+
+  // ── Shared workspace projects store (so edits/deletes from this standalone
+  // page propagate to the sidebar and the projects list without a refetch).
+  const { setProjects, fetchProjects } = useProjects()
 
   // ── Notifications ─────────────────────────────────────────────────────────
   const { unreadCount } = useRealtimeNotifications()
@@ -284,16 +289,30 @@ export function ProjectDetailStandalonePage({
         project: ApiProject
       }>(id, data)
       setProject(prev => ({ ...prev, ...updated }))
+      // Mirror the change into the shared projects store so the sidebar
+      // and the projects list reflect it without waiting for a refetch.
+      setProjects(prev =>
+        prev.map(p => (p.id === id ? { ...p, ...updated } : p))
+      )
     },
-    []
+    [setProjects]
   )
 
   const handleDeleteProject = useCallback(
     async (id: string) => {
-      await projectsClient.delete(id)
+      // Drop from the shared store first so the sidebar and list never show
+      // the stale entry after we navigate away. Revert on server error.
+      setProjects(prev => prev.filter(p => p.id !== id))
+      try {
+        await projectsClient.delete(id)
+      } catch (err) {
+        // Reconcile with the server on failure.
+        void fetchProjects()
+        throw err
+      }
       router.push(`/workspace/${workspaceUrl}`)
     },
-    [router, workspaceUrl]
+    [fetchProjects, router, setProjects, workspaceUrl]
   )
 
   return (

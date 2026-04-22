@@ -72,13 +72,25 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     projectsRef.current = projects
   }, [projects])
 
+  // Persist any change to the list back to localStorage so optimistic updates
+  // (create / update / delete / reorder issued by any consumer) survive a
+  // reload. Guarded on first mount so we don't overwrite the cache with the
+  // empty initial state before the seed effect reads it.
+  const hasWriteMounted = useRef(false)
+  useEffect(() => {
+    if (!hasWriteMounted.current) {
+      hasWriteMounted.current = true
+      return
+    }
+    writeCache(CACHE_KEY.projects, projects)
+  }, [projects])
+
   const fetchProjects = useCallback(async () => {
     if (!seeded.current) setLoading(true)
     setError(null)
     try {
       const data = await projectsClient.list<{ projects: ApiProject[] }>()
-      setProjects(data.projects)
-      writeCache(CACHE_KEY.projects, data.projects)
+      setProjects(data.projects) // cache is persisted by the effect above
       seeded.current = true
     } catch {
       if (!seeded.current) setError('Could not load projects.')
@@ -118,8 +130,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         for (const p of prev) {
           if (!seen.has(p.id)) sorted.push(p)
         }
-        setProjects(sorted)
-        writeCache(CACHE_KEY.projects, sorted)
+        setProjects(sorted) // cache is persisted by the effect above
       }
     },
     [fetchProjects]
