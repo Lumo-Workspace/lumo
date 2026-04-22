@@ -89,9 +89,14 @@ export const projectService = {
     return project
   },
 
-  /** Create a new project. Uses getDefaultTeam(). */
+  /**
+   * Create a new project. Uses getDefaultTeam(). Publishes a `project-created`
+   * pusher event so other workspace members' (and other tabs') sidebars can
+   * refresh — same pattern as `reorderProjects`.
+   */
   async createProject(
     workspaceId: string,
+    workspaceSlug: string,
     memberId: string,
     data: {
       name: string
@@ -105,7 +110,7 @@ export const projectService = {
     // value simply falls back to the name tiebreaker.
     const maxOrder = await projectRepository.maxOrderInWorkspace(workspaceId)
 
-    return projectRepository.create({
+    const project = await projectRepository.create({
       workspaceId,
       teamId: defaultTeam!.id,
       createdByMemberId: memberId,
@@ -114,6 +119,20 @@ export const projectService = {
       isIdea: data.isIdea,
       order: maxOrder + 1,
     })
+
+    // Non-idea projects are visible to every member; idea drafts are private
+    // to the creator and the sidebar filters them out anyway, so there's no
+    // point broadcasting them. The event echoes back to the creator's own tab
+    // too, which is how the sidebar hook (independent state from WorkspaceApp)
+    // learns about the new project.
+    if (!project.isIdea) {
+      await pushWorkspaceEvent(workspaceSlug, {
+        type: 'project-created',
+        projectId: project.id,
+      })
+    }
+
+    return project
   },
 
   /**

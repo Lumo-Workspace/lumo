@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
 
     const project = await projectService.createProject(
       ws.workspaceId,
+      ws.workspace.slug,
       ws.member.id,
       parsed.data
     )

@@ -209,9 +209,14 @@ describe('createProject', () => {
     ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
     mockCreate.mockResolvedValue({ id: 'new-project', name: 'New' })
 
-    const result = await projectService.createProject('ws-1', 'member-1', {
-      name: 'New',
-    })
+    const result = await projectService.createProject(
+      'ws-1',
+      'ws-slug',
+      'member-1',
+      {
+        name: 'New',
+      }
+    )
 
     expect(result).toEqual({ id: 'new-project', name: 'New' })
     expect(mockCreate).toHaveBeenCalledWith({
@@ -230,7 +235,7 @@ describe('createProject', () => {
     ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(4)
     mockCreate.mockResolvedValue({ id: 'p-new' })
 
-    await projectService.createProject('ws-1', 'member-1', {
+    await projectService.createProject('ws-1', 'ws-slug', 'member-1', {
       name: 'New project',
     })
 
@@ -251,11 +256,49 @@ describe('createProject', () => {
     ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
     mockCreate.mockResolvedValue({ id: 'p-new' })
 
-    await projectService.createProject('ws-1', 'member-1', { name: 'First' })
+    await projectService.createProject('ws-1', 'ws-slug', 'member-1', {
+      name: 'First',
+    })
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ order: 1 })
     )
+  })
+
+  it('broadcasts project-created to the workspace slug channel', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
+    mockGetDefaultTeam.mockResolvedValue({ id: 'team-1' })
+    ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
+    mockCreate.mockResolvedValue({ id: 'p-new', isIdea: false })
+
+    await projectService.createProject('ws-1', 'acme', 'member-1', {
+      name: 'Real project',
+    })
+
+    expect(pushWorkspaceEvent).toHaveBeenCalledWith('acme', {
+      type: 'project-created',
+      projectId: 'p-new',
+    })
+  })
+
+  it('does not broadcast when creating an idea draft (private to creator)', async () => {
+    const { pushWorkspaceEvent } = jest.requireMock(
+      '@/lib/integrations/pusher/server'
+    ) as { pushWorkspaceEvent: jest.Mock }
+    pushWorkspaceEvent.mockClear()
+    mockGetDefaultTeam.mockResolvedValue({ id: 'team-1' })
+    ;(projectRepository.maxOrderInWorkspace as jest.Mock).mockResolvedValue(0)
+    mockCreate.mockResolvedValue({ id: 'idea-1', isIdea: true })
+
+    await projectService.createProject('ws-1', 'acme', 'member-1', {
+      name: 'Private idea',
+      isIdea: true,
+    })
+
+    expect(pushWorkspaceEvent).not.toHaveBeenCalled()
   })
 })
 
