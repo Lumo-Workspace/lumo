@@ -130,6 +130,23 @@ export function useWorkspaceProjectHandlers({
 
   const handleDeleteProject = useCallback(
     async (projectId: string) => {
+      // Await the server delete BEFORE mutating UI state. If we flipped
+      // `currentPage` to 'projects' first, the WorkspaceApp page-change
+      // effect would fire `fetchProjects()` while DELETE was still in-flight.
+      // The fetch would return the (still-present) project and overwrite our
+      // optimistic removal — leaving a ghost row in the list and, via the
+      // ProjectsProvider cache-sync effect, in localStorage too.
+      try {
+        await projectsClient.delete(projectId)
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to delete project'
+        toast.error(message)
+        throw err
+      }
+
+      // All UI updates below batch into a single render, so there's no
+      // intermediate "null selectedProject on project-detail" flash.
       onDeleteProjectTasks(projectId)
       setSelectedProject(null)
       setSelectedTask((prev: unknown) => {
@@ -138,8 +155,6 @@ export function useWorkspaceProjectHandlers({
       })
       setProjects(prev => prev.filter(p => p.id !== projectId))
       navigateTo('projects')
-
-      await projectsClient.delete(projectId)
     },
     [
       navigateTo,
