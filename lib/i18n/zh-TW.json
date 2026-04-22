@@ -541,7 +541,7 @@
   "integrations.title": "整合",
   "integrations.description": "連線外部服務以增強你的工作流程。",
   "apiKeys.title": "API 金鑰",
-  "apiKeys.subtitle": "使用 API 金鑰驗證本機 MCP 伺服器（Claude Code）。金鑰綁定到你的使用者和工作區。",
+  "apiKeys.subtitle": "使用 API 金鑰驗證 Lumo CLI 和本機工具（如 MCP 伺服器）。金鑰綁定到你的使用者和工作區。",
   "apiKeys.loadFailed": "載入 API 金鑰失敗",
   "apiKeys.createFailed": "建立 API 金鑰失敗",
   "apiKeys.revokeSuccess": "API 金鑰已撤銷",

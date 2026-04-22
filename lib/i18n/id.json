@@ -399,7 +399,7 @@
   "integrations.title": "Integrasi",
   "integrations.description": "Hubungkan layanan eksternal untuk meningkatkan alur kerja Anda.",
   "apiKeys.title": "Kunci API",
-  "apiKeys.subtitle": "Gunakan kunci API untuk mengautentikasi server MCP lokal (Claude Code). Kunci dibatasi pada pengguna dan ruang kerja Anda.",
+  "apiKeys.subtitle": "Gunakan kunci API untuk mengautentikasi Lumo CLI dan alat lokal (seperti server MCP). Kunci dibatasi pada pengguna dan ruang kerja Anda.",
   "apiKeys.loadFailed": "Gagal memuat kunci API",
   "apiKeys.createFailed": "Gagal membuat kunci API",
   "apiKeys.revokeSuccess": "Kunci API dicabut",

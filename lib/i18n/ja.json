@@ -399,7 +399,7 @@
   "integrations.title": "インテグレーション",
   "integrations.description": "外部サービスを接続してワークフローを強化します。",
   "apiKeys.title": "APIキー",
-  "apiKeys.subtitle": "ローカルのMCPサーバー（Claude Code）の認証にAPIキーを使用します。キーはユーザーとワークスペースにスコープされます。",
+  "apiKeys.subtitle": "Lumo CLIやローカルツール（MCPサーバーなど）の認証にAPIキーを使用します。キーはユーザーとワークスペースにスコープされます。",
   "apiKeys.loadFailed": "APIキーの読み込みに失敗しました",
   "apiKeys.createFailed": "APIキーの作成に失敗しました",
   "apiKeys.revokeSuccess": "APIキーを取り消しました",

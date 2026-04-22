@@ -399,7 +399,7 @@
   "integrations.title": "एकीकरण",
   "integrations.description": "अपने वर्कफ़्लो को बेहतर बनाने के लिए बाहरी सेवाएं कनेक्ट करें।",
   "apiKeys.title": "API कुंजियां",
-  "apiKeys.subtitle": "स्थानीय MCP सर्वर (Claude Code) को प्रमाणित करने के लिए API कुंजियों का उपयोग करें। कुंजियां आपके उपयोगकर्ता और कार्यक्षेत्र तक सीमित हैं।",
+  "apiKeys.subtitle": "Lumo CLI और स्थानीय टूल (जैसे MCP सर्वर) को प्रमाणित करने के लिए API कुंजियों का उपयोग करें। कुंजियां आपके उपयोगकर्ता और कार्यक्षेत्र तक सीमित हैं।",
   "apiKeys.loadFailed": "API कुंजियां लोड करने में विफल",
   "apiKeys.createFailed": "API कुंजी बनाने में विफल",
   "apiKeys.revokeSuccess": "API कुंजी रद्द की गई",

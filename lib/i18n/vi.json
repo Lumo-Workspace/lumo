@@ -399,7 +399,7 @@
   "integrations.title": "Tích hợp",
   "integrations.description": "Kết nối các dịch vụ bên ngoài để nâng cao quy trình làm việc của bạn.",
   "apiKeys.title": "Khóa API",
-  "apiKeys.subtitle": "Sử dụng khóa API để xác thực các máy chủ MCP cục bộ (Claude Code). Khóa được giới hạn trong phạm vi người dùng và không gian làm việc của bạn.",
+  "apiKeys.subtitle": "Sử dụng khóa API để xác thực Lumo CLI và các công cụ cục bộ (như máy chủ MCP). Khóa được giới hạn trong phạm vi người dùng và không gian làm việc của bạn.",
   "apiKeys.loadFailed": "Tải khóa API thất bại",
   "apiKeys.createFailed": "Tạo khóa API thất bại",
   "apiKeys.revokeSuccess": "Đã thu hồi khóa API",

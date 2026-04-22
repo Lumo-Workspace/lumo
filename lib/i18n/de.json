@@ -399,7 +399,7 @@
   "integrations.title": "Integrationen",
   "integrations.description": "Verbinden Sie externe Dienste, um Ihren Workflow zu verbessern.",
   "apiKeys.title": "API-Schlüssel",
-  "apiKeys.subtitle": "Verwenden Sie API-Schlüssel zur Authentifizierung lokaler MCP-Server (Claude Code). Schlüssel sind auf Ihren Benutzer und Arbeitsbereich beschränkt.",
+  "apiKeys.subtitle": "Verwenden Sie API-Schlüssel zur Authentifizierung von Lumo CLI und lokalen Tools (wie MCP-Servern). Schlüssel sind auf Ihren Benutzer und Arbeitsbereich beschränkt.",
   "apiKeys.loadFailed": "API-Schlüssel konnten nicht geladen werden",
   "apiKeys.createFailed": "API-Schlüssel konnte nicht erstellt werden",
   "apiKeys.revokeSuccess": "API-Schlüssel widerrufen",

@@ -399,7 +399,7 @@
   "integrations.title": "연동",
   "integrations.description": "외부 서비스를 연결하여 워크플로를 향상시키세요.",
   "apiKeys.title": "API 키",
-  "apiKeys.subtitle": "API 키를 사용하여 로컬 MCP 서버(Claude Code)를 인증합니다. 키는 사용자 및 워크스페이스 범위로 제한됩니다.",
+  "apiKeys.subtitle": "API 키를 사용하여 Lumo CLI 및 로컬 도구(MCP 서버 등)를 인증합니다. 키는 사용자 및 워크스페이스 범위로 제한됩니다.",
   "apiKeys.loadFailed": "API 키를 불러오는 데 실패했습니다",
   "apiKeys.createFailed": "API 키 생성에 실패했습니다",
   "apiKeys.revokeSuccess": "API 키가 취소되었습니다",

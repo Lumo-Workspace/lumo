@@ -399,7 +399,7 @@
   "integrations.title": "Integrasi",
   "integrations.description": "Sambungkan perkhidmatan luaran untuk meningkatkan aliran kerja anda.",
   "apiKeys.title": "Kunci API",
-  "apiKeys.subtitle": "Gunakan kunci API untuk mengesahkan pelayan MCP tempatan (Claude Code). Kunci adalah berlingkup kepada pengguna dan ruang kerja anda.",
+  "apiKeys.subtitle": "Gunakan kunci API untuk mengesahkan Lumo CLI dan alat tempatan (seperti pelayan MCP). Kunci adalah berlingkup kepada pengguna dan ruang kerja anda.",
   "apiKeys.loadFailed": "Gagal memuatkan kunci API",
   "apiKeys.createFailed": "Gagal mencipta kunci API",
   "apiKeys.revokeSuccess": "Kunci API dibatalkan",

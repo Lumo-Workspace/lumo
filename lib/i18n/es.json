@@ -399,7 +399,7 @@
   "integrations.title": "Integraciones",
   "integrations.description": "Conecte servicios externos para mejorar su flujo de trabajo.",
   "apiKeys.title": "Claves de API",
-  "apiKeys.subtitle": "Use las claves de API para autenticar servidores MCP locales (Claude Code). Las claves tienen ámbito de usuario y espacio de trabajo.",
+  "apiKeys.subtitle": "Use las claves de API para autenticar Lumo CLI y herramientas locales (como servidores MCP). Las claves tienen ámbito de usuario y espacio de trabajo.",
   "apiKeys.loadFailed": "Error al cargar las claves de API",
   "apiKeys.createFailed": "Error al crear la clave de API",
   "apiKeys.revokeSuccess": "Clave de API revocada",

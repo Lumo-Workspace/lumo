@@ -441,7 +441,7 @@
   "integrations.title": "Integrations",
   "integrations.description": "Connect external services to enhance your workflow.",
   "apiKeys.title": "API Keys",
-  "apiKeys.subtitle": "Use API keys to authenticate local MCP servers (Claude Code). Keys are scoped to your user and workspace.",
+  "apiKeys.subtitle": "Use API keys to authenticate Lumo CLI and local tools (like MCP servers). Keys are scoped to your user and workspace.",
   "apiKeys.loadFailed": "Failed to load API keys",
   "apiKeys.createFailed": "Failed to create API key",
   "apiKeys.revokeSuccess": "API key revoked",
