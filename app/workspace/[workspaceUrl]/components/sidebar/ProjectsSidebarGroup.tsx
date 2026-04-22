@@ -174,14 +174,14 @@ export function ProjectsSidebarGroup({
 
   return (
     <>
-      <SidebarMenuItem>
+      <SidebarMenuItem className='group/projrow'>
         <SidebarMenuButton
           asChild
           isActive={
             currentPage === 'projects' || currentPage === 'project-detail'
           }
           tooltip={intl.formatMessage({ id: 'sidebar.projects' })}
-          className='pl-7'
+          className='pr-8'
         >
           <Link
             href={`/workspace/${workspaceUrl}/projects`}
@@ -190,12 +190,19 @@ export function ProjectsSidebarGroup({
               onNavigate('projects')
             }}
           >
-            <FolderKanban />
+            <FolderKanban
+              className={cn(
+                'transition-opacity',
+                // Hide the folder icon whenever the caret takes its slot:
+                // on row-hover, or whenever the list is expanded.
+                expanded ? 'opacity-0' : 'group-hover/projrow:opacity-0'
+              )}
+            />
             <span>{intl.formatMessage({ id: 'sidebar.projects' })}</span>
           </Link>
         </SidebarMenuButton>
-        {/* Caret sits as a sibling of the link (not a descendant) so we don't
-         *  nest interactive elements inside an anchor. */}
+        {/* Caret overlays the folder icon's slot — sibling of the link so we
+         *  don't nest interactive elements inside an anchor. */}
         <button
           type='button'
           onClick={toggleStored}
@@ -205,12 +212,27 @@ export function ProjectsSidebarGroup({
               ? intl.formatMessage({ id: 'sidebar.collapseProjects' })
               : intl.formatMessage({ id: 'sidebar.expandProjects' })
           }
-          className='absolute left-1.5 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+          className={cn(
+            'absolute left-2 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/70 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+            expanded
+              ? 'opacity-100'
+              : 'opacity-0 group-hover/projrow:opacity-100'
+          )}
         >
           <ChevronRight
-            size={12}
+            size={14}
             className={cn('transition-transform', expanded && 'rotate-90')}
           />
+        </button>
+        {/* `+ New project` — shown on row-hover, never steals the row click. */}
+        <button
+          type='button'
+          onClick={handleNewProject}
+          aria-label={intl.formatMessage({ id: 'sidebar.newProject' })}
+          title={intl.formatMessage({ id: 'sidebar.newProject' })}
+          className='absolute right-1.5 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/70 opacity-0 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/projrow:opacity-100'
+        >
+          <Plus size={14} />
         </button>
       </SidebarMenuItem>
 
@@ -247,17 +269,6 @@ export function ProjectsSidebarGroup({
               </SortableContext>
             </DndContext>
           )}
-
-          <SidebarMenuSubItem>
-            <button
-              type='button'
-              onClick={handleNewProject}
-              className='flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-            >
-              <Plus size={12} className='shrink-0' />
-              <span>{intl.formatMessage({ id: 'sidebar.newProject' })}</span>
-            </button>
-          </SidebarMenuSubItem>
         </SidebarMenuSub>
       )}
     </>
