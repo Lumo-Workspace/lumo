@@ -78,7 +78,13 @@ export function ProjectsSidebarGroup({
   const pathname = usePathname()
 
   // Stored user preference — starts collapsed on first use.
+  // `mounted` gates the icon swap until after the localStorage read. Without
+  // it, the first client render shows FolderKanban (storedExpanded=false),
+  // then the useEffect flips storedExpanded to true and the transition-opacity
+  // classes animate the folder out and the caret in — a visible flash on any
+  // full remount (e.g. navigating from a standalone page into WorkspaceApp).
   const [storedExpanded, setStoredExpanded] = useState(false)
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -86,6 +92,7 @@ export function ProjectsSidebarGroup({
     } catch {
       // localStorage may be unavailable (Safari private mode, etc.)
     }
+    setMounted(true)
   }, [])
   const toggleStored = () => {
     setStoredExpanded(prev => {
@@ -186,8 +193,12 @@ export function ProjectsSidebarGroup({
               className={cn(
                 'transition-opacity',
                 // Hide the folder icon whenever the caret takes its slot:
-                // on row-hover, or whenever the list is expanded.
-                expanded ? 'opacity-0' : 'group-hover/projrow:opacity-0'
+                // on row-hover, or whenever the list is expanded. Before
+                // mount, keep it hidden so we don't flash it while the
+                // localStorage-driven `storedExpanded` hasn't resolved yet.
+                !mounted || expanded
+                  ? 'opacity-0'
+                  : 'group-hover/projrow:opacity-0'
               )}
             />
             <span>{intl.formatMessage({ id: 'sidebar.projects' })}</span>
@@ -206,9 +217,13 @@ export function ProjectsSidebarGroup({
           }
           className={cn(
             'absolute left-2 top-1/2 z-10 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/70 transition-opacity hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-            expanded
-              ? 'opacity-100'
-              : 'opacity-0 group-hover/projrow:opacity-100'
+            // Hidden until mount so we avoid the FolderKanban → Caret flash
+            // when `storedExpanded` resolves to true on first paint.
+            !mounted
+              ? 'opacity-0'
+              : expanded
+                ? 'opacity-100'
+                : 'opacity-0 group-hover/projrow:opacity-100'
           )}
         >
           <ChevronRight
