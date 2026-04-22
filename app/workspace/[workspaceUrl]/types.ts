@@ -343,6 +343,9 @@ export interface TaskDetail {
     name: string
   } | null
   teamId?: string
+  /** Whether the owning team has sprints enabled. Sourced from `team.sprintsEnabled`
+   * and flattened in `taskService.getTaskDetail`. UI uses it to gate sprint controls. */
+  sprintsEnabled?: boolean
 }
 
 // ── Tags ─────────────────────────────────────────────────────────────────

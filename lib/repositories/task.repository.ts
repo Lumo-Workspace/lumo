@@ -40,7 +40,7 @@ const TASK_DETAIL_INCLUDE = {
       },
     },
   },
-  team: { select: { identifier: true } },
+  team: { select: { identifier: true, sprintsEnabled: true } },
   assignee: {
     select: {
       id: true,

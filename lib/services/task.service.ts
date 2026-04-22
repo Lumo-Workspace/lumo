@@ -311,6 +311,7 @@ export const taskService = {
       pullRequests,
       tags,
       teamIdentifier: task.team.identifier,
+      sprintsEnabled: task.team.sprintsEnabled,
       parent: task.parent
         ? {
             id: task.parent.id,

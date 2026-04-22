@@ -43,6 +43,8 @@ export interface TaskFieldsSectionProps {
   teamId: string
   sprintId: string | null
   sprint?: { id: string; status: SprintStatus; name: string } | null
+  /** Whether the owning team has sprints enabled — gates the sprint selector. */
+  sprintsEnabled?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ export function TaskFieldsSection({
   teamId,
   sprintId,
   sprint,
+  sprintsEnabled,
 }: TaskFieldsSectionProps) {
   return (
     <div className='flex items-center gap-1 flex-wrap -ml-2 mb-1'>
@@ -123,17 +126,21 @@ export function TaskFieldsSection({
           </button>
         </>
       )}
-      <SeparatorDot />
-      <TaskSprintField
-        task={{
-          id: '',
-          teamId,
-          sprintId: sprintId ?? null,
-          sprint: sprint ?? null,
-        }}
-        onChange={v => onPatch({ sprintId: v })}
-        triggerClassName={FIELD_TRIGGER_CLS}
-      />
+      {sprintsEnabled && teamId && (
+        <>
+          <SeparatorDot />
+          <TaskSprintField
+            task={{
+              id: '',
+              teamId,
+              sprintId: sprintId ?? null,
+              sprint: sprint ?? null,
+            }}
+            onChange={v => onPatch({ sprintId: v })}
+            triggerClassName={FIELD_TRIGGER_CLS}
+          />
+        </>
+      )}
     </div>
   )
 }

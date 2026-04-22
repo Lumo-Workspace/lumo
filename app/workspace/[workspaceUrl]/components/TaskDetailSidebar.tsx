@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TagPicker } from './document/TagPicker'
+import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import React, { useState } from 'react'
 
 interface TaskDetailSidebarProps {
@@ -199,6 +200,27 @@ export function TaskDetailSidebar({
                           ))}
                         </SelectContent>
                       </Select>
+                    ),
+                  },
+                ]
+              : []),
+            ...(task.sprintsEnabled && task.teamId
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'sprints.taskField.label',
+                    }),
+                    node: (
+                      <TaskSprintField
+                        task={{
+                          id: task.id,
+                          teamId: task.teamId,
+                          sprintId: task.sprintId ?? null,
+                          sprint: task.sprint ?? null,
+                        }}
+                        onChange={v => onPatch({ sprintId: v })}
+                        triggerClassName={FIELD_TRIGGER_CLS}
+                      />
                     ),
                   },
                 ]

@@ -99,6 +99,8 @@ export function TaskDetailPanel({
     ...(initialTask.teamId !== undefined ? { teamId: initialTask.teamId } : {}),
     sprintId: initialTask.sprintId ?? null,
     sprint: initialTask.sprint ?? null,
+    // sprintsEnabled is not present on ApiTask/MyTask — populated when the
+    // task detail fetch in useTaskSync spreads the full TaskDetail response.
   }))
 
   const projectName = task.project?.name ?? ''
@@ -241,6 +243,7 @@ export function TaskDetailPanel({
           teamId={task.teamId ?? ''}
           sprintId={task.sprintId ?? null}
           sprint={task.sprint ?? null}
+          sprintsEnabled={task.sprintsEnabled ?? false}
         />
 
         <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
