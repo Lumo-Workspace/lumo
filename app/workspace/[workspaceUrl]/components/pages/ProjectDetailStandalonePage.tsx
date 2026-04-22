@@ -15,7 +15,7 @@ import {
 } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { pageToPath } from '../../utils'
+import { flattenTasks, pageToPath } from '../../utils'
 import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
@@ -154,14 +154,15 @@ export function ProjectDetailStandalonePage({
       setLoading(true)
       setError(null)
       const data = await projectsClient.listTasks<{
-        tasks: ApiTask[]
+        tasks: (ApiTask & { children?: ApiTask[] })[]
         kanbanViewId: string | null
       }>(project.id)
-      setTasks(data.tasks)
+      const flat = flattenTasks(data.tasks)
+      setTasks(flat)
       setKanbanViewId(data.kanbanViewId)
       writeCache(CACHE_KEY.projectTasks(project.id), {
-        tasks: data.tasks,
-        taskIds: data.tasks.map(t => t.id),
+        tasks: flat,
+        taskIds: flat.map(t => t.id),
         kanbanViewId: data.kanbanViewId,
       })
     } catch {
@@ -186,7 +187,7 @@ export function ProjectDetailStandalonePage({
         .catch(() => null),
       projectsClient
         .listTasks<{
-          tasks: ApiTask[]
+          tasks: (ApiTask & { children?: ApiTask[] })[]
           kanbanViewId: string | null
         }>(project.id)
         .catch(() => null),
@@ -197,11 +198,12 @@ export function ProjectDetailStandalonePage({
           writeCache(CACHE_KEY.members, membersData.members)
         }
         if (tasksData?.tasks) {
-          setTasks(tasksData.tasks)
+          const flat = flattenTasks(tasksData.tasks)
+          setTasks(flat)
           setKanbanViewId(tasksData.kanbanViewId ?? null)
           writeCache(CACHE_KEY.projectTasks(project.id), {
-            tasks: tasksData.tasks,
-            taskIds: tasksData.tasks.map((t: ApiTask) => t.id),
+            tasks: flat,
+            taskIds: flat.map(t => t.id),
             kanbanViewId: tasksData.kanbanViewId,
           })
         }
