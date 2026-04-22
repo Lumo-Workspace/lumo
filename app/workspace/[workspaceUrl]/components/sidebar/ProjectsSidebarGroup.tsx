@@ -5,13 +5,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
-import {
-  ChevronRight,
-  FolderKanban,
-  Folder,
-  Plus,
-  GripVertical,
-} from 'lucide-react'
+import { ChevronRight, FolderKanban, Plus, GripVertical } from 'lucide-react'
 import {
   DndContext,
   type DragEndEvent,
@@ -313,7 +307,6 @@ function SortableProjectItem({
     >
       <SidebarMenuSubButton asChild isActive={isActive} className='pr-6'>
         <Link href={`/workspace/${workspaceUrl}/project/${slug}`}>
-          <Folder size={12} className='shrink-0' />
           <span>{project.name}</span>
         </Link>
       </SidebarMenuSubButton>
