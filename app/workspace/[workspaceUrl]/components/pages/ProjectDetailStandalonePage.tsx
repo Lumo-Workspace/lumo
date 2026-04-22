@@ -15,6 +15,7 @@ import {
 } from '../../types'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
+import { pageToPath } from '../../utils'
 import { ProjectDetailPage } from './ProjectDetailPage'
 import { NewTaskModal, NewTaskFormData } from '../modals/NewTaskModal'
 import { ProjectSlackDialog } from '../ProjectSlackDialog'
@@ -317,8 +318,8 @@ export function ProjectDetailStandalonePage({
   return (
     <SidebarProvider className='h-screen font-sans'>
       <AppSidebar
-        currentPage={'projects' as Page}
-        onNavigate={() => router.push(`/workspace/${workspaceUrl}`)}
+        currentPage={'project-detail' as Page}
+        onNavigate={page => router.push(pageToPath(workspaceUrl, page))}
         unreadCount={unreadCount}
         draftCount={0}
       />
