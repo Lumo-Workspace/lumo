@@ -82,7 +82,7 @@ export function AppSidebar({
   const intl = useIntl()
   const { teams } = useWorkspaceTeams()
   const sprintsEnabled = teams.some(t => t.sprintsEnabled)
-  const { projects } = useSidebarProjects(workspaceUrl ?? null)
+  const { projects, setProjects } = useSidebarProjects(workspaceUrl ?? null)
 
   const [workspaceName, setWorkspaceName] = useState<string>('')
   const [workspaceLogoUrl, setWorkspaceLogoUrl] = useState<string | null>(null)
@@ -301,6 +301,7 @@ export function AppSidebar({
               <ProjectsSidebarGroup
                 currentPage={currentPage}
                 projects={projects}
+                setProjects={setProjects}
                 workspaceUrl={workspaceUrl}
                 onNavigate={onNavigate}
                 onNewProject={onNewProject}

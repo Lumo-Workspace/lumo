@@ -1,10 +1,34 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
-import { ChevronRight, FolderKanban, Folder, Plus } from 'lucide-react'
+import {
+  ChevronRight,
+  FolderKanban,
+  Folder,
+  Plus,
+  GripVertical,
+} from 'lucide-react'
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { toast } from 'sonner'
 import {
   SidebarMenuItem,
   SidebarMenuButton,
@@ -15,6 +39,9 @@ import {
 import { Page, ApiProject } from '../../types'
 import { slugify } from '@/lib/utils/slugify'
 import { cn } from '@/lib/utils'
+import { projectsClient } from '@/lib/api-client'
+import { writeCache } from '../../cache'
+import { CACHE_KEY } from '../../constants'
 
 const STORAGE_KEY = 'lumo:sidebarProjectsExpanded'
 
@@ -37,6 +64,7 @@ function extractProjectSlug(
 interface Props {
   currentPage: Page
   projects: ApiProject[]
+  setProjects: Dispatch<SetStateAction<ApiProject[]>>
   workspaceUrl: string
   onNavigate: (page: Page) => void
   /** Provided by WorkspaceApp to open the NewProjectModal directly. Optional:
@@ -48,6 +76,7 @@ interface Props {
 export function ProjectsSidebarGroup({
   currentPage,
   projects,
+  setProjects,
   workspaceUrl,
   onNavigate,
   onNewProject,
@@ -88,12 +117,58 @@ export function ProjectsSidebarGroup({
     () => projects.filter(p => !p.isIdea),
     [projects]
   )
+  const visibleIds = useMemo(
+    () => visibleProjects.map(p => p.id),
+    [visibleProjects]
+  )
 
   const handleNewProject = () => {
     if (onNewProject) {
       onNewProject()
     } else {
       router.push(`/workspace/${workspaceUrl}/projects?new=1`)
+    }
+  }
+
+  // ── Drag-to-reorder ────────────────────────────────────────────────────────
+  // Pointer activation distance mirrors the Kanban board (5px) so small
+  // clicks on the grip still navigate-free; keyboard sensor is enabled for
+  // accessibility.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const fromIndex = visibleIds.indexOf(String(active.id))
+    const toIndex = visibleIds.indexOf(String(over.id))
+    if (fromIndex < 0 || toIndex < 0) return
+
+    const newVisible = arrayMove(visibleProjects, fromIndex, toIndex)
+    const newVisibleIds = newVisible.map(p => p.id)
+
+    // Capture current cache for revert; reorder the ENTIRE projects array so
+    // the full list (including any isIdea projects) keeps its invariant of
+    // "visible first in user order, then idea drafts".
+    const prevProjects = projects
+    const ideaProjects = projects.filter(p => p.isIdea)
+    const nextProjects = [...newVisible, ...ideaProjects]
+
+    setProjects(nextProjects)
+    writeCache(CACHE_KEY.projects, nextProjects)
+
+    try {
+      await projectsClient.reorder(newVisibleIds)
+      // Server will publish `projects-reordered` via Pusher; useSidebarProjects
+      // re-applies the order idempotently, so no double-write here.
+    } catch {
+      // Revert optimistic update on failure.
+      setProjects(prevProjects)
+      writeCache(CACHE_KEY.projects, prevProjects)
+      toast.error(intl.formatMessage({ id: 'sidebar.reorderFailed' }))
     }
   }
 
@@ -148,20 +223,29 @@ export function ProjectsSidebarGroup({
               </span>
             </SidebarMenuSubItem>
           ) : (
-            visibleProjects.map(p => {
-              const slug = slugify(p.name)
-              const isActive = slug === currentSlug
-              return (
-                <SidebarMenuSubItem key={p.id}>
-                  <SidebarMenuSubButton asChild isActive={isActive}>
-                    <Link href={`/workspace/${workspaceUrl}/project/${slug}`}>
-                      <Folder size={12} className='shrink-0' />
-                      <span>{p.name}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              )
-            })
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={visibleIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {visibleProjects.map(p => {
+                  const slug = slugify(p.name)
+                  const isActive = slug === currentSlug
+                  return (
+                    <SortableProjectItem
+                      key={p.id}
+                      project={p}
+                      slug={slug}
+                      isActive={isActive}
+                      workspaceUrl={workspaceUrl}
+                      reorderLabel={intl.formatMessage({
+                        id: 'sidebar.reorderProject',
+                      })}
+                    />
+                  )
+                })}
+              </SortableContext>
+            </DndContext>
           )}
 
           <SidebarMenuSubItem>
@@ -177,5 +261,64 @@ export function ProjectsSidebarGroup({
         </SidebarMenuSub>
       )}
     </>
+  )
+}
+
+// ── Sortable item ────────────────────────────────────────────────────────────
+
+interface SortableProjectItemProps {
+  project: ApiProject
+  slug: string
+  isActive: boolean
+  workspaceUrl: string
+  reorderLabel: string
+}
+
+function SortableProjectItem({
+  project,
+  slug,
+  isActive,
+  workspaceUrl,
+  reorderLabel,
+}: SortableProjectItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+
+  return (
+    <SidebarMenuSubItem
+      ref={setNodeRef}
+      style={style}
+      className='group/project relative'
+    >
+      <SidebarMenuSubButton asChild isActive={isActive} className='pr-6'>
+        <Link href={`/workspace/${workspaceUrl}/project/${slug}`}>
+          <Folder size={12} className='shrink-0' />
+          <span>{project.name}</span>
+        </Link>
+      </SidebarMenuSubButton>
+      {/* Grip sits outside the Link so the drag handle isn't an interactive
+       *  descendant of an anchor; shown on hover for a lighter UI. */}
+      <button
+        type='button'
+        aria-label={reorderLabel}
+        {...attributes}
+        {...listeners}
+        className='absolute right-1 top-1/2 flex size-5 -translate-y-1/2 cursor-grab items-center justify-center rounded text-sidebar-foreground/40 opacity-0 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground group-hover/project:opacity-100 active:cursor-grabbing'
+      >
+        <GripVertical size={12} />
+      </button>
+    </SidebarMenuSubItem>
   )
 }
