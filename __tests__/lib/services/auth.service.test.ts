@@ -73,36 +73,49 @@ describe('authService.verifyApiKey', () => {
     expect(repo.touchApiKeyLastUsed).not.toHaveBeenCalled()
   })
 
-  it('returns the identity payload on success and touches lastUsedAt', async () => {
+  it('returns the minimal identity on success and touches lastUsedAt', async () => {
     repo.findApiKeyByHashForVerify.mockResolvedValue(makeApiKey() as never)
-    mockGetUser.mockResolvedValue(makeClerkUser())
 
     const result = await authService.verifyApiKey('lum_valid_token')
 
     expect(result).toEqual({
-      user: {
-        id: 'user_abc123',
-        email: 'chao@example.com',
-        name: 'Chao',
-      },
+      user: { id: 'user_abc123' },
       workspace: { id: 'ws_xyz789', slug: 'lumo', name: 'Lumo' },
       apiKey: { id: 'key_def456', name: 'Claude Code', prefix: 'lum_5ffb06' },
     })
     expect(repo.touchApiKeyLastUsed).toHaveBeenCalledTimes(1)
   })
 
-  it('falls back to email local part when Clerk has no name', async () => {
+  it('does NOT call Clerk (verifyApiKey is DB-only)', async () => {
     repo.findApiKeyByHashForVerify.mockResolvedValue(makeApiKey() as never)
+
+    await authService.verifyApiKey('lum_valid_token')
+
+    expect(mockClerkClient).not.toHaveBeenCalled()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('authService.fetchUserProfile', () => {
+  it('returns email + name from Clerk', async () => {
+    mockGetUser.mockResolvedValue(makeClerkUser())
+
+    const result = await authService.fetchUserProfile('user_abc123')
+
+    expect(result).toEqual({ email: 'chao@example.com', name: 'Chao' })
+    expect(mockGetUser).toHaveBeenCalledWith('user_abc123')
+  })
+
+  it('falls back to email local part when Clerk has no name', async () => {
     mockGetUser.mockResolvedValue(
       makeClerkUser({ firstName: null, lastName: null })
     )
 
-    const result = await authService.verifyApiKey('lum_valid_token')
-    expect(result?.user.name).toBe('chao')
+    const result = await authService.fetchUserProfile('user_abc123')
+    expect(result.name).toBe('chao')
   })
 
   it('prefers primaryEmailAddressId over other addresses', async () => {
-    repo.findApiKeyByHashForVerify.mockResolvedValue(makeApiKey() as never)
     mockGetUser.mockResolvedValue(
       makeClerkUser({
         primaryEmailAddressId: 'email_2',
@@ -113,7 +126,16 @@ describe('authService.verifyApiKey', () => {
       })
     )
 
-    const result = await authService.verifyApiKey('lum_valid_token')
-    expect(result?.user.email).toBe('new@example.com')
+    const result = await authService.fetchUserProfile('user_abc123')
+    expect(result.email).toBe('new@example.com')
+  })
+
+  it('returns empty email when Clerk has no addresses', async () => {
+    mockGetUser.mockResolvedValue(
+      makeClerkUser({ emailAddresses: [], primaryEmailAddressId: null })
+    )
+
+    const result = await authService.fetchUserProfile('user_abc123')
+    expect(result.email).toBe('')
   })
 })

@@ -10,6 +10,12 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
  * (user, workspace, api key) so the CLI can confirm the token and
  * display "logged in as" details to the user.
  *
+ * This endpoint enriches the DB identity with the caller's Clerk profile
+ * (email + display name) — that's what makes it a display endpoint
+ * rather than a pure auth check. Machine-only paths (hooks, MCP, etc.)
+ * should call `authService.verifyApiKey` directly and skip the profile
+ * round-trip to Clerk.
+ *
  * Header: `Authorization: Bearer lum_xxxxxxxx...`
  */
 export async function GET(request: Request) {
@@ -29,7 +35,13 @@ export async function GET(request: Request) {
       return NextResponse.json(UNAUTHORIZED, { status: 401 })
     }
 
-    return NextResponse.json(identity)
+    const profile = await authService.fetchUserProfile(identity.user.id)
+
+    return NextResponse.json({
+      user: { id: identity.user.id, email: profile.email, name: profile.name },
+      workspace: identity.workspace,
+      apiKey: identity.apiKey,
+    })
   } catch (error) {
     console.error('GET /api/auth/verify error:', error)
     return NextResponse.json(

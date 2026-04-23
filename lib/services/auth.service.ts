@@ -2,10 +2,21 @@ import { createHash } from 'crypto'
 import { clerkClient } from '@clerk/nextjs/server'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
+/**
+ * Minimal identity produced by `verifyApiKey` — contains only what the DB
+ * knows. `user.id` is the Clerk user ID. Callers that need human-readable
+ * email/name should additionally call `fetchUserProfile`.
+ */
 export interface VerifyApiKeyResult {
-  user: { id: string; email: string; name: string }
+  user: { id: string }
   workspace: { id: string; slug: string; name: string }
   apiKey: { id: string; name: string; prefix: string }
+}
+
+/** Human profile from Clerk — display-only. */
+export interface UserProfile {
+  email: string
+  name: string
 }
 
 function resolveDisplayName(
@@ -21,10 +32,15 @@ function resolveDisplayName(
 
 export const authService = {
   /**
-   * Verify a CLI bearer token and resolve the caller's identity.
+   * Verify a Lumo CLI bearer token.
    *
-   * Returns the identity payload, or `null` if the key is unknown or revoked.
-   * On success, touches `lastUsedAt` in the background.
+   * Pure DB lookup — no Clerk call, no profile enrichment. Returns the
+   * minimal identity needed to authorize a request (clerkId + workspace
+   * + apiKey), or `null` if the key is unknown or revoked. On success,
+   * touches `lastUsedAt` in the background.
+   *
+   * For display purposes (email/name), call `fetchUserProfile(user.id)`
+   * after verification.
    */
   async verifyApiKey(token: string): Promise<VerifyApiKeyResult | null> {
     const keyHash = createHash('sha256').update(token).digest('hex')
@@ -33,26 +49,8 @@ export const authService = {
 
     void miscRepository.touchApiKeyLastUsed(keyHash).catch(() => {})
 
-    const client = await clerkClient()
-    const clerkUser = await client.users.getUser(apiKey.member.clerkId)
-
-    const email =
-      clerkUser.emailAddresses.find(
-        e => e.id === clerkUser.primaryEmailAddressId
-      )?.emailAddress ??
-      clerkUser.emailAddresses[0]?.emailAddress ??
-      ''
-
     return {
-      user: {
-        id: apiKey.member.clerkId,
-        email,
-        name: resolveDisplayName(
-          clerkUser.firstName,
-          clerkUser.lastName,
-          email
-        ),
-      },
+      user: { id: apiKey.member.clerkId },
       workspace: {
         id: apiKey.member.workspace.id,
         slug: apiKey.member.workspace.slug,
@@ -63,6 +61,30 @@ export const authService = {
         name: apiKey.label,
         prefix: apiKey.keyPrefix,
       },
+    }
+  },
+
+  /**
+   * Fetch the Clerk profile (email + display name) for a given clerkId.
+   *
+   * Network call to Clerk (~100-300ms). Only use when the email/name are
+   * actually needed — e.g. the CLI `whoami` "logged in as X" line. The
+   * hook, MCP, and other machine-only paths should skip this.
+   */
+  async fetchUserProfile(clerkId: string): Promise<UserProfile> {
+    const client = await clerkClient()
+    const clerkUser = await client.users.getUser(clerkId)
+
+    const email =
+      clerkUser.emailAddresses.find(
+        e => e.id === clerkUser.primaryEmailAddressId
+      )?.emailAddress ??
+      clerkUser.emailAddresses[0]?.emailAddress ??
+      ''
+
+    return {
+      email,
+      name: resolveDisplayName(clerkUser.firstName, clerkUser.lastName, email),
     }
   },
 }
