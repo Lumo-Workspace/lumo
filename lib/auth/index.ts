@@ -24,7 +24,9 @@ import { prisma } from '@/lib/db/prisma'
  * Require an authenticated user.
  * Returns { userId: string } on success, or a 401 NextResponse on failure.
  */
-export async function requireAuth(): Promise<{ userId: string } | NextResponse> {
+export async function requireAuth(): Promise<
+  { userId: string } | NextResponse
+> {
   const { userId } = await auth()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -61,5 +63,11 @@ export async function getUserWorkspace(clerkId: string) {
     include: { workspace: true },
   })
   if (!member) return null
-  return { workspaceId: member.workspaceId, member, workspace: member.workspace }
+  return {
+    workspaceId: member.workspaceId,
+    member,
+    workspace: member.workspace,
+  }
 }
+
+export { verifyBearer } from './bearer'

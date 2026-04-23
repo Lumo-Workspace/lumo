@@ -35,6 +35,7 @@ describe('verifyBearer', () => {
   it('returns null when authService rejects the key', async () => {
     mockVerify.mockResolvedValue(null)
     expect(await verifyBearer(req('Bearer lum_bad'))).toBeNull()
+    expect(mockVerify).toHaveBeenCalledWith('lum_bad')
   })
 
   it('returns identity when token is valid', async () => {
@@ -42,5 +43,17 @@ describe('verifyBearer', () => {
     mockVerify.mockResolvedValue(identity)
     expect(await verifyBearer(req('Bearer lum_good'))).toBe(identity)
     expect(mockVerify).toHaveBeenCalledWith('lum_good')
+  })
+
+  it('accepts a lowercase bearer scheme per RFC 7235', async () => {
+    const identity = { user: {}, workspace: {}, apiKey: {} }
+    mockVerify.mockResolvedValue(identity)
+    expect(await verifyBearer(req('bearer lum_good'))).toBe(identity)
+    expect(mockVerify).toHaveBeenCalledWith('lum_good')
+  })
+
+  it('propagates errors thrown by authService', async () => {
+    mockVerify.mockRejectedValue(new Error('DB down'))
+    await expect(verifyBearer(req('Bearer lum_x'))).rejects.toThrow('DB down')
   })
 })
