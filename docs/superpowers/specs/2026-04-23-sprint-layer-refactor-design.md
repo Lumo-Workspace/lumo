@@ -51,7 +51,7 @@ CLAUDE.md "Layered Architecture" 明确规定：
 3. **新建** `lib/db/errors.ts`（Prisma 错误类型守卫）。
 4. **扩展** 5 个既有 repository：`sprint.repository.ts`、`sprint-summary.repository.ts`、`task.repository.ts`、`activity.repository.ts`、`generation-job.repository.ts` —— 只新增方法，不改既有方法签名。
 5. **改造** 3 个 service：移除所有 `import { prisma }`，所有 Prisma 调用替换为 repository 方法。
-6. **新建** 3 个 Jest 测试文件：`__tests__/services/sprint.test.ts`、`sprint-summary.test.ts`、`sprint-notifications.test.ts`，约 45 个用例，行覆盖 ≥ 90%。
+6. **新建** 3 个 Jest 测试文件：`__tests__/services/sprint.test.ts`、`sprint-summary.test.ts`、`sprint-notifications.test.ts`，约 53 个用例（43 + 6 + 4），行覆盖 ≥ 90%。
 7. **收敛** Sprint 域 `any`：从 9 处降为 0（允许在 spec review 时豁免个别，需注释说明原因）。
 
 ### 2.2 Out of Scope
