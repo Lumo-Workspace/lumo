@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db/prisma'
 import { mergeEvents, type RawEvent } from './merge-events'
 import { Timeline } from './Timeline'
+import { SummaryCard } from './SummaryCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,8 @@ export default async function SessionDetailPage({
       startedAt: true,
       lastActivityAt: true,
       eventCount: true,
+      summary: true,
+      summaryGeneratedAt: true,
     },
   })
   if (!session) notFound()
@@ -97,6 +100,16 @@ export default async function SessionDetailPage({
           </div>
         </dl>
       </header>
+
+      <SummaryCard
+        sessionId={session.id}
+        initialSummary={session.summary}
+        initialGeneratedAt={session.summaryGeneratedAt?.toISOString() ?? null}
+        isStale={
+          session.summaryGeneratedAt !== null &&
+          session.lastActivityAt > session.summaryGeneratedAt
+        }
+      />
 
       <section>
         <h2 className='mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground'>

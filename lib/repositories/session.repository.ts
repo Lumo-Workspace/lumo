@@ -78,6 +78,8 @@ export const sessionRepository = {
         lastActivityAt: true,
         eventCount: true,
         workspaceId: true,
+        summary: true,
+        summaryGeneratedAt: true,
       },
     })
   },
@@ -93,6 +95,14 @@ export const sessionRepository = {
         payload: true,
         createdAt: true,
       },
+    })
+  },
+
+  async updateSummary(id: string, summary: string, generatedAt: Date) {
+    return prisma.session.update({
+      where: { id },
+      data: { summary, summaryGeneratedAt: generatedAt },
+      select: { id: true, summary: true, summaryGeneratedAt: true },
     })
   },
 }

@@ -1159,6 +1159,10 @@ model Session {
   startedAt         DateTime @default(now())
   lastActivityAt    DateTime
   eventCount        Int      @default(0)
+  // Session summary — generated on demand via Claude. summaryGeneratedAt lets
+  // callers detect staleness by comparing against lastActivityAt.
+  summary            String?   @db.Text
+  summaryGeneratedAt DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
