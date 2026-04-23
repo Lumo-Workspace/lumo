@@ -1,0 +1,24 @@
+{
+  "name": "@lumo/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lumo CLI — manage tasks and sessions from the terminal",
+  "bin": {
+    "lumo": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "typescript": "^5"
+  }
+}

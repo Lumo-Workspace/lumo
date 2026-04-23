@@ -67,6 +67,39 @@ export const miscRepository = {
     })
   },
 
+  /**
+   * Find an API key by hash with the owning member's clerkId and workspace.
+   * Used by the CLI bearer-token verify endpoint.
+   */
+  async findApiKeyByHashForVerify(keyHash: string) {
+    return prisma.apiKey.findUnique({
+      where: { keyHash },
+      select: {
+        id: true,
+        label: true,
+        keyPrefix: true,
+        revokedAt: true,
+        member: {
+          select: {
+            id: true,
+            clerkId: true,
+            workspace: {
+              select: { id: true, slug: true, name: true },
+            },
+          },
+        },
+      },
+    })
+  },
+
+  /** Fire-and-forget touch of lastUsedAt. */
+  async touchApiKeyLastUsed(keyHash: string) {
+    return prisma.apiKey.update({
+      where: { keyHash },
+      data: { lastUsedAt: new Date() },
+    })
+  },
+
   /** Create a new API key. */
   async createApiKey(data: CreateApiKeyData) {
     return prisma.apiKey.create({

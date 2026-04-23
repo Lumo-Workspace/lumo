@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "shared",
-    "agent-server"
+    "agent-server",
+    "cli"
   ],
   "scripts": {
     "dev": "next dev",
