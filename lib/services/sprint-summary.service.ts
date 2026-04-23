@@ -5,7 +5,6 @@ import {
 } from '@/lib/repositories/sprint-summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { callSprintSummaryLLM } from '@/lib/llm/sprint-summary-client'
-import type { Prisma } from '@prisma/client'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -34,7 +33,7 @@ export const sprintSummaryService = {
       })
 
       const savedSummary = await sprintSummaryRepository.save(sprintId, {
-        stats: stats as unknown as Prisma.InputJsonValue,
+        stats,
         tldr,
         report,
       })

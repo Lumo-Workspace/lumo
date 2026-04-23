@@ -4,7 +4,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
 export interface SprintSummaryData {
-  stats: Prisma.InputJsonValue
+  stats: SprintStats
   tldr: string
   report: string
 }
@@ -34,10 +34,15 @@ export const sprintSummaryRepository = {
   },
 
   async save(sprintId: string, data: SprintSummaryData) {
+    const payload = {
+      stats: data.stats as unknown as Prisma.InputJsonValue,
+      tldr: data.tldr,
+      report: data.report,
+    }
     return prisma.sprintSummary.upsert({
       where: { sprintId },
-      create: { sprintId, ...data },
-      update: { ...data, generatedAt: new Date() },
+      create: { sprintId, ...payload },
+      update: { ...payload, generatedAt: new Date() },
     })
   },
 

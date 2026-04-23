@@ -23,21 +23,24 @@ describe('sprintSummaryRepository', () => {
 
   it('save upserts by sprintId', async () => {
     mockUpsert.mockResolvedValueOnce({ id: 'ss1' })
-    await sprintSummaryRepository.save('s1', {
-      stats: { totalTasks: 5 },
-      tldr: 't',
-      report: 'r',
-    })
+    const stats = {
+      totalTasks: 5,
+      done: 3,
+      spillover: 1,
+      byPriority: { HIGH: 2 },
+      byAssignee: { u1: 3 },
+    }
+    await sprintSummaryRepository.save('s1', { stats, tldr: 't', report: 'r' })
     expect(mockUpsert).toHaveBeenCalledWith({
       where: { sprintId: 's1' },
       create: {
         sprintId: 's1',
-        stats: { totalTasks: 5 },
+        stats,
         tldr: 't',
         report: 'r',
       },
       update: {
-        stats: { totalTasks: 5 },
+        stats,
         tldr: 't',
         report: 'r',
         generatedAt: expect.any(Date),
