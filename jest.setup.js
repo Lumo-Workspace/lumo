@@ -1,5 +1,17 @@
 import '@testing-library/jest-dom'
 
+// jsdom doesn't expose TextEncoder/TextDecoder, but Node has them natively
+// and several production deps (notably `pg`'s crypto module) reference them
+// at import time. Polyfill onto the global so tests can require these deps
+// under the jsdom testEnvironment without a ReferenceError.
+import { TextEncoder, TextDecoder } from 'util'
+if (typeof global.TextEncoder === 'undefined') {
+  global.TextEncoder = TextEncoder
+}
+if (typeof global.TextDecoder === 'undefined') {
+  global.TextDecoder = TextDecoder
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {

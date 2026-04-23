@@ -143,7 +143,10 @@ describe('PATCH /api/users/preferences', () => {
       member: { id: 'mem_1' },
       workspaceId: 'ws_1',
     })
-    const res = await PATCH(makeRequest('PATCH', { locale: 'fr' }))
+    // 'xx' is not in preference.service's VALID_LOCALES. Earlier the test
+    // used 'fr', but 'fr' was later added to the valid list, turning this
+    // case into a silent 200 → unmocked repo → 500.
+    const res = await PATCH(makeRequest('PATCH', { locale: 'xx' }))
     expect(res.status).toBe(400)
   })
 

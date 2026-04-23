@@ -54,13 +54,17 @@ jest.mock('@/lib/mcp/audit', () => ({
 // Note: FIXTURE_AUTH_INFO is inlined in the factory — jest.mock factories are
 // hoisted before const declarations so we cannot reference module-level vars.
 
-jest.mock('@clerk/mcp-tools/server', () => ({
-  verifyClerkToken: jest.fn().mockReturnValue({
-    token: 'fixture-bearer-token',
-    clientId: 'test_client',
-    scopes: [],
+jest.mock(
+  '@clerk/mcp-tools/server',
+  () => ({
+    verifyClerkToken: jest.fn().mockReturnValue({
+      token: 'fixture-bearer-token',
+      clientId: 'test_client',
+      scopes: [],
+    }),
   }),
-}), { virtual: true })
+  { virtual: true }
+)
 
 jest.mock('@clerk/nextjs/server', () => ({
   auth: jest.fn().mockResolvedValue({ userId: 'test_user_clerk_id' }),
@@ -106,15 +110,23 @@ function mcpPost(body: unknown): Request {
  * We need to extract the JSON from the `data:` line.
  * Plain JSON (no SSE wrapping) is also handled as a fallback.
  */
-async function readMcpResponse(res: Response): Promise<Record<string, unknown>> {
+async function readMcpResponse(
+  res: Response
+): Promise<Record<string, unknown>> {
   const text = await res.text()
   // Try SSE `data:` line first
   const dataLine = text.split('\n').find(l => l.startsWith('data:'))
   if (dataLine) {
-    return JSON.parse(dataLine.slice('data:'.length).trim()) as Record<string, unknown>
+    return JSON.parse(dataLine.slice('data:'.length).trim()) as Record<
+      string,
+      unknown
+    >
   }
   // Fallback: plain JSON object on a line
-  const jsonLine = text.trim().split('\n').find(l => l.trim().startsWith('{'))
+  const jsonLine = text
+    .trim()
+    .split('\n')
+    .find(l => l.trim().startsWith('{'))
   if (!jsonLine) throw new Error(`No JSON in response: ${text}`)
   return JSON.parse(jsonLine) as Record<string, unknown>
 }
@@ -165,20 +177,28 @@ describe('POST /api/mcp — bootstrap flow', () => {
 
     const body = await readMcpResponse(res)
 
-    // Assert — result.tools must contain exactly the 3 bootstrap tools
+    // Assert — `registerAllTools` registers workspace tools unconditionally
+    // plus all domain tools; tools themselves gate at call time via
+    // requireWorkspace(ctx) when no workspace is bound. The tool list itself
+    // is therefore the full surface regardless of binding state.
     const result = body.result as { tools: { name: string }[] } | undefined
     expect(result).toBeDefined()
 
     const toolNames = (result?.tools ?? []).map(t => t.name).sort()
     expect(toolNames).toEqual([
       'get_active_workspace',
+      'get_member',
+      'get_project',
+      'get_workspace',
+      'list_members',
       'list_my_workspaces',
+      'list_projects',
+      'list_tags',
       'select_workspace',
     ])
-    expect(toolNames).toHaveLength(3)
   })
 
-  it('auto-binds the sole workspace and still returns the 3 bootstrap tools', async () => {
+  it('auto-binds the sole workspace and returns the full tool surface', async () => {
     // Arrange
     mockConnectionRepo.upsertOnConnect.mockResolvedValue({
       id: 'conn2',
@@ -223,9 +243,14 @@ describe('POST /api/mcp — bootstrap flow', () => {
     const toolNames = (result?.tools ?? []).map(t => t.name).sort()
     expect(toolNames).toEqual([
       'get_active_workspace',
+      'get_member',
+      'get_project',
+      'get_workspace',
+      'list_members',
       'list_my_workspaces',
+      'list_projects',
+      'list_tags',
       'select_workspace',
     ])
-    expect(toolNames).toHaveLength(3)
   })
 })

@@ -2,15 +2,13 @@
  * @jest-environment node
  *
  * Barrel export verification for @/lib/integrations/slack.
- * Ensures all public functions, types, and constants are accessible from the index.
+ * Ensures all public functions, types, and constants are accessible from
+ * the index — and confirms that the server-only `bot` / `slackAdapter`
+ * are NOT re-exported here (they pull pure-ESM `chat` and
+ * `@chat-adapter/slack` and must be imported directly from
+ * `@/lib/integrations/slack/bot` per
+ * MEMORY:project_integrations_barrel_rsc_boundary.md).
  */
-
-// Mock the bot module — it imports ESM-only packages ('chat', '@chat-adapter/slack')
-// that cannot be transformed by Jest's CommonJS transformer
-jest.mock('@/lib/integrations/slack/bot', () => ({
-  slackAdapter: {},
-  bot: {},
-}))
 
 // Mock Prisma to avoid DB connection requirements
 jest.mock('@/lib/db/prisma', () => ({
@@ -48,14 +46,6 @@ describe('lib/integrations/slack barrel exports', () => {
     expect(typeof slackModule.handleCommand).toBe('function')
   })
 
-  it('exports slackAdapter', () => {
-    expect(slackModule.slackAdapter).toBeDefined()
-  })
-
-  it('exports bot', () => {
-    expect(slackModule.bot).toBeDefined()
-  })
-
   it('exports all expected public names', () => {
     const expectedExports = [
       'ALL_SLACK_EVENTS',
@@ -63,13 +53,18 @@ describe('lib/integrations/slack barrel exports', () => {
       'sendChannelNotification',
       'sendDMNotification',
       'handleCommand',
-      'slackAdapter',
-      'bot',
     ]
     const actualExports = Object.keys(slackModule)
     for (const name of expectedExports) {
       expect(actualExports).toContain(name)
     }
+  })
+
+  it('does NOT re-export bot or slackAdapter (pure-ESM deps leak into clients)', () => {
+    expect((slackModule as Record<string, unknown>).bot).toBeUndefined()
+    expect(
+      (slackModule as Record<string, unknown>).slackAdapter
+    ).toBeUndefined()
   })
 
   it('ALL_SLACK_EVENTS contains expected event types', () => {

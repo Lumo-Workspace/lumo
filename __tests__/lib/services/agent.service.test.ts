@@ -2,6 +2,23 @@
  * @jest-environment node
  */
 
+// `@/lib/services/agent-orchestration.service` is a barrel that re-exports
+// from agent/execute, agent/comment-handler, sandbox/index, etc. — each of
+// which transitively pulls ESM-only packages (@e2b/code-interpreter → chalk,
+// @octokit/auth-app → universal-user-agent) that Jest's CJS transformer
+// can't parse. Mock the entire barrel so `agent.service.ts` picks up our
+// stubs instead of evaluating the real module chain.
+jest.mock('@/lib/services/agent-orchestration.service', () => ({
+  transitionAgentStatus: jest.fn(),
+  clearAgentStatus: jest.fn(),
+  isValidTransition: jest.fn(),
+  executeAgent: jest.fn(),
+  processAgentCompletion: jest.fn(),
+  handleAgentComment: jest.fn(),
+  extractAgentInstruction: jest.fn(),
+  buildAgentSpec: jest.fn(),
+}))
+
 jest.mock('@/lib/repositories/agent.repository', () => ({
   agentRepository: {
     findActiveRun: jest.fn(),
@@ -11,16 +28,12 @@ jest.mock('@/lib/repositories/agent.repository', () => ({
   },
 }))
 
-jest.mock('@/lib/agent/state-machine', () => ({
-  transitionAgentStatus: jest.fn(),
-}))
-
 jest.mock('@/lib/integrations/pusher', () => ({
   pushAgentEvent: jest.fn(),
 }))
 
 import { agentRepository } from '@/lib/repositories/agent.repository'
-import { transitionAgentStatus } from '@/lib/agent/state-machine'
+import { transitionAgentStatus } from '@/lib/services/agent-orchestration.service'
 import { pushAgentEvent } from '@/lib/integrations/pusher'
 import { agentService } from '@/lib/services/agent.service'
 

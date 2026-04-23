@@ -82,12 +82,23 @@ function setupDefaultMocks() {
     return Promise.resolve([])
   })
 
-  // overdue tasks
+  // overdue tasks (include team + number to match stats.ts's Prisma include
+  // shape — it builds `${task.team.identifier}-${task.number}` for topBlockers)
   asMock(prisma.task.findMany).mockImplementation(({ where }: any) => {
     if (where?.dueDate) {
       return Promise.resolve([
-        { id: 'task-overdue-1' },
-        { id: 'task-overdue-2' },
+        {
+          id: 'task-overdue-1',
+          number: 101,
+          title: 'Overdue task 1',
+          team: { identifier: 'LUM' },
+        },
+        {
+          id: 'task-overdue-2',
+          number: 102,
+          title: 'Overdue task 2',
+          team: { identifier: 'LUM' },
+        },
       ])
     }
     // completion trend
