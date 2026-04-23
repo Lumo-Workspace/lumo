@@ -156,6 +156,17 @@ export const miscRepository = {
     })
   },
 
+  // ── HookEvent helper ───────────────────────────────────────────────────
+
+  /** Resolve workspaceMember.id from clerkId + workspaceId (hook ingestion). */
+  async findMemberIdForHook(clerkId: string, workspaceId: string) {
+    const row = await prisma.workspaceMember.findUnique({
+      where: { workspaceId_clerkId: { workspaceId, clerkId } },
+      select: { id: true },
+    })
+    return row?.id ?? null
+  },
+
   // ── DocumentMention ───────────────────────────────────────────────────
 
   /** Find document mentions for a task, filtered by workspace access. */
