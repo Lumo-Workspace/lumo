@@ -28,6 +28,11 @@ export async function handleHookRequest(
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const status = (error as { status?: number } | null)?.status
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      const message = error instanceof Error ? error.message : 'Forbidden'
+      return NextResponse.json({ error: message }, { status })
+    }
     console.error(`POST /api/hooks/${type} error:`, error)
     return NextResponse.json(
       { error: 'Internal Server Error' },

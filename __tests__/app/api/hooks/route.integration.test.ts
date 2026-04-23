@@ -87,6 +87,41 @@ describe('POST /api/hooks/pre-tool-use', () => {
       payload,
     })
   })
+
+  it('propagates 403 when service rejects due to missing workspace membership', async () => {
+    mockRecord.mockRejectedValue(
+      Object.assign(
+        new Error('Workspace member not found for API key holder'),
+        {
+          status: 403,
+        }
+      )
+    )
+    const res = await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        { tool_name: 'Read' },
+        { Authorization: 'Bearer lum_ok' }
+      )
+    )
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body).toEqual({
+      error: 'Workspace member not found for API key holder',
+    })
+  })
+
+  it('returns 500 on unexpected service errors', async () => {
+    mockRecord.mockRejectedValue(new Error('DB down'))
+    const res = await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        { tool_name: 'Read' },
+        { Authorization: 'Bearer lum_ok' }
+      )
+    )
+    expect(res.status).toBe(500)
+  })
 })
 
 describe('POST /api/hooks/post-tool-use', () => {
