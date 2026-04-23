@@ -3,6 +3,7 @@ import { Command } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
+import { hookCommand } from './commands/hook'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -42,6 +43,27 @@ program
   .command('whoami')
   .description('Show the currently logged-in identity')
   .action(wrap(whoami))
+
+const hook = program
+  .command('hook')
+  .description(
+    'Claude Code hook ingestion (invoked by settings.json, not humans)'
+  )
+
+hook
+  .command('pre-tool-use')
+  .description('Forward a PreToolUse hook event to Lumo')
+  .action(wrap(() => hookCommand('pre-tool-use')))
+
+hook
+  .command('post-tool-use')
+  .description('Forward a PostToolUse hook event to Lumo')
+  .action(wrap(() => hookCommand('post-tool-use')))
+
+hook
+  .command('stop')
+  .description('Forward a Stop hook event to Lumo')
+  .action(wrap(() => hookCommand('stop')))
 
 program.parseAsync(process.argv).catch(err => {
   const msg = err instanceof Error ? err.message : String(err)
