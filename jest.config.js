@@ -7,7 +7,13 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/.worktrees/',
+    '<rootDir>/.claude/worktrees/',
+    '<rootDir>/.auto-claude/worktrees/',
+  ],
   collectCoverageFrom: [
     'app/**/*.{js,jsx,ts,tsx}',
     'components/**/*.{js,jsx,ts,tsx}',
