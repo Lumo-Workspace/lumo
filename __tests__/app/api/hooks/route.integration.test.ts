@@ -122,6 +122,20 @@ describe('POST /api/hooks/pre-tool-use', () => {
     )
     expect(res.status).toBe(500)
   })
+
+  it('coerces unknown 4xx statuses from thrown errors to 500', async () => {
+    mockRecord.mockRejectedValue(
+      Object.assign(new Error('some internal lib message'), { status: 422 })
+    )
+    const res = await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        {},
+        { Authorization: 'Bearer lum_ok' }
+      )
+    )
+    expect(res.status).toBe(500)
+  })
 })
 
 describe('POST /api/hooks/post-tool-use', () => {

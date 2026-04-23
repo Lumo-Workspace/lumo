@@ -2,7 +2,14 @@ import { readCredentials } from './config'
 import { trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 
-const TIMEOUT_MS = 1000
+/**
+ * Hard timeout for the hook POST. Sized so hooks stay imperceptible to
+ * the user (Claude Code invokes one per tool call) while leaving enough
+ * headroom for a cold Next.js + Prisma + Clerk round-trip. On timeout the
+ * request is aborted, logged, and `runHook` exits 0 — Claude Code is
+ * never blocked beyond this ceiling.
+ */
+const TIMEOUT_MS = 1500
 
 export type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
 
@@ -47,7 +54,12 @@ export async function runHook(path: HookPath): Promise<void> {
     }
 
     const body = await readStdin()
-    const url = `${trimTrailingSlash(creds.apiUrl)}/api/hooks/${path}`
+    // Allow `LUMO_API_URL` to override the baked-in creds.apiUrl for
+    // redirecting hooks at dev-env switch without re-running `lumo auth
+    // login`. The bearer token from creds.json is still used as-is.
+    const envUrl = process.env.LUMO_API_URL?.trim()
+    const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+    const url = `${trimTrailingSlash(apiUrl)}/api/hooks/${path}`
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)

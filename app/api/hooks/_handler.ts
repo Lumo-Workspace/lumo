@@ -28,10 +28,15 @@ export async function handleHookRequest(
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    // Only propagate statuses that Lumo's own services explicitly throw
+    // (today: 403 from hookEventService for missing workspace membership).
+    // An unknown 4xx from a third-party lib could leak internal messages,
+    // so we force it to 500. Expand this allowlist when new service-level
+    // 4xx errors are introduced.
     const status = (error as { status?: number } | null)?.status
-    if (typeof status === 'number' && status >= 400 && status < 500) {
+    if (status === 403) {
       const message = error instanceof Error ? error.message : 'Forbidden'
-      return NextResponse.json({ error: message }, { status })
+      return NextResponse.json({ error: message }, { status: 403 })
     }
     console.error(`POST /api/hooks/${type} error:`, error)
     return NextResponse.json(
