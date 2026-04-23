@@ -44,6 +44,14 @@ program
   .description('Show the currently logged-in identity')
   .action(wrap(whoami))
 
+// Claude Code invokes `lumo hook <type>` per tool call, so these handlers
+// must never crash the caller. Two invariants keep us safe:
+//   1. `hookCommand` is stderr-silent and never throws (it catches internally
+//      and routes failures to ~/.lumo/hook.log). That makes `wrap()` a
+//      defensive no-op here — its process.exit(1) branch is unreachable.
+//   2. `./commands/hook` and its transitive imports (`hook-runner`,
+//      `hook-log`, `config`, `api`) must remain side-effect-free at module
+//      scope, so a broken hook never fails at import time either.
 const hook = program
   .command('hook')
   .description(
@@ -52,17 +60,21 @@ const hook = program
 
 hook
   .command('pre-tool-use')
-  .description('Forward a PreToolUse hook event to Lumo')
+  .description(
+    'Forward a PreToolUse hook event to Lumo (reads JSON from stdin)'
+  )
   .action(wrap(() => hookCommand('pre-tool-use')))
 
 hook
   .command('post-tool-use')
-  .description('Forward a PostToolUse hook event to Lumo')
+  .description(
+    'Forward a PostToolUse hook event to Lumo (reads JSON from stdin)'
+  )
   .action(wrap(() => hookCommand('post-tool-use')))
 
 hook
   .command('stop')
-  .description('Forward a Stop hook event to Lumo')
+  .description('Forward a Stop hook event to Lumo (reads JSON from stdin)')
   .action(wrap(() => hookCommand('stop')))
 
 program.parseAsync(process.argv).catch(err => {
