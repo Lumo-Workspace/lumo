@@ -29,7 +29,12 @@
 
 Sprint 域 `any` 分布 9 处（含 1 处 `as unknown as`）：全部可以在分层修复的过程中顺手消除或主动收敛。
 
-Service 单测覆盖现状：0。（代码库总共 123 个测试文件，但 40 个 service 文件中只有 `document` 和 `notification` 有单元测试。）
+Service 单测覆盖现状（修正版，brainstorming 初期诊断误报）：
+
+- `__tests__/sprint.service.test.ts` 已存在（713 行，~30 用例），但**深度 mock 了 `@/lib/db/prisma`**（mock 了 `prisma.team.findUnique`、`prisma.$transaction` 等入口），而不是 mock repository。重构后 service 不再直调 prisma，这些 mock 将失效，**必须连同 mock 策略整体重写**。
+- `__tests__/sprint-summary.service.test.ts` 已存在（252 行，~7 用例），同样 mock prisma 而非 repository，需重写。
+- `__tests__/sprint-notifications.service.test.ts` 不存在，**需新建**。
+- `__tests__/task.service.sprint.test.ts` 已存在但测的是 `taskService`（涉及 sprint 相关行为），不在本次 scope 内，且 `task.repository.ts` 既有方法不改，**该文件不受影响**。
 
 ### 1.3 违反的约定
 
@@ -51,7 +56,11 @@ CLAUDE.md "Layered Architecture" 明确规定：
 3. **新建** `lib/db/errors.ts`（Prisma 错误类型守卫）。
 4. **扩展** 5 个既有 repository：`sprint.repository.ts`、`sprint-summary.repository.ts`、`task.repository.ts`、`activity.repository.ts`、`generation-job.repository.ts` —— 只新增方法，不改既有方法签名。
 5. **改造** 3 个 service：移除所有 `import { prisma }`，所有 Prisma 调用替换为 repository 方法。
-6. **新建** 3 个 Jest 测试文件：`__tests__/services/sprint.test.ts`、`sprint-summary.test.ts`、`sprint-notifications.test.ts`，约 53 个用例（43 + 6 + 4），行覆盖 ≥ 90%。
+6. **重写 2 个** + **新建 1 个** Jest 测试文件，全部采用 "mock repository 而非 mock prisma" 的新策略：
+   - **重写** `__tests__/sprint.service.test.ts`（既有 ~30 用例 → 扩充至 ~43 用例，补齐 404/edge-case 分支 + updateMeta 方法）
+   - **重写** `__tests__/sprint-summary.service.test.ts`（既有 ~7 用例 → 精简至 6 用例，对齐新 repository API）
+   - **新建** `__tests__/sprint-notifications.service.test.ts`（4 用例）
+   - 总计约 53 个用例，行覆盖 ≥ 90%
 7. **收敛** Sprint 域 `any`：从 9 处降为 0（允许在 spec review 时豁免个别，需注释说明原因）。
 
 ### 2.2 Out of Scope
@@ -149,13 +158,15 @@ CLAUDE.md "Layered Architecture" 明确规定：
 | `sprint-summary.service.ts`       | 移除 `import { prisma }`；5 处 Prisma 调用下沉；stats 聚合下沉到 `sprintSummaryRepository.computeStatsData`；移除 `as unknown as Prisma.InputJsonValue`（repository 内部吃掉）。                     |
 | `sprint-notifications.service.ts` | 移除 `import { prisma }`；1 处替换为 `sprintNotificationsRepository.findTeamActorIds`。                                                                                                              |
 
-### 4.4 新建测试（3 个文件）
+### 4.4 测试文件（重写 2 个 + 新建 1 个）
 
-| 文件                                              | 用例数 | 覆盖范围                                          |
-| ------------------------------------------------- | ------ | ------------------------------------------------- |
-| `__tests__/services/sprint.test.ts`               | ~43    | 9 个公共方法的主路径 + 错误路径                   |
-| `__tests__/services/sprint-summary.test.ts`       | 6      | generate 的成功/失败路径 + pendingJob 存在/不存在 |
-| `__tests__/services/sprint-notifications.test.ts` | 4      | dispatch 的去重、空收件人、两种 type              |
+| 文件                                             | 操作 | 用例数 | 覆盖范围                                          |
+| ------------------------------------------------ | ---- | ------ | ------------------------------------------------- |
+| `__tests__/sprint.service.test.ts`               | 重写 | ~43    | 9 个公共方法的主路径 + 错误路径                   |
+| `__tests__/sprint-summary.service.test.ts`       | 重写 | 6      | generate 的成功/失败路径 + pendingJob 存在/不存在 |
+| `__tests__/sprint-notifications.service.test.ts` | 新建 | 4      | dispatch 的去重、空收件人、两种 type              |
+
+**Mock 策略统一升级**：新测试用 `jest.mock('@/lib/repositories/*')` 而非 `jest.mock('@/lib/db/prisma')`。Service 只通过 repository 层与数据交互，prisma 不再出现在 service 的 mock 列表里。重写 2 个既有文件的过程相当于"清空文件 → 用新策略重建"，用例清单是既有的 super-set（补齐了 updateMeta、缺失的 404 分支、`start` 的通知触发断言等）。
 
 ## 5. 逐处 Prisma 调用映射
 
@@ -227,13 +238,14 @@ CLAUDE.md "Layered Architecture" 明确规定：
 
 ### 7.1 策略
 
-- `jest.mock('@/lib/repositories/{team,sprint,sprint-summary,sprint-notifications,task,activity,generation-job}.repository')`
-- Mock `@/lib/services/sprint-notifications.service`（`sprint.test.ts` 中 mock `dispatchSprintNotification`）
-- Mock `@/lib/services/sprint-summary.service`（`sprint.test.ts` 中 mock `generate`）
+- 所有 service 测试一律 `jest.mock('@/lib/repositories/{team,sprint,sprint-summary,sprint-notifications,task,activity,generation-job}.repository')`
+- **不再 `jest.mock('@/lib/db/prisma')`**（这是相对既有测试的**核心策略变化**——既有测试 mock 了 prisma 客户端，重构后失效）
+- `sprint.service.test.ts` 中 mock `@/lib/services/sprint-notifications.service`（mock `dispatchSprintNotification`）
+- `sprint.service.test.ts` 中 mock `@/lib/services/sprint-summary.service`（mock `generate`）
 - 不连真实 DB；集成路径由现有 `__tests__/api/**` 覆盖
-- 对齐既有 `__tests__/services/document.test.ts` 或 `notification.test.ts` 的风格（实现阶段核实并采纳，若发现它们采用真实 DB，则改为真实 DB 策略，**但保持 spec 定义的用例清单不变**）
+- 风格参考 `__tests__/lib/services/notification.service.test.ts` 和 `__tests__/document.service.test.ts`（既有 mock-repository 风格）
 
-### 7.2 `sprint.test.ts` 用例（~43 个）
+### 7.2 `sprint.service.test.ts` 用例（~43 个，重写）
 
 | 方法                   | 用例                                                                                                                                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -247,7 +259,7 @@ CLAUDE.md "Layered Architecture" 明确规定：
 | `configureCadence`     | ✅ 只传 enabled；✅ 传全部 cadence 字段；✅ 未传字段保持不变                                                                                                                                                 |
 | `ensureFutureSprints`  | ✅ 缺口时创建；✅ 已满额 no-op；✅ sprintsEnabled=false no-op；✅ sprintAutoCreate=0 no-op；✅ P2002 竞态静默退出                                                                                            |
 
-### 7.3 `sprint-summary.test.ts` 用例（6 个）
+### 7.3 `sprint-summary.service.test.ts` 用例（6 个，重写）
 
 - ✅ 成功路径：closed sprint → computeStats → LLM → save → markCompleted
 - ✅ 无 pendingJob 时仍成功 save（不调 markCompleted）
@@ -256,7 +268,7 @@ CLAUDE.md "Layered Architecture" 明确规定：
 - ✅ LLM 抛错时调 markFailed 后再抛（pendingJob 存在）
 - ✅ LLM 抛错且无 pendingJob 时直接抛
 
-### 7.4 `sprint-notifications.test.ts` 用例（4 个）
+### 7.4 `sprint-notifications.service.test.ts` 用例（4 个，新建）
 
 - ✅ 调 findTeamActorIds → 调 notificationRepository.createMany
 - ✅ 空 actor 列表时直接 return
@@ -267,7 +279,8 @@ CLAUDE.md "Layered Architecture" 明确规定：
 
 ### 8.1 Structural
 
-- [ ] 新建文件存在：`team.repository.ts`、`sprint-notifications.repository.ts`、`lib/db/errors.ts`、3 个测试文件
+- [ ] 新建文件存在：`team.repository.ts`、`sprint-notifications.repository.ts`、`lib/db/errors.ts`、`__tests__/sprint-notifications.service.test.ts`
+- [ ] 既有测试文件完成重写：`__tests__/sprint.service.test.ts`、`__tests__/sprint-summary.service.test.ts` 已完全替换原 `jest.mock('@/lib/db/prisma')` 策略
 - [ ] Sprint 域 service 不再 import prisma：
   ```bash
   grep -E "from ['\"]@/lib/db/prisma['\"]" lib/services/sprint*.ts   # 必须为空
@@ -295,9 +308,14 @@ CLAUDE.md "Layered Architecture" 明确规定：
 
 ### 8.3 Tests
 
-- [ ] 三个新测试文件全部通过
+- [ ] 三个 service 测试文件（重写 2 个 + 新建 1 个）全部通过
+- [ ] 重写的两个测试文件里不再出现 `jest.mock('@/lib/db/prisma'`：
+  ```bash
+  grep -E "jest\.mock\(['\"]@/lib/db/prisma" __tests__/sprint.service.test.ts __tests__/sprint-summary.service.test.ts   # 必须为空
+  ```
 - [ ] 三个 service 文件行覆盖 ≥ 90%、分支覆盖 ≥ 85%
 - [ ] `npm test` 全量不退步（既有红 suite 保持原状，不新增红 suite）
+- [ ] `task.service.sprint.test.ts` 仍然通过（受 task.repository 既有方法不变的保证）
 
 ### 8.4 Behavior preservation
 
@@ -321,19 +339,20 @@ CLAUDE.md "Layered Architecture" 明确规定：
   3. `refactor(services): sprint.service.ts bypass prisma via repositories`
   4. `refactor(services): sprint-summary.service.ts bypass prisma`
   5. `refactor(services): sprint-notifications.service.ts bypass prisma`
-  6. `test(services): add jest specs for sprint/sprint-summary/sprint-notifications`
+  6. `test(services): rewrite sprint+sprint-summary specs with repo-mock strategy; add sprint-notifications spec`
 - [ ] PR title：`refactor(sprint): sink Prisma to repository layer + add service tests [LUM-N]`
 - [ ] PR 描述遵循 CLAUDE.md checklist（tests、tsc、commit 规范、无新增 npm 包等）
 
 ## 9. 风险与缓解
 
-| 风险                                                                                              | 可能性 | 影响         | 缓解                                                                                                               |
-| ------------------------------------------------------------------------------------------------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| 事务内跨 repository 方法忘记传 `tx`，导致事务外查询+事务内写，锁不住行                            | 中     | 数据一致性   | §5 映射表强制每个事务内调用都明确 `tx` 参数；code review 时逐行核对；`lockForUpdate(tx, ...)` 的既有约定已帮忙卡位 |
-| `startAtomically` / `closeAtomically` 吃错误语义（把 service 的 httpError 改成其他错误）          | 中     | 前端展示破损 | 测试里断言 `error.status === 409` 等具体 status；手动回归 3 个场景                                                 |
-| Mock repository 风格与现有 `document.test.ts` 不一致                                              | 低     | 维护成本     | 实现前先读 `document.test.ts` / `notification.test.ts`，按其风格对齐                                               |
-| `sprintSummaryRepository.save` 吃 `SprintStats` 导致 `Prisma.InputJsonValue` 类型冲突             | 低     | tsc 报错     | Repository 内部用 `stats as Prisma.InputJsonValue`（隔离在 repository 层，service 端干净）                         |
-| P2 / P3 的 god component 重构如果要复用某些 sprint repository 方法，本次签名太贴合 service 的需求 | 低     | 未来小改     | 可接受 —— YAGNI，等 P2/P3 真有需求再加方法                                                                         |
+| 风险                                                                                              | 可能性 | 影响         | 缓解                                                                                                                    |
+| ------------------------------------------------------------------------------------------------- | ------ | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 事务内跨 repository 方法忘记传 `tx`，导致事务外查询+事务内写，锁不住行                            | 中     | 数据一致性   | §5 映射表强制每个事务内调用都明确 `tx` 参数；code review 时逐行核对；`lockForUpdate(tx, ...)` 的既有约定已帮忙卡位      |
+| `startAtomically` / `closeAtomically` 吃错误语义（把 service 的 httpError 改成其他错误）          | 中     | 前端展示破损 | 测试里断言 `error.status === 409` 等具体 status；手动回归 3 个场景                                                      |
+| Mock repository 风格与现有 `notification.service.test.ts` 不一致                                  | 低     | 维护成本     | 实现前先读 `__tests__/lib/services/notification.service.test.ts` 和 `__tests__/document.service.test.ts`，按其风格对齐  |
+| 重写 `sprint.service.test.ts` 时漏掉既有用例的某个 assertion 或分支                               | 中     | 回归风险     | 重写前先列出原 713 行中所有 `it()` 用例清单；新文件里一一对应，新增的用例补齐 spec §7.2 多出的分支；diff 评审时逐条核对 |
+| `sprintSummaryRepository.save` 吃 `SprintStats` 导致 `Prisma.InputJsonValue` 类型冲突             | 低     | tsc 报错     | Repository 内部用 `stats as Prisma.InputJsonValue`（隔离在 repository 层，service 端干净）                              |
+| P2 / P3 的 god component 重构如果要复用某些 sprint repository 方法，本次签名太贴合 service 的需求 | 低     | 未来小改     | 可接受 —— YAGNI，等 P2/P3 真有需求再加方法                                                                              |
 
 ## 10. Rollback
 
