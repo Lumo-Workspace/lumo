@@ -176,9 +176,7 @@ export function ProjectsSidebarGroup({
       <SidebarMenuItem className='group/projrow'>
         <SidebarMenuButton
           asChild
-          isActive={
-            currentPage === 'projects' || currentPage === 'project-detail'
-          }
+          isActive={currentPage === 'projects'}
           tooltip={intl.formatMessage({ id: 'sidebar.projects' })}
           className='pr-8'
         >
