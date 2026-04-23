@@ -71,4 +71,16 @@ describe('hookEventService.recordHookEvent', () => {
       expect.objectContaining({ toolName: null })
     )
   })
+
+  it('throws a 403 when the API key holder has no workspace membership', async () => {
+    misc.findMemberIdForHook.mockResolvedValue(null)
+    await expect(
+      hookEventService.recordHookEvent({
+        identity,
+        type: 'STOP',
+        payload: {},
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.createHookEvent).not.toHaveBeenCalled()
+  })
 })

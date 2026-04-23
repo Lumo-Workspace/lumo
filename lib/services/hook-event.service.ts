@@ -24,11 +24,10 @@ export const hookEventService = {
       identity.workspace.id
     )
     if (!memberId) {
-      const err: Error & { status?: number } = new Error(
-        'Workspace member not found for API key holder'
+      throw Object.assign(
+        new Error('Workspace member not found for API key holder'),
+        { status: 403 }
       )
-      err.status = 403
-      throw err
     }
 
     return hookEventRepository.createHookEvent({
