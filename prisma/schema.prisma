@@ -169,6 +169,7 @@ model Workspace {
   tags               Tag[]
   mcpConnections     McpConnection[]     @relation("WorkspaceMcpConnections")
   hookEvents         HookEvent[]
+  sessions           Session[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -255,6 +256,7 @@ model WorkspaceMember {
   agentProfiles      AgentProfile[]
   apiKeys            ApiKey[]
   hookEvents         HookEvent[]
+  sessions           Session[]
   preference         UserPreference?
   createdDocuments   Document[]          @relation("DocumentCreator")
   documentShares     DocumentShare[]     @relation("DocumentShareMember")
@@ -1132,8 +1134,8 @@ model HookEvent {
   id                String        @id @default(cuid())
   workspaceId       String
   workspaceMemberId String
-  sessionId         String?       // Day 4: Claude Code session ID
-  taskId            String?       // Day 4: associated Lumo task
+  sessionId         String?       // Claude Code session UUID, FK to Session.id
+  taskId            String?       // associated Lumo task
   type              HookEventType
   toolName          String?       // extracted from payload.tool_name when present
   payload           Json          // raw hook body from Claude Code
@@ -1141,8 +1143,30 @@ model HookEvent {
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  session   Session?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
   @@index([workspaceMemberId, createdAt])
+  @@index([sessionId, createdAt])
   @@map("hook_events")
+}
+
+model Session {
+  id                String   @id          // Claude Code session UUID — not cuid
+  workspaceId       String
+  workspaceMemberId String
+  cwd               String?
+  startedAt         DateTime @default(now())
+  lastActivityAt    DateTime
+  eventCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  events    HookEvent[]
+
+  @@index([workspaceId, lastActivityAt])
+  @@index([workspaceMemberId, lastActivityAt])
+  @@map("sessions")
 }

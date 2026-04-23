@@ -25,6 +25,7 @@ describe('hookEventRepository.createHookEvent', () => {
     const result = await hookEventRepository.createHookEvent({
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
+      sessionId: 'sess_abc',
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
       payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
@@ -35,7 +36,7 @@ describe('hookEventRepository.createHookEvent', () => {
       data: {
         workspaceId: 'ws_1',
         workspaceMemberId: 'wm_1',
-        sessionId: null,
+        sessionId: 'sess_abc',
         taskId: null,
         type: 'PRE_TOOL_USE',
         toolName: 'Read',

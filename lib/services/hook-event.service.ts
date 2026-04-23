@@ -1,5 +1,6 @@
 import type { HookEventType, Prisma } from '@prisma/client'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
@@ -9,9 +10,9 @@ interface RecordHookEventInput {
   payload: Prisma.InputJsonValue
 }
 
-function extractToolName(payload: unknown): string | null {
+function extractStringField(payload: unknown, field: string): string | null {
   if (payload && typeof payload === 'object') {
-    const value = (payload as Record<string, unknown>).tool_name
+    const value = (payload as Record<string, unknown>)[field]
     if (typeof value === 'string' && value.length > 0) return value
   }
   return null
@@ -30,11 +31,28 @@ export const hookEventService = {
       )
     }
 
+    const sessionId = extractStringField(payload, 'session_id')
+    const cwd = extractStringField(payload, 'cwd')
+
+    // Upsert Session before the HookEvent insert so the FK resolves. If
+    // session_id is missing (malformed or non-Claude-Code client), we still
+    // record the event unlinked — matches Day 3 tolerance.
+    if (sessionId) {
+      await sessionRepository.upsertForHookEvent({
+        id: sessionId,
+        workspaceId: identity.workspace.id,
+        workspaceMemberId: memberId,
+        cwd,
+        now: new Date(),
+      })
+    }
+
     return hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
+      sessionId,
       type,
-      toolName: extractToolName(payload),
+      toolName: extractStringField(payload, 'tool_name'),
       payload,
     })
   },

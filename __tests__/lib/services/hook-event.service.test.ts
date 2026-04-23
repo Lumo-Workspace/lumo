@@ -6,6 +6,11 @@ jest.mock('@/lib/repositories/hook-event.repository', () => ({
     createHookEvent: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    upsertForHookEvent: jest.fn(),
+  },
+}))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: {
     findMemberIdForHook: jest.fn(),
@@ -13,10 +18,12 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
 }))
 
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { hookEventService } from '@/lib/services/hook-event.service'
 
 const repo = hookEventRepository as jest.Mocked<typeof hookEventRepository>
+const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
 const misc = miscRepository as jest.Mocked<typeof miscRepository>
 
 const identity = {
@@ -29,22 +36,41 @@ beforeEach(() => {
   jest.clearAllMocks()
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   repo.createHookEvent.mockResolvedValue({ id: 'he_1' } as never)
+  sess.upsertForHookEvent.mockResolvedValue({ id: 'sess_1' } as never)
 })
 
 describe('hookEventService.recordHookEvent', () => {
-  it('extracts tool_name from payload for PRE_TOOL_USE', async () => {
+  it('extracts tool_name and session_id from payload for PRE_TOOL_USE', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'PRE_TOOL_USE',
-      payload: { tool_name: 'Read', tool_input: { file_path: '/x' } },
+      payload: {
+        session_id: 'sess_abc',
+        cwd: '/repo',
+        tool_name: 'Read',
+        tool_input: { file_path: '/x' },
+      },
     })
 
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith({
+      id: 'sess_abc',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now: expect.any(Date),
+    })
     expect(repo.createHookEvent).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
+      sessionId: 'sess_abc',
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
-      payload: { tool_name: 'Read', tool_input: { file_path: '/x' } },
+      payload: {
+        session_id: 'sess_abc',
+        cwd: '/repo',
+        tool_name: 'Read',
+        tool_input: { file_path: '/x' },
+      },
     })
   })
 
@@ -52,7 +78,7 @@ describe('hookEventService.recordHookEvent', () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'STOP',
-      payload: { stop_reason: 'user' },
+      payload: { session_id: 'sess_abc', stop_reason: 'user' },
     })
 
     expect(repo.createHookEvent).toHaveBeenCalledWith(
@@ -64,11 +90,36 @@ describe('hookEventService.recordHookEvent', () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'POST_TOOL_USE',
-      payload: { tool_name: 42 },
+      payload: { session_id: 'sess_abc', tool_name: 42 },
     })
 
     expect(repo.createHookEvent).toHaveBeenCalledWith(
       expect.objectContaining({ toolName: null })
+    )
+  })
+
+  it('skips session upsert and stores null sessionId when payload lacks session_id', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'STOP',
+      payload: { stop_reason: 'user' },
+    })
+
+    expect(sess.upsertForHookEvent).not.toHaveBeenCalled()
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: null })
+    )
+  })
+
+  it('passes cwd=null to session upsert when payload lacks cwd', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: null })
     )
   })
 
@@ -82,5 +133,6 @@ describe('hookEventService.recordHookEvent', () => {
       })
     ).rejects.toMatchObject({ status: 403 })
     expect(repo.createHookEvent).not.toHaveBeenCalled()
+    expect(sess.upsertForHookEvent).not.toHaveBeenCalled()
   })
 })

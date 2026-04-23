@@ -1,0 +1,315 @@
+import { mergeEvents, type RawEvent } from '@/app/sessions/[id]/merge-events'
+
+function pre(
+  id: string,
+  toolUseId: string,
+  toolName: string,
+  input: Record<string, unknown>,
+  at: string
+): RawEvent {
+  return {
+    id,
+    type: 'PRE_TOOL_USE',
+    toolName,
+    payload: { tool_use_id: toolUseId, tool_name: toolName, tool_input: input },
+    createdAt: new Date(at),
+  }
+}
+
+function post(
+  id: string,
+  toolUseId: string,
+  toolName: string,
+  input: Record<string, unknown>,
+  response: Record<string, unknown>,
+  at: string
+): RawEvent {
+  return {
+    id,
+    type: 'POST_TOOL_USE',
+    toolName,
+    payload: {
+      tool_use_id: toolUseId,
+      tool_name: toolName,
+      tool_input: input,
+      tool_response: response,
+    },
+    createdAt: new Date(at),
+  }
+}
+
+function stop(id: string, message: string | null, at: string): RawEvent {
+  return {
+    id,
+    type: 'STOP',
+    toolName: null,
+    payload: message !== null ? { last_assistant_message: message } : {},
+    createdAt: new Date(at),
+  }
+}
+
+describe('mergeEvents', () => {
+  it('merges Pre + Post with matching tool_use_id into one item', () => {
+    const result = mergeEvents([
+      pre('p1', 'u1', 'Read', { file_path: '/a.ts' }, '2026-04-23T09:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a.ts' },
+        { file: { content: 'line1\nline2\nline3' }, type: 'text' },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.kind).toBe('tool')
+    expect(result[0]!.toolName).toBe('Read')
+    expect(result[0]!.summary).toBe('/a.ts')
+    expect(result[0]!.status).toBe('ok')
+    expect(result[0]!.badge).toBe('3 lines')
+    expect(result[0]!.endAt?.toISOString()).toBe('2026-04-23T09:00:01.000Z')
+
+    const content = result[0]!.details.find(d => d.label === 'content')
+    expect(content?.text).toContain('line1')
+  })
+
+  it('renders STOP event with message preview', () => {
+    const result = mergeEvents([
+      stop('s1', 'done with the task', '2026-04-23T09:00:00Z'),
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]!.kind).toBe('stop')
+    expect(result[0]!.summary).toBe('done with the task')
+    expect(result[0]!.details[0]!.text).toBe('done with the task')
+  })
+
+  it('flags Bash with non-empty stderr as error', () => {
+    const result = mergeEvents([
+      pre('p1', 'u1', 'Bash', { command: 'npm test' }, '2026-04-23T09:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Bash',
+        { command: 'npm test' },
+        { stdout: '', stderr: 'ENOENT', interrupted: false },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result[0]!.status).toBe('error')
+    expect(result[0]!.badge).toBe('stderr')
+    const stderrBlock = result[0]!.details.find(d => d.label === 'stderr')
+    expect(stderrBlock?.variant).toBe('error')
+    expect(stderrBlock?.text).toContain('ENOENT')
+  })
+
+  it('marks orphan Pre (no Post) as pending', () => {
+    const result = mergeEvents([
+      pre('p1', 'u1', 'Bash', { command: 'sleep 1' }, '2026-04-23T09:00:00Z'),
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]!.kind).toBe('orphan')
+    expect(result[0]!.status).toBe('pending')
+    expect(result[0]!.endAt).toBeNull()
+  })
+
+  it('counts diff lines from structuredPatch for Edit badge', () => {
+    const patch = [
+      {
+        oldStart: 10,
+        oldLines: 3,
+        newStart: 10,
+        newLines: 4,
+        lines: [
+          ' context',
+          '-old line 1',
+          '-old line 2',
+          '+new line 1',
+          '+new line 2',
+          '+new line 3',
+        ],
+      },
+    ]
+    const result = mergeEvents([
+      pre(
+        'p1',
+        'u1',
+        'Edit',
+        { file_path: '/a.ts', old_string: 'x', new_string: 'y' },
+        '2026-04-23T09:00:00Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Edit',
+        { file_path: '/a.ts', old_string: 'x', new_string: 'y' },
+        { filePath: '/a.ts', structuredPatch: patch, type: 'update' },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result[0]!.badge).toBe('+3 -2')
+    const diffBlock = result[0]!.details.find(d => d.label === 'diff')
+    expect(diffBlock?.variant).toBe('diff')
+    expect(diffBlock?.text).toContain('@@ -10,3 +10,4 @@')
+    expect(diffBlock?.text).toContain('+new line 1')
+  })
+
+  it('truncates long content blocks and records total line count', () => {
+    const bigContent = Array.from({ length: 80 }, (_, i) => `line ${i}`).join(
+      '\n'
+    )
+    const result = mergeEvents([
+      pre('p1', 'u1', 'Read', { file_path: '/big.ts' }, '2026-04-23T09:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/big.ts' },
+        { file: { content: bigContent }, type: 'text' },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    const contentBlock = result[0]!.details.find(d => d.label === 'content')
+    expect(contentBlock?.truncated).toEqual({ shownLines: 30, totalLines: 80 })
+    expect(contentBlock?.text.split('\n')).toHaveLength(30)
+  })
+
+  it('sorts merged items by startAt regardless of input order', () => {
+    // Stream events out of order to simulate interleaved writes.
+    const events: RawEvent[] = [
+      pre('p2', 'u2', 'Read', { file_path: '/b.ts' }, '2026-04-23T09:00:05Z'),
+      pre('p1', 'u1', 'Read', { file_path: '/a.ts' }, '2026-04-23T09:00:00Z'),
+      post(
+        'q2',
+        'u2',
+        'Read',
+        { file_path: '/b.ts' },
+        { file: { content: 'B' }, type: 'text' },
+        '2026-04-23T09:00:06Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a.ts' },
+        { file: { content: 'A' }, type: 'text' },
+        '2026-04-23T09:00:01Z'
+      ),
+    ]
+    const result = mergeEvents(events)
+    expect(result.map(r => r.summary)).toEqual(['/a.ts', '/b.ts'])
+  })
+
+  it('formats Grep files_with_matches mode with file list and count', () => {
+    const result = mergeEvents([
+      pre(
+        'p1',
+        'u1',
+        'Grep',
+        { pattern: 'TODO', path: 'src' },
+        '2026-04-23T09:00:00Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Grep',
+        { pattern: 'TODO', path: 'src' },
+        {
+          mode: 'files_with_matches',
+          numFiles: 2,
+          filenames: ['src/a.ts', 'src/b.ts'],
+        },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result[0]!.summary).toBe('TODO  in src')
+    expect(result[0]!.badge).toBe('2 files')
+    const matches = result[0]!.details.find(d => d.label === 'matches')
+    expect(matches?.text).toBe('src/a.ts\nsrc/b.ts')
+  })
+
+  it('formats Grep content mode with matched lines and line count', () => {
+    const result = mergeEvents([
+      pre(
+        'p1',
+        'u1',
+        'Grep',
+        { pattern: 'ANTHROPIC', path: 'lib' },
+        '2026-04-23T09:00:00Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Grep',
+        { pattern: 'ANTHROPIC', path: 'lib' },
+        {
+          mode: 'content',
+          numFiles: 0,
+          numLines: 3,
+          filenames: [],
+          content:
+            'lib/a.ts:1:ANTHROPIC_KEY\nlib/a.ts:2:ANTHROPIC_URL\nlib/b.ts:5:ANTHROPIC',
+        },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result[0]!.badge).toBe('3 lines')
+    const matches = result[0]!.details.find(d => d.label === 'matches')
+    expect(matches?.variant).toBe('code')
+    expect(matches?.text).toContain('ANTHROPIC_KEY')
+  })
+
+  it('marks empty Grep result as "no match" with no details', () => {
+    const result = mergeEvents([
+      pre(
+        'p1',
+        'u1',
+        'Grep',
+        { pattern: 'NONEXISTENT' },
+        '2026-04-23T09:00:00Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Grep',
+        { pattern: 'NONEXISTENT' },
+        {
+          mode: 'content',
+          content: '',
+          numFiles: 0,
+          numLines: 0,
+          filenames: [],
+        },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+
+    expect(result[0]!.badge).toBe('no match')
+    expect(result[0]!.details).toHaveLength(0)
+  })
+
+  it('falls back gracefully when tool is unknown', () => {
+    const result = mergeEvents([
+      pre('p1', 'u1', 'SomeNewTool', { foo: 'bar' }, '2026-04-23T09:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'SomeNewTool',
+        { foo: 'bar' },
+        { ok: true },
+        '2026-04-23T09:00:01Z'
+      ),
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]!.toolName).toBe('SomeNewTool')
+    expect(result[0]!.status).toBe('ok')
+    const inputBlock = result[0]!.details.find(d => d.label === 'input')
+    expect(inputBlock?.variant).toBe('json')
+    expect(inputBlock?.text).toContain('"foo"')
+  })
+})
