@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import type { SprintStatus, Prisma } from '@prisma/client'
+import type { SprintStatus, TaskStatus, Prisma } from '@prisma/client'
 import { isPrismaUniqueViolation } from '@/lib/db/errors'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
@@ -114,11 +114,11 @@ export const sprintRepository = {
     return prisma.sprint.delete({ where: { id: sprintId } })
   },
 
-  async countTasks(sprintId: string, filter: { status?: string } = {}) {
+  async countTasks(sprintId: string, filter: { status?: TaskStatus } = {}) {
     return prisma.task.count({
       where: {
         sprintId,
-        ...(filter.status ? { status: filter.status as any } : {}),
+        ...(filter.status ? { status: filter.status } : {}),
       },
     })
   },
@@ -261,6 +261,89 @@ export const sprintRepository = {
         await generationJobRepository.createSprintPending(sprintId, tx)
 
         return closed
+      },
+      { timeout: 15000, maxWait: 5000 }
+    )
+  },
+
+  /**
+   * Move `taskId` into `sprintId`, with pre-condition checks (task exists,
+   * sprint exists, team matches, sprint not CLOSED). Idempotent when the
+   * task is already on the target sprint. Emits a SPRINT_CHANGED activity.
+   */
+  async addTaskAtomically(
+    taskId: string,
+    sprintId: string,
+    actorId: string | null
+  ) {
+    const task = await taskRepository.findMinimalById(taskId)
+    if (!task) httpError(404, 'task not found')
+    const sprint = await sprintRepository.findById(sprintId)
+    if (!sprint) httpError(404, 'sprint not found')
+    if (task.teamId !== sprint.teamId)
+      httpError(400, 'task and sprint belong to different teams')
+    if (sprint.status === 'CLOSED') httpError(409, 'sprint is closed')
+
+    return prisma.$transaction(
+      async tx => {
+        await sprintRepository.lockForUpdate(tx, sprintId)
+        const fromSprintId = task.sprintId
+        // No-op when the task is already in this sprint — avoids writing
+        // a SPRINT_CHANGED activity with fromSprintId === toSprintId when
+        // two concurrent planning actions race.
+        if (fromSprintId === sprintId) return { taskId, sprintId }
+        await taskRepository.bulkUpdateSprint([taskId], sprintId, tx)
+        await activityRepository.createSprintChanged(
+          {
+            taskId,
+            actorId,
+            payload: {
+              fromSprintId,
+              toSprintId: sprintId,
+              reason: 'planning',
+            },
+          },
+          tx
+        )
+        return { taskId, sprintId }
+      },
+      { timeout: 15000, maxWait: 5000 }
+    )
+  },
+
+  /**
+   * Remove `taskId` from whatever sprint it's on (sets sprintId=null).
+   * No-op when the task has no sprint. Refuses when the current sprint is
+   * CLOSED. Emits a SPRINT_CHANGED activity when a move occurs.
+   */
+  async removeTaskAtomically(taskId: string, actorId: string | null) {
+    const task = await taskRepository.findMinimalById(taskId)
+    if (!task) httpError(404, 'task not found')
+    if (!task.sprintId) return { taskId, sprintId: null }
+
+    const sprint = await sprintRepository.findById(task.sprintId)
+    if (sprint && sprint.status === 'CLOSED') {
+      httpError(409, 'cannot remove task from closed sprint')
+    }
+
+    return prisma.$transaction(
+      async tx => {
+        if (task.sprintId)
+          await sprintRepository.lockForUpdate(tx, task.sprintId)
+        await taskRepository.bulkUpdateSprint([taskId], null, tx)
+        await activityRepository.createSprintChanged(
+          {
+            taskId,
+            actorId,
+            payload: {
+              fromSprintId: task.sprintId,
+              toSprintId: null,
+              reason: 'planning',
+            },
+          },
+          tx
+        )
+        return { taskId, sprintId: null }
       },
       { timeout: 15000, maxWait: 5000 }
     )
