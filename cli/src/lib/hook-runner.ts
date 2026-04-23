@@ -4,7 +4,7 @@ import { logHookError } from './hook-log'
 
 const TIMEOUT_MS = 1000
 
-type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
+export type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
 
 /**
  * Read the full hook JSON from stdin.
@@ -15,6 +15,12 @@ type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
  */
 function readStdin(): Promise<string> {
   return new Promise(resolve => {
+    // If stdin is a TTY (nothing piped in), resolve immediately so the hook
+    // doesn't hang when invoked outside of Claude Code.
+    if (process.stdin.isTTY) {
+      resolve('')
+      return
+    }
     let data = ''
     process.stdin.setEncoding('utf8')
     process.stdin.on('data', chunk => {
@@ -36,7 +42,7 @@ export async function runHook(path: HookPath): Promise<void> {
   try {
     const creds = readCredentials()
     if (!creds) {
-      logHookError(`[${path}] no credentials; skipping`)
+      logHookError(`[${path}]`, 'no credentials; skipping')
       return
     }
 
@@ -57,16 +63,14 @@ export async function runHook(path: HookPath): Promise<void> {
         signal: controller.signal,
       })
       if (!res.ok) {
-        logHookError(`[${path}] HTTP ${res.status} from ${url}`)
+        logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      logHookError(`[${path}] request failed: ${msg}`)
+      logHookError(`[${path}]`, err)
     } finally {
       clearTimeout(timer)
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    logHookError(`[${path}] runner error: ${msg}`)
+    logHookError(`[${path}] runner`, err)
   }
 }
