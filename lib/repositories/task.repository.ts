@@ -709,4 +709,47 @@ export const taskRepository = {
       teamIdentifier: task.team.identifier,
     }))
   },
+
+  /**
+   * Lightweight lookup returning only fields sprintService needs for gate checks.
+   * Used by addTaskToSprint / removeTaskFromSprint to validate team match
+   * and membership without loading unrelated fields.
+   */
+  async findMinimalById(taskId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, teamId: true, sprintId: true },
+    })
+  },
+
+  /**
+   * Return all tasks on `sprintId` whose status is not DONE.
+   * Used inside sprint close to decide which tasks need a spillover decision.
+   * Must be called within a transaction — no default prisma fallback.
+   */
+  async findUnfinishedBySprint(sprintId: string, tx: Prisma.TransactionClient) {
+    return tx.task.findMany({
+      where: { sprintId, status: { not: 'DONE' } },
+      select: { id: true, status: true },
+    })
+  },
+
+  /**
+   * Return the minimal task fields needed for sprint-summary stats.
+   * Used by sprintSummaryRepository.computeStatsData().
+   */
+  async listBySprintForStats(sprintId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.task.findMany({
+      where: { sprintId },
+      select: {
+        id: true,
+        status: true,
+        priority: true,
+        assigneeActorId: true,
+        title: true,
+      },
+    })
+  },
 }

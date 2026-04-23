@@ -1,252 +1,149 @@
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 
 const mockFindSprint = jest.fn()
-const mockFindTasks = jest.fn()
-const mockFindActivities = jest.fn()
+const mockComputeStatsData = jest.fn()
 const mockSave = jest.fn()
 const mockLLM = jest.fn()
-const mockGenerationJobFindFirst = jest.fn()
-const mockGenerationJobUpdate = jest.fn()
+const mockFindPendingSprintJob = jest.fn()
+const mockMarkCompleted = jest.fn()
+const mockMarkFailed = jest.fn()
 
 jest.mock('@/lib/repositories/sprint.repository', () => ({
-  sprintRepository: { findById: (...a: any[]) => mockFindSprint(...a) },
-}))
-jest.mock('@/lib/repositories/sprint-summary.repository', () => ({
-  sprintSummaryRepository: { save: (...a: any[]) => mockSave(...a) },
-}))
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    task: { findMany: (...a: any[]) => mockFindTasks(...a) },
-    taskActivity: { findMany: (...a: any[]) => mockFindActivities(...a) },
-    generationJob: {
-      findFirst: (...a: any[]) => mockGenerationJobFindFirst(...a),
-      update: (...a: any[]) => mockGenerationJobUpdate(...a),
-    },
+  sprintRepository: {
+    findById: (...a: any[]) => mockFindSprint(...a),
   },
 }))
+
+jest.mock('@/lib/repositories/sprint-summary.repository', () => ({
+  sprintSummaryRepository: {
+    save: (...a: any[]) => mockSave(...a),
+    computeStatsData: (...a: any[]) => mockComputeStatsData(...a),
+  },
+}))
+
+jest.mock('@/lib/repositories/generation-job.repository', () => ({
+  generationJobRepository: {
+    findPendingSprintJob: (...a: any[]) => mockFindPendingSprintJob(...a),
+    markCompleted: (...a: any[]) => mockMarkCompleted(...a),
+    markFailed: (...a: any[]) => mockMarkFailed(...a),
+  },
+}))
+
 jest.mock('@/lib/llm/sprint-summary-client', () => ({
   callSprintSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
 beforeEach(() => {
   jest.clearAllMocks()
-  // Default: no pending GenerationJob (manual retrigger / not-yet-created case)
-  mockGenerationJobFindFirst.mockResolvedValue(null)
+  mockFindPendingSprintJob.mockResolvedValue(null)
 })
 
+const CLOSED_SPRINT = {
+  id: 'sprint-1',
+  teamId: 'team-1',
+  name: 'Sprint 3',
+  status: 'CLOSED',
+  startDate: new Date('2026-04-06'),
+  endDate: new Date('2026-04-20'),
+}
+
+const STATS_DATA = {
+  stats: {
+    totalTasks: 3,
+    done: 2,
+    spillover: 1,
+    byPriority: { HIGH: 2, LOW: 1 },
+    byAssignee: { a1: 2, unassigned: 1 },
+  },
+  tasks: [
+    {
+      id: 't1',
+      status: 'DONE',
+      priority: 'HIGH',
+      assigneeActorId: 'a1',
+      title: 'one',
+    },
+  ],
+}
+
 describe('sprintSummaryService.generate', () => {
-  it('computes stats and persists summary', async () => {
-    mockFindSprint.mockResolvedValueOnce({
-      id: 's1',
-      teamId: 'team-1',
-      name: 'Sprint 3',
-      status: 'CLOSED',
-      startDate: new Date('2026-04-06'),
-      endDate: new Date('2026-04-20'),
-    })
-    mockFindTasks.mockResolvedValueOnce([
-      {
-        id: 't1',
-        status: 'DONE',
-        priority: 'HIGH',
-        assigneeActorId: 'a1',
-        title: 'one',
-      },
-      {
-        id: 't2',
-        status: 'DONE',
-        priority: 'LOW',
-        assigneeActorId: 'a1',
-        title: 'two',
-      },
-      {
-        id: 't3',
-        status: 'IN_PROGRESS',
-        priority: 'MEDIUM',
-        assigneeActorId: null,
-        title: 'three',
-      },
-    ])
-    mockFindActivities.mockResolvedValueOnce([
-      { taskId: 'spilled-1', payload: {} },
-    ])
-    mockLLM.mockResolvedValueOnce({
-      tldr: 'Shipped 2 tasks.',
-      report: '## Retro …',
-    })
-    mockSave.mockResolvedValueOnce({ id: 'ss1' })
+  it('happy path: closed sprint → computeStats → LLM → save', async () => {
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockLLM.mockResolvedValueOnce({ tldr: 'tldr', report: 'report' })
+    mockSave.mockResolvedValueOnce({ id: 'summary-1' })
 
-    await sprintSummaryService.generate('s1')
+    const result = await sprintSummaryService.generate('sprint-1')
 
-    expect(mockSave).toHaveBeenCalledWith(
-      's1',
-      expect.objectContaining({
-        tldr: 'Shipped 2 tasks.',
-        report: expect.stringContaining('Retro'),
-        stats: expect.objectContaining({
-          totalTasks: 4, // 3 in-sprint + 1 spillover
-          done: 2,
-          spillover: 1,
-        }),
-      })
-    )
+    expect(mockFindSprint).toHaveBeenCalledWith('sprint-1')
+    expect(mockComputeStatsData).toHaveBeenCalledWith('sprint-1')
+    expect(mockLLM).toHaveBeenCalledWith({
+      subject: 'Sprint 3',
+      window: { start: CLOSED_SPRINT.startDate, end: CLOSED_SPRINT.endDate },
+      stats: STATS_DATA.stats,
+      tasks: STATS_DATA.tasks,
+    })
+    expect(mockSave).toHaveBeenCalledWith('sprint-1', {
+      stats: STATS_DATA.stats,
+      tldr: 'tldr',
+      report: 'report',
+    })
+    expect(result).toEqual({ id: 'summary-1' })
+    expect(mockMarkCompleted).not.toHaveBeenCalled()
+    expect(mockMarkFailed).not.toHaveBeenCalled()
   })
 
-  it('passes correct LLM input with sprint name and window', async () => {
-    mockFindSprint.mockResolvedValueOnce({
-      id: 's1',
-      teamId: 'team-1',
-      name: 'Sprint 3',
-      status: 'CLOSED',
-      startDate: new Date('2026-04-06'),
-      endDate: new Date('2026-04-20'),
-    })
-    mockFindTasks.mockResolvedValueOnce([
-      {
-        id: 't1',
-        status: 'DONE',
-        priority: 'HIGH',
-        assigneeActorId: 'a1',
-        title: 'one',
-      },
-    ])
-    mockFindActivities.mockResolvedValueOnce([])
-    mockLLM.mockResolvedValueOnce({ tldr: 'Done.', report: '## Retro' })
-    mockSave.mockResolvedValueOnce({ id: 'ss1' })
+  it('marks pending GenerationJob as completed with summaryId on success', async () => {
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockFindPendingSprintJob.mockResolvedValueOnce({ id: 'job-1' })
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockLLM.mockResolvedValueOnce({ tldr: 't', report: 'r' })
+    mockSave.mockResolvedValueOnce({ id: 'summary-1' })
+    mockMarkCompleted.mockResolvedValueOnce(undefined)
 
-    await sprintSummaryService.generate('s1')
+    await sprintSummaryService.generate('sprint-1')
 
-    expect(mockLLM).toHaveBeenCalledWith(
-      expect.objectContaining({
-        subject: 'Sprint 3',
-        window: {
-          start: new Date('2026-04-06'),
-          end: new Date('2026-04-20'),
-        },
-        stats: expect.objectContaining({
-          totalTasks: 1,
-          done: 1,
-          spillover: 0,
-        }),
-      })
-    )
+    expect(mockMarkCompleted).toHaveBeenCalledWith('job-1', 'summary-1')
+    expect(mockMarkFailed).not.toHaveBeenCalled()
   })
 
-  it('groups byPriority and byAssignee correctly', async () => {
-    mockFindSprint.mockResolvedValueOnce({
-      id: 's1',
-      teamId: 'team-1',
-      name: 'Sprint 3',
-      status: 'CLOSED',
-      startDate: new Date('2026-04-06'),
-      endDate: new Date('2026-04-20'),
-    })
-    mockFindTasks.mockResolvedValueOnce([
-      {
-        id: 't1',
-        status: 'DONE',
-        priority: 'HIGH',
-        assigneeActorId: 'a1',
-        title: 'one',
-      },
-      {
-        id: 't2',
-        status: 'DONE',
-        priority: 'HIGH',
-        assigneeActorId: 'a2',
-        title: 'two',
-      },
-      {
-        id: 't3',
-        status: 'IN_PROGRESS',
-        priority: 'LOW',
-        assigneeActorId: null,
-        title: 'three',
-      },
-    ])
-    mockFindActivities.mockResolvedValueOnce([])
-    mockLLM.mockResolvedValueOnce({ tldr: 'Done.', report: '## Retro' })
-    mockSave.mockResolvedValueOnce({ id: 'ss1' })
-
-    await sprintSummaryService.generate('s1')
-
-    expect(mockSave).toHaveBeenCalledWith(
-      's1',
-      expect.objectContaining({
-        stats: expect.objectContaining({
-          byPriority: { HIGH: 2, LOW: 1 },
-          byAssignee: { a1: 1, a2: 1, unassigned: 1 },
-        }),
-      })
-    )
-  })
-
-  it('throws 400 if sprint not CLOSED', async () => {
-    mockFindSprint.mockResolvedValueOnce({ id: 's1', status: 'ACTIVE' })
-    await expect(sprintSummaryService.generate('s1')).rejects.toMatchObject({
-      status: 400,
-    })
-  })
-
-  it('throws 404 if sprint missing', async () => {
+  it('throws 404 when sprint missing', async () => {
     mockFindSprint.mockResolvedValueOnce(null)
-    await expect(sprintSummaryService.generate('s1')).rejects.toMatchObject({
-      status: 404,
-    })
+    await expect(
+      sprintSummaryService.generate('missing')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mockComputeStatsData).not.toHaveBeenCalled()
   })
 
-  it('updates pending GenerationJob to completed with summaryId on success', async () => {
-    mockGenerationJobFindFirst.mockResolvedValueOnce({ id: 'job-1' })
-    mockFindSprint.mockResolvedValueOnce({
-      id: 's1',
-      teamId: 'team-1',
-      name: 'Sprint 3',
-      status: 'CLOSED',
-      startDate: new Date('2026-04-06'),
-      endDate: new Date('2026-04-20'),
-    })
-    mockFindTasks.mockResolvedValueOnce([])
-    mockFindActivities.mockResolvedValueOnce([])
-    mockLLM.mockResolvedValueOnce({ tldr: 'Done.', report: '## Retro' })
-    mockSave.mockResolvedValueOnce({ id: 'ss-42' })
-    mockGenerationJobUpdate.mockResolvedValueOnce({
-      id: 'job-1',
-      status: 'completed',
-    })
-
-    await sprintSummaryService.generate('s1')
-
-    expect(mockGenerationJobUpdate).toHaveBeenCalledWith({
-      where: { id: 'job-1' },
-      data: { status: 'completed', summaryId: 'ss-42' },
-    })
+  it('throws 400 when sprint is not CLOSED', async () => {
+    mockFindSprint.mockResolvedValueOnce({ ...CLOSED_SPRINT, status: 'ACTIVE' })
+    await expect(
+      sprintSummaryService.generate('sprint-1')
+    ).rejects.toMatchObject({ status: 400 })
   })
 
-  it('updates pending GenerationJob to failed when LLM throws', async () => {
-    mockGenerationJobFindFirst.mockResolvedValueOnce({ id: 'job-2' })
-    mockFindSprint.mockResolvedValueOnce({
-      id: 's1',
-      teamId: 'team-1',
-      name: 'Sprint 3',
-      status: 'CLOSED',
-      startDate: new Date('2026-04-06'),
-      endDate: new Date('2026-04-20'),
-    })
-    mockFindTasks.mockResolvedValueOnce([])
-    mockFindActivities.mockResolvedValueOnce([])
-    mockLLM.mockRejectedValueOnce(new Error('LLM timeout'))
-    mockGenerationJobUpdate.mockResolvedValueOnce({
-      id: 'job-2',
-      status: 'failed',
-    })
+  it('marks pending GenerationJob as failed when LLM throws', async () => {
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockFindPendingSprintJob.mockResolvedValueOnce({ id: 'job-1' })
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockLLM.mockRejectedValueOnce(new Error('llm down'))
 
-    await expect(sprintSummaryService.generate('s1')).rejects.toThrow(
-      'LLM timeout'
+    await expect(sprintSummaryService.generate('sprint-1')).rejects.toThrow(
+      'llm down'
     )
+    expect(mockMarkFailed).toHaveBeenCalledWith('job-1')
+    expect(mockMarkCompleted).not.toHaveBeenCalled()
+  })
 
-    expect(mockGenerationJobUpdate).toHaveBeenCalledWith({
-      where: { id: 'job-2' },
-      data: { status: 'failed' },
-    })
+  it('does not call markFailed when there is no pending job', async () => {
+    mockFindSprint.mockResolvedValueOnce(CLOSED_SPRINT)
+    mockFindPendingSprintJob.mockResolvedValueOnce(null)
+    mockComputeStatsData.mockResolvedValueOnce(STATS_DATA)
+    mockLLM.mockRejectedValueOnce(new Error('llm down'))
+
+    await expect(sprintSummaryService.generate('sprint-1')).rejects.toThrow(
+      'llm down'
+    )
+    expect(mockMarkFailed).not.toHaveBeenCalled()
   })
 })

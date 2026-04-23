@@ -1,12 +1,17 @@
-import { prisma } from '@/lib/db/prisma'
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
-import { taskRepository } from '@/lib/repositories/task.repository'
+import { teamRepository } from '@/lib/repositories/team.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
 import { computeNextSprintWindow } from '@/lib/services/sprint-date'
+import { isPrismaUniqueViolation } from '@/lib/db/errors'
+import type { SprintCloseDecisions } from '@/lib/repositories/sprint.repository'
 
 // Re-export for backward compatibility
 export { nextUtcMondayMidnight, addDays } from '@/lib/services/sprint-date'
+export type {
+  SpilloverDecision,
+  SprintCloseDecisions,
+} from '@/lib/repositories/sprint.repository'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -23,15 +28,9 @@ export interface ActorRef {
   memberId: string | null
 }
 
-export type SpilloverDecision = 'moveToNext' | 'backToBacklog'
-export type SprintCloseDecisions = Record<string, SpilloverDecision>
-
 export const sprintService = {
   async createDraft(teamId: string, input: CreateDraftInput, _actor: ActorRef) {
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, sprintsEnabled: true },
-    })
+    const team = await teamRepository.findSprintGatingConfig(teamId)
     if (!team) httpError(404, 'team not found')
     if (!team.sprintsEnabled) httpError(409, 'sprints not enabled for team')
 
@@ -55,31 +54,7 @@ export const sprintService = {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    const started = await prisma.$transaction(
-      async tx => {
-        const locked = await sprintRepository.lockForUpdate(tx, sprintId)
-        if (!locked) httpError(404, 'sprint not found')
-        if (locked.status !== 'DRAFT')
-          httpError(409, `cannot start sprint in ${locked.status} state`)
-
-        const active = await sprintRepository.findActiveByTeam(sprint.teamId)
-        if (active && active.id !== sprintId) {
-          httpError(409, `team already has ACTIVE sprint ${active.id}`)
-        }
-
-        try {
-          return await sprintRepository.update(sprintId, {
-            status: 'ACTIVE',
-            startedAt: new Date(),
-          })
-        } catch (err: any) {
-          if (err?.code === 'P2002')
-            httpError(409, 'team already has ACTIVE sprint')
-          throw err
-        }
-      },
-      { timeout: 15000, maxWait: 5000 }
-    )
+    const started = await sprintRepository.startAtomically(sprintId)
 
     dispatchSprintNotification(
       sprintId,
@@ -100,112 +75,15 @@ export const sprintService = {
     const sprint = await sprintRepository.findById(sprintId)
     if (!sprint) httpError(404, 'sprint not found')
 
-    const closed = await prisma.$transaction(
-      async tx => {
-        const locked = await sprintRepository.lockForUpdate(tx, sprintId)
-        if (!locked) httpError(404, 'sprint not found')
-        if (locked.status !== 'ACTIVE')
-          httpError(409, `cannot close sprint in ${locked.status} state`)
-
-        const unfinished = await (tx as any).task.findMany({
-          where: { sprintId, status: { not: 'DONE' } },
-          select: { id: true, status: true },
-        })
-        const unfinishedIds = new Set(unfinished.map((t: any) => t.id))
-        const decisionIds = new Set(Object.keys(decisions))
-
-        for (const id of unfinishedIds) {
-          if (!decisionIds.has(id as string)) {
-            httpError(400, `decision missing for task ${id}`)
-          }
-        }
-        for (const id of decisionIds) {
-          if (!unfinishedIds.has(id as string)) {
-            httpError(409, 'sprint membership changed; reopen close dialog')
-          }
-        }
-
-        let nextSprintId: string | null = null
-        const needsNext = Object.values(decisions).some(d => d === 'moveToNext')
-        if (needsNext) {
-          const drafts = await sprintRepository.listByTeam(sprint.teamId, {
-            status: 'DRAFT',
-            limit: 1,
-          })
-          if (drafts.length > 0 && drafts[0]) {
-            nextSprintId = drafts[0].id
-          } else {
-            httpError(
-              409,
-              'no draft sprint to receive spillover; create one first'
-            )
-          }
-        }
-
-        const toNext: string[] = []
-        const toBacklog: string[] = []
-        for (const [taskId, d] of Object.entries(decisions)) {
-          if (d === 'moveToNext') toNext.push(taskId)
-          else toBacklog.push(taskId)
-        }
-        if (toNext.length) {
-          await taskRepository.bulkUpdateSprint(toNext, nextSprintId!, tx)
-        }
-        if (toBacklog.length) {
-          await taskRepository.bulkUpdateSprint(toBacklog, null, tx)
-        }
-
-        const actorId = actor.id ?? null
-        await (tx as any).taskActivity.createMany({
-          data: [
-            ...toNext.map(taskId => ({
-              taskId,
-              actorId,
-              type: 'SPRINT_CHANGED' as const,
-              payload: {
-                fromSprintId: sprintId,
-                toSprintId: nextSprintId,
-                reason: 'spillover',
-              },
-            })),
-            ...toBacklog.map(taskId => ({
-              taskId,
-              actorId,
-              type: 'SPRINT_CHANGED' as const,
-              payload: {
-                fromSprintId: sprintId,
-                toSprintId: null,
-                reason: 'spillover',
-              },
-            })),
-          ],
-          skipDuplicates: true,
-        })
-
-        const closed = await sprintRepository.update(sprintId, {
-          status: 'CLOSED',
-          closedAt: new Date(),
-        })
-
-        await (tx as any).generationJob.create({
-          data: { type: 'sprint', targetId: sprintId, status: 'pending' },
-        })
-
-        return closed
-      },
-      {
-        // Some calls inside this transaction still go through the top-level
-        // prisma client (sprintRepository.* / taskRepository.bulkUpdateSprint
-        // when no tx is forwarded), each waiting on the connection pool. The
-        // 5s default isn't enough headroom in dev; bump to 15s.
-        timeout: 15000,
-        maxWait: 5000,
-      }
+    const closed = await sprintRepository.closeAtomically(
+      sprintId,
+      decisions,
+      actor.id ?? null
     )
 
     // Fire-and-forget: kick off retro generation without blocking the HTTP response.
-    // The GenerationJob created above (status: 'pending') will be updated to
-    // 'completed' or 'failed' by sprintSummaryService.generate's own try/catch.
+    // The GenerationJob created inside closeAtomically (status: 'pending') will be
+    // updated to 'completed' or 'failed' by sprintSummaryService.generate.
     sprintSummaryService.generate(sprintId).catch(err => {
       void err
     })
@@ -226,39 +104,10 @@ export const sprintService = {
     sprintId: string,
     actor: ActorRef & { id?: string }
   ) {
-    const [task, sprint] = await Promise.all([
-      prisma.task.findUnique({
-        where: { id: taskId },
-        select: { id: true, teamId: true, sprintId: true },
-      }),
-      sprintRepository.findById(sprintId),
-    ])
-    if (!task) httpError(404, 'task not found')
-    if (!sprint) httpError(404, 'sprint not found')
-    if (task.teamId !== sprint.teamId)
-      httpError(400, 'task and sprint belong to different teams')
-    if (sprint.status === 'CLOSED') httpError(409, 'sprint is closed')
-
-    return prisma.$transaction(
-      async tx => {
-        await sprintRepository.lockForUpdate(tx, sprintId)
-        const fromSprintId = task.sprintId
-        // No-op when the task is already in this sprint — avoids writing
-        // a SPRINT_CHANGED activity with fromSprintId === toSprintId when
-        // two concurrent planning actions race.
-        if (fromSprintId === sprintId) return { taskId, sprintId }
-        await taskRepository.bulkUpdateSprint([taskId], sprintId, tx)
-        await (tx as any).taskActivity.create({
-          data: {
-            taskId,
-            actorId: actor.id ?? null,
-            type: 'SPRINT_CHANGED',
-            payload: { fromSprintId, toSprintId: sprintId, reason: 'planning' },
-          },
-        })
-        return { taskId, sprintId }
-      },
-      { timeout: 15000, maxWait: 5000 }
+    return sprintRepository.addTaskAtomically(
+      taskId,
+      sprintId,
+      actor.id ?? null
     )
   },
 
@@ -266,39 +115,7 @@ export const sprintService = {
     taskId: string,
     actor: ActorRef & { id?: string }
   ) {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { id: true, sprintId: true },
-    })
-    if (!task) httpError(404, 'task not found')
-    if (!task.sprintId) return { taskId, sprintId: null }
-
-    const sprint = await sprintRepository.findById(task.sprintId)
-    if (sprint && sprint.status === 'CLOSED') {
-      httpError(409, 'cannot remove task from closed sprint')
-    }
-
-    return prisma.$transaction(
-      async tx => {
-        if (task.sprintId)
-          await sprintRepository.lockForUpdate(tx, task.sprintId)
-        await taskRepository.bulkUpdateSprint([taskId], null, tx)
-        await (tx as any).taskActivity.create({
-          data: {
-            taskId,
-            actorId: actor.id ?? null,
-            type: 'SPRINT_CHANGED',
-            payload: {
-              fromSprintId: task.sprintId,
-              toSprintId: null,
-              reason: 'planning',
-            },
-          },
-        })
-        return { taskId, sprintId: null }
-      },
-      { timeout: 15000, maxWait: 5000 }
-    )
+    return sprintRepository.removeTaskAtomically(taskId, actor.id ?? null)
   },
 
   async moveTaskBetweenSprints(
@@ -370,24 +187,7 @@ export const sprintService = {
     },
     _actor: ActorRef
   ) {
-    return prisma.team.update({
-      where: { id: teamId },
-      data: {
-        sprintsEnabled: input.enabled,
-        ...(input.durationDays !== undefined
-          ? { sprintDurationDays: input.durationDays }
-          : {}),
-        ...(input.cooldownDays !== undefined
-          ? { sprintCooldownDays: input.cooldownDays }
-          : {}),
-        ...(input.startWeekday !== undefined
-          ? { sprintStartWeekday: input.startWeekday }
-          : {}),
-        ...(input.autoCreate !== undefined
-          ? { sprintAutoCreate: input.autoCreate }
-          : {}),
-      },
-    })
+    return teamRepository.updateSprintCadence(teamId, input)
   },
 
   /**
@@ -402,17 +202,7 @@ export const sprintService = {
    * are swallowed by callers (fire-and-forget) because this is opportunistic.
    */
   async ensureFutureSprints(teamId: string, now: Date = new Date()) {
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: {
-        id: true,
-        sprintsEnabled: true,
-        sprintDurationDays: true,
-        sprintCooldownDays: true,
-        sprintStartWeekday: true,
-        sprintAutoCreate: true,
-      },
-    })
+    const team = await teamRepository.findSprintCadenceConfig(teamId)
     if (!team || !team.sprintsEnabled || team.sprintAutoCreate <= 0) return
 
     // Latest sprint by startDate — either it's the anchor for the next window
@@ -447,10 +237,10 @@ export const sprintService = {
           startDate: window.startDate,
           endDate: window.endDate,
         })
-      } catch (err: any) {
+      } catch (err) {
         // P2002 = unique constraint (teamId, number) — concurrent top-up race;
         // bail out and let the other caller finish.
-        if (err?.code === 'P2002') return
+        if (isPrismaUniqueViolation(err)) return
         throw err
       }
       anchorEnd = window.endDate
