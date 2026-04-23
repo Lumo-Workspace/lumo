@@ -168,6 +168,7 @@ model Workspace {
   summaries          WorkspaceSummary[]
   tags               Tag[]
   mcpConnections     McpConnection[]     @relation("WorkspaceMcpConnections")
+  hookEvents         HookEvent[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -253,6 +254,7 @@ model WorkspaceMember {
   actor              Actor?
   agentProfiles      AgentProfile[]
   apiKeys            ApiKey[]
+  hookEvents         HookEvent[]
   preference         UserPreference?
   createdDocuments   Document[]          @relation("DocumentCreator")
   documentShares     DocumentShare[]     @relation("DocumentShareMember")
@@ -1116,4 +1118,31 @@ model McpAuditLog {
 
   @@index([connectionId, createdAt])
   @@index([workspaceId, createdAt])
+}
+
+// ─── Hook Events (Claude Code runtime observability) ────────────────────────
+
+enum HookEventType {
+  PRE_TOOL_USE
+  POST_TOOL_USE
+  STOP
+}
+
+model HookEvent {
+  id                String        @id @default(cuid())
+  workspaceId       String
+  workspaceMemberId String
+  sessionId         String?       // Day 4: Claude Code session ID
+  taskId            String?       // Day 4: associated Lumo task
+  type              HookEventType
+  toolName          String?       // extracted from payload.tool_name when present
+  payload           Json          // raw hook body from Claude Code
+  createdAt         DateTime      @default(now())
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceMemberId, createdAt])
+  @@map("hook_events")
 }
