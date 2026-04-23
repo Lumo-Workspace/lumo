@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { Prisma } from '@prisma/client'
 
 export const generationJobRepository = {
   async findRecentByTarget(targetId: string, cooldownMinutes: number) {
@@ -40,6 +41,52 @@ export const generationJobRepository = {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
     return prisma.generationJob.deleteMany({
       where: { createdAt: { lt: cutoff } },
+    })
+  },
+
+  // ── Sprint-domain additions ──────────────────────────────────────────────
+
+  /**
+   * Create a pending GenerationJob for a sprint retro. Called inside
+   * sprintRepository.closeAtomically — tx is required.
+   */
+  async createSprintPending(sprintId: string, tx: Prisma.TransactionClient) {
+    return tx.generationJob.create({
+      data: { type: 'sprint', targetId: sprintId, status: 'pending' },
+    })
+  },
+
+  /**
+   * Most-recent pending GenerationJob for a sprint, if any.
+   * sprintSummaryService.generate looks this up to mark completed/failed later.
+   */
+  async findPendingSprintJob(sprintId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.generationJob.findFirst({
+      where: { type: 'sprint', targetId: sprintId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+    })
+  },
+
+  /** Mark a specific GenerationJob as completed with its produced summary. */
+  async markCompleted(
+    jobId: string,
+    summaryId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.generationJob.update({
+      where: { id: jobId },
+      data: { status: 'completed', summaryId },
+    })
+  },
+
+  /** Mark a specific GenerationJob as failed. */
+  async markFailed(jobId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.generationJob.update({
+      where: { id: jobId },
+      data: { status: 'failed' },
     })
   },
 }
