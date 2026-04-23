@@ -3,13 +3,22 @@ import { trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 
 /**
- * Hard timeout for the hook POST. Sized so hooks stay imperceptible to
- * the user (Claude Code invokes one per tool call) while leaving enough
- * headroom for a cold Next.js + Prisma + Clerk round-trip. On timeout the
- * request is aborted, logged, and `runHook` exits 0 — Claude Code is
- * never blocked beyond this ceiling.
+ * Hard timeout for the hook POST. On timeout the request is aborted,
+ * logged, and `runHook` exits 0 — Claude Code is never blocked beyond
+ * this ceiling.
+ *
+ * Sizing history:
+ *   - 1000ms (initial): too tight, false timeouts on cold starts
+ *   - 1500ms (per plan): still below observed p95 for cold
+ *     Next.js + Prisma + Clerk on dev; server actually inserts the row
+ *     but the client aborts before reading the 200, so `hook.log` fills
+ *     with "This operation was aborted" noise
+ *   - 3000ms (now): matches observed p95 on dev; catches the full
+ *     happy path without being long enough to make users feel per-tool
+ *     hook lag. Revisit when Day 4 makes hook POSTs fire-and-forget so
+ *     the client can exit 0 before the server finishes.
  */
-const TIMEOUT_MS = 1500
+const TIMEOUT_MS = 3000
 
 export type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
 
