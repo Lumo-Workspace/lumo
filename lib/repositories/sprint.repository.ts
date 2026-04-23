@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
 import type { SprintStatus, Prisma } from '@prisma/client'
+import { isPrismaUniqueViolation } from '@/lib/db/errors'
+
+function httpError(status: number, message: string): never {
+  throw Object.assign(new Error(message), { status })
+}
 
 export interface CreateSprintInput {
   teamId: string
@@ -110,5 +115,41 @@ export const sprintRepository = {
         ...(filter.status ? { status: filter.status as any } : {}),
       },
     })
+  },
+
+  /**
+   * Transition a DRAFT sprint to ACTIVE, checking there isn't already an
+   * ACTIVE sprint on the team. Throws httpError with status 404/409 on
+   * pre-condition failures. P2002 from a racing peer maps to 409.
+   */
+  async startAtomically(sprintId: string) {
+    const sprint = await sprintRepository.findById(sprintId)
+    if (!sprint) httpError(404, 'sprint not found')
+
+    return prisma.$transaction(
+      async tx => {
+        const locked = await sprintRepository.lockForUpdate(tx, sprintId)
+        if (!locked) httpError(404, 'sprint not found')
+        if (locked.status !== 'DRAFT')
+          httpError(409, `cannot start sprint in ${locked.status} state`)
+
+        const active = await sprintRepository.findActiveByTeam(sprint.teamId)
+        if (active && active.id !== sprintId) {
+          httpError(409, `team already has ACTIVE sprint ${active.id}`)
+        }
+
+        try {
+          return await sprintRepository.update(sprintId, {
+            status: 'ACTIVE',
+            startedAt: new Date(),
+          })
+        } catch (err) {
+          if (isPrismaUniqueViolation(err))
+            httpError(409, 'team already has ACTIVE sprint')
+          throw err
+        }
+      },
+      { timeout: 15000, maxWait: 5000 }
+    )
   },
 }
