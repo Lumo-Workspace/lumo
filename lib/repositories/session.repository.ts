@@ -46,6 +46,29 @@ export const sessionRepository = {
     })
   },
 
+  /**
+   * List all sessions tagged with the given task, newest first. Used by
+   * `lumo task context` to surface the coding agent's prior runs on a task.
+   * Structured summary + summaryType are returned as-is so the caller can
+   * project type-appropriate fields (e.g. `summary.unresolved`).
+   */
+  async listForTask(taskId: string, limit = 20) {
+    return prisma.session.findMany({
+      where: { taskId },
+      orderBy: { lastActivityAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        startedAt: true,
+        lastActivityAt: true,
+        eventCount: true,
+        summary: true,
+        summaryType: true,
+        summaryGeneratedAt: true,
+      },
+    })
+  },
+
   async listForMember(workspaceMemberId: string, limit = 50) {
     return prisma.session.findMany({
       where: { workspaceMemberId },

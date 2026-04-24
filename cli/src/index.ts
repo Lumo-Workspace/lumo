@@ -5,6 +5,7 @@ import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
 import { sessionStart } from './commands/session-start'
+import { taskContext } from './commands/task-context'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -55,6 +56,17 @@ session
     'Tag the next `claude code` session with a task (e.g. LUM-42). Writes ~/.lumo/current-task.json.'
   )
   .action(wrap(identifier => sessionStart(identifier as string)))
+
+const task = program
+  .command('task')
+  .description('Inspect tasks from the terminal')
+
+task
+  .command('context <identifier>')
+  .description(
+    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup.'
+  )
+  .action(wrap(identifier => taskContext(identifier as string)))
 
 // Claude Code invokes `lumo hook <type>` per tool call, so these handlers
 // must never crash the caller. Two invariants keep us safe:

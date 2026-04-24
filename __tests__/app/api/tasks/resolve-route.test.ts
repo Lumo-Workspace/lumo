@@ -38,6 +38,7 @@ beforeEach(() => {
 
 describe('GET /api/tasks/resolve/[identifier]', () => {
   it('returns 401 when Authorization header missing', async () => {
+    // verifyBearer short-circuits before calling verifyApiKey; no override.
     const res = await GET(req('LUM-30'), ctx('LUM-30'))
     expect(res.status).toBe(401)
   })
