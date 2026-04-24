@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/db/prisma'
 import { notificationRepository } from '@/lib/repositories/notification.repository'
+import { sprintNotificationsRepository } from '@/lib/repositories/sprint-notifications.repository'
 import type { NotificationType } from '@prisma/client'
 
 /**
@@ -13,14 +13,8 @@ export async function dispatchSprintNotification(
   type: Extract<NotificationType, 'SPRINT_STARTED' | 'SPRINT_CLOSED'>,
   triggerActorId: string | null
 ): Promise<void> {
-  const members = await prisma.teamMember.findMany({
-    where: { teamId },
-    select: { member: { select: { actor: { select: { id: true } } } } },
-  })
-
-  const recipientActorIds = members
-    .map(m => m.member.actor?.id)
-    .filter((x): x is string => !!x)
+  const recipientActorIds =
+    await sprintNotificationsRepository.findTeamActorIds(teamId)
 
   if (recipientActorIds.length === 0) return
 
