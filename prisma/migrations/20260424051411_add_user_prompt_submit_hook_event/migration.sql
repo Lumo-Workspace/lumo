@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "HookEventType" ADD VALUE 'USER_PROMPT_SUBMIT';

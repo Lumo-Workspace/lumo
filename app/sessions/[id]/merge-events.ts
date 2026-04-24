@@ -7,7 +7,11 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
-export type HookEventType = 'PRE_TOOL_USE' | 'POST_TOOL_USE' | 'STOP'
+export type HookEventType =
+  | 'PRE_TOOL_USE'
+  | 'POST_TOOL_USE'
+  | 'STOP'
+  | 'USER_PROMPT_SUBMIT'
 
 export interface RawEvent {
   id: string
@@ -30,7 +34,7 @@ export type ItemStatus = 'ok' | 'error' | 'pending'
 
 export interface TimelineItem {
   key: string
-  kind: 'tool' | 'stop' | 'orphan'
+  kind: 'tool' | 'stop' | 'orphan' | 'user-prompt'
   toolName: string | null
   /** One-line description shown when collapsed. */
   summary: string
@@ -49,6 +53,11 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const preByToolUseId = new Map<string, RawEvent>()
 
   for (const ev of events) {
+    if (ev.type === 'USER_PROMPT_SUBMIT') {
+      items.push(userPromptItem(ev))
+      continue
+    }
+
     if (ev.type === 'STOP') {
       items.push(stopItem(ev))
       continue
@@ -80,6 +89,37 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
 }
 
 // ─── Item builders ──────────────────────────────────────────────────────────
+
+function userPromptItem(ev: RawEvent): TimelineItem {
+  const rawPrompt = getString(ev.payload, 'prompt') ?? ''
+  const stripped = stripInjectedTags(rawPrompt)
+  const cleaned = stripped.trim()
+
+  const summary = cleaned ? clip(cleaned, 100) : '(empty prompt)'
+  const details: DetailBlock[] = []
+  if (cleaned) {
+    details.push({ label: 'prompt', variant: 'text', text: cleaned })
+  }
+  if (rawPrompt && stripped !== rawPrompt) {
+    details.push({
+      label: 'raw (with injected context)',
+      variant: 'text',
+      text: rawPrompt,
+    })
+  }
+
+  return {
+    key: ev.id,
+    kind: 'user-prompt',
+    toolName: null,
+    summary,
+    badge: null,
+    status: 'ok',
+    startAt: ev.createdAt,
+    endAt: ev.createdAt,
+    details,
+  }
+}
 
 function stopItem(ev: RawEvent): TimelineItem {
   const last = getString(ev.payload, 'last_assistant_message')
@@ -459,6 +499,19 @@ function clipBlock(
     text: lines.slice(0, maxLines).join('\n'),
     truncated: { shownLines: maxLines, totalLines: lines.length },
   }
+}
+
+/**
+ * Remove harness-injected sections from a user prompt so the Timeline
+ * summary reflects what the human actually typed. The tags below are
+ * appended by Claude Code hooks, slash commands, or SessionStart.
+ */
+function stripInjectedTags(s: string): string {
+  return s
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '')
+    .replace(/<command-message>[\s\S]*?<\/command-message>/g, '')
+    .replace(/<command-name>[\s\S]*?<\/command-name>/g, '')
+    .replace(/<command-args>[\s\S]*?<\/command-args>/g, '')
 }
 
 function clip(s: string, maxLen: number): string {

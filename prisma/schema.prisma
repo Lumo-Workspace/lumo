@@ -1128,6 +1128,7 @@ enum HookEventType {
   PRE_TOOL_USE
   POST_TOOL_USE
   STOP
+  USER_PROMPT_SUBMIT
 }
 
 model HookEvent {
@@ -1159,10 +1160,19 @@ model Session {
   startedAt         DateTime @default(now())
   lastActivityAt    DateTime
   eventCount        Int      @default(0)
-  // Session summary — generated on demand via Claude. summaryGeneratedAt lets
-  // callers detect staleness by comparing against lastActivityAt.
-  summary            String?   @db.Text
-  summaryGeneratedAt DateTime?
+  // Session summary — generated on demand via Claude. The generation flow is a
+  // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
+  // model fills a type-specific template. `summary` holds the structured output
+  // (shape depends on summaryType). `summaryEventCount` records how many events
+  // were covered so callers can surface staleness as a delta against the current
+  // event count; `summaryGeneratedAt` still lets callers compare against
+  // lastActivityAt for a time-based staleness check.
+  summary              Json?
+  summaryType          String?
+  summaryGeneratedAt   DateTime?
+  summaryClassifyModel String?
+  summaryContentModel  String?
+  summaryEventCount    Int?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

@@ -43,8 +43,10 @@ export async function POST(_request: NextRequest, { params }: Params) {
     })
 
     return NextResponse.json({
+      summaryType: result.summaryType,
       summary: result.summary,
       generatedAt: result.generatedAt.toISOString(),
+      eventCount: result.eventCount,
     })
   } catch (error) {
     const err = error as ErrorLike

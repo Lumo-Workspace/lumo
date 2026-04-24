@@ -312,4 +312,126 @@ describe('mergeEvents', () => {
     expect(inputBlock?.variant).toBe('json')
     expect(inputBlock?.text).toContain('"foo"')
   })
+
+  it('extracts user-visible text from UserPromptSubmit prompt', () => {
+    const result = mergeEvents([
+      {
+        id: 'u1',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: {
+          prompt:
+            'add oauth login\n<system-reminder>ignore me</system-reminder>',
+        },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]!.kind).toBe('user-prompt')
+    expect(result[0]!.summary).toBe('add oauth login')
+    const promptBlock = result[0]!.details.find(d => d.label === 'prompt')
+    expect(promptBlock?.text).toBe('add oauth login')
+    const raw = result[0]!.details.find(
+      d => d.label === 'raw (with injected context)'
+    )
+    expect(raw?.text).toContain('<system-reminder>')
+  })
+
+  it('returns "(empty prompt)" when payload.prompt is missing', () => {
+    const result = mergeEvents([
+      {
+        id: 'u2',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: {},
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.summary).toBe('(empty prompt)')
+    expect(result[0]!.details).toHaveLength(0)
+  })
+
+  it('omits raw detail block when nothing was stripped', () => {
+    const result = mergeEvents([
+      {
+        id: 'u3',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: { prompt: 'plain text, no tags' },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.details).toHaveLength(1)
+    expect(result[0]!.details[0]!.label).toBe('prompt')
+  })
+
+  it('strips command-name / command-message / command-args tags', () => {
+    const result = mergeEvents([
+      {
+        id: 'u4',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: {
+          prompt:
+            '<command-message>slash cmd</command-message><command-name>/foo</command-name><command-args>a\nb</command-args>run this',
+        },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.summary).toBe('run this')
+  })
+
+  it('clips summary to 100 chars but keeps full text in detail', () => {
+    const longPrompt = 'x'.repeat(200)
+    const result = mergeEvents([
+      {
+        id: 'u5',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: { prompt: longPrompt },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.summary.length).toBeLessThanOrEqual(100)
+    expect(result[0]!.details[0]!.text.length).toBe(200)
+  })
+
+  it('sorts UserPromptSubmit into the timeline by createdAt', () => {
+    const result = mergeEvents([
+      {
+        id: 'u6',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: { prompt: 'hi' },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+      stop('s1', 'done', '2026-04-23T09:00:02Z'),
+      pre('p1', 'u1', 'Read', { file_path: '/a' }, '2026-04-23T09:00:01Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a' },
+        { file: { content: 'x' } },
+        '2026-04-23T09:00:01.500Z'
+      ),
+    ])
+    expect(result.map(r => r.kind)).toEqual(['user-prompt', 'tool', 'stop'])
+  })
+
+  it('strips interleaved injected tags around user text', () => {
+    const result = mergeEvents([
+      {
+        id: 'u7',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: {
+          prompt:
+            '<command-name>/foo</command-name>real text<system-reminder>skip</system-reminder>more real',
+        },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.summary).toBe('real textmore real')
+  })
 })

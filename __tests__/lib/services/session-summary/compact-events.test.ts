@@ -1,5 +1,6 @@
 import {
   compactEvents,
+  extractSessionMetadata,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
 
@@ -268,5 +269,122 @@ describe('compactEvents', () => {
     expect(lines[0]).toBe('[10:00:00] Grep "TODO" in src → 4 files')
     expect(lines[1]).toBe('[10:00:02] Grep "FIXME" → 7 lines')
     expect(lines[2]).toBe('[10:00:04] Grep "X" → 12 matches')
+  })
+
+  it('renders Task dispatches with subagent and prompt prefix', () => {
+    const result = compactEvents([
+      pre(
+        'p1',
+        'u1',
+        'Task',
+        {
+          subagent_type: 'Explore',
+          description: 'Find Session type',
+          prompt:
+            'Search the repo for the Session type definition and report path + line numbers.',
+        },
+        '2026-04-23T10:00:00Z'
+      ),
+      post(
+        'q1',
+        'u1',
+        'Task',
+        { description: 'Find Session type' },
+        { type: 'text' },
+        '2026-04-23T10:00:05Z'
+      ),
+    ])
+    expect(result.text).toContain('Task[Explore] "Find Session type"')
+    expect(result.text).toContain('Search the repo for the Session type')
+  })
+
+  it('skips USER_PROMPT_SUBMIT events — no "Unknown" line, no toolCallLineCount increment', () => {
+    const result = compactEvents([
+      pre('p1', 'u1', 'Read', { file_path: '/a.ts' }, '2026-04-23T10:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a.ts' },
+        { file: { content: 'hello' }, type: 'text' },
+        '2026-04-23T10:00:01Z'
+      ),
+      {
+        id: 'up1',
+        type: 'USER_PROMPT_SUBMIT' as const,
+        toolName: null,
+        payload: { prompt: 'do something' },
+        createdAt: new Date('2026-04-23T10:00:02Z'),
+      },
+      stop('s1', 'All done.', '2026-04-23T10:00:03Z'),
+    ])
+
+    // The user prompt must not appear as a spurious tool line.
+    expect(result.text).not.toContain('Unknown')
+    // Only the Read call counts — the user prompt must not increment the budget.
+    expect(result.toolCallLineCount).toBe(1)
+    // The STOP line is still present.
+    expect(result.text).toContain('[turn end]')
+  })
+})
+
+describe('extractSessionMetadata', () => {
+  it('returns zeroed metadata for an empty event list', () => {
+    const m = extractSessionMetadata([])
+    expect(m).toEqual({
+      durationMs: 0,
+      toolCallCount: 0,
+      toolDistribution: {},
+      firstAssistantMessage: null,
+      keyStopMessages: [],
+    })
+  })
+
+  it('counts tool-call distribution from PRE events only', () => {
+    const m = extractSessionMetadata([
+      pre('p1', 'u1', 'Read', { file_path: '/a' }, '2026-04-23T10:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a' },
+        { file: { content: '' }, type: 'text' },
+        '2026-04-23T10:00:01Z'
+      ),
+      pre('p2', 'u2', 'Read', { file_path: '/b' }, '2026-04-23T10:00:02Z'),
+      pre('p3', 'u3', 'Edit', { file_path: '/c' }, '2026-04-23T10:00:03Z'),
+    ])
+    // POST_TOOL_USE is not counted separately — only PREs contribute.
+    expect(m.toolCallCount).toBe(3)
+    expect(m.toolDistribution).toEqual({ Read: 2, Edit: 1 })
+  })
+
+  it('captures first assistant message and samples key stops', () => {
+    const events: RawEvent[] = []
+    for (let i = 0; i < 10; i++) {
+      events.push(
+        stop(
+          `s${i}`,
+          `turn ${i} summary`,
+          `2026-04-23T10:00:0${i}Z`.replace('010', '10')
+        )
+      )
+    }
+    const m = extractSessionMetadata(events)
+    expect(m.firstAssistantMessage).toBe('turn 0 summary')
+    expect(m.keyStopMessages).toHaveLength(5)
+    // First and last stops must be present.
+    expect(m.keyStopMessages[0]!.message).toBe('turn 0 summary')
+    expect(m.keyStopMessages[m.keyStopMessages.length - 1]!.message).toBe(
+      'turn 9 summary'
+    )
+  })
+
+  it('computes durationMs from first to last event', () => {
+    const m = extractSessionMetadata([
+      pre('p1', 'u1', 'Read', { file_path: '/a' }, '2026-04-23T10:00:00Z'),
+      pre('p2', 'u2', 'Read', { file_path: '/b' }, '2026-04-23T10:05:00Z'),
+    ])
+    expect(m.durationMs).toBe(5 * 60 * 1000)
   })
 })

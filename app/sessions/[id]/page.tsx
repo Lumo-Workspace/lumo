@@ -31,7 +31,9 @@ export default async function SessionDetailPage({
       lastActivityAt: true,
       eventCount: true,
       summary: true,
+      summaryType: true,
       summaryGeneratedAt: true,
+      summaryEventCount: true,
     },
   })
   if (!session) notFound()
@@ -104,7 +106,10 @@ export default async function SessionDetailPage({
       <SummaryCard
         sessionId={session.id}
         initialSummary={session.summary}
+        initialSummaryType={session.summaryType}
         initialGeneratedAt={session.summaryGeneratedAt?.toISOString() ?? null}
+        initialEventCount={session.summaryEventCount}
+        currentEventCount={session.eventCount}
         isStale={
           session.summaryGeneratedAt !== null &&
           session.lastActivityAt > session.summaryGeneratedAt

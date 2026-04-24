@@ -73,6 +73,13 @@ hook
   .action(wrap(() => hookCommand('post-tool-use')))
 
 hook
+  .command('user-prompt-submit')
+  .description(
+    'Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('user-prompt-submit')))
+
+hook
   .command('stop')
   .description('Forward a Stop hook event to Lumo (reads JSON from stdin)')
   .action(wrap(() => hookCommand('stop')))
