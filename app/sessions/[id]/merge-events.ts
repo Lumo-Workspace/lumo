@@ -92,14 +92,15 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
 
 function userPromptItem(ev: RawEvent): TimelineItem {
   const rawPrompt = getString(ev.payload, 'prompt') ?? ''
-  const cleaned = stripInjectedTags(rawPrompt).trim()
+  const stripped = stripInjectedTags(rawPrompt)
+  const cleaned = stripped.trim()
 
   const summary = cleaned ? clip(cleaned, 100) : '(empty prompt)'
   const details: DetailBlock[] = []
   if (cleaned) {
     details.push({ label: 'prompt', variant: 'text', text: cleaned })
   }
-  if (rawPrompt && rawPrompt !== cleaned) {
+  if (rawPrompt && stripped !== rawPrompt) {
     details.push({
       label: 'raw (with injected context)',
       variant: 'text',

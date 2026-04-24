@@ -418,4 +418,20 @@ describe('mergeEvents', () => {
     ])
     expect(result.map(r => r.kind)).toEqual(['user-prompt', 'tool', 'stop'])
   })
+
+  it('strips interleaved injected tags around user text', () => {
+    const result = mergeEvents([
+      {
+        id: 'u7',
+        type: 'USER_PROMPT_SUBMIT',
+        toolName: null,
+        payload: {
+          prompt:
+            '<command-name>/foo</command-name>real text<system-reminder>skip</system-reminder>more real',
+        },
+        createdAt: new Date('2026-04-23T09:00:00Z'),
+      },
+    ])
+    expect(result[0]!.summary).toBe('real textmore real')
+  })
 })

@@ -82,6 +82,13 @@ export function compactEvents(
       continue
     }
 
+    if (ev.type === 'USER_PROMPT_SUBMIT') {
+      // Not surfaced in the compact log for now — treated as invisible for the
+      // session-summary pipeline. A future redesign may use user prompts as
+      // segmentation markers.
+      continue
+    }
+
     const toolUseId = getString(ev.payload, 'tool_use_id')
     if (ev.type === 'PRE_TOOL_USE') {
       if (toolUseId) {

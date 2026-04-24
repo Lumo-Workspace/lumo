@@ -297,6 +297,35 @@ describe('compactEvents', () => {
     expect(result.text).toContain('Task[Explore] "Find Session type"')
     expect(result.text).toContain('Search the repo for the Session type')
   })
+
+  it('skips USER_PROMPT_SUBMIT events — no "Unknown" line, no toolCallLineCount increment', () => {
+    const result = compactEvents([
+      pre('p1', 'u1', 'Read', { file_path: '/a.ts' }, '2026-04-23T10:00:00Z'),
+      post(
+        'q1',
+        'u1',
+        'Read',
+        { file_path: '/a.ts' },
+        { file: { content: 'hello' }, type: 'text' },
+        '2026-04-23T10:00:01Z'
+      ),
+      {
+        id: 'up1',
+        type: 'USER_PROMPT_SUBMIT' as const,
+        toolName: null,
+        payload: { prompt: 'do something' },
+        createdAt: new Date('2026-04-23T10:00:02Z'),
+      },
+      stop('s1', 'All done.', '2026-04-23T10:00:03Z'),
+    ])
+
+    // The user prompt must not appear as a spurious tool line.
+    expect(result.text).not.toContain('Unknown')
+    // Only the Read call counts — the user prompt must not increment the budget.
+    expect(result.toolCallLineCount).toBe(1)
+    // The STOP line is still present.
+    expect(result.text).toContain('[turn end]')
+  })
 })
 
 describe('extractSessionMetadata', () => {
