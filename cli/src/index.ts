@@ -4,15 +4,17 @@ import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
+import { sessionStart } from './commands/session-start'
+import { taskContext } from './commands/task-context'
 
 const pkg = require('../package.json') as { version: string }
 
-type CommandFn = () => Promise<number | void>
+type CommandFn = (...args: unknown[]) => Promise<number | void>
 
 function wrap(fn: CommandFn) {
-  return async () => {
+  return async (...args: unknown[]) => {
     try {
-      const code = await fn()
+      const code = await fn(...args)
       if (typeof code === 'number' && code !== 0) process.exit(code)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -43,6 +45,28 @@ program
   .command('whoami')
   .description('Show the currently logged-in identity')
   .action(wrap(whoami))
+
+const session = program
+  .command('session')
+  .description('Manage per-terminal coding-session context')
+
+session
+  .command('start <identifier>')
+  .description(
+    'Tag the next `claude code` session with a task (e.g. LUM-42). Writes ~/.lumo/current-task.json.'
+  )
+  .action(wrap(identifier => sessionStart(identifier as string)))
+
+const task = program
+  .command('task')
+  .description('Inspect tasks from the terminal')
+
+task
+  .command('context <identifier>')
+  .description(
+    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup.'
+  )
+  .action(wrap(identifier => taskContext(identifier as string)))
 
 // Claude Code invokes `lumo hook <type>` per tool call, so these handlers
 // must never crash the caller. Two invariants keep us safe:

@@ -84,7 +84,46 @@ export interface TaskDetailForUpdate {
 
 // ── Task Service ────────────────────────────────────────────────────────────
 
+/**
+ * Split an identifier like "LUM-30" or "FOO-BAR-12" into {teamIdentifier,
+ * number}. Returns null on malformed input. Uses lastIndexOf so team
+ * identifiers themselves may contain hyphens.
+ */
+function splitTaskIdentifier(
+  identifier: string
+): { teamIdentifier: string; number: number } | null {
+  const idx = identifier.lastIndexOf('-')
+  if (idx === -1) return null
+  const teamIdentifier = identifier.slice(0, idx).toUpperCase()
+  const n = parseInt(identifier.slice(idx + 1), 10)
+  if (!teamIdentifier || Number.isNaN(n)) return null
+  return { teamIdentifier, number: n }
+}
+
 export const taskService = {
+  /**
+   * Resolve a human-facing task identifier ("LUM-30") scoped to a workspace
+   * into the minimal descriptor used by the CLI's session-start flow.
+   * Returns null if the identifier is malformed or no matching task exists
+   * in the workspace — callers map that to HTTP 404.
+   */
+  async resolveIdentifier(workspaceId: string, identifier: string) {
+    const parts = splitTaskIdentifier(identifier)
+    if (!parts) return null
+    const task = await taskRepository.findByWorkspaceIdentifier(
+      workspaceId,
+      parts.teamIdentifier,
+      parts.number
+    )
+    if (!task) return null
+    return {
+      id: task.id,
+      identifier: `${task.team.identifier}-${task.number}`,
+      title: task.title,
+      status: task.status,
+    }
+  },
+
   /**
    * Create a task with ordering, notifications, and activity dispatch.
    * Throws on validation errors with { status, error } shape.

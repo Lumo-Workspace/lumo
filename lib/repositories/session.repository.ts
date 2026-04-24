@@ -6,6 +6,13 @@ interface UpsertSessionData {
   workspaceId: string
   workspaceMemberId: string
   cwd: string | null
+  /**
+   * Task to tag the Session with when this event creates the row. Ignored on
+   * update — the create-time taskId is authoritative for the session's
+   * lifetime, since re-tagging mid-session would silently rewrite historical
+   * context in ways `lumo task context` would not surface.
+   */
+  taskId?: string | null
   now: Date
 }
 
@@ -29,12 +36,36 @@ export const sessionRepository = {
         workspaceId: data.workspaceId,
         workspaceMemberId: data.workspaceMemberId,
         cwd: data.cwd,
+        taskId: data.taskId ?? null,
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
       },
       update: setOnUpdate,
       select: { id: true },
+    })
+  },
+
+  /**
+   * List all sessions tagged with the given task, newest first. Used by
+   * `lumo task context` to surface the coding agent's prior runs on a task.
+   * Structured summary + summaryType are returned as-is so the caller can
+   * project type-appropriate fields (e.g. `summary.unresolved`).
+   */
+  async listForTask(taskId: string, limit = 20) {
+    return prisma.session.findMany({
+      where: { taskId },
+      orderBy: { lastActivityAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        startedAt: true,
+        lastActivityAt: true,
+        eventCount: true,
+        summary: true,
+        summaryType: true,
+        summaryGeneratedAt: true,
+      },
     })
   },
 

@@ -45,6 +45,7 @@ describe('sessionRepository.upsertForHookEvent', () => {
           workspaceId: 'ws_1',
           workspaceMemberId: 'wm_1',
           cwd: '/repo',
+          taskId: null,
           startedAt: now,
           lastActivityAt: now,
           eventCount: 1,
@@ -79,6 +80,44 @@ describe('sessionRepository.upsertForHookEvent', () => {
 
     const args = upsert.mock.calls[0][0]
     expect(args.update).not.toHaveProperty('cwd')
+  })
+
+  it('sets taskId in create payload when provided', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      taskId: 'task_abc',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.taskId).toBe('task_abc')
+  })
+
+  it('sets taskId=null in create payload when omitted', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.taskId).toBeNull()
+  })
+
+  it('never sets taskId on update (create-time taskId is immutable for the session)', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      taskId: 'task_different',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.update).not.toHaveProperty('taskId')
   })
 })
 

@@ -197,6 +197,42 @@ export const taskRepository = {
     return prisma.task.findUnique({ where: { id }, include: { project: true } })
   },
 
+  /**
+   * Resolve a workspace-scoped task identifier like "LUM-30" into a compact
+   * record. Returns null if no matching task exists in the given workspace.
+   */
+  async findByWorkspaceIdentifier(
+    workspaceId: string,
+    teamIdentifier: string,
+    number: number
+  ) {
+    return prisma.task.findFirst({
+      where: {
+        number,
+        team: { identifier: teamIdentifier, workspaceId },
+      },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        team: { select: { identifier: true } },
+      },
+    })
+  },
+
+  /** Whether a task with the given id belongs to the given workspace. */
+  async belongsToWorkspace(
+    taskId: string,
+    workspaceId: string
+  ): Promise<boolean> {
+    const row = await prisma.task.findFirst({
+      where: { id: taskId, team: { workspaceId } },
+      select: { id: true },
+    })
+    return row !== null
+  },
+
   /** Update a task's fields. */
   async update(id: string, data: TaskUpdateData) {
     return prisma.task.update({

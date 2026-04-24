@@ -1,5 +1,6 @@
 import { readCredentials } from './config'
 import { trimTrailingSlash } from './api'
+import { readCurrentTask } from './current-task'
 import { logHookError } from './hook-log'
 
 /**
@@ -52,6 +53,38 @@ function readStdin(): Promise<string> {
 }
 
 /**
+ * Merge the current-task sentinel (if any) into the hook JSON body as a
+ * top-level `task_id` field (internal Task.id, not identifier — see
+ * `current-task.ts`). Always returns a non-empty JSON string so the POST
+ * body is valid even when stdin is empty or malformed.
+ *
+ * Failure modes degrade silently — we never block Claude Code for hook
+ * enrichment:
+ *   - no current-task file    → return body as-is
+ *   - malformed stdin JSON    → return body as-is (server falls back to its
+ *                               own "invalid JSON" handling if so)
+ *   - stdin body is a non-object → can't inject; return as-is
+ */
+export function injectCurrentTaskId(body: string): string {
+  const current = readCurrentTask()
+  if (!current) return body || '{}'
+  if (!body) return JSON.stringify({ task_id: current.taskId })
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return body
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return body
+  }
+  return JSON.stringify({
+    ...(parsed as Record<string, unknown>),
+    task_id: current.taskId,
+  })
+}
+
+/**
  * POST the hook body to /api/hooks/<path> with a short timeout. All errors
  * — credential missing, network failure, timeout, non-2xx — are routed to
  * hook.log and then the caller exits 0.
@@ -67,6 +100,7 @@ export async function runHook(path: HookPath): Promise<void> {
     }
 
     const body = await readStdin()
+    const enriched = injectCurrentTaskId(body)
     // Allow `LUMO_API_URL` to override the baked-in creds.apiUrl for
     // redirecting hooks at dev-env switch without re-running `lumo auth
     // login`. The bearer token from creds.json is still used as-is.
@@ -84,7 +118,7 @@ export async function runHook(path: HookPath): Promise<void> {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${creds.token}`,
         },
-        body: body || '{}',
+        body: enriched,
         signal: controller.signal,
       })
       if (!res.ok) {
