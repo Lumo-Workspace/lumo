@@ -79,7 +79,11 @@ export const sessionRepository = {
         eventCount: true,
         workspaceId: true,
         summary: true,
+        summaryType: true,
         summaryGeneratedAt: true,
+        summaryClassifyModel: true,
+        summaryContentModel: true,
+        summaryEventCount: true,
       },
     })
   },
@@ -98,11 +102,34 @@ export const sessionRepository = {
     })
   },
 
-  async updateSummary(id: string, summary: string, generatedAt: Date) {
+  async updateSummary(input: {
+    id: string
+    summary: Prisma.InputJsonValue
+    summaryType: string
+    generatedAt: Date
+    classifyModel: string | null
+    contentModel: string
+    eventCount: number
+  }) {
     return prisma.session.update({
-      where: { id },
-      data: { summary, summaryGeneratedAt: generatedAt },
-      select: { id: true, summary: true, summaryGeneratedAt: true },
+      where: { id: input.id },
+      data: {
+        summary: input.summary,
+        summaryType: input.summaryType,
+        summaryGeneratedAt: input.generatedAt,
+        summaryClassifyModel: input.classifyModel,
+        summaryContentModel: input.contentModel,
+        summaryEventCount: input.eventCount,
+      },
+      select: {
+        id: true,
+        summary: true,
+        summaryType: true,
+        summaryGeneratedAt: true,
+        summaryClassifyModel: true,
+        summaryContentModel: true,
+        summaryEventCount: true,
+      },
     })
   },
 }

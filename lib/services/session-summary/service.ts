@@ -1,10 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { Prisma } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { compactEvents, type RawEvent } from './compact-events'
-import { SYSTEM_PROMPT, buildUserPrompt } from './prompt'
+import {
+  compactEvents,
+  extractSessionMetadata,
+  type RawEvent,
+} from './compact-events'
+import { classifySession } from './classifier'
+import { generateStructuredSummary, type TemplateKind } from './templates'
+import type { SessionSummaryPayload, SessionType } from './types'
 
-const MODEL = 'claude-opus-4-7'
-const MAX_TOKENS = 4096
+const CLASSIFY_MODEL = 'claude-haiku-4-5-20251001'
+const CONTENT_MODEL = 'claude-opus-4-7'
+
+// Classifier confidence below this threshold collapses to the mixed template,
+// regardless of the picked type — we'd rather be honest about uncertainty
+// than force a single-type template onto a genuinely multi-activity session.
+const CONFIDENCE_THRESHOLD = 0.6
 
 export interface GenerateSummaryInput {
   sessionId: string
@@ -13,16 +25,14 @@ export interface GenerateSummaryInput {
 
 export interface GenerateSummaryResult {
   sessionId: string
-  summary: string
+  summaryType: SessionType
+  summary: SessionSummaryPayload
   generatedAt: Date
+  eventCount: number
+  classifyModel: string
+  contentModel: string
 }
 
-/**
- * Generate a session summary via Claude, persist it on the Session row, and
- * return the new summary. Access control is the caller's responsibility in
- * the sense that we verify the session belongs to `workspaceMemberId` — the
- * route layer should still run any additional auth checks.
- */
 export const sessionSummaryService = {
   async generateSummary({
     sessionId,
@@ -43,7 +53,9 @@ export const sessionSummaryService = {
       throw Object.assign(new Error('Session not found'), { status: 404 })
     }
 
-    const events = await sessionRepository.listEventsForSession(sessionId)
+    const events = (await sessionRepository.listEventsForSession(
+      sessionId
+    )) as RawEvent[]
     if (events.length === 0) {
       throw Object.assign(
         new Error('Session has no events yet — nothing to summarize'),
@@ -51,64 +63,77 @@ export const sessionSummaryService = {
       )
     }
 
-    const compact = compactEvents(events as RawEvent[])
-    const userPrompt = buildUserPrompt(
-      {
-        cwd: session.cwd,
-        startedAt: session.startedAt,
-        lastActivityAt: session.lastActivityAt,
-        eventCount: session.eventCount,
-      },
-      compact.text,
-      compact.truncatedCount
-    )
-
     const client = new Anthropic({ apiKey: anthropicKey })
+    const metadata = extractSessionMetadata(events)
 
-    let message
+    let classification
     try {
-      message = await client.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        thinking: { type: 'adaptive' },
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+      classification = await classifySession(client, {
+        metadata,
+        sessionStartedAt: session.startedAt,
       })
     } catch (err) {
-      if (err instanceof Anthropic.RateLimitError) {
-        throw Object.assign(
-          new Error('Claude API rate limit — try again shortly'),
-          {
-            status: 429,
-          }
-        )
-      }
-      if (err instanceof Anthropic.APIError) {
-        throw Object.assign(new Error(`Claude API error: ${err.message}`), {
-          status: 502,
-        })
-      }
-      throw err
+      throw toApiError(err, 'classifier')
     }
 
-    const textBlock = message.content.find(
-      (b): b is Anthropic.TextBlock => b.type === 'text'
-    )
-    const summaryText = textBlock?.text.trim() ?? ''
+    const kind: TemplateKind =
+      classification.confidence >= CONFIDENCE_THRESHOLD
+        ? classification.type
+        : 'mixed'
 
-    if (!summaryText) {
-      throw Object.assign(new Error('Claude returned an empty summary'), {
-        status: 502,
+    const compact = compactEvents(events)
+
+    let summary: SessionSummaryPayload
+    try {
+      summary = await generateStructuredSummary(client, {
+        kind,
+        compactLog: compact.text,
+        truncatedToolCount: compact.truncatedCount,
+        sessionMeta: {
+          cwd: session.cwd,
+          durationMs: metadata.durationMs,
+          toolCallCount: metadata.toolCallCount,
+        },
       })
+    } catch (err) {
+      throw toApiError(err, 'content generator')
     }
 
     const generatedAt = new Date()
-    await sessionRepository.updateSummary(sessionId, summaryText, generatedAt)
+    await sessionRepository.updateSummary({
+      id: sessionId,
+      summary: summary as unknown as Prisma.InputJsonValue,
+      summaryType: summary.type,
+      generatedAt,
+      classifyModel: CLASSIFY_MODEL,
+      contentModel: CONTENT_MODEL,
+      eventCount: events.length,
+    })
 
     return {
       sessionId,
-      summary: summaryText,
+      summaryType: summary.type,
+      summary,
       generatedAt,
+      eventCount: events.length,
+      classifyModel: CLASSIFY_MODEL,
+      contentModel: CONTENT_MODEL,
     }
   },
+}
+
+function toApiError(err: unknown, stage: string): Error {
+  if (err instanceof Anthropic.RateLimitError) {
+    return Object.assign(
+      new Error(`Claude API rate limit during ${stage} — try again shortly`),
+      { status: 429 }
+    )
+  }
+  if (err instanceof Anthropic.APIError) {
+    return Object.assign(
+      new Error(`Claude API error during ${stage}: ${err.message}`),
+      { status: 502 }
+    )
+  }
+  return err instanceof Error ? err : new Error(String(err))
 }

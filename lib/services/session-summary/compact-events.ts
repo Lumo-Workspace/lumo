@@ -36,6 +36,27 @@ export interface CompactResult {
   truncatedCount: number
 }
 
+/**
+ * Tight metadata view used by the classifier call — cheap to serialize and
+ * easy for a small model to reason over. Distinct from {@link compactEvents}:
+ * that produces the full narrative for the content call; this boils the
+ * session down to signals the classifier actually needs (duration, tool mix,
+ * intent from Stop messages).
+ */
+export interface SessionMetadata {
+  durationMs: number
+  toolCallCount: number
+  /** toolName → count of PRE_TOOL_USE events. Orphan Pres still count. */
+  toolDistribution: Record<string, number>
+  /** First assistant Stop message in the session, truncated. null if absent. */
+  firstAssistantMessage: string | null
+  /**
+   * Up to 5 Stop messages sampled across the session (first, last, and evenly
+   * spaced in between). Each is already truncated. Empty if no STOPs.
+   */
+  keyStopMessages: Array<{ t: string; message: string }>
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export function compactEvents(
@@ -97,6 +118,82 @@ export function compactEvents(
   }
 }
 
+export function extractSessionMetadata(events: RawEvent[]): SessionMetadata {
+  if (events.length === 0) {
+    return {
+      durationMs: 0,
+      toolCallCount: 0,
+      toolDistribution: {},
+      firstAssistantMessage: null,
+      keyStopMessages: [],
+    }
+  }
+
+  const first = events[0]!
+  const last = events[events.length - 1]!
+  const durationMs = Math.max(
+    0,
+    last.createdAt.getTime() - first.createdAt.getTime()
+  )
+
+  const toolDistribution: Record<string, number> = {}
+  let toolCallCount = 0
+  const stops: RawEvent[] = []
+
+  for (const ev of events) {
+    if (ev.type === 'PRE_TOOL_USE') {
+      toolCallCount++
+      const name = ev.toolName ?? 'Unknown'
+      toolDistribution[name] = (toolDistribution[name] ?? 0) + 1
+    } else if (ev.type === 'STOP') {
+      stops.push(ev)
+    }
+  }
+
+  const firstStopText =
+    stops.length > 0
+      ? getString(stops[0]!.payload, 'last_assistant_message')
+      : null
+  const firstAssistantMessage = firstStopText
+    ? truncateSingleLine(firstStopText, 200)
+    : null
+
+  return {
+    durationMs,
+    toolCallCount,
+    toolDistribution,
+    firstAssistantMessage,
+    keyStopMessages: sampleStops(stops, 5),
+  }
+}
+
+function sampleStops(
+  stops: RawEvent[],
+  maxSamples: number
+): Array<{ t: string; message: string }> {
+  if (stops.length === 0) return []
+  const n = Math.min(maxSamples, stops.length)
+  // Evenly spaced by index, always including first and last.
+  const indices =
+    n === 1
+      ? [0]
+      : Array.from({ length: n }, (_, i) =>
+          Math.round((i * (stops.length - 1)) / (n - 1))
+        )
+  // Deduplicate in case rounding collides on short sessions.
+  const uniqueIndices = Array.from(new Set(indices))
+  return uniqueIndices
+    .map(i => {
+      const ev = stops[i]!
+      const raw = getString(ev.payload, 'last_assistant_message') ?? ''
+      return {
+        t: formatTime(ev.createdAt),
+        message: truncateSingleLine(raw, 500),
+      }
+    })
+    .filter(s => s.message.length > 0)
+}
+
 // ─── Per-event compaction ───────────────────────────────────────────────────
 
 function compactToolCall(
@@ -134,7 +231,7 @@ function compactForTool(
   }
   switch (tool) {
     case 'Bash': {
-      const cmd = truncateSingleLine(getString(input, 'command') ?? '', 120)
+      const cmd = truncateSingleLine(getString(input, 'command') ?? '', 200)
       const stdout = getString(response, 'stdout') ?? ''
       const stderr = getString(response, 'stderr') ?? ''
       const interrupted = getBoolean(response, 'interrupted') === true
@@ -203,6 +300,13 @@ function compactForTool(
           : null)
       return `Glob "${pattern}" → ${numFiles ?? 0} files`
     }
+    case 'Task': {
+      const subagent = getString(input, 'subagent_type') ?? 'general'
+      const description = getString(input, 'description') ?? ''
+      const prompt = getString(input, 'prompt') ?? ''
+      const head = truncateSingleLine(prompt, 200)
+      return `Task[${subagent}] "${description}"${head ? ` — ${head}` : ''}`
+    }
     case 'TodoWrite': {
       const todosRaw = getAny(input, 'todos')
       const todos = Array.isArray(todosRaw) ? todosRaw : []
@@ -240,7 +344,7 @@ function compactStop(ev: RawEvent): string {
   const t = formatTime(ev.createdAt)
   const last = getString(ev.payload, 'last_assistant_message')
   if (!last) return `[${t}] [turn end]`
-  return `[${t}] [turn end] "${truncateSingleLine(last, 200)}"`
+  return `[${t}] [turn end] "${truncateSingleLine(last, 500)}"`
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
