@@ -10,7 +10,11 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
-export type HookEventType = 'PRE_TOOL_USE' | 'POST_TOOL_USE' | 'STOP'
+export type HookEventType =
+  | 'PRE_TOOL_USE'
+  | 'POST_TOOL_USE'
+  | 'STOP'
+  | 'USER_PROMPT_SUBMIT'
 
 export interface RawEvent {
   id: string
