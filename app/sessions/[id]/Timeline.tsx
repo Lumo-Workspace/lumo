@@ -34,13 +34,20 @@ function TimelineRow({ item }: { item: TimelineItem }) {
     : null
 
   const statusClass =
-    item.status === 'error'
-      ? 'text-red-600'
-      : item.status === 'pending'
-        ? 'text-amber-600'
-        : 'text-emerald-600'
+    item.kind === 'user-prompt'
+      ? 'text-sky-600 font-medium'
+      : item.status === 'error'
+        ? 'text-red-600'
+        : item.status === 'pending'
+          ? 'text-amber-600'
+          : 'text-emerald-600'
 
-  const kindLabel = item.kind === 'stop' ? 'Stop' : (item.toolName ?? 'tool')
+  const kindLabel =
+    item.kind === 'stop'
+      ? 'Stop'
+      : item.kind === 'user-prompt'
+        ? 'You'
+        : (item.toolName ?? 'tool')
 
   return (
     <li>
