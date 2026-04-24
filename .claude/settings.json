@@ -10,6 +10,13 @@
         "hooks": [{ "type": "command", "command": "lumo hook post-tool-use" }]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook user-prompt-submit" }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [{ "type": "command", "command": "lumo hook stop" }]
