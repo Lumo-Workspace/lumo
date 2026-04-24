@@ -20,7 +20,11 @@ import { logHookError } from './hook-log'
  */
 const TIMEOUT_MS = 3000
 
-export type HookPath = 'pre-tool-use' | 'post-tool-use' | 'stop'
+export type HookPath =
+  | 'pre-tool-use'
+  | 'post-tool-use'
+  | 'user-prompt-submit'
+  | 'stop'
 
 /**
  * Read the full hook JSON from stdin.
