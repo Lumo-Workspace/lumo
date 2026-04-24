@@ -407,6 +407,7 @@ model Task {
   branches          TaskBranch[]
   clarifies         AgentClarify[]
   agentRuns         AgentRun[]
+  sessions          Session[]
   activities        TaskActivity[]
   documentMentions  DocumentMention[]
   priorityOverrides PriorityOverride[]
@@ -1135,11 +1136,11 @@ model HookEvent {
   id                String        @id @default(cuid())
   workspaceId       String
   workspaceMemberId String
-  sessionId         String?       // Claude Code session UUID, FK to Session.id
-  taskId            String?       // associated Lumo task
+  sessionId         String? // Claude Code session UUID, FK to Session.id
+  taskId            String? // associated Lumo task
   type              HookEventType
-  toolName          String?       // extracted from payload.tool_name when present
-  payload           Json          // raw hook body from Claude Code
+  toolName          String? // extracted from payload.tool_name when present
+  payload           Json // raw hook body from Claude Code
   createdAt         DateTime      @default(now())
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1153,13 +1154,14 @@ model HookEvent {
 }
 
 model Session {
-  id                String   @id          // Claude Code session UUID — not cuid
-  workspaceId       String
-  workspaceMemberId String
-  cwd               String?
-  startedAt         DateTime @default(now())
-  lastActivityAt    DateTime
-  eventCount        Int      @default(0)
+  id                   String    @id // Claude Code session UUID — not cuid
+  workspaceId          String
+  workspaceMemberId    String
+  taskId               String?
+  cwd                  String?
+  startedAt            DateTime  @default(now())
+  lastActivityAt       DateTime
+  eventCount           Int       @default(0)
   // Session summary — generated on demand via Claude. The generation flow is a
   // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
   // model fills a type-specific template. `summary` holds the structured output
@@ -1173,14 +1175,16 @@ model Session {
   summaryClassifyModel String?
   summaryContentModel  String?
   summaryEventCount    Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  task      Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
   events    HookEvent[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
+  @@index([taskId, lastActivityAt])
   @@map("sessions")
 }
