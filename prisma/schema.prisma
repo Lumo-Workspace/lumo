@@ -1128,6 +1128,7 @@ enum HookEventType {
   PRE_TOOL_USE
   POST_TOOL_USE
   STOP
+  USER_PROMPT_SUBMIT
 }
 
 model HookEvent {
