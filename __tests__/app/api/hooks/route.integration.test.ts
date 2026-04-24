@@ -13,6 +13,7 @@ import { hookEventService } from '@/lib/services/hook-event.service'
 import { POST as postPre } from '@/app/api/hooks/pre-tool-use/route'
 import { POST as postPost } from '@/app/api/hooks/post-tool-use/route'
 import { POST as postStop } from '@/app/api/hooks/stop/route'
+import { POST as postUserPrompt } from '@/app/api/hooks/user-prompt-submit/route'
 
 const mockVerify = authService.verifyApiKey as jest.Mock
 const mockRecord = hookEventService.recordHookEvent as jest.Mock
@@ -167,5 +168,34 @@ describe('POST /api/hooks/stop', () => {
     expect(mockRecord).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'STOP' })
     )
+  })
+})
+
+describe('POST /api/hooks/user-prompt-submit', () => {
+  it('records USER_PROMPT_SUBMIT event', async () => {
+    const payload = {
+      session_id: 'sess_1',
+      cwd: '/tmp',
+      prompt: 'hello',
+    }
+    const res = await postUserPrompt(
+      post('http://x/api/hooks/user-prompt-submit', payload, {
+        Authorization: 'Bearer lum_ok',
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(mockRecord).toHaveBeenCalledWith({
+      identity,
+      type: 'USER_PROMPT_SUBMIT',
+      payload,
+    })
+  })
+
+  it('returns 401 without bearer', async () => {
+    const res = await postUserPrompt(
+      post('http://x/api/hooks/user-prompt-submit', {})
+    )
+    expect(res.status).toBe(401)
   })
 })
