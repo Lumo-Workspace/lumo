@@ -21,9 +21,9 @@ import { logHookError } from './hook-log'
 const TIMEOUT_MS = 3000
 
 export type HookPath =
+  | 'user-prompt-submit'
   | 'pre-tool-use'
   | 'post-tool-use'
-  | 'user-prompt-submit'
   | 'stop'
 
 /**
