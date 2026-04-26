@@ -44,6 +44,11 @@ import {
 } from '@/components/ui/select'
 import { GitBranch, Loader2 } from 'lucide-react'
 
+// Stable reference for the `tasks` default. Using `tasks = []` as a destructuring
+// default creates a new [] every render, which would feed an unstable ref into
+// useDuplicateCheck's effect deps and trigger an infinite render loop.
+const EMPTY_TASKS: ApiTask[] = []
+
 export interface NewTaskFormData {
   title: string
   description: string
@@ -109,7 +114,7 @@ export function NewTaskModal({
   sprintTeamId,
   preFill,
   onSubmit,
-  tasks = [],
+  tasks = EMPTY_TASKS,
   draftId,
   onSaveDraft,
   onDeleteDraft,

@@ -23,7 +23,10 @@ export function useDuplicateCheck(
 
     const trimmed = title.trim()
     if (trimmed.length < 3 || !projectId) {
-      setClientMatches([])
+      // Avoid scheduling a re-render when there's nothing to clear — passing a
+      // fresh [] would fail Object.is and feed any unstable dep upstream into
+      // an infinite loop.
+      setClientMatches(prev => (prev.length === 0 ? prev : []))
       return
     }
 
