@@ -10,6 +10,13 @@
         "hooks": [{ "type": "command", "command": "lumo hook post-tool-use" }]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook post-tool-use-failure" }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

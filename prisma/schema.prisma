@@ -170,6 +170,7 @@ model Workspace {
   mcpConnections     McpConnection[]     @relation("WorkspaceMcpConnections")
   hookEvents         HookEvent[]
   sessions           Session[]
+  memories           Memory[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -343,6 +344,7 @@ model Project {
   documents             Document[]
   priorityOverrides     PriorityOverride[]
   summaries             ProjectSummary[]
+  memories              Memory[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -413,6 +415,7 @@ model Task {
   priorityOverrides PriorityOverride[]
   taskTags          TaskTag[]
   sentryIssueLinks  SentryIssueLink[]
+  memories          Memory[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1128,6 +1131,7 @@ model McpAuditLog {
 enum HookEventType {
   PRE_TOOL_USE
   POST_TOOL_USE
+  POST_TOOL_USE_FAILURE
   STOP
   USER_PROMPT_SUBMIT
 }
@@ -1182,9 +1186,47 @@ model Session {
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
   task      Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
   events    HookEvent[]
+  memories  Memory[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
   @@index([taskId, lastActivityAt])
   @@map("sessions")
+}
+
+// ─── Memory (long-term context across tasks) ────────────────────────────────
+
+enum MemoryCategory {
+  TRAP // 踩过的坑
+  DECISION // 工程决策
+  CONVENTION // 项目约定
+  PROCEDURAL // 工作流程
+}
+
+enum MemoryScope {
+  TASK
+  PROJECT
+}
+
+model Memory {
+  id              String         @id @default(cuid())
+  workspaceId     String
+  projectId       String
+  taskId          String?
+  scope           MemoryScope
+  category        MemoryCategory
+  content         Json
+  sourceSessionId String?
+  archivedAt      DateTime?
+  createdAt       DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  session   Session?  @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, scope])
+  @@index([taskId])
+  @@index([projectId, archivedAt])
+  @@map("memories")
 }
