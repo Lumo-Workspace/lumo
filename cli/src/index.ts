@@ -97,6 +97,13 @@ hook
   .action(wrap(() => hookCommand('post-tool-use')))
 
 hook
+  .command('post-tool-use-failure')
+  .description(
+    'Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('post-tool-use-failure')))
+
+hook
   .command('user-prompt-submit')
   .description(
     'Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)'

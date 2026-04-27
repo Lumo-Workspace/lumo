@@ -25,6 +25,7 @@ export type HookPath =
   | 'user-prompt-submit'
   | 'pre-tool-use'
   | 'post-tool-use'
+  | 'post-tool-use-failure'
   | 'stop'
 
 /**
