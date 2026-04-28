@@ -64,7 +64,7 @@ export const hookEventService = {
       })
     }
 
-    return hookEventRepository.createHookEvent({
+    const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
       sessionId,
@@ -72,5 +72,11 @@ export const hookEventService = {
       toolName: extractStringField(payload, 'tool_name'),
       payload,
     })
+
+    // Surface the validated sessionId/taskId so per-event side effects (e.g.
+    // Stop → Layer 1 memory extraction) can fire-and-forget without
+    // re-deriving them. Returning a richer object here keeps the validation
+    // (workspace membership, task FK check) authoritative in one place.
+    return { id: created.id, sessionId, taskId }
   },
 }
