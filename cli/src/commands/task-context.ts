@@ -9,6 +9,7 @@ interface TaskContextResponse {
     status: string
     description: string | null
   }
+  memorySection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -89,6 +90,13 @@ export function formatTaskContextMarkdown(
     lines.push(`**Description**: ${data.task.description}`)
   }
   lines.push('')
+
+  // Frontload memory before sessions: it's cold context the agent should see
+  // first. Server returns "" when empty, in which case we skip the section.
+  if (data.memorySection && data.memorySection.trim().length > 0) {
+    lines.push(data.memorySection.trimEnd())
+    lines.push('')
+  }
 
   if (data.sessions.length === 0) {
     lines.push('## Previous Sessions (0)')
