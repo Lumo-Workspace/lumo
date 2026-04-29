@@ -2,12 +2,33 @@ import { NextResponse } from 'next/server'
 import type { HookEventType, Prisma } from '@prisma/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { hookEventService } from '@/lib/services/hook-event.service'
+import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
+export interface AfterRecordContext {
+  sessionId: string | null
+  taskId: string | null
+  workspaceId: string
+}
+
+export interface HandleHookOptions {
+  /**
+   * Optional per-event side effect, invoked after the HookEvent row is
+   * persisted but before the response is returned. Routes that need to
+   * fire-and-forget background work (e.g. STOP → memory extraction) wrap
+   * the call here in `waitUntil(...)` so the response isn't blocked but the
+   * function instance stays alive long enough to finish.
+   *
+   * Must not throw; the caller treats this as best-effort.
+   */
+  afterRecord?: (ctx: AfterRecordContext, identity: VerifyApiKeyResult) => void
+}
+
 export async function handleHookRequest(
   request: Request,
-  type: HookEventType
+  type: HookEventType,
+  options: HandleHookOptions = {}
 ): Promise<Response> {
   try {
     const identity = await verifyBearer(request)
@@ -20,11 +41,31 @@ export async function handleHookRequest(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
-    await hookEventService.recordHookEvent({
+    const recorded = await hookEventService.recordHookEvent({
       identity,
       type,
       payload: (payload ?? {}) as Prisma.InputJsonValue,
     })
+
+    if (options.afterRecord) {
+      try {
+        options.afterRecord(
+          {
+            sessionId: recorded.sessionId,
+            taskId: recorded.taskId,
+            workspaceId: identity.workspace.id,
+          },
+          identity
+        )
+      } catch (sideEffectError) {
+        // afterRecord is best-effort; never let a side-effect failure flip the
+        // hook response to 500 once the event is already persisted.
+        console.error(
+          `POST /api/hooks/${type} afterRecord error:`,
+          sideEffectError
+        )
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {

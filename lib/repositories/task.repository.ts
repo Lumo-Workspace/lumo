@@ -308,6 +308,24 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * Compact lookup for Layer 1 memory extraction: returns the fields the
+   * extraction prompt needs (task title/description as context) plus the
+   * project + workspace IDs needed to write Memory rows.
+   */
+  async findForMemoryContext(id: string) {
+    return prisma.task.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        projectId: true,
+        project: { select: { workspaceId: true } },
+      },
+    })
+  },
+
   /** Clear agentError on a task. */
   async clearAgentError(id: string) {
     return prisma.task.update({
