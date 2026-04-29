@@ -12,6 +12,12 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     listForTask: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: {
+    findActiveTaskMemories: jest.fn().mockResolvedValue([]),
+    findActiveProjectMemories: jest.fn().mockResolvedValue([]),
+  },
+}))
 // task.service.ts fans out imports; stub the unrelated ones so the module
 // loads without side effects.
 jest.mock('@/lib/repositories/project.repository', () => ({
@@ -37,13 +43,20 @@ jest.mock('@/lib/services/task-notifications.service', () => ({
 
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskContextService } from '@/lib/services/task-context.service'
 
 const mockResolve = taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockFindById = taskRepository.findById as jest.Mock
 const mockSessions = sessionRepository.listForTask as jest.Mock
+const mockTaskMem = memoryRepository.findActiveTaskMemories as jest.Mock
+const mockProjMem = memoryRepository.findActiveProjectMemories as jest.Mock
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockTaskMem.mockResolvedValue([])
+  mockProjMem.mockResolvedValue([])
+})
 
 const task = {
   id: 'task_cmoc',
@@ -51,6 +64,7 @@ const task = {
   title: 'T',
   status: 'IN_PROGRESS',
   description: 'desc',
+  projectId: 'proj_1',
   team: { identifier: 'LUM' },
 }
 
@@ -161,6 +175,50 @@ describe('taskContextService.getContextForIdentifier', () => {
     )
     expect(out?.sessions[0]?.headline).toBe('(no summary)')
     expect(out?.sessions[0]?.unresolved).toEqual([])
+  })
+
+  it('returns empty memorySection when the task has no memories', async () => {
+    mockResolve.mockResolvedValueOnce(task)
+    mockFindById.mockResolvedValueOnce(task)
+    mockSessions.mockResolvedValueOnce([])
+    const out = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-30'
+    )
+    expect(out?.memorySection).toBe('')
+  })
+
+  it('renders project + task memories into memorySection (project first)', async () => {
+    mockResolve.mockResolvedValueOnce(task)
+    mockFindById.mockResolvedValueOnce(task)
+    mockSessions.mockResolvedValueOnce([])
+    mockProjMem.mockResolvedValueOnce([
+      {
+        id: 'mp1',
+        category: 'CONVENTION',
+        content: { rule: 'Use named exports', scope: 'lumo' },
+        createdAt: new Date(),
+      },
+    ])
+    mockTaskMem.mockResolvedValueOnce([
+      {
+        id: 'mt1',
+        category: 'TRAP',
+        content: { trigger: 'rm -rf node_modules', outcome: 'breaks pnpm' },
+        createdAt: new Date(),
+      },
+    ])
+    const out = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-30'
+    )
+    expect(out?.memorySection).toContain('## Relevant Memory')
+    expect(out?.memorySection).toContain('### Traps')
+    expect(out?.memorySection).toContain('### Conventions')
+    // TRAP comes before CONVENTION in the rendered output
+    const trapIdx = out!.memorySection.indexOf('### Traps')
+    const convIdx = out!.memorySection.indexOf('### Conventions')
+    expect(trapIdx).toBeLessThan(convIdx)
   })
 
   it('drops non-string entries from summary.unresolved', async () => {

@@ -106,6 +106,36 @@ describe('formatTaskContextMarkdown', () => {
     expect(md).toContain('· 2h 15min')
   })
 
+  it('inlines memorySection between header and sessions when present', () => {
+    const md = formatTaskContextMarkdown(
+      {
+        task: baseTask,
+        memorySection:
+          '## Relevant Memory\n\n### Traps\n\n- [task] **x** → y\n\n',
+        sessions: [],
+      },
+      now
+    )
+    const memIdx = md.indexOf('## Relevant Memory')
+    const sessIdx = md.indexOf('## Previous Sessions')
+    expect(memIdx).toBeGreaterThan(0)
+    expect(memIdx).toBeLessThan(sessIdx)
+    expect(md).toContain('- [task] **x** → y')
+  })
+
+  it('omits memory section when memorySection is empty or missing', () => {
+    const mdEmpty = formatTaskContextMarkdown(
+      { task: baseTask, memorySection: '', sessions: [] },
+      now
+    )
+    const mdMissing = formatTaskContextMarkdown(
+      { task: baseTask, sessions: [] },
+      now
+    )
+    expect(mdEmpty).not.toContain('## Relevant Memory')
+    expect(mdMissing).not.toContain('## Relevant Memory')
+  })
+
   it('renders "just now" / "Xmin ago" / "yesterday" per relative-time rules', () => {
     const mk = (offsetSec: number) => ({
       id: 'x12345678',
