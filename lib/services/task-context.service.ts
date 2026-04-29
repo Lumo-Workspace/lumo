@@ -1,6 +1,12 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskService } from '@/lib/services/task.service'
+import {
+  applyTokenBudget,
+  renderMemorySection,
+  type RenderableMemory,
+} from '@/lib/memory/render'
 
 export interface SessionContext {
   id: string
@@ -21,6 +27,13 @@ export interface TaskContext {
     status: string
     description: string | null
   }
+  /**
+   * Pre-rendered "## Relevant Memory" markdown block, already trimmed to a
+   * token budget. Empty string when the task has no relevant memory. The CLI
+   * inlines this verbatim — keeping render server-side avoids duplicating
+   * memory-shape knowledge in the CLI bundle.
+   */
+  memorySection: string
   sessions: SessionContext[]
 }
 
@@ -92,6 +105,31 @@ export const taskContextService = {
 
     const sessions = await sessionRepository.listForTask(resolved.id)
 
+    const [taskMemories, projectMemories] = await Promise.all([
+      memoryRepository.findActiveTaskMemories(resolved.id),
+      memoryRepository.findActiveProjectMemories(full.projectId),
+    ])
+
+    // Project memories first (broader applicability, survive task archival),
+    // then task memories. applyTokenBudget drops the tail on overflow, so
+    // task-specific items are first to be cut when we hit the cap.
+    const ordered: RenderableMemory[] = [
+      ...projectMemories.map(m => ({
+        id: m.id,
+        scope: 'PROJECT' as const,
+        category: m.category,
+        content: m.content,
+      })),
+      ...taskMemories.map(m => ({
+        id: m.id,
+        scope: 'TASK' as const,
+        category: m.category,
+        content: m.content,
+      })),
+    ]
+    const budgeted = applyTokenBudget(ordered)
+    const memorySection = renderMemorySection(budgeted)
+
     return {
       task: {
         id: full.id,
@@ -100,6 +138,7 @@ export const taskContextService = {
         status: full.status,
         description: full.description,
       },
+      memorySection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),
