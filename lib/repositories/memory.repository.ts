@@ -31,6 +31,42 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * Active project-scoped memories for a project. Used by Layer 3 to feed
+   * the merge LLM the existing project facts so it can decide ADD vs UPDATE
+   * vs NOOP without dual-writing or stale-overwriting.
+   */
+  async findActiveProjectMemories(projectId: string) {
+    return prisma.memory.findMany({
+      where: { projectId, scope: 'PROJECT', archivedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        category: true,
+        content: true,
+        createdAt: true,
+      },
+    })
+  },
+
+  /**
+   * Archive every active task-scoped memory for a task in one shot. Used at
+   * the tail of task-done promotion: once distilled facts have been merged
+   * into project memory (or determined non-promotable), the task memory has
+   * served its purpose and gets soft-deleted to keep the active set small.
+   */
+  async archiveAllForTask(
+    taskId: string,
+    tx?: Prisma.TransactionClient,
+    now: Date = new Date()
+  ) {
+    const client = tx ?? prisma
+    return client.memory.updateMany({
+      where: { taskId, scope: 'TASK', archivedAt: null },
+      data: { archivedAt: now },
+    })
+  },
+
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.memory.create({
