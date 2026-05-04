@@ -17,7 +17,7 @@ export function AgentRunEventRow({ event }: AgentRunEventRowProps) {
   const intl = useIntl()
   const category = categorizeHookEvent(event)
   const style = CATEGORY_STYLE[category]
-  const summary = summarizeEvent(event)
+  const summary = summarizeEvent(event, intl)
   const label = pillLabel(event)
 
   const time = new Date(event.createdAt).toLocaleTimeString(intl.locale, {

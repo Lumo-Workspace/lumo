@@ -38,14 +38,14 @@ export function AgentRunTab({ taskId, enabled }: AgentRunTabProps) {
         <p className='text-xs'>
           {intl.formatMessage({
             id: 'agentRun.empty',
-            defaultMessage: '此任务还没有 Claude Code 运行记录',
+            defaultMessage: '此任务还没有 Agent 运行记录',
           })}
         </p>
         <p className='text-[11px] text-zinc-300 dark:text-zinc-600 max-w-xs text-center'>
           {intl.formatMessage({
             id: 'agentRun.emptyHint',
             defaultMessage:
-              '在终端运行 lumo task start，让 Claude Code 把执行过程同步到这里',
+              '在终端运行 lumo task start，Agent 执行过程会自动同步到这里',
           })}
         </p>
       </div>

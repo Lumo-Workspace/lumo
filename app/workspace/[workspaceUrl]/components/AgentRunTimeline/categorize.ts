@@ -1,8 +1,9 @@
+import type { IntlShape } from 'react-intl'
 import type { AgentRunHookEventItem, AgentRunHookEventType } from '../../types'
 
 /**
- * Visual category for a single Claude Code hook event. Drives icon color
- * and dot color in the timeline. Categories are grouped by "actor":
+ * Visual category for a single agent hook event. Drives icon color and
+ * dot color in the timeline. Categories are grouped by "actor":
  *   - Agent (blue family)   — read/write/exec/plan/other tool calls
  *   - Human (zinc)          — prompts and explicit user input
  *   - System (violet/amber) — memory sediment, permission interception
@@ -174,22 +175,38 @@ export function pillLabel(event: AgentRunHookEventItem): string {
   return PILL_LABEL[event.type]
 }
 
-/** Extract a short summary string from the event payload for display. */
-export function summarizeEvent(event: AgentRunHookEventItem): string {
+/**
+ * Extract a short summary string from the event payload for display.
+ * `intl` is used for fallback strings when the payload lacks a usable
+ * field — passed in so the function stays a pure helper instead of a
+ * hook, while still respecting the user's locale.
+ */
+export function summarizeEvent(
+  event: AgentRunHookEventItem,
+  intl: IntlShape
+): string {
   const payload = (event.payload ?? {}) as Record<string, unknown>
+  const fb = (id: string, defaultMessage: string) =>
+    intl.formatMessage({ id, defaultMessage })
 
   switch (event.type) {
     case 'STOP': {
       const last = getString(payload, 'last_assistant_message')
-      return last ? truncate(last, 160) : 'Agent 执行完成'
+      return last
+        ? truncate(last, 160)
+        : fb('agentRun.event.stopFallback', 'Agent 执行完成')
     }
     case 'STOP_FAILURE': {
       const err = getString(payload, 'error') ?? getString(payload, 'message')
-      return err ? truncate(err, 160) : 'Turn 因 API 错误中止'
+      return err
+        ? truncate(err, 160)
+        : fb('agentRun.event.stopFailureFallback', '回合因 API 错误中止')
     }
     case 'USER_PROMPT_SUBMIT': {
       const prompt = getString(payload, 'prompt')
-      return prompt ? truncate(prompt, 160) : '用户输入'
+      return prompt
+        ? truncate(prompt, 160)
+        : fb('agentRun.event.userPromptFallback', '用户输入')
     }
     case 'PERMISSION_REQUEST': {
       const tool =
@@ -201,7 +218,8 @@ export function summarizeEvent(event: AgentRunHookEventItem): string {
       return (
         [tool && `${tool}`, reason && `→ ${reason}`]
           .filter(Boolean)
-          .join(' ') || '高风险操作 — 等待批准'
+          .join(' ') ||
+        fb('agentRun.event.permissionRequestFallback', '高风险操作 — 等待批准')
       )
     }
     case 'PERMISSION_DENIED': {
@@ -210,52 +228,63 @@ export function summarizeEvent(event: AgentRunHookEventItem): string {
       const reason = getString(payload, 'reason') ?? ''
       return (
         [tool, reason && `→ ${reason}`].filter(Boolean).join(' ') ||
-        '被自动模式拦截'
+        fb('agentRun.event.permissionDeniedFallback', '被自动模式拦截')
       )
     }
     case 'SESSION_START': {
       const cwd = getString(payload, 'cwd')
-      return cwd ? `cwd: ${cwd}` : 'Claude Code session 开始'
+      return cwd
+        ? `cwd: ${cwd}`
+        : fb('agentRun.event.sessionStartFallback', 'Agent session 开始')
     }
     case 'SESSION_END': {
       const reason = getString(payload, 'reason')
-      return reason ? `结束: ${reason}` : 'Claude Code session 结束'
+      return reason
+        ? `${fb('agentRun.event.sessionEndPrefix', '结束')}: ${reason}`
+        : fb('agentRun.event.sessionEndFallback', 'Agent session 结束')
     }
     case 'SUBAGENT_START': {
       const desc =
         getString(payload, 'description') ??
         getString(payload, 'subagent_type') ??
         ''
-      return desc || '子 agent 启动'
+      return desc || fb('agentRun.event.subagentStartFallback', '子 agent 启动')
     }
     case 'SUBAGENT_STOP': {
       const result = getString(payload, 'result_summary')
-      return result ? truncate(result, 160) : '子 agent 完成'
+      return result
+        ? truncate(result, 160)
+        : fb('agentRun.event.subagentStopFallback', '子 agent 完成')
     }
     case 'WORKTREE_CREATE': {
       const path = getString(payload, 'worktree_path') ?? ''
       const branch = getString(payload, 'branch')
       return (
         [path, branch && `(${branch})`].filter(Boolean).join(' ') ||
-        '创建 worktree'
+        fb('agentRun.event.worktreeCreateFallback', '创建 worktree')
       )
     }
     case 'WORKTREE_REMOVE': {
       const path = getString(payload, 'worktree_path') ?? ''
-      return path || '移除 worktree'
+      return (
+        path || fb('agentRun.event.worktreeRemoveFallback', '移除 worktree')
+      )
     }
     case 'FILE_CHANGED': {
       const path =
         getString(payload, 'path') ?? getString(payload, 'file_path') ?? ''
       const change = getString(payload, 'change_type')
-      return change ? `[${change}] ${path}` : path || '文件变更'
+      return change
+        ? `[${change}] ${path}`
+        : path || fb('agentRun.event.fileChangedFallback', '文件变更')
     }
     case 'CONFIG_CHANGE': {
       const path =
         getString(payload, 'path') ?? getString(payload, 'file_path') ?? ''
       const scope = getString(payload, 'scope')
       return (
-        [scope && `[${scope}]`, path].filter(Boolean).join(' ') || '配置变更'
+        [scope && `[${scope}]`, path].filter(Boolean).join(' ') ||
+        fb('agentRun.event.configChangeFallback', '配置变更')
       )
     }
     case 'POST_TOOL_USE_FAILURE':
