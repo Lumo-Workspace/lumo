@@ -9,6 +9,43 @@ jest.mock('@/lib/api-client', () => ({
   },
 }))
 
+// Mock react-intl: the real package ships ESM that Jest's default transform
+// ignores in node_modules. We don't need locale negotiation here — we only
+// need formatMessage to produce stable English strings the assertions can
+// match against.
+jest.mock('react-intl', () => {
+  const messages: Record<string, string> = {
+    'memory.section.title': 'Memory',
+    'memory.category.trap': 'Pitfalls',
+    'memory.category.decision': 'Decisions',
+    'memory.category.convention': 'Conventions',
+    'memory.category.procedural': 'Procedures',
+    'memory.field.workaround': 'Workaround: {value}',
+    'memory.field.why': 'Why: {value}',
+    'memory.field.scope': 'Scope: {value}',
+    'memory.field.trigger': 'Trigger: {value}',
+    'memory.field.alternatives': 'Alternatives considered: {value}',
+    'memory.field.implications': 'Implications: {value}',
+    'memory.unparseable': '(unparseable memory content)',
+  }
+  return {
+    useIntl: () => ({
+      formatMessage: (
+        descriptor: { id: string },
+        values?: Record<string, string>
+      ) => {
+        let msg = messages[descriptor.id] ?? descriptor.id
+        if (values) {
+          for (const [k, v] of Object.entries(values)) {
+            msg = msg.replace(`{${k}}`, v)
+          }
+        }
+        return msg
+      },
+    }),
+  }
+})
+
 import { TaskMemorySection } from '@/app/workspace/[workspaceUrl]/components/TaskMemorySection'
 
 describe('TaskMemorySection', () => {
@@ -66,7 +103,7 @@ describe('TaskMemorySection', () => {
     await waitFor(() => {
       expect(screen.getByText('Memory')).toBeInTheDocument()
     })
-    expect(screen.getByText('Traps')).toBeInTheDocument()
+    expect(screen.getByText('Pitfalls')).toBeInTheDocument()
     expect(screen.getByText('Decisions')).toBeInTheDocument()
     expect(screen.getByText('Conventions')).toBeInTheDocument()
     expect(screen.getByText('Procedures')).toBeInTheDocument()
@@ -77,7 +114,9 @@ describe('TaskMemorySection', () => {
     expect(
       screen.getByText('Workaround: Always create new session')
     ).toBeInTheDocument()
-    expect(screen.getByText('read schema → check enums')).toBeInTheDocument()
+    // Steps now render as an ordered list, one <li> per step.
+    expect(screen.getByText('read schema')).toBeInTheDocument()
+    expect(screen.getByText('check enums')).toBeInTheDocument()
   })
 
   it('renders unparseable memories with a fallback', async () => {

@@ -314,22 +314,4 @@ export function dispatchUpdateTaskSideEffects(opts: {
     workspaceId: taskCheck.project.workspaceId,
     triggerActorId,
   })
-
-  // Memory promotion fires once on the TODO/IN_PROGRESS/IN_REVIEW → DONE edge.
-  // The promote module is imported dynamically: it pulls in the ai-SDK (used
-  // by Layer 2 / Layer 3) which is incompatible with the jsdom test env that
-  // most task.service tests run under. A dynamic import keeps the SDK out
-  // of the eager import graph, the same way Layer 1 stays isolated by being
-  // reachable only from the hook route.
-  if (
-    input.status === 'DONE' &&
-    result.oldStatus !== 'DONE' &&
-    result.oldStatus !== undefined
-  ) {
-    waitUntil(
-      import('@/lib/services/memory/promote-task').then(m =>
-        m.promoteTaskService.promoteTaskMemory(taskId)
-      )
-    )
-  }
 }
