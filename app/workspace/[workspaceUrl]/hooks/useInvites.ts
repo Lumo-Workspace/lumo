@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
@@ -36,9 +36,12 @@ export function useInvites() {
     enabled: false,
   })
 
+  const queryRef = useRef(query)
+  queryRef.current = query
+
   const fetchInvites = useCallback(async () => {
-    await query.refetch()
-  }, [query])
+    await queryRef.current.refetch()
+  }, [])
 
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false)

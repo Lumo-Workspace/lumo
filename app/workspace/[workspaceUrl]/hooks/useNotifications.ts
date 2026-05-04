@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiNotification } from '../types'
 import { notificationsClient } from '@/lib/api-client'
@@ -13,7 +13,10 @@ interface NotificationsData {
 
 export function useNotifications() {
   const queryClient = useQueryClient()
-  const queryKey = queryKeys.notifications()
+  // Memoize so the array identity is stable across renders — otherwise
+  // callbacks that close over it get a new reference every render and
+  // any consumer effect that depends on those callbacks loops.
+  const queryKey = useMemo(() => queryKeys.notifications(), [])
 
   const query = useQuery<NotificationsData>({
     queryKey,
@@ -25,9 +28,16 @@ export function useNotifications() {
     enabled: false,
   })
 
+  // The TanStack `query` result object is a fresh reference every render.
+  // Pin a ref so `fetchNotifications` can be a stable callback (empty deps)
+  // — `useRealtimeNotifications` puts it inside a useEffect dep array, and
+  // an unstable callback there causes an infinite refetch loop.
+  const queryRef = useRef(query)
+  queryRef.current = query
+
   const fetchNotifications = useCallback(async () => {
-    await query.refetch()
-  }, [query])
+    await queryRef.current.refetch()
+  }, [])
 
   const updateLocal = useCallback(
     (updater: (prev: NotificationsData) => NotificationsData) => {

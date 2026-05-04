@@ -40,9 +40,15 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     enabled: false,
   })
 
+  // The TanStack `query` result object is a fresh reference every render;
+  // pin it so `fetchMyTasks` stays referentially stable for consumers that
+  // put it in useEffect dep arrays.
+  const queryRef = useRef(query)
+  queryRef.current = query
+
   const fetchMyTasks = useCallback(async () => {
-    await query.refetch()
-  }, [query])
+    await queryRef.current.refetch()
+  }, [])
 
   const setTaskIds = useCallback(
     (updater: Updater<string[], string[]>) => {

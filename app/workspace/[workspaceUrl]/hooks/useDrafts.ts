@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -27,7 +27,10 @@ interface UseDraftsReturn {
 export function useDrafts(): UseDraftsReturn {
   const queryClient = useQueryClient()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-  const queryKey = [...queryKeys.drafts(), workspaceUrl] as const
+  const queryKey = useMemo(
+    () => [...queryKeys.drafts(), workspaceUrl] as const,
+    [workspaceUrl]
+  )
 
   const query = useQuery<ApiDraft[]>({
     queryKey,
@@ -41,9 +44,12 @@ export function useDrafts(): UseDraftsReturn {
     enabled: false,
   })
 
+  const queryRef = useRef(query)
+  queryRef.current = query
+
   const fetchDrafts = useCallback(async () => {
-    await query.refetch()
-  }, [query])
+    await queryRef.current.refetch()
+  }, [])
 
   const setDraftsLocal = useCallback(
     (updater: (prev: ApiDraft[]) => ApiDraft[]) => {
