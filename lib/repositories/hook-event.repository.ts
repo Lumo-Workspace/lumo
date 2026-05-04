@@ -33,6 +33,21 @@ export const hookEventRepository = {
   },
 
   /**
+   * Bulk-tag every null-taskId event in a session with the given
+   * taskId. Used by `lumo session attach` to retroactively pull the
+   * already-emitted events of the running session under the newly
+   * attached task. Events that already carry a taskId are left alone
+   * — they're authoritative.
+   */
+  async bulkSetTaskIdForNullEventsInSession(sessionId: string, taskId: string) {
+    const result = await prisma.hookEvent.updateMany({
+      where: { sessionId, taskId: null },
+      data: { taskId },
+    })
+    return { count: result.count }
+  },
+
+  /**
    * Persist the LLM-generated turn summary onto a STOP / STOP_FAILURE
    * row. Best-effort — if the event row was already deleted (run reset,
    * workspace cascade) we swallow the P2025 silently rather than throw,
