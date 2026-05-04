@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
+import * as SelectPrimitive from '@radix-ui/react-select'
+import { Check } from 'lucide-react'
 import { useSprintsForTeam } from '../../hooks/useSprints'
 import {
   Select,
@@ -75,6 +77,9 @@ function sortByStart(sprints: Sprint[], desc = false): Sprint[] {
   )
 }
 
+const ITEM_CLS =
+  'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
+
 export function TaskSprintField({
   task,
   onChange,
@@ -108,21 +113,26 @@ export function TaskSprintField({
   const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'
 
-  // Resolve the displayed name from the loaded list (so optimistic
-  // sprintId changes paint instantly, before the parent's task.sprint
-  // relation is refreshed from the server).
-  const selectedName =
-    [...(active ?? []), ...(drafts ?? [])].find(s => s.id === task.sprintId)
-      ?.name ?? task.sprint?.name
-
   const renderItem = (s: Sprint) => {
     const state = deriveSprintState(s)
     const Icon = STATUS_ICON[state]
     return (
-      <SelectItem key={s.id} value={s.id}>
+      // Use the Radix primitive directly so only `s.name` lives inside
+      // `ItemText` — the trigger then displays the bare sprint name without
+      // the icon / date / status row, while the dropdown still renders the
+      // full row. Wrapping a node tree containing siblings in `<SelectValue>`
+      // children breaks under React 19 (portal/ref ambiguity).
+      <SelectPrimitive.Item key={s.id} value={s.id} className={ITEM_CLS}>
+        <span className='absolute right-2 flex h-3.5 w-3.5 items-center justify-center'>
+          <SelectPrimitive.ItemIndicator>
+            <Check className='h-4 w-4' />
+          </SelectPrimitive.ItemIndicator>
+        </span>
         <span className='flex w-full items-center gap-3'>
           <Icon className={cn('size-3.5 shrink-0', STATUS_ICON_CLS[state])} />
-          <span className='flex-1 truncate'>{s.name}</span>
+          <span className='flex-1 truncate'>
+            <SelectPrimitive.ItemText>{s.name}</SelectPrimitive.ItemText>
+          </span>
           <span className='w-32 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
             {formatCompactRange(s, intl.locale)}
           </span>
@@ -130,7 +140,7 @@ export function TaskSprintField({
             {intl.formatMessage({ id: STATUS_LABEL_KEY[state] })}
           </span>
         </span>
-      </SelectItem>
+      </SelectPrimitive.Item>
     )
   }
 
@@ -143,9 +153,7 @@ export function TaskSprintField({
       <SelectTrigger className={cn(triggerClassName)}>
         <SelectValue
           placeholder={intl.formatMessage({ id: 'sprints.taskField.noSprint' })}
-        >
-          {selectedName}
-        </SelectValue>
+        />
       </SelectTrigger>
       <SelectContent className='min-w-[18rem]'>
         <SelectItem value='none'>
