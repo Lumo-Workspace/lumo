@@ -39,7 +39,7 @@ describe('decisionContentSchema', () => {
   it('accepts what + why', () => {
     const result = decisionContentSchema.safeParse({
       what: 'Use scope=PROJECT for cross-task conventions',
-      why: 'Avoids replicating per-task; survives task archive',
+      why: 'Avoids replicating per-task; lives at the project scope',
     })
     expect(result.success).toBe(true)
   })

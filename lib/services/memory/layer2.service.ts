@@ -3,9 +3,9 @@ import { extractLayer2Facts, type Layer2Fact } from './layer2-extract'
 
 export interface ConsolidateResult {
   /**
-   * `null` means the task or its memories are gone — caller should still
-   * attempt archive (idempotent) and skip Layer 3. An empty array means
-   * Layer 2 ran successfully and decided nothing generalizes.
+   * `null` means the task or its memories are gone — caller should skip
+   * Layer 3 entirely. An empty array means Layer 2 ran successfully and
+   * decided nothing generalizes (still skip Layer 3, but the task is real).
    */
   facts: Layer2Fact[] | null
   task: {

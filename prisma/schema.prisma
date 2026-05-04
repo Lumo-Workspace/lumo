@@ -1217,7 +1217,6 @@ model Memory {
   category        MemoryCategory
   content         Json
   sourceSessionId String?
-  archivedAt      DateTime?
   createdAt       DateTime       @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1227,6 +1226,5 @@ model Memory {
 
   @@index([projectId, scope])
   @@index([taskId])
-  @@index([projectId, archivedAt])
   @@map("memories")
 }

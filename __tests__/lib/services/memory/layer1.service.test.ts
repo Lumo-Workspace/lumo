@@ -100,7 +100,7 @@ describe('layer1Service.triggerLayer1Extraction', () => {
     apply.mockResolvedValue({
       added: 1,
       updated: 0,
-      archived: 0,
+      deleted: 0,
       noop: 0,
       skipped: 0,
     })

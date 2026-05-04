@@ -17,7 +17,7 @@ interface ApplyOperationsInput {
 export interface ApplyOperationsResult {
   added: number
   updated: number
-  archived: number
+  deleted: number
   noop: number
   /** Operations dropped because content/category/id failed second-pass validation. */
   skipped: number
@@ -28,13 +28,12 @@ export interface ApplyOperationsResult {
  * re-validated against the per-category Zod schema (`parseMemoryContent`)
  * — the LLM's output schema only checks the operation envelope, so this is
  * the gate that keeps malformed content out of the DB. UPDATE / DELETE
- * targeting an unknown id is dropped (the row may have been archived
+ * targeting an unknown id is dropped (the row may have been deleted
  * concurrently).
  *
  * The transaction is all-or-nothing: a single bad row would otherwise be
  * isolated by the per-op skip path, so the transaction only fails if Prisma
- * itself errors. That keeps the audit trail consistent — partial writes
- * would make it impossible to tell which subset of the LLM's intent landed.
+ * itself errors.
  */
 export async function applyLayer1Operations(
   input: ApplyOperationsInput
@@ -42,7 +41,7 @@ export async function applyLayer1Operations(
   const result: ApplyOperationsResult = {
     added: 0,
     updated: 0,
-    archived: 0,
+    deleted: 0,
     noop: 0,
     skipped: 0,
   }
@@ -67,8 +66,8 @@ export async function applyLayer1Operations(
         continue
       }
       plans.push(async tx => {
-        await memoryRepository.archive(op.id, tx)
-        result.archived++
+        await memoryRepository.delete(op.id, tx)
+        result.deleted++
       })
       continue
     }

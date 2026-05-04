@@ -118,7 +118,7 @@ describe('buildLayer3Plans', () => {
     )
   })
 
-  it('drops UPDATE pointing at an unknown id (row may have been archived concurrently)', async () => {
+  it('drops UPDATE pointing at an unknown id (row may have been deleted concurrently)', async () => {
     const ops: Layer3Operation[] = [
       { type: 'UPDATE', id: 'mem_gone', content: { what: 'x', why: 'y' } },
     ]

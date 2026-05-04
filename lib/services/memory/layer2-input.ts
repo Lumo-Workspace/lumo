@@ -20,9 +20,8 @@ export interface Layer2Input {
 
 /**
  * Gather everything Layer 2 needs to distill task-scoped memory into project
- * facts. Returns null when the task is gone or has no active task memory —
- * caller treats that as "skip distillation, just archive (nothing to archive)
- * and return".
+ * facts. Returns null when the task is gone or has no task memory — caller
+ * treats that as "nothing to do" and returns the `skipped` outcome.
  */
 export async function getLayer2Input(
   taskId: string

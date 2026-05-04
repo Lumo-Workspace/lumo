@@ -12,7 +12,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
-    archive: jest.fn(),
+    delete: jest.fn(),
   },
 }))
 
@@ -39,7 +39,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   repo.create.mockResolvedValue({ id: 'new_mem' } as never)
   repo.updateContent.mockResolvedValue({ id: 'updated' } as never)
-  repo.archive.mockResolvedValue({ id: 'archived' } as never)
+  repo.delete.mockResolvedValue({ id: 'deleted' } as never)
 })
 
 describe('applyLayer1Operations', () => {
@@ -52,7 +52,7 @@ describe('applyLayer1Operations', () => {
     expect(result).toEqual({
       added: 0,
       updated: 0,
-      archived: 0,
+      deleted: 0,
       noop: 1,
       skipped: 0,
     })
@@ -136,14 +136,14 @@ describe('applyLayer1Operations', () => {
     expect(repo.updateContent).not.toHaveBeenCalled()
   })
 
-  it('archives an existing memory on DELETE', async () => {
+  it('hard-deletes an existing memory on DELETE', async () => {
     const ops: Layer1Operation[] = [{ type: 'DELETE', id: 'mem_decision' }]
     const result = await applyLayer1Operations({
       ...baseInput,
       operations: ops,
     })
-    expect(result.archived).toBe(1)
-    expect(repo.archive).toHaveBeenCalledWith('mem_decision', expect.anything())
+    expect(result.deleted).toBe(1)
+    expect(repo.delete).toHaveBeenCalledWith('mem_decision', expect.anything())
   })
 
   it('drops DELETE for unknown id', async () => {
@@ -152,8 +152,8 @@ describe('applyLayer1Operations', () => {
       ...baseInput,
       operations: ops,
     })
-    expect(result).toMatchObject({ archived: 0, skipped: 1 })
-    expect(repo.archive).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ deleted: 0, skipped: 1 })
+    expect(repo.delete).not.toHaveBeenCalled()
   })
 
   it('runs all writes inside a single transaction', async () => {
@@ -168,6 +168,6 @@ describe('applyLayer1Operations', () => {
     await applyLayer1Operations({ ...baseInput, operations: ops })
     expect(tx.$transaction).toHaveBeenCalledTimes(1)
     expect(repo.create).toHaveBeenCalledTimes(1)
-    expect(repo.archive).toHaveBeenCalledTimes(1)
+    expect(repo.delete).toHaveBeenCalledTimes(1)
   })
 })

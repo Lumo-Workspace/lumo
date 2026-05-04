@@ -30,12 +30,12 @@ interface BuiltPlans {
 /**
  * Translate a Layer 3 operations list into a list of plans that each take a
  * Prisma TransactionClient. The plans are not executed here — the caller
- * runs them inside a single transaction together with the task-memory
- * archive step, so the whole "promote + archive" is atomic.
+ * runs them inside a single transaction so the project-memory write is
+ * all-or-nothing.
  *
  * Each ADD / UPDATE re-validates content against the per-category Zod
  * schema. UPDATE targeting an unknown id is dropped (the row may have been
- * archived concurrently). Project memory is intentionally append-only from
+ * deleted concurrently). Project memory is intentionally append-only from
  * this layer: there is no DELETE op.
  */
 export function buildLayer3Plans(input: BuildPlansInput): BuiltPlans {

@@ -65,7 +65,7 @@ describe('layer2Service.consolidateTaskMemory', () => {
   it('returns an empty facts array when extraction yields no facts (still returns task ids)', async () => {
     // Empty facts is a successful distillation — not a skip. The promote-
     // task orchestrator distinguishes this from `facts: null` and uses it
-    // to drive the "no-promote, archive task memory anyway" path.
+    // to return the "no-promote" outcome.
     getInput.mockResolvedValue({
       task: {
         id: 'task_1',

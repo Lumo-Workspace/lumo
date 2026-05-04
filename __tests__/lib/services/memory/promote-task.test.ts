@@ -2,9 +2,13 @@
  * @jest-environment node
  *
  * Black-box test for the promote-task orchestrator: verifies the three
- * outcomes (skipped / no-promote / applied), the atomic transaction
- * semantics, and the fire-and-forget error contract. Layer 2 / Layer 3
- * calls and DB writes are mocked — we're testing wiring, not the model.
+ * outcomes (skipped / no-promote / applied) and the fire-and-forget error
+ * contract. Layer 2 / Layer 3 calls and DB writes are mocked — we're testing
+ * wiring, not the model.
+ *
+ * Task-scoped memories are intentionally NOT touched by promotion: they stay
+ * visible on the task detail page after the task is done, and Layer 1 can
+ * still UPDATE / DELETE them on later sessions.
  */
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -15,7 +19,6 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
-    archiveAllForTask: jest.fn(),
     create: jest.fn(),
     updateContent: jest.fn(),
   },
@@ -40,9 +43,6 @@ import { extractLayer3Operations } from '@/lib/services/memory/layer3-extract'
 import { promoteTaskService } from '@/lib/services/memory/promote-task'
 
 const tx = prisma as unknown as { $transaction: jest.Mock }
-const archiveAll = memoryRepository.archiveAllForTask as jest.MockedFunction<
-  typeof memoryRepository.archiveAllForTask
->
 const consolidate = layer2Service.consolidateTaskMemory as jest.MockedFunction<
   typeof layer2Service.consolidateTaskMemory
 >
@@ -55,7 +55,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(console, 'log').mockImplementation(() => {})
   jest.spyOn(console, 'error').mockImplementation(() => {})
-  archiveAll.mockResolvedValue({ count: 0 } as never)
   ;(memoryRepository.create as jest.Mock).mockResolvedValue({ id: 'mem_new' })
   ;(memoryRepository.updateContent as jest.Mock).mockResolvedValue({
     id: 'mem_upd',
@@ -63,34 +62,27 @@ beforeEach(() => {
 })
 
 describe('promoteTaskService.promoteTaskMemory', () => {
-  it('returns "skipped" when Layer 2 has no input (task gone or no active memory)', async () => {
+  it('returns "skipped" when Layer 2 has no input (task gone or no memory)', async () => {
     consolidate.mockResolvedValue({ facts: null, task: null })
     const result = await promoteTaskService.promoteTaskMemory('task_1')
     expect(result).toEqual({ outcome: 'skipped' })
-    // Critically: do NOT archive when there's no input. There may be no
-    // task memory rows to archive at all (task gone / had none); calling
-    // archive would be a no-op but we want the contract clear.
-    expect(archiveAll).not.toHaveBeenCalled()
     expect(layer3Input).not.toHaveBeenCalled()
     expect(tx.$transaction).not.toHaveBeenCalled()
   })
 
-  it('returns "no-promote" + archives task memory when Layer 2 returns zero facts', async () => {
+  it('returns "no-promote" when Layer 2 returns zero facts; does not run Layer 3', async () => {
     consolidate.mockResolvedValue({
       facts: [],
       task: { id: 'task_1', projectId: 'proj_1', workspaceId: 'ws_1' },
     })
-    archiveAll.mockResolvedValue({ count: 3 } as never)
     const result = await promoteTaskService.promoteTaskMemory('task_1')
-    expect(result).toEqual({ outcome: 'no-promote', archived: 3 })
-    expect(archiveAll).toHaveBeenCalledWith('task_1')
-    // Layer 3 must NOT run — there's nothing to merge.
+    expect(result).toEqual({ outcome: 'no-promote' })
     expect(layer3Input).not.toHaveBeenCalled()
     expect(layer3Extract).not.toHaveBeenCalled()
     expect(tx.$transaction).not.toHaveBeenCalled()
   })
 
-  it('returns "applied" + runs Layer 3 + archives task memory inside ONE transaction', async () => {
+  it('returns "applied" + runs Layer 3 inside a transaction', async () => {
     consolidate.mockResolvedValue({
       facts: [
         {
@@ -117,21 +109,15 @@ describe('promoteTaskService.promoteTaskMemory', () => {
         content: { trigger: 'x', outcome: 'y', workaround: 'z' },
       },
     ])
-    archiveAll.mockResolvedValue({ count: 5 } as never)
 
     const result = await promoteTaskService.promoteTaskMemory('task_1')
 
     expect(result.outcome).toBe('applied')
-    expect(result.archived).toBe(5)
-    // Apply + archive run inside a single $transaction call. This is the
-    // atomicity contract: a failure mid-apply must roll back the archive
-    // too, leaving task memory intact for a future retry.
+    expect(result.layer3).toBeDefined()
     expect(tx.$transaction).toHaveBeenCalledTimes(1)
-    // Within the transaction, archiveAllForTask was invoked with the tx.
-    expect(archiveAll).toHaveBeenCalledWith('task_1', {})
   })
 
-  it('atomic semantics: when the apply step throws, archive is NOT called', async () => {
+  it('fire-and-forget contract: when the apply throws, returns "skipped"', async () => {
     consolidate.mockResolvedValue({
       facts: [
         {
@@ -147,10 +133,6 @@ describe('promoteTaskService.promoteTaskMemory', () => {
       distilledFacts: [],
       existingProjectMemories: [],
     })
-    // Inject a bad op that fails schema validation inside buildLayer3Plans
-    // (counters.skipped++, no plan emitted) — the transaction body still
-    // runs but only does the archive. To force an actual throw, make the
-    // $transaction itself reject.
     layer3Extract.mockResolvedValue([
       {
         type: 'ADD',
@@ -162,11 +144,7 @@ describe('promoteTaskService.promoteTaskMemory', () => {
 
     const result = await promoteTaskService.promoteTaskMemory('task_1')
 
-    // Top-level catch turns it into the safe "skipped" outcome — the
-    // task memory rows stay active so a future trigger can retry.
     expect(result).toEqual({ outcome: 'skipped' })
-    // Outside-transaction archive was never called either.
-    expect(archiveAll).not.toHaveBeenCalledWith('task_1') // (no plain-prisma call)
   })
 
   it('fire-and-forget contract: never throws even if Layer 2 itself errors', async () => {

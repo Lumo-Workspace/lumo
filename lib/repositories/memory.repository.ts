@@ -13,14 +13,13 @@ interface CreateMemoryInput {
 
 export const memoryRepository = {
   /**
-   * Active task-scoped memories for a given task. "Active" = `archivedAt IS
-   * NULL`. Used by Layer 1 extraction to feed the LLM the running context so
-   * it can issue UPDATE / DELETE ops against existing rows instead of always
-   * appending.
+   * All task-scoped memories for a given task. Used by Layer 1 extraction to
+   * feed the LLM the running context so it can issue UPDATE / DELETE ops
+   * against existing rows instead of always appending.
    */
   async findActiveTaskMemories(taskId: string) {
     return prisma.memory.findMany({
-      where: { taskId, archivedAt: null },
+      where: { taskId },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -32,13 +31,13 @@ export const memoryRepository = {
   },
 
   /**
-   * Active project-scoped memories for a project. Used by Layer 3 to feed
-   * the merge LLM the existing project facts so it can decide ADD vs UPDATE
-   * vs NOOP without dual-writing or stale-overwriting.
+   * All project-scoped memories for a project. Used by Layer 3 to feed the
+   * merge LLM the existing project facts so it can decide ADD vs UPDATE vs
+   * NOOP without dual-writing or stale-overwriting.
    */
   async findActiveProjectMemories(projectId: string) {
     return prisma.memory.findMany({
-      where: { projectId, scope: 'PROJECT', archivedAt: null },
+      where: { projectId, scope: 'PROJECT' },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -46,24 +45,6 @@ export const memoryRepository = {
         content: true,
         createdAt: true,
       },
-    })
-  },
-
-  /**
-   * Archive every active task-scoped memory for a task in one shot. Used at
-   * the tail of task-done promotion: once distilled facts have been merged
-   * into project memory (or determined non-promotable), the task memory has
-   * served its purpose and gets soft-deleted to keep the active set small.
-   */
-  async archiveAllForTask(
-    taskId: string,
-    tx?: Prisma.TransactionClient,
-    now: Date = new Date()
-  ) {
-    const client = tx ?? prisma
-    return client.memory.updateMany({
-      where: { taskId, scope: 'TASK', archivedAt: null },
-      data: { archivedAt: now },
     })
   },
 
@@ -97,19 +78,13 @@ export const memoryRepository = {
   },
 
   /**
-   * Soft-delete by setting `archivedAt`. We never hard-delete: keeping the
-   * row preserves audit history and makes it possible to inspect what
-   * Layer 1 retracted and when.
+   * Hard-delete a memory row. Used by Layer 1 DELETE when the LLM retracts an
+   * earlier memory because it was contradicted or superseded.
    */
-  async archive(
-    id: string,
-    tx?: Prisma.TransactionClient,
-    now: Date = new Date()
-  ) {
+  async delete(id: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
-    return client.memory.update({
+    return client.memory.delete({
       where: { id },
-      data: { archivedAt: now },
       select: { id: true },
     })
   },
