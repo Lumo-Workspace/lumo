@@ -812,5 +812,8 @@
   "memory.field.workaround": "Обходной путь: {value}",
   "memory.field.why": "Причина: {value}",
   "memory.field.trigger": "Условие: {value}",
-  "memory.unparseable": "(не удалось прочитать содержимое памяти)"
+  "memory.unparseable": "(не удалось прочитать содержимое памяти)",
+  "memory.field.scope": "Область применения: {value}",
+  "memory.field.alternatives": "Рассмотренные альтернативы: {value}",
+  "memory.field.implications": "Последствия: {value}"
 }

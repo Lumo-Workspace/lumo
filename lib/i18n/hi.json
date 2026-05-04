@@ -812,5 +812,8 @@
   "memory.field.workaround": "समाधान: {value}",
   "memory.field.why": "कारण: {value}",
   "memory.field.trigger": "स्थिति: {value}",
-  "memory.unparseable": "(स्मृति सामग्री पढ़ी नहीं जा सकती)"
+  "memory.unparseable": "(स्मृति सामग्री पढ़ी नहीं जा सकती)",
+  "memory.field.scope": "दायरा: {value}",
+  "memory.field.alternatives": "विचार किए गए विकल्प: {value}",
+  "memory.field.implications": "प्रभाव: {value}"
 }

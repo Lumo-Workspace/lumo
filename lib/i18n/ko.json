@@ -812,5 +812,8 @@
   "memory.field.workaround": "해결 방법: {value}",
   "memory.field.why": "이유: {value}",
   "memory.field.trigger": "발생 조건: {value}",
-  "memory.unparseable": "(메모리 내용을 해석할 수 없음)"
+  "memory.unparseable": "(메모리 내용을 해석할 수 없음)",
+  "memory.field.scope": "적용 범위: {value}",
+  "memory.field.alternatives": "검토한 대안: {value}",
+  "memory.field.implications": "영향: {value}"
 }

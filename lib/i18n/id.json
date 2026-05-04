@@ -812,5 +812,8 @@
   "memory.field.workaround": "Solusi: {value}",
   "memory.field.why": "Alasan: {value}",
   "memory.field.trigger": "Pemicu: {value}",
-  "memory.unparseable": "(konten memori tidak dapat dibaca)"
+  "memory.unparseable": "(konten memori tidak dapat dibaca)",
+  "memory.field.scope": "Cakupan: {value}",
+  "memory.field.alternatives": "Alternatif yang dipertimbangkan: {value}",
+  "memory.field.implications": "Implikasi: {value}"
 }

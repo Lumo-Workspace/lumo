@@ -79,8 +79,16 @@ function renderMemoryItem(m: RenderableMemory): string {
       return c.workaround ? `${head}\n  Workaround: ${c.workaround}` : head
     }
     case 'DECISION': {
-      const c = parsed as { what: string; why: string }
-      return `- ${prefix} **${c.what}**\n  Why: ${c.why}`
+      const c = parsed as {
+        what: string
+        why: string
+        alternatives?: string
+        implications?: string
+      }
+      const lines = [`- ${prefix} **${c.what}**`, `  Why: ${c.why}`]
+      if (c.alternatives) lines.push(`  Alternatives: ${c.alternatives}`)
+      if (c.implications) lines.push(`  Implications: ${c.implications}`)
+      return lines.join('\n')
     }
     case 'CONVENTION': {
       const c = parsed as { rule: string; scope: string }

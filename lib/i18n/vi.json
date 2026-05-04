@@ -812,5 +812,8 @@
   "memory.field.workaround": "Cách khắc phục: {value}",
   "memory.field.why": "Lý do: {value}",
   "memory.field.trigger": "Điều kiện: {value}",
-  "memory.unparseable": "(không thể đọc nội dung bộ nhớ)"
+  "memory.unparseable": "(không thể đọc nội dung bộ nhớ)",
+  "memory.field.scope": "Phạm vi: {value}",
+  "memory.field.alternatives": "Các phương án đã cân nhắc: {value}",
+  "memory.field.implications": "Hệ quả: {value}"
 }

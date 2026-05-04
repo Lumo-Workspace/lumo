@@ -45,10 +45,12 @@ Write for a teammate who joins the project tomorrow and never saw this conversat
   - \`outcome\`: what goes wrong, in plain terms. Include the error name/code if any, but explain it.
   - \`workaround\`: the concrete fix, written as instructions a teammate can follow.
 
-- DECISION — an engineering decision made in this task with a stated reason.
-  content shape: { what: string, why: string }
+- DECISION — an engineering decision made in this task. Treat it as a mini-ADR: a future reader must be able to understand the *forces* that drove the choice, what was rejected, and what the team is now committed to. A decision without these is just a changelog entry.
+  content shape: { what: string, why: string, alternatives?: string, implications?: string }
   - \`what\`: a full sentence stating the decision ("We chose to ...").
-  - \`why\`: the reasoning, including the alternative that was rejected and why.
+  - \`why\`: the *forces* that drove the decision — the problem, constraint, or tension that demanded a choice. NOT a recap of what was implemented or how. Ask: "what was the situation that made this decision necessary?" If the user / turn does not state real driving forces, omit the DECISION (NOOP) instead of inventing them.
+  - \`alternatives\` (optional but strongly preferred): the other option(s) seriously considered and why each was rejected. Without this, future readers re-litigate the choice. Omit only if no alternative was actually weighed.
+  - \`implications\` (optional but strongly preferred): what this decision commits the team to going forward — capabilities given up, future constraints introduced, follow-up work needed. Omit only if there are genuinely no notable consequences.
 
 - CONVENTION — a project-wide rule the team follows.
   content shape: { rule: string, scope: string }
@@ -182,6 +184,27 @@ Output:
       "content": {
         "rule": "New endpoints may be implemented as REST routes. The earlier rule requiring Server Actions has been dropped.",
         "scope": "Applies to all new endpoints in this project. Existing Server Action endpoints can stay; there is no requirement to migrate them."
+      } } ] }
+
+Example 7 — DECISION done right (contrastive)
+Turn (excerpt):
+  [turn end] "Decided: switch task memory writes from soft-delete (archivedAt column) to hard-delete. Originally we picked soft-delete to preserve audit history, but in practice no UI or query ever consumed archived rows — they only forced every read to filter \`archivedAt: null\`, which we forgot in two places and leaked stale rows. Considered keeping soft-delete behind a read helper, but the maintenance cost was the actual problem, not the filter syntax. Going forward L1 DELETE is irreversible, and if audit becomes important we'll need a separate event log."
+
+BAD output (\`why\` recaps the implementation; no alternatives, no implications):
+  { "type": "ADD", "category": "DECISION",
+    "content": {
+      "what": "Removed the archivedAt column and converted archive operations to hard deletes",
+      "why": "Schema, repository, and service layers were all updated. archive() was renamed to delete() and archivedAt: null filters were removed everywhere."
+    } }
+
+GOOD output (\`why\` describes the forces; alternatives names what was rejected and why; implications spells out the new constraint):
+  { "operations": [
+    { "type": "ADD", "category": "DECISION",
+      "content": {
+        "what": "Switched task memory writes from soft-delete (archivedAt) to hard-delete.",
+        "why": "Soft-delete was originally chosen to preserve audit history, but no UI or query consumed archived rows. The cost was real: every read needed an archivedAt: null filter, and we missed it in two places, leaking stale memories.",
+        "alternatives": "Considered keeping soft-delete behind a shared read helper that always applies the filter. Rejected because the maintenance burden is the actual problem — wrapping every query site doesn't make the schema simpler, only adds another abstraction to remember.",
+        "implications": "Layer 1 DELETE is now irreversible — we lose the ability to inspect what was retracted and when. If audit visibility becomes important, the team will need to add a separate event log table; the soft-delete column is no longer available as a fallback."
       } } ] }`
 
   const description = input.task.description?.trim() || '(no description)'

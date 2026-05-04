@@ -855,5 +855,8 @@
   "memory.field.workaround": "解决办法：{value}",
   "memory.field.why": "原因：{value}",
   "memory.field.trigger": "触发场景：{value}",
-  "memory.unparseable": "（记忆内容无法解析）"
+  "memory.unparseable": "（记忆内容无法解析）",
+  "memory.field.scope": "适用范围：{value}",
+  "memory.field.alternatives": "考虑过的替代方案：{value}",
+  "memory.field.implications": "后续影响：{value}"
 }

@@ -812,5 +812,8 @@
   "memory.field.workaround": "Solution : {value}",
   "memory.field.why": "Raison : {value}",
   "memory.field.trigger": "Déclencheur : {value}",
-  "memory.unparseable": "(contenu de mémoire illisible)"
+  "memory.unparseable": "(contenu de mémoire illisible)",
+  "memory.field.scope": "Portée : {value}",
+  "memory.field.alternatives": "Alternatives envisagées : {value}",
+  "memory.field.implications": "Conséquences : {value}"
 }

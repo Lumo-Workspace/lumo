@@ -10,6 +10,10 @@ export const trapContentSchema = z.object({
 export const decisionContentSchema = z.object({
   what: z.string().min(1),
   why: z.string().min(1),
+  /** The alternative(s) considered and why they were rejected. */
+  alternatives: z.string().min(1).optional(),
+  /** What this decision commits us to — capabilities lost or constraints introduced. */
+  implications: z.string().min(1).optional(),
 })
 
 export const conventionContentSchema = z.object({

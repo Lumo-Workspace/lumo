@@ -812,5 +812,8 @@
   "memory.field.workaround": "Solución alternativa: {value}",
   "memory.field.why": "Razón: {value}",
   "memory.field.trigger": "Detonante: {value}",
-  "memory.unparseable": "(contenido de memoria no legible)"
+  "memory.unparseable": "(contenido de memoria no legible)",
+  "memory.field.scope": "Ámbito: {value}",
+  "memory.field.alternatives": "Alternativas consideradas: {value}",
+  "memory.field.implications": "Consecuencias: {value}"
 }

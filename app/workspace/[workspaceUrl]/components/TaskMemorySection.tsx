@@ -198,6 +198,22 @@ function MemoryCard({
           <p className='text-xs mt-0.5'>
             {intl.formatMessage({ id: 'memory.field.why' }, { value: c.why })}
           </p>
+          {c.alternatives && (
+            <p className='text-xs mt-1'>
+              {intl.formatMessage(
+                { id: 'memory.field.alternatives' },
+                { value: c.alternatives }
+              )}
+            </p>
+          )}
+          {c.implications && (
+            <p className='text-xs mt-1'>
+              {intl.formatMessage(
+                { id: 'memory.field.implications' },
+                { value: c.implications }
+              )}
+            </p>
+          )}
         </div>
       )
     }
@@ -205,9 +221,14 @@ function MemoryCard({
       const c = parsed as ConventionContent
       return (
         <div className={CARD_CLASS}>
-          <p>{c.rule}</p>
-          <p className='text-xs mt-0.5 text-zinc-400 dark:text-zinc-500 italic'>
-            {c.scope}
+          <p className='font-medium text-zinc-800 dark:text-zinc-200'>
+            {c.rule}
+          </p>
+          <p className='text-xs mt-0.5'>
+            {intl.formatMessage(
+              { id: 'memory.field.scope' },
+              { value: c.scope }
+            )}
           </p>
         </div>
       )
@@ -226,9 +247,11 @@ function MemoryCard({
             )}
           </p>
           {c.steps && c.steps.length > 0 && (
-            <p className='text-xs mt-1 text-zinc-500 dark:text-zinc-400'>
-              {c.steps.join(' → ')}
-            </p>
+            <ol className='text-xs mt-1.5 ml-4 list-decimal space-y-0.5 text-zinc-600 dark:text-zinc-400 marker:text-zinc-400 dark:marker:text-zinc-600'>
+              {c.steps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ol>
           )}
         </div>
       )

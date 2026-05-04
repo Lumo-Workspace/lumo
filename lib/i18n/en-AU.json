@@ -812,5 +812,8 @@
   "memory.field.workaround": "Workaround: {value}",
   "memory.field.why": "Why: {value}",
   "memory.field.trigger": "Trigger: {value}",
-  "memory.unparseable": "(unparseable memory content)"
+  "memory.unparseable": "(unparseable memory content)",
+  "memory.field.scope": "Scope: {value}",
+  "memory.field.alternatives": "Alternatives considered: {value}",
+  "memory.field.implications": "Implications: {value}"
 }

@@ -812,5 +812,8 @@
   "memory.field.workaround": "回避策：{value}",
   "memory.field.why": "理由：{value}",
   "memory.field.trigger": "発生条件：{value}",
-  "memory.unparseable": "（メモリ内容を解析できません）"
+  "memory.unparseable": "（メモリ内容を解析できません）",
+  "memory.field.scope": "適用範囲：{value}",
+  "memory.field.alternatives": "検討した代替案：{value}",
+  "memory.field.implications": "影響：{value}"
 }

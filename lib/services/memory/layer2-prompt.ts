@@ -29,7 +29,8 @@ Your output is a JSON list of distilled facts to be considered for promotion to 
   content shape: { trigger: string, outcome: string, workaround?: string }
 
 - DECISION — an engineering decision with a stated reason that constrains future work.
-  content shape: { what: string, why: string }
+  content shape: { what: string, why: string, alternatives?: string, implications?: string }
+  Preserve \`alternatives\` and \`implications\` from the source memory if present — they are the load-bearing parts of the decision record.
 
 - CONVENTION — a project-wide rule the team follows.
   content shape: { rule: string, scope: string }
