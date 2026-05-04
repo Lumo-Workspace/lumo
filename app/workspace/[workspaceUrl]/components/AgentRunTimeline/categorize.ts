@@ -1,0 +1,337 @@
+import type { AgentRunHookEventItem, AgentRunHookEventType } from '../../types'
+
+/**
+ * Visual category for a single Claude Code hook event. Drives icon color
+ * and dot color in the timeline. Categories are grouped by "actor":
+ *   - Agent (blue family)   — read/write/exec/plan/other tool calls
+ *   - Human (zinc)          — prompts and explicit user input
+ *   - System (violet/amber) — memory sediment, permission interception
+ *   - Boundary (zinc-300)   — session/subagent lifecycle markers
+ */
+export type EventCategory =
+  | 'tool_read'
+  | 'tool_write'
+  | 'tool_exec'
+  | 'tool_plan'
+  | 'tool_other'
+  | 'tool_failure'
+  | 'permission_pause'
+  | 'permission_denied'
+  | 'human_input'
+  | 'turn_end'
+  | 'turn_failure'
+  | 'session_boundary'
+  | 'subagent_boundary'
+  | 'worktree'
+  | 'file_changed'
+  | 'config_change'
+
+const READ_TOOLS = new Set(['Read', 'Grep', 'Glob'])
+const WRITE_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
+const EXEC_TOOLS = new Set(['Bash', 'Task'])
+const PLAN_TOOLS = new Set(['TodoWrite'])
+
+export function categorizeHookEvent(
+  event: AgentRunHookEventItem
+): EventCategory {
+  switch (event.type) {
+    case 'POST_TOOL_USE_FAILURE':
+      return 'tool_failure'
+    case 'STOP':
+      return 'turn_end'
+    case 'STOP_FAILURE':
+      return 'turn_failure'
+    case 'USER_PROMPT_SUBMIT':
+      return 'human_input'
+    case 'PERMISSION_REQUEST':
+      return 'permission_pause'
+    case 'PERMISSION_DENIED':
+      return 'permission_denied'
+    case 'SESSION_START':
+    case 'SESSION_END':
+      return 'session_boundary'
+    case 'SUBAGENT_START':
+    case 'SUBAGENT_STOP':
+      return 'subagent_boundary'
+    case 'WORKTREE_CREATE':
+    case 'WORKTREE_REMOVE':
+      return 'worktree'
+    case 'FILE_CHANGED':
+      return 'file_changed'
+    case 'CONFIG_CHANGE':
+      return 'config_change'
+    case 'PRE_TOOL_USE':
+    case 'POST_TOOL_USE': {
+      // PRE/POST split by toolName. POST is folded into the PRE row by the
+      // Run-card view today; this categorizer covers the standalone PRE.
+      const tool = event.toolName ?? ''
+      if (READ_TOOLS.has(tool)) return 'tool_read'
+      if (WRITE_TOOLS.has(tool)) return 'tool_write'
+      if (EXEC_TOOLS.has(tool)) return 'tool_exec'
+      if (PLAN_TOOLS.has(tool)) return 'tool_plan'
+      return 'tool_other'
+    }
+  }
+}
+
+interface CategoryStyle {
+  /** Tailwind classes for the leading dot. */
+  dot: string
+  /** Tailwind classes for the type pill text/border. */
+  pill: string
+}
+
+export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
+  tool_read: {
+    dot: 'bg-blue-500',
+    pill: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40',
+  },
+  tool_write: {
+    dot: 'bg-indigo-500',
+    pill: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40',
+  },
+  tool_exec: {
+    dot: 'bg-cyan-600',
+    pill: 'text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40',
+  },
+  tool_plan: {
+    dot: 'bg-slate-500',
+    pill: 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40',
+  },
+  tool_other: {
+    dot: 'bg-blue-400',
+    pill: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40',
+  },
+  tool_failure: {
+    dot: 'bg-red-500',
+    pill: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40',
+  },
+  permission_pause: {
+    dot: 'bg-amber-500',
+    pill: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40',
+  },
+  permission_denied: {
+    dot: 'bg-rose-600',
+    pill: 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40',
+  },
+  human_input: {
+    dot: 'bg-zinc-500',
+    pill: 'text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800',
+  },
+  turn_end: {
+    dot: 'bg-zinc-300 dark:bg-zinc-700',
+    pill: 'text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-900',
+  },
+  turn_failure: {
+    dot: 'bg-red-500',
+    pill: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40',
+  },
+  session_boundary: {
+    dot: 'bg-zinc-300 dark:bg-zinc-700',
+    pill: 'text-zinc-500 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-900',
+  },
+  subagent_boundary: {
+    dot: 'bg-sky-500',
+    pill: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40',
+  },
+  worktree: {
+    dot: 'bg-emerald-500',
+    pill: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40',
+  },
+  file_changed: {
+    dot: 'bg-teal-500',
+    pill: 'text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40',
+  },
+  config_change: {
+    dot: 'bg-fuchsia-500',
+    pill: 'text-fuchsia-700 dark:text-fuchsia-400 bg-fuchsia-50 dark:bg-fuchsia-950/40',
+  },
+}
+
+const PILL_LABEL: Record<AgentRunHookEventType, string> = {
+  PRE_TOOL_USE: 'Tool',
+  POST_TOOL_USE: 'Result',
+  POST_TOOL_USE_FAILURE: 'Failed',
+  STOP: 'Stop',
+  STOP_FAILURE: 'StopFail',
+  USER_PROMPT_SUBMIT: 'User',
+  PERMISSION_REQUEST: 'Permission',
+  PERMISSION_DENIED: 'Denied',
+  SESSION_START: 'Session ▶',
+  SESSION_END: 'Session ■',
+  SUBAGENT_START: 'Subagent ▶',
+  SUBAGENT_STOP: 'Subagent ■',
+  WORKTREE_CREATE: 'Worktree +',
+  WORKTREE_REMOVE: 'Worktree −',
+  FILE_CHANGED: 'File',
+  CONFIG_CHANGE: 'Config',
+}
+
+export function pillLabel(event: AgentRunHookEventItem): string {
+  if (event.type === 'PRE_TOOL_USE' || event.type === 'POST_TOOL_USE') {
+    return event.toolName ?? PILL_LABEL[event.type]
+  }
+  return PILL_LABEL[event.type]
+}
+
+/** Extract a short summary string from the event payload for display. */
+export function summarizeEvent(event: AgentRunHookEventItem): string {
+  const payload = (event.payload ?? {}) as Record<string, unknown>
+
+  switch (event.type) {
+    case 'STOP': {
+      const last = getString(payload, 'last_assistant_message')
+      return last ? truncate(last, 160) : 'Agent 执行完成'
+    }
+    case 'STOP_FAILURE': {
+      const err = getString(payload, 'error') ?? getString(payload, 'message')
+      return err ? truncate(err, 160) : 'Turn 因 API 错误中止'
+    }
+    case 'USER_PROMPT_SUBMIT': {
+      const prompt = getString(payload, 'prompt')
+      return prompt ? truncate(prompt, 160) : '用户输入'
+    }
+    case 'PERMISSION_REQUEST': {
+      const tool =
+        getString(payload, 'tool_name') ?? getString(payload, 'toolName')
+      const reason =
+        getString(payload, 'reason') ??
+        getString(payload, 'permission_reason') ??
+        ''
+      return (
+        [tool && `${tool}`, reason && `→ ${reason}`]
+          .filter(Boolean)
+          .join(' ') || '高风险操作 — 等待批准'
+      )
+    }
+    case 'PERMISSION_DENIED': {
+      const tool =
+        getString(payload, 'tool_name') ?? getString(payload, 'toolName')
+      const reason = getString(payload, 'reason') ?? ''
+      return (
+        [tool, reason && `→ ${reason}`].filter(Boolean).join(' ') ||
+        '被自动模式拦截'
+      )
+    }
+    case 'SESSION_START': {
+      const cwd = getString(payload, 'cwd')
+      return cwd ? `cwd: ${cwd}` : 'Claude Code session 开始'
+    }
+    case 'SESSION_END': {
+      const reason = getString(payload, 'reason')
+      return reason ? `结束: ${reason}` : 'Claude Code session 结束'
+    }
+    case 'SUBAGENT_START': {
+      const desc =
+        getString(payload, 'description') ??
+        getString(payload, 'subagent_type') ??
+        ''
+      return desc || '子 agent 启动'
+    }
+    case 'SUBAGENT_STOP': {
+      const result = getString(payload, 'result_summary')
+      return result ? truncate(result, 160) : '子 agent 完成'
+    }
+    case 'WORKTREE_CREATE': {
+      const path = getString(payload, 'worktree_path') ?? ''
+      const branch = getString(payload, 'branch')
+      return (
+        [path, branch && `(${branch})`].filter(Boolean).join(' ') ||
+        '创建 worktree'
+      )
+    }
+    case 'WORKTREE_REMOVE': {
+      const path = getString(payload, 'worktree_path') ?? ''
+      return path || '移除 worktree'
+    }
+    case 'FILE_CHANGED': {
+      const path =
+        getString(payload, 'path') ?? getString(payload, 'file_path') ?? ''
+      const change = getString(payload, 'change_type')
+      return change ? `[${change}] ${path}` : path || '文件变更'
+    }
+    case 'CONFIG_CHANGE': {
+      const path =
+        getString(payload, 'path') ?? getString(payload, 'file_path') ?? ''
+      const scope = getString(payload, 'scope')
+      return (
+        [scope && `[${scope}]`, path].filter(Boolean).join(' ') || '配置变更'
+      )
+    }
+    case 'POST_TOOL_USE_FAILURE':
+    case 'PRE_TOOL_USE':
+    case 'POST_TOOL_USE': {
+      const input = getRecord(payload, 'tool_input')
+      const tool = event.toolName ?? ''
+      return summarizeToolInput(tool, input)
+    }
+  }
+}
+
+function summarizeToolInput(
+  tool: string,
+  input: Record<string, unknown> | null
+): string {
+  switch (tool) {
+    case 'Bash': {
+      const cmd = getString(input, 'command') ?? ''
+      return truncate(cmd, 200)
+    }
+    case 'Read':
+    case 'Edit':
+    case 'MultiEdit':
+    case 'Write':
+      return getString(input, 'file_path') ?? ''
+    case 'Grep': {
+      const pattern = getString(input, 'pattern') ?? ''
+      const path = getString(input, 'path')
+      return path ? `"${pattern}" in ${path}` : `"${pattern}"`
+    }
+    case 'Glob':
+      return getString(input, 'pattern') ?? ''
+    case 'Task': {
+      const desc = getString(input, 'description') ?? ''
+      const sub = getString(input, 'subagent_type')
+      return sub ? `[${sub}] ${desc}` : desc
+    }
+    case 'TodoWrite': {
+      const todos = getAny(input, 'todos')
+      const n = Array.isArray(todos) ? todos.length : 0
+      return `${n} items`
+    }
+    default: {
+      if (!input) return ''
+      return Object.keys(input).slice(0, 3).join(', ')
+    }
+  }
+}
+
+function truncate(s: string, max: number): string {
+  const trimmed = s.replace(/\s+/g, ' ').trim()
+  return trimmed.length > max ? trimmed.slice(0, max - 1) + '…' : trimmed
+}
+
+function getString(
+  source: Record<string, unknown> | null,
+  key: string
+): string | null {
+  if (!source) return null
+  const v = source[key]
+  return typeof v === 'string' && v.length > 0 ? v : null
+}
+
+function getRecord(
+  source: Record<string, unknown> | null,
+  key: string
+): Record<string, unknown> | null {
+  if (!source) return null
+  const v = source[key]
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    return v as Record<string, unknown>
+  }
+  return null
+}
+
+function getAny(source: Record<string, unknown> | null, key: string): unknown {
+  return source ? source[key] : undefined
+}

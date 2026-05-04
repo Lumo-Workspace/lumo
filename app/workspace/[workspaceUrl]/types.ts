@@ -486,3 +486,68 @@ export interface TimelineResponse {
   hasMore: boolean
   nextCursor: string | null
 }
+
+// ── Agent Run timeline (Claude Code hook events grouped by Session) ──────────
+
+export type AgentRunHookEventType =
+  | 'PRE_TOOL_USE'
+  | 'POST_TOOL_USE'
+  | 'POST_TOOL_USE_FAILURE'
+  | 'STOP'
+  | 'STOP_FAILURE'
+  | 'USER_PROMPT_SUBMIT'
+  | 'PERMISSION_REQUEST'
+  | 'PERMISSION_DENIED'
+  | 'SESSION_START'
+  | 'SESSION_END'
+  | 'SUBAGENT_START'
+  | 'SUBAGENT_STOP'
+  | 'WORKTREE_CREATE'
+  | 'WORKTREE_REMOVE'
+  | 'FILE_CHANGED'
+  | 'CONFIG_CHANGE'
+
+export interface AgentRunHookEventItem {
+  id: string
+  kind: 'hook'
+  type: AgentRunHookEventType
+  toolName: string | null
+  payload: unknown
+  /** Server-side LLM-generated summary for STOP / STOP_FAILURE events.
+   *  Null for non-stop events and for stop events that haven't been
+   *  processed yet (or failed extraction). */
+  turnSummary: string | null
+  createdAt: string
+}
+
+export type AgentRunMemoryCategory =
+  | 'TRAP'
+  | 'DECISION'
+  | 'CONVENTION'
+  | 'PROCEDURAL'
+
+export interface AgentRunMemoryItem {
+  id: string
+  kind: 'memory'
+  category: AgentRunMemoryCategory
+  content: unknown
+  createdAt: string
+}
+
+export type AgentRunItem = AgentRunHookEventItem | AgentRunMemoryItem
+
+export interface AgentRunSession {
+  sessionId: string | null
+  runNumber: number
+  startedAt: string
+  lastActivityAt: string
+  durationMs: number
+  toolCallCount: number
+  eventCount: number
+  memoryCount: number
+  items: AgentRunItem[]
+}
+
+export interface AgentRunTimelineResponse {
+  runs: AgentRunSession[]
+}

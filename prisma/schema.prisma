@@ -1133,7 +1133,18 @@ enum HookEventType {
   POST_TOOL_USE
   POST_TOOL_USE_FAILURE
   STOP
+  STOP_FAILURE
   USER_PROMPT_SUBMIT
+  PERMISSION_REQUEST
+  PERMISSION_DENIED
+  SESSION_START
+  SESSION_END
+  SUBAGENT_START
+  SUBAGENT_STOP
+  WORKTREE_CREATE
+  WORKTREE_REMOVE
+  FILE_CHANGED
+  CONFIG_CHANGE
 }
 
 model HookEvent {
@@ -1145,6 +1156,12 @@ model HookEvent {
   type              HookEventType
   toolName          String? // extracted from payload.tool_name when present
   payload           Json // raw hook body from Claude Code
+  // LLM-generated one-line summary of what Claude did in the turn that
+  // just ended. Populated only on STOP / STOP_FAILURE rows, written
+  // async by the turn-summary service. Null on every other event type
+  // and on pre-feature historical rows; UI falls back to a first-
+  // sentence excerpt of payload.last_assistant_message in that case.
+  turnSummary       String?
   createdAt         DateTime      @default(now())
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

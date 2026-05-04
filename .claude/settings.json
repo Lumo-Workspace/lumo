@@ -28,6 +28,65 @@
       {
         "hooks": [{ "type": "command", "command": "lumo hook stop" }]
       }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook stop-failure" }]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook permission-request" }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook permission-denied" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook session-start" }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook session-end" }]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook subagent-start" }]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook subagent-stop" }]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook worktree-create" }]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook worktree-remove" }]
+      }
+    ],
+    "FileChanged": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook file-changed" }]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook config-change" }]
+      }
     ]
   }
 }

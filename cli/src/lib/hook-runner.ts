@@ -27,6 +27,17 @@ export type HookPath =
   | 'post-tool-use'
   | 'post-tool-use-failure'
   | 'stop'
+  | 'stop-failure'
+  | 'permission-request'
+  | 'permission-denied'
+  | 'session-start'
+  | 'session-end'
+  | 'subagent-start'
+  | 'subagent-stop'
+  | 'worktree-create'
+  | 'worktree-remove'
+  | 'file-changed'
+  | 'config-change'
 
 /**
  * Read the full hook JSON from stdin.

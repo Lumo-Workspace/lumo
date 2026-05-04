@@ -115,6 +115,83 @@ hook
   .description('Forward a Stop hook event to Lumo (reads JSON from stdin)')
   .action(wrap(() => hookCommand('stop')))
 
+hook
+  .command('stop-failure')
+  .description(
+    'Forward a StopFailure hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('stop-failure')))
+
+hook
+  .command('permission-request')
+  .description(
+    'Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('permission-request')))
+
+hook
+  .command('permission-denied')
+  .description(
+    'Forward a PermissionDenied hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('permission-denied')))
+
+hook
+  .command('session-start')
+  .description(
+    'Forward a SessionStart hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('session-start')))
+
+hook
+  .command('session-end')
+  .description(
+    'Forward a SessionEnd hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('session-end')))
+
+hook
+  .command('subagent-start')
+  .description(
+    'Forward a SubagentStart hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('subagent-start')))
+
+hook
+  .command('subagent-stop')
+  .description(
+    'Forward a SubagentStop hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('subagent-stop')))
+
+hook
+  .command('worktree-create')
+  .description(
+    'Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('worktree-create')))
+
+hook
+  .command('worktree-remove')
+  .description(
+    'Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('worktree-remove')))
+
+hook
+  .command('file-changed')
+  .description(
+    'Forward a FileChanged hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('file-changed')))
+
+hook
+  .command('config-change')
+  .description(
+    'Forward a ConfigChange hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('config-change')))
+
 program.parseAsync(process.argv).catch(err => {
   const msg = err instanceof Error ? err.message : String(err)
   console.error(`Error: ${msg}`)

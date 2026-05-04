@@ -7,6 +7,10 @@ import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 export interface AfterRecordContext {
+  /** id of the just-inserted HookEvent row — needed by side effects that
+   *  want to write back onto the same row (e.g. turn-summary service
+   *  populating HookEvent.turnSummary on STOP rows). */
+  eventId: string
   sessionId: string | null
   taskId: string | null
   workspaceId: string
@@ -51,6 +55,7 @@ export async function handleHookRequest(
       try {
         options.afterRecord(
           {
+            eventId: recorded.id,
             sessionId: recorded.sessionId,
             taskId: recorded.taskId,
             workspaceId: identity.workspace.id,

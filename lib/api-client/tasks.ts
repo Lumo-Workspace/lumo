@@ -120,8 +120,8 @@ export const tasksClient = {
     })
   },
 
-  getMemories<T>(taskId: string) {
-    return apiFetch<T>(API.tasks.memories(taskId))
+  getAgentRuns<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.agentRuns(taskId))
   },
 
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {

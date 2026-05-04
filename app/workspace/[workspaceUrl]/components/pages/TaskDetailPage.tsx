@@ -38,7 +38,6 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
-import { TaskMemorySection } from '../TaskMemorySection'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -326,9 +325,6 @@ export function TaskDetailPage({
                 />
               </div>
             )}
-
-            {/* Memory */}
-            <TaskMemorySection taskId={task.id} />
 
             {/* Activity / Comments Timeline */}
             <TimelineTabs

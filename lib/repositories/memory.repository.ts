@@ -48,6 +48,25 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * All task-scoped memories grouped by sourceSessionId. Used by the Agent
+   * Run timeline so each Run card can show the memories that were sedimented
+   * during that Claude Code session.
+   */
+  async findByTaskIdWithSession(taskId: string) {
+    return prisma.memory.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        category: true,
+        content: true,
+        sourceSessionId: true,
+        createdAt: true,
+      },
+    })
+  },
+
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.memory.create({

@@ -11,7 +11,7 @@ export const API = {
     comment: (taskId: string, commentId: string) =>
       `/api/tasks/${taskId}/comments/${commentId}`,
     timeline: (taskId: string) => `/api/tasks/${taskId}/timeline`,
-    memories: (taskId: string) => `/api/tasks/${taskId}/memories`,
+    agentRuns: (taskId: string) => `/api/tasks/${taskId}/agent-runs`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
   },
@@ -169,6 +169,7 @@ export const CACHE_KEY = {
   formRecoveryNewProject: 'lumo:form-recovery:new-project',
   formRecoveryQuickDispatch: 'lumo:form-recovery:quick-dispatch',
   timeline: (taskId: string) => `lumo:timeline:${taskId}`,
+  agentRuns: (taskId: string) => `lumo:agent-runs:${taskId}`,
 }
 
 // ─── Drag-and-drop ────────────────────────────────────────────────────────────

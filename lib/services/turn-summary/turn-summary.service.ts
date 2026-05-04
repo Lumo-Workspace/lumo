@@ -1,0 +1,96 @@
+import { generateText } from 'ai'
+import { gateway } from '@ai-sdk/gateway'
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { extractCurrentTurn } from '@/lib/services/memory/layer1-input'
+import {
+  compactEvents,
+  type RawEvent,
+} from '@/lib/services/session-summary/compact-events'
+
+interface TriggerInput {
+  /** The just-inserted STOP / STOP_FAILURE event id — destination for
+   *  the generated summary write-back. */
+  stopEventId: string
+  /** Claude Code session id; events are pulled by sessionId, not taskId,
+   *  because the turn boundary lives in the session's event stream. */
+  sessionId: string
+}
+
+const MODEL_ID = 'anthropic/claude-haiku-4-5'
+const MAX_OUTPUT_TOKENS = 80
+const MAX_SUMMARY_CHARS = 140
+
+const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 Claude Code 回合内的工具调用序列（已压缩），请用一句中文（不超过 60 个字）总结这一回合 Agent 实际做了什么——基于事件本身，不要套话。
+
+要求：
+- 用动词开头，例如"读了 X、修改 Y、运行 Z"
+- 提到关键文件名或命令时保留原样
+- 不要写"我"或"Agent"，直接写动作
+- 不要解释为什么、不要总结意义、不要写下一步、不要写"完成了"
+- 如果回合只是查询/思考没有副作用，写"查阅 X"或"分析 X"
+- 严格一句话，不换行，不带引号`
+
+/**
+ * Fire-and-forget: read this STOP's surrounding session events, slice
+ * the just-ended turn out, ask a small LLM for a one-line description
+ * of what happened, and write it back onto the STOP HookEvent row.
+ *
+ * Owns its own error handling (must never throw — invoked from
+ * `afterRecord` which itself runs under `waitUntil`). Failure modes:
+ *   - empty turn → no-op
+ *   - LLM error / empty output → no-op (UI falls back to
+ *     last_assistant_message first-sentence)
+ *   - DB write fails on a deleted row → swallowed inside repo
+ *
+ * Cost note: one Haiku call per turn (~few hundred input + 80 output
+ * tokens). At 2026-04 prices that's ~$0.0005/turn. We do not retry —
+ * a stuck call is wasted latency, and the next STOP will produce
+ * another summary opportunity.
+ */
+export const turnSummaryService = {
+  async generateAndStore(input: TriggerInput): Promise<void> {
+    try {
+      const events = await sessionRepository.listEventsForSession(
+        input.sessionId
+      )
+      if (events.length === 0) return
+
+      const turnEvents = extractCurrentTurn(events as unknown as RawEvent[])
+      if (turnEvents.length === 0) return
+
+      const compacted = compactEvents(turnEvents, { maxToolCalls: 80 }).text
+      if (compacted.trim().length === 0) return
+
+      const { text } = await generateText({
+        model: gateway(MODEL_ID),
+        system: SYSTEM_PROMPT,
+        prompt: compacted,
+        // Tight output budget — we want a sentence, not a paragraph.
+        // The model occasionally still produces a brief lede + dash +
+        // detail; the truncate below keeps the wire format predictable.
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      })
+
+      const cleaned = cleanSummary(text)
+      if (!cleaned) return
+
+      await hookEventRepository.setTurnSummary(input.stopEventId, cleaned)
+    } catch (error) {
+      console.error(
+        `[turnSummary] failed event=${input.stopEventId} session=${input.sessionId}:`,
+        error
+      )
+    }
+  },
+}
+
+function cleanSummary(raw: string): string | null {
+  const single = raw
+    .replace(/\s+/g, ' ')
+    .replace(/^["'`「」"']+|["'`「」"']+$/g, '')
+    .trim()
+  if (single.length === 0) return null
+  if (single.length <= MAX_SUMMARY_CHARS) return single
+  return single.slice(0, MAX_SUMMARY_CHARS - 1) + '…'
+}

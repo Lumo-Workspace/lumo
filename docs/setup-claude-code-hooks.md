@@ -30,7 +30,40 @@ Merge this block into the file's `hooks` object:
     "PostToolUse": [
       { "type": "command", "command": "lumo hook post-tool-use" }
     ],
-    "Stop": [{ "type": "command", "command": "lumo hook stop" }]
+    "PostToolUseFailure": [
+      { "type": "command", "command": "lumo hook post-tool-use-failure" }
+    ],
+    "UserPromptSubmit": [
+      { "type": "command", "command": "lumo hook user-prompt-submit" }
+    ],
+    "Stop": [{ "type": "command", "command": "lumo hook stop" }],
+    "StopFailure": [{ "type": "command", "command": "lumo hook stop-failure" }],
+    "PermissionRequest": [
+      { "type": "command", "command": "lumo hook permission-request" }
+    ],
+    "PermissionDenied": [
+      { "type": "command", "command": "lumo hook permission-denied" }
+    ],
+    "SessionStart": [
+      { "type": "command", "command": "lumo hook session-start" }
+    ],
+    "SessionEnd": [{ "type": "command", "command": "lumo hook session-end" }],
+    "SubagentStart": [
+      { "type": "command", "command": "lumo hook subagent-start" }
+    ],
+    "SubagentStop": [
+      { "type": "command", "command": "lumo hook subagent-stop" }
+    ],
+    "WorktreeCreate": [
+      { "type": "command", "command": "lumo hook worktree-create" }
+    ],
+    "WorktreeRemove": [
+      { "type": "command", "command": "lumo hook worktree-remove" }
+    ],
+    "FileChanged": [{ "type": "command", "command": "lumo hook file-changed" }],
+    "ConfigChange": [
+      { "type": "command", "command": "lumo hook config-change" }
+    ]
   }
 }
 ```
@@ -84,7 +117,11 @@ shell that Claude Code inherits.
 
 For each event we store:
 
-- `type`: `PRE_TOOL_USE` / `POST_TOOL_USE` / `STOP`
+- `type`: one of `PRE_TOOL_USE`, `POST_TOOL_USE`, `POST_TOOL_USE_FAILURE`,
+  `USER_PROMPT_SUBMIT`, `STOP`, `STOP_FAILURE`, `PERMISSION_REQUEST`,
+  `PERMISSION_DENIED`, `SESSION_START`, `SESSION_END`, `SUBAGENT_START`,
+  `SUBAGENT_STOP`, `WORKTREE_CREATE`, `WORKTREE_REMOVE`, `FILE_CHANGED`,
+  `CONFIG_CHANGE`
 - `toolName`: the tool Claude Code called (Read, Edit, Bash, ...)
 - `payload`: the raw hook body Claude Code sent (including file paths,
   tool inputs, etc.)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
-import { taskService } from '@/lib/services'
-import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { taskRepository } from '@/lib/repositories'
+import { agentRunTimelineService } from '@/lib/services/agent-run-timeline.service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -12,20 +12,19 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const taskDetail = await taskService.getTaskDetail(id)
-    if (!taskDetail) {
+    const task = await taskRepository.findWithProjectWorkspaceId(id)
+    if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
     const memberResult = await requireWorkspaceMember(
-      taskDetail.project.workspaceId,
+      task.project.workspaceId,
       userId
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const memories = await memoryRepository.findActiveTaskMemories(id)
-
-    return NextResponse.json({ memories })
+    const result = await agentRunTimelineService.getTimeline(id)
+    return NextResponse.json(result)
   } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
