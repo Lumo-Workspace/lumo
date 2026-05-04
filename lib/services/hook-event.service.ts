@@ -64,10 +64,18 @@ export const hookEventService = {
       })
     }
 
+    // Pass the validated taskId through so each HookEvent carries its own
+    // taskId. Session.taskId is intentionally write-once (see
+    // sessionRepository.upsertForHookEvent) so mid-session `lumo session
+    // start <other-task>` cannot re-tag an existing session. But the
+    // per-event tag must still update — otherwise events emitted after the
+    // switch end up bucketed under the original task in the timeline view
+    // (which queries `OR(HookEvent.taskId, HookEvent.session.taskId)`).
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
       sessionId,
+      taskId,
       type,
       toolName: extractStringField(payload, 'tool_name'),
       payload,
