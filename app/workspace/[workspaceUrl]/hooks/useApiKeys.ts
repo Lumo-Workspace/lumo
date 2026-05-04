@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
@@ -34,11 +35,27 @@ interface UseApiKeysReturn {
   handleCopy: () => Promise<void>
 }
 
+const QUERY_KEY = ['apiKeys'] as const
+
 export function useApiKeys(): UseApiKeysReturn {
   const intl = useIntl()
+  const queryClient = useQueryClient()
 
-  const [keys, setKeys] = useState<ApiKeyRecord[]>([])
-  const [loading, setLoading] = useState(true)
+  const query = useQuery<ApiKeyRecord[]>({
+    queryKey: QUERY_KEY,
+    queryFn: async () => {
+      try {
+        const data = await apiFetch<{ keys: ApiKeyRecord[] }>(
+          '/api/user/api-keys'
+        )
+        return data.keys
+      } catch (err) {
+        toast.error(intl.formatMessage({ id: 'apiKeys.loadFailed' }))
+        throw err
+      }
+    },
+  })
+
   const [label, setLabel] = useState('')
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<NewKeyResult | null>(null)
@@ -46,25 +63,7 @@ export function useApiKeys(): UseApiKeysReturn {
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyRecord | null>(null)
   const [revoking, setRevoking] = useState(false)
 
-  const loadKeys = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await apiFetch<{ keys: ApiKeyRecord[] }>(
-        '/api/user/api-keys'
-      )
-      setKeys(data.keys)
-    } catch {
-      toast.error(intl.formatMessage({ id: 'apiKeys.loadFailed' }))
-    } finally {
-      setLoading(false)
-    }
-  }, [intl])
-
-  useEffect(() => {
-    void loadKeys()
-  }, [loadKeys])
-
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!label.trim()) return
     setCreating(true)
     try {
@@ -74,22 +73,27 @@ export function useApiKeys(): UseApiKeysReturn {
       })
       setNewKey(result)
       setLabel('')
-      setKeys(prev => [result, ...prev])
+      queryClient.setQueryData<ApiKeyRecord[]>(QUERY_KEY, prev => [
+        result,
+        ...(prev ?? []),
+      ])
     } catch {
       toast.error(intl.formatMessage({ id: 'apiKeys.createFailed' }))
     } finally {
       setCreating(false)
     }
-  }
+  }, [label, intl, queryClient])
 
-  const handleRevoke = async () => {
+  const handleRevoke = useCallback(async () => {
     if (!revokeTarget) return
     setRevoking(true)
     try {
       await apiFetch<void>(`/api/user/api-keys/${revokeTarget.id}`, {
         method: 'DELETE',
       })
-      setKeys(prev => prev.filter(k => k.id !== revokeTarget.id))
+      queryClient.setQueryData<ApiKeyRecord[]>(QUERY_KEY, prev =>
+        (prev ?? []).filter(k => k.id !== revokeTarget.id)
+      )
       toast.success(intl.formatMessage({ id: 'apiKeys.revokeSuccess' }))
       setRevokeTarget(null)
     } catch {
@@ -97,18 +101,18 @@ export function useApiKeys(): UseApiKeysReturn {
     } finally {
       setRevoking(false)
     }
-  }
+  }, [revokeTarget, intl, queryClient])
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (!newKey) return
     await navigator.clipboard.writeText(newKey.key)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
+  }, [newKey])
 
   return {
-    keys,
-    loading,
+    keys: query.data ?? [],
+    loading: query.isPending,
     label,
     setLabel,
     creating,

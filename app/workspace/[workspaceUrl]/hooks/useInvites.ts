@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { readCache, writeCache } from '../cache'
-import { API, CACHE_KEY } from '../constants'
+import { API } from '../constants'
 import { apiFetch, workspacesClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,8 +23,22 @@ export interface PendingInvite {
 
 export function useInvites() {
   const intl = useIntl()
-  const [invites, setInvites] = useState<PendingInvite[]>([])
-  const [loadingInvites, setLoadingInvites] = useState(true)
+  const queryClient = useQueryClient()
+
+  const query = useQuery<PendingInvite[]>({
+    queryKey: queryKeys.invites(),
+    queryFn: async () => {
+      const data = await apiFetch<{ invites: PendingInvite[] }>(
+        API.invites.list
+      )
+      return data.invites
+    },
+    enabled: false,
+  })
+
+  const fetchInvites = useCallback(async () => {
+    await query.refetch()
+  }, [query])
 
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -36,27 +51,6 @@ export function useInvites() {
 
   // Resend
   const [resendingToken, setResendingToken] = useState<string | null>(null)
-
-  // ─── Fetch invites ──────────────────────────────────────────────────────────
-  const fetchInvites = useCallback(async () => {
-    // Seed from cache immediately (stale-while-revalidate)
-    const cached = readCache<PendingInvite[]>(CACHE_KEY.invites)
-    if (cached) {
-      setInvites(cached)
-      setLoadingInvites(false)
-    }
-    try {
-      const data = await apiFetch<{ invites: PendingInvite[] }>(
-        API.invites.list
-      )
-      setInvites(data.invites)
-      writeCache(CACHE_KEY.invites, data.invites)
-    } catch {
-      // fetch failed — keep stale cache
-    } finally {
-      setLoadingInvites(false)
-    }
-  }, [])
 
   // ─── Send invites ───────────────────────────────────────────────────────────
   const handleSendInvites = async () => {
@@ -106,11 +100,9 @@ export function useInvites() {
       await apiFetch<void>(API.invites.byToken(revokeToken), {
         method: 'DELETE',
       })
-      setInvites(prev => {
-        const next = prev.filter(i => i.token !== revokeToken)
-        writeCache(CACHE_KEY.invites, next)
-        return next
-      })
+      queryClient.setQueryData<PendingInvite[]>(queryKeys.invites(), prev =>
+        (prev ?? []).filter(i => i.token !== revokeToken)
+      )
       toast.success(intl.formatMessage({ id: 'members.revokeSuccess' }))
     } catch {
       toast.error(intl.formatMessage({ id: 'members.revokeFailed' }))
@@ -152,8 +144,8 @@ export function useInvites() {
   }
 
   return {
-    invites,
-    loadingInvites,
+    invites: query.data ?? [],
+    loadingInvites: query.isFetching && !query.data,
     inviteOpen,
     setInviteOpen,
     emailInputs,
