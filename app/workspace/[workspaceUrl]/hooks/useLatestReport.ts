@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { summariesClient } from '@/lib/api-client/summaries'
 import type { ApiProjectSummary, ApiWorkspaceSummary } from '@/types/summary'
 
@@ -20,71 +20,52 @@ const EMPTY: LatestReport = { tldr: null, report: null, generatedAt: null }
 export function useProjectLatestReport(
   projectId: string
 ): UseLatestReportReturn {
-  const [data, setData] = useState<LatestReport>(EMPTY)
-  const [loading, setLoading] = useState(true)
-  const [tick, setTick] = useState(0)
+  const query = useQuery<LatestReport>({
+    queryKey: ['summary', 'project', projectId, 'latest'] as const,
+    queryFn: async () => {
+      const result = await summariesClient.getProjectSummaries<{
+        summaries?: ApiProjectSummary[]
+      }>(projectId, 1)
+      const latest = result.summaries?.[0]
+      return {
+        tldr: latest?.tldr ?? null,
+        report: latest?.report ?? null,
+        generatedAt: latest?.generatedAt ?? null,
+      }
+    },
+    enabled: !!projectId,
+  })
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    summariesClient
-      .getProjectSummaries<{ summaries?: ApiProjectSummary[] }>(projectId, 1)
-      .then(result => {
-        if (cancelled) return
-        const latest = result.summaries?.[0]
-        setData({
-          tldr: latest?.tldr ?? null,
-          report: latest?.report ?? null,
-          generatedAt: latest?.generatedAt ?? null,
-        })
-      })
-      .catch(() => {
-        // Keep existing data on refetch failure
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [projectId, tick])
-
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  return { ...data, loading, refetch }
+  return {
+    ...(query.data ?? EMPTY),
+    loading: query.isPending && !!projectId,
+    refetch: () => {
+      query.refetch()
+    },
+  }
 }
 
 export function useWorkspaceLatestReport(): UseLatestReportReturn {
-  const [data, setData] = useState<LatestReport>(EMPTY)
-  const [loading, setLoading] = useState(true)
-  const [tick, setTick] = useState(0)
+  const query = useQuery<LatestReport>({
+    queryKey: ['summary', 'workspace', 'latest'] as const,
+    queryFn: async () => {
+      const result = await summariesClient.getWorkspaceSummaries<{
+        summaries?: ApiWorkspaceSummary[]
+      }>(1)
+      const latest = result.summaries?.[0]
+      return {
+        tldr: latest?.tldr ?? null,
+        report: latest?.report ?? null,
+        generatedAt: latest?.generatedAt ?? null,
+      }
+    },
+  })
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    summariesClient
-      .getWorkspaceSummaries<{ summaries?: ApiWorkspaceSummary[] }>(1)
-      .then(result => {
-        if (cancelled) return
-        const latest = result.summaries?.[0]
-        setData({
-          tldr: latest?.tldr ?? null,
-          report: latest?.report ?? null,
-          generatedAt: latest?.generatedAt ?? null,
-        })
-      })
-      .catch(() => {
-        // Keep existing data on refetch failure
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tick])
-
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  return { ...data, loading, refetch }
+  return {
+    ...(query.data ?? EMPTY),
+    loading: query.isPending,
+    refetch: () => {
+      query.refetch()
+    },
+  }
 }

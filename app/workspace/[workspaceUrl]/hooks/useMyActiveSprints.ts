@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { sprintsClient } from '@/lib/api-client'
 
 /**
@@ -8,29 +8,19 @@ import { sprintsClient } from '@/lib/api-client'
  * Used by the "Current sprint only" filter chip on the My Tasks page.
  */
 export function useMyActiveSprints() {
-  const [sprintIds, setSprintIds] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const query = useQuery<string[]>({
+    queryKey: ['sprints', 'myActive'] as const,
+    queryFn: async () => {
+      const data = await sprintsClient.myActiveSprintIds()
+      return data.sprintIds
+    },
+  })
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    sprintsClient
-      .myActiveSprintIds()
-      .then(data => {
-        if (!cancelled) setSprintIds(data.sprintIds)
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load active sprints.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return { sprintIds, loading, error }
+  return {
+    sprintIds: query.data ?? [],
+    loading: query.isPending,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load active sprints.')
+      : null,
+  }
 }

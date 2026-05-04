@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api-client'
-import { API, CACHE_KEY } from '../constants'
-import { readCache, writeCache } from '../cache'
+import { API } from '../constants'
+import { queryKeys } from '@/lib/query/keys'
 import type { ApiProjectSummary, ApiWorkspaceSummary } from '@/types/summary'
 
 interface UseSummaryReturn<T> {
@@ -29,45 +30,21 @@ function isValidSummary(v: unknown): boolean {
 export function useProjectSummary(
   projectId: string
 ): UseSummaryReturn<ApiProjectSummary> {
-  const cacheKey = CACHE_KEY.projectSummary(projectId)
-
-  const [summary, setSummary] = useState<ApiProjectSummary | null>(() => {
-    const cached = readCache<ApiProjectSummary>(cacheKey)
-    return isValidSummary(cached) ? cached : null
+  const query = useQuery<ApiProjectSummary | null>({
+    queryKey: queryKeys.summary.project(projectId),
+    queryFn: async () => {
+      const data = await apiFetch<{
+        summary?: ApiProjectSummary
+        summaries?: ApiProjectSummary[]
+      }>(API.summaries.project(projectId))
+      const latest = data.summary ?? data.summaries?.[0] ?? null
+      return isValidSummary(latest) ? (latest as ApiProjectSummary) : null
+    },
+    enabled: !!projectId,
   })
-  const [history, setHistory] = useState<ApiProjectSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await apiFetch<{
-          summary?: ApiProjectSummary
-          summaries?: ApiProjectSummary[]
-        }>(API.summaries.project(projectId))
-        if (cancelled) return
-        const latest = data.summary ?? data.summaries?.[0] ?? null
-        const fetched = isValidSummary(latest)
-          ? (latest as ApiProjectSummary)
-          : null
-        setSummary(fetched)
-        if (fetched) writeCache(cacheKey, fetched)
-      } catch {
-        if (!cancelled) setError('Failed to load summary')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [projectId, cacheKey])
+  const [history, setHistory] = useState<ApiProjectSummary[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
@@ -83,49 +60,33 @@ export function useProjectSummary(
     }
   }, [projectId])
 
-  return { summary, history, loading, error, loadHistory, historyLoading }
+  return {
+    summary: query.data ?? null,
+    history,
+    loading: query.isPending && !!projectId,
+    error: query.error ? 'Failed to load summary' : null,
+    loadHistory,
+    historyLoading,
+  }
 }
 
 export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {
-  const cacheKey = CACHE_KEY.workspaceSummary
-
-  const [summary, setSummary] = useState<ApiWorkspaceSummary | null>(() => {
-    const cached = readCache<ApiWorkspaceSummary>(cacheKey)
-    return isValidSummary(cached) ? cached : null
+  const query = useQuery<ApiWorkspaceSummary | null>({
+    queryKey: queryKeys.summary.workspace(),
+    queryFn: async () => {
+      const data = await apiFetch<{
+        summary?: ApiWorkspaceSummary
+        summaries?: ApiWorkspaceSummary[]
+      }>(API.summaries.workspace)
+      const candidate = data.summary ?? data.summaries?.[0]
+      return isValidSummary(candidate)
+        ? (candidate as ApiWorkspaceSummary)
+        : null
+    },
   })
-  const [history, setHistory] = useState<ApiWorkspaceSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await apiFetch<{
-          summary?: ApiWorkspaceSummary
-          summaries?: ApiWorkspaceSummary[]
-        }>(API.summaries.workspace)
-        if (cancelled) return
-        const candidate = data.summary ?? data.summaries?.[0]
-        const fetched = isValidSummary(candidate)
-          ? (candidate as ApiWorkspaceSummary)
-          : null
-        setSummary(fetched)
-        if (fetched) writeCache(cacheKey, fetched)
-      } catch {
-        if (!cancelled) setError('Failed to load summary')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [cacheKey])
+  const [history, setHistory] = useState<ApiWorkspaceSummary[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
@@ -141,5 +102,12 @@ export function useWorkspaceSummary(): UseSummaryReturn<ApiWorkspaceSummary> {
     }
   }, [])
 
-  return { summary, history, loading, error, loadHistory, historyLoading }
+  return {
+    summary: query.data ?? null,
+    history,
+    loading: query.isPending,
+    error: query.error ? 'Failed to load summary' : null,
+    loadHistory,
+    historyLoading,
+  }
 }

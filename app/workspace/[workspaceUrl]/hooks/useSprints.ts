@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
-import { CACHE_KEY } from '../constants'
-import { readCache, writeCache } from '../cache'
 
 // ---------------------------------------------------------------------------
 // Shared types inferred from the api-client return shapes
@@ -34,56 +34,51 @@ interface TaskListResult {
 
 /**
  * Lists sprints for a team, optionally filtered by status.
- * Returns { sprints, isLoading, error, refetch }.
+ * Returns { sprints, setSprints, error, isLoading, refetch }.
  */
 export function useSprintsForTeam(
   teamId: string | null,
   status?: SprintStatus
 ) {
-  const [sprints, setSprints] = useState<Sprint[] | undefined>(undefined)
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
+  const queryClient = useQueryClient()
+  const queryKey = teamId ? queryKeys.sprints.byTeam(teamId, status) : null
 
-  const refetch = useCallback(() => setTick(t => t + 1), [])
+  const query = useQuery<Sprint[]>({
+    queryKey: queryKey ?? ['sprints', 'disabled'],
+    queryFn: async () => {
+      if (!teamId) return []
+      const res = (await sprintsClient.listByTeam(
+        teamId,
+        status ? { status } : {}
+      )) as SprintListResult
+      return res.sprints
+    },
+    enabled: !!teamId,
+  })
 
-  useEffect(() => {
-    if (!teamId) {
-      setSprints(undefined)
-      return
-    }
-    // Hydrate from cache so the landing page paints with last-known
-    // sprints immediately, then revalidate in the background.
-    const cacheKey = CACHE_KEY.sprints(teamId, status)
-    const cached = readCache<Sprint[]>(cacheKey)
-    if (cached) {
-      setSprints(cached)
-      setIsLoading(false)
-    } else {
-      setIsLoading(true)
-    }
-    setError(undefined)
+  // Preserve the legacy `setSprints` API so callers (e.g. SprintCards
+  // optimistic insert) continue to work without refactor in this phase.
+  const setSprints = useCallback(
+    (updater: Updater<Sprint[] | undefined, Sprint[] | undefined>) => {
+      if (!queryKey) return
+      queryClient.setQueryData<Sprint[] | undefined>(queryKey, prev =>
+        typeof updater === 'function'
+          ? (updater as (prev: Sprint[] | undefined) => Sprint[] | undefined)(
+              prev
+            )
+          : updater
+      )
+    },
+    [queryClient, queryKey]
+  )
 
-    let cancelled = false
-    sprintsClient
-      .listByTeam(teamId, status ? { status } : {})
-      .then((res: SprintListResult) => {
-        if (cancelled) return
-        setSprints(res.sprints)
-        writeCache(cacheKey, res.sprints)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [teamId, status, tick])
-
-  return { sprints, setSprints, error, isLoading, refetch }
+  return {
+    sprints: query.data,
+    setSprints,
+    error: query.error ?? undefined,
+    isLoading: query.isPending && !!teamId,
+    refetch: query.refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -95,53 +90,21 @@ export function useSprintsForTeam(
  * Returns { sprint, progress, isLoading, error, refetch }.
  */
 export function useSprint(sprintId: string | null) {
-  const [data, setData] = useState<SprintWithProgress | undefined>(undefined)
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
-
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!sprintId) {
-      setData(undefined)
-      return
-    }
-    const cacheKey = CACHE_KEY.sprint(sprintId)
-    const cached = readCache<SprintWithProgress>(cacheKey)
-    if (cached) {
-      setData(cached)
-      setIsLoading(false)
-    } else {
-      setIsLoading(true)
-    }
-    setError(undefined)
-
-    let cancelled = false
-    sprintsClient
-      .get(sprintId)
-      .then((res: SprintWithProgress) => {
-        if (cancelled) return
-        setData(res)
-        writeCache(cacheKey, res)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sprintId, tick])
+  const query = useQuery<SprintWithProgress>({
+    queryKey: sprintId
+      ? queryKeys.sprints.detail(sprintId)
+      : ['sprints', 'detail', 'disabled'],
+    queryFn: () =>
+      sprintsClient.get(sprintId as string) as Promise<SprintWithProgress>,
+    enabled: !!sprintId,
+  })
 
   return {
-    sprint: data?.sprint,
-    progress: data?.progress,
-    isLoading,
-    error,
-    refetch,
+    sprint: query.data?.sprint,
+    progress: query.data?.progress,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
+    refetch: query.refetch,
   }
 }
 
@@ -158,53 +121,25 @@ export function useSprintByNumber(
   workspaceUrl: string | null,
   number: number | null
 ) {
-  const [data, setData] = useState<SprintWithProgress | undefined>(undefined)
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
-
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!workspaceUrl || !number) {
-      setData(undefined)
-      return
-    }
-    const cacheKey = CACHE_KEY.sprintByNumber(workspaceUrl, number)
-    const cached = readCache<SprintWithProgress>(cacheKey)
-    if (cached) {
-      setData(cached)
-      setIsLoading(false)
-    } else {
-      setIsLoading(true)
-    }
-    setError(undefined)
-
-    let cancelled = false
-    sprintsClient
-      .getByNumber(workspaceUrl, number)
-      .then((res: SprintWithProgress) => {
-        if (cancelled) return
-        setData(res)
-        writeCache(cacheKey, res)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [workspaceUrl, number, tick])
+  const enabled = !!workspaceUrl && !!number
+  const query = useQuery<SprintWithProgress>({
+    queryKey: enabled
+      ? queryKeys.sprints.byNumber(workspaceUrl, number)
+      : ['sprints', 'byNumber', 'disabled'],
+    queryFn: () =>
+      sprintsClient.getByNumber(
+        workspaceUrl as string,
+        number as number
+      ) as Promise<SprintWithProgress>,
+    enabled,
+  })
 
   return {
-    sprint: data?.sprint,
-    progress: data?.progress,
-    isLoading,
-    error,
-    refetch,
+    sprint: query.data?.sprint,
+    progress: query.data?.progress,
+    isLoading: query.isPending && enabled,
+    error: query.error ?? undefined,
+    refetch: query.refetch,
   }
 }
 
@@ -217,38 +152,25 @@ export function useSprintByNumber(
  * Returns { tasks, isLoading, error, refetch }.
  */
 export function useSprintTasks(sprintId: string | null) {
-  const [tasks, setTasks] = useState<unknown[] | undefined>(undefined)
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
+  const query = useQuery<unknown[]>({
+    queryKey: sprintId
+      ? queryKeys.tasks.bySprint(sprintId)
+      : ['tasks', 'bySprint', 'disabled'],
+    queryFn: async () => {
+      const res = await tasksClient.listBySprint<TaskListResult>(
+        sprintId as string
+      )
+      return res.tasks
+    },
+    enabled: !!sprintId,
+  })
 
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!sprintId) {
-      setTasks(undefined)
-      return
-    }
-    let cancelled = false
-    setIsLoading(true)
-    setError(undefined)
-    tasksClient
-      .listBySprint<TaskListResult>(sprintId)
-      .then((res: TaskListResult) => {
-        if (!cancelled) setTasks(res.tasks)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sprintId, tick])
-
-  return { tasks, isLoading, error, refetch }
+  return {
+    tasks: query.data,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
+    refetch: query.refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,38 +182,26 @@ export function useSprintTasks(sprintId: string | null) {
  * Returns { tasks, isLoading, error, refetch }.
  */
 export function useBacklogTasks(teamId: string | null) {
-  const [tasks, setTasks] = useState<unknown[] | undefined>(undefined)
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
+  const query = useQuery<unknown[]>({
+    queryKey: teamId
+      ? queryKeys.tasks.backlog(teamId)
+      : ['tasks', 'backlog', 'disabled'],
+    queryFn: async () => {
+      const res = await tasksClient.listByTeam<TaskListResult>(
+        teamId as string,
+        { sprintId: null }
+      )
+      return res.tasks
+    },
+    enabled: !!teamId,
+  })
 
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!teamId) {
-      setTasks(undefined)
-      return
-    }
-    let cancelled = false
-    setIsLoading(true)
-    setError(undefined)
-    tasksClient
-      .listByTeam<TaskListResult>(teamId, { sprintId: null })
-      .then((res: TaskListResult) => {
-        if (!cancelled) setTasks(res.tasks)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [teamId, tick])
-
-  return { tasks, isLoading, error, refetch }
+  return {
+    tasks: query.data,
+    isLoading: query.isPending && !!teamId,
+    error: query.error ?? undefined,
+    refetch: query.refetch,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -304,38 +214,24 @@ export function useBacklogTasks(teamId: string | null) {
  * Returns { summary, isLoading, error, refetch }.
  */
 export function useSprintSummary(sprintId: string | null) {
-  const [summary, setSummary] = useState<SprintSummary | null | undefined>(
-    undefined
-  )
-  const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [tick, setTick] = useState(0)
+  const query = useQuery<SprintSummary | null>({
+    queryKey: sprintId
+      ? queryKeys.sprints.summary(sprintId)
+      : ['sprints', 'summary', 'disabled'],
+    queryFn: async () => {
+      const res = (await sprintsClient.getSummary(sprintId as string)) as
+        | SprintSummary
+        | null
+        | undefined
+      return res ?? null
+    },
+    enabled: !!sprintId,
+  })
 
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!sprintId) {
-      setSummary(undefined)
-      return
-    }
-    let cancelled = false
-    setIsLoading(true)
-    setError(undefined)
-    sprintsClient
-      .getSummary(sprintId)
-      .then((res: SprintSummary) => {
-        if (!cancelled) setSummary(res ?? null)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sprintId, tick])
-
-  return { summary, isLoading, error, refetch }
+  return {
+    summary: query.data,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
+    refetch: query.refetch,
+  }
 }

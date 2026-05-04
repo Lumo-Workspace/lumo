@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -94,7 +94,29 @@ export function TaskDetailPage({
     currentActorId: currentMember?.actorId ?? null,
   })
 
-  const { handlePatch } = useTaskMutation({ task, setTask, projects })
+  const { handlePatch: rawHandlePatch } = useTaskMutation({
+    task,
+    setTask,
+    projects,
+  })
+
+  // Track in-flight local mutations so the Pusher refetch below doesn't
+  // clobber an optimistic value with a stale server snapshot.
+  const pendingMutationsRef = useRef(0)
+  const handlePatch = useCallback(
+    async (data: Parameters<typeof rawHandlePatch>[0]) => {
+      pendingMutationsRef.current++
+      try {
+        await rawHandlePatch(data)
+      } finally {
+        pendingMutationsRef.current = Math.max(
+          0,
+          pendingMutationsRef.current - 1
+        )
+      }
+    },
+    [rawHandlePatch]
+  )
   const { tags: allTags, createTag } = useTags()
 
   const desc = useTaskDescription({
@@ -184,6 +206,11 @@ export function TaskDetailPage({
       tc.fetchComments()
     }
     if (event.type === 'task:updated') {
+      // Skip the refetch while a local mutation is in flight: the server
+      // snapshot may not yet reflect that mutation, and merging it would
+      // briefly revert the optimistic value. The next Pusher event after
+      // the local mutations settle will reconcile.
+      if (pendingMutationsRef.current > 0) return
       tasksClient
         .getById<{ task: TaskDetail }>(initialTask.id)
         .then(data => {

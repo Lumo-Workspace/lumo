@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
-import { API, CACHE_KEY } from '../constants'
-import { readCache, writeCache } from '../cache'
+import { API } from '../constants'
+import { queryKeys } from '@/lib/query/keys'
 import type { ApiDraft } from '../types'
 
 interface UseDraftsReturn {
@@ -24,31 +25,34 @@ interface UseDraftsReturn {
 }
 
 export function useDrafts(): UseDraftsReturn {
+  const queryClient = useQueryClient()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const queryKey = [...queryKeys.drafts(), workspaceUrl] as const
 
-  // Seed from cache so drafts are visible immediately
-  const [drafts, setDrafts] = useState<ApiDraft[]>(
-    () => readCache<ApiDraft[]>(CACHE_KEY.drafts) ?? []
-  )
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchDrafts = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  const query = useQuery<ApiDraft[]>({
+    queryKey,
+    queryFn: async () => {
       const data = await apiFetch<{ drafts?: ApiDraft[] }>(
         `${API.drafts.list}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`
       )
-      const serverDrafts: ApiDraft[] = data.drafts ?? []
-      setDrafts(serverDrafts)
-      writeCache(CACHE_KEY.drafts, serverDrafts)
-    } catch {
-      setError('Failed to load drafts')
-    } finally {
-      setLoading(false)
-    }
-  }, [workspaceUrl])
+      return data.drafts ?? []
+    },
+    // Caller-driven (legacy fetchDrafts semantics).
+    enabled: false,
+  })
+
+  const fetchDrafts = useCallback(async () => {
+    await query.refetch()
+  }, [query])
+
+  const setDraftsLocal = useCallback(
+    (updater: (prev: ApiDraft[]) => ApiDraft[]) => {
+      queryClient.setQueryData<ApiDraft[]>(queryKey, prev =>
+        updater(prev ?? [])
+      )
+    },
+    [queryClient, queryKey]
+  )
 
   const saveDraft = useCallback(
     async (
@@ -56,7 +60,6 @@ export function useDrafts(): UseDraftsReturn {
       data: Record<string, unknown>,
       id?: string | undefined
     ): Promise<ApiDraft> => {
-      // Optimistic: create a temporary draft and write to cache immediately
       const tempId = `temp-${Date.now()}`
       const now = new Date().toISOString()
       const optimisticDraft: ApiDraft = {
@@ -67,14 +70,11 @@ export function useDrafts(): UseDraftsReturn {
         updatedAt: now,
       }
 
-      setDrafts(prev => {
-        const filtered = prev.filter(d => d.id !== optimisticDraft.id)
-        const next = [optimisticDraft, ...filtered]
-        writeCache(CACHE_KEY.drafts, next)
-        return next
-      })
+      setDraftsLocal(prev => [
+        optimisticDraft,
+        ...prev.filter(d => d.id !== optimisticDraft.id),
+      ])
 
-      // Then sync to server
       let result: { draft: ApiDraft }
       try {
         result = await apiFetch<{ draft: ApiDraft }>(API.drafts.list, {
@@ -82,43 +82,31 @@ export function useDrafts(): UseDraftsReturn {
           body: { id, workspaceUrl, type, data },
         })
       } catch (err) {
-        // Rollback optimistic update
-        setDrafts(prev => {
-          const rolled = prev.filter(d => d.id !== optimisticDraft.id)
-          writeCache(CACHE_KEY.drafts, rolled)
-          return rolled
-        })
+        setDraftsLocal(prev => prev.filter(d => d.id !== optimisticDraft.id))
         throw new Error(
           err instanceof Error ? err.message : 'Failed to save draft'
         )
       }
 
       const serverDraft: ApiDraft = result.draft
-
-      // Replace optimistic draft with server version (real id, timestamps)
-      setDrafts(prev => {
-        const filtered = prev.filter(
+      setDraftsLocal(prev => [
+        serverDraft,
+        ...prev.filter(
           d => d.id !== optimisticDraft.id && d.id !== serverDraft.id
-        )
-        const next = [serverDraft, ...filtered]
-        writeCache(CACHE_KEY.drafts, next)
-        return next
-      })
+        ),
+      ])
 
       return serverDraft
     },
-    [workspaceUrl]
+    [workspaceUrl, setDraftsLocal]
   )
 
   const deleteDraft = useCallback(
     async (id: string): Promise<boolean> => {
-      // Optimistic: remove from state + cache immediately
       let removed: ApiDraft | undefined
-      setDrafts(prev => {
+      setDraftsLocal(prev => {
         removed = prev.find(d => d.id === id)
-        const next = prev.filter(d => d.id !== id)
-        writeCache(CACHE_KEY.drafts, next)
-        return next
+        return prev.filter(d => d.id !== id)
       })
 
       try {
@@ -128,13 +116,8 @@ export function useDrafts(): UseDraftsReturn {
         )
         return true
       } catch (err) {
-        // Rollback on network error
         if (removed) {
-          setDrafts(prev => {
-            const next = [removed!, ...prev]
-            writeCache(CACHE_KEY.drafts, next)
-            return next
-          })
+          setDraftsLocal(prev => [removed!, ...prev])
         }
         const message =
           err instanceof Error ? err.message : 'Failed to delete draft'
@@ -142,13 +125,17 @@ export function useDrafts(): UseDraftsReturn {
         return false
       }
     },
-    [workspaceUrl]
+    [workspaceUrl, setDraftsLocal]
   )
+
+  const drafts = query.data ?? []
 
   return {
     drafts,
-    loading,
-    error,
+    loading: query.isFetching && !query.data,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Failed to load drafts')
+      : null,
     draftCount: drafts.length,
     fetchDrafts,
     saveDraft,

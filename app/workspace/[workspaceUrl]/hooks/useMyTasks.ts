@@ -1,82 +1,74 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useRef } from 'react'
+import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { ApiTask, MyTask } from '../types'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { tasksClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
-type NewFormat = { taskIds: string[]; myTasksViewId: string | null }
-type LegacyFull = { tasks: MyTask[]; myTasksViewId: string | null }
+interface MyTasksData {
+  taskIds: string[]
+  myTasksViewId: string | null
+}
 
 /**
- * Fetches the current user's full task list.
- *
- * The returned `taskIds` is always the complete set — filtering (e.g.
- * "current sprint only") happens in the component using the shared
- * `taskMap` from `useTaskStore`, so the list cache never holds a filtered
- * subset. This keeps `lumo:myTasks` as a stable "which tasks are mine"
- * projection while `lumo:tasks` stays the single source of truth for task
- * data (Pusher updates, bulk mutations, etc. all write there).
+ * Fetches the current user's full task list. Returns only
+ * `{ taskIds, myTasksViewId }`; full task records are forwarded into the
+ * shared task store via `upsertTasks(...)`.
  */
 export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
-  const [taskIds, setTaskIds] = useState<string[]>([])
-  const [myTasksViewId, setMyTasksViewId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const seeded = useRef(false)
+  const queryClient = useQueryClient()
+  const upsertRef = useRef(upsertTasks)
+  upsertRef.current = upsertTasks
 
-  // Hydrate from localStorage on mount so data shows immediately on refresh.
-  // Handles three cache formats:
-  //   1. new:    { taskIds, myTasksViewId }
-  //   2. legacy: { tasks: MyTask[], myTasksViewId }
-  //   3. oldest: MyTask[]
-  useEffect(() => {
-    const raw = readCache<NewFormat | LegacyFull | MyTask[]>(CACHE_KEY.myTasks)
-    if (!raw) return
-    if (Array.isArray(raw)) {
-      // Oldest legacy: plain array
-      upsertTasks(raw)
-      setTaskIds(raw.map(t => t.id))
-    } else if ('tasks' in raw) {
-      // Legacy full format
-      upsertTasks(raw.tasks)
-      setTaskIds(raw.tasks.map(t => t.id))
-      setMyTasksViewId(raw.myTasksViewId)
-    } else {
-      // New ID-only format — task data lives in lumo:tasks
-      setTaskIds(raw.taskIds)
-      setMyTasksViewId(raw.myTasksViewId)
-    }
-    seeded.current = true
-    // upsertTasks is stable (wrapped in useCallback)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const fetchMyTasks = useCallback(async () => {
-    if (!seeded.current) setLoading(true)
-    setError(null)
-
-    try {
+  // `enabled: false` preserves the legacy "manual fetch only" semantics —
+  // consumers gate fetches via fetchMyTasks() on page change. TanStack still
+  // serves cached data instantly on remount.
+  const query = useQuery<MyTasksData>({
+    queryKey: queryKeys.tasks.my(),
+    queryFn: async () => {
       const data = await tasksClient.listMine<{
         tasks: MyTask[]
         myTasksViewId: string
       }>()
-      upsertTasks(data.tasks)
-      const ids = data.tasks.map(t => t.id)
-      setTaskIds(ids)
-      setMyTasksViewId(data.myTasksViewId)
-      writeCache(CACHE_KEY.myTasks, {
-        taskIds: ids,
+      upsertRef.current(data.tasks)
+      return {
+        taskIds: data.tasks.map(t => t.id),
         myTasksViewId: data.myTasksViewId,
-      })
-      seeded.current = true
-    } catch {
-      if (!seeded.current) setError('Could not load your tasks.')
-    } finally {
-      setLoading(false)
-    }
-  }, [upsertTasks])
+      }
+    },
+    enabled: false,
+  })
 
-  return { taskIds, setTaskIds, myTasksViewId, loading, error, fetchMyTasks }
+  const fetchMyTasks = useCallback(async () => {
+    await query.refetch()
+  }, [query])
+
+  const setTaskIds = useCallback(
+    (updater: Updater<string[], string[]>) => {
+      queryClient.setQueryData<MyTasksData>(queryKeys.tasks.my(), prev => {
+        const prevIds = prev?.taskIds ?? []
+        const nextIds =
+          typeof updater === 'function'
+            ? (updater as (prev: string[]) => string[])(prevIds)
+            : updater
+        return {
+          taskIds: nextIds,
+          myTasksViewId: prev?.myTasksViewId ?? null,
+        }
+      })
+    },
+    [queryClient]
+  )
+
+  return {
+    taskIds: query.data?.taskIds ?? [],
+    setTaskIds,
+    myTasksViewId: query.data?.myTasksViewId ?? null,
+    loading: query.isFetching && !query.data,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load your tasks.')
+      : null,
+    fetchMyTasks,
+  }
 }

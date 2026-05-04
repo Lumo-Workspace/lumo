@@ -1,92 +1,111 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { ApiTask } from '../types'
-import { readCache, writeCache } from '../cache'
 import { flattenTasks } from '../utils'
-import { CACHE_KEY } from '../constants'
 import { projectsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
-type NewFormat = { taskIds: string[]; kanbanViewId: string | null }
-type LegacyFull = { tasks: ApiTask[]; kanbanViewId: string | null }
+interface ProjectTasksData {
+  taskIds: string[]
+  kanbanViewId: string | null
+}
 
+/**
+ * Per-project task list. The hook tracks the "current" projectId in local
+ * state so the same hook instance can switch projects without remount —
+ * `hydrateForProject(id)` snaps to that project's cache, `fetchProjectTasks(id)`
+ * forces a refetch.
+ */
 export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
-  const [taskIds, setTaskIds] = useState<string[]>([])
-  const [kanbanViewId, setKanbanViewId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const seeded = useRef(false)
+  const queryClient = useQueryClient()
+  const upsertRef = useRef(upsertTasks)
+  upsertRef.current = upsertTasks
 
-  /**
-   * Immediately populate state from the per-project cache key.
-   * Call this before `fetchProjectTasks` when switching projects.
-   * Handles three formats: new ID-only, legacy full-task, legacy array.
-   */
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+
+  const query = useQuery<ProjectTasksData>({
+    queryKey: currentProjectId
+      ? queryKeys.tasks.byProject(currentProjectId)
+      : ['tasks', 'byProject', 'disabled'],
+    queryFn: async () => {
+      const data = await projectsClient.listTasks<{
+        tasks: (ApiTask & { children?: ApiTask[] })[]
+        kanbanViewId: string
+      }>(currentProjectId as string)
+      const flat = flattenTasks(data.tasks)
+      upsertRef.current(flat)
+      return {
+        taskIds: flat.map(t => t.id),
+        kanbanViewId: data.kanbanViewId,
+      }
+    },
+    // `enabled: false` keeps fetch behavior caller-driven (mirrors the
+    // legacy fetchProjectTasks(projectId) imperative API).
+    enabled: false,
+  })
+
   const hydrateForProject = useCallback(
     (projectId: string) => {
-      setError(null)
-      const raw = readCache<NewFormat | LegacyFull | ApiTask[]>(
-        CACHE_KEY.projectTasks(projectId)
-      )
-      if (!raw) {
-        setTaskIds([])
-        setKanbanViewId(null)
-        seeded.current = false
-        return
-      }
-      if (Array.isArray(raw)) {
-        upsertTasks(raw)
-        setTaskIds(raw.map(t => t.id))
-        setKanbanViewId(null)
-      } else if ('tasks' in raw) {
-        upsertTasks(raw.tasks)
-        setTaskIds(raw.tasks.map(t => t.id))
-        setKanbanViewId(raw.kanbanViewId)
-      } else {
-        setTaskIds(raw.taskIds)
-        setKanbanViewId(raw.kanbanViewId)
-      }
-      seeded.current = true
+      setCurrentProjectId(projectId)
     },
-    // upsertTasks is stable
-
-    [upsertTasks]
+    [setCurrentProjectId]
   )
 
   const fetchProjectTasks = useCallback(
     async (projectId: string) => {
-      setError(null)
-      if (!seeded.current) setLoading(true)
-      try {
-        const data = await projectsClient.listTasks<{
-          tasks: (ApiTask & { children?: ApiTask[] })[]
-          kanbanViewId: string
-        }>(projectId)
-        const flat = flattenTasks(data.tasks)
-        upsertTasks(flat)
-        const ids = flat.map(t => t.id)
-        setTaskIds(ids)
-        setKanbanViewId(data.kanbanViewId)
-        writeCache(CACHE_KEY.projectTasks(projectId), {
-          taskIds: ids,
-          kanbanViewId: data.kanbanViewId,
-        })
-        seeded.current = true
-      } catch {
-        if (!seeded.current) setError('Could not load tasks.')
-      } finally {
-        setLoading(false)
-      }
+      setCurrentProjectId(projectId)
+      // After setState, the queryKey above flips on next render. Trigger a
+      // fetch directly via queryClient so we don't have to wait a render.
+      await queryClient.fetchQuery<ProjectTasksData>({
+        queryKey: queryKeys.tasks.byProject(projectId),
+        queryFn: async () => {
+          const data = await projectsClient.listTasks<{
+            tasks: (ApiTask & { children?: ApiTask[] })[]
+            kanbanViewId: string
+          }>(projectId)
+          const flat = flattenTasks(data.tasks)
+          upsertRef.current(flat)
+          return {
+            taskIds: flat.map(t => t.id),
+            kanbanViewId: data.kanbanViewId,
+          }
+        },
+      })
     },
-    [upsertTasks]
+    [queryClient]
+  )
+
+  const setTaskIds = useCallback(
+    (updater: Updater<string[], string[]>) => {
+      if (!currentProjectId) return
+      queryClient.setQueryData<ProjectTasksData>(
+        queryKeys.tasks.byProject(currentProjectId),
+        prev => {
+          const prevIds = prev?.taskIds ?? []
+          const nextIds =
+            typeof updater === 'function'
+              ? (updater as (prev: string[]) => string[])(prevIds)
+              : updater
+          return {
+            taskIds: nextIds,
+            kanbanViewId: prev?.kanbanViewId ?? null,
+          }
+        }
+      )
+    },
+    [queryClient, currentProjectId]
   )
 
   return {
-    taskIds,
+    taskIds: query.data?.taskIds ?? [],
     setTaskIds,
-    kanbanViewId,
-    loading,
-    error,
+    kanbanViewId: query.data?.kanbanViewId ?? null,
+    loading: query.isFetching && !query.data,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load tasks.')
+      : null,
     hydrateForProject,
     fetchProjectTasks,
   }

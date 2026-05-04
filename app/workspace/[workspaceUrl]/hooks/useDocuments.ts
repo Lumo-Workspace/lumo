@@ -1,41 +1,67 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useState } from 'react'
+import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { ApiDocument } from '../types'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { documentsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 export function useDocuments() {
-  const [documents, setDocuments] = useState<ApiDocument[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const seeded = useRef(false)
+  const queryClient = useQueryClient()
+  const [visibility, setVisibility] = useState<string | undefined>(undefined)
 
-  useEffect(() => {
-    const cached = readCache<ApiDocument[]>(CACHE_KEY.documents)
-    if (cached) {
-      setDocuments(cached)
-      seeded.current = true
-    }
-  }, [])
+  const queryKey = [...queryKeys.documents.all(), visibility ?? 'all'] as const
 
-  const fetchDocuments = useCallback(async (visibility?: string) => {
-    if (!seeded.current) setLoading(true)
-    setError(null)
-    try {
+  const query = useQuery<ApiDocument[]>({
+    queryKey,
+    queryFn: async () => {
       const data = await documentsClient.list<{ documents: ApiDocument[] }>(
         visibility
       )
-      setDocuments(data.documents)
-      writeCache(CACHE_KEY.documents, data.documents)
-      seeded.current = true
-    } catch {
-      if (!seeded.current) setError('Could not load documents.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      return data.documents
+    },
+    // Caller-driven (legacy fetchDocuments semantics).
+    enabled: false,
+  })
 
-  return { documents, setDocuments, loading, error, fetchDocuments }
+  const fetchDocuments = useCallback(
+    async (nextVisibility?: string) => {
+      setVisibility(nextVisibility)
+      await queryClient.fetchQuery<ApiDocument[]>({
+        queryKey: [
+          ...queryKeys.documents.all(),
+          nextVisibility ?? 'all',
+        ] as const,
+        queryFn: async () => {
+          const data = await documentsClient.list<{
+            documents: ApiDocument[]
+          }>(nextVisibility)
+          return data.documents
+        },
+      })
+    },
+    [queryClient]
+  )
+
+  const setDocuments = useCallback(
+    (updater: Updater<ApiDocument[], ApiDocument[]>) => {
+      queryClient.setQueryData<ApiDocument[]>(queryKey, prev => {
+        const prevDocs = prev ?? []
+        return typeof updater === 'function'
+          ? (updater as (prev: ApiDocument[]) => ApiDocument[])(prevDocs)
+          : updater
+      })
+    },
+    [queryClient, queryKey]
+  )
+
+  return {
+    documents: query.data ?? [],
+    setDocuments,
+    loading: query.isFetching && !query.data,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load documents.')
+      : null,
+    fetchDocuments,
+  }
 }
