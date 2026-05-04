@@ -805,7 +805,7 @@
   "sprints.retro.retry": "Retry generation",
   "sprints.retro.generatedAt": "Generated {date}",
   "memory.section.title": "Memory",
-  "memory.category.trap": "Traps",
+  "memory.category.trap": "Pitfalls",
   "memory.category.decision": "Decisions",
   "memory.category.convention": "Conventions",
   "memory.category.procedural": "Procedures",

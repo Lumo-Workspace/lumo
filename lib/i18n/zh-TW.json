@@ -848,7 +848,7 @@
   "sprints.retro.retry": "重新生成",
   "sprints.retro.generatedAt": "生成於 {date}",
   "memory.section.title": "記憶",
-  "memory.category.trap": "陷阱",
+  "memory.category.trap": "避坑",
   "memory.category.decision": "決策",
   "memory.category.convention": "約定",
   "memory.category.procedural": "流程",
