@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { ApiDocument } from '../types'
 import { documentsClient } from '@/lib/api-client'
@@ -10,7 +10,10 @@ export function useDocuments() {
   const queryClient = useQueryClient()
   const [visibility, setVisibility] = useState<string | undefined>(undefined)
 
-  const queryKey = [...queryKeys.documents.all(), visibility ?? 'all'] as const
+  const queryKey = useMemo(
+    () => [...queryKeys.documents.all(), visibility ?? 'all'] as const,
+    [visibility]
+  )
 
   const query = useQuery<ApiDocument[]>({
     queryKey,

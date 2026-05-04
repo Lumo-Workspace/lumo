@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { WorkspaceMemberInfo } from '../types'
 import { workspacesClient } from '@/lib/api-client'
@@ -37,9 +37,13 @@ export function useMembers() {
     enabled: false,
   })
 
+  // Pin `query` so `fetchMembers` is referentially stable across renders.
+  const queryRef = useRef(query)
+  queryRef.current = query
+
   const fetchMembers = useCallback(async () => {
-    await query.refetch()
-  }, [query])
+    await queryRef.current.refetch()
+  }, [])
 
   const setMembers = useCallback(
     (updater: Updater<WorkspaceMemberInfo[], WorkspaceMemberInfo[]>) => {
