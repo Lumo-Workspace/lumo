@@ -55,18 +55,22 @@ export const hookEventRepository = {
    * All hook events for a task, ordered by time. Used by the Agent Run
    * timeline to reconstruct what Claude Code did during each session.
    *
-   * Two association paths are unioned:
-   *   1. HookEvent.taskId — direct, set when the hook payload carried
-   *      `task_id` and the FK validated against this workspace.
-   *   2. HookEvent.session.taskId — indirect, through the Session row.
-   *      Necessary because a Session-tagged task may not be re-asserted on
-   *      every hook payload, so most events only carry sessionId. Without
-   *      this branch the timeline silently drops 90%+ of real events.
+   * Per-event taskId takes precedence over session.taskId so a session
+   * that was re-tagged mid-flight (`lumo session start <other-task>`)
+   * routes each event to the task that was active when it fired:
+   *   1. HookEvent.taskId set → only the matching task sees this event.
+   *   2. HookEvent.taskId NULL → fall through to Session.taskId (the
+   *      legacy bucket — covers events written before the per-event tag
+   *      fix as well as sessions that never switched).
+   *
+   * Without the `taskId IS NULL` guard on branch 2, an event that was
+   * explicitly tagged for the new task would also leak into the old
+   * task's timeline via session.taskId, causing duplicate display.
    */
   async findByTaskId(taskId: string) {
     return prisma.hookEvent.findMany({
       where: {
-        OR: [{ taskId }, { session: { taskId } }],
+        OR: [{ taskId }, { taskId: null, session: { taskId } }],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
