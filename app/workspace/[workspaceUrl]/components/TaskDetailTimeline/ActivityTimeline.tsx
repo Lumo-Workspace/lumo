@@ -212,6 +212,16 @@ export function ActivityTimeline({
     })
   }, [entries, allowedTypes])
 
+  const visibleCategories = useMemo(() => {
+    return FILTER_CATEGORIES.filter(cat => {
+      if (cat.id === 'all') return true
+      return entries.some(e => {
+        if (e.kind === 'comment') return cat.types!.has('__COMMENT__')
+        return cat.types!.has(e.type)
+      })
+    })
+  }, [entries])
+
   const dateGroups = useMemo(
     () => groupByDate(filteredEntries),
     [filteredEntries]
@@ -247,7 +257,7 @@ export function ActivityTimeline({
     <div className='py-2'>
       {/* Filter chips */}
       <div className='flex flex-wrap gap-1.5 mb-3'>
-        {FILTER_CATEGORIES.map(cat => {
+        {visibleCategories.map(cat => {
           const isActive = activeFilter === cat.id
           return (
             <button
