@@ -242,7 +242,7 @@ export function ProjectsSidebarGroup({
       </SidebarMenuItem>
 
       {expanded && (
-        <SidebarMenuSub>
+        <SidebarMenuSub className='mr-0 pr-0'>
           {visibleProjects.length === 0 ? (
             <SidebarMenuSubItem>
               <span className='block px-2 py-1 text-xs text-sidebar-foreground/50'>
@@ -318,7 +318,7 @@ function SortableProjectItem({
       style={style}
       className='group/project relative'
     >
-      <SidebarMenuSubButton asChild isActive={isActive} className='pr-6'>
+      <SidebarMenuSubButton asChild isActive={isActive} className='w-full pr-6'>
         <Link href={`/workspace/${workspaceUrl}/project/${slug}`}>
           <span>{project.name}</span>
         </Link>
