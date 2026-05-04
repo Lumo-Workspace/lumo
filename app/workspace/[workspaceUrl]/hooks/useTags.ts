@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { tagsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import type { ApiTag } from '../types'
 
 /**
@@ -9,38 +11,37 @@ import type { ApiTag } from '../types'
  * Fetches all tags on mount and provides create/refresh methods.
  */
 export function useTags() {
-  const [tags, setTags] = useState<ApiTag[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  const fetchTags = useCallback(async () => {
-    try {
+  const query = useQuery<ApiTag[]>({
+    queryKey: queryKeys.tags(),
+    queryFn: async () => {
       const data = await tagsClient.list<{ tags: ApiTag[] }>()
-      setTags(data.tags)
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchTags()
-  }, [fetchTags])
+      return data.tags
+    },
+  })
 
   const createTag = useCallback(
     async (name: string): Promise<ApiTag | null> => {
       try {
         const data = await tagsClient.create<{ tag: ApiTag }>({ name })
-        setTags(prev =>
-          [...prev, data.tag].sort((a, b) => a.name.localeCompare(b.name))
+        queryClient.setQueryData<ApiTag[]>(queryKeys.tags(), prev =>
+          [...(prev ?? []), data.tag].sort((a, b) =>
+            a.name.localeCompare(b.name)
+          )
         )
         return data.tag
       } catch {
         return null
       }
     },
-    []
+    [queryClient]
   )
 
-  return { tags, loading, createTag, refreshTags: fetchTags }
+  return {
+    tags: query.data ?? [],
+    loading: query.isPending,
+    createTag,
+    refreshTags: query.refetch,
+  }
 }

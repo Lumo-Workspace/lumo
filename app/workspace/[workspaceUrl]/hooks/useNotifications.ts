@@ -1,99 +1,97 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiNotification } from '../types'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { notificationsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+
+interface NotificationsData {
+  notifications: ApiNotification[]
+  unreadCount: number
+}
 
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<ApiNotification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const seeded = useRef(false)
-  const fetching = useRef(false)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.notifications()
 
-  // Seed from cache immediately
-  useEffect(() => {
-    const cached = readCache<{
-      notifications: ApiNotification[]
-      unreadCount: number
-    }>(CACHE_KEY.notifications)
-    if (cached) {
-      setNotifications(cached.notifications)
-      setUnreadCount(cached.unreadCount)
-      seeded.current = true
-    }
-  }, [])
+  const query = useQuery<NotificationsData>({
+    queryKey,
+    queryFn: async () => {
+      const data = await notificationsClient.list<NotificationsData>()
+      return data
+    },
+    // Caller-driven (legacy fetchNotifications semantics).
+    enabled: false,
+  })
 
   const fetchNotifications = useCallback(async () => {
-    if (fetching.current) return
-    fetching.current = true
-    if (!seeded.current) setLoading(true)
-    setError(null)
-    try {
-      const data = await notificationsClient.list<{
-        notifications: ApiNotification[]
-        unreadCount: number
-      }>()
-      setNotifications(data.notifications)
-      setUnreadCount(data.unreadCount)
-      writeCache(CACHE_KEY.notifications, data)
-      seeded.current = true
-    } catch {
-      if (!seeded.current) setError('Could not load notifications.')
-    } finally {
-      setLoading(false)
-      fetching.current = false
-    }
-  }, [])
+    await query.refetch()
+  }, [query])
+
+  const updateLocal = useCallback(
+    (updater: (prev: NotificationsData) => NotificationsData) => {
+      queryClient.setQueryData<NotificationsData>(queryKey, prev =>
+        updater(prev ?? { notifications: [], unreadCount: 0 })
+      )
+    },
+    [queryClient, queryKey]
+  )
 
   const markOneRead = useCallback(
     async (id: string) => {
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, read: true } : n))
-      )
-      setUnreadCount(prev => Math.max(0, prev - 1))
+      updateLocal(prev => ({
+        notifications: prev.notifications.map(n =>
+          n.id === id ? { ...n, read: true } : n
+        ),
+        unreadCount: Math.max(0, prev.unreadCount - 1),
+      }))
       try {
         await notificationsClient.markOne(id)
       } catch {
-        fetchNotifications()
+        await fetchNotifications()
       }
     },
-    [fetchNotifications]
+    [updateLocal, fetchNotifications]
   )
 
   const markOneUnread = useCallback(
     async (id: string) => {
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, read: false } : n))
-      )
-      setUnreadCount(prev => prev + 1)
+      updateLocal(prev => ({
+        notifications: prev.notifications.map(n =>
+          n.id === id ? { ...n, read: false } : n
+        ),
+        unreadCount: prev.unreadCount + 1,
+      }))
       try {
         await notificationsClient.markOne(id, { read: false })
       } catch {
-        fetchNotifications()
+        await fetchNotifications()
       }
     },
-    [fetchNotifications]
+    [updateLocal, fetchNotifications]
   )
 
   const deleteOne = useCallback(
     async (id: string) => {
-      const snapshot = notifications
-      const snapshotCount = unreadCount
-      const wasUnread = notifications.find(n => n.id === id)?.read === false
-      setNotifications(prev => prev.filter(n => n.id !== id))
-      if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
+      const snapshot = queryClient.getQueryData<NotificationsData>(queryKey)
+      updateLocal(prev => {
+        const wasUnread =
+          prev.notifications.find(n => n.id === id)?.read === false
+        return {
+          notifications: prev.notifications.filter(n => n.id !== id),
+          unreadCount: wasUnread
+            ? Math.max(0, prev.unreadCount - 1)
+            : prev.unreadCount,
+        }
+      })
       try {
         await notificationsClient.deleteOne(id)
       } catch {
-        setNotifications(snapshot)
-        setUnreadCount(snapshotCount)
+        if (snapshot) queryClient.setQueryData(queryKey, snapshot)
       }
     },
-    [notifications, unreadCount]
+    [queryClient, queryKey, updateLocal]
   )
 
   const respondToNotification = useCallback(
@@ -102,47 +100,47 @@ export function useNotifications() {
       action: 'reply' | 'confirm' | 'send_back' | 'approve' | 'deny',
       reply?: string
     ) => {
-      // Optimistically mark action taken
-      setNotifications(prev =>
-        prev.map(n =>
+      updateLocal(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n =>
           n.id === id
             ? { ...n, actionTakenAt: new Date().toISOString(), read: true }
             : n
-        )
-      )
+        ),
+      }))
       try {
         await notificationsClient.respond(
           id,
           action === 'reply' ? { action, reply } : { action }
         )
-        // Refresh to get up-to-date server state
         await fetchNotifications()
       } catch {
-        // Revert optimistic update on error
-        fetchNotifications()
+        await fetchNotifications()
       }
     },
-    [fetchNotifications]
+    [updateLocal, fetchNotifications]
   )
 
   const markAllRead = useCallback(async () => {
-    const snapshot = notifications
-    const snapshotCount = unreadCount
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-    setUnreadCount(0)
+    const snapshot = queryClient.getQueryData<NotificationsData>(queryKey)
+    updateLocal(prev => ({
+      notifications: prev.notifications.map(n => ({ ...n, read: true })),
+      unreadCount: 0,
+    }))
     try {
       await notificationsClient.markAllRead()
     } catch {
-      setNotifications(snapshot)
-      setUnreadCount(snapshotCount)
+      if (snapshot) queryClient.setQueryData(queryKey, snapshot)
     }
-  }, [notifications, unreadCount])
+  }, [queryClient, queryKey, updateLocal])
 
   return {
-    notifications,
-    unreadCount,
-    loading,
-    error,
+    notifications: query.data?.notifications ?? [],
+    unreadCount: query.data?.unreadCount ?? 0,
+    loading: query.isFetching && !query.data,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load notifications.')
+      : null,
     fetchNotifications,
     markOneRead,
     markOneUnread,

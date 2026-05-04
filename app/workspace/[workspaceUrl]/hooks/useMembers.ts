@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
 import { WorkspaceMemberInfo } from '../types'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { workspacesClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 export interface AgentActor {
   actorId: string
@@ -13,40 +13,59 @@ export interface AgentActor {
   type: string
 }
 
+interface MembersData {
+  members: WorkspaceMemberInfo[]
+  agentActors: AgentActor[]
+}
+
 export function useMembers() {
-  const [members, setMembers] = useState<WorkspaceMemberInfo[]>([])
-  const [agentActors, setAgentActors] = useState<AgentActor[]>([])
-  const fetching = useRef(false)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    // Seed from cache immediately for instant display
-    const cached = readCache<WorkspaceMemberInfo[]>(CACHE_KEY.members)
-    if (cached) setMembers(cached)
-    const cachedAgents = readCache<AgentActor[]>(CACHE_KEY.agentActors)
-    if (cachedAgents) setAgentActors(cachedAgents)
-  }, [])
-
-  // Always re-fetches (stale-while-revalidate) so cache never goes stale
-  const fetchMembers = useCallback(async () => {
-    if (fetching.current) return
-    fetching.current = true
-    try {
+  const query = useQuery<MembersData>({
+    queryKey: queryKeys.members(),
+    queryFn: async () => {
       const data = await workspacesClient.listMembers<{
         members: WorkspaceMemberInfo[]
         agentActors?: AgentActor[]
       }>()
-      setMembers(data.members)
-      writeCache(CACHE_KEY.members, data.members)
-      if (data.agentActors) {
-        setAgentActors(data.agentActors)
-        writeCache(CACHE_KEY.agentActors, data.agentActors)
+      return {
+        members: data.members,
+        agentActors: data.agentActors ?? [],
       }
-    } catch {
-      // Non-critical — assignee picker keeps current list
-    } finally {
-      fetching.current = false
-    }
-  }, [])
+    },
+    // Caller-driven (legacy fetchMembers semantics).
+    enabled: false,
+  })
 
-  return { members, setMembers, fetchMembers, agentActors }
+  const fetchMembers = useCallback(async () => {
+    await query.refetch()
+  }, [query])
+
+  const setMembers = useCallback(
+    (updater: Updater<WorkspaceMemberInfo[], WorkspaceMemberInfo[]>) => {
+      queryClient.setQueryData<MembersData>(queryKeys.members(), prev => {
+        const prevMembers = prev?.members ?? []
+        const nextMembers =
+          typeof updater === 'function'
+            ? (
+                updater as (
+                  prev: WorkspaceMemberInfo[]
+                ) => WorkspaceMemberInfo[]
+              )(prevMembers)
+            : updater
+        return {
+          members: nextMembers,
+          agentActors: prev?.agentActors ?? [],
+        }
+      })
+    },
+    [queryClient]
+  )
+
+  return {
+    members: query.data?.members ?? [],
+    setMembers,
+    fetchMembers,
+    agentActors: query.data?.agentActors ?? [],
+  }
 }
