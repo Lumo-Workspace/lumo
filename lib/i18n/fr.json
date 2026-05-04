@@ -803,5 +803,14 @@
   "sprints.retro.generating": "Génération de la rétro en cours…",
   "sprints.retro.retrying": "Nouvelle tentative…",
   "sprints.retro.retry": "Relancer la génération",
-  "sprints.retro.generatedAt": "Générée le {date}"
+  "sprints.retro.generatedAt": "Générée le {date}",
+  "memory.section.title": "Mémoire",
+  "memory.category.trap": "Pièges",
+  "memory.category.decision": "Décisions",
+  "memory.category.convention": "Conventions",
+  "memory.category.procedural": "Procédures",
+  "memory.field.workaround": "Solution : {value}",
+  "memory.field.why": "Raison : {value}",
+  "memory.field.trigger": "Déclencheur : {value}",
+  "memory.unparseable": "(contenu de mémoire illisible)"
 }

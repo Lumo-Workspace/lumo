@@ -803,5 +803,14 @@
   "sprints.retro.generating": "회고 생성 중…",
   "sprints.retro.retrying": "다시 시도 중…",
   "sprints.retro.retry": "다시 생성",
-  "sprints.retro.generatedAt": "{date}에 생성됨"
+  "sprints.retro.generatedAt": "{date}에 생성됨",
+  "memory.section.title": "메모리",
+  "memory.category.trap": "함정",
+  "memory.category.decision": "결정",
+  "memory.category.convention": "규칙",
+  "memory.category.procedural": "절차",
+  "memory.field.workaround": "해결 방법: {value}",
+  "memory.field.why": "이유: {value}",
+  "memory.field.trigger": "발생 조건: {value}",
+  "memory.unparseable": "(메모리 내용을 해석할 수 없음)"
 }

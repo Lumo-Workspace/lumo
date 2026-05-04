@@ -803,5 +803,14 @@
   "sprints.retro.generating": "Ретро создаётся…",
   "sprints.retro.retrying": "Повтор…",
   "sprints.retro.retry": "Создать заново",
-  "sprints.retro.generatedAt": "Создано {date}"
+  "sprints.retro.generatedAt": "Создано {date}",
+  "memory.section.title": "Память",
+  "memory.category.trap": "Подводные камни",
+  "memory.category.decision": "Решения",
+  "memory.category.convention": "Соглашения",
+  "memory.category.procedural": "Процедуры",
+  "memory.field.workaround": "Обходной путь: {value}",
+  "memory.field.why": "Причина: {value}",
+  "memory.field.trigger": "Условие: {value}",
+  "memory.unparseable": "(не удалось прочитать содержимое памяти)"
 }

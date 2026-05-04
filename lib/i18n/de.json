@@ -803,5 +803,14 @@
   "sprints.retro.generating": "Retro wird erstellt…",
   "sprints.retro.retrying": "Wiederholung läuft…",
   "sprints.retro.retry": "Erstellung wiederholen",
-  "sprints.retro.generatedAt": "Erstellt am {date}"
+  "sprints.retro.generatedAt": "Erstellt am {date}",
+  "memory.section.title": "Gedächtnis",
+  "memory.category.trap": "Fallstricke",
+  "memory.category.decision": "Entscheidungen",
+  "memory.category.convention": "Konventionen",
+  "memory.category.procedural": "Abläufe",
+  "memory.field.workaround": "Workaround: {value}",
+  "memory.field.why": "Warum: {value}",
+  "memory.field.trigger": "Auslöser: {value}",
+  "memory.unparseable": "(Gedächtnisinhalt nicht lesbar)"
 }

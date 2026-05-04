@@ -846,5 +846,14 @@
   "sprints.retro.generating": "复盘正在生成中…",
   "sprints.retro.retrying": "重试中…",
   "sprints.retro.retry": "重新生成",
-  "sprints.retro.generatedAt": "生成于 {date}"
+  "sprints.retro.generatedAt": "生成于 {date}",
+  "memory.section.title": "记忆",
+  "memory.category.trap": "陷阱",
+  "memory.category.decision": "决策",
+  "memory.category.convention": "约定",
+  "memory.category.procedural": "流程",
+  "memory.field.workaround": "解决办法：{value}",
+  "memory.field.why": "原因：{value}",
+  "memory.field.trigger": "触发场景：{value}",
+  "memory.unparseable": "（记忆内容无法解析）"
 }

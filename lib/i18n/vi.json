@@ -803,5 +803,14 @@
   "sprints.retro.generating": "Đang tạo retro…",
   "sprints.retro.retrying": "Đang thử lại…",
   "sprints.retro.retry": "Tạo lại",
-  "sprints.retro.generatedAt": "Đã tạo vào {date}"
+  "sprints.retro.generatedAt": "Đã tạo vào {date}",
+  "memory.section.title": "Bộ nhớ",
+  "memory.category.trap": "Cạm bẫy",
+  "memory.category.decision": "Quyết định",
+  "memory.category.convention": "Quy ước",
+  "memory.category.procedural": "Quy trình",
+  "memory.field.workaround": "Cách khắc phục: {value}",
+  "memory.field.why": "Lý do: {value}",
+  "memory.field.trigger": "Điều kiện: {value}",
+  "memory.unparseable": "(không thể đọc nội dung bộ nhớ)"
 }

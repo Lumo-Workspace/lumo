@@ -803,5 +803,14 @@
   "sprints.retro.generating": "振り返りを生成中…",
   "sprints.retro.retrying": "再試行中…",
   "sprints.retro.retry": "再生成する",
-  "sprints.retro.generatedAt": "{date} に生成"
+  "sprints.retro.generatedAt": "{date} に生成",
+  "memory.section.title": "メモリ",
+  "memory.category.trap": "落とし穴",
+  "memory.category.decision": "決定事項",
+  "memory.category.convention": "規約",
+  "memory.category.procedural": "手順",
+  "memory.field.workaround": "回避策：{value}",
+  "memory.field.why": "理由：{value}",
+  "memory.field.trigger": "発生条件：{value}",
+  "memory.unparseable": "（メモリ内容を解析できません）"
 }

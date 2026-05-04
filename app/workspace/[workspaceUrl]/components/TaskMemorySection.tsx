@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useIntl } from 'react-intl'
 import { ChevronDown, ChevronRight, BrainCircuit } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import type { MemoryCategory } from '@prisma/client'
@@ -30,21 +31,30 @@ const CATEGORY_ORDER: MemoryCategory[] = [
   'PROCEDURAL',
 ]
 
-const CATEGORY_META: Record<MemoryCategory, { label: string; color: string }> =
-  {
-    TRAP: { label: 'Traps', color: 'text-red-600 dark:text-red-400' },
-    DECISION: { label: 'Decisions', color: 'text-blue-600 dark:text-blue-400' },
-    CONVENTION: {
-      label: 'Conventions',
-      color: 'text-amber-600 dark:text-amber-400',
-    },
-    PROCEDURAL: {
-      label: 'Procedures',
-      color: 'text-emerald-600 dark:text-emerald-400',
-    },
-  }
+const CATEGORY_META: Record<
+  MemoryCategory,
+  { labelId: string; color: string }
+> = {
+  TRAP: {
+    labelId: 'memory.category.trap',
+    color: 'text-red-600 dark:text-red-400',
+  },
+  DECISION: {
+    labelId: 'memory.category.decision',
+    color: 'text-blue-600 dark:text-blue-400',
+  },
+  CONVENTION: {
+    labelId: 'memory.category.convention',
+    color: 'text-amber-600 dark:text-amber-400',
+  },
+  PROCEDURAL: {
+    labelId: 'memory.category.procedural',
+    color: 'text-emerald-600 dark:text-emerald-400',
+  },
+}
 
 export function TaskMemorySection({ taskId }: { taskId: string }) {
+  const intl = useIntl()
   const [memories, setMemories] = useState<MemoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Record<MemoryCategory, boolean>>({
@@ -86,7 +96,7 @@ export function TaskMemorySection({ taskId }: { taskId: string }) {
       <div className='flex items-center gap-2 mb-3'>
         <BrainCircuit className='size-4 text-violet-500' />
         <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
-          Memory
+          {intl.formatMessage({ id: 'memory.section.title' })}
         </span>
         <span className='text-[10px] text-zinc-400 dark:text-zinc-500'>
           {memories.length}
@@ -113,7 +123,9 @@ export function TaskMemorySection({ taskId }: { taskId: string }) {
                 ) : (
                   <ChevronRight className='size-3' />
                 )}
-                <span className={meta.color}>{meta.label}</span>
+                <span className={meta.color}>
+                  {intl.formatMessage({ id: meta.labelId })}
+                </span>
                 <span className='text-zinc-400 dark:text-zinc-600'>
                   ({items.length})
                 </span>
@@ -121,7 +133,7 @@ export function TaskMemorySection({ taskId }: { taskId: string }) {
               {isExpanded && (
                 <div className='mt-1.5 ml-4.5 space-y-1.5'>
                   {items.map(item => (
-                    <MemoryCard key={item.id} item={item} />
+                    <MemoryCard key={item.id} item={item} intl={intl} />
                   ))}
                 </div>
               )}
@@ -136,7 +148,13 @@ export function TaskMemorySection({ taskId }: { taskId: string }) {
 const CARD_CLASS =
   'text-sm text-zinc-600 dark:text-zinc-400 rounded-md bg-zinc-50 dark:bg-zinc-900 px-3 py-2 border border-zinc-100 dark:border-zinc-800'
 
-function MemoryCard({ item }: { item: MemoryItem }) {
+function MemoryCard({
+  item,
+  intl,
+}: {
+  item: MemoryItem
+  intl: ReturnType<typeof useIntl>
+}) {
   let parsed
   try {
     parsed = parseMemoryContent(item.category, item.content)
@@ -144,7 +162,7 @@ function MemoryCard({ item }: { item: MemoryItem }) {
     return (
       <div className={CARD_CLASS}>
         <p className='text-xs italic text-zinc-400'>
-          (unparseable memory content)
+          {intl.formatMessage({ id: 'memory.unparseable' })}
         </p>
       </div>
     )
@@ -161,7 +179,10 @@ function MemoryCard({ item }: { item: MemoryItem }) {
           <p className='text-xs mt-0.5'>{c.outcome}</p>
           {c.workaround && (
             <p className='text-xs mt-1 text-emerald-600 dark:text-emerald-400'>
-              Workaround: {c.workaround}
+              {intl.formatMessage(
+                { id: 'memory.field.workaround' },
+                { value: c.workaround }
+              )}
             </p>
           )}
         </div>
@@ -174,7 +195,9 @@ function MemoryCard({ item }: { item: MemoryItem }) {
           <p className='font-medium text-zinc-800 dark:text-zinc-200'>
             {c.what}
           </p>
-          <p className='text-xs mt-0.5'>Why: {c.why}</p>
+          <p className='text-xs mt-0.5'>
+            {intl.formatMessage({ id: 'memory.field.why' }, { value: c.why })}
+          </p>
         </div>
       )
     }
@@ -196,7 +219,12 @@ function MemoryCard({ item }: { item: MemoryItem }) {
           <p className='font-medium text-zinc-800 dark:text-zinc-200'>
             {c.workflow}
           </p>
-          <p className='text-xs mt-0.5'>Trigger: {c.trigger}</p>
+          <p className='text-xs mt-0.5'>
+            {intl.formatMessage(
+              { id: 'memory.field.trigger' },
+              { value: c.trigger }
+            )}
+          </p>
           {c.steps && c.steps.length > 0 && (
             <p className='text-xs mt-1 text-zinc-500 dark:text-zinc-400'>
               {c.steps.join(' → ')}

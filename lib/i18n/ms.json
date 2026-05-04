@@ -803,5 +803,14 @@
   "sprints.retro.generating": "Retro sedang dijana…",
   "sprints.retro.retrying": "Mencuba semula…",
   "sprints.retro.retry": "Jana semula",
-  "sprints.retro.generatedAt": "Dijana pada {date}"
+  "sprints.retro.generatedAt": "Dijana pada {date}",
+  "memory.section.title": "Memori",
+  "memory.category.trap": "Perangkap",
+  "memory.category.decision": "Keputusan",
+  "memory.category.convention": "Konvensyen",
+  "memory.category.procedural": "Prosedur",
+  "memory.field.workaround": "Penyelesaian: {value}",
+  "memory.field.why": "Sebab: {value}",
+  "memory.field.trigger": "Pencetus: {value}",
+  "memory.unparseable": "(kandungan memori tidak boleh dibaca)"
 }

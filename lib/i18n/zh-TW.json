@@ -846,5 +846,14 @@
   "sprints.retro.generating": "復盤正在生成中…",
   "sprints.retro.retrying": "重試中…",
   "sprints.retro.retry": "重新生成",
-  "sprints.retro.generatedAt": "生成於 {date}"
+  "sprints.retro.generatedAt": "生成於 {date}",
+  "memory.section.title": "記憶",
+  "memory.category.trap": "陷阱",
+  "memory.category.decision": "決策",
+  "memory.category.convention": "約定",
+  "memory.category.procedural": "流程",
+  "memory.field.workaround": "解決辦法：{value}",
+  "memory.field.why": "原因：{value}",
+  "memory.field.trigger": "觸發場景：{value}",
+  "memory.unparseable": "（記憶內容無法解析）"
 }

@@ -803,5 +803,14 @@
   "sprints.retro.generating": "रेट्रो तैयार हो रहा है…",
   "sprints.retro.retrying": "पुनः प्रयास हो रहा है…",
   "sprints.retro.retry": "पुनः तैयार करें",
-  "sprints.retro.generatedAt": "{date} को तैयार"
+  "sprints.retro.generatedAt": "{date} को तैयार",
+  "memory.section.title": "स्मृति",
+  "memory.category.trap": "समस्याएँ",
+  "memory.category.decision": "निर्णय",
+  "memory.category.convention": "नियम",
+  "memory.category.procedural": "प्रक्रियाएँ",
+  "memory.field.workaround": "समाधान: {value}",
+  "memory.field.why": "कारण: {value}",
+  "memory.field.trigger": "स्थिति: {value}",
+  "memory.unparseable": "(स्मृति सामग्री पढ़ी नहीं जा सकती)"
 }
