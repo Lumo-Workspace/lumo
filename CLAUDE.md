@@ -107,3 +107,4 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - [ ] No console.log statements
 - [ ] Branch name follows convention lumo/{task-id}-{description}
 - [ ] PR title includes task ID [LUM-N]
+@import LUMO.md
