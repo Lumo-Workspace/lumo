@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'http://localhost:3000'
+const DEFAULT_API_URL = 'https://www.uselumo.ai'
 
 export function resolveApiUrl(): string {
   const url = process.env.LUMO_API_URL?.trim()
