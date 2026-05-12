@@ -130,6 +130,10 @@ export const API = {
   teams: {
     tasks: (teamId: string) => `/api/teams/${teamId}/tasks`,
   },
+  lumoSync: {
+    generateProposal: (taskId: string) => `/api/tasks/${taskId}/lumo-proposals`,
+    sync: (proposalId: string) => `/api/lumo-proposals/${proposalId}/sync`,
+  },
 }
 
 // ─── Local storage / cache keys ───────────────────────────────────────────────
