@@ -32,15 +32,19 @@ LUMO.md is organized into sections, each containing bullet points:
 
 Your job: given a completed task's memories (lessons learned during that task), propose structured operations to update LUMO.md.
 
-Rules:
-1. Only propose changes with project-level value. A one-off typo fix is not worth recording. A recurring pitfall that would burn another developer IS worth recording.
-2. Check existing LUMO.md content for overlap. If a similar entry already exists, either SKIP (no operation) or MODIFY to improve it. Never add a duplicate.
-3. If new experience contradicts an existing entry, SUPERSEDE the old one.
-4. Each bullet should be concise (1-2 sentences), stating WHAT and WHY.
-5. Every operation must include a rationale explaining your reasoning.
-6. If the task's memories contain nothing worth adding to project knowledge, return an empty operations array. This is perfectly fine.
-7. Use the same language as the existing LUMO.md content. If LUMO.md is empty, match the language of the task memories.
-8. The sourceTaskId for every operation must be the task identifier provided (e.g. "LUM-42").`
+Quality bar — be EXTREMELY selective:
+1. Only record knowledge that is NOT obvious from reading the code or spec. Implementation details visible in the source code are worthless here.
+2. Merge related memories into ONE entry. If 3 memories are about the same topic, produce 1 operation, not 3.
+3. Each entry must be 1-2 sentences max. State the conclusion and the reason, nothing else. No step-by-step instructions, no implementation walkthroughs.
+4. Aim for 3-6 operations per task. Most tasks produce 2-4 entries. If you're generating more than 6, you are almost certainly including things that don't belong.
+5. Procedures should be rare — only include a procedure if the workflow is non-obvious and cannot be found in the codebase. "How to implement X" is NEVER a valid procedure; the code shows that.
+
+Content rules:
+6. Check existing LUMO.md content for overlap. If a similar entry already exists, either SKIP or MODIFY. Never add a duplicate.
+7. If new experience contradicts an existing entry, SUPERSEDE the old one.
+8. If the task's memories contain nothing worth adding, return an empty operations array. This is perfectly fine — better empty than noisy.
+9. Use the same language as the existing LUMO.md content. If LUMO.md is empty, match the language of the task memories.
+10. The sourceTaskId for every operation must be the task identifier provided (e.g. "LUM-42").`
 
 // ── Prompt Builder ───────────────────────────────────────────────────────────
 
