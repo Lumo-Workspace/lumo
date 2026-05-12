@@ -109,14 +109,7 @@ export function AssigneeSelect({
             <span className='text-zinc-400'>No assignee</span>
           </div>
         </SelectItem>
-        {allAgents.map(a => (
-          <SelectItem key={a.actorId} value={a.actorId}>
-            <div className='flex items-center gap-2'>
-              <Bot size={14} className='text-violet-500 shrink-0' />
-              <span className='text-violet-500'>{a.name}</span>
-            </div>
-          </SelectItem>
-        ))}
+        {/* Agent options hidden — agent features disabled for now */}
         {members
           .filter(m => m.actorId)
           .map(m => (

@@ -17,7 +17,7 @@ import { DescriptionEditor } from './DescriptionEditor'
 import { AiDescriptionPrompt } from './AiDescriptionPrompt'
 import { TypographyH3 } from '@/components/ui/typography'
 import { Spinner } from '@/components/ui/spinner'
-import { AgentPanel } from '@/components/task/AgentPanel'
+// AgentPanel hidden — agent features disabled for now
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
@@ -236,7 +236,7 @@ export function TaskDetailPanel({
           ownerId={projectDefaultReviewerId}
           parent={task.parent}
           membersWithActorId={membersWithActorId}
-          agentActors={agentActors ?? []}
+          agentActors={[]}
           projects={projects}
           onPatch={handlePatch}
           onNavigateToParent={navigateToParent}
@@ -329,16 +329,7 @@ export function TaskDetailPanel({
           )}
         </div>
 
-        {task.assignee?.type === 'AGENT' && (
-          <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-            <AgentPanel
-              task={task}
-              onTaskUpdate={updates =>
-                setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
-              }
-            />
-          </div>
-        )}
+        {/* Agent Panel hidden — agent features disabled for now */}
 
         <CreateBranchDialog
           isOpen={createBranchOpen}

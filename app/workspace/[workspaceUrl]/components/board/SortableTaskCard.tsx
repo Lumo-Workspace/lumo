@@ -3,17 +3,12 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
-import {
-  AgentStatusValue,
-  ApiTask,
-  MyTask,
-  WorkspaceMemberInfo,
-} from '../../types'
+import { ApiTask, MyTask, WorkspaceMemberInfo } from '../../types'
 import { formatDueDate, isOverdue } from '../../utils'
 import { PriorityBadge } from '../PriorityBadge'
 import { MemberAvatar } from '../fields'
 import { getInitials } from '@/lib/utils/getInitials'
-import { UserCircle2, Bot } from 'lucide-react'
+import { UserCircle2 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import {
   HoverCard,
@@ -21,89 +16,6 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-
-// ─── Agent status helpers ──────────────────────────────────────────────────
-
-const NEEDS_YOU_STATUSES: AgentStatusValue[] = ['INPUT_REQUIRED', 'FAILED']
-
-function agentStatusLabel(
-  status: AgentStatusValue | null | undefined
-): string | null {
-  switch (status) {
-    case 'SUBMITTED':
-      return 'Ready'
-    case 'WORKING':
-      return 'Working...'
-    case 'INPUT_REQUIRED':
-      return 'Needs you'
-    case 'COMPLETED':
-      return 'Done'
-    case 'FAILED':
-      return 'Failed'
-    case 'CANCELED':
-      return 'Canceled'
-    default:
-      return null
-  }
-}
-
-function agentBadgeClasses(
-  status: AgentStatusValue | null | undefined
-): string {
-  switch (status) {
-    case 'SUBMITTED':
-      return 'bg-zinc-400'
-    case 'WORKING':
-      return 'bg-blue-500 animate-pulse'
-    case 'INPUT_REQUIRED':
-      return 'bg-yellow-500'
-    case 'COMPLETED':
-      return 'bg-green-500'
-    case 'FAILED':
-      return 'bg-red-500'
-    case 'CANCELED':
-      return 'bg-zinc-400'
-    default:
-      return 'bg-zinc-400'
-  }
-}
-
-function agentStatusTextClasses(
-  status: AgentStatusValue | null | undefined
-): string {
-  switch (status) {
-    case 'SUBMITTED':
-      return 'text-zinc-400'
-    case 'WORKING':
-      return 'text-blue-500 animate-pulse'
-    case 'INPUT_REQUIRED':
-      return 'text-orange-500 font-medium'
-    case 'COMPLETED':
-      return 'text-green-600'
-    case 'FAILED':
-      return 'text-red-500'
-    case 'CANCELED':
-      return 'text-zinc-400'
-    default:
-      return 'text-zinc-400'
-  }
-}
-
-/** 12px badge overlaid at bottom-right of the avatar */
-function AgentStatusBadge({
-  status,
-}: {
-  status: AgentStatusValue | null | undefined
-}) {
-  return (
-    <span
-      className={cn(
-        'absolute -bottom-0.5 -right-0.5 size-3 rounded-sm border-2 border-white dark:border-zinc-900',
-        agentBadgeClasses(status)
-      )}
-    />
-  )
-}
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -217,8 +129,8 @@ export function ProjectTaskCard({
   task,
   isOverlay,
   members,
-  currentActorId,
-  isOwner,
+  currentActorId: _currentActorId,
+  isOwner: _isOwner,
   onClick,
   onParentClick,
   dragMode,
@@ -226,23 +138,11 @@ export function ProjectTaskCard({
 }: ProjectTaskCardProps) {
   const assignee =
     members?.find(m => m.actorId === task.assigneeActorId) ?? null
-  const isAgent = task.assignee?.type === 'AGENT'
-  const label = isAgent ? agentStatusLabel(task.agentStatus) : null
-
-  // Orange border: INPUT_REQUIRED → reviewer or owner
-  const needsAttention =
-    isAgent &&
-    task.agentStatus != null &&
-    NEEDS_YOU_STATUSES.includes(task.agentStatus) &&
-    (task.agentStatus === 'FAILED'
-      ? !!isOwner
-      : currentActorId === task.reviewerActorId || !!isOwner)
 
   return (
     <CardShell
       taskId={task.id}
       isOverlay={isOverlay}
-      needsAttention={needsAttention}
       onClick={onClick}
       {...(dragMode ? { dragMode } : {})}
       {...(dragData ? { dragData } : {})}
@@ -289,18 +189,8 @@ export function ProjectTaskCard({
         </div>
       )}
       <div className='flex justify-between items-center'>
-        {/* ── Left: avatar + agent badge ── */}
-        {isAgent ? (
-          <div className='relative shrink-0'>
-            <div
-              className='flex items-center justify-center size-5 rounded-full bg-violet-100 dark:bg-violet-900/40'
-              title='Lumo Agent'
-            >
-              <Bot size={11} className='text-violet-600 dark:text-violet-400' />
-            </div>
-            <AgentStatusBadge status={task.agentStatus} />
-          </div>
-        ) : assignee ? (
+        {/* ── Left: avatar ── */}
+        {assignee ? (
           <HoverCard openDelay={200}>
             <HoverCardTrigger asChild>
               <span
@@ -340,30 +230,19 @@ export function ProjectTaskCard({
           <UserCircle2 size={16} className='text-zinc-300 dark:text-zinc-600' />
         )}
 
-        {/* ── Right: status text or date ── */}
-        {isAgent && label ? (
-          <span
-            className={cn(
-              'text-[10px]',
-              agentStatusTextClasses(task.agentStatus)
-            )}
-          >
-            {label}
-          </span>
-        ) : (
-          <span
-            className={cn(
-              'text-[10px]',
-              task.dueDate && isOverdue(task.dueDate)
-                ? 'text-red-500 font-medium'
-                : 'text-zinc-400'
-            )}
-          >
-            {task.dueDate
-              ? `Due ${formatDueDate(task.dueDate)}`
-              : `Created ${new Date(task.updatedAt).toLocaleDateString()}`}
-          </span>
-        )}
+        {/* ── Right: date ── */}
+        <span
+          className={cn(
+            'text-[10px]',
+            task.dueDate && isOverdue(task.dueDate)
+              ? 'text-red-500 font-medium'
+              : 'text-zinc-400'
+          )}
+        >
+          {task.dueDate
+            ? `Due ${formatDueDate(task.dueDate)}`
+            : `Created ${new Date(task.updatedAt).toLocaleDateString()}`}
+        </span>
       </div>
     </CardShell>
   )
@@ -379,8 +258,6 @@ interface MyTaskCardProps {
 
 export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
   const projectName = task.project?.name
-  const isAgent = task.assignee?.type === 'AGENT'
-  const label = isAgent ? agentStatusLabel(task.agentStatus) : null
 
   return (
     <CardShell taskId={task.id} isOverlay={isOverlay} onClick={onClick}>
@@ -416,29 +293,18 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
         <span className='text-[10px] text-zinc-400 truncate max-w-[140px]'>
           {projectName}
         </span>
-        {isAgent && label ? (
-          <span
-            className={cn(
-              'text-[10px]',
-              agentStatusTextClasses(task.agentStatus)
-            )}
-          >
-            {label}
-          </span>
-        ) : (
-          <span
-            className={cn(
-              'text-[10px]',
-              task.dueDate && isOverdue(task.dueDate)
-                ? 'text-red-500 font-medium'
-                : 'text-zinc-400'
-            )}
-          >
-            {task.dueDate
-              ? `Due ${formatDueDate(task.dueDate)}`
-              : new Date(task.updatedAt).toLocaleDateString()}
-          </span>
-        )}
+        <span
+          className={cn(
+            'text-[10px]',
+            task.dueDate && isOverdue(task.dueDate)
+              ? 'text-red-500 font-medium'
+              : 'text-zinc-400'
+          )}
+        >
+          {task.dueDate
+            ? `Due ${formatDueDate(task.dueDate)}`
+            : new Date(task.updatedAt).toLocaleDateString()}
+        </span>
       </div>
     </CardShell>
   )

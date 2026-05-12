@@ -16,11 +16,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { getInitials } from '@/lib/utils/getInitials'
-import {
-  AgentClarifyWidget,
-  AgentVerifyWidget,
-  AgentAuthorizeWidget,
-} from './AgentWidgets'
+// Agent widgets hidden — agent features disabled for now
 import type { NotificationItemProps } from './types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,7 +58,7 @@ export function NotificationItem({
   onMarkUnread,
   onDelete,
   onTaskAction,
-  onRespond,
+  onRespond: _onRespond,
 }: NotificationItemProps) {
   const intlLocal = useIntl()
   const { actor, task, sprint, type, commentPreview, createdAt, read } =
@@ -92,33 +88,9 @@ export function NotificationItem({
       id: 'notification.verb.taskAssigned',
       defaultMessage: 'assigned you to',
     }),
-    TASK_SPEC_READY: intlLocal.formatMessage({
-      id: 'notification.verb.taskSpecReady',
-      defaultMessage: 'generated a spec draft for',
-    }),
     TASK_MENTIONED: intlLocal.formatMessage({
       id: 'notification.verb.taskMentioned',
       defaultMessage: 'mentioned you in',
-    }),
-    AGENT_CLARIFY: intlLocal.formatMessage({
-      id: 'notification.verb.agentClarify',
-      defaultMessage: 'has a question about',
-    }),
-    AGENT_AUTHORIZE: intlLocal.formatMessage({
-      id: 'notification.verb.agentAuthorize',
-      defaultMessage: 'needs your approval for',
-    }),
-    AGENT_VERIFY: intlLocal.formatMessage({
-      id: 'notification.verb.agentVerify',
-      defaultMessage: 'completed work on',
-    }),
-    AGENT_FAILED: intlLocal.formatMessage({
-      id: 'notification.verb.agentFailed',
-      defaultMessage: 'failed on',
-    }),
-    AGENT_DONE: intlLocal.formatMessage({
-      id: 'notification.verb.agentDone',
-      defaultMessage: 'finished work on',
     }),
     SPRINT_STARTED: intlLocal.formatMessage({
       id: 'notification.verb.sprintStarted',
@@ -230,29 +202,7 @@ export function NotificationItem({
 
             <p className='text-[10px] text-muted-foreground'>{timeAgo}</p>
 
-            {/* AGENT_CLARIFY: inline reply widget */}
-            {type === 'AGENT_CLARIFY' && pendingAction && (
-              <AgentClarifyWidget
-                notification={notification}
-                onRespond={(id, action, reply) => onRespond(id, action, reply)}
-              />
-            )}
-
-            {/* AGENT_AUTHORIZE: approve / deny buttons */}
-            {type === 'AGENT_AUTHORIZE' && pendingAction && (
-              <AgentAuthorizeWidget
-                notification={notification}
-                onRespond={(id, action) => onRespond(id, action)}
-              />
-            )}
-
-            {/* AGENT_VERIFY: confirm / send back buttons */}
-            {type === 'AGENT_VERIFY' && pendingAction && (
-              <AgentVerifyWidget
-                notification={notification}
-                onRespond={(id, action) => onRespond(id, action)}
-              />
-            )}
+            {/* Agent notification widgets hidden — agent features disabled for now */}
 
             {/* TASK_IN_REVIEW: done / send back task status buttons */}
             {wasUnreadOnMount && type === 'TASK_IN_REVIEW' && (

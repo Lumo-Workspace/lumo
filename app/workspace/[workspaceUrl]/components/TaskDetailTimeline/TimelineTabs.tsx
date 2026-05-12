@@ -24,9 +24,6 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
     enabled: activeTab === 'activity',
   })
 
-  // Fetch agent-run summary for the badge even when the tab is not active,
-  // so users can see "+N memories" without clicking through. Cheap query —
-  // it returns just the per-session counts, not full event payloads.
   const agentRuns = useAgentRuns({ taskId, enabled: true })
   const newMemoryCount =
     agentRuns.data?.runs.reduce((sum, r) => sum + r.memoryCount, 0) ?? 0

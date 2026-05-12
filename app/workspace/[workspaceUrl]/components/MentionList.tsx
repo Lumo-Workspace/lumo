@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Bot } from 'lucide-react'
+// Bot icon removed — agent features disabled for now
 import { StatusIcon } from './StatusIcon'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,7 @@ export type MentionItem =
       title: string
       status: string
     }
-  | { type: 'agent'; id: '__agent__'; label: string }
+// agent mention type hidden — agent features disabled for now
 
 interface MentionListProps {
   items: MentionItem[]
@@ -56,8 +56,6 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           mentionTitle: item.title,
           mentionStatus: item.status,
         })
-      } else if (item.type === 'agent') {
-        command({ id: '__agent__', label: item.label, mentionType: 'agent' })
       } else {
         command({ id: item.id, label: item.label, mentionType: 'user' })
       }
@@ -85,12 +83,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       return <div className='px-3 py-2 text-xs text-zinc-400'>No results</div>
     }
 
-    const agents = items.filter(i => i.type === 'agent')
     const users = items.filter(i => i.type === 'user')
     const tasks = items.filter(i => i.type === 'task')
-    const agentOffset = 0
-    const userOffset = agents.length
-    const taskOffset = agents.length + users.length
+    const userOffset = 0
+    const taskOffset = users.length
 
     const renderItem = (item: MentionItem, flatIndex: number) => {
       const isSelected = flatIndex === selectedIndex
@@ -100,29 +96,6 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           ? 'bg-zinc-100 dark:bg-zinc-800'
           : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
       )
-
-      if (item.type === 'agent') {
-        return (
-          <button
-            key='agent'
-            type='button'
-            onPointerDown={e => {
-              e.preventDefault()
-              selectItem(flatIndex)
-            }}
-            onMouseEnter={() => setSelectedIndex(flatIndex)}
-            className={rowCls}
-          >
-            <Bot
-              size={14}
-              className='text-violet-600 dark:text-violet-400 shrink-0'
-            />
-            <span className='text-violet-600 dark:text-violet-400'>
-              {item.label}
-            </span>
-          </button>
-        )
-      }
 
       if (item.type === 'user') {
         const initials = item.label
@@ -177,23 +150,9 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     return (
       <div className='py-1'>
-        {agents.length > 0 && (
-          <>
-            <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
-              Agent
-            </div>
-            {agents.map((item, i) => renderItem(item, agentOffset + i))}
-          </>
-        )}
         {users.length > 0 && (
           <>
-            <div
-              className={cn(
-                'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400',
-                agents.length > 0 &&
-                  'mt-1 border-t border-zinc-100 dark:border-zinc-800 pt-2'
-              )}
-            >
+            <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
               Users
             </div>
             {users.map((item, i) => renderItem(item, userOffset + i))}
@@ -204,7 +163,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             <div
               className={cn(
                 'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400',
-                (agents.length > 0 || users.length > 0) &&
+                users.length > 0 &&
                   'mt-1 border-t border-zinc-100 dark:border-zinc-800 pt-2'
               )}
             >

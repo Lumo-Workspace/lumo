@@ -27,7 +27,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
 import { DescriptionEditor } from '../DescriptionEditor'
-import { AgentPanel } from '@/components/task/AgentPanel'
+// AgentPanel hidden — agent features disabled for now
 import { useTaskComments } from '../../hooks/useTaskComments'
 import { useTaskMutation } from '../../hooks/useTaskMutation'
 import { useTaskDescription } from '../../hooks/useTaskDescription'
@@ -293,23 +293,7 @@ export function TaskDetailPage({
               />
             )}
 
-            {/* Spec */}
-            <div className='mt-8'>
-              <div className='flex items-center gap-2 mb-2'>
-                <span className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider'>
-                  {intl.formatMessage({ id: 'task.spec' })}
-                </span>
-                <span className='text-[10px] font-medium text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded px-1.5 py-0.5 leading-none'>
-                  {intl.formatMessage({ id: 'task.agentReadsThis' })}
-                </span>
-              </div>
-              <DescriptionEditor
-                value={task.spec ?? null}
-                onCommit={actions.commitSpec}
-                placeholder={intl.formatMessage({ id: 'task.specPlaceholder' })}
-                members={mentionableMembers}
-              />
-            </div>
+            {/* Spec — hidden: agent features disabled for now */}
 
             {/* Sub-tasks */}
             {(initialTask.children?.length ?? 0) > 0 && (
@@ -341,17 +325,7 @@ export function TaskDetailPage({
               </div>
             )}
 
-            {/* Agent Panel */}
-            {task.assignee?.type === 'AGENT' && (
-              <div className='mt-8'>
-                <AgentPanel
-                  task={task}
-                  onTaskUpdate={updates =>
-                    setTask(prev => ({ ...prev, ...updates }) as TaskDetail)
-                  }
-                />
-              </div>
-            )}
+            {/* Agent Panel — hidden: agent features disabled for now */}
 
             {/* Activity / Comments Timeline */}
             <TimelineTabs

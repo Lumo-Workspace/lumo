@@ -67,7 +67,7 @@ interface TaskDetailSidebarProps {
 export function TaskDetailSidebar({
   task,
   members,
-  agentActors,
+  agentActors: _agentActors,
   projects,
   copiedBranchId,
   createBranchOpen,
@@ -121,7 +121,7 @@ export function TaskDetailSidebar({
                     (m): m is WorkspaceMemberInfo & { actorId: string } =>
                       m.actorId !== null
                   )}
-                  agentActors={agentActors}
+                  agentActors={[]}
                   assignee={task.assignee}
                   triggerClassName={FIELD_TRIGGER_CLS}
                 />
@@ -326,24 +326,6 @@ export function TaskDetailSidebar({
         {task.pullRequests && task.pullRequests.length > 0 ? (
           <ul className='space-y-2.5'>
             {task.pullRequests.map(pr => {
-              const relatedRun = task.agentRuns?.find(
-                r => r.prNumber === pr.number
-              )
-              const runLabel = relatedRun
-                ? intl.formatMessage(
-                    { id: 'task.sessionNumber' },
-                    { number: relatedRun.runNumber }
-                  )
-                : null
-              const runStatusLabel =
-                relatedRun?.status === 'FAILED'
-                  ? ` · ${intl.formatMessage({ id: 'task.prFailed' })}`
-                  : relatedRun?.status === 'CANCELED'
-                    ? ` · ${intl.formatMessage({ id: 'task.prCanceled' })}`
-                    : relatedRun?.errorCode === 'TIMEOUT'
-                      ? ` · ${intl.formatMessage({ id: 'task.prTimedOut' })}`
-                      : null
-
               return (
                 <li key={pr.id} className='flex items-start gap-2 group'>
                   <CiIcon status={pr.ciStatus} />
@@ -358,16 +340,6 @@ export function TaskDetailSidebar({
                     </a>
                     <div className='flex items-center gap-1.5 mt-1'>
                       <PrStateBadge state={pr.state} />
-                      {runLabel && (
-                        <span className='text-[10px] text-zinc-400'>
-                          {runLabel}
-                          {runStatusLabel && (
-                            <span className='text-zinc-400'>
-                              {runStatusLabel}
-                            </span>
-                          )}
-                        </span>
-                      )}
                     </div>
                   </div>
                   <button
