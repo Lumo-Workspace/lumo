@@ -44,7 +44,7 @@ jest.mock('@/lib/crypto', () => ({
   decrypt: jest.fn((v: string) => `decrypted:${v}`),
 }))
 
-import { POST } from '@/app/api/tasks/[taskId]/lumo-proposals/route'
+import { POST } from '@/app/api/tasks/[id]/lumo-proposals/route'
 import { requireAuth } from '@/lib/auth'
 import { requireTaskMember } from '@/lib/api/helpers'
 import { taskRepository } from '@/lib/repositories/task.repository'
@@ -54,8 +54,8 @@ import { githubTreeService } from '@/lib/services/lumo-sync/github-tree.service'
 import { lumoProposalService } from '@/lib/services/lumo-proposal/lumo-proposal.service'
 import { NextResponse } from 'next/server'
 
-function makeParams(taskId: string): { params: Promise<{ taskId: string }> } {
-  return { params: Promise.resolve({ taskId }) }
+function makeParams(taskId: string): { params: Promise<{ id: string }> } {
+  return { params: Promise.resolve({ id: taskId }) }
 }
 
 const TASK = {
@@ -90,7 +90,7 @@ const PROPOSAL = {
 
 beforeEach(() => jest.clearAllMocks())
 
-describe('POST /api/tasks/[taskId]/lumo-proposals', () => {
+describe('POST /api/tasks/[id]/lumo-proposals', () => {
   it('returns 401 when not authenticated', async () => {
     ;(requireAuth as jest.Mock).mockResolvedValue(
       NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })

@@ -10,14 +10,14 @@ import { decrypt } from '@/lib/crypto'
 
 export async function POST(
   _request: Request,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
 
-    const { taskId } = await params
+    const { id: taskId } = await params
 
     // Load task and verify workspace membership
     const task = await taskRepository.findForMemoryContext(taskId)
