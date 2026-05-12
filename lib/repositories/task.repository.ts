@@ -320,8 +320,10 @@ export const taskRepository = {
         id: true,
         title: true,
         description: true,
+        number: true,
         projectId: true,
         project: { select: { workspaceId: true } },
+        team: { select: { identifier: true } },
       },
     })
   },
