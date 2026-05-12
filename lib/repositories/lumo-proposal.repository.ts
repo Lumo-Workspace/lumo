@@ -36,7 +36,11 @@ export const lumoProposalRepository = {
     })
   },
 
-  async updateStatus(id: string, status: LumoProposalStatus, appliedAt?: Date) {
+  async updateStatus(
+    id: string,
+    status: LumoProposalStatus,
+    appliedAt: Date | null = null
+  ) {
     return prisma.lumoProposal.update({
       where: { id },
       data: { status, appliedAt },
