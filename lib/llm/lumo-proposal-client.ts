@@ -74,17 +74,19 @@ Every proposed entry must pass all four tests. If any test fails, do NOT add the
 
 ## Summary Rules
 
-The summary field must be specific and actionable, not a vague excuse.
+The summary is displayed in a small UI dialog. Keep it concise.
 
-When operations are empty, the summary MUST:
-- Reference the task identifier (e.g. "LUM-36")
-- Name the specific exclusion tests that memories failed (CLAUDE.md test, code readability, impact test, etc.)
-- Briefly categorize what the memories actually contained (e.g. "implementation details", "day-1 declarable decisions", "code-readable patterns")
+When operations are empty, write exactly 2-3 SHORT sentences:
+1. State no operations proposed + the task identifier
+2. Categorize what the memories contained in broad terms (e.g. "implementation details", "code-readable patterns", "day-1 declarable decisions")
+3. Name 1-2 exclusion tests that failed
 
-BAD: "No operations — all memories are meta-rules about LUMO.md itself."
-GOOD: "No operations proposed — all LUM-36 memories describe implementation details or design decisions that are either code-readable or already documented in the specification, and none pass the CLAUDE.md test or impact test for LUMO.md inclusion."
+Maximum 50 words total. Do NOT analyze individual memories.
 
-When operations are non-empty, the summary should be a one-sentence description of the proposed changes.`
+GOOD: "No operations proposed — LUM-38 memories describe implementation details and day-1 declarable conventions. None pass the code readability or CLAUDE.md test."
+BAD (too long): "No operations proposed — all LUM-38 memories describe meta-rules about LUMO.md itself (exclusion tests, memory admission criteria, memory structure conventions) or implementation details that are code-readable (localization via react-intl hooks, 16 JSON locale files)..."
+
+When operations are non-empty, write one sentence summarizing the proposed changes.`
 
 // ── Prompt Builder ───────────────────────────────────────────────────────────
 
