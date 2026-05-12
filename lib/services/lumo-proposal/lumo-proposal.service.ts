@@ -39,7 +39,7 @@ export const lumoProposalService = {
       summary,
     })
 
-    return proposal
+    return { ...proposal, operations, summary }
   },
 
   async applyProposal(proposalId: string, lumoMdPath: string) {
