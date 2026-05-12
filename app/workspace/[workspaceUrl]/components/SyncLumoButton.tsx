@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { lumoSyncClient } from '@/lib/api-client/lumo-sync'
@@ -20,6 +21,7 @@ interface SyncLumoButtonProps {
 }
 
 export function SyncLumoButton({ taskId }: SyncLumoButtonProps) {
+  const intl = useIntl()
   const [state, setState] = useState<SyncState>('idle')
   const [proposal, setProposal] = useState<ProposalPreview | null>(null)
 
@@ -31,7 +33,9 @@ export function SyncLumoButton({ taskId }: SyncLumoButtonProps) {
       setState('previewing')
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to generate proposal'
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({ id: 'lumo.sync.generateFailed' })
       )
       setState('idle')
     }
@@ -42,13 +46,15 @@ export function SyncLumoButton({ taskId }: SyncLumoButtonProps) {
     setState('syncing')
     try {
       const result = await lumoSyncClient.sync(proposal.id)
-      toast.success('PR created successfully')
+      toast.success(intl.formatMessage({ id: 'lumo.sync.prCreated' }))
       window.open(result.prUrl, '_blank')
       setState('idle')
       setProposal(null)
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to create PR'
+        error instanceof Error
+          ? error.message
+          : intl.formatMessage({ id: 'lumo.sync.syncFailed' })
       )
       setState('previewing')
     }
@@ -70,7 +76,9 @@ export function SyncLumoButton({ taskId }: SyncLumoButtonProps) {
           size={12}
           className={state === 'generating' ? 'animate-spin' : ''}
         />
-        {state === 'generating' ? 'Generating proposal...' : 'Sync to LUMO.md'}
+        {state === 'generating'
+          ? intl.formatMessage({ id: 'lumo.sync.generating' })
+          : intl.formatMessage({ id: 'lumo.sync.button' })}
       </button>
 
       <SyncLumoPreviewDialog

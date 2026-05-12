@@ -893,5 +893,14 @@
   "memory.unparseable": "（记忆内容无法解析）",
   "memory.field.scope": "适用范围：{value}",
   "memory.field.alternatives": "考虑过的替代方案：{value}",
-  "memory.field.implications": "后续影响：{value}"
+  "memory.field.implications": "后续影响：{value}",
+
+  "lumo.sync.button": "同步到 LUMO.md",
+  "lumo.sync.generating": "正在生成提案…",
+  "lumo.sync.dialogTitle": "同步到 LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "确认并创建 PR",
+  "lumo.sync.creatingPr": "正在创建 PR…",
+  "lumo.sync.prCreated": "PR 创建成功",
+  "lumo.sync.generateFailed": "提案生成失败",
+  "lumo.sync.syncFailed": "PR 创建失败"
 }

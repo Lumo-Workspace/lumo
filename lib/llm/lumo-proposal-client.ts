@@ -70,7 +70,21 @@ Every proposed entry must pass all four tests. If any test fails, do NOT add the
 5. If new experience contradicts an existing entry, SUPERSEDE the old one.
 6. If the task's memories contain nothing worth adding, return an empty operations array. This is perfectly fine — better empty than noisy.
 7. Use the same language as the existing LUMO.md content. If LUMO.md is empty, match the language of the task memories.
-8. The sourceTaskId for every operation must be the task identifier provided (e.g. "LUM-42").`
+8. The sourceTaskId for every operation must be the task identifier provided (e.g. "LUM-42").
+
+## Summary Rules
+
+The summary field must be specific and actionable, not a vague excuse.
+
+When operations are empty, the summary MUST:
+- Reference the task identifier (e.g. "LUM-36")
+- Name the specific exclusion tests that memories failed (CLAUDE.md test, code readability, impact test, etc.)
+- Briefly categorize what the memories actually contained (e.g. "implementation details", "day-1 declarable decisions", "code-readable patterns")
+
+BAD: "No operations — all memories are meta-rules about LUMO.md itself."
+GOOD: "No operations proposed — all LUM-36 memories describe implementation details or design decisions that are either code-readable or already documented in the specification, and none pass the CLAUDE.md test or impact test for LUMO.md inclusion."
+
+When operations are non-empty, the summary should be a one-sentence description of the proposed changes.`
 
 // ── Prompt Builder ───────────────────────────────────────────────────────────
 

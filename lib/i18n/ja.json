@@ -850,5 +850,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree が作成されました",
   "agentRun.event.worktreeRemoveFallback": "Worktree が削除されました",
   "agentRun.event.fileChangedFallback": "ファイルが変更されました",
-  "agentRun.event.configChangeFallback": "設定が変更されました"
+  "agentRun.event.configChangeFallback": "設定が変更されました",
+  "lumo.sync.button": "LUMO.md に同期",
+  "lumo.sync.generating": "提案を生成中…",
+  "lumo.sync.dialogTitle": "LUMO.md に同期",
+  "lumo.sync.confirmAndCreatePr": "確認して PR を作成",
+  "lumo.sync.creatingPr": "PR を作成中…",
+  "lumo.sync.prCreated": "PR が正常に作成されました",
+  "lumo.sync.generateFailed": "提案の生成に失敗しました",
+  "lumo.sync.syncFailed": "PR の作成に失敗しました"
 }

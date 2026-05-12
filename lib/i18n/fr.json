@@ -850,5 +850,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree créé",
   "agentRun.event.worktreeRemoveFallback": "Worktree supprimé",
   "agentRun.event.fileChangedFallback": "Fichier modifié",
-  "agentRun.event.configChangeFallback": "Config modifiée"
+  "agentRun.event.configChangeFallback": "Config modifiée",
+  "lumo.sync.button": "Synchroniser avec LUMO.md",
+  "lumo.sync.generating": "Génération de la proposition…",
+  "lumo.sync.dialogTitle": "Synchroniser avec LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "Confirmer et créer la PR",
+  "lumo.sync.creatingPr": "Création de la PR…",
+  "lumo.sync.prCreated": "PR créée avec succès",
+  "lumo.sync.generateFailed": "Échec de la génération de la proposition",
+  "lumo.sync.syncFailed": "Échec de la création de la PR"
 }

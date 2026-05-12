@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { useIntl } from 'react-intl'
 import type { ProposalOperation } from '@/lib/validation/lumo-proposal.schema'
 
 interface ProposalPreview {
@@ -55,6 +56,8 @@ export function SyncLumoPreviewDialog({
   onConfirm,
   onCancel,
 }: SyncLumoPreviewDialogProps) {
+  const intl = useIntl()
+
   if (!proposal) return null
 
   const hasOperations = proposal.operations.length > 0
@@ -68,7 +71,9 @@ export function SyncLumoPreviewDialog({
     >
       <DialogContent className='max-w-lg'>
         <DialogHeader>
-          <DialogTitle>Sync to LUMO.md</DialogTitle>
+          <DialogTitle>
+            {intl.formatMessage({ id: 'lumo.sync.dialogTitle' })}
+          </DialogTitle>
         </DialogHeader>
 
         <div className='space-y-3'>
@@ -105,22 +110,22 @@ export function SyncLumoPreviewDialog({
           {hasOperations ? (
             <>
               <Button variant='outline' onClick={onCancel} disabled={syncing}>
-                Cancel
+                {intl.formatMessage({ id: 'common.cancel' })}
               </Button>
               <Button onClick={onConfirm} disabled={syncing}>
                 {syncing ? (
                   <>
                     <Loader2 size={14} className='animate-spin mr-1.5' />
-                    Creating PR...
+                    {intl.formatMessage({ id: 'lumo.sync.creatingPr' })}
                   </>
                 ) : (
-                  'Confirm & Create PR'
+                  intl.formatMessage({ id: 'lumo.sync.confirmAndCreatePr' })
                 )}
               </Button>
             </>
           ) : (
             <Button variant='outline' onClick={onCancel}>
-              Close
+              {intl.formatMessage({ id: 'common.close' })}
             </Button>
           )}
         </DialogFooter>

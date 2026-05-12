@@ -893,5 +893,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree 已建立",
   "agentRun.event.worktreeRemoveFallback": "Worktree 已移除",
   "agentRun.event.fileChangedFallback": "檔案已變更",
-  "agentRun.event.configChangeFallback": "設定已變更"
+  "agentRun.event.configChangeFallback": "設定已變更",
+  "lumo.sync.button": "同步到 LUMO.md",
+  "lumo.sync.generating": "正在產生提案…",
+  "lumo.sync.dialogTitle": "同步到 LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "確認並建立 PR",
+  "lumo.sync.creatingPr": "正在建立 PR…",
+  "lumo.sync.prCreated": "PR 建立成功",
+  "lumo.sync.generateFailed": "提案產生失敗",
+  "lumo.sync.syncFailed": "PR 建立失敗"
 }

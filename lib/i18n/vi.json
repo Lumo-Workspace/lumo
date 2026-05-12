@@ -850,5 +850,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree đã tạo",
   "agentRun.event.worktreeRemoveFallback": "Worktree đã xóa",
   "agentRun.event.fileChangedFallback": "File đã thay đổi",
-  "agentRun.event.configChangeFallback": "Config đã thay đổi"
+  "agentRun.event.configChangeFallback": "Config đã thay đổi",
+  "lumo.sync.button": "Đồng bộ với LUMO.md",
+  "lumo.sync.generating": "Đang tạo đề xuất…",
+  "lumo.sync.dialogTitle": "Đồng bộ với LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "Xác nhận & Tạo PR",
+  "lumo.sync.creatingPr": "Đang tạo PR…",
+  "lumo.sync.prCreated": "PR đã được tạo thành công",
+  "lumo.sync.generateFailed": "Không thể tạo đề xuất",
+  "lumo.sync.syncFailed": "Không thể tạo PR"
 }

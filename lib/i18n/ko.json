@@ -850,5 +850,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree 생성됨",
   "agentRun.event.worktreeRemoveFallback": "Worktree 제거됨",
   "agentRun.event.fileChangedFallback": "파일 변경됨",
-  "agentRun.event.configChangeFallback": "Config 변경됨"
+  "agentRun.event.configChangeFallback": "Config 변경됨",
+  "lumo.sync.button": "LUMO.md에 동기화",
+  "lumo.sync.generating": "제안 생성 중…",
+  "lumo.sync.dialogTitle": "LUMO.md에 동기화",
+  "lumo.sync.confirmAndCreatePr": "확인 및 PR 생성",
+  "lumo.sync.creatingPr": "PR 생성 중…",
+  "lumo.sync.prCreated": "PR이 성공적으로 생성되었습니다",
+  "lumo.sync.generateFailed": "제안 생성 실패",
+  "lumo.sync.syncFailed": "PR 생성 실패"
 }

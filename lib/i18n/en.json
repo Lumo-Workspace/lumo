@@ -893,5 +893,14 @@
   "memory.unparseable": "(unparseable memory content)",
   "memory.field.scope": "Scope: {value}",
   "memory.field.alternatives": "Alternatives considered: {value}",
-  "memory.field.implications": "Implications: {value}"
+  "memory.field.implications": "Implications: {value}",
+
+  "lumo.sync.button": "Sync to LUMO.md",
+  "lumo.sync.generating": "Generating proposal…",
+  "lumo.sync.dialogTitle": "Sync to LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "Confirm & Create PR",
+  "lumo.sync.creatingPr": "Creating PR…",
+  "lumo.sync.prCreated": "PR created successfully",
+  "lumo.sync.generateFailed": "Failed to generate proposal",
+  "lumo.sync.syncFailed": "Failed to create PR"
 }

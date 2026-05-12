@@ -850,5 +850,13 @@
   "agentRun.event.worktreeCreateFallback": "Worktree dibuat",
   "agentRun.event.worktreeRemoveFallback": "Worktree dihapus",
   "agentRun.event.fileChangedFallback": "File berubah",
-  "agentRun.event.configChangeFallback": "Config berubah"
+  "agentRun.event.configChangeFallback": "Config berubah",
+  "lumo.sync.button": "Sinkronkan ke LUMO.md",
+  "lumo.sync.generating": "Membuat proposal…",
+  "lumo.sync.dialogTitle": "Sinkronkan ke LUMO.md",
+  "lumo.sync.confirmAndCreatePr": "Konfirmasi & Buat PR",
+  "lumo.sync.creatingPr": "Membuat PR…",
+  "lumo.sync.prCreated": "PR berhasil dibuat",
+  "lumo.sync.generateFailed": "Gagal membuat proposal",
+  "lumo.sync.syncFailed": "Gagal membuat PR"
 }
