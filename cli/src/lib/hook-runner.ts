@@ -38,6 +38,15 @@ export type HookPath =
   | 'worktree-remove'
   | 'file-changed'
   | 'config-change'
+  | 'task-created'
+  | 'task-completed'
+  | 'post-tool-batch'
+  | 'user-prompt-expansion'
+  | 'notification'
+  | 'elicitation'
+  | 'elicitation-result'
+  | 'cwd-changed'
+  | 'instructions-loaded'
 
 /**
  * Read the full hook JSON from stdin.

@@ -87,6 +87,57 @@
       {
         "hooks": [{ "type": "command", "command": "lumo hook config-change" }]
       }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook task-created" }]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook task-completed" }]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook post-tool-batch" }]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook user-prompt-expansion" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook notification" }]
+      }
+    ],
+    "Elicitation": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook elicitation" }]
+      }
+    ],
+    "ElicitationResult": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook elicitation-result" }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [{ "type": "command", "command": "lumo hook cwd-changed" }]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          { "type": "command", "command": "lumo hook instructions-loaded" }
+        ]
+      }
     ]
   }
 }

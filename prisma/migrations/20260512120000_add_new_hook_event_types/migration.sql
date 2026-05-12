@@ -1,0 +1,10 @@
+-- AlterEnum: add task, batch, expansion, notification, elicitation, cwd, and instructions hook events.
+ALTER TYPE "HookEventType" ADD VALUE 'TASK_CREATED';
+ALTER TYPE "HookEventType" ADD VALUE 'TASK_COMPLETED';
+ALTER TYPE "HookEventType" ADD VALUE 'POST_TOOL_BATCH';
+ALTER TYPE "HookEventType" ADD VALUE 'USER_PROMPT_EXPANSION';
+ALTER TYPE "HookEventType" ADD VALUE 'NOTIFICATION';
+ALTER TYPE "HookEventType" ADD VALUE 'ELICITATION';
+ALTER TYPE "HookEventType" ADD VALUE 'ELICITATION_RESULT';
+ALTER TYPE "HookEventType" ADD VALUE 'CWD_CHANGED';
+ALTER TYPE "HookEventType" ADD VALUE 'INSTRUCTIONS_LOADED';

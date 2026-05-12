@@ -200,6 +200,69 @@ hook
   )
   .action(wrap(() => hookCommand('config-change')))
 
+hook
+  .command('task-created')
+  .description(
+    'Forward a TaskCreated hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('task-created')))
+
+hook
+  .command('task-completed')
+  .description(
+    'Forward a TaskCompleted hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('task-completed')))
+
+hook
+  .command('post-tool-batch')
+  .description(
+    'Forward a PostToolBatch hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('post-tool-batch')))
+
+hook
+  .command('user-prompt-expansion')
+  .description(
+    'Forward a UserPromptExpansion hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('user-prompt-expansion')))
+
+hook
+  .command('notification')
+  .description(
+    'Forward a Notification hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('notification')))
+
+hook
+  .command('elicitation')
+  .description(
+    'Forward an Elicitation hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('elicitation')))
+
+hook
+  .command('elicitation-result')
+  .description(
+    'Forward an ElicitationResult hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('elicitation-result')))
+
+hook
+  .command('cwd-changed')
+  .description(
+    'Forward a CwdChanged hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('cwd-changed')))
+
+hook
+  .command('instructions-loaded')
+  .description(
+    'Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)'
+  )
+  .action(wrap(() => hookCommand('instructions-loaded')))
+
 program.parseAsync(process.argv).catch(err => {
   const msg = err instanceof Error ? err.message : String(err)
   console.error(`Error: ${msg}`)
