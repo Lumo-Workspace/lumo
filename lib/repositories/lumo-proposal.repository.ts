@@ -47,4 +47,17 @@ export const lumoProposalRepository = {
       select: { id: true },
     })
   },
+
+  async updateSyncResult(
+    id: string,
+    status: LumoProposalStatus,
+    appliedAt: Date,
+    prUrl: string
+  ) {
+    return prisma.lumoProposal.update({
+      where: { id },
+      data: { status, appliedAt, prUrl },
+      select: { id: true },
+    })
+  },
 }

@@ -7,6 +7,7 @@ import {
   ExternalLink,
   GitPullRequest,
   GitBranch,
+  RefreshCw,
   X,
 } from 'lucide-react'
 import type {
@@ -23,6 +24,7 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from './fields'
+import { SyncLumoButton } from './SyncLumoButton'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { UnlinkBranchDialog } from './UnlinkBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
@@ -358,6 +360,15 @@ export function TaskDetailSidebar({
             {intl.formatMessage({ id: 'task.noPullRequests' })}
           </p>
         )}
+      </div>
+
+      {/* ── Sync LUMO.md ─────────────────────────────────────────── */}
+      <div className='pt-3'>
+        <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-2'>
+          <RefreshCw size={12} />
+          LUMO.md
+        </p>
+        <SyncLumoButton taskId={task.id} />
       </div>
 
       {unlinkBranch && (

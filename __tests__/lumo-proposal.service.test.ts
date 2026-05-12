@@ -110,7 +110,11 @@ describe('lumoProposalService.generateProposal', () => {
       lumoMdSnapshot: '# LUMO.md\n',
       summary: 'Added SSO trap',
     })
-    expect(result).toEqual({ id: 'prop-1' })
+    expect(result).toEqual({
+      id: 'prop-1',
+      operations: expect.any(Array),
+      summary: 'Added SSO trap',
+    })
   })
 
   it('throws 404 when task not found', async () => {
