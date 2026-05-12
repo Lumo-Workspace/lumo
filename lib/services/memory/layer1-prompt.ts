@@ -39,15 +39,14 @@ Write for a teammate who joins the project tomorrow and never saw this conversat
 
 # Categories (pick exactly one per ADD/UPDATE)
 
-- TRAP — a failure mode or pitfall worth warning future-self about.
-  content shape: { trigger: string, outcome: string, workaround?: string }
+- TRAP — a failure mode or pitfall worth warning future-self about. A TRAP describes the PROBLEM ONLY — what goes wrong and why. It must NOT include the solution. If you also know the fix, emit a separate PROCEDURAL memory for the workaround.
+  content shape: { trigger: string, outcome: string }
   - \`trigger\`: a full sentence describing the situation that causes the problem ("When you ...").
   - \`outcome\`: what goes wrong, in plain terms. Include the error name/code if any, but explain it.
-  - \`workaround\`: the concrete fix, written as instructions a teammate can follow.
 
 - DECISION — an engineering decision made in this task. Treat it as a mini-ADR: a future reader must be able to understand the *forces* that drove the choice, what was rejected, and what the team is now committed to. A decision without these is just a changelog entry.
   content shape: { what: string, why: string, alternatives?: string, implications?: string }
-  - \`what\`: a full sentence stating the decision ("We chose to ...").
+  - \`what\`: a full sentence stating the decision ("We chose to ..."). State the PRINCIPLE, not the specific identifier. BAD: "API endpoints use POST /api/tasks/[id]/lumo-proposals". GOOD: "The sync workflow uses a two-call API to decouple generation from application." If you can only state a decision by quoting a function name, endpoint path, or variable name, it is too low-level — skip it.
   - \`why\`: the *forces* that drove the decision — the problem, constraint, or tension that demanded a choice. NOT a recap of what was implemented or how. Ask: "what was the situation that made this decision necessary?" If the user / turn does not state real driving forces, omit the DECISION (NOOP) instead of inventing them.
   - \`alternatives\` (optional but strongly preferred): the other option(s) seriously considered and why each was rejected. Without this, future readers re-litigate the choice. Omit only if no alternative was actually weighed.
   - \`implications\` (optional but strongly preferred): what this decision commits the team to going forward — capabilities given up, future constraints introduced, follow-up work needed. Omit only if there are genuinely no notable consequences.
@@ -75,6 +74,7 @@ Write for a teammate who joins the project tomorrow and never saw this conversat
 - Skip routine work: \`ls\`, \`cat\`, \`Read\`, plain file edits, normal git ops, successful builds. NOT memory-worthy.
 - Memorable: a tool failure with a non-obvious cause; a user instruction that establishes a rule; a decision the user explicitly justified; a non-trivial workflow; a contradiction of a prior memory.
 - Be parsimonious: prefer NOOP if you're unsure. Quality > quantity. Do not invent.
+- Self-check before every ADD: "Could a developer learn this by reading the current source code, git log, or existing docs?" If yes, it is NOT memory-worthy — skip it. Memories exist for knowledge that is invisible in the codebase: the *why* behind a choice, the gotcha that only surfaces at runtime, the rule that exists in people's heads but not in code.
 - Each field must be specific and standalone — readable cold by a future agent who never saw this turn. Avoid "this turn", "we just", "the above".
 - All content string fields must be non-empty. \`workaround\` and \`steps\` are optional; if you don't have one, omit the field rather than passing an empty string.
 - If a turn confirms an existing memory, prefer NOOP — do not duplicate. UPDATE is for genuine refinements.
@@ -101,7 +101,7 @@ export function buildLayer1Prompt(input: BuildPromptInput): BuiltPrompt {
 
   const examples = `# Examples
 
-Example 1 — TRAP from a tool failure
+Example 1 — TRAP from a tool failure (problem only, workaround goes to PROCEDURAL)
 Turn (excerpt):
   [12:00:01] Bash "npx prisma migrate dev --name add_status" ERR — stderr: P3009: enum can't add value mid-migration
 Existing memories: (none)
@@ -110,8 +110,13 @@ Output:
     { "type": "ADD", "category": "TRAP",
       "content": {
         "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end.",
-        "workaround": "Split the change into two migrations. The first migration only adds the new enum value. The second migration uses it (e.g. sets it as a column default or backfills rows)."
+        "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
+      } },
+    { "type": "ADD", "category": "PROCEDURAL",
+      "content": {
+        "workflow": "How to safely add a new Postgres enum value in Prisma",
+        "trigger": "Whenever you need to add a value to an existing enum and use it in the same change.",
+        "steps": ["Create a first migration that only adds the new enum value.", "Create a second migration that uses the value (e.g. sets it as a column default or backfills rows)."]
       } } ] }
 
 Example 2 — CONVENTION from a user instruction
@@ -140,14 +145,13 @@ Turn (excerpt):
   [10:15:00] Bash "npx prisma migrate dev" ERR — stderr: P3009: ...
   [turn end] "Same enum-mid-migration trap. Tried 'prisma migrate resolve' — also fails."
 Existing memories:
-  - id=mem_abc category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with error P3009...","workaround":"Split into two migrations..."}
+  - id=mem_abc category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with error P3009..."}
 Output:
   { "operations": [
     { "type": "UPDATE", "id": "mem_abc",
       "content": {
         "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Running \`prisma migrate resolve\` does NOT unstick the migration — it only marks it applied without actually running it, so the schema ends up half-migrated.",
-        "workaround": "Split the change into two migrations: the first only adds the enum value, the second uses it. Do not try to recover with \`migrate resolve\`."
+        "outcome": "Prisma exits with error P3009. Running \`prisma migrate resolve\` does NOT unstick the migration — it only marks it applied without actually running it, so the schema ends up half-migrated. Do not try to recover with \`migrate resolve\`."
       } } ] }
 
 Example 5 — Plain-language headline (contrastive)
@@ -159,17 +163,15 @@ BAD output (headline is a noun-phrase log line; detail is too terse to be useful
   { "type": "ADD", "category": "TRAP",
     "content": {
       "trigger": "Session.taskId vs payload.task_id divergence mid-session",
-      "outcome": "Data inconsistency between recorded and actual task",
-      "workaround": "Use payload.task_id"
+      "outcome": "Data inconsistency between recorded and actual task"
     } }
 
-GOOD output (headline is a full sentence; detail explains what happens, why, and how to fix):
+GOOD output (headline is a full sentence; detail explains what happens and why):
   { "operations": [
     { "type": "ADD", "category": "TRAP",
       "content": {
         "trigger": "If you read the current task ID from the Session row while the user switches tasks mid-session, you will get the wrong task.",
-        "outcome": "Session.taskId is set once on the first event (first-event-wins, see session.repository.ts) and never updated. But each hook payload's task_id reflects the live ~/.lumo/current-task.json. Code that trusts Session.taskId will silently route later events to the original task instead of the user's current one.",
-        "workaround": "When handling a per-event query, always use payload.task_id from the hook event, not Session.taskId. Treat Session.taskId only as a 'where the session started' marker."
+        "outcome": "Session.taskId is set once on the first event (first-event-wins, see session.repository.ts) and never updated. But each hook payload's task_id reflects the live ~/.lumo/current-task.json. Code that trusts Session.taskId will silently route later events to the original task instead of the user's current one."
       } } ] }
 
 Example 6 — DELETE + ADD when a memory is contradicted
