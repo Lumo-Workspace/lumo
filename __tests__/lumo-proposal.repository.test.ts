@@ -92,12 +92,13 @@ describe('lumoProposalRepository', () => {
   it('updateSyncResult sets status, appliedAt, and prUrl', async () => {
     const now = new Date('2026-05-12')
     mockUpdate.mockResolvedValueOnce({ id: 'prop-1' })
-    await lumoProposalRepository.updateSyncResult(
+    const result = await lumoProposalRepository.updateSyncResult(
       'prop-1',
       'APPLIED',
       now,
       'https://github.com/org/repo/pull/1'
     )
+    expect(result).toEqual({ id: 'prop-1' })
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'prop-1' },
       data: {
