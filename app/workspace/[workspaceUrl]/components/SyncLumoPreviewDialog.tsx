@@ -57,6 +57,8 @@ export function SyncLumoPreviewDialog({
 }: SyncLumoPreviewDialogProps) {
   if (!proposal) return null
 
+  const hasOperations = proposal.operations.length > 0
+
   return (
     <Dialog
       open={open}
@@ -74,43 +76,53 @@ export function SyncLumoPreviewDialog({
             {proposal.summary}
           </p>
 
-          <div className='space-y-2 max-h-64 overflow-y-auto'>
-            {proposal.operations.map((op, i) => (
-              <div
-                key={i}
-                className='rounded-md border border-zinc-100 dark:border-zinc-800 p-3 space-y-1.5'
-              >
-                <div className='flex items-center gap-2'>
-                  <OperationBadge type={op.type} />
-                  <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
-                    {op.section}
-                  </span>
+          {hasOperations && (
+            <div className='space-y-2 max-h-64 overflow-y-auto'>
+              {proposal.operations.map((op, i) => (
+                <div
+                  key={i}
+                  className='rounded-md border border-zinc-100 dark:border-zinc-800 p-3 space-y-1.5'
+                >
+                  <div className='flex items-center gap-2'>
+                    <OperationBadge type={op.type} />
+                    <span className='text-xs font-medium text-zinc-700 dark:text-zinc-300'>
+                      {op.section}
+                    </span>
+                  </div>
+                  <p className='text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2'>
+                    {getOperationContent(op)}
+                  </p>
+                  <p className='text-[11px] text-zinc-400 dark:text-zinc-500 italic'>
+                    {op.rationale}
+                  </p>
                 </div>
-                <p className='text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2'>
-                  {getOperationContent(op)}
-                </p>
-                <p className='text-[11px] text-zinc-400 dark:text-zinc-500 italic'>
-                  {op.rationale}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant='outline' onClick={onCancel} disabled={syncing}>
-            Cancel
-          </Button>
-          <Button onClick={onConfirm} disabled={syncing}>
-            {syncing ? (
-              <>
-                <Loader2 size={14} className='animate-spin mr-1.5' />
-                Creating PR...
-              </>
-            ) : (
-              'Confirm & Create PR'
-            )}
-          </Button>
+          {hasOperations ? (
+            <>
+              <Button variant='outline' onClick={onCancel} disabled={syncing}>
+                Cancel
+              </Button>
+              <Button onClick={onConfirm} disabled={syncing}>
+                {syncing ? (
+                  <>
+                    <Loader2 size={14} className='animate-spin mr-1.5' />
+                    Creating PR...
+                  </>
+                ) : (
+                  'Confirm & Create PR'
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button variant='outline' onClick={onCancel}>
+              Close
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
