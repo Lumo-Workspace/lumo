@@ -3,6 +3,8 @@ import { lumoProposalService } from '@/lib/services/lumo-proposal/lumo-proposal.
 const mockFindForMemoryContext = jest.fn()
 const mockFindActiveTaskMemories = jest.fn()
 const mockCreateProposal = jest.fn()
+const mockFindById = jest.fn()
+const mockUpdateStatus = jest.fn()
 const mockCallLLM = jest.fn()
 
 jest.mock('@/lib/repositories/task.repository', () => ({
@@ -20,11 +22,21 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 jest.mock('@/lib/repositories/lumo-proposal.repository', () => ({
   lumoProposalRepository: {
     create: (...a: any[]) => mockCreateProposal(...a),
+    findById: (...a: any[]) => mockFindById(...a),
+    updateStatus: (...a: any[]) => mockUpdateStatus(...a),
   },
 }))
 
 jest.mock('@/lib/llm/lumo-proposal-client', () => ({
   callLumoProposalLLM: (...a: any[]) => mockCallLLM(...a),
+}))
+
+const mockReadFileSync = jest.fn()
+const mockWriteFileSync = jest.fn()
+
+jest.mock('fs', () => ({
+  readFileSync: (...a: any[]) => mockReadFileSync(...a),
+  writeFileSync: (...a: any[]) => mockWriteFileSync(...a),
 }))
 
 beforeEach(() => jest.clearAllMocks())
@@ -113,6 +125,63 @@ describe('lumoProposalService.generateProposal', () => {
     mockFindActiveTaskMemories.mockResolvedValueOnce([])
     await expect(
       lumoProposalService.generateProposal('task-1', '')
+    ).rejects.toMatchObject({ status: 400 })
+  })
+})
+
+describe('lumoProposalService.applyProposal', () => {
+  it('reads file, applies operations, writes back, updates status', async () => {
+    const proposal = {
+      id: 'prop-1',
+      status: 'PENDING',
+      operations: [
+        {
+          type: 'add',
+          section: 'Traps',
+          content: 'Watch out',
+          rationale: 'r',
+          sourceTaskId: 'LUM-1',
+        },
+      ],
+    }
+    mockFindById.mockResolvedValueOnce(proposal)
+    mockReadFileSync.mockReturnValue('# LUMO.md\n\n## Traps\n\n## Decisions\n')
+    mockUpdateStatus.mockResolvedValueOnce({ id: 'prop-1' })
+
+    const result = await lumoProposalService.applyProposal(
+      'prop-1',
+      '/repo/LUMO.md'
+    )
+
+    expect(mockReadFileSync).toHaveBeenCalledWith('/repo/LUMO.md', 'utf-8')
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      '/repo/LUMO.md',
+      expect.stringContaining('Watch out'),
+      'utf-8'
+    )
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      'prop-1',
+      'APPLIED',
+      expect.any(Date)
+    )
+    expect(result.warnings).toHaveLength(0)
+  })
+
+  it('throws 404 when proposal not found', async () => {
+    mockFindById.mockResolvedValueOnce(null)
+    await expect(
+      lumoProposalService.applyProposal('missing', '/repo/LUMO.md')
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('throws 400 when proposal is not PENDING', async () => {
+    mockFindById.mockResolvedValueOnce({
+      id: 'prop-1',
+      status: 'APPLIED',
+      operations: [],
+    })
+    await expect(
+      lumoProposalService.applyProposal('prop-1', '/repo/LUMO.md')
     ).rejects.toMatchObject({ status: 400 })
   })
 })
