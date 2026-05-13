@@ -4,9 +4,13 @@
 ## Traps
 
 - SubagentStop hooks can block sub-agent completion, so extraction handlers must return quickly and handle failures gracefully to avoid deadlocking the agent team. <!-- from: LUM-37 -->
+- Timeline sessions with only SESSION_START and SESSION_END events (eventCount ≤ 2, memoryCount === 0) represent transient Claude Code lifecycle noise, not real work, and clutter the timeline if displayed. <!-- from: LUM-39 -->
 ## Decisions
 
 - Memory extraction from sub-agents uses the SubagentStop hook rather than manual polling or post-processing because the hook provides immediate access to agent_result when execution completes. <!-- from: LUM-37 -->
+- Sync state is database-driven: getTimeline computes unsyncedMemoryCount by comparing memory createdAt against the latest APPLIED LumoProposal's appliedAt timestamp. Frontend reads this value directly without local state management. <!-- from: LUM-39 -->
 ## Conventions
 
 ## Procedures
+
+- To dismiss a 0-operation Lumo proposal without losing sync state: POST /api/lumo-proposals/[proposalId]/dismiss to mark it APPLIED with current appliedAt, then call onSynced to refetch getTimeline. This prevents the banner from reappearing on tab switch. <!-- from: LUM-39 -->
