@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "提案の生成に失敗しました",
   "lumo.sync.syncFailed": "PR の作成に失敗しました",
 
-  "lumo.sync.noOperations": "最新の状態です — これらのメモリーは現時点で LUMO.md の更新を必要としません。",
+  "lumo.sync.noOperations": "AI がこれらのメモリーを確認しましたが、追加すべき内容はありませんでした。LUMO.md は実務で発見された高インパクトな知識のみを記録します——遭遇した落とし穴、自明でない理由を持つ意思決定、偶然生まれた慣習。コードから読み取れる事実、初日に書ける規則、忘れても大きな損失にならない事柄は対象外です。",
 
   "lumo.sync.banner.ready": "{n} 件の新しいメモリーが同期待ち",
   "lumo.sync.banner.button": "{n} 件を LUMO.md に同期 →",

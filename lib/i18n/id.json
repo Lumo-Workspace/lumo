@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Gagal membuat proposal",
   "lumo.sync.syncFailed": "Gagal membuat PR",
 
-  "lumo.sync.noOperations": "Sudah terbaru — memori ini tidak memerlukan perubahan pada LUMO.md saat ini.",
+  "lumo.sync.noOperations": "AI telah meninjau memori ini dan tidak menemukan yang perlu ditambahkan. LUMO.md hanya mencatat pengetahuan berdampak tinggi yang ditemukan melalui kerja nyata — jebakan yang ditemui, keputusan dengan alasan yang tidak jelas, dan konvensi yang muncul secara mengejutkan. Yang dikecualikan: fakta yang bisa dibaca dari kode, aturan yang bisa ditetapkan di hari pertama, dan hal yang tidak menyebabkan kerugian signifikan jika terlupakan.",
 
   "lumo.sync.banner.ready": "{n} memori baru siap disinkronkan",
   "lumo.sync.banner.button": "Sinkronkan {n} ke LUMO.md →",

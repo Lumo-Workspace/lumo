@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Error al generar la propuesta",
   "lumo.sync.syncFailed": "Error al crear el PR",
 
-  "lumo.sync.noOperations": "Todo al día — estas memorias no requieren cambios en LUMO.md por ahora.",
+  "lumo.sync.noOperations": "La IA revisó estas memorias y no encontró nada que agregar. LUMO.md solo registra conocimiento de alto impacto descubierto en la práctica — trampas encontradas, decisiones con justificación no obvia y convenciones que surgieron por sorpresa. Se excluyen: hechos legibles en el código, reglas definibles desde el primer día y cosas cuyo olvido no causa pérdidas significativas.",
 
   "lumo.sync.banner.ready": "{n, plural, one {# nueva memoria lista para sincronizar} other {# nuevas memorias listas para sincronizar}}",
   "lumo.sync.banner.button": "Sincronizar {n} con LUMO.md →",

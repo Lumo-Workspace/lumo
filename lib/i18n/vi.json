@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Không thể tạo đề xuất",
   "lumo.sync.syncFailed": "Không thể tạo PR",
 
-  "lumo.sync.noOperations": "Đã cập nhật — những ký ức này hiện không cần thay đổi LUMO.md.",
+  "lumo.sync.noOperations": "AI đã xem xét những ký ức này và không tìm thấy gì cần thêm. LUMO.md chỉ ghi nhận kiến thức có tác động cao được phát hiện qua thực tiễn — bẫy đã gặp, quyết định với lý do không rõ ràng, và quy ước hình thành bất ngờ. Loại trừ: sự thật có thể đọc từ mã nguồn, quy tắc có thể viết từ ngày đầu, và những điều quên đi cũng không gây tổn thất đáng kể.",
 
   "lumo.sync.banner.ready": "{n} ký ức mới sẵn sàng đồng bộ",
   "lumo.sync.banner.button": "Đồng bộ {n} vào LUMO.md →",

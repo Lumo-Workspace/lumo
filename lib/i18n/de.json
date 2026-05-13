@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Vorschlag konnte nicht generiert werden",
   "lumo.sync.syncFailed": "PR konnte nicht erstellt werden",
 
-  "lumo.sync.noOperations": "Alles aktuell — diese Erinnerungen erfordern derzeit keine Änderungen an LUMO.md.",
+  "lumo.sync.noOperations": "Die KI hat diese Erinnerungen überprüft und nichts Hinzuzufügendes gefunden. LUMO.md erfasst nur wirkungsvolles Wissen aus der Praxis — aufgetretene Fallen, Entscheidungen mit nicht offensichtlicher Begründung und überraschend entstandene Konventionen. Ausgeschlossen sind: aus dem Code ablesbare Fakten, am ersten Tag festlegbare Regeln und Dinge, deren Vergessen keinen erheblichen Aufwand verursacht.",
 
   "lumo.sync.banner.ready": "{n, plural, one {# neue Erinnerung bereit zur Synchronisierung} other {# neue Erinnerungen bereit zur Synchronisierung}}",
   "lumo.sync.banner.button": "{n} mit LUMO.md synchronisieren →",

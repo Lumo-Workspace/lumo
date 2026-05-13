@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Gagal menjana cadangan",
   "lumo.sync.syncFailed": "Gagal mencipta PR",
 
-  "lumo.sync.noOperations": "Sudah terkini — memori ini tidak memerlukan perubahan pada LUMO.md buat masa ini.",
+  "lumo.sync.noOperations": "AI telah menyemak memori ini dan tidak menemui apa-apa untuk ditambah. LUMO.md hanya merekodkan pengetahuan berimpak tinggi yang ditemui melalui kerja sebenar — perangkap yang dihadapi, keputusan dengan rasional yang tidak jelas, dan konvensyen yang timbul secara mengejutkan. Dikecualikan: fakta yang boleh dibaca dari kod, peraturan yang boleh ditetapkan pada hari pertama, dan perkara yang tidak menyebabkan kerugian ketara jika dilupakan.",
 
   "lumo.sync.banner.ready": "{n} memori baharu sedia untuk disegerakkan",
   "lumo.sync.banner.button": "Segerakkan {n} ke LUMO.md →",

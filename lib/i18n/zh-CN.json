@@ -904,7 +904,7 @@
   "lumo.sync.generateFailed": "提案生成失败",
   "lumo.sync.syncFailed": "PR 创建失败",
 
-  "lumo.sync.noOperations": "已是最新——这些记忆暂时不需要更新 LUMO.md。",
+  "lumo.sync.noOperations": "AI 已审查这些记忆，没有需要添加的内容。LUMO.md 只收录团队通过实战发现的高影响知识——踩过的坑、带有非显而易见理由的决策、意外形成的惯例。不收录：读代码即可了解的事实、项目初始即可制定的规则、或遗忘后不会造成显著损失的内容。",
 
   "lumo.sync.banner.ready": "{n} 条新记忆待同步",
   "lumo.sync.banner.button": "同步 {n} 条到 LUMO.md →",

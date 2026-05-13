@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Échec de la génération de la proposition",
   "lumo.sync.syncFailed": "Échec de la création de la PR",
 
-  "lumo.sync.noOperations": "Tout est à jour — ces mémoires ne nécessitent pas de modifications de LUMO.md pour le moment.",
+  "lumo.sync.noOperations": "L'IA a examiné ces mémoires et n'a rien trouvé à ajouter. LUMO.md ne capture que les connaissances à fort impact découvertes en pratique — pièges rencontrés, décisions avec une justification non évidente et conventions apparues par surprise. Sont exclus : les faits lisibles dans le code, les règles définissables dès le premier jour et ce dont l'oubli ne coûte pas de temps significatif.",
 
   "lumo.sync.banner.ready": "{n, plural, one {# nouvelle mémoire prête à synchroniser} other {# nouvelles mémoires prêtes à synchroniser}}",
   "lumo.sync.banner.button": "Synchroniser {n} vers LUMO.md →",

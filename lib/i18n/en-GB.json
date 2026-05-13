@@ -860,7 +860,7 @@
   "lumo.sync.generateFailed": "Failed to generate proposal",
   "lumo.sync.syncFailed": "Failed to create PR",
 
-  "lumo.sync.noOperations": "All caught up — these memories don't require changes to LUMO.md right now.",
+  "lumo.sync.noOperations": "AI reviewed these memories and found nothing to add. LUMO.md only captures high-impact knowledge discovered through real work — traps hit, decisions with non-obvious rationale, and conventions that emerged by surprise. It excludes facts readable from code, rules that could be written on day one, and things that won't cost significant time if forgotten.",
 
   "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
   "lumo.sync.banner.button": "Sync {n} to LUMO.md →",

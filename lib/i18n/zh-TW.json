@@ -903,7 +903,7 @@
   "lumo.sync.generateFailed": "提案產生失敗",
   "lumo.sync.syncFailed": "PR 建立失敗",
 
-  "lumo.sync.noOperations": "已是最新——這些記憶暫時不需要更新 LUMO.md。",
+  "lumo.sync.noOperations": "AI 已審查這些記憶，沒有需要添加的內容。LUMO.md 只收錄團隊透過實戰發現的高影響知識——踩過的坑、帶有非顯而易見理由的決策、意外形成的慣例。不收錄：讀程式碼即可了解的事實、專案初始即可制定的規則、或遺忘後不會造成顯著損失的內容。",
 
   "lumo.sync.banner.ready": "{n} 條新記憶待同步",
   "lumo.sync.banner.button": "同步 {n} 條到 LUMO.md →",
