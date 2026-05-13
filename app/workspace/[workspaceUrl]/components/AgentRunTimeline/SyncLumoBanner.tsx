@@ -27,7 +27,27 @@ export function SyncLumoBanner({ taskId, memoryCount }: SyncLumoBannerProps) {
   const [proposal, setProposal] = useState<ProposalPreview | null>(null)
   const [prUrl, setPrUrl] = useState<string | null>(null)
 
-  if (memoryCount === 0 && state === 'idle') return null
+  if (state === 'done' && prUrl) {
+    return (
+      <div className='flex items-center justify-between rounded-lg border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-950/30 px-4 py-3'>
+        <div className='flex items-center gap-2 text-sm text-green-700 dark:text-green-400'>
+          <Check size={14} />
+          {intl.formatMessage({ id: 'lumo.sync.banner.synced' })}
+        </div>
+        <a
+          href={prUrl}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline'
+        >
+          {intl.formatMessage({ id: 'lumo.sync.banner.viewPr' })}
+          <ArrowUpRight size={12} />
+        </a>
+      </div>
+    )
+  }
+
+  if (memoryCount === 0) return null
 
   async function handleGenerate() {
     setState('generating')
@@ -67,26 +87,6 @@ export function SyncLumoBanner({ taskId, memoryCount }: SyncLumoBannerProps) {
   function handleCancel() {
     setState('idle')
     setProposal(null)
-  }
-
-  if (state === 'done' && prUrl) {
-    return (
-      <div className='flex items-center justify-between rounded-lg border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-950/30 px-4 py-3'>
-        <div className='flex items-center gap-2 text-sm text-green-700 dark:text-green-400'>
-          <Check size={14} />
-          {intl.formatMessage({ id: 'lumo.sync.banner.synced' })}
-        </div>
-        <a
-          href={prUrl}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400 hover:underline'
-        >
-          {intl.formatMessage({ id: 'lumo.sync.banner.viewPr' })}
-          <ArrowUpRight size={12} />
-        </a>
-      </div>
-    )
   }
 
   return (
