@@ -858,5 +858,11 @@
   "lumo.sync.creatingPr": "Đang tạo PR…",
   "lumo.sync.prCreated": "PR đã được tạo thành công",
   "lumo.sync.generateFailed": "Không thể tạo đề xuất",
-  "lumo.sync.syncFailed": "Không thể tạo PR"
+  "lumo.sync.syncFailed": "Không thể tạo PR",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
+  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
+  "lumo.sync.banner.synced": "Synced to LUMO.md",
+  "lumo.sync.banner.viewPr": "View PR",
+  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
 }

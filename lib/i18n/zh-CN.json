@@ -902,5 +902,11 @@
   "lumo.sync.creatingPr": "正在创建 PR…",
   "lumo.sync.prCreated": "PR 创建成功",
   "lumo.sync.generateFailed": "提案生成失败",
-  "lumo.sync.syncFailed": "PR 创建失败"
+  "lumo.sync.syncFailed": "PR 创建失败",
+
+  "lumo.sync.banner.ready": "{n} 条新记忆待同步",
+  "lumo.sync.banner.button": "同步 {n} 条到 LUMO.md →",
+  "lumo.sync.banner.synced": "已同步到 LUMO.md",
+  "lumo.sync.banner.viewPr": "查看 PR",
+  "lumo.sync.sidebar.hint": "在上方 Agent 运行 tab 中同步"
 }

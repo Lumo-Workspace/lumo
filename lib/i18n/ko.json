@@ -858,5 +858,11 @@
   "lumo.sync.creatingPr": "PR 생성 중…",
   "lumo.sync.prCreated": "PR이 성공적으로 생성되었습니다",
   "lumo.sync.generateFailed": "제안 생성 실패",
-  "lumo.sync.syncFailed": "PR 생성 실패"
+  "lumo.sync.syncFailed": "PR 생성 실패",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
+  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
+  "lumo.sync.banner.synced": "Synced to LUMO.md",
+  "lumo.sync.banner.viewPr": "View PR",
+  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
 }

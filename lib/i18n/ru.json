@@ -858,5 +858,11 @@
   "lumo.sync.creatingPr": "Создание PR…",
   "lumo.sync.prCreated": "PR успешно создан",
   "lumo.sync.generateFailed": "Не удалось сгенерировать предложение",
-  "lumo.sync.syncFailed": "Не удалось создать PR"
+  "lumo.sync.syncFailed": "Не удалось создать PR",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
+  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
+  "lumo.sync.banner.synced": "Synced to LUMO.md",
+  "lumo.sync.banner.viewPr": "View PR",
+  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
 }

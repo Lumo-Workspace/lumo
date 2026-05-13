@@ -4,13 +4,19 @@ import { useIntl } from 'react-intl'
 import { Bot } from 'lucide-react'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { AgentRunCard } from './AgentRunCard'
+import { SyncLumoBanner } from './SyncLumoBanner'
 
 interface AgentRunTabProps {
   taskId: string
   enabled: boolean
+  memoryCount: number
 }
 
-export function AgentRunTab({ taskId, enabled }: AgentRunTabProps) {
+export function AgentRunTab({
+  taskId,
+  enabled,
+  memoryCount,
+}: AgentRunTabProps) {
   const intl = useIntl()
   const { data, loading, error } = useAgentRuns({ taskId, enabled })
 
@@ -54,6 +60,7 @@ export function AgentRunTab({ taskId, enabled }: AgentRunTabProps) {
 
   return (
     <div className='space-y-3'>
+      <SyncLumoBanner taskId={taskId} memoryCount={memoryCount} />
       {runs.map((run, i) => (
         <AgentRunCard
           key={run.sessionId ?? `unlinked-${run.runNumber}`}

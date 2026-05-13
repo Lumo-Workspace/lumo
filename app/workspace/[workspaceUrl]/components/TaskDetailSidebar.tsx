@@ -24,7 +24,6 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from './fields'
-import { SyncLumoButton } from './SyncLumoButton'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { UnlinkBranchDialog } from './UnlinkBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
@@ -362,13 +361,15 @@ export function TaskDetailSidebar({
         )}
       </div>
 
-      {/* ── Sync LUMO.md ─────────────────────────────────────────── */}
+      {/* ── LUMO.md reference ──────────────────────────────────── */}
       <div className='pt-3'>
         <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-2'>
           <RefreshCw size={12} />
           LUMO.md
         </p>
-        <SyncLumoButton taskId={task.id} />
+        <p className='text-[11px] text-zinc-400 dark:text-zinc-500'>
+          {intl.formatMessage({ id: 'lumo.sync.sidebar.hint' })}
+        </p>
       </div>
 
       {unlinkBranch && (

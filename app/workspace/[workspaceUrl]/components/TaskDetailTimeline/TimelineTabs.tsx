@@ -93,7 +93,11 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
       )}
       {activeTab === 'comments' && <TaskDetailComments {...commentsProps} />}
       {activeTab === 'agent' && (
-        <AgentRunTab taskId={taskId} enabled={activeTab === 'agent'} />
+        <AgentRunTab
+          taskId={taskId}
+          enabled={activeTab === 'agent'}
+          memoryCount={newMemoryCount}
+        />
       )}
     </div>
   )
