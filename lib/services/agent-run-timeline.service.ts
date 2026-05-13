@@ -151,8 +151,17 @@ export const agentRunTimelineService = {
       })
     }
 
+    const nonEmptyRuns = runs.filter(
+      r => r.toolCallCount > 0 || r.memoryCount > 0
+    )
+
+    // Re-number after filtering.
+    nonEmptyRuns.forEach((r, i) => {
+      r.runNumber = i + 1
+    })
+
     // Newest run first.
-    return { runs: runs.reverse() }
+    return { runs: nonEmptyRuns.reverse() }
   },
 }
 

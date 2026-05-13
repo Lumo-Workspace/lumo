@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
@@ -25,8 +25,11 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
   })
 
   const agentRuns = useAgentRuns({ taskId, enabled: true })
-  const newMemoryCount =
+  const [badgeHidden, setBadgeHidden] = useState(false)
+  const rawMemoryCount =
     agentRuns.data?.runs.reduce((sum, r) => sum + r.memoryCount, 0) ?? 0
+  const newMemoryCount = badgeHidden ? 0 : rawMemoryCount
+  const handleBannerHidden = useCallback(() => setBadgeHidden(true), [])
 
   const tabClass = (active: boolean) =>
     `pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -96,7 +99,8 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
         <AgentRunTab
           taskId={taskId}
           enabled={activeTab === 'agent'}
-          memoryCount={newMemoryCount}
+          memoryCount={rawMemoryCount}
+          onBannerHidden={handleBannerHidden}
         />
       )}
     </div>
