@@ -8,7 +8,13 @@ import { lumoSyncClient } from '@/lib/api-client/lumo-sync'
 import { SyncLumoPreviewDialog } from '../SyncLumoPreviewDialog'
 import type { ProposalOperation } from '@/lib/validation/lumo-proposal.schema'
 
-type SyncState = 'idle' | 'generating' | 'previewing' | 'syncing' | 'done'
+type SyncState =
+  | 'idle'
+  | 'generating'
+  | 'previewing'
+  | 'syncing'
+  | 'done'
+  | 'dismissed'
 
 interface ProposalPreview {
   id: string
@@ -26,6 +32,8 @@ export function SyncLumoBanner({ taskId, memoryCount }: SyncLumoBannerProps) {
   const [state, setState] = useState<SyncState>('idle')
   const [proposal, setProposal] = useState<ProposalPreview | null>(null)
   const [prUrl, setPrUrl] = useState<string | null>(null)
+
+  if (state === 'dismissed') return null
 
   if (state === 'done' && prUrl) {
     return (
@@ -85,7 +93,8 @@ export function SyncLumoBanner({ taskId, memoryCount }: SyncLumoBannerProps) {
   }
 
   function handleCancel() {
-    setState('idle')
+    const noOps = proposal && proposal.operations.length === 0
+    setState(noOps ? 'dismissed' : 'idle')
     setProposal(null)
   }
 
