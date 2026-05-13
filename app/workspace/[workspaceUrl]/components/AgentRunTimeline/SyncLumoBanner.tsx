@@ -98,8 +98,15 @@ export function SyncLumoBanner({
     }
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     const noOps = proposal && proposal.operations.length === 0
+    if (noOps && proposal) {
+      try {
+        await lumoSyncClient.dismiss(proposal.id)
+      } catch {
+        // best-effort dismiss
+      }
+    }
     const nextState = noOps ? 'dismissed' : 'idle'
     setState(nextState)
     setProposal(null)

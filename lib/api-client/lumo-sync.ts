@@ -26,4 +26,10 @@ export const lumoSyncClient = {
       method: 'POST',
     })
   },
+
+  dismiss(proposalId: string) {
+    return apiFetch<{ ok: boolean }>(API.lumoSync.dismiss(proposalId), {
+      method: 'POST',
+    })
+  },
 }

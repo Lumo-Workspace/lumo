@@ -133,6 +133,8 @@ export const API = {
   lumoSync: {
     generateProposal: (taskId: string) => `/api/tasks/${taskId}/lumo-proposals`,
     sync: (proposalId: string) => `/api/lumo-proposals/${proposalId}/sync`,
+    dismiss: (proposalId: string) =>
+      `/api/lumo-proposals/${proposalId}/dismiss`,
   },
 }
 
