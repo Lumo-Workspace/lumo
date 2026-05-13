@@ -13,6 +13,12 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - Prefer named exports over default exports
 - Use Prisma for all database access — never raw SQL
 
+## i18n
+
+- All user-facing strings use react-intl (`intl.formatMessage`)
+- Locale files live in `lib/i18n/` — when adding or updating a key, update **every** locale file, not just en.json and zh-CN.json
+- Never use English as a fallback for non-English locales — provide a proper translation for each language
+
 ## Testing
 
 - Use Jest (configured in jest.config.js)
@@ -107,4 +113,4 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - [ ] No console.log statements
 - [ ] Branch name follows convention lumo/{task-id}-{description}
 - [ ] PR title includes task ID [LUM-N]
-@import LUMO.md
+      @import LUMO.md

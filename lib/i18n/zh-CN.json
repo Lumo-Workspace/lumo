@@ -904,6 +904,8 @@
   "lumo.sync.generateFailed": "提案生成失败",
   "lumo.sync.syncFailed": "PR 创建失败",
 
+  "lumo.sync.noOperations": "已是最新——这些记忆暂时不需要更新 LUMO.md。",
+
   "lumo.sync.banner.ready": "{n} 条新记忆待同步",
   "lumo.sync.banner.button": "同步 {n} 条到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",

@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "Gagal membuat proposal",
   "lumo.sync.syncFailed": "Gagal membuat PR",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "Sudah terbaru — memori ini tidak memerlukan perubahan pada LUMO.md saat ini.",
+
+  "lumo.sync.banner.ready": "{n} memori baru siap disinkronkan",
+  "lumo.sync.banner.button": "Sinkronkan {n} ke LUMO.md →",
+  "lumo.sync.banner.synced": "Disinkronkan ke LUMO.md",
+  "lumo.sync.banner.viewPr": "Lihat PR",
+  "lumo.sync.sidebar.hint": "Sinkronkan dari tab Agent run di atas"
 }

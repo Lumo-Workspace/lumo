@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "제안 생성 실패",
   "lumo.sync.syncFailed": "PR 생성 실패",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "최신 상태입니다 — 이 메모리들은 현재 LUMO.md 변경이 필요하지 않습니다.",
+
+  "lumo.sync.banner.ready": "{n}개의 새 메모리 동기화 준비됨",
+  "lumo.sync.banner.button": "{n}개를 LUMO.md에 동기화 →",
+  "lumo.sync.banner.synced": "LUMO.md에 동기화됨",
+  "lumo.sync.banner.viewPr": "PR 보기",
+  "lumo.sync.sidebar.hint": "위의 Agent 실행 탭에서 동기화"
 }

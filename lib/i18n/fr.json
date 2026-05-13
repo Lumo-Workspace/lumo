@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "Échec de la génération de la proposition",
   "lumo.sync.syncFailed": "Échec de la création de la PR",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "Tout est à jour — ces mémoires ne nécessitent pas de modifications de LUMO.md pour le moment.",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# nouvelle mémoire prête à synchroniser} other {# nouvelles mémoires prêtes à synchroniser}}",
+  "lumo.sync.banner.button": "Synchroniser {n} vers LUMO.md →",
+  "lumo.sync.banner.synced": "Synchronisé avec LUMO.md",
+  "lumo.sync.banner.viewPr": "Voir la PR",
+  "lumo.sync.sidebar.hint": "Synchroniser depuis l'onglet Exécution de l'Agent ci-dessus"
 }

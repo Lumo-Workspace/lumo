@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "提案の生成に失敗しました",
   "lumo.sync.syncFailed": "PR の作成に失敗しました",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "最新の状態です — これらのメモリーは現時点で LUMO.md の更新を必要としません。",
+
+  "lumo.sync.banner.ready": "{n} 件の新しいメモリーが同期待ち",
+  "lumo.sync.banner.button": "{n} 件を LUMO.md に同期 →",
+  "lumo.sync.banner.synced": "LUMO.md に同期済み",
+  "lumo.sync.banner.viewPr": "PR を表示",
+  "lumo.sync.sidebar.hint": "上の Agent 実行タブから同期"
 }

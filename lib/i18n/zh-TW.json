@@ -903,6 +903,8 @@
   "lumo.sync.generateFailed": "提案產生失敗",
   "lumo.sync.syncFailed": "PR 建立失敗",
 
+  "lumo.sync.noOperations": "已是最新——這些記憶暫時不需要更新 LUMO.md。",
+
   "lumo.sync.banner.ready": "{n} 條新記憶待同步",
   "lumo.sync.banner.button": "同步 {n} 條到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",

@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "Не удалось сгенерировать предложение",
   "lumo.sync.syncFailed": "Не удалось создать PR",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "Всё актуально — эти воспоминания пока не требуют изменений в LUMO.md.",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# новое воспоминание готово к синхронизации} other {# новых воспоминаний готово к синхронизации}}",
+  "lumo.sync.banner.button": "Синхронизировать {n} в LUMO.md →",
+  "lumo.sync.banner.synced": "Синхронизировано с LUMO.md",
+  "lumo.sync.banner.viewPr": "Посмотреть PR",
+  "lumo.sync.sidebar.hint": "Синхронизируйте из вкладки запуска Агента выше"
 }

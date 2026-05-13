@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "Error al generar la propuesta",
   "lumo.sync.syncFailed": "Error al crear el PR",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "Todo al día — estas memorias no requieren cambios en LUMO.md por ahora.",
+
+  "lumo.sync.banner.ready": "{n, plural, one {# nueva memoria lista para sincronizar} other {# nuevas memorias listas para sincronizar}}",
+  "lumo.sync.banner.button": "Sincronizar {n} con LUMO.md →",
+  "lumo.sync.banner.synced": "Sincronizado con LUMO.md",
+  "lumo.sync.banner.viewPr": "Ver PR",
+  "lumo.sync.sidebar.hint": "Sincronizar desde la pestaña de ejecución del Agente arriba"
 }

@@ -860,9 +860,11 @@
   "lumo.sync.generateFailed": "प्रस्ताव जनरेट करने में विफल",
   "lumo.sync.syncFailed": "PR बनाने में विफल",
 
-  "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
-  "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
-  "lumo.sync.banner.synced": "Synced to LUMO.md",
-  "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.noOperations": "सब अपडेट है — इन मेमोरीज़ को अभी LUMO.md में बदलाव की ज़रूरत नहीं है।",
+
+  "lumo.sync.banner.ready": "{n} नई मेमोरी सिंक के लिए तैयार",
+  "lumo.sync.banner.button": "{n} को LUMO.md में सिंक करें →",
+  "lumo.sync.banner.synced": "LUMO.md में सिंक हो गया",
+  "lumo.sync.banner.viewPr": "PR देखें",
+  "lumo.sync.sidebar.hint": "ऊपर Agent रन टैब से सिंक करें"
 }

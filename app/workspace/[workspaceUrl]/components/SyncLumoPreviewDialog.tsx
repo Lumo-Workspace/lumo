@@ -77,9 +77,15 @@ export function SyncLumoPreviewDialog({
         </DialogHeader>
 
         <div className='space-y-3'>
-          <p className='text-sm text-zinc-600 dark:text-zinc-400'>
-            {proposal.summary}
-          </p>
+          {hasOperations ? (
+            <p className='text-sm text-zinc-600 dark:text-zinc-400'>
+              {proposal.summary}
+            </p>
+          ) : (
+            <p className='text-sm text-zinc-600 dark:text-zinc-400'>
+              {intl.formatMessage({ id: 'lumo.sync.noOperations' })}
+            </p>
+          )}
 
           {hasOperations && (
             <div className='space-y-2 max-h-64 overflow-y-auto'>

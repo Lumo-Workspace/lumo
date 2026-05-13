@@ -860,6 +860,8 @@
   "lumo.sync.generateFailed": "Failed to generate proposal",
   "lumo.sync.syncFailed": "Failed to create PR",
 
+  "lumo.sync.noOperations": "All caught up — these memories don't require changes to LUMO.md right now.",
+
   "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
   "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
   "lumo.sync.banner.synced": "Synced to LUMO.md",
