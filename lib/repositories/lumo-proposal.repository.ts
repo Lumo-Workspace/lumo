@@ -48,6 +48,14 @@ export const lumoProposalRepository = {
     })
   },
 
+  async findLatestAppliedForTask(taskId: string) {
+    return prisma.lumoProposal.findFirst({
+      where: { taskId, status: 'APPLIED' },
+      orderBy: { appliedAt: 'desc' },
+      select: { id: true, appliedAt: true },
+    })
+  },
+
   async updateSyncResult(
     id: string,
     status: LumoProposalStatus,

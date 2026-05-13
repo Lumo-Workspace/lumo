@@ -10,17 +10,15 @@ interface AgentRunTabProps {
   taskId: string
   enabled: boolean
   memoryCount: number
-  onBannerHidden?: () => void
 }
 
 export function AgentRunTab({
   taskId,
   enabled,
   memoryCount,
-  onBannerHidden,
 }: AgentRunTabProps) {
   const intl = useIntl()
-  const { data, loading, error } = useAgentRuns({ taskId, enabled })
+  const { data, loading, error, refresh } = useAgentRuns({ taskId, enabled })
 
   if (loading && !data) {
     return (
@@ -65,7 +63,7 @@ export function AgentRunTab({
       <SyncLumoBanner
         taskId={taskId}
         memoryCount={memoryCount}
-        onBannerHidden={onBannerHidden}
+        onSynced={refresh}
       />
       {runs.map((run, i) => (
         <AgentRunCard

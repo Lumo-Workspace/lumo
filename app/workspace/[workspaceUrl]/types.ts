@@ -550,4 +550,5 @@ export interface AgentRunSession {
 
 export interface AgentRunTimelineResponse {
   runs: AgentRunSession[]
+  unsyncedMemoryCount: number
 }

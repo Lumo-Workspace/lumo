@@ -25,13 +25,13 @@ interface ProposalPreview {
 interface SyncLumoBannerProps {
   taskId: string
   memoryCount: number
-  onBannerHidden?: (() => void) | undefined
+  onSynced?: (() => void) | undefined
 }
 
 export function SyncLumoBanner({
   taskId,
   memoryCount,
-  onBannerHidden,
+  onSynced,
 }: SyncLumoBannerProps) {
   const intl = useIntl()
   const [state, setState] = useState<SyncState>('idle')
@@ -87,7 +87,7 @@ export function SyncLumoBanner({
       setPrUrl(result.prUrl)
       setState('done')
       setProposal(null)
-      onBannerHidden?.()
+      onSynced?.()
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -103,7 +103,7 @@ export function SyncLumoBanner({
     const nextState = noOps ? 'dismissed' : 'idle'
     setState(nextState)
     setProposal(null)
-    if (noOps) onBannerHidden?.()
+    if (noOps) onSynced?.()
   }
 
   return (

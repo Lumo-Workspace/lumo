@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
@@ -25,11 +25,7 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
   })
 
   const agentRuns = useAgentRuns({ taskId, enabled: true })
-  const [badgeHidden, setBadgeHidden] = useState(false)
-  const rawMemoryCount =
-    agentRuns.data?.runs.reduce((sum, r) => sum + r.memoryCount, 0) ?? 0
-  const newMemoryCount = badgeHidden ? 0 : rawMemoryCount
-  const handleBannerHidden = useCallback(() => setBadgeHidden(true), [])
+  const unsyncedMemoryCount = agentRuns.data?.unsyncedMemoryCount ?? 0
 
   const tabClass = (active: boolean) =>
     `pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -68,14 +64,14 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
             id: 'task.agentRun',
             defaultMessage: 'Agent 运行',
           })}
-          {newMemoryCount > 0 && (
+          {unsyncedMemoryCount > 0 && (
             <span className='normal-case tracking-normal text-[10px] font-medium px-1.5 py-px rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400'>
               {intl.formatMessage(
                 {
                   id: 'agentRun.memoryBadge',
                   defaultMessage: '+{n} 条新记忆',
                 },
-                { n: newMemoryCount }
+                { n: unsyncedMemoryCount }
               )}
             </span>
           )}
@@ -99,8 +95,7 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
         <AgentRunTab
           taskId={taskId}
           enabled={activeTab === 'agent'}
-          memoryCount={rawMemoryCount}
-          onBannerHidden={handleBannerHidden}
+          memoryCount={unsyncedMemoryCount}
         />
       )}
     </div>
