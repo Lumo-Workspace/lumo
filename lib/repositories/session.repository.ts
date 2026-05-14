@@ -84,6 +84,37 @@ export const sessionRepository = {
   },
 
   /**
+   * Check whether a session is bound to a task. Used by the session-start
+   * hook to return task binding status in the response, so the CLI can
+   * inject it into Claude Code's conversation context via stdout.
+   */
+  async findTaskBinding(
+    sessionId: string
+  ): Promise<
+    | { bound: true; taskIdentifier: string; taskTitle: string }
+    | { bound: false }
+  > {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: {
+        task: {
+          select: {
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+    if (!session?.task) return { bound: false }
+    return {
+      bound: true,
+      taskIdentifier: `${session.task.team.identifier}-${session.task.number}`,
+      taskTitle: session.task.title,
+    }
+  },
+
+  /**
    * List all sessions tagged with the given task, newest first. Used by
    * `lumo task context` to surface the coding agent's prior runs on a task.
    * Structured summary + summaryType are returned as-is so the caller can

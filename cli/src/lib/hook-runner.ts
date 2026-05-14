@@ -106,6 +106,31 @@ export function injectCurrentTaskId(body: string): string {
 }
 
 /**
+ * Format the session-start response body into a human/Claude-readable string
+ * that gets written to stdout so Claude Code injects it into conversation
+ * context.
+ *
+ * Returns null when the body is missing required fields or not an object —
+ * callers should treat null as "nothing to print".
+ */
+export function formatSessionStartOutput(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null
+  const b = body as Record<string, unknown>
+  const sessionId = b.sessionId
+  const binding = b.taskBinding
+  if (typeof sessionId !== 'string' || !binding || typeof binding !== 'object')
+    return null
+  const tb = binding as Record<string, unknown>
+  if (tb.bound === true) {
+    return `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${tb.taskTitle}`
+  }
+  if (tb.bound === false) {
+    return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+  }
+  return null
+}
+
+/**
  * POST the hook body to /api/hooks/<path> with a short timeout. All errors
  * — credential missing, network failure, timeout, non-2xx — are routed to
  * hook.log and then the caller exits 0.
@@ -144,6 +169,14 @@ export async function runHook(path: HookPath): Promise<void> {
       })
       if (!res.ok) {
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
+      } else if (path === 'session-start') {
+        try {
+          const body = await res.json()
+          const output = formatSessionStartOutput(body)
+          if (output) process.stdout.write(output + '\n')
+        } catch {
+          // response body parse failure is non-fatal
+        }
       }
     } catch (err) {
       logHookError(`[${path}]`, err)
