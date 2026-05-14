@@ -26,7 +26,10 @@ export interface HandleHookOptions {
    *
    * Must not throw; the caller treats this as best-effort.
    */
-  afterRecord?: (ctx: AfterRecordContext, identity: VerifyApiKeyResult) => void
+  afterRecord?: (
+    ctx: AfterRecordContext,
+    identity: VerifyApiKeyResult
+  ) => void | Record<string, unknown> | Promise<void | Record<string, unknown>>
 }
 
 export async function handleHookRequest(
@@ -51,9 +54,10 @@ export async function handleHookRequest(
       payload: (payload ?? {}) as Prisma.InputJsonValue,
     })
 
+    let extra: Record<string, unknown> | void | undefined
     if (options.afterRecord) {
       try {
-        options.afterRecord(
+        extra = await options.afterRecord(
           {
             eventId: recorded.id,
             sessionId: recorded.sessionId,
@@ -72,7 +76,7 @@ export async function handleHookRequest(
       }
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, ...extra })
   } catch (error) {
     // Only propagate statuses that Lumo's own services explicitly throw
     // (today: 403 from hookEventService for missing workspace membership).
