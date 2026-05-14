@@ -83,6 +83,11 @@ export const sessionRepository = {
     })
   },
 
+  /**
+   * Check whether a session is bound to a task. Used by the session-start
+   * hook to return task binding status in the response, so the CLI can
+   * inject it into Claude Code's conversation context via stdout.
+   */
   async findTaskBinding(
     sessionId: string
   ): Promise<
