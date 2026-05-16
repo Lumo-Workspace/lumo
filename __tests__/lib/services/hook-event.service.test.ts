@@ -72,6 +72,7 @@ describe('hookEventService.recordHookEvent', () => {
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
       sessionId: 'sess_abc',
+      taskId: null,
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
       payload: {
