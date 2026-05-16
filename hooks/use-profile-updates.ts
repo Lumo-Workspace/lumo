@@ -65,12 +65,14 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
           console.log('Profile update received:', data)
 
           if (data.userId === userId) {
-            // Update profile data
-            setProfile(prevProfile => ({
-              ...prevProfile,
-              ...data.changes,
-              updatedAt: new Date(data.timestamp),
-            }))
+            setProfile(prevProfile => {
+              if (!prevProfile) return prevProfile
+              return {
+                ...prevProfile,
+                ...data.changes,
+                updatedAt: new Date(data.timestamp),
+              }
+            })
 
             setLastUpdate(new Date(data.timestamp))
           }

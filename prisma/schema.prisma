@@ -421,7 +421,9 @@ model Task {
 
   @@unique([teamId, number])
   @@index([projectId])
+  @@index([projectId, status])
   @@index([teamId])
+  @@index([teamId, status])
   @@index([parentTaskId])
   @@index([assigneeActorId])
   @@index([reviewerActorId])

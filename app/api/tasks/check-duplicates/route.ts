@@ -23,6 +23,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ matches })
   } catch (error) {
     console.error('[check-duplicates] error:', error)
-    return NextResponse.json({ matches: [] })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }

@@ -130,7 +130,8 @@ export const githubService = {
     const { createRepoWebhook, deleteRepoWebhook, syncRepoPRs } =
       await import('@/lib/integrations/github')
 
-    // Create webhooks for newly added repos
+    // Create webhooks for newly added repos; track failures to exclude from saved list
+    const failedRepos = new Set<string>()
     for (const fullName of addedRepos) {
       const slash = fullName.indexOf('/')
       const owner = fullName.slice(0, slash)
@@ -145,14 +146,13 @@ export const githubService = {
         )
         await this.upsertWebhook(integration.id, fullName, hookId)
 
-        // Backfill PRs that existed before the webhook was registered
         void syncRepoPRs(token, fullName, workspaceId, integration.id).catch(
           err =>
             console.error(`[github] syncRepoPRs failed for ${fullName}:`, err)
         )
       } catch (err) {
-        // Log but don't fail: repo is saved even if webhook creation fails
         console.error(`[github] createRepoWebhook failed for ${fullName}:`, err)
+        failedRepos.add(fullName)
       }
     }
 
@@ -168,7 +168,11 @@ export const githubService = {
       }
     }
 
-    const updated = await this.updateRepositories(integration.id, repositories)
+    const successfulRepos = repositories.filter(r => !failedRepos.has(r))
+    const updated = await this.updateRepositories(
+      integration.id,
+      successfulRepos
+    )
     return updated
   },
 
