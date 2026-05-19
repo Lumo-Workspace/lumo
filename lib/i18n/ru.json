@@ -924,7 +924,7 @@
   "logoUploader.sizeError": "Размер файла не должен превышать 2 МБ",
   "logoUploader.processError": "Не удалось обработать изображение",
   "logoUploader.cropTooLarge": "Обрезанное изображение слишком большое. Попробуйте уменьшить область.",
-  "logoUploader.uploadFailed": "Не удалось загрузить",
+  "logoUploader.uploadFailed": "Ошибка загрузки",
   "logoUploader.uploadRetry": "Не удалось загрузить. Попробуйте ещё раз.",
   "logoUploader.success": "Логотип обновлён",
   "logoUploader.dialogTitle": "Обрезать логотип"

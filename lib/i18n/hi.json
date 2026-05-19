@@ -924,7 +924,7 @@
   "logoUploader.sizeError": "फ़ाइल 2 MB या उससे कम होनी चाहिए",
   "logoUploader.processError": "छवि प्रसंस्करण विफल",
   "logoUploader.cropTooLarge": "क्रॉप की गई छवि बहुत बड़ी है। छोटा क्रॉप आज़माएं।",
-  "logoUploader.uploadFailed": "अपलोड विफल",
+  "logoUploader.uploadFailed": "अपलोड विफल हुआ",
   "logoUploader.uploadRetry": "अपलोड विफल, कृपया पुनः प्रयास करें",
   "logoUploader.success": "लोगो अपडेट किया गया",
   "logoUploader.dialogTitle": "लोगो क्रॉप करें"

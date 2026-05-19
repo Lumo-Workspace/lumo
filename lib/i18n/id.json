@@ -924,7 +924,7 @@
   "logoUploader.sizeError": "Ukuran berkas harus 2 MB atau lebih kecil",
   "logoUploader.processError": "Gagal memproses gambar",
   "logoUploader.cropTooLarge": "Gambar yang dipotong terlalu besar. Coba potongan yang lebih kecil.",
-  "logoUploader.uploadFailed": "Gagal mengunggah",
+  "logoUploader.uploadFailed": "Unggahan gagal",
   "logoUploader.uploadRetry": "Gagal mengunggah, silakan coba lagi",
   "logoUploader.success": "Logo diperbarui",
   "logoUploader.dialogTitle": "Potong logo"
