@@ -44,11 +44,9 @@ The command prints a markdown document to stdout containing:
 
 ## Session Management
 
-Two commands for binding sessions to tasks:
+### `lumo session attach <identifier>` — bind the current session to a task
 
-### `lumo session attach <identifier>` — bind the current session
-
-Use this when you are **inside an active Claude Code session** and the user mentions a task. This is the most common case.
+Use this whenever the user mentions a task ID. The command is the only way to bind a session to a task.
 
 ```bash
 lumo session attach LUM-42
@@ -56,29 +54,20 @@ lumo session attach LUM-42
 
 What it does:
 
-- Binds the current running session to the task in Lumo
-- Re-tags previously-untagged hook events in this session
-- Sets the task for future sessions in this terminal
+- Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets this automatically). If it is not set, the command errors out — it must run from inside a Claude Code session.
+- Calls `POST /api/sessions/<session_id>/bind-task` on the Lumo server, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
+- Writes a per-session sentinel file at `~/.lumo/sessions/<session_id>.json`. All subsequent hook events in this session pick up the new `task_id`.
 
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
-### `lumo session start <identifier>` — pre-tag the next session
+### Parallel sessions
 
-Use this only when the user wants to prepare **before** launching a new `claude code` session (rare from within a skill, since you are already in a session).
-
-```bash
-lumo session start LUM-42
-```
-
-What it does:
-
-- Writes `~/.lumo/current-task.json` so the next Claude Code session's hook events are tagged with this task
+Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID` and its own per-session sentinel file. Two terminals running `claude code` and binding to different tasks will not interfere with each other.
 
 ### When to suggest session binding
 
-- If the user mentions a task ID (e.g., "let's work on LUM-42") and no session is currently bound, **suggest running `lumo session attach`**
-- If the user switches tasks mid-session, use `attach` with the new task ID
-- Never run `session start` from inside an active session — use `attach` instead
+- If the user mentions a task ID (e.g., "let's work on LUM-42") and no session is currently bound, **suggest running `lumo session attach`**.
+- If the user switches tasks mid-session, run `attach` with the new task ID — this rewrites the per-session sentinel and updates the server's Session row.
 
 ## Workflow Example
 

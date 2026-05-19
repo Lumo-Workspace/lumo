@@ -47,28 +47,6 @@ export const sessionRepository = {
   },
 
   /**
-   * Most recently active session for a workspace member. Used by
-   * `lumo session attach <task>` to identify "the session the user is
-   * currently in" without requiring them to know its UUID.
-   *
-   * Pass `withinMinutes` to bound how stale "current" can be — a 24h-
-   * old session almost certainly isn't what the user means.
-   */
-  async findMostRecentForMember(workspaceMemberId: string, withinMinutes = 60) {
-    const cutoff = new Date(Date.now() - withinMinutes * 60_000)
-    return prisma.session.findFirst({
-      where: { workspaceMemberId, lastActivityAt: { gte: cutoff } },
-      orderBy: { lastActivityAt: 'desc' },
-      select: {
-        id: true,
-        taskId: true,
-        startedAt: true,
-        lastActivityAt: true,
-      },
-    })
-  },
-
-  /**
    * Resolve a sessionId to its workspace. Used by routes that need to do a
    * workspace-membership check before serving a session-scoped resource.
    */

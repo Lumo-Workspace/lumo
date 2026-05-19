@@ -1,9 +1,8 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
-import { writeCurrentTask } from '../lib/current-task'
+import { writeSessionBinding } from '../lib/session-binding'
 
-interface AttachResponse {
-  sessionId: string
+interface BindResponse {
   taskId: string
   taskIdentifier: string
   taskTitle: string
@@ -11,19 +10,16 @@ interface AttachResponse {
 }
 
 /**
- * `lumo session attach <identifier>` — attach the currently-running
- * coding session to a task.
+ * `lumo session attach <identifier>` — bind the currently-running
+ * Claude Code session to a task.
  *
- * Difference vs `lumo session start <identifier>`:
- *   - `start` writes ~/.lumo/current-task.json so the **next** hook
- *     events of `claude code` get tagged. The Session row created by
- *     the next claude session inherits that taskId.
- *   - `attach` does the same, AND server-side re-tags the most
- *     recently active Session row (and its still-null HookEvent rows)
- *     so the running session moves under the new task immediately.
- *     Use this when you've been working in a claude session and
- *     realize partway through that it should be filed under a
- *     different task.
+ * Required environment: `CLAUDE_CODE_SESSION_ID` (set automatically by
+ * Claude Code). Must be invoked from inside a Claude Code session — there
+ * is no longer a global "current task" pointer for terminals outside CC.
+ *
+ * Calls `POST /api/sessions/<sid>/bind-task` and, on success, writes a
+ * per-session sentinel file at `~/.lumo/sessions/<sid>.json` so all
+ * subsequent hooks tag their events with this task.
  */
 export async function sessionAttach(
   identifier: string | undefined
@@ -31,6 +27,15 @@ export async function sessionAttach(
   if (!identifier) {
     console.error(
       'Error: missing <identifier>. Usage: lumo session attach <LUM-42>'
+    )
+    return 1
+  }
+
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (!sessionId) {
+    console.error(
+      'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +
+        '`lumo session attach` must be run inside a Claude Code session.'
     )
     return 1
   }
@@ -43,7 +48,7 @@ export async function sessionAttach(
 
   const envUrl = process.env.LUMO_API_URL?.trim()
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
-  const url = `${trimTrailingSlash(apiUrl)}/api/sessions/attach`
+  const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(sessionId)}/bind-task`
 
   let res: Response
   try {
@@ -77,16 +82,13 @@ export async function sessionAttach(
     return 1
   }
   if (!res.ok) {
-    console.error(`Error: attach failed (HTTP ${res.status})`)
+    console.error(`Error: bind-task failed (HTTP ${res.status})`)
     return 1
   }
 
-  const result = (await res.json()) as AttachResponse
+  const result = (await res.json()) as BindResponse
 
-  // Mirror `lumo session start` so the next claude session also picks
-  // up the new task — without this the user would have to call both
-  // commands to get full forward + backward consistency.
-  writeCurrentTask({
+  writeSessionBinding(sessionId, {
     taskId: result.taskId,
     taskIdentifier: result.taskIdentifier,
     taskTitle: result.taskTitle,
@@ -95,14 +97,11 @@ export async function sessionAttach(
   })
 
   console.log(
-    `Attached session ${result.sessionId} to ${result.taskIdentifier} "${result.taskTitle}"`
+    `Attached session ${sessionId} to ${result.taskIdentifier} "${result.taskTitle}"`
   )
   console.log(
     `Re-tagged ${result.retaggedEventCount} previously-untagged event${
       result.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
-  )
-  console.log(
-    `Future \`claude code\` sessions in this terminal will also tag with ${result.taskIdentifier}.`
   )
 }
