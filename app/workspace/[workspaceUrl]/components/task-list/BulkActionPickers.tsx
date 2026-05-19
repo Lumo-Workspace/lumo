@@ -15,13 +15,9 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import type {
-  ApiStatus,
-  ApiPriority,
-  WorkspaceMemberInfo,
-} from '../../../types'
-import { API_STATUS_LABEL } from '../../../utils'
-import { MemberAvatar, PRIORITY_CONFIG } from '../../fields/shared'
+import type { ApiStatus, ApiPriority, WorkspaceMemberInfo } from '../../types'
+import { API_STATUS_LABEL } from '../../utils'
+import { MemberAvatar, PRIORITY_CONFIG } from '../fields/shared'
 
 export function BulkStatusPicker({
   onPick,
