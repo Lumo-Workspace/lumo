@@ -131,7 +131,7 @@ function WorkspaceStep({
             className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
           >
             {isSubmitting
-              ? intl.formatMessage({ id: 'onboarding.workspace.creating' })
+              ? intl.formatMessage({ id: 'common.creating' })
               : intl.formatMessage({ id: 'onboarding.workspace.continue' })}
           </Button>
         </div>
@@ -271,7 +271,7 @@ function InviteStep({
             className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
           >
             {isSending
-              ? intl.formatMessage({ id: 'onboarding.invite.sending' })
+              ? intl.formatMessage({ id: 'common.sending' })
               : intl.formatMessage({ id: 'onboarding.invite.send' })}
           </Button>
 
