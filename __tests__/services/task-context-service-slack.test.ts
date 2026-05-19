@@ -1,0 +1,194 @@
+/** @jest-environment node */
+jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
+  taskSlackContextRepository: { listByTask: jest.fn() },
+}))
+jest.mock('@/lib/services/task.service', () => ({
+  taskService: {
+    resolveIdentifier: jest.fn(async () => ({
+      id: 'tsk_1',
+      identifier: 'LUM-1',
+    })),
+  },
+}))
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findById: jest.fn(async () => ({
+      id: 'tsk_1',
+      title: 't',
+      status: 'TODO',
+      description: 'd',
+      projectId: 'proj_1',
+    })),
+  },
+}))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: { listForTask: jest.fn(async () => []) },
+}))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: {
+    findActiveTaskMemories: jest.fn(async () => []),
+    findActiveProjectMemories: jest.fn(async () => []),
+  },
+}))
+jest.mock('@/lib/memory/render', () => ({
+  renderMemorySection: jest.fn(() => ''),
+  applyTokenBudget: jest.fn((x: unknown[]) => x),
+}))
+
+import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
+import { taskContextService } from '@/lib/services/task-context.service'
+
+const listByTask = taskSlackContextRepository.listByTask as jest.Mock
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('taskContextService.getContextForIdentifier — slackContextSection', () => {
+  it('returns empty string when no contexts', async () => {
+    listByTask.mockResolvedValue([])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-1'
+    )
+    expect(ctx?.slackContextSection).toBe('')
+  })
+
+  it('renders a single-message context', async () => {
+    listByTask.mockResolvedValue([
+      {
+        id: 'ctx_1',
+        isThread: false,
+        slackChannelName: 'design',
+        slackChannelId: 'C9',
+        permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
+        snapshotAt: new Date('2026-05-19T10:00:00Z'),
+        refreshError: null,
+        snapshot: {
+          messages: [
+            {
+              ts: '1700000000.000100',
+              userId: 'U1',
+              userName: 'alice',
+              userAvatarUrl: null,
+              text: 'hello',
+              edited: false,
+            },
+          ],
+        },
+      },
+    ])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-1'
+    )
+    expect(ctx?.slackContextSection).toContain('## Slack Context')
+    expect(ctx?.slackContextSection).toContain('#design')
+    expect(ctx?.slackContextSection).toContain('Single message')
+    expect(ctx?.slackContextSection).toContain('**alice**')
+    expect(ctx?.slackContextSection).toContain('hello')
+  })
+
+  it('renders a thread context with all replies', async () => {
+    listByTask.mockResolvedValue([
+      {
+        id: 'ctx_2',
+        isThread: true,
+        slackChannelName: 'eng',
+        slackChannelId: 'C9',
+        permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
+        snapshotAt: new Date('2026-05-19T10:00:00Z'),
+        refreshError: null,
+        snapshot: {
+          messages: [
+            {
+              ts: '1700000000.000100',
+              userId: 'U1',
+              userName: 'a',
+              userAvatarUrl: null,
+              text: 'one',
+              edited: false,
+            },
+            {
+              ts: '1700000000.000200',
+              userId: 'U2',
+              userName: 'b',
+              userAvatarUrl: null,
+              text: 'two',
+              edited: false,
+            },
+          ],
+        },
+      },
+    ])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-1'
+    )
+    expect(ctx?.slackContextSection).toContain('Thread (2 messages')
+    expect(ctx?.slackContextSection).toContain('**a**')
+    expect(ctx?.slackContextSection).toContain('**b**')
+  })
+
+  it('flags refreshError when present', async () => {
+    listByTask.mockResolvedValue([
+      {
+        id: 'ctx_3',
+        isThread: false,
+        slackChannelName: 'design',
+        slackChannelId: 'C9',
+        permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
+        snapshotAt: new Date('2026-05-19T10:00:00Z'),
+        refreshError: 'not_in_channel',
+        snapshot: {
+          messages: [
+            {
+              ts: '1700000000.000100',
+              userId: 'U1',
+              userName: 'alice',
+              userAvatarUrl: null,
+              text: 'hello',
+              edited: false,
+            },
+          ],
+        },
+      },
+    ])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-1'
+    )
+    expect(ctx?.slackContextSection).toContain('refresh failed: not_in_channel')
+  })
+
+  it('converts <@U…> mentions to @U… plain tokens', async () => {
+    listByTask.mockResolvedValue([
+      {
+        id: 'ctx_4',
+        isThread: false,
+        slackChannelName: 'design',
+        slackChannelId: 'C9',
+        permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
+        snapshotAt: new Date('2026-05-19T10:00:00Z'),
+        refreshError: null,
+        snapshot: {
+          messages: [
+            {
+              ts: '1700000000.000100',
+              userId: 'U1',
+              userName: 'alice',
+              userAvatarUrl: null,
+              text: 'hey <@U999> look at this <#C5|design>',
+              edited: false,
+            },
+          ],
+        },
+      },
+    ])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'LUM-1'
+    )
+    expect(ctx?.slackContextSection).toContain('hey @U999 look at this #design')
+    expect(ctx?.slackContextSection).not.toContain('<@U999>')
+    expect(ctx?.slackContextSection).not.toContain('<#C5|design>')
+  })
+})
