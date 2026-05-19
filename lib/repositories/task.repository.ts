@@ -175,6 +175,138 @@ const TASK_LIST_INCLUDE = {
   },
 } as const
 
+/** Agent-state fields + workspace pointer for cancel / resume / status / confirm-spec / respond. */
+const TASK_AGENT_SELECT = {
+  id: true,
+  status: true,
+  agentStatus: true,
+  inputReason: true,
+  projectId: true,
+  project: { select: { workspaceId: true } },
+} as const
+
+/** Agent-state + the project's default repository (executor/retry routes). */
+const TASK_AGENT_EXECUTE_SELECT = {
+  id: true,
+  agentStatus: true,
+  repositoryId: true,
+  project: {
+    select: {
+      workspaceId: true,
+      repositories: {
+        where: { isDefault: true },
+        select: { fullName: true },
+        take: 1,
+      },
+    },
+  },
+} as const
+
+/** Title / description / identifier needed by Layer 1 memory extraction and lumo-proposal flows. */
+const TASK_MEMORY_CONTEXT_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  number: true,
+  projectId: true,
+  project: { select: { workspaceId: true } },
+  team: { select: { identifier: true } },
+} as const
+
+/** Compact shape for decompose: title + description + the workspaceId auth check. */
+const TASK_DECOMPOSE_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  project: { select: { workspaceId: true } },
+} as const
+
+/** Comment-creation context: needs team identifier + workspace slug to build mention links. */
+const TASK_COMMENT_SELECT = {
+  id: true,
+  projectId: true,
+  number: true,
+  title: true,
+  team: { select: { identifier: true } },
+  project: {
+    select: {
+      workspaceId: true,
+      workspace: { select: { slug: true } },
+    },
+  },
+} as const
+
+/** Sprint-gate fields used by sprintRepository to validate task-sprint membership. */
+const TASK_MINIMAL_SELECT = {
+  id: true,
+  teamId: true,
+  sprintId: true,
+} as const
+
+/** Shape returned when resolving "LUM-30"-style identifiers to a task row. */
+const TASK_IDENTIFIER_SELECT = {
+  id: true,
+  number: true,
+  title: true,
+  status: true,
+  team: { select: { identifier: true } },
+} as const
+
+/** Auth check: full task row + only the project's workspaceId. Used by many tasks/[id]/* routes. */
+const TASK_AUTH_INCLUDE = {
+  project: { select: { workspaceId: true } },
+} as const
+
+/** Recent-tasks shape fed to the AI duplicate-check prompt. */
+const TASK_DUPLICATE_CHECK_SELECT = {
+  id: true,
+  title: true,
+  number: true,
+  status: true,
+  priority: true,
+  team: { select: { identifier: true } },
+  assignee: {
+    select: {
+      type: true,
+      member: { select: { clerkId: true } },
+      agent: { select: { name: true } },
+    },
+  },
+} as const
+
+/** Assignee-board shape: project owner actor + team identifier + parent + DONE-children count. */
+const TASK_ASSIGNED_INCLUDE = {
+  project: {
+    select: {
+      id: true,
+      name: true,
+      owner: { select: { actor: { select: { id: true } } } },
+    },
+  },
+  team: { select: { identifier: true } },
+  assignee: {
+    select: {
+      id: true,
+      type: true,
+      member: { select: { id: true, clerkId: true } },
+      agent: { select: { id: true, name: true, avatarColor: true } },
+    },
+  },
+  parent: {
+    select: {
+      id: true,
+      title: true,
+      number: true,
+      team: { select: { identifier: true } },
+    },
+  },
+  _count: { select: { children: true } },
+  children: {
+    where: { status: 'DONE' as const },
+    select: { id: true },
+  },
+} as const
+
 export const taskRepository = {
   /** Find a task by ID with full detail relations. */
   async findById(id: string) {
@@ -211,13 +343,7 @@ export const taskRepository = {
         number,
         team: { identifier: teamIdentifier, workspaceId },
       },
-      select: {
-        id: true,
-        number: true,
-        title: true,
-        status: true,
-        team: { select: { identifier: true } },
-      },
+      select: TASK_IDENTIFIER_SELECT,
     })
   },
 
@@ -267,14 +393,7 @@ export const taskRepository = {
   async findForAgent(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: {
-        id: true,
-        status: true,
-        agentStatus: true,
-        inputReason: true,
-        projectId: true,
-        project: { select: { workspaceId: true } },
-      },
+      select: TASK_AGENT_SELECT,
     })
   },
 
@@ -282,21 +401,7 @@ export const taskRepository = {
   async findForAgentExecute(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: {
-        id: true,
-        agentStatus: true,
-        repositoryId: true,
-        project: {
-          select: {
-            workspaceId: true,
-            repositories: {
-              where: { isDefault: true },
-              select: { fullName: true },
-              take: 1,
-            },
-          },
-        },
-      },
+      select: TASK_AGENT_EXECUTE_SELECT,
     })
   },
 
@@ -316,15 +421,7 @@ export const taskRepository = {
   async findForMemoryContext(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        number: true,
-        projectId: true,
-        project: { select: { workspaceId: true } },
-        team: { select: { identifier: true } },
-      },
+      select: TASK_MEMORY_CONTEXT_SELECT,
     })
   },
 
@@ -380,37 +477,7 @@ export const taskRepository = {
         assigneeActorId: actorId,
         ...(opts.sprintIds?.length ? { sprintId: { in: opts.sprintIds } } : {}),
       },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            owner: { select: { actor: { select: { id: true } } } },
-          },
-        },
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { id: true, clerkId: true } },
-            agent: { select: { id: true, name: true, avatarColor: true } },
-          },
-        },
-        parent: {
-          select: {
-            id: true,
-            title: true,
-            number: true,
-            team: { select: { identifier: true } },
-          },
-        },
-        _count: { select: { children: true } },
-        children: {
-          where: { status: 'DONE' },
-          select: { id: true },
-        },
-      },
+      include: TASK_ASSIGNED_INCLUDE,
       orderBy: { order: 'asc' },
     })
   },
@@ -435,21 +502,7 @@ export const taskRepository = {
   async findForDuplicateCheck(projectId: string) {
     return prisma.task.findMany({
       where: { projectId },
-      select: {
-        id: true,
-        title: true,
-        number: true,
-        status: true,
-        priority: true,
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            type: true,
-            member: { select: { clerkId: true } },
-            agent: { select: { name: true } },
-          },
-        },
-      },
+      select: TASK_DUPLICATE_CHECK_SELECT,
       orderBy: { updatedAt: 'desc' },
       take: 200,
     })
@@ -479,7 +532,7 @@ export const taskRepository = {
   async findWithProjectWorkspaceId(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      include: { project: { select: { workspaceId: true } } },
+      include: TASK_AUTH_INCLUDE,
     })
   },
 
@@ -487,12 +540,7 @@ export const taskRepository = {
   async findForDecompose(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        project: { select: { workspaceId: true } },
-      },
+      select: TASK_DECOMPOSE_SELECT,
     })
   },
 
@@ -500,19 +548,7 @@ export const taskRepository = {
   async findForComment(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      select: {
-        id: true,
-        projectId: true,
-        number: true,
-        title: true,
-        team: { select: { identifier: true } },
-        project: {
-          select: {
-            workspaceId: true,
-            workspace: { select: { slug: true } },
-          },
-        },
-      },
+      select: TASK_COMMENT_SELECT,
     })
   },
 
@@ -775,7 +811,7 @@ export const taskRepository = {
     const client = tx ?? prisma
     return client.task.findUnique({
       where: { id: taskId },
-      select: { id: true, teamId: true, sprintId: true },
+      select: TASK_MINIMAL_SELECT,
     })
   },
 
