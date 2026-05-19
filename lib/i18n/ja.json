@@ -873,7 +873,7 @@
   "waitlist.success.title": "ウェイトリストに登録されました！",
   "waitlist.success.body": "席のご案内が出来次第ご連絡します。",
   "waitlist.field.email": "仕事用メールアドレス",
-  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.placeholder.email": "anata@kaisha.com",
   "waitlist.field.name": "名前",
   "waitlist.placeholder.name": "山田 太郎",
   "waitlist.field.company": "会社名",
