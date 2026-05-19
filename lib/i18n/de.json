@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Auf Warteliste setzen",
   "waitlist.button.submitting": "Wird gesendet…",
   "waitlist.footer": "Wir geben Ihre E-Mail nie weiter. Jederzeit abbestellbar.",
-  "waitlist.error.network": "Netzwerkfehler. Bitte erneut versuchen."
+  "waitlist.error.network": "Netzwerkfehler. Bitte erneut versuchen.",
+
+  "onboarding.workspace.title": "Workspace erstellen",
+  "onboarding.workspace.nameLabel": "Workspace-Name",
+  "onboarding.workspace.namePlaceholder": "Acme GmbH",
+  "onboarding.workspace.urlLabel": "Workspace-URL",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Wird erstellt…",
+  "onboarding.workspace.continue": "Weiter",
+  "onboarding.workspace.error.create": "Workspace konnte nicht erstellt werden",
+  "onboarding.invite.title": "Team einladen",
+  "onboarding.invite.subtitle": "Bringen Sie Ihr Team schneller an den Start",
+  "onboarding.invite.emailPlaceholder": "kollege@firma.com",
+  "onboarding.invite.addAnother": "Weitere hinzufügen",
+  "onboarding.invite.sending": "Wird gesendet…",
+  "onboarding.invite.send": "Einladungen senden",
+  "onboarding.invite.skip": "Vorerst überspringen",
+  "onboarding.invite.error.send": "Einladungen konnten nicht gesendet werden",
+  "onboarding.error.generic": "Etwas ist schiefgelaufen"
 }

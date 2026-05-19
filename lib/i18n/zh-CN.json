@@ -932,5 +932,23 @@
   "waitlist.button.submit": "加入候补",
   "waitlist.button.submitting": "提交中…",
   "waitlist.footer": "我们绝不会泄露你的邮箱。可随时退订。",
-  "waitlist.error.network": "网络错误，请稍后重试。"
+  "waitlist.error.network": "网络错误，请稍后重试。",
+
+  "onboarding.workspace.title": "创建你的工作区",
+  "onboarding.workspace.nameLabel": "工作区名称",
+  "onboarding.workspace.namePlaceholder": "示例公司",
+  "onboarding.workspace.urlLabel": "工作区网址",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "创建中…",
+  "onboarding.workspace.continue": "继续",
+  "onboarding.workspace.error.create": "创建工作区失败",
+  "onboarding.invite.title": "邀请你的团队",
+  "onboarding.invite.subtitle": "让团队更快上手",
+  "onboarding.invite.emailPlaceholder": "tongshi@gongsi.com",
+  "onboarding.invite.addAnother": "添加",
+  "onboarding.invite.sending": "发送中…",
+  "onboarding.invite.send": "发送邀请",
+  "onboarding.invite.skip": "稍后再说",
+  "onboarding.invite.error.send": "发送邀请失败",
+  "onboarding.error.generic": "出错了"
 }

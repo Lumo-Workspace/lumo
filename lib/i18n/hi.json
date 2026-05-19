@@ -888,5 +888,23 @@
   "waitlist.button.submit": "सूची में शामिल हों",
   "waitlist.button.submitting": "भेजा जा रहा है…",
   "waitlist.footer": "हम आपका ईमेल कभी साझा नहीं करेंगे। आप कभी भी सदस्यता छोड़ सकते हैं।",
-  "waitlist.error.network": "नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।"
+  "waitlist.error.network": "नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।",
+
+  "onboarding.workspace.title": "अपना वर्कस्पेस बनाएं",
+  "onboarding.workspace.nameLabel": "वर्कस्पेस का नाम",
+  "onboarding.workspace.namePlaceholder": "Acme प्रा. लि.",
+  "onboarding.workspace.urlLabel": "वर्कस्पेस URL",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "बनाया जा रहा है…",
+  "onboarding.workspace.continue": "जारी रखें",
+  "onboarding.workspace.error.create": "वर्कस्पेस बनाने में विफल",
+  "onboarding.invite.title": "अपनी टीम को आमंत्रित करें",
+  "onboarding.invite.subtitle": "अपनी टीम को तेज़ी से शुरू कराएं",
+  "onboarding.invite.emailPlaceholder": "sahkarmi@kampani.com",
+  "onboarding.invite.addAnother": "और जोड़ें",
+  "onboarding.invite.sending": "भेजा जा रहा है…",
+  "onboarding.invite.send": "आमंत्रण भेजें",
+  "onboarding.invite.skip": "अभी छोड़ें",
+  "onboarding.invite.error.send": "आमंत्रण भेजने में विफल",
+  "onboarding.error.generic": "कुछ गलत हो गया"
 }

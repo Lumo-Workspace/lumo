@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Gabung Daftar Tunggu",
   "waitlist.button.submitting": "Mengirim…",
   "waitlist.footer": "Kami tidak akan pernah membagikan email Anda. Berhenti berlangganan kapan saja.",
-  "waitlist.error.network": "Kesalahan jaringan. Silakan coba lagi."
+  "waitlist.error.network": "Kesalahan jaringan. Silakan coba lagi.",
+
+  "onboarding.workspace.title": "Buat ruang kerja Anda",
+  "onboarding.workspace.nameLabel": "Nama ruang kerja",
+  "onboarding.workspace.namePlaceholder": "Acme Tbk.",
+  "onboarding.workspace.urlLabel": "URL ruang kerja",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Membuat…",
+  "onboarding.workspace.continue": "Lanjutkan",
+  "onboarding.workspace.error.create": "Gagal membuat ruang kerja",
+  "onboarding.invite.title": "Undang tim Anda",
+  "onboarding.invite.subtitle": "Bawa tim Anda berjalan lebih cepat",
+  "onboarding.invite.emailPlaceholder": "rekan@perusahaan.com",
+  "onboarding.invite.addAnother": "Tambah lagi",
+  "onboarding.invite.sending": "Mengirim…",
+  "onboarding.invite.send": "Kirim undangan",
+  "onboarding.invite.skip": "Lewati dulu",
+  "onboarding.invite.error.send": "Gagal mengirim undangan",
+  "onboarding.error.generic": "Terjadi kesalahan"
 }

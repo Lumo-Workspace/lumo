@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Rejoindre la liste",
   "waitlist.button.submitting": "Envoi…",
   "waitlist.footer": "Nous ne partagerons jamais votre e-mail. Désinscription à tout moment.",
-  "waitlist.error.network": "Erreur réseau. Veuillez réessayer."
+  "waitlist.error.network": "Erreur réseau. Veuillez réessayer.",
+
+  "onboarding.workspace.title": "Créez votre espace de travail",
+  "onboarding.workspace.nameLabel": "Nom de l'espace",
+  "onboarding.workspace.namePlaceholder": "Acme SARL",
+  "onboarding.workspace.urlLabel": "URL de l'espace",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Création…",
+  "onboarding.workspace.continue": "Continuer",
+  "onboarding.workspace.error.create": "Impossible de créer l'espace de travail",
+  "onboarding.invite.title": "Invitez votre équipe",
+  "onboarding.invite.subtitle": "Lancez votre équipe plus vite",
+  "onboarding.invite.emailPlaceholder": "collegue@entreprise.com",
+  "onboarding.invite.addAnother": "Ajouter un autre",
+  "onboarding.invite.sending": "Envoi…",
+  "onboarding.invite.send": "Envoyer les invitations",
+  "onboarding.invite.skip": "Passer pour l'instant",
+  "onboarding.invite.error.send": "Échec de l'envoi des invitations",
+  "onboarding.error.generic": "Une erreur s'est produite"
 }

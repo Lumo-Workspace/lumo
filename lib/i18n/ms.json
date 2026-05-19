@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Sertai Senarai Menunggu",
   "waitlist.button.submitting": "Menghantar…",
   "waitlist.footer": "Kami tidak akan kongsikan e-mel anda. Berhenti melanggan bila-bila masa.",
-  "waitlist.error.network": "Ralat rangkaian. Sila cuba lagi."
+  "waitlist.error.network": "Ralat rangkaian. Sila cuba lagi.",
+
+  "onboarding.workspace.title": "Cipta ruang kerja anda",
+  "onboarding.workspace.nameLabel": "Nama ruang kerja",
+  "onboarding.workspace.namePlaceholder": "Acme Sdn. Bhd.",
+  "onboarding.workspace.urlLabel": "URL ruang kerja",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Mencipta…",
+  "onboarding.workspace.continue": "Teruskan",
+  "onboarding.workspace.error.create": "Gagal mencipta ruang kerja",
+  "onboarding.invite.title": "Jemput pasukan anda",
+  "onboarding.invite.subtitle": "Bawa pasukan anda bermula lebih pantas",
+  "onboarding.invite.emailPlaceholder": "rakan@syarikat.com",
+  "onboarding.invite.addAnother": "Tambah lagi",
+  "onboarding.invite.sending": "Menghantar…",
+  "onboarding.invite.send": "Hantar jemputan",
+  "onboarding.invite.skip": "Langkau dahulu",
+  "onboarding.invite.error.send": "Gagal menghantar jemputan",
+  "onboarding.error.generic": "Sesuatu telah berlaku"
 }

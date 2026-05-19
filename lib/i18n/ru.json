@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Записаться",
   "waitlist.button.submitting": "Отправка…",
   "waitlist.footer": "Мы никогда не передадим вашу почту третьим лицам. Отписаться можно в любой момент.",
-  "waitlist.error.network": "Ошибка сети. Попробуйте снова."
+  "waitlist.error.network": "Ошибка сети. Попробуйте снова.",
+
+  "onboarding.workspace.title": "Создайте рабочее пространство",
+  "onboarding.workspace.nameLabel": "Название пространства",
+  "onboarding.workspace.namePlaceholder": "ООО «Пример»",
+  "onboarding.workspace.urlLabel": "URL пространства",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Создание…",
+  "onboarding.workspace.continue": "Продолжить",
+  "onboarding.workspace.error.create": "Не удалось создать рабочее пространство",
+  "onboarding.invite.title": "Пригласите команду",
+  "onboarding.invite.subtitle": "Поднимите команду на ноги быстрее",
+  "onboarding.invite.emailPlaceholder": "kollega@kompaniya.com",
+  "onboarding.invite.addAnother": "Добавить",
+  "onboarding.invite.sending": "Отправка…",
+  "onboarding.invite.send": "Отправить приглашения",
+  "onboarding.invite.skip": "Пока пропустить",
+  "onboarding.invite.error.send": "Не удалось отправить приглашения",
+  "onboarding.error.generic": "Что-то пошло не так"
 }

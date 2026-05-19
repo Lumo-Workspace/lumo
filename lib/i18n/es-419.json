@@ -888,5 +888,23 @@
   "waitlist.button.submit": "Unirme a la lista",
   "waitlist.button.submitting": "Enviando…",
   "waitlist.footer": "Nunca compartiremos tu correo. Puedes cancelar la suscripción cuando quieras.",
-  "waitlist.error.network": "Error de red. Inténtalo de nuevo."
+  "waitlist.error.network": "Error de red. Inténtalo de nuevo.",
+
+  "onboarding.workspace.title": "Crea tu espacio de trabajo",
+  "onboarding.workspace.nameLabel": "Nombre del espacio",
+  "onboarding.workspace.namePlaceholder": "Acme S.A.",
+  "onboarding.workspace.urlLabel": "URL del espacio",
+  "onboarding.workspace.urlPlaceholder": "acme-inc",
+  "onboarding.workspace.creating": "Creando…",
+  "onboarding.workspace.continue": "Continuar",
+  "onboarding.workspace.error.create": "No se pudo crear el espacio",
+  "onboarding.invite.title": "Invita a tu equipo",
+  "onboarding.invite.subtitle": "Pon a tu equipo en marcha más rápido",
+  "onboarding.invite.emailPlaceholder": "companero@empresa.com",
+  "onboarding.invite.addAnother": "Agregar otro",
+  "onboarding.invite.sending": "Enviando…",
+  "onboarding.invite.send": "Enviar invitaciones",
+  "onboarding.invite.skip": "Omitir por ahora",
+  "onboarding.invite.error.send": "No se pudieron enviar las invitaciones",
+  "onboarding.error.generic": "Algo salió mal"
 }
