@@ -84,6 +84,18 @@ describe('sessionService.bindSessionToTask', () => {
     })
   })
 
+  it('returns retaggedEventCount: 0 when no null events exist', async () => {
+    hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({
+      count: 0,
+    })
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+    expect(result.retaggedEventCount).toBe(0)
+  })
+
   it('throws 403 when user is not a workspace member', async () => {
     misc.findMemberIdForHook.mockResolvedValue(null)
     await expect(

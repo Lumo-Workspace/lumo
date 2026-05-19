@@ -27,6 +27,7 @@ interface BindSessionToTaskResult {
   taskId: string
   taskIdentifier: string
   taskTitle: string
+  /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach). */
   retaggedEventCount: number
 }
 
