@@ -904,5 +904,21 @@
   "onboarding.invite.send": "초대 보내기",
   "onboarding.invite.skip": "나중에 하기",
   "onboarding.invite.error.send": "초대 전송에 실패했습니다",
-  "onboarding.error.generic": "문제가 발생했습니다"
+  "onboarding.error.generic": "문제가 발생했습니다",
+
+  "invite.accepted.title": "이미 수락된 초대입니다",
+  "invite.accepted.body": "이 초대 링크는 이미 사용되었습니다.",
+  "invite.accepted.cta": "워크스페이스로 이동",
+  "invite.expired.title": "초대가 만료되었습니다",
+  "invite.expired.body": "이 초대 링크는 만료되었습니다. 동료에게 새 링크를 요청하세요.",
+  "invite.revoked.title": "초대가 취소되었습니다",
+  "invite.revoked.body": "이 초대 링크는 더 이상 유효하지 않습니다.",
+  "invite.joining": "{workspaceName}에 참여 중…",
+  "invite.error.title": "문제가 발생했습니다",
+  "invite.error.tryAgain": "다시 시도",
+  "invite.error.network": "문제가 발생했습니다. 다시 시도해 주세요.",
+  "invite.signup.title": "{inviterName}님이 {workspaceName}에 초대했습니다",
+  "invite.signup.body": "초대를 수락하려면 가입하거나 로그인하세요.",
+  "invite.signup.create": "계정 만들기",
+  "invite.signup.signin": "로그인"
 }

@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Envoyer les invitations",
   "onboarding.invite.skip": "Passer pour l'instant",
   "onboarding.invite.error.send": "Échec de l'envoi des invitations",
-  "onboarding.error.generic": "Une erreur s'est produite"
+  "onboarding.error.generic": "Une erreur s'est produite",
+
+  "invite.accepted.title": "Invitation déjà acceptée",
+  "invite.accepted.body": "Ce lien d'invitation a déjà été utilisé.",
+  "invite.accepted.cta": "Aller à l'espace",
+  "invite.expired.title": "Invitation expirée",
+  "invite.expired.body": "Ce lien d'invitation a expiré. Demandez à votre coéquipier d'en envoyer un nouveau.",
+  "invite.revoked.title": "Invitation révoquée",
+  "invite.revoked.body": "Ce lien d'invitation n'est plus valide.",
+  "invite.joining": "Connexion à {workspaceName}…",
+  "invite.error.title": "Une erreur s'est produite",
+  "invite.error.tryAgain": "Réessayer",
+  "invite.error.network": "Une erreur s'est produite. Veuillez réessayer.",
+  "invite.signup.title": "{inviterName} vous a invité à rejoindre {workspaceName}",
+  "invite.signup.body": "Inscrivez-vous ou connectez-vous pour accepter l'invitation.",
+  "invite.signup.create": "Créer un compte",
+  "invite.signup.signin": "Se connecter"
 }

@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Gửi lời mời",
   "onboarding.invite.skip": "Bỏ qua",
   "onboarding.invite.error.send": "Không thể gửi lời mời",
-  "onboarding.error.generic": "Đã xảy ra lỗi"
+  "onboarding.error.generic": "Đã xảy ra lỗi",
+
+  "invite.accepted.title": "Lời mời đã được chấp nhận",
+  "invite.accepted.body": "Liên kết lời mời này đã được sử dụng.",
+  "invite.accepted.cta": "Đến không gian làm việc",
+  "invite.expired.title": "Lời mời đã hết hạn",
+  "invite.expired.body": "Liên kết lời mời này đã hết hạn. Hãy yêu cầu đồng đội gửi một lời mời mới.",
+  "invite.revoked.title": "Lời mời đã bị thu hồi",
+  "invite.revoked.body": "Liên kết lời mời này không còn hợp lệ.",
+  "invite.joining": "Đang tham gia {workspaceName}…",
+  "invite.error.title": "Đã xảy ra lỗi",
+  "invite.error.tryAgain": "Thử lại",
+  "invite.error.network": "Đã xảy ra lỗi. Vui lòng thử lại.",
+  "invite.signup.title": "{inviterName} đã mời bạn tham gia {workspaceName}",
+  "invite.signup.body": "Đăng ký hoặc đăng nhập để chấp nhận lời mời.",
+  "invite.signup.create": "Tạo tài khoản",
+  "invite.signup.signin": "Đăng nhập"
 }

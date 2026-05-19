@@ -948,5 +948,21 @@
   "onboarding.invite.send": "发送邀请",
   "onboarding.invite.skip": "稍后再说",
   "onboarding.invite.error.send": "发送邀请失败",
-  "onboarding.error.generic": "出错了"
+  "onboarding.error.generic": "出错了",
+
+  "invite.accepted.title": "邀请已接受",
+  "invite.accepted.body": "这个邀请链接已经被使用过了。",
+  "invite.accepted.cta": "前往工作区",
+  "invite.expired.title": "邀请已过期",
+  "invite.expired.body": "这个邀请链接已过期。请让你的队友重新发一份。",
+  "invite.revoked.title": "邀请已撤销",
+  "invite.revoked.body": "这个邀请链接已失效。",
+  "invite.joining": "正在加入 {workspaceName}…",
+  "invite.error.title": "出错了",
+  "invite.error.tryAgain": "重试",
+  "invite.error.network": "出错了，请重试。",
+  "invite.signup.title": "{inviterName} 邀请你加入 {workspaceName}",
+  "invite.signup.body": "注册或登录以接受邀请。",
+  "invite.signup.create": "创建账号",
+  "invite.signup.signin": "登录"
 }

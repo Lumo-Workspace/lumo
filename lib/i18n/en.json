@@ -948,5 +948,21 @@
   "onboarding.invite.send": "Send invites",
   "onboarding.invite.skip": "Skip for now",
   "onboarding.invite.error.send": "Failed to send invites",
-  "onboarding.error.generic": "Something went wrong"
+  "onboarding.error.generic": "Something went wrong",
+
+  "invite.accepted.title": "Invitation already accepted",
+  "invite.accepted.body": "This invite link has already been used.",
+  "invite.accepted.cta": "Go to workspace",
+  "invite.expired.title": "Invitation expired",
+  "invite.expired.body": "This invite link has expired. Ask your teammate to send a new one.",
+  "invite.revoked.title": "Invitation revoked",
+  "invite.revoked.body": "This invite link is no longer valid.",
+  "invite.joining": "Joining {workspaceName}…",
+  "invite.error.title": "Something went wrong",
+  "invite.error.tryAgain": "Try again",
+  "invite.error.network": "Something went wrong. Please try again.",
+  "invite.signup.title": "{inviterName} invited you to join {workspaceName}",
+  "invite.signup.body": "Sign up or sign in to accept the invitation.",
+  "invite.signup.create": "Create account",
+  "invite.signup.signin": "Sign in"
 }

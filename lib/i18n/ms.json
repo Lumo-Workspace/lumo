@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Hantar jemputan",
   "onboarding.invite.skip": "Langkau dahulu",
   "onboarding.invite.error.send": "Gagal menghantar jemputan",
-  "onboarding.error.generic": "Sesuatu telah berlaku"
+  "onboarding.error.generic": "Sesuatu telah berlaku",
+
+  "invite.accepted.title": "Jemputan sudah diterima",
+  "invite.accepted.body": "Pautan jemputan ini sudah digunakan.",
+  "invite.accepted.cta": "Ke ruang kerja",
+  "invite.expired.title": "Jemputan tamat tempoh",
+  "invite.expired.body": "Pautan jemputan ini telah tamat tempoh. Minta rakan anda menghantar yang baharu.",
+  "invite.revoked.title": "Jemputan dibatalkan",
+  "invite.revoked.body": "Pautan jemputan ini tidak lagi sah.",
+  "invite.joining": "Menyertai {workspaceName}…",
+  "invite.error.title": "Sesuatu telah berlaku",
+  "invite.error.tryAgain": "Cuba lagi",
+  "invite.error.network": "Sesuatu telah berlaku. Sila cuba lagi.",
+  "invite.signup.title": "{inviterName} menjemput anda menyertai {workspaceName}",
+  "invite.signup.body": "Daftar atau log masuk untuk menerima jemputan.",
+  "invite.signup.create": "Cipta akaun",
+  "invite.signup.signin": "Log masuk"
 }

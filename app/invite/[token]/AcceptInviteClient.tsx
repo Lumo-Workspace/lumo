@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { useIntl, FormattedMessage } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { invitesClient, ApiClientError } from '@/lib/api-client'
@@ -22,6 +23,7 @@ export function AcceptInviteClient({
   inviterName,
   status,
 }: Props) {
+  const intl = useIntl()
   const { isLoaded, isSignedIn } = useUser()
   const router = useRouter()
   const [accepting, setAccepting] = useState(false)
@@ -45,7 +47,7 @@ export function AcceptInviteClient({
         setError(
           err instanceof ApiClientError
             ? err.message
-            : 'Something went wrong. Please try again.'
+            : intl.formatMessage({ id: 'invite.error.network' })
         )
         setAccepting(false)
       })
@@ -54,17 +56,19 @@ export function AcceptInviteClient({
       cancelled = true
       controller.abort()
     }
-  }, [isLoaded, isSignedIn, status, token, router])
+  }, [isLoaded, isSignedIn, status, token, router, intl])
 
   if (status === 'ACCEPTED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>Invitation already accepted</h2>
+        <h2 className='text-lg font-semibold'>
+          {intl.formatMessage({ id: 'invite.accepted.title' })}
+        </h2>
         <p className='text-sm text-slate-500'>
-          This invite link has already been used.
+          {intl.formatMessage({ id: 'invite.accepted.body' })}
         </p>
         <Button onClick={() => router.push(`/workspace/${workspaceSlug}`)}>
-          Go to workspace
+          {intl.formatMessage({ id: 'invite.accepted.cta' })}
         </Button>
       </>
     )
@@ -73,9 +77,11 @@ export function AcceptInviteClient({
   if (status === 'EXPIRED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>Invitation expired</h2>
+        <h2 className='text-lg font-semibold'>
+          {intl.formatMessage({ id: 'invite.expired.title' })}
+        </h2>
         <p className='text-sm text-slate-500'>
-          This invite link has expired. Ask your teammate to send a new one.
+          {intl.formatMessage({ id: 'invite.expired.body' })}
         </p>
       </>
     )
@@ -84,9 +90,11 @@ export function AcceptInviteClient({
   if (status === 'REVOKED') {
     return (
       <>
-        <h2 className='text-lg font-semibold'>Invitation revoked</h2>
+        <h2 className='text-lg font-semibold'>
+          {intl.formatMessage({ id: 'invite.revoked.title' })}
+        </h2>
         <p className='text-sm text-slate-500'>
-          This invite link is no longer valid.
+          {intl.formatMessage({ id: 'invite.revoked.body' })}
         </p>
       </>
     )
@@ -96,7 +104,12 @@ export function AcceptInviteClient({
   if (!isLoaded || accepting) {
     return (
       <>
-        <h2 className='text-lg font-semibold'>Joining {workspaceName}…</h2>
+        <h2 className='text-lg font-semibold'>
+          {intl.formatMessage(
+            { id: 'invite.joining' },
+            { workspaceName }
+          )}
+        </h2>
         <div className='flex justify-center'>
           <Spinner className='size-5 text-slate-400' />
         </div>
@@ -108,11 +121,11 @@ export function AcceptInviteClient({
     return (
       <>
         <h2 className='text-lg font-semibold text-red-600'>
-          Something went wrong
+          {intl.formatMessage({ id: 'invite.error.title' })}
         </h2>
         <p className='text-sm text-slate-500'>{error}</p>
         <Button variant='outline' onClick={() => setError(null)}>
-          Try again
+          {intl.formatMessage({ id: 'invite.error.tryAgain' })}
         </Button>
       </>
     )
@@ -123,21 +136,28 @@ export function AcceptInviteClient({
   return (
     <>
       <h2 className='text-lg font-semibold'>
-        {inviterName} invited you to join{' '}
-        <span className='text-slate-900'>{workspaceName}</span>
+        <FormattedMessage
+          id='invite.signup.title'
+          values={{
+            inviterName,
+            workspaceName: (
+              <span className='text-slate-900'>{workspaceName}</span>
+            ),
+          }}
+        />
       </h2>
       <p className='text-sm text-slate-500'>
-        Sign up or sign in to accept the invitation.
+        {intl.formatMessage({ id: 'invite.signup.body' })}
       </p>
       <div className='flex flex-col gap-2'>
         <Button asChild className='w-full'>
           <a href={`/signup?redirect_url=${encodeURIComponent(inviteUrl)}`}>
-            Create account
+            {intl.formatMessage({ id: 'invite.signup.create' })}
           </a>
         </Button>
         <Button asChild variant='outline' className='w-full'>
           <a href={`/signin?redirect_url=${encodeURIComponent(inviteUrl)}`}>
-            Sign in
+            {intl.formatMessage({ id: 'invite.signup.signin' })}
           </a>
         </Button>
       </div>

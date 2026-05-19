@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Отправить приглашения",
   "onboarding.invite.skip": "Пока пропустить",
   "onboarding.invite.error.send": "Не удалось отправить приглашения",
-  "onboarding.error.generic": "Что-то пошло не так"
+  "onboarding.error.generic": "Что-то пошло не так",
+
+  "invite.accepted.title": "Приглашение уже принято",
+  "invite.accepted.body": "Эта ссылка-приглашение уже использована.",
+  "invite.accepted.cta": "В рабочее пространство",
+  "invite.expired.title": "Приглашение истекло",
+  "invite.expired.body": "Срок действия ссылки-приглашения истёк. Попросите коллегу прислать новую.",
+  "invite.revoked.title": "Приглашение отозвано",
+  "invite.revoked.body": "Эта ссылка-приглашение больше не действительна.",
+  "invite.joining": "Присоединение к {workspaceName}…",
+  "invite.error.title": "Что-то пошло не так",
+  "invite.error.tryAgain": "Повторить",
+  "invite.error.network": "Что-то пошло не так. Попробуйте снова.",
+  "invite.signup.title": "{inviterName} пригласил(а) вас в {workspaceName}",
+  "invite.signup.body": "Зарегистрируйтесь или войдите, чтобы принять приглашение.",
+  "invite.signup.create": "Создать аккаунт",
+  "invite.signup.signin": "Войти"
 }

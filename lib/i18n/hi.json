@@ -904,5 +904,21 @@
   "onboarding.invite.send": "आमंत्रण भेजें",
   "onboarding.invite.skip": "अभी छोड़ें",
   "onboarding.invite.error.send": "आमंत्रण भेजने में विफल",
-  "onboarding.error.generic": "कुछ गलत हो गया"
+  "onboarding.error.generic": "कुछ गलत हो गया",
+
+  "invite.accepted.title": "आमंत्रण पहले से स्वीकार किया गया",
+  "invite.accepted.body": "इस आमंत्रण लिंक का पहले ही उपयोग किया जा चुका है।",
+  "invite.accepted.cta": "वर्कस्पेस पर जाएं",
+  "invite.expired.title": "आमंत्रण समाप्त",
+  "invite.expired.body": "इस आमंत्रण लिंक की अवधि समाप्त हो गई है। अपने साथी से नया भेजने को कहें।",
+  "invite.revoked.title": "आमंत्रण रद्द",
+  "invite.revoked.body": "यह आमंत्रण लिंक अब मान्य नहीं है।",
+  "invite.joining": "{workspaceName} में शामिल हो रहे हैं…",
+  "invite.error.title": "कुछ गलत हो गया",
+  "invite.error.tryAgain": "पुनः प्रयास करें",
+  "invite.error.network": "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
+  "invite.signup.title": "{inviterName} ने आपको {workspaceName} में शामिल होने के लिए आमंत्रित किया",
+  "invite.signup.body": "आमंत्रण स्वीकार करने के लिए साइन अप या साइन इन करें।",
+  "invite.signup.create": "खाता बनाएं",
+  "invite.signup.signin": "साइन इन"
 }

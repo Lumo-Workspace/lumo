@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Enviar invitaciones",
   "onboarding.invite.skip": "Omitir por ahora",
   "onboarding.invite.error.send": "No se pudieron enviar las invitaciones",
-  "onboarding.error.generic": "Algo salió mal"
+  "onboarding.error.generic": "Algo salió mal",
+
+  "invite.accepted.title": "Invitación ya aceptada",
+  "invite.accepted.body": "Este enlace de invitación ya se ha utilizado.",
+  "invite.accepted.cta": "Ir al espacio",
+  "invite.expired.title": "Invitación caducada",
+  "invite.expired.body": "Este enlace de invitación ha caducado. Pide a tu compañero que envíe uno nuevo.",
+  "invite.revoked.title": "Invitación revocada",
+  "invite.revoked.body": "Este enlace de invitación ya no es válido.",
+  "invite.joining": "Uniéndote a {workspaceName}…",
+  "invite.error.title": "Algo salió mal",
+  "invite.error.tryAgain": "Volver a intentar",
+  "invite.error.network": "Algo salió mal. Inténtalo de nuevo.",
+  "invite.signup.title": "{inviterName} te invitó a unirte a {workspaceName}",
+  "invite.signup.body": "Regístrate o inicia sesión para aceptar la invitación.",
+  "invite.signup.create": "Crear cuenta",
+  "invite.signup.signin": "Iniciar sesión"
 }

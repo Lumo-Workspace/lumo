@@ -904,5 +904,21 @@
   "onboarding.invite.send": "Kirim undangan",
   "onboarding.invite.skip": "Lewati dulu",
   "onboarding.invite.error.send": "Gagal mengirim undangan",
-  "onboarding.error.generic": "Terjadi kesalahan"
+  "onboarding.error.generic": "Terjadi kesalahan",
+
+  "invite.accepted.title": "Undangan sudah diterima",
+  "invite.accepted.body": "Tautan undangan ini sudah pernah digunakan.",
+  "invite.accepted.cta": "Ke ruang kerja",
+  "invite.expired.title": "Undangan kedaluwarsa",
+  "invite.expired.body": "Tautan undangan ini sudah kedaluwarsa. Minta rekan Anda mengirim yang baru.",
+  "invite.revoked.title": "Undangan dicabut",
+  "invite.revoked.body": "Tautan undangan ini tidak berlaku lagi.",
+  "invite.joining": "Bergabung ke {workspaceName}…",
+  "invite.error.title": "Terjadi kesalahan",
+  "invite.error.tryAgain": "Coba lagi",
+  "invite.error.network": "Terjadi kesalahan. Silakan coba lagi.",
+  "invite.signup.title": "{inviterName} mengundang Anda bergabung ke {workspaceName}",
+  "invite.signup.body": "Daftar atau masuk untuk menerima undangan.",
+  "invite.signup.create": "Buat akun",
+  "invite.signup.signin": "Masuk"
 }

@@ -947,5 +947,21 @@
   "onboarding.invite.send": "傳送邀請",
   "onboarding.invite.skip": "稍後再說",
   "onboarding.invite.error.send": "傳送邀請失敗",
-  "onboarding.error.generic": "發生錯誤"
+  "onboarding.error.generic": "發生錯誤",
+
+  "invite.accepted.title": "邀請已接受",
+  "invite.accepted.body": "這個邀請連結已經被使用過了。",
+  "invite.accepted.cta": "前往工作區",
+  "invite.expired.title": "邀請已過期",
+  "invite.expired.body": "這個邀請連結已過期。請你的隊友重新傳送一份。",
+  "invite.revoked.title": "邀請已撤銷",
+  "invite.revoked.body": "這個邀請連結已失效。",
+  "invite.joining": "正在加入 {workspaceName}…",
+  "invite.error.title": "發生錯誤",
+  "invite.error.tryAgain": "重試",
+  "invite.error.network": "發生錯誤，請再試一次。",
+  "invite.signup.title": "{inviterName} 邀請你加入 {workspaceName}",
+  "invite.signup.body": "註冊或登入以接受邀請。",
+  "invite.signup.create": "建立帳號",
+  "invite.signup.signin": "登入"
 }
