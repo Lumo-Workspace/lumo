@@ -909,5 +909,27 @@
   "lumo.sync.banner.button": "同步 {n} 條到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",
   "lumo.sync.banner.viewPr": "查看 PR",
-  "lumo.sync.sidebar.hint": "在上方 Agent 運行分頁中同步"
+  "lumo.sync.sidebar.hint": "在上方 Agent 運行分頁中同步",
+
+  "waitlist.heading": "加入候補名單",
+  "waitlist.subheading": "搶先體驗 Lumo。",
+  "waitlist.success.title": "你已加入候補名單！",
+  "waitlist.success.body": "席次準備好後我們會聯絡你。",
+  "waitlist.field.email": "工作信箱",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "姓名",
+  "waitlist.placeholder.name": "王小明",
+  "waitlist.field.company": "公司",
+  "waitlist.placeholder.company": "範例公司",
+  "waitlist.field.teamSize": "團隊規模",
+  "waitlist.teamSize.select": "請選擇…",
+  "waitlist.teamSize.justMe": "只有自己",
+  "waitlist.teamSize.2to5": "2–5 人",
+  "waitlist.teamSize.6to15": "6–15 人",
+  "waitlist.teamSize.16to50": "16–50 人",
+  "waitlist.teamSize.50plus": "50 人以上",
+  "waitlist.button.submit": "加入候補",
+  "waitlist.button.submitting": "提交中…",
+  "waitlist.footer": "我們絕不會洩露你的信箱，可隨時取消訂閱。",
+  "waitlist.error.network": "網路錯誤，請稍後再試。"
 }

@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "Синхронизировать {n} в LUMO.md →",
   "lumo.sync.banner.synced": "Синхронизировано с LUMO.md",
   "lumo.sync.banner.viewPr": "Посмотреть PR",
-  "lumo.sync.sidebar.hint": "Синхронизируйте из вкладки запуска Агента выше"
+  "lumo.sync.sidebar.hint": "Синхронизируйте из вкладки запуска Агента выше",
+
+  "waitlist.heading": "Записаться в лист ожидания",
+  "waitlist.subheading": "Получите ранний доступ к Lumo.",
+  "waitlist.success.title": "Вы в списке ожидания!",
+  "waitlist.success.body": "Мы свяжемся с вами, как только место будет готово.",
+  "waitlist.field.email": "Рабочая почта",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "Имя",
+  "waitlist.placeholder.name": "Иван Иванов",
+  "waitlist.field.company": "Компания",
+  "waitlist.placeholder.company": "ООО «Пример»",
+  "waitlist.field.teamSize": "Размер команды",
+  "waitlist.teamSize.select": "Выберите…",
+  "waitlist.teamSize.justMe": "Только я",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "более 50",
+  "waitlist.button.submit": "Записаться",
+  "waitlist.button.submitting": "Отправка…",
+  "waitlist.footer": "Мы никогда не передадим вашу почту третьим лицам. Отписаться можно в любой момент.",
+  "waitlist.error.network": "Ошибка сети. Попробуйте снова."
 }

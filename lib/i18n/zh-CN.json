@@ -910,5 +910,27 @@
   "lumo.sync.banner.button": "同步 {n} 条到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",
   "lumo.sync.banner.viewPr": "查看 PR",
-  "lumo.sync.sidebar.hint": "在上方 Agent 运行 tab 中同步"
+  "lumo.sync.sidebar.hint": "在上方 Agent 运行 tab 中同步",
+
+  "waitlist.heading": "加入候补名单",
+  "waitlist.subheading": "抢先体验 Lumo。",
+  "waitlist.success.title": "你已加入候补名单！",
+  "waitlist.success.body": "席位准备好后我们会联系你。",
+  "waitlist.field.email": "工作邮箱",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "姓名",
+  "waitlist.placeholder.name": "张三",
+  "waitlist.field.company": "公司",
+  "waitlist.placeholder.company": "示例公司",
+  "waitlist.field.teamSize": "团队规模",
+  "waitlist.teamSize.select": "请选择…",
+  "waitlist.teamSize.justMe": "仅自己",
+  "waitlist.teamSize.2to5": "2–5 人",
+  "waitlist.teamSize.6to15": "6–15 人",
+  "waitlist.teamSize.16to50": "16–50 人",
+  "waitlist.teamSize.50plus": "50 人以上",
+  "waitlist.button.submit": "加入候补",
+  "waitlist.button.submitting": "提交中…",
+  "waitlist.footer": "我们绝不会泄露你的邮箱。可随时退订。",
+  "waitlist.error.network": "网络错误，请稍后重试。"
 }

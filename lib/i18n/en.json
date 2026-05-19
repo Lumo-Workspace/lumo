@@ -910,5 +910,27 @@
   "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
   "lumo.sync.banner.synced": "Synced to LUMO.md",
   "lumo.sync.banner.viewPr": "View PR",
-  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above"
+  "lumo.sync.sidebar.hint": "Sync from the Agent run tab above",
+
+  "waitlist.heading": "Join the Waitlist",
+  "waitlist.subheading": "Get early access to Lumo.",
+  "waitlist.success.title": "You're on the list!",
+  "waitlist.success.body": "We'll reach out when your spot is ready.",
+  "waitlist.field.email": "Work email",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "Name",
+  "waitlist.placeholder.name": "Jane Smith",
+  "waitlist.field.company": "Company",
+  "waitlist.placeholder.company": "Acme Inc.",
+  "waitlist.field.teamSize": "Team size",
+  "waitlist.teamSize.select": "Select...",
+  "waitlist.teamSize.justMe": "Just me",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "50+",
+  "waitlist.button.submit": "Join Waitlist",
+  "waitlist.button.submitting": "Submitting...",
+  "waitlist.footer": "We'll never share your email. Unsubscribe anytime.",
+  "waitlist.error.network": "Network error. Please try again."
 }

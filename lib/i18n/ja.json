@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "{n} 件を LUMO.md に同期 →",
   "lumo.sync.banner.synced": "LUMO.md に同期済み",
   "lumo.sync.banner.viewPr": "PR を表示",
-  "lumo.sync.sidebar.hint": "上の Agent 実行タブから同期"
+  "lumo.sync.sidebar.hint": "上の Agent 実行タブから同期",
+
+  "waitlist.heading": "ウェイトリストに登録",
+  "waitlist.subheading": "Lumo にいち早くアクセス。",
+  "waitlist.success.title": "ウェイトリストに登録されました！",
+  "waitlist.success.body": "席のご案内が出来次第ご連絡します。",
+  "waitlist.field.email": "仕事用メールアドレス",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "名前",
+  "waitlist.placeholder.name": "山田 太郎",
+  "waitlist.field.company": "会社名",
+  "waitlist.placeholder.company": "株式会社サンプル",
+  "waitlist.field.teamSize": "チーム規模",
+  "waitlist.teamSize.select": "選択…",
+  "waitlist.teamSize.justMe": "自分のみ",
+  "waitlist.teamSize.2to5": "2〜5 人",
+  "waitlist.teamSize.6to15": "6〜15 人",
+  "waitlist.teamSize.16to50": "16〜50 人",
+  "waitlist.teamSize.50plus": "50 人以上",
+  "waitlist.button.submit": "ウェイトリストに登録",
+  "waitlist.button.submitting": "送信中…",
+  "waitlist.footer": "メールアドレスを共有することは一切ありません。いつでも配信解除できます。",
+  "waitlist.error.network": "ネットワークエラーが発生しました。もう一度お試しください。"
 }

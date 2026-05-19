@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "Segerakkan {n} ke LUMO.md →",
   "lumo.sync.banner.synced": "Disegerakkan ke LUMO.md",
   "lumo.sync.banner.viewPr": "Lihat PR",
-  "lumo.sync.sidebar.hint": "Segerakkan dari tab pelaksanaan Agen di atas"
+  "lumo.sync.sidebar.hint": "Segerakkan dari tab pelaksanaan Agen di atas",
+
+  "waitlist.heading": "Sertai Senarai Menunggu",
+  "waitlist.subheading": "Akses awal ke Lumo.",
+  "waitlist.success.title": "Anda kini dalam senarai!",
+  "waitlist.success.body": "Kami akan hubungi anda apabila tempat anda sedia.",
+  "waitlist.field.email": "E-mel kerja",
+  "waitlist.placeholder.email": "anda@syarikat.com",
+  "waitlist.field.name": "Nama",
+  "waitlist.placeholder.name": "Ahmad bin Ali",
+  "waitlist.field.company": "Syarikat",
+  "waitlist.placeholder.company": "Acme Sdn. Bhd.",
+  "waitlist.field.teamSize": "Saiz pasukan",
+  "waitlist.teamSize.select": "Pilih…",
+  "waitlist.teamSize.justMe": "Hanya saya",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "Lebih 50",
+  "waitlist.button.submit": "Sertai Senarai Menunggu",
+  "waitlist.button.submitting": "Menghantar…",
+  "waitlist.footer": "Kami tidak akan kongsikan e-mel anda. Berhenti melanggan bila-bila masa.",
+  "waitlist.error.network": "Ralat rangkaian. Sila cuba lagi."
 }

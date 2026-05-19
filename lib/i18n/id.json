@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "Sinkronkan {n} ke LUMO.md →",
   "lumo.sync.banner.synced": "Disinkronkan ke LUMO.md",
   "lumo.sync.banner.viewPr": "Lihat PR",
-  "lumo.sync.sidebar.hint": "Sinkronkan dari tab Agent run di atas"
+  "lumo.sync.sidebar.hint": "Sinkronkan dari tab Agent run di atas",
+
+  "waitlist.heading": "Bergabung ke Daftar Tunggu",
+  "waitlist.subheading": "Akses awal ke Lumo.",
+  "waitlist.success.title": "Anda sudah ada dalam daftar!",
+  "waitlist.success.body": "Kami akan menghubungi Anda saat slot Anda siap.",
+  "waitlist.field.email": "Email kerja",
+  "waitlist.placeholder.email": "anda@perusahaan.com",
+  "waitlist.field.name": "Nama",
+  "waitlist.placeholder.name": "Budi Santoso",
+  "waitlist.field.company": "Perusahaan",
+  "waitlist.placeholder.company": "Acme Tbk.",
+  "waitlist.field.teamSize": "Ukuran tim",
+  "waitlist.teamSize.select": "Pilih…",
+  "waitlist.teamSize.justMe": "Hanya saya",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "Lebih dari 50",
+  "waitlist.button.submit": "Gabung Daftar Tunggu",
+  "waitlist.button.submitting": "Mengirim…",
+  "waitlist.footer": "Kami tidak akan pernah membagikan email Anda. Berhenti berlangganan kapan saja.",
+  "waitlist.error.network": "Kesalahan jaringan. Silakan coba lagi."
 }

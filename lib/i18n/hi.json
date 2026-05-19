@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "{n} को LUMO.md में सिंक करें →",
   "lumo.sync.banner.synced": "LUMO.md में सिंक हो गया",
   "lumo.sync.banner.viewPr": "PR देखें",
-  "lumo.sync.sidebar.hint": "ऊपर Agent रन टैब से सिंक करें"
+  "lumo.sync.sidebar.hint": "ऊपर Agent रन टैब से सिंक करें",
+
+  "waitlist.heading": "प्रतीक्षा सूची में शामिल हों",
+  "waitlist.subheading": "Lumo तक जल्द पहुँच पाएं।",
+  "waitlist.success.title": "आप सूची में हैं!",
+  "waitlist.success.body": "आपकी जगह तैयार होने पर हम संपर्क करेंगे।",
+  "waitlist.field.email": "कार्य ईमेल",
+  "waitlist.placeholder.email": "you@company.com",
+  "waitlist.field.name": "नाम",
+  "waitlist.placeholder.name": "अमित शर्मा",
+  "waitlist.field.company": "कंपनी",
+  "waitlist.placeholder.company": "Acme प्रा. लि.",
+  "waitlist.field.teamSize": "टीम का आकार",
+  "waitlist.teamSize.select": "चुनें…",
+  "waitlist.teamSize.justMe": "केवल मैं",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "50 से अधिक",
+  "waitlist.button.submit": "सूची में शामिल हों",
+  "waitlist.button.submitting": "भेजा जा रहा है…",
+  "waitlist.footer": "हम आपका ईमेल कभी साझा नहीं करेंगे। आप कभी भी सदस्यता छोड़ सकते हैं।",
+  "waitlist.error.network": "नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।"
 }

@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "Sincronizar {n} con LUMO.md →",
   "lumo.sync.banner.synced": "Sincronizado con LUMO.md",
   "lumo.sync.banner.viewPr": "Ver PR",
-  "lumo.sync.sidebar.hint": "Sincronizar desde la pestaña de ejecución del Agente arriba"
+  "lumo.sync.sidebar.hint": "Sincronizar desde la pestaña de ejecución del Agente arriba",
+
+  "waitlist.heading": "Únete a la lista de espera",
+  "waitlist.subheading": "Obtén acceso anticipado a Lumo.",
+  "waitlist.success.title": "¡Estás en la lista!",
+  "waitlist.success.body": "Te avisaremos cuando tu lugar esté listo.",
+  "waitlist.field.email": "Correo de trabajo",
+  "waitlist.placeholder.email": "tu@empresa.com",
+  "waitlist.field.name": "Nombre",
+  "waitlist.placeholder.name": "Juan Pérez",
+  "waitlist.field.company": "Empresa",
+  "waitlist.placeholder.company": "Acme S.A.",
+  "waitlist.field.teamSize": "Tamaño del equipo",
+  "waitlist.teamSize.select": "Selecciona…",
+  "waitlist.teamSize.justMe": "Solo yo",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "Más de 50",
+  "waitlist.button.submit": "Unirme a la lista",
+  "waitlist.button.submitting": "Enviando…",
+  "waitlist.footer": "Nunca compartiremos tu correo. Puedes cancelar la suscripción cuando quieras.",
+  "waitlist.error.network": "Error de red. Inténtalo de nuevo."
 }

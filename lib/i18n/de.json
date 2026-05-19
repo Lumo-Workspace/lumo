@@ -866,5 +866,27 @@
   "lumo.sync.banner.button": "{n} mit LUMO.md synchronisieren →",
   "lumo.sync.banner.synced": "Mit LUMO.md synchronisiert",
   "lumo.sync.banner.viewPr": "PR anzeigen",
-  "lumo.sync.sidebar.hint": "Im Agent-Lauf-Tab oben synchronisieren"
+  "lumo.sync.sidebar.hint": "Im Agent-Lauf-Tab oben synchronisieren",
+
+  "waitlist.heading": "Auf die Warteliste setzen",
+  "waitlist.subheading": "Frühzeitig auf Lumo zugreifen.",
+  "waitlist.success.title": "Sie sind auf der Liste!",
+  "waitlist.success.body": "Wir melden uns, sobald Ihr Platz bereit ist.",
+  "waitlist.field.email": "Geschäftliche E-Mail",
+  "waitlist.placeholder.email": "sie@firma.com",
+  "waitlist.field.name": "Name",
+  "waitlist.placeholder.name": "Max Mustermann",
+  "waitlist.field.company": "Unternehmen",
+  "waitlist.placeholder.company": "Acme GmbH",
+  "waitlist.field.teamSize": "Teamgröße",
+  "waitlist.teamSize.select": "Auswählen…",
+  "waitlist.teamSize.justMe": "Nur ich",
+  "waitlist.teamSize.2to5": "2–5",
+  "waitlist.teamSize.6to15": "6–15",
+  "waitlist.teamSize.16to50": "16–50",
+  "waitlist.teamSize.50plus": "Mehr als 50",
+  "waitlist.button.submit": "Auf Warteliste setzen",
+  "waitlist.button.submitting": "Wird gesendet…",
+  "waitlist.footer": "Wir geben Ihre E-Mail nie weiter. Jederzeit abbestellbar.",
+  "waitlist.error.network": "Netzwerkfehler. Bitte erneut versuchen."
 }
