@@ -1,6 +1,10 @@
 import { readCredentials } from './config'
 import { trimTrailingSlash } from './api'
-import { readSessionBinding } from './session-binding'
+import {
+  readSessionBinding,
+  cleanupStaleBindings,
+  clearSessionBinding,
+} from './session-binding'
 import { logHookError } from './hook-log'
 
 /**
@@ -209,13 +213,28 @@ export async function runHookWithBody(
       })
       if (!res.ok) {
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
-      } else if (path === 'session-start') {
-        try {
-          const responseBody = await res.json()
-          const output = formatSessionStartOutput(responseBody)
-          if (output) process.stdout.write(output + '\n')
-        } catch {
-          // response body parse failure is non-fatal
+      } else {
+        // Per-hook side effects fire only after a 2xx response so a transient
+        // server failure doesn't desync local state from server state.
+        if (path === 'session-start') {
+          try {
+            const responseBody = await res.json()
+            const output = formatSessionStartOutput(responseBody)
+            if (output) process.stdout.write(output + '\n')
+          } catch {
+            // response body parse failure is non-fatal
+          }
+          try {
+            cleanupStaleBindings(7)
+          } catch (err) {
+            logHookError(`[${path}] cleanup`, err)
+          }
+        } else if (path === 'session-end' && sessionId) {
+          try {
+            clearSessionBinding(sessionId)
+          } catch (err) {
+            logHookError(`[${path}] clear`, err)
+          }
         }
       }
     } catch (err) {
