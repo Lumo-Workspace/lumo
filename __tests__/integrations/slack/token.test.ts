@@ -21,14 +21,16 @@ describe('getSlackIntegrationToken', () => {
     findUnique.mockResolvedValue({
       accessToken: 'cipher',
       slackTeamId: 'T01',
+      slackTeamName: 'lumo',
     })
     expect(await getSlackIntegrationToken('ws_1')).toEqual({
       token: 'decrypted(cipher)',
       slackTeamId: 'T01',
+      slackTeamName: 'lumo',
     })
     expect(findUnique).toHaveBeenCalledWith({
       where: { workspaceId: 'ws_1' },
-      select: { accessToken: true, slackTeamId: true },
+      select: { accessToken: true, slackTeamId: true, slackTeamName: true },
     })
     expect(decrypt).toHaveBeenCalledWith('cipher')
   })
