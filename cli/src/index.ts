@@ -4,11 +4,13 @@ import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
-import { sessionStart } from './commands/session-start'
 import { sessionAttach } from './commands/session-attach'
 import { taskContext } from './commands/task-context'
+import { migrateLegacyCurrentTask } from './lib/session-binding'
 
 const pkg = require('../package.json') as { version: string }
+
+migrateLegacyCurrentTask()
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
@@ -52,16 +54,9 @@ const session = program
   .description('Manage per-terminal coding-session context')
 
 session
-  .command('start <identifier>')
-  .description(
-    'Tag the next `claude code` session with a task (e.g. LUM-42). Writes ~/.lumo/current-task.json.'
-  )
-  .action(wrap(identifier => sessionStart(identifier as string)))
-
-session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running coding session to a task. Re-tags the running Session row + its untagged hook events, AND writes ~/.lumo/current-task.json so the next session inherits too.'
+    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Writes ~/.lumo/sessions/<sid>.json and re-tags untagged hook events.'
   )
   .action(wrap(identifier => sessionAttach(identifier as string)))
 
