@@ -12,18 +12,8 @@ import { useParams, usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { useCurrentUser } from './hooks/useCurrentUser'
-import {
-  Page,
-  ApiProject,
-  ApiTask,
-  ApiDraft,
-  MyTask,
-  ApiStatus,
-  ApiPriority,
-  TaskPreFillFields,
-} from './types'
-import { pageToPath as pageToPathUtil } from './utils'
-import { slugify } from '@/lib/utils/slugify'
+import { Page, ApiProject, ApiTask, MyTask } from './types'
+import { pageToPath, pathToPage } from './utils'
 import { clearCache } from './cache'
 
 // Hooks
@@ -43,60 +33,14 @@ import { useWorkspaceTaskHandlers } from './hooks/useWorkspaceTaskHandlers'
 import { useWorkspaceProjectHandlers } from './hooks/useWorkspaceProjectHandlers'
 import { useWorkspaceDocumentHandlers } from './hooks/useWorkspaceDocumentHandlers'
 import { useDocTreeCollapsed } from './hooks/useDocTreeCollapsed'
+import { useWorkspaceUrlSync } from './hooks/useWorkspaceUrlSync'
+import { useWorkspaceModalState } from './hooks/useWorkspaceModalState'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
-import { ProjectsPage } from './components/pages/ProjectsPage'
-import { ProjectDetailPage } from './components/pages/ProjectDetailPage'
-import { MyTasksPage } from './components/pages/MyTasksPage'
-import { InboxPage } from './components/pages/InboxPage'
-import { DocumentsPage } from './components/pages/DocumentsPage'
-import { DocumentEditorPage } from './components/pages/DocumentEditorPage'
-import { DraftsPage } from './components/DraftsPage'
-import { DashboardPage } from './components/pages/DashboardPage'
-import { SprintsLandingClient } from './sprints/components/SprintsLandingClient'
-import { SprintDetailClient } from './sprints/[sprintId]/SprintDetailClient'
-import {
-  GlobalDocTree,
-  CollapsedDocTreeRail,
-} from './components/document/GlobalDocTree'
 import { WorkspaceModals } from './components/WorkspaceModals'
-
-// ─── URL ↔ Page mapping ──────────────────────────────────────────────────────
-
-// Re-export from utils for backward compat within this file
-const pageToPath = pageToPathUtil
-
-function pathToPage(
-  pathname: string,
-  workspaceUrl: string
-): { page: Page; projectSlug?: string | undefined } {
-  const base = `/workspace/${workspaceUrl}`
-  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : ''
-
-  if (rest.startsWith('/documents/')) {
-    const docId = rest.slice('/documents/'.length).split('/')[0]
-    return { page: 'document-editor', projectSlug: docId }
-  }
-  if (rest.startsWith('/documents')) return { page: 'documents' }
-  if (rest.startsWith('/dashboard')) return { page: 'dashboard' }
-  if (rest.startsWith('/inbox')) return { page: 'inbox' }
-  if (rest.startsWith('/projects/')) {
-    const projectSlug = rest.slice('/projects/'.length).split('/')[0]
-    return { page: 'project-detail', projectSlug }
-  }
-  if (rest.startsWith('/projects')) return { page: 'projects' }
-  if (rest.startsWith('/drafts')) return { page: 'drafts' }
-  if (rest.startsWith('/sprints/')) {
-    const sprintId = rest.slice('/sprints/'.length).split('/')[0]
-    return { page: 'sprint-detail', projectSlug: sprintId }
-  }
-  if (rest.startsWith('/sprints')) return { page: 'sprints' }
-  return { page: 'my-tasks' }
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
+import { WorkspacePageRouter } from './components/WorkspacePageRouter'
 
 export default function DashboardApp() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
@@ -111,11 +55,6 @@ export default function DashboardApp() {
     null
   )
 
-  // Sync currentPage when Next.js route changes (component reused across routes)
-  useEffect(() => {
-    const { page } = pathToPage(pathname, workspaceUrl)
-    setCurrentPage(page)
-  }, [pathname, workspaceUrl])
   const [pendingProjectSlug] = useState<string | undefined>(() => {
     if (typeof window === 'undefined') return undefined
     return pathToPage(window.location.pathname, workspaceUrl).projectSlug
@@ -132,9 +71,6 @@ export default function DashboardApp() {
       return page === 'document-editor' && projectSlug ? projectSlug : null
     }
   )
-
-  // ─── Slack ─────────────────────────────────────────────────────────────────
-  const [slackDialogOpen, setSlackDialogOpen] = useState(false)
 
   // ─── My Tasks sprint filter ────────────────────────────────────────────────
   // The toggle state itself lives inside MyTasksPage (persisted via
@@ -210,17 +146,6 @@ export default function DashboardApp() {
   const { collapsed: docTreeCollapsed, toggle: toggleDocTreeCollapsed } =
     useDocTreeCollapsed()
 
-  // Tree rename/delete dialog state
-  const [treeRenameDoc, setTreeRenameDoc] = useState<{
-    id: string
-    title: string
-  } | null>(null)
-  const [treeRenameValue, setTreeRenameValue] = useState('')
-  const [treeDeleteDoc, setTreeDeleteDoc] = useState<{
-    id: string
-    title: string
-  } | null>(null)
-
   // Current user's workspace member info
   const currentMember = useMemo(
     () => members.find(m => m.clerkId === user?.id),
@@ -230,40 +155,9 @@ export default function DashboardApp() {
   const currentActorId = currentMember?.actorId ?? null
   const isOwner = currentMember?.role === 'OWNER'
 
-  // ─── Task drawer ───────────────────────────────────────────────────────────
-  const [selectedTask, setSelectedTask] = useState<ApiTask | MyTask | null>(
-    null
-  )
-
-  // ─── Modal state ───────────────────────────────────────────────────────────
-  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false)
-  const [isQuickDispatchOpen, setIsQuickDispatchOpen] = useState(false)
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
-  const [newTaskDefaultAssigneeId, setNewTaskDefaultAssigneeId] = useState<
-    string | undefined
-  >(undefined)
-  const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<
-    ApiStatus | undefined
-  >(undefined)
-  const [newTaskDefaultSprintId, setNewTaskDefaultSprintId] = useState<
-    string | null | undefined
-  >(undefined)
-  const [newTaskSprintTeamId, setNewTaskSprintTeamId] = useState<
-    string | null | undefined
-  >(undefined)
-  const [newTaskPreFill, setNewTaskPreFill] = useState<
-    TaskPreFillFields | undefined
-  >(undefined)
-
   // ─── Drafts ────────────────────────────────────────────────────────────────
   const { drafts, draftCount, fetchDrafts, saveDraft, deleteDraft } =
     useDrafts()
-
-  const [restoringDraftId, setRestoringDraftId] = useState<string | undefined>()
-  const [projectDraftPreFill, setProjectDraftPreFill] = useState<
-    { name: string; description: string } | undefined
-  >()
-  const [projectDraftId, setProjectDraftId] = useState<string | undefined>()
 
   // ─── Extracted handler hooks ───────────────────────────────────────────────
   const taskHandlers = useWorkspaceTaskHandlers({
@@ -303,7 +197,7 @@ export default function DashboardApp() {
     setSelectedProject,
     navigateTo,
     onDeleteProjectTasks: taskHandlers.handleDeleteProjectTasks,
-    setSelectedTask: setSelectedTask as Dispatch<SetStateAction<unknown>>,
+    setSelectedTask: (() => {}) as Dispatch<SetStateAction<unknown>>,
     fetchProjects,
   })
 
@@ -315,6 +209,28 @@ export default function DashboardApp() {
     docTree,
     currentUser: user,
   })
+
+  // ─── Modal state (drawer, new-task, new-project, dialogs, drafts) ─────────
+  const modalState = useWorkspaceModalState({
+    onOpenTaskSideEffect: taskHandlers.handleOpenTask,
+    onOpenNewTaskModal: taskHandlers.openNewTaskModal,
+    currentMemberId,
+    saveDraft,
+    deleteDraft,
+  })
+
+  // Re-wire `projectHandlers` to clear the task drawer when it deletes a
+  // project (the setter lives inside `modalState`, but the handler hook is
+  // built before `modalState` so we couldn't pass it in directly above).
+  // Mutating the field after construction is intentional and matches the
+  // pre-refactor behaviour.
+  ;(
+    projectHandlers as unknown as {
+      setSelectedTask: (v: unknown) => void
+    }
+  ).setSelectedTask = modalState.setSelectedTask as unknown as (
+    v: unknown
+  ) => void
 
   // ─── Derived task arrays ──────────────────────────────────────────────────
   const myTasks = useMemo(
@@ -345,98 +261,25 @@ export default function DashboardApp() {
     )
   )
 
-  // ─── Task drawer handlers ────────────────────────────────────────────────
-  const handleOpenTask = useCallback(
-    (task: ApiTask | MyTask) => {
-      taskHandlers.handleOpenTask(task)
-      setSelectedTask(task)
-    },
-    [taskHandlers]
-  )
+  // ─── URL ↔ in-memory state sync ───────────────────────────────────────────
+  useWorkspaceUrlSync({
+    workspaceUrl,
+    pathname,
+    projects,
+    pendingProjectSlug,
+    currentPage,
+    selectedProject,
+    setCurrentPage,
+    setSelectedProject,
+    setSelectedDocumentId,
+  })
 
-  const handleCloseTask = useCallback(() => setSelectedTask(null), [])
-
-  // ─── Modal openers ────────────────────────────────────────────────────────
-  const openNewTaskModal = useCallback(
-    (assigneeId?: string, status?: ApiStatus) => {
-      taskHandlers.openNewTaskModal(assigneeId, status)
-      setNewTaskDefaultAssigneeId(
-        typeof assigneeId === 'string' ? assigneeId : undefined
-      )
-      setNewTaskDefaultStatus(status)
-      setNewTaskPreFill(undefined)
-      setIsNewTaskModalOpen(true)
-    },
-    [taskHandlers]
-  )
-
-  const openNewTaskModalForMe = useCallback(
-    (status?: ApiStatus) => {
-      openNewTaskModal(currentMemberId, status)
-    },
-    [openNewTaskModal, currentMemberId]
-  )
-
-  const openNewTaskForSprint = useCallback(
-    (sprintId: string, teamId: string, status?: ApiStatus) => {
-      taskHandlers.openNewTaskModal(undefined, status)
-      setNewTaskDefaultAssigneeId(undefined)
-      setNewTaskDefaultStatus(status)
-      setNewTaskDefaultSprintId(sprintId)
-      setNewTaskSprintTeamId(teamId)
-      setNewTaskPreFill(undefined)
-      setIsNewTaskModalOpen(true)
-    },
-    [taskHandlers]
-  )
-
-  // ─── Draft handlers ─────────────────────────────────────────────────────
+  // ─── Initial draft fetch ──────────────────────────────────────────────────
   useEffect(() => {
     fetchDrafts()
   }, [fetchDrafts])
 
-  const handleRestoreTaskDraft = useCallback((draft: ApiDraft) => {
-    const data = draft.data as Record<string, unknown>
-    setNewTaskPreFill({
-      title: (data.title as string) ?? '',
-      description: (data.description as string) ?? '',
-      status: (data.status as ApiStatus) ?? 'TODO',
-      priority: (data.priority as ApiPriority) ?? 'MEDIUM',
-      projectId: (data.projectId as string) ?? '',
-      assigneeId: (data.assigneeId as string) ?? '',
-      dueDate: (data.dueDate as string) ?? null,
-    })
-    setRestoringDraftId(draft.id)
-    setNewTaskDefaultAssigneeId((data.assigneeId as string) ?? undefined)
-    setNewTaskDefaultStatus((data.status as ApiStatus) ?? undefined)
-    setIsNewTaskModalOpen(true)
-  }, [])
-
-  const handleRestoreProjectDraft = useCallback((draft: ApiDraft) => {
-    const data = draft.data as Record<string, unknown>
-    setProjectDraftPreFill({
-      name: (data.name as string) ?? '',
-      description: (data.description as string) ?? '',
-    })
-    setProjectDraftId(draft.id)
-    setIsNewProjectModalOpen(true)
-  }, [])
-
-  const handleSaveDraft = useCallback(
-    async (type: 'TASK' | 'PROJECT', data: Record<string, unknown>) => {
-      await saveDraft(type, data)
-    },
-    [saveDraft]
-  )
-
-  const handleDeleteDraft = useCallback(
-    async (id: string) => {
-      await deleteDraft(id)
-    },
-    [deleteDraft]
-  )
-
-  // ─── Clear stale cache ────────────────────────────────────────────────────
+  // ─── Clear stale cache when user/workspace context changes ────────────────
   useEffect(() => {
     if (!user?.id || !workspaceUrl) return
     const context = `${user.id}:${workspaceUrl}`
@@ -481,266 +324,17 @@ export default function DashboardApp() {
     }
   }, [currentPage, selectedProject?.id, hydrateForProject, fetchProjectTasks])
 
-  // ─── URL sync ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const onPopState = () => {
-      const { page, projectSlug } = pathToPage(
-        window.location.pathname,
-        workspaceUrl
-      )
-      setCurrentPage(page)
-      if (page === 'project-detail' && projectSlug) {
-        const match = projects.find(p => slugify(p.name) === projectSlug)
-        if (match) setSelectedProject(match)
-      }
-      if (page === 'document-editor' && projectSlug) {
-        setSelectedDocumentId(projectSlug)
-      } else if (page !== 'document-editor') {
-        setSelectedDocumentId(null)
-      }
-    }
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [workspaceUrl, projects])
-
-  useEffect(() => {
-    const base = `/workspace/${workspaceUrl}`
-    if (
-      window.location.pathname === base ||
-      window.location.pathname === `${base}/`
-    ) {
-      window.history.replaceState(null, '', `${base}/my-tasks`)
-    }
-  }, [workspaceUrl])
-
-  useEffect(() => {
-    if (
-      pendingProjectSlug &&
-      currentPage === 'project-detail' &&
-      !selectedProject &&
-      projects.length > 0
-    ) {
-      const match = projects.find(p => slugify(p.name) === pendingProjectSlug)
-      if (match) setSelectedProject(match)
-    }
-  }, [pendingProjectSlug, currentPage, selectedProject, projects])
-
   // ─── Global keyboard shortcut: Cmd+K → Quick Dispatch ──────────────────────
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setIsQuickDispatchOpen(true)
+        modalState.setIsQuickDispatchOpen(true)
       }
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [])
-
-  // ─── Render current page ───────────────────────────────────────────────────
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return (
-          <DashboardPage
-            onNavigateToProject={projectId => {
-              const project = projects.find(p => p.id === projectId)
-              if (project) {
-                navigateTo('project-detail', project)
-              }
-            }}
-          />
-        )
-
-      case 'my-tasks':
-        return (
-          <MyTasksPage
-            tasks={myTasks}
-            setTasks={taskHandlers.setMyTasksForDnD}
-            viewId={myTasksViewId}
-            userId={user?.id ?? ''}
-            loading={myTasksLoading}
-            error={myTasksError}
-            onRetry={fetchMyTasks}
-            onTaskClick={handleOpenTask}
-            onNewTask={openNewTaskModalForMe}
-            members={members}
-            projects={projects}
-            sprintsAvailable={anySprintEnabledTeam}
-            activeSprintIds={activeSprintIds}
-          />
-        )
-
-      case 'projects':
-        return (
-          <ProjectsPage
-            projects={projects}
-            loading={projectsLoading}
-            error={projectsError}
-            onRetry={fetchProjects}
-            onSelectProject={projectHandlers.handleSelectProject}
-            onNewProject={() => setIsNewProjectModalOpen(true)}
-            onBulkDelete={projectHandlers.handleBulkDeleteProjects}
-          />
-        )
-
-      case 'project-detail':
-        if (!selectedProject) return null
-        return (
-          <ProjectDetailPage
-            project={selectedProject}
-            tasks={projectTasks}
-            setTasks={taskHandlers.setProjectTasksForDnD}
-            viewId={kanbanViewId}
-            loading={projectTasksLoading}
-            error={projectTasksError}
-            onRetry={() => fetchProjectTasks(selectedProject.id)}
-            onBack={projectHandlers.handleBack}
-            onNewTask={status => openNewTaskModal(undefined, status)}
-            onTaskClick={handleOpenTask}
-            onDeleteTask={taskHandlers.handleDeleteTask}
-            onTaskStatusChanged={taskHandlers.handleProjectTaskStatusChanged}
-            onUpdateProject={projectHandlers.handleUpdateProject}
-            onDeleteProject={projectHandlers.handleDeleteProject}
-            members={members}
-            currentActorId={currentActorId}
-            isOwner={isOwner}
-            onSlack={() => setSlackDialogOpen(true)}
-            workspaceUrl={workspaceUrl}
-          />
-        )
-
-      case 'documents':
-        return (
-          <div className='flex-1 flex overflow-hidden'>
-            {docTreeCollapsed ? (
-              <CollapsedDocTreeRail onExpand={toggleDocTreeCollapsed} />
-            ) : (
-              <GlobalDocTree
-                roots={docTree.roots}
-                expandedIds={docTree.expandedIds}
-                currentDocId={null}
-                onNavigate={documentHandlers.navigateToDocument}
-                onExpandNode={docTree.expandNode}
-                onAddChild={documentHandlers.handleTreeCreateChild}
-                onRenameDoc={doc => {
-                  setTreeRenameValue(doc.title)
-                  setTreeRenameDoc(doc)
-                }}
-                onDeleteDoc={doc => setTreeDeleteDoc(doc)}
-                onMoveNode={docTree.moveNode}
-                onCollapse={toggleDocTreeCollapsed}
-                onNavigateHome={documentHandlers.navigateToDocuments}
-              />
-            )}
-            <DocumentsPage
-              documents={documents}
-              loading={documentsLoading}
-              error={documentsError}
-              onRetry={fetchDocuments}
-              onNewDocument={documentHandlers.handleNewDocument}
-              onSelectDocument={doc =>
-                documentHandlers.navigateToDocument(doc.id)
-              }
-              onDeleteDocument={documentHandlers.handleDeleteDocument}
-            />
-          </div>
-        )
-
-      case 'document-editor':
-        return (
-          <div className='flex-1 flex overflow-hidden'>
-            {docTreeCollapsed ? (
-              <CollapsedDocTreeRail onExpand={toggleDocTreeCollapsed} />
-            ) : (
-              <GlobalDocTree
-                roots={docTree.roots}
-                expandedIds={docTree.expandedIds}
-                currentDocId={selectedDocumentId}
-                onNavigate={documentHandlers.navigateToDocument}
-                onExpandNode={docTree.expandNode}
-                onAddChild={documentHandlers.handleTreeCreateChild}
-                onRenameDoc={doc => {
-                  setTreeRenameValue(doc.title)
-                  setTreeRenameDoc(doc)
-                }}
-                onDeleteDoc={doc => setTreeDeleteDoc(doc)}
-                onMoveNode={docTree.moveNode}
-                onCollapse={toggleDocTreeCollapsed}
-                onNavigateHome={documentHandlers.navigateToDocuments}
-              />
-            )}
-            {selectedDocumentId ? (
-              <DocumentEditorPage
-                documentId={selectedDocumentId}
-                onNavigateToDocument={documentHandlers.navigateToDocument}
-                members={members}
-                currentMemberId={currentMemberId}
-                onNavigateToDocuments={documentHandlers.navigateToDocuments}
-                onTitleChanged={(id, title) => docTree.renameNode(id, title)}
-                onEmojiChanged={(id, emoji) =>
-                  docTree.updateNodeEmoji(id, emoji)
-                }
-              />
-            ) : null}
-          </div>
-        )
-
-      case 'drafts':
-        return (
-          <DraftsPage
-            drafts={drafts}
-            ideaProjects={projects.filter(p => p.isIdea)}
-            onRestoreTaskDraft={handleRestoreTaskDraft}
-            onRestoreProjectDraft={handleRestoreProjectDraft}
-            onOpenIdeaProject={project => {
-              setSelectedProject(project)
-              navigateTo('project-detail', project)
-            }}
-            onDeleteDraft={handleDeleteDraft}
-          />
-        )
-
-      case 'sprints':
-        return <SprintsLandingClient />
-
-      case 'sprint-detail':
-        return (
-          <SprintDetailClient
-            onNewTask={openNewTaskForSprint}
-            onOpenTask={handleOpenTask}
-          />
-        )
-
-      case 'inbox':
-        return (
-          <InboxPage
-            notifications={notifications}
-            unreadCount={unreadCount}
-            loading={notificationsLoading}
-            error={notificationsError}
-            onRetry={fetchNotifications}
-            onMount={fetchNotifications}
-            onMarkOneRead={markOneRead}
-            onMarkOneUnread={markOneUnread}
-            onDeleteOne={deleteNotification}
-            onMarkAllRead={markAllRead}
-            onRespondToNotification={respondToNotification}
-            onUpdateTaskStatus={async (taskId, status) => {
-              await taskHandlers.handleUpdateTask(taskId, { status })
-            }}
-            members={members}
-            projects={projects}
-            taskMap={taskMap}
-            upsertTasks={upsertTasks}
-            onUpdate={taskHandlers.handleUpdateTask}
-          />
-        )
-
-      default:
-        return null
-    }
-  }
+  }, [modalState.setIsQuickDispatchOpen])
 
   return (
     <motion.div
@@ -755,20 +349,85 @@ export default function DashboardApp() {
           onNavigate={navigateTo}
           unreadCount={unreadCount}
           draftCount={draftCount}
-          onOpenAskLumo={() => setIsQuickDispatchOpen(true)}
-          onNewProject={() => setIsNewProjectModalOpen(true)}
+          onOpenAskLumo={() => modalState.setIsQuickDispatchOpen(true)}
+          onNewProject={() => modalState.setIsNewProjectModalOpen(true)}
         />
 
         <SidebarInset className='overflow-hidden flex flex-col'>
           <div className='flex-1 overflow-hidden flex flex-col relative'>
             <PageTransition pageKey={currentPage}>
-              {renderPage()}
+              <WorkspacePageRouter
+                currentPage={currentPage}
+                workspaceUrl={workspaceUrl}
+                userId={user?.id ?? ''}
+                currentActorId={currentActorId}
+                currentMemberId={currentMemberId}
+                isOwner={isOwner}
+                members={members}
+                myTasks={myTasks}
+                myTasksViewId={myTasksViewId}
+                myTasksLoading={myTasksLoading}
+                myTasksError={myTasksError}
+                fetchMyTasks={fetchMyTasks}
+                anySprintEnabledTeam={anySprintEnabledTeam}
+                activeSprintIds={activeSprintIds}
+                projects={projects}
+                projectsLoading={projectsLoading}
+                projectsError={projectsError}
+                fetchProjects={fetchProjects}
+                selectedProject={selectedProject}
+                setSelectedProject={setSelectedProject}
+                projectTasks={projectTasks}
+                kanbanViewId={kanbanViewId}
+                projectTasksLoading={projectTasksLoading}
+                projectTasksError={projectTasksError}
+                fetchProjectTasks={fetchProjectTasks}
+                documents={documents}
+                documentsLoading={documentsLoading}
+                documentsError={documentsError}
+                fetchDocuments={fetchDocuments}
+                selectedDocumentId={selectedDocumentId}
+                docTree={docTree}
+                docTreeCollapsed={docTreeCollapsed}
+                toggleDocTreeCollapsed={toggleDocTreeCollapsed}
+                setTreeRenameDoc={modalState.setTreeRenameDoc}
+                setTreeRenameValue={modalState.setTreeRenameValue}
+                setTreeDeleteDoc={modalState.setTreeDeleteDoc}
+                drafts={drafts}
+                handleRestoreTaskDraft={modalState.handleRestoreTaskDraft}
+                handleRestoreProjectDraft={modalState.handleRestoreProjectDraft}
+                handleDeleteDraft={modalState.handleDeleteDraft}
+                notifications={{
+                  notifications,
+                  unreadCount,
+                  loading: notificationsLoading,
+                  error: notificationsError,
+                  fetchNotifications,
+                  markOneRead,
+                  markOneUnread,
+                  deleteNotification,
+                  markAllRead,
+                  respondToNotification,
+                }}
+                taskMap={taskMap}
+                upsertTasks={upsertTasks}
+                taskHandlers={taskHandlers}
+                projectHandlers={projectHandlers}
+                documentHandlers={documentHandlers}
+                openNewTaskModal={modalState.openNewTaskModal}
+                openNewTaskModalForMe={modalState.openNewTaskModalForMe}
+                openNewTaskForSprint={modalState.openNewTaskForSprint}
+                handleOpenTask={modalState.handleOpenTask}
+                setIsNewProjectModalOpen={modalState.setIsNewProjectModalOpen}
+                setSlackDialogOpen={modalState.setSlackDialogOpen}
+                navigateTo={navigateTo}
+              />
             </PageTransition>
           </div>
         </SidebarInset>
 
         <WorkspaceModals
-          selectedTask={selectedTask}
+          selectedTask={modalState.selectedTask}
           taskMap={taskMap}
           descriptionCache={taskHandlers.descriptionCache}
           members={members}
@@ -776,7 +435,7 @@ export default function DashboardApp() {
           projects={projects}
           currentPage={currentPage}
           selectedProject={selectedProject}
-          onCloseTask={handleCloseTask}
+          onCloseTask={modalState.handleCloseTask}
           onUpdateTask={taskHandlers.handleUpdateTask}
           onTasksChanged={() => {
             if (currentPage === 'my-tasks') {
@@ -785,42 +444,42 @@ export default function DashboardApp() {
               fetchProjectTasks(selectedProject.id)
             }
           }}
-          isNewTaskModalOpen={isNewTaskModalOpen}
-          setIsNewTaskModalOpen={setIsNewTaskModalOpen}
-          newTaskDefaultAssigneeId={newTaskDefaultAssigneeId}
-          setNewTaskDefaultAssigneeId={setNewTaskDefaultAssigneeId}
-          newTaskDefaultStatus={newTaskDefaultStatus}
-          setNewTaskDefaultStatus={setNewTaskDefaultStatus}
-          newTaskDefaultSprintId={newTaskDefaultSprintId}
-          setNewTaskDefaultSprintId={setNewTaskDefaultSprintId}
-          newTaskSprintTeamId={newTaskSprintTeamId}
-          setNewTaskSprintTeamId={setNewTaskSprintTeamId}
-          newTaskPreFill={newTaskPreFill}
-          setNewTaskPreFill={setNewTaskPreFill}
+          isNewTaskModalOpen={modalState.isNewTaskModalOpen}
+          setIsNewTaskModalOpen={modalState.setIsNewTaskModalOpen}
+          newTaskDefaultAssigneeId={modalState.newTaskDefaultAssigneeId}
+          setNewTaskDefaultAssigneeId={modalState.setNewTaskDefaultAssigneeId}
+          newTaskDefaultStatus={modalState.newTaskDefaultStatus}
+          setNewTaskDefaultStatus={modalState.setNewTaskDefaultStatus}
+          newTaskDefaultSprintId={modalState.newTaskDefaultSprintId}
+          setNewTaskDefaultSprintId={modalState.setNewTaskDefaultSprintId}
+          newTaskSprintTeamId={modalState.newTaskSprintTeamId}
+          setNewTaskSprintTeamId={modalState.setNewTaskSprintTeamId}
+          newTaskPreFill={modalState.newTaskPreFill}
+          setNewTaskPreFill={modalState.setNewTaskPreFill}
           onCreateTask={taskHandlers.handleCreateTask}
-          restoringDraftId={restoringDraftId}
-          setRestoringDraftId={setRestoringDraftId}
-          isQuickDispatchOpen={isQuickDispatchOpen}
-          setIsQuickDispatchOpen={setIsQuickDispatchOpen}
+          restoringDraftId={modalState.restoringDraftId}
+          setRestoringDraftId={modalState.setRestoringDraftId}
+          isQuickDispatchOpen={modalState.isQuickDispatchOpen}
+          setIsQuickDispatchOpen={modalState.setIsQuickDispatchOpen}
           myTasks={myTasks}
-          isNewProjectModalOpen={isNewProjectModalOpen}
-          setIsNewProjectModalOpen={setIsNewProjectModalOpen}
+          isNewProjectModalOpen={modalState.isNewProjectModalOpen}
+          setIsNewProjectModalOpen={modalState.setIsNewProjectModalOpen}
           onCreateProject={projectHandlers.handleCreateProject}
-          projectDraftPreFill={projectDraftPreFill}
-          setProjectDraftPreFill={setProjectDraftPreFill}
-          projectDraftId={projectDraftId}
-          setProjectDraftId={setProjectDraftId}
-          onSaveDraft={handleSaveDraft}
-          onDeleteDraft={handleDeleteDraft}
-          slackDialogOpen={slackDialogOpen}
-          setSlackDialogOpen={setSlackDialogOpen}
+          projectDraftPreFill={modalState.projectDraftPreFill}
+          setProjectDraftPreFill={modalState.setProjectDraftPreFill}
+          projectDraftId={modalState.projectDraftId}
+          setProjectDraftId={modalState.setProjectDraftId}
+          onSaveDraft={modalState.handleSaveDraft}
+          onDeleteDraft={modalState.handleDeleteDraft}
+          slackDialogOpen={modalState.slackDialogOpen}
+          setSlackDialogOpen={modalState.setSlackDialogOpen}
           workspaceUrl={workspaceUrl}
-          treeRenameDoc={treeRenameDoc}
-          setTreeRenameDoc={setTreeRenameDoc}
-          treeRenameValue={treeRenameValue}
-          setTreeRenameValue={setTreeRenameValue}
-          treeDeleteDoc={treeDeleteDoc}
-          setTreeDeleteDoc={setTreeDeleteDoc}
+          treeRenameDoc={modalState.treeRenameDoc}
+          setTreeRenameDoc={modalState.setTreeRenameDoc}
+          treeRenameValue={modalState.treeRenameValue}
+          setTreeRenameValue={modalState.setTreeRenameValue}
+          treeDeleteDoc={modalState.treeDeleteDoc}
+          setTreeDeleteDoc={modalState.setTreeDeleteDoc}
           docTree={docTree}
           selectedDocumentId={selectedDocumentId}
           setCurrentPage={setCurrentPage as Dispatch<SetStateAction<string>>}
