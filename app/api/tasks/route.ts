@@ -41,12 +41,14 @@ export async function POST(request: Request): Promise<Response> {
     })
     return NextResponse.json({ task }, { status: 201 })
   } catch (err) {
-    const status =
-      err instanceof Error && 'status' in err
-        ? (err as Error & { status: number }).status
-        : 500
+    const errStatus = (err as { status?: unknown })?.status
+    const status = typeof errStatus === 'number' ? errStatus : 500
     const message =
-      status === 500 ? 'Internal Server Error' : (err as Error).message
+      status === 500
+        ? 'Internal Server Error'
+        : err instanceof Error
+          ? err.message
+          : 'Error'
     if (status === 500) {
       console.error('POST /api/tasks error:', err)
     }

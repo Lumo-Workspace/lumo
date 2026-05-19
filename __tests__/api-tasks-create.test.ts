@@ -102,4 +102,17 @@ describe('POST /api/tasks', () => {
     const body = await res.json()
     expect(body.error).toBe('Internal Server Error')
   })
+
+  it('falls back to 500 when error has non-numeric status', async () => {
+    mockVerify.mockResolvedValue(IDENTITY)
+    mockCreate.mockRejectedValue(
+      Object.assign(new Error('weird'), { status: undefined })
+    )
+
+    const res = await POST(makeRequest({ title: 'Hi' }))
+
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error).toBe('Internal Server Error')
+  })
 })
