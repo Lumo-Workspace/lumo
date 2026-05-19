@@ -231,9 +231,13 @@ export const memberRepository = {
     const clerk = createClerkClient({
       secretKey: process.env.CLERK_SECRET_KEY!,
     })
+    // Clerk's `getUserList` accepts up to 500 per page. We're filtering by
+    // `userId` (exact-match list), so this `limit` is just a page-size cap,
+    // not a search-scope filter. Workspaces over 500 members would need
+    // pagination — out of scope for v1.
     const { data: users } = await clerk.users.getUserList({
       userId: clerkIds,
-      limit: Math.min(clerkIds.length, 100),
+      limit: Math.min(clerkIds.length, 500),
     })
 
     const profileByClerkId = new Map<
