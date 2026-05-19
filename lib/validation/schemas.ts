@@ -131,6 +131,28 @@ export const updateTaskSchema = z.object({
   sprintId: z.string().nullable().optional(),
 })
 
+/**
+ * CLI-side task create: accepts human-friendly refs (project name/slug,
+ * member email/name) instead of internal IDs. Server resolves them.
+ *
+ * Priority defaults to LOW to match the CLI's UX default. The web schema
+ * (`createTaskSchema`) keeps MEDIUM for other callers — do not unify them.
+ */
+export const cliCreateTaskSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(500, 'Title must be at most 500 characters'),
+  description: z.string().max(10000).nullable().optional(),
+  priority: z
+    .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+    .optional()
+    .default('LOW'),
+  projectRef: z.string().trim().min(1).max(200).optional(),
+  assigneeRef: z.string().trim().min(1).max(200).optional(),
+})
+
 // ─── Batch Task Creation ───────────────────────────────────────────────────
 
 export const batchCreateTasksSchema = z.object({

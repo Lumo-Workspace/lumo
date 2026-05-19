@@ -190,4 +190,83 @@ export const memberRepository = {
       .map(id => clerkIdToActor.get(id))
       .filter((a): a is string => !!a)
   },
+
+  /**
+   * Return every workspace member with Clerk email + display name + actor id
+   * in a single batch call. Used by CLI assignee resolution where we may
+   * need to match by either email or name in one request, and where the
+   * caller can tolerate Clerk's ~100-300ms roundtrip.
+   *
+   * Members with no actor row are omitted (you can't assign to them anyway).
+   * Members whose Clerk profile is missing get empty email/displayName so
+   * the caller's "no match" message can still list them as candidates.
+   */
+  async findAllWithProfilesForCli(workspaceId: string): Promise<
+    {
+      memberId: string
+      clerkId: string
+      actorId: string
+      email: string
+      displayName: string
+    }[]
+  > {
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: {
+        id: true,
+        clerkId: true,
+        actor: { select: { id: true } },
+      },
+      orderBy: { joinedAt: 'asc' },
+    })
+
+    const eligible = members.filter(
+      (m): m is typeof m & { actor: { id: string } } => m.actor !== null
+    )
+    if (eligible.length === 0) return []
+
+    const clerkIds = eligible.map(m => m.clerkId)
+
+    const { createClerkClient } = await import('@clerk/nextjs/server')
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY!,
+    })
+    // Clerk's `getUserList` accepts up to 500 per page. We're filtering by
+    // `userId` (exact-match list), so this `limit` is just a page-size cap,
+    // not a search-scope filter. Workspaces over 500 members would need
+    // pagination — out of scope for v1.
+    const { data: users } = await clerk.users.getUserList({
+      userId: clerkIds,
+      limit: Math.min(clerkIds.length, 500),
+    })
+
+    const profileByClerkId = new Map<
+      string,
+      { email: string; displayName: string }
+    >()
+    for (const u of users) {
+      const email =
+        u.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
+          ?.emailAddress ??
+        u.emailAddresses[0]?.emailAddress ??
+        ''
+      const fullName = [u.firstName, u.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+      const displayName = fullName || email.split('@')[0] || ''
+      profileByClerkId.set(u.id, { email, displayName })
+    }
+
+    return eligible.map(m => {
+      const p = profileByClerkId.get(m.clerkId)
+      return {
+        memberId: m.id,
+        clerkId: m.clerkId,
+        actorId: m.actor.id,
+        email: p?.email ?? '',
+        displayName: p?.displayName ?? '',
+      }
+    })
+  },
 }

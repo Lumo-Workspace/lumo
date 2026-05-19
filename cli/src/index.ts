@@ -9,6 +9,7 @@ import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
 import { sessionAttach } from './commands/session-attach'
 import { taskContext } from './commands/task-context'
+import { taskCreate } from './commands/task-create'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -84,6 +85,24 @@ task
     'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup.'
   )
   .action(wrap(identifier => taskContext(identifier as string)))
+
+task
+  .command('create <title>')
+  .description(
+    'Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me.'
+  )
+  .option('-d, --description <text>', 'Task description')
+  .option(
+    '-p, --priority <level>',
+    'Priority: low | medium | high | urgent (default: low)'
+  )
+  .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
+  .option('--project <ref>', 'Project name or slug')
+  .action(
+    wrap((title, options) =>
+      taskCreate(title as string, options as Record<string, string>)
+    )
+  )
 
 // Claude Code invokes `lumo hook <type>` per tool call, so these handlers
 // must never crash the caller. Two invariants keep us safe:

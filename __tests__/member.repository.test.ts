@@ -178,8 +178,18 @@ describe('memberRepository', () => {
   describe('findByClerkId', () => {
     it('returns all workspace memberships for a clerk user', async () => {
       const fixture = [
-        { id: 'm1', workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Foo', slug: 'foo' } },
-        { id: 'm2', workspaceId: 'ws-2', role: 'MEMBER', workspace: { id: 'ws-2', name: 'Bar', slug: 'bar' } },
+        {
+          id: 'm1',
+          workspaceId: 'ws-1',
+          role: 'OWNER',
+          workspace: { id: 'ws-1', name: 'Foo', slug: 'foo' },
+        },
+        {
+          id: 'm2',
+          workspaceId: 'ws-2',
+          role: 'MEMBER',
+          workspace: { id: 'ws-2', name: 'Bar', slug: 'bar' },
+        },
       ]
       mockMemberFindMany.mockResolvedValue(fixture)
       const result = await memberRepository.findByClerkId('user_abc')
@@ -288,6 +298,106 @@ describe('memberRepository', () => {
       ])
 
       expect(ids).toEqual([])
+    })
+  })
+
+  describe('findAllWithProfilesForCli', () => {
+    it('returns every member with email, displayName, clerkId, actorId', async () => {
+      mockMemberFindMany.mockResolvedValue([
+        { id: 'm-1', clerkId: 'clerk-1', actor: { id: 'actor-1' } },
+        { id: 'm-2', clerkId: 'clerk-2', actor: { id: 'actor-2' } },
+      ])
+      mockClerkGetUserList.mockResolvedValue({
+        data: [
+          {
+            id: 'clerk-1',
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+            primaryEmailAddressId: 'e-1',
+            emailAddresses: [{ id: 'e-1', emailAddress: 'ada@example.com' }],
+          },
+          {
+            id: 'clerk-2',
+            firstName: null,
+            lastName: null,
+            primaryEmailAddressId: 'e-2',
+            emailAddresses: [{ id: 'e-2', emailAddress: 'bob@example.com' }],
+          },
+        ],
+      })
+
+      const result = await memberRepository.findAllWithProfilesForCli('ws-1')
+
+      expect(result).toEqual([
+        {
+          memberId: 'm-1',
+          clerkId: 'clerk-1',
+          actorId: 'actor-1',
+          email: 'ada@example.com',
+          displayName: 'Ada Lovelace',
+        },
+        {
+          memberId: 'm-2',
+          clerkId: 'clerk-2',
+          actorId: 'actor-2',
+          email: 'bob@example.com',
+          displayName: 'bob',
+        },
+      ])
+      expect(mockClerkGetUserList).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: ['clerk-1', 'clerk-2'] })
+      )
+    })
+
+    it('skips members with no actor row (defensive)', async () => {
+      mockMemberFindMany.mockResolvedValue([
+        { id: 'm-1', clerkId: 'clerk-1', actor: null },
+        { id: 'm-2', clerkId: 'clerk-2', actor: { id: 'actor-2' } },
+      ])
+      mockClerkGetUserList.mockResolvedValue({
+        data: [
+          {
+            id: 'clerk-2',
+            firstName: 'Bob',
+            lastName: null,
+            primaryEmailAddressId: 'e-2',
+            emailAddresses: [{ id: 'e-2', emailAddress: 'bob@example.com' }],
+          },
+        ],
+      })
+
+      const result = await memberRepository.findAllWithProfilesForCli('ws-1')
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.memberId).toBe('m-2')
+    })
+
+    it('returns empty when workspace has no members', async () => {
+      mockMemberFindMany.mockResolvedValue([])
+
+      const result = await memberRepository.findAllWithProfilesForCli('ws-1')
+
+      expect(result).toEqual([])
+      expect(mockClerkGetUserList).not.toHaveBeenCalled()
+    })
+
+    it('returns members with empty profile fields when Clerk has no record', async () => {
+      mockMemberFindMany.mockResolvedValue([
+        { id: 'm-1', clerkId: 'clerk-1', actor: { id: 'actor-1' } },
+      ])
+      mockClerkGetUserList.mockResolvedValue({ data: [] })
+
+      const result = await memberRepository.findAllWithProfilesForCli('ws-1')
+
+      expect(result).toEqual([
+        {
+          memberId: 'm-1',
+          clerkId: 'clerk-1',
+          actorId: 'actor-1',
+          email: '',
+          displayName: '',
+        },
+      ])
     })
   })
 })
