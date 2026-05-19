@@ -360,7 +360,7 @@ describe('taskCliService.createFromCli', () => {
     )
   })
 
-  it('uses configured base URL when LUMO_API_URL is set', async () => {
+  it('uses LUMO_PUBLIC_URL when set', async () => {
     const original = process.env.LUMO_PUBLIC_URL
     process.env.LUMO_PUBLIC_URL = 'https://staging.uselumo.ai'
     try {

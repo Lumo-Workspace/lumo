@@ -143,7 +143,10 @@ async function createFromCli(args: {
     callerMember.id
   )
   if (!callerActor) {
-    throw httpError(500, 'Member has no actor row')
+    throw httpError(
+      500,
+      'Member has no actor row — workspace data is inconsistent'
+    )
   }
 
   const { task } = await taskService.createTask(
