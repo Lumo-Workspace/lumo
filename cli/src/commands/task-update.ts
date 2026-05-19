@@ -124,8 +124,8 @@ export async function taskUpdate(
 
   const { payload, flagsGiven } = buildUpdatePayload({
     ...opts,
-    status,
-    priority,
+    ...(status !== undefined ? { status } : {}),
+    ...(priority !== undefined ? { priority } : {}),
   })
 
   if (flagsGiven.length === 0) {
