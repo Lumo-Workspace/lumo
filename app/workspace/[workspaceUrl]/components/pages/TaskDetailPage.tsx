@@ -342,6 +342,9 @@ export function TaskDetailPage({
                 user,
                 tc,
               }}
+              slackConnected={
+                true /* TODO LUM-44: derive from workspace.slackIntegration */
+              }
             />
           </div>
 

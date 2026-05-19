@@ -7,15 +7,21 @@ import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
+import { SlackContextTab } from './SlackContextTab'
 
-type TabValue = 'comments' | 'activity' | 'agent'
+type TabValue = 'comments' | 'activity' | 'slack' | 'agent'
 
 interface TimelineTabsProps {
   taskId: string
   commentsProps: React.ComponentProps<typeof TaskDetailComments>
+  slackConnected: boolean
 }
 
-export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
+export function TimelineTabs({
+  taskId,
+  commentsProps,
+  slackConnected,
+}: TimelineTabsProps) {
   const intl = useIntl()
   const [activeTab, setActiveTab] = useState<TabValue>('comments')
 
@@ -57,6 +63,15 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
           })}
         </button>
         <button
+          className={tabClass(activeTab === 'slack')}
+          onClick={() => setActiveTab('slack')}
+        >
+          {intl.formatMessage({
+            id: 'slackContext.tab',
+            defaultMessage: 'Slack Context',
+          })}
+        </button>
+        <button
           className={`flex items-center gap-1.5 ${tabClass(activeTab === 'agent')}`}
           onClick={() => setActiveTab('agent')}
         >
@@ -91,6 +106,9 @@ export function TimelineTabs({ taskId, commentsProps }: TimelineTabsProps) {
         />
       )}
       {activeTab === 'comments' && <TaskDetailComments {...commentsProps} />}
+      {activeTab === 'slack' && (
+        <SlackContextTab taskId={taskId} slackConnected={slackConnected} />
+      )}
       {activeTab === 'agent' && (
         <AgentRunTab
           taskId={taskId}
