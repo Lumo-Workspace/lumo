@@ -36,13 +36,14 @@ export function AcceptInviteClient({
     const controller = new AbortController()
     setAccepting(true)
 
-    invitesClient
-      .accept(token, { signal: controller.signal })
-      .then(data => {
+    async function run() {
+      try {
+        const data = await invitesClient.accept(token, {
+          signal: controller.signal,
+        })
         if (cancelled) return
         router.push(`/workspace/${data.workspaceSlug}`)
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (cancelled) return
         setError(
           err instanceof ApiClientError
@@ -50,7 +51,9 @@ export function AcceptInviteClient({
             : intl.formatMessage({ id: 'invite.error.network' })
         )
         setAccepting(false)
-      })
+      }
+    }
+    run()
 
     return () => {
       cancelled = true
