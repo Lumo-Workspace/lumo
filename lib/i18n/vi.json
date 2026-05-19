@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR đã được tạo thành công",
   "lumo.sync.generateFailed": "Không thể tạo đề xuất",
   "lumo.sync.syncFailed": "Không thể tạo PR",
-
   "lumo.sync.noOperations": "AI đã xem xét những ký ức này và không tìm thấy gì cần thêm. LUMO.md chỉ ghi nhận kiến thức có tác động cao được phát hiện qua thực tiễn — bẫy đã gặp, quyết định với lý do không rõ ràng, và quy ước hình thành bất ngờ. Loại trừ: sự thật có thể đọc từ mã nguồn, quy tắc có thể viết từ ngày đầu, và những điều quên đi cũng không gây tổn thất đáng kể.",
-
   "lumo.sync.banner.ready": "{n} ký ức mới sẵn sàng đồng bộ",
   "lumo.sync.banner.button": "Đồng bộ {n} vào LUMO.md →",
   "lumo.sync.banner.synced": "Đã đồng bộ với LUMO.md",
   "lumo.sync.banner.viewPr": "Xem PR",
   "lumo.sync.sidebar.hint": "Đồng bộ từ tab chạy Agent ở trên",
-
   "waitlist.heading": "Tham gia danh sách chờ",
   "waitlist.subheading": "Trải nghiệm sớm Lumo.",
   "waitlist.success.title": "Bạn đã có trong danh sách!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "Đang gửi…",
   "waitlist.footer": "Chúng tôi sẽ không bao giờ chia sẻ email của bạn. Có thể hủy đăng ký bất cứ lúc nào.",
   "waitlist.error.network": "Lỗi kết nối. Vui lòng thử lại.",
-
   "onboarding.workspace.title": "Tạo không gian làm việc của bạn",
   "onboarding.workspace.nameLabel": "Tên không gian",
   "onboarding.workspace.namePlaceholder": "Công ty Acme",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "Bỏ qua",
   "onboarding.invite.error.send": "Không thể gửi lời mời",
   "onboarding.error.generic": "Đã xảy ra lỗi",
-
   "invite.accepted.title": "Lời mời đã được chấp nhận",
   "invite.accepted.body": "Liên kết lời mời này đã được sử dụng.",
   "invite.accepted.cta": "Đến không gian làm việc",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "Trọng tâm hôm nay",
   "summary.topBlockers": "Yếu tố chặn hàng đầu",
   "workspaceSettings.riskUpdateFailed": "Cập nhật ngưỡng rủi ro thất bại",
-  "workspaceSettings.riskUpdated": "Đã cập nhật ngưỡng rủi ro"
+  "workspaceSettings.riskUpdated": "Đã cập nhật ngưỡng rủi ro",
+  "slackContext.add": "Thêm tin nhắn Slack",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Đính kèm",
+  "slackContext.dialog.title": "Đính kèm tin nhắn Slack",
+  "slackContext.empty.noContexts": "Chưa có tin nhắn Slack nào được đính kèm.",
+  "slackContext.empty.notConnected": "Kết nối Slack để đính kèm tin nhắn làm ngữ cảnh tác vụ.",
+  "slackContext.error.invalidPermalink": "Đây không phải là một Slack message permalink hợp lệ.",
+  "slackContext.error.messageGone": "Tin nhắn Slack không còn có thể truy cập.",
+  "slackContext.error.notConnected": "Slack chưa được kết nối với workspace này.",
+  "slackContext.error.notInChannel": "LumoBot không phải là thành viên của channel Slack này. Mời bot vào để đọc tin nhắn này.",
+  "slackContext.error.slackUnavailable": "Không thể kết nối Slack ngay bây giờ. Thử lại trong giây lát.",
+  "slackContext.error.wrongTeam": "Permalink này đến từ một Slack workspace khác.",
+  "slackContext.fetchedAgo": "Tìm nạp {ago}",
+  "slackContext.refresh": "Làm mới",
+  "slackContext.refresh.failedBanner": "Làm mới thất bại · {ago}",
+  "slackContext.tab": "Slack Context",
+  "slackContext.thread.replies": "{n, plural, one {1 phản hồi} other {# phản hồi}}",
+  "slackContext.unlink": "Xóa"
 }

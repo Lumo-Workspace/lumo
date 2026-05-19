@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR이 성공적으로 생성되었습니다",
   "lumo.sync.generateFailed": "제안 생성 실패",
   "lumo.sync.syncFailed": "PR 생성 실패",
-
   "lumo.sync.noOperations": "AI가 이 메모리들을 검토했지만 추가할 내용이 없습니다. LUMO.md는 실제 작업에서 발견된 높은 영향력의 지식만 기록합니다 — 겪은 함정, 비자명한 근거의 결정, 우연히 형성된 관례. 코드에서 읽을 수 있는 사실, 첫날에 작성할 수 있는 규칙, 잊어도 큰 손실이 없는 내용은 제외됩니다.",
-
   "lumo.sync.banner.ready": "{n}개의 새 메모리 동기화 준비됨",
   "lumo.sync.banner.button": "{n}개를 LUMO.md에 동기화 →",
   "lumo.sync.banner.synced": "LUMO.md에 동기화됨",
   "lumo.sync.banner.viewPr": "PR 보기",
   "lumo.sync.sidebar.hint": "위의 Agent 실행 탭에서 동기화",
-
   "waitlist.heading": "대기 목록 신청",
   "waitlist.subheading": "Lumo를 가장 먼저 만나보세요.",
   "waitlist.success.title": "대기 목록에 등록되었습니다!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "전송 중…",
   "waitlist.footer": "이메일은 절대 공유하지 않습니다. 언제든지 구독을 취소할 수 있습니다.",
   "waitlist.error.network": "네트워크 오류가 발생했습니다. 다시 시도해 주세요.",
-
   "onboarding.workspace.title": "워크스페이스 만들기",
   "onboarding.workspace.nameLabel": "워크스페이스 이름",
   "onboarding.workspace.namePlaceholder": "예시 주식회사",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "나중에 하기",
   "onboarding.invite.error.send": "초대 전송에 실패했습니다",
   "onboarding.error.generic": "문제가 발생했습니다",
-
   "invite.accepted.title": "이미 수락된 초대입니다",
   "invite.accepted.body": "이 초대 링크는 이미 사용되었습니다.",
   "invite.accepted.cta": "워크스페이스로 이동",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "오늘의 집중",
   "summary.topBlockers": "주요 차단 요소",
   "workspaceSettings.riskUpdateFailed": "위험 임계값 업데이트에 실패했습니다",
-  "workspaceSettings.riskUpdated": "위험 임계값이 업데이트되었습니다"
+  "workspaceSettings.riskUpdated": "위험 임계값이 업데이트되었습니다",
+  "slackContext.add": "Slack 메시지 추가",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "첨부",
+  "slackContext.dialog.title": "Slack 메시지 첨부",
+  "slackContext.empty.noContexts": "첨부된 Slack 메시지가 없습니다.",
+  "slackContext.empty.notConnected": "Slack을 연결하여 메시지를 task context로 첨부하세요.",
+  "slackContext.error.invalidPermalink": "유효한 Slack 메시지 permalink가 아닙니다.",
+  "slackContext.error.messageGone": "Slack 메시지에 더 이상 접근할 수 없습니다.",
+  "slackContext.error.notConnected": "Slack이 이 워크스페이스에 연결되지 않았습니다.",
+  "slackContext.error.notInChannel": "LumoBot이 이 Slack 채널의 멤버가 아닙니다. 이 메시지를 읽으려면 봇을 초대하세요.",
+  "slackContext.error.slackUnavailable": "현재 Slack에 접근할 수 없습니다. 잠시 후 다시 시도하세요.",
+  "slackContext.error.wrongTeam": "이 permalink는 다른 Slack 워크스페이스에서 나온 것입니다.",
+  "slackContext.fetchedAgo": "{ago}에 가져옴",
+  "slackContext.refresh": "새로고침",
+  "slackContext.refresh.failedBanner": "새로고침 실패 · {ago}",
+  "slackContext.tab": "Slack Context",
+  "slackContext.thread.replies": "{n, plural, one {1개 reply} other {# replies}}",
+  "slackContext.unlink": "제거"
 }

@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR सफलतापूर्वक बनाया गया",
   "lumo.sync.generateFailed": "प्रस्ताव जनरेट करने में विफल",
   "lumo.sync.syncFailed": "PR बनाने में विफल",
-
   "lumo.sync.noOperations": "AI ने इन मेमोरीज़ की समीक्षा की और कुछ भी जोड़ने योग्य नहीं पाया। LUMO.md केवल वास्तविक कार्य में खोजे गए उच्च प्रभाव वाले ज्ञान को रिकॉर्ड करता है — सामने आई समस्याएँ, गैर-स्पष्ट तर्क वाले निर्णय, और अनपेक्षित रूप से उभरी परंपराएँ। कोड से पढ़ने योग्य तथ्य, पहले दिन लिखे जा सकने वाले नियम, और भूलने पर महत्वपूर्ण नुकसान न होने वाली बातें शामिल नहीं हैं।",
-
   "lumo.sync.banner.ready": "{n} नई मेमोरी सिंक के लिए तैयार",
   "lumo.sync.banner.button": "{n} को LUMO.md में सिंक करें →",
   "lumo.sync.banner.synced": "LUMO.md में सिंक हो गया",
   "lumo.sync.banner.viewPr": "PR देखें",
   "lumo.sync.sidebar.hint": "ऊपर Agent रन टैब से सिंक करें",
-
   "waitlist.heading": "प्रतीक्षा सूची में शामिल हों",
   "waitlist.subheading": "Lumo तक जल्द पहुँच पाएं।",
   "waitlist.success.title": "आप सूची में हैं!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "भेजा जा रहा है…",
   "waitlist.footer": "हम आपका ईमेल कभी साझा नहीं करेंगे। आप कभी भी सदस्यता छोड़ सकते हैं।",
   "waitlist.error.network": "नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।",
-
   "onboarding.workspace.title": "अपना वर्कस्पेस बनाएं",
   "onboarding.workspace.nameLabel": "वर्कस्पेस का नाम",
   "onboarding.workspace.namePlaceholder": "Acme प्रा. लि.",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "अभी छोड़ें",
   "onboarding.invite.error.send": "आमंत्रण भेजने में विफल",
   "onboarding.error.generic": "कुछ गलत हो गया",
-
   "invite.accepted.title": "आमंत्रण पहले से स्वीकार किया गया",
   "invite.accepted.body": "इस आमंत्रण लिंक का पहले ही उपयोग किया जा चुका है।",
   "invite.accepted.cta": "वर्कस्पेस पर जाएं",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "आज का फ़ोकस",
   "summary.topBlockers": "मुख्य अवरोधक",
   "workspaceSettings.riskUpdateFailed": "जोखिम सीमाएं अपडेट करने में विफल",
-  "workspaceSettings.riskUpdated": "जोखिम सीमाएं अपडेट हो गईं"
+  "workspaceSettings.riskUpdated": "जोखिम सीमाएं अपडेट हो गईं",
+  "slackContext.add": "Slack message जोड़ें",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Attach करें",
+  "slackContext.dialog.title": "Slack message attach करें",
+  "slackContext.empty.noContexts": "अभी कोई Slack messages attach नहीं हैं।",
+  "slackContext.empty.notConnected": "Task context के रूप में messages attach करने के लिए Slack को connect करें।",
+  "slackContext.error.invalidPermalink": "यह एक valid Slack message permalink नहीं है।",
+  "slackContext.error.messageGone": "Slack message अब accessible नहीं है।",
+  "slackContext.error.notConnected": "Slack इस workspace से connect नहीं है।",
+  "slackContext.error.notInChannel": "LumoBot इस Slack channel का member नहीं है। इस message को पढ़ने के लिए bot को invite करें।",
+  "slackContext.error.slackUnavailable": "अभी Slack तक नहीं पहुंच सके। कुछ समय बाद फिर से try करें।",
+  "slackContext.error.wrongTeam": "यह permalink एक अलग Slack workspace से है।",
+  "slackContext.fetchedAgo": "Fetched {ago}",
+  "slackContext.refresh": "Refresh करें",
+  "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
+  "slackContext.tab": "Slack Context",
+  "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
+  "slackContext.unlink": "Remove करें"
 }
