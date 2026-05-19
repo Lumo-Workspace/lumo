@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} te invitó a unirte a {workspaceName}",
   "invite.signup.body": "Regístrate o inicia sesión para aceptar la invitación.",
   "invite.signup.create": "Crear cuenta",
-  "invite.signup.signin": "Iniciar sesión"
+  "invite.signup.signin": "Iniciar sesión",
+  "logoUploader.sizeError": "El archivo debe ser de 2 MB o menos",
+  "logoUploader.processError": "No se pudo procesar la imagen",
+  "logoUploader.cropTooLarge": "La imagen recortada es demasiado grande. Prueba un recorte más pequeño.",
+  "logoUploader.uploadFailed": "Error al subir",
+  "logoUploader.uploadRetry": "Error al subir, inténtalo de nuevo",
+  "logoUploader.success": "Logo actualizado",
+  "logoUploader.dialogTitle": "Recortar logo"
 }

@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} hat Sie zu {workspaceName} eingeladen",
   "invite.signup.body": "Registrieren oder anmelden, um die Einladung anzunehmen.",
   "invite.signup.create": "Konto erstellen",
-  "invite.signup.signin": "Anmelden"
+  "invite.signup.signin": "Anmelden",
+  "logoUploader.sizeError": "Die Datei darf höchstens 2 MB groß sein",
+  "logoUploader.processError": "Bild konnte nicht verarbeitet werden",
+  "logoUploader.cropTooLarge": "Das zugeschnittene Bild ist zu groß. Versuchen Sie einen kleineren Ausschnitt.",
+  "logoUploader.uploadFailed": "Upload fehlgeschlagen",
+  "logoUploader.uploadRetry": "Upload fehlgeschlagen, bitte erneut versuchen",
+  "logoUploader.success": "Logo aktualisiert",
+  "logoUploader.dialogTitle": "Logo zuschneiden"
 }

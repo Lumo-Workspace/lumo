@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} đã mời bạn tham gia {workspaceName}",
   "invite.signup.body": "Đăng ký hoặc đăng nhập để chấp nhận lời mời.",
   "invite.signup.create": "Tạo tài khoản",
-  "invite.signup.signin": "Đăng nhập"
+  "invite.signup.signin": "Đăng nhập",
+  "logoUploader.sizeError": "Tệp phải nhỏ hơn hoặc bằng 2 MB",
+  "logoUploader.processError": "Xử lý hình ảnh thất bại",
+  "logoUploader.cropTooLarge": "Hình ảnh đã cắt quá lớn. Hãy thử cắt nhỏ hơn.",
+  "logoUploader.uploadFailed": "Tải lên thất bại",
+  "logoUploader.uploadRetry": "Tải lên thất bại, vui lòng thử lại",
+  "logoUploader.success": "Đã cập nhật logo",
+  "logoUploader.dialogTitle": "Cắt logo"
 }

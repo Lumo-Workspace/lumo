@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} さんがあなたを {workspaceName} に招待しました",
   "invite.signup.body": "招待を承諾するにはサインアップまたはサインインしてください。",
   "invite.signup.create": "アカウント作成",
-  "invite.signup.signin": "サインイン"
+  "invite.signup.signin": "サインイン",
+  "logoUploader.sizeError": "ファイルは 2 MB 以下である必要があります",
+  "logoUploader.processError": "画像の処理に失敗しました",
+  "logoUploader.cropTooLarge": "切り抜いた画像が大きすぎます。範囲を小さくしてください。",
+  "logoUploader.uploadFailed": "アップロードに失敗しました",
+  "logoUploader.uploadRetry": "アップロードに失敗しました。もう一度お試しください。",
+  "logoUploader.success": "ロゴを更新しました",
+  "logoUploader.dialogTitle": "ロゴを切り抜く"
 }

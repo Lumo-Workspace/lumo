@@ -964,5 +964,12 @@
   "invite.signup.title": "{inviterName} 邀请你加入 {workspaceName}",
   "invite.signup.body": "注册或登录以接受邀请。",
   "invite.signup.create": "创建账号",
-  "invite.signup.signin": "登录"
+  "invite.signup.signin": "登录",
+  "logoUploader.sizeError": "文件必须不超过 2 MB",
+  "logoUploader.processError": "处理图片失败",
+  "logoUploader.cropTooLarge": "裁剪后的图片过大，请缩小裁剪范围。",
+  "logoUploader.uploadFailed": "上传失败",
+  "logoUploader.uploadRetry": "上传失败，请重试",
+  "logoUploader.success": "Logo 已更新",
+  "logoUploader.dialogTitle": "裁剪 Logo"
 }

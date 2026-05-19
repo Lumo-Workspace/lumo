@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} пригласил(а) вас в {workspaceName}",
   "invite.signup.body": "Зарегистрируйтесь или войдите, чтобы принять приглашение.",
   "invite.signup.create": "Создать аккаунт",
-  "invite.signup.signin": "Войти"
+  "invite.signup.signin": "Войти",
+  "logoUploader.sizeError": "Размер файла не должен превышать 2 МБ",
+  "logoUploader.processError": "Не удалось обработать изображение",
+  "logoUploader.cropTooLarge": "Обрезанное изображение слишком большое. Попробуйте уменьшить область.",
+  "logoUploader.uploadFailed": "Не удалось загрузить",
+  "logoUploader.uploadRetry": "Не удалось загрузить. Попробуйте ещё раз.",
+  "logoUploader.success": "Логотип обновлён",
+  "logoUploader.dialogTitle": "Обрезать логотип"
 }

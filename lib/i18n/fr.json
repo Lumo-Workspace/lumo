@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} vous a invité à rejoindre {workspaceName}",
   "invite.signup.body": "Inscrivez-vous ou connectez-vous pour accepter l'invitation.",
   "invite.signup.create": "Créer un compte",
-  "invite.signup.signin": "Se connecter"
+  "invite.signup.signin": "Se connecter",
+  "logoUploader.sizeError": "Le fichier doit faire 2 Mo ou moins",
+  "logoUploader.processError": "Échec du traitement de l'image",
+  "logoUploader.cropTooLarge": "L'image rognée est trop grande. Essayez un recadrage plus petit.",
+  "logoUploader.uploadFailed": "Échec du téléversement",
+  "logoUploader.uploadRetry": "Échec du téléversement, veuillez réessayer",
+  "logoUploader.success": "Logo mis à jour",
+  "logoUploader.dialogTitle": "Rogner le logo"
 }

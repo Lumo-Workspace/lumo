@@ -920,5 +920,12 @@
   "invite.signup.title": "{inviterName} invited you to join {workspaceName}",
   "invite.signup.body": "Sign up or sign in to accept the invitation.",
   "invite.signup.create": "Create account",
-  "invite.signup.signin": "Sign in"
+  "invite.signup.signin": "Sign in",
+  "logoUploader.sizeError": "File must be 2 MB or smaller",
+  "logoUploader.processError": "Failed to process image",
+  "logoUploader.cropTooLarge": "Cropped image is too large. Try a smaller crop.",
+  "logoUploader.uploadFailed": "Upload failed",
+  "logoUploader.uploadRetry": "Upload failed, please try again",
+  "logoUploader.success": "Logo updated",
+  "logoUploader.dialogTitle": "Crop logo"
 }
