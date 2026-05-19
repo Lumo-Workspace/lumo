@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { lumoProposalRepository } from '@/lib/repositories/lumo-proposal.repository'
-import { prisma } from '@/lib/db/prisma'
+import { projectRepository } from '@/lib/repositories/project.repository'
 
 export async function POST(
   _request: Request,
@@ -19,10 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Proposal not found' }, { status: 404 })
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id: proposal.projectId },
-      select: { workspaceId: true },
-    })
+    const project = await projectRepository.findWorkspaceId(proposal.projectId)
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }

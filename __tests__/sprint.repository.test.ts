@@ -39,6 +39,31 @@ describe('sprintRepository.findActiveByTeam', () => {
   })
 })
 
+describe('sprintRepository.findActiveIdsForMember', () => {
+  it('returns ACTIVE sprint ids across every team the member belongs to', async () => {
+    mockFindMany.mockResolvedValueOnce([{ id: 's1' }, { id: 's2' }])
+
+    const result = await sprintRepository.findActiveIdsForMember('mem-1')
+
+    expect(result).toEqual(['s1', 's2'])
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        status: 'ACTIVE',
+        team: { members: { some: { memberId: 'mem-1' } } },
+      },
+      select: { id: true },
+    })
+  })
+
+  it('returns an empty array when the member has no team or no active sprints', async () => {
+    mockFindMany.mockResolvedValueOnce([])
+
+    const result = await sprintRepository.findActiveIdsForMember('mem-x')
+
+    expect(result).toEqual([])
+  })
+})
+
 describe('sprintRepository.nextNumberForTeam', () => {
   it('returns 1 when team has no sprints', async () => {
     mockAggregate.mockResolvedValueOnce({ _max: { number: null } })

@@ -107,4 +107,19 @@ export const memoryRepository = {
       select: { id: true },
     })
   },
+
+  /**
+   * Run a batch of memory mutation plans atomically. Each plan receives the
+   * transaction client and is expected to call back into this repository
+   * (create / updateContent / delete) so every primitive participates in the
+   * same tx. Keeps the layer 1 apply step from having to reach into
+   * `@/lib/db/prisma` directly.
+   */
+  async applyPlansAtomically(
+    plans: Array<(tx: Prisma.TransactionClient) => Promise<void>>
+  ): Promise<void> {
+    await prisma.$transaction(async tx => {
+      for (const plan of plans) await plan(tx)
+    })
+  },
 }

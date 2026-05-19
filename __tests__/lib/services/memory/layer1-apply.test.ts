@@ -1,28 +1,28 @@
 /**
  * @jest-environment node
  */
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) =>
-      cb({})
-    ),
-  },
-}))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     create: jest.fn(),
     updateContent: jest.fn(),
     delete: jest.fn(),
+    // Run the plans inline so per-op assertions (repo.create / delete / etc.)
+    // still see the calls. The real implementation wraps these in
+    // prisma.$transaction; mocking it as a plain runner is enough for unit
+    // tests that don't care about Postgres isolation semantics.
+    applyPlansAtomically: jest.fn(
+      async (plans: Array<(tx: unknown) => Promise<void>>) => {
+        for (const plan of plans) await plan({})
+      }
+    ),
   },
 }))
 
-import { prisma } from '@/lib/db/prisma'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { applyLayer1Operations } from '@/lib/services/memory/layer1-apply'
 import type { Layer1Operation } from '@/lib/services/memory/layer1-extract'
 
 const repo = memoryRepository as jest.Mocked<typeof memoryRepository>
-const tx = prisma as unknown as { $transaction: jest.Mock }
 
 const baseInput = {
   taskId: 'task_1',
@@ -56,7 +56,7 @@ describe('applyLayer1Operations', () => {
       noop: 1,
       skipped: 0,
     })
-    expect(tx.$transaction).not.toHaveBeenCalled()
+    expect(repo.applyPlansAtomically).not.toHaveBeenCalled()
   })
 
   it('writes a valid ADD with parsed content + scope=TASK + sourceSessionId', async () => {
@@ -166,7 +166,7 @@ describe('applyLayer1Operations', () => {
       { type: 'DELETE', id: 'mem_decision' },
     ]
     await applyLayer1Operations({ ...baseInput, operations: ops })
-    expect(tx.$transaction).toHaveBeenCalledTimes(1)
+    expect(repo.applyPlansAtomically).toHaveBeenCalledTimes(1)
     expect(repo.create).toHaveBeenCalledTimes(1)
     expect(repo.delete).toHaveBeenCalledTimes(1)
   })

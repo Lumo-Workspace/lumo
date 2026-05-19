@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { sessionsClient, ApiClientError } from '@/lib/api-client'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -74,13 +75,6 @@ interface SummaryCardProps {
   isStale: boolean // summary exists but lastActivityAt > summaryGeneratedAt
 }
 
-interface RegenerateResponse {
-  summaryType: string
-  summary: unknown
-  generatedAt: string
-  eventCount: number
-}
-
 export function SummaryCard({
   sessionId,
   initialSummary,
@@ -107,16 +101,7 @@ export function SummaryCard({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/summarize`, {
-        method: 'POST',
-      })
-      const data = (await res.json()) as RegenerateResponse | { error: string }
-      if (!res.ok) {
-        const msg =
-          'error' in data ? data.error : `Request failed (${res.status})`
-        throw new Error(msg)
-      }
-      const ok = data as RegenerateResponse
+      const ok = await sessionsClient.summarize(sessionId)
       setSummary(ok.summary)
       setSummaryType(ok.summaryType)
       setGeneratedAt(ok.generatedAt)
@@ -124,7 +109,9 @@ export function SummaryCard({
       startTransition(() => router.refresh())
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to generate summary'
+        err instanceof ApiClientError || err instanceof Error
+          ? err.message
+          : 'Failed to generate summary'
       )
     } finally {
       setLoading(false)

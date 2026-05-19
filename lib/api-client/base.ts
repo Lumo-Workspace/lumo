@@ -21,7 +21,9 @@ interface ApiFetchOptions {
 
 /**
  * Typed fetch wrapper for API calls.
- * - Auto-sets Content-Type: application/json when body is present
+ * - Auto-sets Content-Type: application/json when body is a plain value
+ * - For FormData bodies: skips Content-Type so the browser writes the
+ *   multipart boundary, and passes the FormData through unchanged
  * - Parses JSON response
  * - Throws ApiClientError on non-ok responses
  */
@@ -30,9 +32,12 @@ export async function apiFetch<T>(
   options?: ApiFetchOptions
 ): Promise<T> {
   const { method = 'GET', body, headers, signal } = options ?? {}
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
 
   const reqHeaders: Record<string, string> = {
-    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    ...(body !== undefined && !isFormData
+      ? { 'Content-Type': 'application/json' }
+      : {}),
     ...headers,
   }
 
@@ -40,7 +45,9 @@ export async function apiFetch<T>(
     method,
     headers: reqHeaders,
     ...(signal !== undefined ? { signal } : {}),
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(body !== undefined
+      ? { body: isFormData ? (body as FormData) : JSON.stringify(body) }
+      : {}),
   }
 
   const res = await fetch(url, config)

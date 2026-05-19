@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/db/prisma'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import type { MemoryCategory, Prisma } from '@prisma/client'
@@ -130,9 +129,7 @@ export async function applyLayer1Operations(
 
   if (plans.length === 0) return result
 
-  await prisma.$transaction(async tx => {
-    for (const plan of plans) await plan(tx)
-  })
+  await memoryRepository.applyPlansAtomically(plans)
 
   return result
 }

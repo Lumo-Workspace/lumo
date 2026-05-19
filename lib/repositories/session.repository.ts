@@ -69,6 +69,17 @@ export const sessionRepository = {
   },
 
   /**
+   * Resolve a sessionId to its workspace. Used by routes that need to do a
+   * workspace-membership check before serving a session-scoped resource.
+   */
+  async findWorkspaceId(id: string) {
+    return prisma.session.findUnique({
+      where: { id },
+      select: { workspaceId: true },
+    })
+  },
+
+  /**
    * Re-tag a session's task association. Bypasses the write-once
    * guardrail in `upsertForHookEvent` because the user has explicitly
    * asked for the retag (via `lumo session attach`) — they accept that

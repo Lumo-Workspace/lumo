@@ -73,6 +73,22 @@ export const sprintRepository = {
     })
   },
 
+  /**
+   * IDs of every ACTIVE sprint on any team `memberId` belongs to. Drives the
+   * "you're currently in N active sprints" indicator surfaced to the user.
+   * Returns an empty array when the member is on no teams.
+   */
+  async findActiveIdsForMember(memberId: string): Promise<string[]> {
+    const rows = await prisma.sprint.findMany({
+      where: {
+        status: 'ACTIVE',
+        team: { members: { some: { memberId } } },
+      },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   async listByTeam(
     teamId: string,
     opts: { status?: SprintStatus; limit?: number; cursor?: string } = {}

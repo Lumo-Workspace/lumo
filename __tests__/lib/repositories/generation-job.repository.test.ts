@@ -118,4 +118,33 @@ describe('generationJobRepository', () => {
       })
     })
   })
+
+  describe('createSprintPending', () => {
+    it('writes a pending sprint job via the default client when no tx is given', async () => {
+      mockCreate.mockResolvedValue({
+        id: 'job-2',
+        type: 'sprint',
+        targetId: 'sprint-1',
+        status: 'pending',
+      })
+
+      await generationJobRepository.createSprintPending('sprint-1')
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: { type: 'sprint', targetId: 'sprint-1', status: 'pending' },
+      })
+    })
+
+    it('uses the provided tx client when one is given', async () => {
+      const txCreate = jest.fn().mockResolvedValue({ id: 'job-3' })
+      const tx = { generationJob: { create: txCreate } } as any
+
+      await generationJobRepository.createSprintPending('sprint-1', tx)
+
+      expect(txCreate).toHaveBeenCalledWith({
+        data: { type: 'sprint', targetId: 'sprint-1', status: 'pending' },
+      })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -20,12 +20,32 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 
 const upsert = prisma.session.upsert as jest.Mock
 const findMany = prisma.session.findMany as jest.Mock
+const findUnique = prisma.session.findUnique as jest.Mock
 const now = new Date('2026-04-23T10:00:00Z')
 
 beforeEach(() => {
   jest.clearAllMocks()
   upsert.mockResolvedValue({ id: 'sess_1' })
   findMany.mockResolvedValue([])
+})
+
+describe('sessionRepository.findWorkspaceId', () => {
+  it('selects only workspaceId', async () => {
+    findUnique.mockResolvedValue({ workspaceId: 'ws_1' })
+
+    const result = await sessionRepository.findWorkspaceId('sess_1')
+
+    expect(result).toEqual({ workspaceId: 'ws_1' })
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'sess_1' },
+      select: { workspaceId: true },
+    })
+  })
+
+  it('returns null when session does not exist', async () => {
+    findUnique.mockResolvedValue(null)
+    expect(await sessionRepository.findWorkspaceId('missing')).toBeNull()
+  })
 })
 
 describe('sessionRepository.upsertForHookEvent', () => {

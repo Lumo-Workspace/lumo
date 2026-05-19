@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { sessionSummaryService } from '@/lib/services/session-summary'
 
 type Params = { params: Promise<{ id: string }> }
@@ -23,10 +23,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { id } = await params
 
-    const session = await prisma.session.findUnique({
-      where: { id },
-      select: { workspaceId: true },
-    })
+    const session = await sessionRepository.findWorkspaceId(id)
     if (!session) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }

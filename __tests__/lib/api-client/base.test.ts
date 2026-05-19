@@ -130,6 +130,21 @@ describe('apiFetch', () => {
     expect(callArgs.headers).not.toHaveProperty('Content-Type')
     expect(callArgs).not.toHaveProperty('body')
   })
+
+  it('FormData body skips Content-Type and is passed through unchanged', async () => {
+    const fd = new FormData()
+    fd.append('file', new Blob(['x']), 'a.txt')
+    mockFetch.mockResolvedValue(mockResponse({ url: '/cdn/a.txt' }))
+
+    await apiFetch('/api/upload', { method: 'POST', body: fd })
+
+    const callArgs = mockFetch.mock.calls[0][1]
+    // The browser fills in `Content-Type: multipart/form-data; boundary=...`
+    // itself — we must NOT pre-set it, or the boundary parameter is lost
+    // and the server can't parse the upload.
+    expect(callArgs.headers).not.toHaveProperty('Content-Type')
+    expect(callArgs.body).toBe(fd)
+  })
 })
 
 describe('apiFetchQuiet', () => {

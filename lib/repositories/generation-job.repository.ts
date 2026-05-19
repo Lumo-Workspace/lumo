@@ -47,11 +47,14 @@ export const generationJobRepository = {
   // ── Sprint-domain additions ──────────────────────────────────────────────
 
   /**
-   * Create a pending GenerationJob for a sprint retro. Called inside
-   * sprintRepository.closeAtomically — tx is required.
+   * Create a pending GenerationJob for a sprint retro. Used both by
+   * sprintRepository.closeAtomically (inside its tx) and by the retro-retry
+   * route (outside any tx). When `tx` is omitted the row is written via the
+   * default client.
    */
-  async createSprintPending(sprintId: string, tx: Prisma.TransactionClient) {
-    return tx.generationJob.create({
+  async createSprintPending(sprintId: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? prisma
+    return client.generationJob.create({
       data: { type: 'sprint', targetId: sprintId, status: 'pending' },
     })
   },

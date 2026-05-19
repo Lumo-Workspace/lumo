@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
 import { sprintService } from '@/lib/services'
 import { cadenceSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
-import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { requireTeamAccessById } from '@/lib/auth/require-team-access'
 
 type Params = { params: Promise<{ teamId: string }> }
 
@@ -18,18 +17,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { teamId } = await params
 
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, workspaceId: true },
-    })
-    if (!team)
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-
-    const { memberId } = await requireTeamMemberOrOwner(
-      team.workspaceId,
-      team.id,
-      userId
-    )
+    const { memberId } = await requireTeamAccessById(teamId, userId)
 
     const body = await req.json()
     const parsed = cadenceSchema.safeParse(body)
