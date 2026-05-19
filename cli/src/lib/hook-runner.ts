@@ -1,6 +1,6 @@
 import { readCredentials } from './config'
 import { trimTrailingSlash } from './api'
-import { readCurrentTask } from './current-task'
+import { readSessionBinding } from './session-binding'
 import { logHookError } from './hook-log'
 
 /**
@@ -73,23 +73,50 @@ function readStdin(): Promise<string> {
   })
 }
 
+function extractSessionId(body: string): string | null {
+  if (!body) return null
+  try {
+    const parsed = JSON.parse(body)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const sid = (parsed as Record<string, unknown>).session_id
+      if (typeof sid === 'string' && sid.length > 0) return sid
+    }
+  } catch {
+    // ignore — malformed body, treat as no session_id
+  }
+  return null
+}
+
 /**
- * Merge the current-task sentinel (if any) into the hook JSON body as a
- * top-level `task_id` field (internal Task.id, not identifier — see
- * `current-task.ts`). Always returns a non-empty JSON string so the POST
- * body is valid even when stdin is empty or malformed.
+ * Merge the per-session binding's `taskId` (if any) into the hook JSON body
+ * as a top-level `task_id` field. Always returns a non-empty JSON string so
+ * the POST body is valid even when stdin is empty or malformed.
  *
- * Failure modes degrade silently — we never block Claude Code for hook
- * enrichment:
- *   - no current-task file    → return body as-is
- *   - malformed stdin JSON    → return body as-is (server falls back to its
- *                               own "invalid JSON" handling if so)
- *   - stdin body is a non-object → can't inject; return as-is
+ * The lookup is keyed by `sessionId` (parsed from the hook payload by the
+ * caller) — there is no global sentinel any more, so parallel Claude Code
+ * sessions cannot pollute each other.
+ *
+ * No injection happens when:
+ *   - `hookType === 'session-start'` (the session row may not even exist
+ *     server-side yet; binding is set later by `lumo session attach`)
+ *   - `sessionId` is null (hook payload had no session_id)
+ *   - no per-session binding file exists
+ *   - the parsed body isn't a JSON object
+ *
+ * Failures always degrade silently — we never block Claude Code for hook
+ * enrichment.
  */
-export function injectCurrentTaskId(body: string): string {
-  const current = readCurrentTask()
-  if (!current) return body || '{}'
-  if (!body) return JSON.stringify({ task_id: current.taskId })
+export function injectTaskId(
+  body: string,
+  hookType: HookPath,
+  sessionId: string | null
+): string {
+  if (hookType === 'session-start' || !sessionId) {
+    return body || '{}'
+  }
+  const binding = readSessionBinding(sessionId)
+  if (!binding) return body || '{}'
+  if (!body) return JSON.stringify({ task_id: binding.taskId })
   let parsed: unknown
   try {
     parsed = JSON.parse(body)
@@ -101,7 +128,7 @@ export function injectCurrentTaskId(body: string): string {
   }
   return JSON.stringify({
     ...(parsed as Record<string, unknown>),
-    task_id: current.taskId,
+    task_id: binding.taskId,
   })
 }
 
@@ -138,6 +165,19 @@ export function formatSessionStartOutput(body: unknown): string | null {
  * This function NEVER throws and NEVER rejects.
  */
 export async function runHook(path: HookPath): Promise<void> {
+  const body = await readStdin()
+  return runHookWithBody(path, body)
+}
+
+/**
+ * Test-friendly worker. Takes the hook body as an argument so tests can
+ * exercise the side-effect logic without poking process.stdin. Production
+ * code always goes through `runHook`, which feeds it real stdin.
+ */
+export async function runHookWithBody(
+  path: HookPath,
+  body: string
+): Promise<void> {
   try {
     const creds = readCredentials()
     if (!creds) {
@@ -145,8 +185,8 @@ export async function runHook(path: HookPath): Promise<void> {
       return
     }
 
-    const body = await readStdin()
-    const enriched = injectCurrentTaskId(body)
+    const sessionId = extractSessionId(body)
+    const enriched = injectTaskId(body, path, sessionId)
     // Allow `LUMO_API_URL` to override the baked-in creds.apiUrl for
     // redirecting hooks at dev-env switch without re-running `lumo auth
     // login`. The bearer token from creds.json is still used as-is.
@@ -171,8 +211,8 @@ export async function runHook(path: HookPath): Promise<void> {
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
       } else if (path === 'session-start') {
         try {
-          const body = await res.json()
-          const output = formatSessionStartOutput(body)
+          const responseBody = await res.json()
+          const output = formatSessionStartOutput(responseBody)
           if (output) process.stdout.write(output + '\n')
         } catch {
           // response body parse failure is non-fatal
