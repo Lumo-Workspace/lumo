@@ -37,10 +37,10 @@ export const hookEventService = {
     const taskIdCandidate = extractStringField(payload, 'task_id')
 
     // Validate task_id belongs to this workspace before letting it through to
-    // Session. A stale/compromised ~/.lumo/current-task.json must not poison
-    // another workspace's FK. Any failure degrades to "no task tag" rather
-    // than rejecting the hook — Session linkage is opt-in metadata, not
-    // load-bearing for event recording.
+    // Session. A stale/compromised per-session sentinel under ~/.lumo/sessions/
+    // must not poison another workspace's FK. Any failure degrades to "no task
+    // tag" rather than rejecting the hook — Session linkage is opt-in metadata,
+    // not load-bearing for event recording.
     let taskId: string | null = null
     if (taskIdCandidate) {
       const ok = await taskRepository.belongsToWorkspace(
