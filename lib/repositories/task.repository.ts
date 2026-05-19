@@ -347,18 +347,6 @@ export const taskRepository = {
     })
   },
 
-  /** Whether a task with the given id belongs to the given workspace. */
-  async belongsToWorkspace(
-    taskId: string,
-    workspaceId: string
-  ): Promise<boolean> {
-    const row = await prisma.task.findFirst({
-      where: { id: taskId, team: { workspaceId } },
-      select: { id: true },
-    })
-    return row !== null
-  },
-
   /** Update a task's fields. */
   async update(id: string, data: TaskUpdateData) {
     return prisma.task.update({

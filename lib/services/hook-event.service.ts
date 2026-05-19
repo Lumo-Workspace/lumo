@@ -2,7 +2,6 @@ import type { HookEventType, Prisma } from '@prisma/client'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
-import { taskRepository } from '@/lib/repositories/task.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 interface RecordHookEventInput {
@@ -34,43 +33,24 @@ export const hookEventService = {
 
     const sessionId = extractStringField(payload, 'session_id')
     const cwd = extractStringField(payload, 'cwd')
-    const taskIdCandidate = extractStringField(payload, 'task_id')
 
-    // Validate task_id belongs to this workspace before letting it through to
-    // Session. A stale/compromised per-session sentinel under ~/.lumo/sessions/
-    // must not poison another workspace's FK. Any failure degrades to "no task
-    // tag" rather than rejecting the hook — Session linkage is opt-in metadata,
-    // not load-bearing for event recording.
+    // Upsert Session before the HookEvent insert so the FK resolves, and
+    // read back Session.taskId — server-authoritative now that the CLI no
+    // longer carries a per-session sentinel. If session_id is missing
+    // (malformed or non-Claude-Code client), record the event unlinked
+    // (matches Day 3 tolerance) with no taskId tag.
     let taskId: string | null = null
-    if (taskIdCandidate) {
-      const ok = await taskRepository.belongsToWorkspace(
-        taskIdCandidate,
-        identity.workspace.id
-      )
-      if (ok) taskId = taskIdCandidate
-    }
-
-    // Upsert Session before the HookEvent insert so the FK resolves. If
-    // session_id is missing (malformed or non-Claude-Code client), we still
-    // record the event unlinked — matches Day 3 tolerance.
     if (sessionId) {
-      await sessionRepository.upsertForHookEvent({
+      const session = await sessionRepository.upsertForHookEvent({
         id: sessionId,
         workspaceId: identity.workspace.id,
         workspaceMemberId: memberId,
         cwd,
-        taskId,
         now: new Date(),
       })
+      taskId = session.taskId
     }
 
-    // Pass the validated taskId through so each HookEvent carries its own
-    // taskId. Session.taskId is intentionally write-once (see
-    // sessionRepository.upsertForHookEvent) so mid-session `lumo session
-    // start <other-task>` cannot re-tag an existing session. But the
-    // per-event tag must still update — otherwise events emitted after the
-    // switch end up bucketed under the original task in the timeline view
-    // (which queries `OR(HookEvent.taskId, HookEvent.session.taskId)`).
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
@@ -83,8 +63,7 @@ export const hookEventService = {
 
     // Surface the validated sessionId/taskId so per-event side effects (e.g.
     // Stop → Layer 1 memory extraction) can fire-and-forget without
-    // re-deriving them. Returning a richer object here keeps the validation
-    // (workspace membership, task FK check) authoritative in one place.
+    // re-deriving them.
     return { id: created.id, sessionId, taskId }
   },
 }

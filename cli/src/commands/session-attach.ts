@@ -1,6 +1,5 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
-import { writeSessionBinding } from '../lib/session-binding'
 
 interface BindResponse {
   taskId: string
@@ -17,9 +16,8 @@ interface BindResponse {
  * Claude Code). Must be invoked from inside a Claude Code session — there
  * is no longer a global "current task" pointer for terminals outside CC.
  *
- * Calls `POST /api/sessions/<sid>/bind-task` and, on success, writes a
- * per-session sentinel file at `~/.lumo/sessions/<sid>.json` so all
- * subsequent hooks tag their events with this task.
+ * The binding lives entirely on the server (`Session.taskId`); subsequent
+ * hooks read it back via the session row. The CLI keeps no local sentinel.
  */
 export async function sessionAttach(
   identifier: string | undefined
@@ -87,14 +85,6 @@ export async function sessionAttach(
   }
 
   const result = (await res.json()) as BindResponse
-
-  writeSessionBinding(sessionId, {
-    taskId: result.taskId,
-    taskIdentifier: result.taskIdentifier,
-    taskTitle: result.taskTitle,
-    workspaceSlug: creds.workspaceSlug,
-    startedAt: new Date().toISOString(),
-  })
 
   console.log(
     `Attached session ${sessionId} to ${result.taskIdentifier} "${result.taskTitle}"`
