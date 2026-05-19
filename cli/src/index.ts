@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import { Command } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
@@ -6,11 +9,22 @@ import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
 import { sessionAttach } from './commands/session-attach'
 import { taskContext } from './commands/task-context'
-import { migrateLegacyCurrentTask } from './lib/session-binding'
 
 const pkg = require('../package.json') as { version: string }
 
-migrateLegacyCurrentTask()
+// One-shot cleanup of pre-LUM-46 local state. The session→task binding
+// is now server-authoritative; the legacy global pointer and the
+// per-session sentinel directory are both obsolete. Failures are
+// swallowed so a permission glitch doesn't prevent CLI invocation.
+;(() => {
+  const dir = process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo')
+  try {
+    fs.rmSync(path.join(dir, 'current-task.json'), { force: true })
+  } catch {}
+  try {
+    fs.rmSync(path.join(dir, 'sessions'), { recursive: true, force: true })
+  } catch {}
+})()
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
@@ -56,7 +70,7 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Writes ~/.lumo/sessions/<sid>.json and re-tags untagged hook events.'
+    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events.'
   )
   .action(wrap(identifier => sessionAttach(identifier as string)))
 

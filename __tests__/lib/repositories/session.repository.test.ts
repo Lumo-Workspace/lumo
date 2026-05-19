@@ -1,19 +1,29 @@
 /**
  * @jest-environment node
  */
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    session: {
-      upsert: jest.fn(),
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
+jest.mock('@/lib/db/prisma', () => {
+  const session = {
+    upsert: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+  }
+  const hookEvent = { findMany: jest.fn() }
+  return {
+    prisma: {
+      session,
+      hookEvent,
+      // $transaction(cb) is used by upsertWithTaskId — feed the same
+      // mocked client to the callback so tx.session.* hits the same spies
+      // the test asserts on.
+      $transaction: jest.fn((cb: (tx: unknown) => unknown) =>
+        cb({ session, hookEvent })
+      ),
     },
-    hookEvent: {
-      findMany: jest.fn(),
-    },
-  },
-}))
+  }
+})
 
 import { prisma } from '@/lib/db/prisma'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -103,42 +113,104 @@ describe('sessionRepository.upsertForHookEvent', () => {
     expect(args.update).not.toHaveProperty('cwd')
   })
 
-  it('sets taskId in create payload when provided', async () => {
+  it('never sets taskId on update — the hook path is not allowed to write taskId, only the bind path is', async () => {
     await sessionRepository.upsertForHookEvent({
       id: 'sess_1',
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
       cwd: '/repo',
-      taskId: 'task_abc',
-      now,
-    })
-    const args = upsert.mock.calls[0][0]
-    expect(args.create.taskId).toBe('task_abc')
-  })
-
-  it('sets taskId=null in create payload when omitted', async () => {
-    await sessionRepository.upsertForHookEvent({
-      id: 'sess_1',
-      workspaceId: 'ws_1',
-      workspaceMemberId: 'wm_1',
-      cwd: '/repo',
-      now,
-    })
-    const args = upsert.mock.calls[0][0]
-    expect(args.create.taskId).toBeNull()
-  })
-
-  it('never sets taskId on update (create-time taskId is immutable for the session)', async () => {
-    await sessionRepository.upsertForHookEvent({
-      id: 'sess_1',
-      workspaceId: 'ws_1',
-      workspaceMemberId: 'wm_1',
-      cwd: '/repo',
-      taskId: 'task_different',
       now,
     })
     const args = upsert.mock.calls[0][0]
     expect(args.update).not.toHaveProperty('taskId')
+  })
+
+  it('selects taskId so callers can tag the HookEvent without a second query', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.select).toEqual({ id: true, taskId: true })
+  })
+})
+
+describe('sessionRepository.upsertWithTaskId', () => {
+  const sessionUpdate = () => prisma.session.update as jest.Mock
+  const sessionCreate = () => prisma.session.create as jest.Mock
+
+  it('creates a new session row when none exists', async () => {
+    findUnique.mockResolvedValue(null)
+    sessionCreate().mockResolvedValue({ id: 'sess_1', taskId: 'task_42' })
+
+    const result = await sessionRepository.upsertWithTaskId({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      taskId: 'task_42',
+      now,
+    })
+
+    expect(result).toEqual({
+      ownedByOther: false,
+      session: { id: 'sess_1', taskId: 'task_42' },
+    })
+    expect(sessionCreate()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: 'sess_1',
+          workspaceId: 'ws_1',
+          workspaceMemberId: 'wm_1',
+          taskId: 'task_42',
+          eventCount: 0,
+          startedAt: now,
+          lastActivityAt: now,
+        }),
+      })
+    )
+  })
+
+  it('updates taskId when session exists and belongs to the same member', async () => {
+    findUnique.mockResolvedValue({ workspaceMemberId: 'wm_1' })
+    sessionUpdate().mockResolvedValue({ id: 'sess_1', taskId: 'task_42' })
+
+    const result = await sessionRepository.upsertWithTaskId({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      taskId: 'task_42',
+      now,
+    })
+
+    expect(result).toEqual({
+      ownedByOther: false,
+      session: { id: 'sess_1', taskId: 'task_42' },
+    })
+    expect(sessionUpdate()).toHaveBeenCalledWith({
+      where: { id: 'sess_1' },
+      data: { taskId: 'task_42' },
+      select: { id: true, taskId: true },
+    })
+    expect(sessionCreate()).not.toHaveBeenCalled()
+  })
+
+  it('returns ownedByOther when session belongs to a different member', async () => {
+    findUnique.mockResolvedValue({ workspaceMemberId: 'wm_other' })
+
+    const result = await sessionRepository.upsertWithTaskId({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      taskId: 'task_42',
+      now,
+    })
+
+    expect(result).toEqual({ ownedByOther: true })
+    expect(sessionUpdate()).not.toHaveBeenCalled()
+    expect(sessionCreate()).not.toHaveBeenCalled()
   })
 })
 

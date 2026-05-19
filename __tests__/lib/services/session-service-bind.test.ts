@@ -3,8 +3,7 @@
  */
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
-    findByIdForMember: jest.fn(),
-    updateTaskId: jest.fn(),
+    upsertWithTaskId: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
@@ -43,25 +42,21 @@ const identity = {
 beforeEach(() => {
   jest.clearAllMocks()
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
-  sessRepo.findByIdForMember.mockResolvedValue({
-    id: 'sess_1',
-    taskId: null,
-  } as never)
   task.resolveIdentifier.mockResolvedValue({
     id: 'task_1',
     identifier: 'LUM-42',
     title: 'Fix login bug',
     status: 'TODO',
   })
-  sessRepo.updateTaskId.mockResolvedValue({
-    id: 'sess_1',
-    taskId: 'task_1',
+  sessRepo.upsertWithTaskId.mockResolvedValue({
+    ownedByOther: false,
+    session: { id: 'sess_1', taskId: 'task_1' },
   } as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
 })
 
 describe('sessionService.bindSessionToTask', () => {
-  it('binds session to task and re-tags null events', async () => {
+  it('upserts session to task and re-tags null events', async () => {
     const result = await sessionService.bindSessionToTask({
       identity,
       sessionId: 'sess_1',
@@ -69,9 +64,15 @@ describe('sessionService.bindSessionToTask', () => {
     })
 
     expect(misc.findMemberIdForHook).toHaveBeenCalledWith('clerk_1', 'ws_1')
-    expect(sessRepo.findByIdForMember).toHaveBeenCalledWith('sess_1', 'wm_1')
     expect(task.resolveIdentifier).toHaveBeenCalledWith('ws_1', 'LUM-42')
-    expect(sessRepo.updateTaskId).toHaveBeenCalledWith('sess_1', 'task_1')
+    expect(sessRepo.upsertWithTaskId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sess_1',
+        workspaceId: 'ws_1',
+        workspaceMemberId: 'wm_1',
+        taskId: 'task_1',
+      })
+    )
     expect(hookRepo.bulkSetTaskIdForNullEventsInSession).toHaveBeenCalledWith(
       'sess_1',
       'task_1'
@@ -84,7 +85,7 @@ describe('sessionService.bindSessionToTask', () => {
     })
   })
 
-  it('returns retaggedEventCount: 0 when no null events exist', async () => {
+  it('succeeds when no events were retagged (attach-before-any-hook)', async () => {
     hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({
       count: 0,
     })
@@ -94,6 +95,9 @@ describe('sessionService.bindSessionToTask', () => {
       taskIdentifier: 'LUM-42',
     })
     expect(result.retaggedEventCount).toBe(0)
+    // The upsert call is what makes attach-before-any-hook work — the
+    // session row is created by attach itself, not by a hook event.
+    expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
   })
 
   it('throws 403 when user is not a workspace member', async () => {
@@ -107,15 +111,15 @@ describe('sessionService.bindSessionToTask', () => {
     ).rejects.toMatchObject({ status: 403 })
   })
 
-  it('throws 404 when session does not exist or belong to user', async () => {
-    sessRepo.findByIdForMember.mockResolvedValue(null)
+  it('throws 403 when session belongs to another workspace member', async () => {
+    sessRepo.upsertWithTaskId.mockResolvedValue({ ownedByOther: true } as never)
     await expect(
       sessionService.bindSessionToTask({
         identity,
         sessionId: 'sess_1',
         taskIdentifier: 'LUM-42',
       })
-    ).rejects.toMatchObject({ status: 404 })
+    ).rejects.toMatchObject({ status: 403 })
   })
 
   it('throws 404 when task identifier cannot be resolved', async () => {
@@ -127,5 +131,6 @@ describe('sessionService.bindSessionToTask', () => {
         taskIdentifier: 'LUM-999',
       })
     ).rejects.toMatchObject({ status: 404 })
+    expect(sessRepo.upsertWithTaskId).not.toHaveBeenCalled()
   })
 })

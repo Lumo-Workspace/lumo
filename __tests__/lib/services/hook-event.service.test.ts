@@ -16,22 +16,15 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
     findMemberIdForHook: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/task.repository', () => ({
-  taskRepository: {
-    belongsToWorkspace: jest.fn(),
-  },
-}))
 
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
-import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventService } from '@/lib/services/hook-event.service'
 
 const repo = hookEventRepository as jest.Mocked<typeof hookEventRepository>
 const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
 const misc = miscRepository as jest.Mocked<typeof miscRepository>
-const task = taskRepository as jest.Mocked<typeof taskRepository>
 
 const identity = {
   user: { id: 'clerk_1', email: 'a@b.c', name: 'A' },
@@ -43,8 +36,10 @@ beforeEach(() => {
   jest.clearAllMocks()
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   repo.createHookEvent.mockResolvedValue({ id: 'he_1' } as never)
-  sess.upsertForHookEvent.mockResolvedValue({ id: 'sess_1' } as never)
-  task.belongsToWorkspace.mockResolvedValue(true)
+  sess.upsertForHookEvent.mockResolvedValue({
+    id: 'sess_1',
+    taskId: null,
+  } as never)
 })
 
 describe('hookEventService.recordHookEvent', () => {
@@ -65,7 +60,6 @@ describe('hookEventService.recordHookEvent', () => {
       workspaceId: 'ws_1',
       workspaceMemberId: 'wm_1',
       cwd: '/repo',
-      taskId: null,
       now: expect.any(Date),
     })
     expect(repo.createHookEvent).toHaveBeenCalledWith({
@@ -82,6 +76,39 @@ describe('hookEventService.recordHookEvent', () => {
         tool_input: { file_path: '/x' },
       },
     })
+  })
+
+  it('uses Session.taskId from upsert return value (server-authoritative)', async () => {
+    sess.upsertForHookEvent.mockResolvedValue({
+      id: 'sess_abc',
+      taskId: 'task_42',
+    } as never)
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: 'task_42' })
+    )
+  })
+
+  it('ignores task_id field in payload — server is the only source of truth', async () => {
+    sess.upsertForHookEvent.mockResolvedValue({
+      id: 'sess_abc',
+      taskId: null,
+    } as never)
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        task_id: 'task_from_client_should_be_ignored',
+      },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: null })
+    )
   })
 
   it('stores null toolName when payload has no tool_name', async () => {
@@ -117,7 +144,7 @@ describe('hookEventService.recordHookEvent', () => {
 
     expect(sess.upsertForHookEvent).not.toHaveBeenCalled()
     expect(repo.createHookEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: null })
+      expect.objectContaining({ sessionId: null, taskId: null })
     )
   })
 
@@ -130,43 +157,6 @@ describe('hookEventService.recordHookEvent', () => {
 
     expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
       expect.objectContaining({ cwd: null })
-    )
-  })
-
-  it('passes task_id to session upsert when the task belongs to the workspace', async () => {
-    await hookEventService.recordHookEvent({
-      identity,
-      type: 'PRE_TOOL_USE',
-      payload: { session_id: 'sess_abc', task_id: 'task_ok' },
-    })
-    expect(task.belongsToWorkspace).toHaveBeenCalledWith('task_ok', 'ws_1')
-    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: 'task_ok' })
-    )
-  })
-
-  it('drops task_id and records the event anyway when the task is not in the workspace', async () => {
-    task.belongsToWorkspace.mockResolvedValueOnce(false)
-    await hookEventService.recordHookEvent({
-      identity,
-      type: 'PRE_TOOL_USE',
-      payload: { session_id: 'sess_abc', task_id: 'task_foreign' },
-    })
-    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: null })
-    )
-    expect(repo.createHookEvent).toHaveBeenCalled()
-  })
-
-  it('skips the workspace check and passes taskId=null when payload omits task_id', async () => {
-    await hookEventService.recordHookEvent({
-      identity,
-      type: 'PRE_TOOL_USE',
-      payload: { session_id: 'sess_abc' },
-    })
-    expect(task.belongsToWorkspace).not.toHaveBeenCalled()
-    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: null })
     )
   })
 

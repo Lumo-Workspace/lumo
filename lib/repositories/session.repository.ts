@@ -6,13 +6,14 @@ interface UpsertSessionData {
   workspaceId: string
   workspaceMemberId: string
   cwd: string | null
-  /**
-   * Task to tag the Session with when this event creates the row. Ignored on
-   * update — the create-time taskId is authoritative for the session's
-   * lifetime, since re-tagging mid-session would silently rewrite historical
-   * context in ways `lumo task context` would not surface.
-   */
-  taskId?: string | null
+  now: Date
+}
+
+interface UpsertWithTaskIdData {
+  id: string
+  workspaceId: string
+  workspaceMemberId: string
+  taskId: string
   now: Date
 }
 
@@ -20,7 +21,8 @@ export const sessionRepository = {
   /**
    * Idempotent per hook event: create the session on first touch, otherwise
    * bump lastActivityAt and eventCount. cwd is backfilled if the first event
-   * didn't include it but a later one does.
+   * didn't include it but a later one does. Returns the row's current taskId
+   * so the caller can tag the HookEvent without a second query.
    */
   async upsertForHookEvent(data: UpsertSessionData) {
     const setOnUpdate: Prisma.SessionUpdateInput = {
@@ -36,13 +38,58 @@ export const sessionRepository = {
         workspaceId: data.workspaceId,
         workspaceMemberId: data.workspaceMemberId,
         cwd: data.cwd,
-        taskId: data.taskId ?? null,
+        taskId: null,
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
       },
       update: setOnUpdate,
-      select: { id: true },
+      select: { id: true, taskId: true },
+    })
+  },
+
+  /**
+   * Create-or-update a session row with a task binding. Used by
+   * `lumo session attach` — the session row may not exist yet (attach
+   * happens before any hook fires), so we cannot require it. On an
+   * existing row owned by a different member, returns `ownedByOther: true`
+   * so the service can throw 403 without a second round-trip.
+   */
+  async upsertWithTaskId(
+    data: UpsertWithTaskIdData
+  ): Promise<
+    | { ownedByOther: true }
+    | { ownedByOther: false; session: { id: string; taskId: string | null } }
+  > {
+    return prisma.$transaction(async tx => {
+      const existing = await tx.session.findUnique({
+        where: { id: data.id },
+        select: { workspaceMemberId: true },
+      })
+      if (existing) {
+        if (existing.workspaceMemberId !== data.workspaceMemberId) {
+          return { ownedByOther: true } as const
+        }
+        const updated = await tx.session.update({
+          where: { id: data.id },
+          data: { taskId: data.taskId },
+          select: { id: true, taskId: true },
+        })
+        return { ownedByOther: false, session: updated } as const
+      }
+      const created = await tx.session.create({
+        data: {
+          id: data.id,
+          workspaceId: data.workspaceId,
+          workspaceMemberId: data.workspaceMemberId,
+          taskId: data.taskId,
+          startedAt: data.now,
+          lastActivityAt: data.now,
+          eventCount: 0,
+        },
+        select: { id: true, taskId: true },
+      })
+      return { ownedByOther: false, session: created } as const
     })
   },
 
