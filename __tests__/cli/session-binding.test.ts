@@ -10,6 +10,7 @@ import {
   clearSessionBinding,
   sessionBindingPath,
   sessionBindingDir,
+  cleanupStaleBindings,
 } from '@/cli/src/lib/session-binding'
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lumo-session-binding-'))
@@ -96,5 +97,48 @@ describe('session-binding', () => {
     writeSessionBinding('S2', sample)
     expect(clearSessionBinding('S1')).toBe(true)
     expect(readSessionBinding('S2')).toEqual(sample)
+  })
+
+  describe('cleanupStaleBindings', () => {
+    function setMtimeDaysAgo(p: string, days: number): void {
+      const t = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      fs.utimesSync(p, t, t)
+    }
+
+    it('deletes files older than threshold and keeps fresh ones', () => {
+      writeSessionBinding('old', sample)
+      writeSessionBinding('fresh', sample)
+      setMtimeDaysAgo(sessionBindingPath('old'), 10)
+      // 'fresh' keeps its current mtime (just now)
+
+      const removed = cleanupStaleBindings(7)
+
+      expect(removed).toBe(1)
+      expect(fs.existsSync(sessionBindingPath('old'))).toBe(false)
+      expect(fs.existsSync(sessionBindingPath('fresh'))).toBe(true)
+    })
+
+    it('returns 0 when the sessions directory does not exist', () => {
+      expect(cleanupStaleBindings(7)).toBe(0)
+    })
+
+    it('returns 0 when no files exceed the threshold', () => {
+      writeSessionBinding('S1', sample)
+      writeSessionBinding('S2', sample)
+      expect(cleanupStaleBindings(7)).toBe(0)
+      expect(fs.existsSync(sessionBindingPath('S1'))).toBe(true)
+      expect(fs.existsSync(sessionBindingPath('S2'))).toBe(true)
+    })
+
+    it('ignores non-JSON files in the directory', () => {
+      writeSessionBinding('S1', sample)
+      const dir = sessionBindingDir()
+      fs.writeFileSync(path.join(dir, 'README'), 'noise')
+      const noiseStat = path.join(dir, 'README')
+      const t = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      fs.utimesSync(noiseStat, t, t)
+      expect(cleanupStaleBindings(7)).toBe(0)
+      expect(fs.existsSync(noiseStat)).toBe(true)
+    })
   })
 })

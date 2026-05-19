@@ -63,3 +63,30 @@ export function clearSessionBinding(sessionId: string): boolean {
   fs.unlinkSync(p)
   return true
 }
+
+/**
+ * Delete per-session binding files whose mtime is older than `olderThanDays`.
+ * Only touches files ending in `.json` — any other content in the directory
+ * is ignored. Single-file unlink failures are logged via console.error and
+ * skipped (the loop continues), so a permission glitch on one file never
+ * blocks cleanup of the rest. Returns the number of files actually removed.
+ */
+export function cleanupStaleBindings(olderThanDays: number): number {
+  const dir = sessionBindingDir()
+  if (!fs.existsSync(dir)) return 0
+  const cutoffMs = Date.now() - olderThanDays * 24 * 60 * 60 * 1000
+  let removed = 0
+  for (const entry of fs.readdirSync(dir)) {
+    if (!entry.endsWith('.json')) continue
+    const p = path.join(dir, entry)
+    try {
+      const stat = fs.statSync(p)
+      if (stat.mtimeMs >= cutoffMs) continue
+      fs.unlinkSync(p)
+      removed++
+    } catch (err) {
+      console.error(`[session-binding] cleanup skipped ${entry}: ${err}`)
+    }
+  }
+  return removed
+}
