@@ -1,0 +1,156 @@
+'use client'
+
+import { useState } from 'react'
+import { useIntl } from 'react-intl'
+import { RefreshCw, Trash2, MessageSquare } from 'lucide-react'
+import type { SlackContextResource } from '@/lib/api-client/slack-contexts'
+import { SlackMrkdwn } from './slackMrkdwn'
+
+interface Props {
+  context: SlackContextResource
+  onRefresh: () => Promise<void>
+  onUnlink: () => Promise<void>
+}
+
+function relativeAgo(iso: string, now = new Date()): string {
+  const t = new Date(iso).getTime()
+  const diffMin = Math.max(0, Math.round((now.getTime() - t) / 60000))
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffH = Math.round(diffMin / 60)
+  if (diffH < 24) return `${diffH}h ago`
+  return `${Math.round(diffH / 24)}d ago`
+}
+
+export function SlackContextCard({
+  context,
+  onRefresh,
+  onUnlink,
+}: Props): React.ReactElement {
+  const intl = useIntl()
+  const [expanded, setExpanded] = useState(!context.isThread)
+  const [busy, setBusy] = useState(false)
+
+  const msgs = context.snapshot.messages
+  const root = msgs[0]
+  const replies = msgs.slice(1)
+  const userMap: Record<string, string | null> = {}
+  for (const m of msgs) userMap[m.userId] = m.userName
+
+  const handleRefresh = async () => {
+    setBusy(true)
+    try {
+      await onRefresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleUnlink = async () => {
+    setBusy(true)
+    try {
+      await onUnlink()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className='border border-zinc-200 dark:border-zinc-800 rounded-md p-3 bg-white dark:bg-zinc-950'>
+      <div className='flex items-center gap-2 text-xs text-zinc-500'>
+        <MessageSquare size={14} />
+        <a
+          href={context.permalink}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='hover:text-zinc-700 dark:hover:text-zinc-300'
+        >
+          #{context.slackChannelName ?? 'channel'}
+        </a>
+        <span>·</span>
+        <span>{root?.userName ?? `@${root?.userId ?? '?'}`}</span>
+        <span>·</span>
+        <span>
+          {intl.formatMessage(
+            { id: 'slackContext.fetchedAgo', defaultMessage: 'Fetched {ago}' },
+            { ago: relativeAgo(context.snapshotAt) }
+          )}
+        </span>
+        <div className='ml-auto flex items-center gap-1'>
+          <button
+            onClick={handleRefresh}
+            disabled={busy}
+            title={intl.formatMessage({
+              id: 'slackContext.refresh',
+              defaultMessage: 'Refresh',
+            })}
+            className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+          >
+            <RefreshCw size={14} />
+          </button>
+          <button
+            onClick={handleUnlink}
+            disabled={busy}
+            title={intl.formatMessage({
+              id: 'slackContext.unlink',
+              defaultMessage: 'Remove',
+            })}
+            className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {root && (
+        <div className='mt-2 text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+          <SlackMrkdwn text={root.text} userMap={userMap} />
+        </div>
+      )}
+
+      {context.isThread && replies.length > 0 && (
+        <div className='mt-2'>
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className='text-xs text-zinc-500 hover:text-zinc-700'
+          >
+            {expanded ? '▼' : '▶'}{' '}
+            {intl.formatMessage(
+              {
+                id: 'slackContext.thread.replies',
+                defaultMessage: '{n, plural, one {1 reply} other {# replies}}',
+              },
+              { n: replies.length }
+            )}
+          </button>
+          {expanded && (
+            <div className='mt-2 pl-3 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2'>
+              {replies.map(m => (
+                <div key={m.ts} className='text-sm'>
+                  <span className='font-medium'>
+                    {m.userName ?? `@${m.userId}`}
+                  </span>
+                  <span className='ml-2 text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+                    <SlackMrkdwn text={m.text} userMap={userMap} />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {context.refreshError && (
+        <div className='mt-2 text-xs text-amber-600 dark:text-amber-400'>
+          {intl.formatMessage(
+            {
+              id: 'slackContext.refresh.failedBanner',
+              defaultMessage: 'Refresh failed · {ago}',
+            },
+            { ago: relativeAgo(context.snapshotAt) }
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
