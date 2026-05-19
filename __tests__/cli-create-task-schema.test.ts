@@ -12,7 +12,10 @@ describe('cliCreateTaskSchema', () => {
 
   it('defaults priority to LOW (matches CLI default, not server-side MEDIUM)', () => {
     const result = cliCreateTaskSchema.safeParse({ title: 't' })
-    expect(result.success && result.data.priority).toBe('LOW')
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.priority).toBe('LOW')
+    }
   })
 
   it('accepts all optional fields', () => {
@@ -24,6 +27,12 @@ describe('cliCreateTaskSchema', () => {
       assigneeRef: 'ada@example.com',
     })
     expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.description).toBe('d')
+      expect(result.data.priority).toBe('HIGH')
+      expect(result.data.projectRef).toBe('lumo')
+      expect(result.data.assigneeRef).toBe('ada@example.com')
+    }
   })
 
   it('rejects empty title', () => {
