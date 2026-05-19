@@ -1,20 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { Send, Pencil, Trash2, Reply, Link as LinkIcon } from 'lucide-react'
-import { slugify } from '@/lib/utils/slugify'
-import { useFormatDate } from '../hooks/useFormatDate'
-import { copyLink } from '@/lib/utils/copyLink'
-import { Button } from '@/components/ui/button'
+import { Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { ApiTask, WorkspaceMemberInfo } from '../types'
-import { DescriptionEditor } from './DescriptionEditor'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,60 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Spinner } from '@/components/ui/spinner'
-import { CommentAvatar } from './CommentAvatar'
-import { resolveCommentAuthor } from './comment-utils'
-
-// ─── Comment editor (key-based clear + Cmd/Ctrl+Enter submit) ────────────────
-
-function CommentEditor({
-  onCommit,
-  onSubmit,
-  clearRef,
-  members,
-  tasks,
-  agentActors,
-}: {
-  onCommit: (html: string | null) => void
-  onSubmit: () => void
-  clearRef: React.MutableRefObject<(() => void) | null>
-  members?: WorkspaceMemberInfo[]
-  tasks?: ApiTask[]
-  agentActors?: { actorId: string; name: string; avatarColor: string }[]
-}) {
-  const intl = useIntl()
-  const [key, setKey] = useState(0)
-
-  useEffect(() => {
-    clearRef.current = () => setKey(k => k + 1)
-  })
-
-  return (
-    <div
-      className='px-3 pt-2 pb-1 text-sm'
-      onKeyDown={e => {
-        const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
-        if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
-          e.preventDefault()
-          onSubmit()
-        }
-      }}
-    >
-      <DescriptionEditor
-        key={key}
-        value={null}
-        onCommit={onCommit}
-        onChange={onCommit}
-        placeholder={intl.formatMessage({ id: 'task.commentPlaceholder' })}
-        {...(members ? { members } : {})}
-        {...(tasks ? { tasks } : {})}
-        {...(agentActors ? { agentActors } : {})}
-      />
-    </div>
-  )
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
+import type { ApiTask, WorkspaceMemberInfo } from '../types'
+import { CommentEditor } from './comments/CommentEditor'
+import { CommentItem } from './comments/CommentItem'
+import { ReplyItem } from './comments/ReplyItem'
+import { ReplyInput } from './comments/ReplyInput'
 
 export interface CommentSectionProps {
   workspaceUrl: string
@@ -96,8 +36,6 @@ export interface CommentSectionProps {
   tc: ReturnType<typeof import('../hooks/useTaskComments').useTaskComments>
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function CommentSection({
   workspaceUrl,
   projectName,
@@ -112,13 +50,19 @@ export function CommentSection({
   tc,
 }: CommentSectionProps) {
   const intl = useIntl()
-  const { fmtTimestamp } = useFormatDate()
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /Mac|iPhone|iPad/i.test(navigator.platform)
+  const resolvedAgentActors = agentActors ?? []
 
   return (
     <>
       <div className='mt-8 pt-6'>
         <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4'>
-          Comments
+          {intl.formatMessage({
+            id: 'task.comments',
+            defaultMessage: 'Comments',
+          })}
         </p>
 
         {tc.commentsLoading && tc.comments.length === 0 ? (
@@ -135,519 +79,56 @@ export function CommentSection({
           </div>
         ) : (
           <div className='space-y-5'>
-            {tc.comments.map(comment => {
-              const ca = resolveCommentAuthor(
-                comment,
-                members,
-                agentActors ?? []
-              )
-              const isAuthor =
-                !ca.isAgent && comment.authorActorId === currentActorId
-              const isEditing = tc.editingCommentId === comment.id
-              const isDeleting = tc.deletingCommentId === comment.id
-              const wasEdited =
-                new Date(comment.updatedAt).getTime() -
-                  new Date(comment.createdAt).getTime() >
-                1000
-              const isReplying = tc.replyingToId === comment.id
+            {tc.comments.map(comment => (
+              <div key={comment.id}>
+                <CommentItem
+                  comment={comment}
+                  members={members}
+                  mentionableMembers={mentionableMembers}
+                  agentActors={resolvedAgentActors}
+                  currentActorId={currentActorId}
+                  tasks={tasks}
+                  workspaceUrl={workspaceUrl}
+                  projectName={projectName}
+                  teamIdentifier={teamIdentifier}
+                  taskNumber={taskNumber}
+                  tc={tc}
+                />
 
-              return (
-                <div key={comment.id}>
-                  {/* ── Top-level comment ── */}
-                  <div
-                    id={`comment-${comment.id}`}
-                    className={`group flex gap-2.5 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === comment.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
-                  >
-                    <CommentAvatar
-                      isAgent={ca.isAgent}
-                      imageUrl={ca.imageUrl}
-                      initials={ca.initials}
-                    />
-                    <div className='flex-1 min-w-0'>
-                      <div className='flex items-baseline gap-2 mb-1 flex-wrap'>
-                        <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
-                          {ca.name}
-                        </span>
-                        <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                          {fmtTimestamp(comment.createdAt)}
-                          {wasEdited && ' · edited'}
-                        </span>
-                      </div>
-
-                      {isEditing ? (
-                        <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
-                          <div
-                            className='px-3 pt-2 pb-1 text-sm'
-                            onKeyDown={e => {
-                              const isMac = /Mac|iPhone|iPad/i.test(
-                                navigator.platform
-                              )
-                              if (
-                                (isMac ? e.metaKey : e.ctrlKey) &&
-                                e.key === 'Enter'
-                              ) {
-                                e.preventDefault()
-                                tc.saveEditComment(comment.id)
-                              }
-                              if (e.key === 'Escape') {
-                                tc.cancelEditing()
-                              }
-                            }}
-                          >
-                            <DescriptionEditor
-                              key={`edit-${comment.id}`}
-                              value={comment.body}
-                              onCommit={html => tc.setEditCommentBody(html)}
-                              onChange={html => tc.setEditCommentBody(html)}
-                              placeholder={intl.formatMessage({
-                                id: 'task.editCommentPlaceholder',
-                              })}
-                              members={mentionableMembers}
-                              {...(tasks ? { tasks } : {})}
-                              agentActors={agentActors ?? []}
-                            />
-                          </div>
-                          <div className='flex justify-end gap-2 px-2 pb-2'>
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              className='h-7 text-xs'
-                              onClick={() => tc.cancelEditing()}
-                            >
-                              {intl.formatMessage({ id: 'common.cancel' })}
-                            </Button>
-                            <Button
-                              size='sm'
-                              className='h-7 text-xs'
-                              disabled={
-                                !tc.editCommentBody?.trim() || tc.savingComment
-                              }
-                              onClick={() => tc.saveEditComment(comment.id)}
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
-                          dangerouslySetInnerHTML={{ __html: comment.body }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Actions — visible on hover */}
-                    {!isEditing && (
-                      <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
-                        {/* Copy link button */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                              onClick={() =>
-                                copyLink(
-                                  `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
-                                )
-                              }
-                            >
-                              <LinkIcon size={12} />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>Copy link</TooltipContent>
-                        </Tooltip>
-                        {/* Reply button — anyone can reply */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                              onClick={() => {
-                                if (isReplying) {
-                                  tc.cancelReply()
-                                } else {
-                                  tc.startReply(comment, ca.name)
-                                }
-                              }}
-                            >
-                              <Reply size={12} />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>Reply</TooltipContent>
-                        </Tooltip>
-                        {/* Edit / delete — author only */}
-                        {isAuthor && (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                  onClick={() => {
-                                    tc.startEditing(comment)
-                                  }}
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {intl.formatMessage({ id: 'common.edit' })}
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
-                                  disabled={isDeleting}
-                                  onClick={() =>
-                                    tc.setConfirmDeleteId(comment.id)
-                                  }
-                                >
-                                  {isDeleting ? (
-                                    <Spinner className='size-3 text-zinc-400' />
-                                  ) : (
-                                    <Trash2 size={12} />
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {intl.formatMessage({ id: 'common.delete' })}
-                              </TooltipContent>
-                            </Tooltip>
-                          </>
-                        )}
-                      </div>
-                    )}
+                {(comment.replies?.length ?? 0) > 0 && (
+                  <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
+                    {comment.replies!.map(reply => (
+                      <ReplyItem
+                        key={reply.id}
+                        reply={reply}
+                        parent={comment}
+                        members={members}
+                        mentionableMembers={mentionableMembers}
+                        agentActors={resolvedAgentActors}
+                        currentActorId={currentActorId}
+                        tasks={tasks}
+                        workspaceUrl={workspaceUrl}
+                        projectName={projectName}
+                        teamIdentifier={teamIdentifier}
+                        taskNumber={taskNumber}
+                        tc={tc}
+                      />
+                    ))}
                   </div>
+                )}
 
-                  {/* ── Replies ── */}
-                  {(comment.replies?.length ?? 0) > 0 && (
-                    <div className='ml-9 mt-3 space-y-3 border-l-2 border-zinc-100 dark:border-zinc-800 pl-3'>
-                      {comment.replies!.map(reply => {
-                        const ra = resolveCommentAuthor(
-                          reply,
-                          members,
-                          agentActors ?? []
-                        )
-                        const rIsAuthor =
-                          !ra.isAgent && reply.authorActorId === currentActorId
-                        const rIsEditing = tc.editingCommentId === reply.id
-                        const rIsDeleting = tc.deletingCommentId === reply.id
-                        const rWasEdited =
-                          new Date(reply.updatedAt).getTime() -
-                            new Date(reply.createdAt).getTime() >
-                          1000
-                        return (
-                          <div
-                            key={reply.id}
-                            id={`comment-${reply.id}`}
-                            className={`group flex gap-2 rounded-md transition-colors duration-300 ${tc.highlightedCommentId === reply.id ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}
-                          >
-                            <CommentAvatar
-                              isAgent={ra.isAgent}
-                              imageUrl={ra.imageUrl}
-                              initials={ra.initials}
-                              size='sm'
-                            />
-                            <div className='flex-1 min-w-0'>
-                              <div className='flex items-baseline gap-1.5 mb-0.5 flex-wrap'>
-                                <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
-                                  {ra.name}
-                                </span>
-                                <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>
-                                  {fmtTimestamp(reply.createdAt)}
-                                  {rWasEdited && ' · edited'}
-                                </span>
-                              </div>
-                              {rIsEditing ? (
-                                <div className='border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
-                                  <div
-                                    className='px-3 pt-2 pb-1 text-sm'
-                                    onKeyDown={e => {
-                                      const isMac = /Mac|iPhone|iPad/i.test(
-                                        navigator.platform
-                                      )
-                                      if (
-                                        (isMac ? e.metaKey : e.ctrlKey) &&
-                                        e.key === 'Enter'
-                                      ) {
-                                        e.preventDefault()
-                                        tc.saveEditComment(reply.id)
-                                      }
-                                      if (e.key === 'Escape') {
-                                        tc.cancelEditing()
-                                      }
-                                    }}
-                                  >
-                                    <DescriptionEditor
-                                      key={`edit-reply-${reply.id}`}
-                                      value={reply.body}
-                                      onCommit={html =>
-                                        tc.setEditCommentBody(html)
-                                      }
-                                      onChange={html =>
-                                        tc.setEditCommentBody(html)
-                                      }
-                                      placeholder={intl.formatMessage({
-                                        id: 'task.editReplyPlaceholder',
-                                      })}
-                                      members={mentionableMembers}
-                                      {...(tasks ? { tasks } : {})}
-                                      agentActors={agentActors ?? []}
-                                    />
-                                  </div>
-                                  <div className='flex justify-end gap-2 px-2 pb-2'>
-                                    <Button
-                                      size='sm'
-                                      variant='ghost'
-                                      className='h-7 text-xs'
-                                      onClick={() => tc.cancelEditing()}
-                                    >
-                                      {intl.formatMessage({
-                                        id: 'common.cancel',
-                                      })}
-                                    </Button>
-                                    <Button
-                                      size='sm'
-                                      className='h-7 text-xs'
-                                      disabled={
-                                        !tc.editCommentBody?.trim() ||
-                                        tc.savingComment
-                                      }
-                                      onClick={() =>
-                                        tc.saveEditComment(reply.id)
-                                      }
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  {/* Quote block — shown when this reply references a specific comment */}
-                                  {reply.quotedCommentId &&
-                                    (() => {
-                                      // Resolve quoted comment from the loaded tree
-                                      const allComments = [
-                                        comment,
-                                        ...(comment.replies ?? []),
-                                      ]
-                                      const quoted = allComments.find(
-                                        c => c.id === reply.quotedCommentId
-                                      )
-                                      if (!quoted) return null
-                                      const qAuthor = members.find(
-                                        m => m.actorId === quoted.authorActorId
-                                      )
-                                      const qName = qAuthor?.name ?? 'Unknown'
-                                      const qText = (() => {
-                                        if (typeof document !== 'undefined') {
-                                          const d =
-                                            document.createElement('div')
-                                          d.innerHTML = quoted.body
-                                          return (
-                                            (d.textContent ?? d.innerText ?? '')
-                                              .trim()
-                                              .slice(0, 120) || '…'
-                                          )
-                                        }
-                                        return quoted.body
-                                          .replace(/<[^>]+>/g, '')
-                                          .slice(0, 120)
-                                      })()
-                                      return (
-                                        <button
-                                          type='button'
-                                          onClick={() =>
-                                            tc.scrollToComment(
-                                              reply.quotedCommentId!
-                                            )
-                                          }
-                                          className='mb-1.5 w-full text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
-                                        >
-                                          <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
-                                            {qName}
-                                          </p>
-                                          <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
-                                            {qText}
-                                          </p>
-                                        </button>
-                                      )
-                                    })()}
-                                  <div
-                                    className='prose prose-sm dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300'
-                                    dangerouslySetInnerHTML={{
-                                      __html: reply.body,
-                                    }}
-                                  />
-                                </>
-                              )}
-                            </div>
-                            {!rIsEditing && (
-                              <div className='flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5'>
-                                {/* Copy link button */}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                      onClick={() =>
-                                        copyLink(
-                                          `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${reply.id}`
-                                        )
-                                      }
-                                    >
-                                      <LinkIcon size={12} />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Copy link</TooltipContent>
-                                </Tooltip>
-                                {/* Reply in the same thread */}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                      onClick={() => {
-                                        if (tc.replyingToId === comment.id) {
-                                          tc.cancelReply()
-                                        } else {
-                                          tc.startReply(reply, ra.name)
-                                        }
-                                      }}
-                                    >
-                                      <Reply size={12} />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Reply</TooltipContent>
-                                </Tooltip>
-                                {/* Edit / delete — author only */}
-                                {rIsAuthor && (
-                                  <>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
-                                          onClick={() => {
-                                            tc.startEditing(reply)
-                                          }}
-                                        >
-                                          <Pencil size={12} />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        {intl.formatMessage({
-                                          id: 'common.edit',
-                                        })}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-40'
-                                          disabled={rIsDeleting}
-                                          onClick={() =>
-                                            tc.setConfirmDeleteId(reply.id)
-                                          }
-                                        >
-                                          {rIsDeleting ? (
-                                            <Spinner className='size-3 text-zinc-400' />
-                                          ) : (
-                                            <Trash2 size={12} />
-                                          )}
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        {intl.formatMessage({
-                                          id: 'common.delete',
-                                        })}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* ── Inline reply input ── */}
-                  {isReplying && (
-                    <div className='ml-9 mt-3 flex gap-2'>
-                      <Avatar className='size-5 shrink-0 mt-0.5'>
-                        <AvatarImage src={user?.imageUrl} />
-                        <AvatarFallback className='text-[9px]'>
-                          {user?.initials ?? '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className='flex-1 min-w-0 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-zinc-400 transition-all'>
-                        {/* Quote block */}
-                        {tc.replyingToComment && (
-                          <button
-                            type='button'
-                            onClick={() =>
-                              tc.scrollToComment(tc.replyingToComment!.id)
-                            }
-                            className='mx-3 mt-2.5 mb-1 w-[calc(100%-1.5rem)] text-left border-l-2 border-zinc-300 dark:border-zinc-600 pl-2.5 py-0.5 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-r transition-colors'
-                          >
-                            <p className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5'>
-                              {tc.replyingToComment.authorName}
-                            </p>
-                            <p className='text-[11px] text-zinc-400 dark:text-zinc-500 line-clamp-2 leading-relaxed'>
-                              {typeof document !== 'undefined'
-                                ? (() => {
-                                    const d = document.createElement('div')
-                                    d.innerHTML = tc.replyingToComment.body
-                                    return (
-                                      (d.textContent ?? d.innerText ?? '')
-                                        .trim()
-                                        .slice(0, 120) || '…'
-                                    )
-                                  })()
-                                : tc.replyingToComment.body
-                                    .replace(/<[^>]+>/g, '')
-                                    .slice(0, 120)}
-                            </p>
-                          </button>
-                        )}
-                        <CommentEditor
-                          onCommit={html => tc.setReplyBody(html)}
-                          onSubmit={() => tc.submitReply(comment.id)}
-                          clearRef={tc.clearReplyRef}
-                          members={mentionableMembers}
-                          {...(tasks ? { tasks } : {})}
-                          {...(agentActors ? { agentActors } : {})}
-                        />
-                        <div className='flex items-center justify-between px-2 pb-2'>
-                          <button
-                            className='text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                            onClick={() => {
-                              tc.cancelReply()
-                            }}
-                          >
-                            {intl.formatMessage({ id: 'common.cancel' })}
-                          </button>
-                          <Button
-                            size='sm'
-                            className='h-7 text-xs gap-1.5'
-                            disabled={
-                              !tc.replyBody?.trim() || tc.submittingReply
-                            }
-                            onClick={() => tc.submitReply(comment.id)}
-                          >
-                            <Send size={12} />
-                            Reply
-                            <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
-                              {typeof navigator !== 'undefined' &&
-                              /Mac|iPhone|iPad/i.test(navigator.platform)
-                                ? '⌘↵'
-                                : 'Ctrl+↵'}
-                            </kbd>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                {tc.replyingToId === comment.id && (
+                  <ReplyInput
+                    parentCommentId={comment.id}
+                    mentionableMembers={mentionableMembers}
+                    agentActors={resolvedAgentActors}
+                    tasks={tasks}
+                    user={user}
+                    tc={tc}
+                  />
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -676,12 +157,12 @@ export function CommentSection({
                 onClick={tc.submitComment}
               >
                 <Send size={12} />
-                Comment
+                {intl.formatMessage({
+                  id: 'task.commentSubmit',
+                  defaultMessage: 'Comment',
+                })}
                 <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
-                  {typeof navigator !== 'undefined' &&
-                  /Mac|iPhone|iPad/i.test(navigator.platform)
-                    ? '⌘↵'
-                    : 'Ctrl+↵'}
+                  {isMac ? '⌘↵' : 'Ctrl+↵'}
                 </kbd>
               </Button>
             </div>
