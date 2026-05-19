@@ -90,3 +90,25 @@ export function cleanupStaleBindings(olderThanDays: number): number {
   }
   return removed
 }
+
+/**
+ * One-shot migration: remove the legacy `~/.lumo/current-task.json` file
+ * that older CLI versions used as a global task pointer. The new per-session
+ * design under `~/.lumo/sessions/` supersedes it; the legacy file is never
+ * read again. Returns true if a file was deleted, false if nothing to do.
+ *
+ * We do NOT translate the legacy content to a per-session file: the bound
+ * session may already be dead, and the user can rebind explicitly with
+ * `lumo session attach`.
+ */
+export function migrateLegacyCurrentTask(): boolean {
+  const legacy = path.join(configDir(), 'current-task.json')
+  if (!fs.existsSync(legacy)) return false
+  try {
+    fs.unlinkSync(legacy)
+    return true
+  } catch (err) {
+    console.error(`[session-binding] legacy migration skipped: ${err}`)
+    return false
+  }
+}
