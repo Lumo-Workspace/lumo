@@ -26,8 +26,6 @@ const mockUpdate = taskService.updateTaskWithSideEffects as jest.Mock
 const mockFindMember =
   memberRepository.findByWorkspaceAndClerkId as jest.Mock
 const mockFindActor = memberRepository.findActorByMemberId as jest.Mock
-const mockFindAll =
-  memberRepository.findAllWithProfilesForCli as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
