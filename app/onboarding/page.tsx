@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useIntl } from 'react-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,13 +11,12 @@ import Image from 'next/image'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import { Plus, X } from 'lucide-react'
 
-// ─── Step 1: Workspace creation ───────────────────────────────────────────────
-
 function WorkspaceStep({
   onCreated,
 }: {
   onCreated: (workspaceId: string, slug: string) => void
 }) {
+  const intl = useIntl()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -50,12 +50,15 @@ function WorkspaceStep({
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to create workspace')
+        setError(
+          data.error ||
+            intl.formatMessage({ id: 'onboarding.workspace.error.create' })
+        )
         return
       }
       onCreated(data.workspace.id, data.workspace.slug)
     } catch {
-      setError('Something went wrong')
+      setError(intl.formatMessage({ id: 'onboarding.error.generic' }))
     } finally {
       setIsSubmitting(false)
     }
@@ -77,28 +80,30 @@ function WorkspaceStep({
           />
         </div>
         <CardTitle className='text-sm font-normal text-slate-900'>
-          Create your workspace
+          {intl.formatMessage({ id: 'onboarding.workspace.title' })}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className='space-y-4'>
           <div className='space-y-1.5'>
             <Label htmlFor='ws-name' className='text-xs text-slate-500'>
-              Workspace name
+              {intl.formatMessage({ id: 'onboarding.workspace.nameLabel' })}
             </Label>
             <Input
               id='ws-name'
               type='text'
               value={name}
               onChange={e => handleNameChange(e.target.value)}
-              placeholder='Acme Inc.'
+              placeholder={intl.formatMessage({
+                id: 'onboarding.workspace.namePlaceholder',
+              })}
               disabled={isSubmitting}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
           </div>
           <div className='space-y-1.5'>
             <Label htmlFor='ws-url' className='text-xs text-slate-500'>
-              Workspace URL
+              {intl.formatMessage({ id: 'onboarding.workspace.urlLabel' })}
             </Label>
             <div className='flex items-center border border-input rounded-md focus-within:ring-2 focus-within:ring-ring overflow-hidden bg-white'>
               <span className='px-3 text-sm text-slate-400 bg-slate-50 border-r border-input h-9 flex items-center shrink-0 select-none'>
@@ -109,7 +114,9 @@ function WorkspaceStep({
                 type='text'
                 value={slug}
                 onChange={e => handleSlugChange(e.target.value)}
-                placeholder='acme-inc'
+                placeholder={intl.formatMessage({
+                  id: 'onboarding.workspace.urlPlaceholder',
+                })}
                 disabled={isSubmitting}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 className='flex-1 h-9 px-3 text-sm outline-none bg-transparent'
@@ -123,15 +130,15 @@ function WorkspaceStep({
             onClick={handleSubmit}
             className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
           >
-            {isSubmitting ? 'Creating…' : 'Continue'}
+            {isSubmitting
+              ? intl.formatMessage({ id: 'common.creating' })
+              : intl.formatMessage({ id: 'onboarding.workspace.continue' })}
           </Button>
         </div>
       </CardContent>
     </Card>
   )
 }
-
-// ─── Step 2: Invite teammates ─────────────────────────────────────────────────
 
 function InviteStep({
   workspaceId,
@@ -140,6 +147,7 @@ function InviteStep({
   workspaceId: string
   workspaceSlug: string
 }) {
+  const intl = useIntl()
   const router = useRouter()
   const [emails, setEmails] = useState<string[]>([''])
   const [isSending, setIsSending] = useState(false)
@@ -171,13 +179,16 @@ function InviteStep({
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to send invites')
+        setError(
+          data.error ||
+            intl.formatMessage({ id: 'onboarding.invite.error.send' })
+        )
         setIsSending(false)
         return
       }
       router.push(`/workspace/${workspaceSlug}`)
     } catch {
-      setError('Something went wrong')
+      setError(intl.formatMessage({ id: 'onboarding.error.generic' }))
       setIsSending(false)
     }
   }
@@ -199,10 +210,10 @@ function InviteStep({
         </div>
         <div>
           <CardTitle className='text-sm font-normal text-slate-900'>
-            Invite your team
+            {intl.formatMessage({ id: 'onboarding.invite.title' })}
           </CardTitle>
           <p className='text-xs text-slate-400 mt-1'>
-            Get your team up and running faster
+            {intl.formatMessage({ id: 'onboarding.invite.subtitle' })}
           </p>
         </div>
       </CardHeader>
@@ -215,7 +226,9 @@ function InviteStep({
                   type='email'
                   value={email}
                   onChange={e => updateEmail(i, e.target.value)}
-                  placeholder='teammate@company.com'
+                  placeholder={intl.formatMessage({
+                    id: 'onboarding.invite.emailPlaceholder',
+                  })}
                   disabled={isSending}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -246,7 +259,7 @@ function InviteStep({
               className='flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 transition-colors'
             >
               <Plus size={12} />
-              Add another
+              {intl.formatMessage({ id: 'onboarding.invite.addAnother' })}
             </button>
           )}
 
@@ -257,7 +270,9 @@ function InviteStep({
             onClick={handleSend}
             className='w-full h-12 text-base font-normal bg-slate-900 hover:bg-slate-800 text-white'
           >
-            {isSending ? 'Sending…' : 'Send invites'}
+            {isSending
+              ? intl.formatMessage({ id: 'common.sending' })
+              : intl.formatMessage({ id: 'onboarding.invite.send' })}
           </Button>
 
           <button
@@ -265,15 +280,13 @@ function InviteStep({
             disabled={isSending}
             className='w-full text-center text-xs text-slate-400 hover:text-slate-600 transition-colors py-1'
           >
-            Skip for now
+            {intl.formatMessage({ id: 'onboarding.invite.skip' })}
           </button>
         </div>
       </CardContent>
     </Card>
   )
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<'workspace' | 'invite'>('workspace')

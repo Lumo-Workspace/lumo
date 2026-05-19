@@ -9,6 +9,7 @@ import ReactCrop, {
 import 'react-image-crop/dist/ReactCrop.css'
 import { Camera } from 'lucide-react'
 import { toast } from 'sonner'
+import { useIntl } from 'react-intl'
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export function LogoUploader({
   onUpload,
   upload,
 }: LogoUploaderProps) {
+  const intl = useIntl()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -52,7 +54,6 @@ export function LogoUploader({
   const [crop, setCrop] = useState<Crop>()
   const [uploading, setUploading] = useState(false)
 
-  // Initials fallback
   const initials = workspaceName
     .split(/\s+/)
     .filter(Boolean)
@@ -60,14 +61,12 @@ export function LogoUploader({
     .map(w => w[0]?.toUpperCase() ?? '')
     .join('')
 
-  // ── File picker handler ────────────────────────────────────────────────────
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    // Guard before reset: if no file (user cancelled picker) or ref gone, bail early
     if (!fileInputRef.current || !file) return
-    fileInputRef.current.value = '' // reset so re-selecting same file fires again
+    fileInputRef.current.value = ''
     if (file.size > MAX_BYTES) {
-      setSizeError('File must be 2 MB or smaller')
+      setSizeError(intl.formatMessage({ id: 'logoUploader.sizeError' }))
       return
     }
     setSizeError(null)
@@ -76,7 +75,6 @@ export function LogoUploader({
     setDialogOpen(true)
   }
 
-  // ── Crop image ready ───────────────────────────────────────────────────────
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const { naturalWidth, naturalHeight } = e.currentTarget
@@ -85,13 +83,10 @@ export function LogoUploader({
     []
   )
 
-  // ── Save (crop → upload) ───────────────────────────────────────────────────
   async function handleSave() {
     const img = imgRef.current
     if (!img || !crop || !srcUrl) return
 
-    // Draw the cropped region onto a canvas.
-    // crop is a PercentCrop (0–100), so convert directly via naturalWidth/naturalHeight.
     const canvas = document.createElement('canvas')
     const pixelCrop = {
       x: (crop.x / 100) * img.naturalWidth,
@@ -118,11 +113,11 @@ export function LogoUploader({
     canvas.toBlob(
       async blob => {
         if (!blob) {
-          toast.error('Failed to process image')
+          toast.error(intl.formatMessage({ id: 'logoUploader.processError' }))
           return
         }
         if (blob.size > MAX_BYTES) {
-          toast.error('Cropped image is too large. Try a smaller crop.')
+          toast.error(intl.formatMessage({ id: 'logoUploader.cropTooLarge' }))
           return
         }
 
@@ -132,17 +127,21 @@ export function LogoUploader({
           formData.append('file', blob, 'logo.jpg')
           const res = await upload(formData)
           const data = await res.json()
-          if (!res.ok) throw new Error(data.error ?? 'Upload failed')
+          if (!res.ok)
+            throw new Error(
+              data.error ??
+                intl.formatMessage({ id: 'logoUploader.uploadFailed' })
+            )
           onUpload(data.logoUrl as string)
           setDialogOpen(false)
           URL.revokeObjectURL(srcUrl)
           setSrcUrl(null)
-          toast.success('Logo updated')
+          toast.success(intl.formatMessage({ id: 'logoUploader.success' }))
         } catch (err) {
           toast.error(
             err instanceof Error
               ? err.message
-              : 'Upload failed, please try again'
+              : intl.formatMessage({ id: 'logoUploader.uploadRetry' })
           )
         } finally {
           setUploading(false)
@@ -159,10 +158,8 @@ export function LogoUploader({
     setSrcUrl(null)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type='file'
@@ -171,7 +168,6 @@ export function LogoUploader({
         onChange={handleFileChange}
       />
 
-      {/* Clickable avatar */}
       <div className='flex flex-col items-end gap-1'>
         <button
           type='button'
@@ -189,7 +185,6 @@ export function LogoUploader({
               {initials || '?'}
             </div>
           )}
-          {/* Hover overlay */}
           <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
             <Camera size={16} className='text-white' />
           </div>
@@ -197,7 +192,6 @@ export function LogoUploader({
         {sizeError && <p className='text-xs text-red-500'>{sizeError}</p>}
       </div>
 
-      {/* Crop dialog */}
       <Dialog
         open={dialogOpen}
         onOpenChange={open => {
@@ -206,7 +200,9 @@ export function LogoUploader({
       >
         <DialogContent className='max-w-sm'>
           <DialogHeader>
-            <DialogTitle>Crop logo</DialogTitle>
+            <DialogTitle>
+              {intl.formatMessage({ id: 'logoUploader.dialogTitle' })}
+            </DialogTitle>
           </DialogHeader>
           {srcUrl && (
             <div className='flex justify-center'>
@@ -220,7 +216,7 @@ export function LogoUploader({
                 <img
                   ref={imgRef}
                   src={srcUrl}
-                  alt='crop preview'
+                  alt=''
                   onLoad={handleImageLoad}
                   className='max-h-[360px] max-w-full object-contain'
                 />
@@ -229,10 +225,12 @@ export function LogoUploader({
           )}
           <DialogFooter>
             <Button variant='ghost' onClick={handleCancel} disabled={uploading}>
-              Cancel
+              {intl.formatMessage({ id: 'common.cancel' })}
             </Button>
             <Button onClick={handleSave} disabled={uploading}>
-              {uploading ? 'Saving…' : 'Save'}
+              {uploading
+                ? intl.formatMessage({ id: 'common.saving' })
+                : intl.formatMessage({ id: 'common.save' })}
             </Button>
           </DialogFooter>
         </DialogContent>
