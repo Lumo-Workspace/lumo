@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context and manage session bindings. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind the current session to a task, or is about to start development work on a specific task. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "bind session", "which task", "work on LUM".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, and update tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind the current session to a task, is about to start development work on a specific task, or wants to update a task''s status/title/description/priority/assignee. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "bind session", "which task", "work on LUM", "update task", "change task status", "rename task", "reassign task", "mark task as done".'
 ---
 
 ## Prerequisites
@@ -41,6 +41,46 @@ The command prints a markdown document to stdout containing:
 - **Memory section** provides validated context that persists across sessions — use it to avoid re-learning decisions or constraints
 - Focus on the **most recent 1–2 sessions** for relevant state; older sessions are for historical reference only
 - If there are **no prior sessions**, this is a fresh start — read the task description carefully and ask clarifying questions if needed
+
+## Task Management
+
+### `lumo task update <identifier> [flags]` — patch a task
+
+Pure flag-driven update. Provide at least one of:
+
+| Flag                   | Type   | Notes                                                                 |
+| ---------------------- | ------ | --------------------------------------------------------------------- |
+| `-t, --title <text>`   | string | Cannot be empty.                                                      |
+| `-d, --description <>` | string | `--description ""` clears the field.                                  |
+| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).        |
+| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                    |
+| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field.   |
+
+Examples:
+
+```bash
+lumo task update LUM-48 --status in_progress
+lumo task update LUM-48 --title "Update task from CLI" --priority high
+lumo task update LUM-48 --assignee me
+lumo task update LUM-48 --description ""        # clear description
+lumo task update LUM-48 --assignee ""           # unassign
+```
+
+On success the command prints one line to stdout:
+
+```
+Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
+```
+
+### When to suggest `task update`
+
+- The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
+- After the agent finishes a task and the user confirms — offer to move it to `done`.
+- Multiple status changes in a row should each be a separate `update` invocation rather than batched.
+
+### Out of scope
+
+The CLI does **not** currently update tags / labels, reviewer, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
 
 ## Session Management
 
