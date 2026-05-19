@@ -152,3 +152,42 @@ describe('DELETE /api/tasks/[id]/slack-contexts/[contextId]', () => {
     expect(res.status).toBe(404)
   })
 })
+
+import { POST as REFRESH } from '@/app/api/tasks/[id]/slack-contexts/[contextId]/refresh/route'
+
+const refresh = taskSlackContextService.refreshContext as jest.Mock
+
+const refreshParams = {
+  params: Promise.resolve({ id: 'tsk_1', contextId: 'ctx_1' }),
+}
+
+describe('POST refresh', () => {
+  it('returns 200 with updated context on success', async () => {
+    auth.mockResolvedValue({ userId: 'clerk_1' })
+    findTask.mockResolvedValue({ project: { workspaceId: 'ws_1' } })
+    member.mockResolvedValue({ id: 'mem_1' })
+    refresh.mockResolvedValue({ id: 'ctx_1', refreshError: null })
+    const res = (await REFRESH(
+      mockRequest() as unknown as NextRequest,
+      refreshParams
+    )) as Response
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      context: { id: 'ctx_1', refreshError: null },
+    })
+  })
+
+  it('returns 403 when service maps to not_in_channel', async () => {
+    auth.mockResolvedValue({ userId: 'clerk_1' })
+    findTask.mockResolvedValue({ project: { workspaceId: 'ws_1' } })
+    member.mockResolvedValue({ id: 'mem_1' })
+    refresh.mockRejectedValue(
+      Object.assign(new Error('not_in_channel'), { status: 403 })
+    )
+    const res = (await REFRESH(
+      mockRequest() as unknown as NextRequest,
+      refreshParams
+    )) as Response
+    expect(res.status).toBe(403)
+  })
+})
