@@ -17,7 +17,7 @@ import type {
   ApiStatus,
   MyTask,
   WorkspaceMemberInfo,
-} from '../../../types'
+} from '../../types'
 import {
   applyDir,
   cmpDate,
@@ -25,14 +25,14 @@ import {
   cmpStatus,
   cmpString,
   useTableSort,
-} from '../../../hooks/useTableSort'
-import { SortableHeader } from '../../SortableHeader'
-import { AssigneeSelect } from '../../fields/AssigneeSelect'
-import { PrioritySelect } from '../../fields/PrioritySelect'
-import { ProjectSelect } from '../../fields/ProjectSelect'
-import { StatusSelect } from '../../fields/StatusSelect'
+} from '../../hooks/useTableSort'
+import { SortableHeader } from '../SortableHeader'
+import { AssigneeSelect } from '../fields/AssigneeSelect'
+import { PrioritySelect } from '../fields/PrioritySelect'
+import { ProjectSelect } from '../fields/ProjectSelect'
+import { StatusSelect } from '../fields/StatusSelect'
 
-type MyTaskSortKey =
+type TaskSortKey =
   | 'title'
   | 'project'
   | 'status'
@@ -152,7 +152,7 @@ interface Props {
   setSelected: React.Dispatch<React.SetStateAction<Set<string>>>
 }
 
-export function MyTasksTable({
+export function TaskListTable({
   tasks,
   setTasks,
   members,
@@ -163,7 +163,7 @@ export function MyTasksTable({
   setSelected,
 }: Props) {
   const intl = useIntl()
-  const { sort, toggle } = useTableSort<MyTaskSortKey>()
+  const { sort, toggle } = useTableSort<TaskSortKey>()
 
   const memberByActorId = useMemo(
     () => new Map(members.filter(m => m.actorId).map(m => [m.actorId!, m])),

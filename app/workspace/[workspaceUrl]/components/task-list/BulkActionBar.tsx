@@ -12,12 +12,8 @@ import {
   BulkAssigneePicker,
   BulkPriorityPicker,
   BulkStatusPicker,
-} from './MyTasksBulkPickers'
-import type {
-  ApiPriority,
-  ApiStatus,
-  WorkspaceMemberInfo,
-} from '../../../types'
+} from './BulkActionPickers'
+import type { ApiPriority, ApiStatus, WorkspaceMemberInfo } from '../../types'
 
 interface BulkPatch {
   status?: ApiStatus
@@ -36,13 +32,13 @@ interface Props {
 }
 
 /**
- * Overlay shown on top of the toolbar when the user has at least one task
- * selected. Renders the bulk pickers + delete + cancel actions.
+ * Overlay shown on top of a task-list toolbar when the user has at least
+ * one task selected. Renders the bulk pickers + delete + cancel actions.
  *
  * Caller is responsible for the absolute positioning (`absolute inset-0 z-20`)
- * so this can sit inside the same `relative` parent as `MyTasksToolbar`.
+ * so this can sit inside the same `relative` parent as the page's toolbar.
  */
-export function MyTasksBulkActionBar({
+export function BulkActionBar({
   count,
   members,
   onBulkUpdate,

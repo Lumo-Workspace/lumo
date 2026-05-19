@@ -23,11 +23,11 @@ import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
 import { sortTasks, ORDERING_LABELS } from '../../utils/sortTasks'
 import { CACHE_KEY } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
-import { MyTasksDeleteConfirm } from './my-tasks/MyTasksDeleteConfirm'
+import { BulkActionBar } from '../task-list/BulkActionBar'
+import { BulkDeleteConfirm } from '../task-list/BulkDeleteConfirm'
+import { TaskListTable } from '../task-list/TaskListTable'
 import { MyTasksToolbar } from './my-tasks/MyTasksToolbar'
-import { MyTasksBulkActionBar } from './my-tasks/MyTasksBulkActionBar'
-import { MyTasksTable } from './my-tasks/MyTasksTable'
-import { useMyTasksBulkMutations } from '../../hooks/useMyTasksBulkMutations'
+import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
 
 interface MyTasksPageProps {
   tasks: MyTask[]
@@ -114,7 +114,7 @@ export function MyTasksPage({
     deleting,
     runBulkUpdate,
     runBulkDelete,
-  } = useMyTasksBulkMutations({ selected, setSelected, setTasks, onRetry })
+  } = useTaskBulkMutations({ selected, setSelected, setTasks, onRetry })
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
@@ -151,7 +151,7 @@ export function MyTasksPage({
           onViewModeChange={setViewMode}
         />
         {selected.size > 0 && (
-          <MyTasksBulkActionBar
+          <BulkActionBar
             count={selected.size}
             members={members}
             onBulkUpdate={runBulkUpdate}
@@ -202,7 +202,7 @@ export function MyTasksPage({
         >
           {viewMode === 'list' ? (
             <div className='flex-1 overflow-auto'>
-              <MyTasksTable
+              <TaskListTable
                 tasks={filteredTasks}
                 setTasks={setTasks}
                 members={members}
@@ -240,7 +240,7 @@ export function MyTasksPage({
         </AsyncContent>
       </div>
 
-      <MyTasksDeleteConfirm
+      <BulkDeleteConfirm
         open={confirmDeleteOpen}
         onOpenChange={setConfirmDeleteOpen}
         count={selected.size}

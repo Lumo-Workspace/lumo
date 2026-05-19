@@ -22,7 +22,7 @@ interface Props {
   onConfirm: () => void
 }
 
-export function MyTasksDeleteConfirm({
+export function BulkDeleteConfirm({
   open,
   onOpenChange,
   count,

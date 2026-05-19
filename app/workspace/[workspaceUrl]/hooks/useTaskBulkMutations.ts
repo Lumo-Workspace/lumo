@@ -19,14 +19,15 @@ interface Options {
 }
 
 /**
- * Bulk status/priority/assignee updates + bulk delete for the My Tasks page.
+ * Bulk status/priority/assignee updates + bulk delete for any task-list page
+ * (My Tasks, Sprint Tasks, etc.).
  *
  * Mutations run via `Promise.allSettled` so a per-row failure doesn't abort the
  * batch. On any failure the toast surfaces the count and we ask the page to
  * `onRetry` (refetch); on full success we apply the patch optimistically and
  * clear the selection.
  */
-export function useMyTasksBulkMutations({
+export function useTaskBulkMutations({
   selected,
   setSelected,
   setTasks,
