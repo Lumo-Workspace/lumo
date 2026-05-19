@@ -13,6 +13,7 @@ import {
   type TableOfContentData,
 } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
+import { imagesClient } from '@/lib/api-client'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -136,16 +137,12 @@ async function uploadImageFile(
   file: File,
   documentId?: string
 ): Promise<string | null> {
-  const formData = new FormData()
-  formData.set('file', file)
-  if (documentId) formData.set('folder', documentId)
-  const res = await fetch('/api/upload/image', {
-    method: 'POST',
-    body: formData,
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  return (data.url as string) ?? null
+  try {
+    const { url } = await imagesClient.upload(file, documentId)
+    return url ?? null
+  } catch {
+    return null
+  }
 }
 
 /**

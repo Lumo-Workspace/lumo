@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
-import { prisma } from '@/lib/db/prisma'
+import { teamRepository } from '@/lib/repositories/team.repository'
 
 /**
  * GET /api/teams — List teams in the current user's workspace.
@@ -18,27 +18,11 @@ export async function GET() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    const isOwner = ws.member.role === 'OWNER'
-    const where = {
-      workspaceId: ws.workspaceId,
-      ...(isOwner ? {} : { members: { some: { memberId: ws.member.id } } }),
-    }
-
-    const teams = await prisma.team.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        identifier: true,
-        isDefault: true,
-        sprintsEnabled: true,
-        sprintDurationDays: true,
-        sprintCooldownDays: true,
-        sprintStartWeekday: true,
-        sprintAutoCreate: true,
-      },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-    })
+    const teams = await teamRepository.listForMember(
+      ws.workspaceId,
+      ws.member.id,
+      { isOwner: ws.member.role === 'OWNER' }
+    )
 
     return NextResponse.json({ teams })
   } catch {

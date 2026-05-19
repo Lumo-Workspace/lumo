@@ -26,6 +26,25 @@ const mockFindUnique = prisma.project.findUnique as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
+describe('projectRepository.findWorkspaceId', () => {
+  it('selects only workspaceId for the requested project', async () => {
+    mockFindUnique.mockResolvedValue({ workspaceId: 'ws-1' })
+
+    const result = await projectRepository.findWorkspaceId('proj-1')
+
+    expect(result).toEqual({ workspaceId: 'ws-1' })
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: 'proj-1' },
+      select: { workspaceId: true },
+    })
+  })
+
+  it('returns null when project does not exist', async () => {
+    mockFindUnique.mockResolvedValue(null)
+    expect(await projectRepository.findWorkspaceId('missing')).toBeNull()
+  })
+})
+
 // ── findByWorkspace ────────────────────────────────────────────────────────
 
 describe('findByWorkspace', () => {

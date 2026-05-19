@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
+import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
-import { prisma } from '@/lib/db/prisma'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
@@ -38,9 +38,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
     }
 
     // Guard: don't enqueue if a job is already pending.
-    const alreadyPending = await prisma.generationJob.findFirst({
-      where: { type: 'sprint', targetId: sprintId, status: 'pending' },
-    })
+    const alreadyPending =
+      await generationJobRepository.findPendingSprintJob(sprintId)
     if (alreadyPending) {
       return NextResponse.json(
         { error: 'Retro generation is already in progress' },
@@ -49,9 +48,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     }
 
     // Create a fresh pending job so generate() has a record to update.
-    await prisma.generationJob.create({
-      data: { type: 'sprint', targetId: sprintId, status: 'pending' },
-    })
+    await generationJobRepository.createSprintPending(sprintId)
 
     // Fire-and-forget — generate picks up the pending job and updates it.
     sprintSummaryService.generate(sprintId).catch(err => {

@@ -146,6 +146,17 @@ export const projectRepository = {
     return prisma.project.findUnique({ where: { id } })
   },
 
+  /**
+   * Resolve a projectId to its workspace. Used by routes that need to do a
+   * workspace-membership check on a project-scoped resource.
+   */
+  async findWorkspaceId(id: string) {
+    return prisma.project.findUnique({
+      where: { id },
+      select: { workspaceId: true },
+    })
+  },
+
   /** Find project by ID with default reviewer and workspace slug. */
   async findByIdWithDefaults(id: string) {
     return prisma.project.findUnique({

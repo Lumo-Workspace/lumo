@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
-import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
-import { prisma } from '@/lib/db/prisma'
+import { requireTeamAccessById } from '@/lib/auth/require-team-access'
 
 type Params = { params: Promise<{ teamId: string }> }
 
@@ -23,14 +22,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { teamId } = await params
 
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, workspaceId: true },
-    })
-    if (!team)
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-
-    await requireTeamMemberOrOwner(team.workspaceId, team.id, userId)
+    await requireTeamAccessById(teamId, userId)
 
     // Parse optional sprintId filter:
     //   ?sprintId=<id>   → tasks in that sprint

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { waitlistClient, ApiClientError } from '@/lib/api-client'
 
 export default function WaitlistPage() {
   const [email, setEmail] = useState('')
@@ -17,27 +18,21 @@ export default function WaitlistPage() {
     setStatus('loading')
 
     try {
-      const res = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, company, teamSize }),
+      const { result, message: msg } = await waitlistClient.join({
+        email,
+        name,
+        company,
+        teamSize,
       })
-
-      const data = await res.json()
-
-      if (res.status === 201) {
-        setStatus('success')
-        setMessage(data.message)
-      } else if (res.status === 200) {
-        setStatus('duplicate')
-        setMessage(data.message)
-      } else {
-        setStatus('error')
-        setMessage(data.error || 'Something went wrong.')
-      }
-    } catch {
+      setStatus(result === 'created' ? 'success' : 'duplicate')
+      setMessage(msg)
+    } catch (err) {
       setStatus('error')
-      setMessage('Network error. Please try again.')
+      setMessage(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Network error. Please try again.'
+      )
     }
   }
 

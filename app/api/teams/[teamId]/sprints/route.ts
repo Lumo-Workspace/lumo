@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { prisma } from '@/lib/db/prisma'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { createSprintSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
 import { z } from 'zod'
-import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { requireTeamAccessById } from '@/lib/auth/require-team-access'
 
 type Params = { params: Promise<{ teamId: string }> }
 
@@ -20,18 +19,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { teamId } = await params
 
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, workspaceId: true },
-    })
-    if (!team)
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-
-    const { memberId } = await requireTeamMemberOrOwner(
-      team.workspaceId,
-      team.id,
-      userId
-    )
+    const { memberId } = await requireTeamAccessById(teamId, userId)
 
     const body = await req.json()
     const parsed = createSprintSchema.safeParse(body)
@@ -39,7 +27,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const { name, startDate, endDate } = parsed.data
     const sprint = await sprintService.createDraft(
-      team.id,
+      teamId,
       {
         ...(name !== undefined ? { name } : {}),
         ...(startDate !== undefined ? { startDate } : {}),
@@ -73,20 +61,13 @@ export async function GET(req: NextRequest, { params }: Params) {
     const { userId } = authResult
     const { teamId } = await params
 
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { id: true, workspaceId: true },
-    })
-    if (!team)
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-
-    await requireTeamMemberOrOwner(team.workspaceId, team.id, userId)
+    await requireTeamAccessById(teamId, userId)
 
     // Lazy top-up of future DRAFT sprints per cadence config. Fire-and-forget
     // is tempting, but we await so the newly-created sprints show up in the
     // same response the user is about to render.
     try {
-      await sprintService.ensureFutureSprints(team.id)
+      await sprintService.ensureFutureSprints(teamId)
     } catch {
       // Non-fatal — continue serving the list.
     }
@@ -102,7 +83,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const cursorParam = url.searchParams.get('cursor')
     const limit = Number(url.searchParams.get('limit') ?? 20)
 
-    const sprints = await sprintRepository.listByTeam(team.id, {
+    const sprints = await sprintRepository.listByTeam(teamId, {
       ...(statusParam !== undefined ? { status: statusParam } : {}),
       ...(cursorParam !== null ? { cursor: cursorParam } : {}),
       limit,

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { invitesClient, ApiClientError } from '@/lib/api-client'
 
 interface Props {
   token: string
@@ -29,21 +30,30 @@ export function AcceptInviteClient({
   useEffect(() => {
     if (!isLoaded || !isSignedIn || status !== 'PENDING') return
 
+    let cancelled = false
+    const controller = new AbortController()
     setAccepting(true)
-    fetch(`/api/invites/${token}/accept`, { method: 'POST' })
-      .then(async res => {
-        const data = await res.json()
-        if (!res.ok) {
-          setError(data.error ?? 'Failed to accept invitation')
-          setAccepting(false)
-        } else {
-          router.push(`/workspace/${data.workspaceSlug}`)
-        }
+
+    invitesClient
+      .accept(token, { signal: controller.signal })
+      .then(data => {
+        if (cancelled) return
+        router.push(`/workspace/${data.workspaceSlug}`)
       })
-      .catch(() => {
-        setError('Something went wrong. Please try again.')
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setError(
+          err instanceof ApiClientError
+            ? err.message
+            : 'Something went wrong. Please try again.'
+        )
         setAccepting(false)
       })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [isLoaded, isSignedIn, status, token, router])
 
   if (status === 'ACCEPTED') {

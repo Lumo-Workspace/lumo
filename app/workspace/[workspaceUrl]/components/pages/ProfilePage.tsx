@@ -8,7 +8,7 @@ import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { apiFetch } from '@/lib/api-client'
+import { usersClient } from '@/lib/api-client'
 
 export function ProfilePage() {
   const intl = useIntl()
@@ -47,20 +47,7 @@ export function ProfilePage() {
 
     setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      // Use raw fetch — apiFetch forces Content-Type: application/json which breaks FormData
-      const res = await fetch('/api/users/profile/avatar', {
-        method: 'POST',
-        body: fd,
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(
-          (data as { error?: string }).error ??
-            intl.formatMessage({ id: 'profile.uploadFailed' })
-        )
-      }
+      await usersClient.uploadAvatar(file)
       await user?.reload()
       toast.success(intl.formatMessage({ id: 'profile.avatarUpdated' }))
     } catch (err) {
@@ -77,10 +64,7 @@ export function ProfilePage() {
   const handleSaveName = async () => {
     setSavingName(true)
     try {
-      await apiFetch('/api/users/profile', {
-        method: 'PATCH',
-        body: { firstName, lastName },
-      })
+      await usersClient.updateProfile({ firstName, lastName })
       await user?.reload()
       toast.success(intl.formatMessage({ id: 'profile.nameUpdated' }))
     } catch (err) {
