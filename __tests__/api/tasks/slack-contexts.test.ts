@@ -135,7 +135,7 @@ describe('DELETE /api/tasks/[id]/slack-contexts/[contextId]', () => {
       deleteParams
     )) as Response
     expect(res.status).toBe(204)
-    expect(unlink).toHaveBeenCalledWith('ctx_1')
+    expect(unlink).toHaveBeenCalledWith('ctx_1', 'ws_1')
   })
 
   it('returns 404 when service throws status 404', async () => {

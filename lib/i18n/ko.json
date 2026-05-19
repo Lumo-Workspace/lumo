@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "{ago}에 가져옴",
   "slackContext.refresh": "새로고침",
   "slackContext.refresh.failedBanner": "새로고침 실패 · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Slack 컨텍스트",
   "slackContext.thread.replies": "{n, plural, one {1개 reply} other {# replies}}",
   "slackContext.unlink": "제거"
 }

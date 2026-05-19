@@ -21,7 +21,10 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    await taskSlackContextService.unlinkContext(contextId)
+    await taskSlackContextService.unlinkContext(
+      contextId,
+      task.project.workspaceId
+    )
     return new Response(null, { status: 204 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

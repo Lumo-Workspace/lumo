@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "Получено {ago}",
   "slackContext.refresh": "Обновить",
   "slackContext.refresh.failedBanner": "Обновление не удалось · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Контекст Slack",
   "slackContext.thread.replies": "{n, plural, one {1 ответ} other {# ответов}}",
   "slackContext.unlink": "Удалить"
 }

@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "已取得 {ago}",
   "slackContext.refresh": "重新整理",
   "slackContext.refresh.failedBanner": "重新整理失敗 · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Slack 上下文",
   "slackContext.thread.replies": "{n, plural, one {1 則回覆} other {# 則回覆}}",
   "slackContext.unlink": "移除"
 }

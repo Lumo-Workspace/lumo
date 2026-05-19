@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "Diambil {ago}",
   "slackContext.refresh": "Segarkan",
   "slackContext.refresh.failedBanner": "Penyegaran gagal · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Konteks Slack",
   "slackContext.thread.replies": "{n, plural, one {1 balasan} other {# balasan}}",
   "slackContext.unlink": "Hapus"
 }

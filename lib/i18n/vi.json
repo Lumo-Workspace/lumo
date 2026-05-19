@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "Tìm nạp {ago}",
   "slackContext.refresh": "Làm mới",
   "slackContext.refresh.failedBanner": "Làm mới thất bại · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Ngữ cảnh Slack",
   "slackContext.thread.replies": "{n, plural, one {1 phản hồi} other {# phản hồi}}",
   "slackContext.unlink": "Xóa"
 }

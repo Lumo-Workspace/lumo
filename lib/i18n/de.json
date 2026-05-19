@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "Abgerufen vor {ago}",
   "slackContext.refresh": "Aktualisieren",
   "slackContext.refresh.failedBanner": "Aktualisierung fehlgeschlagen · vor {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Slack-Kontext",
   "slackContext.thread.replies": "{n, plural, one {1 Antwort} other {# Antworten}}",
   "slackContext.unlink": "Entfernen"
 }

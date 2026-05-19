@@ -982,7 +982,7 @@
   "slackContext.fetchedAgo": "Fetched {ago}",
   "slackContext.refresh": "Refresh करें",
   "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
-  "slackContext.tab": "Slack Context",
+  "slackContext.tab": "Slack संदर्भ",
   "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
   "slackContext.unlink": "Remove करें"
 }

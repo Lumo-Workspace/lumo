@@ -21,7 +21,10 @@ export async function POST(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    const context = await taskSlackContextService.refreshContext(contextId)
+    const context = await taskSlackContextService.refreshContext(
+      contextId,
+      task.project.workspaceId
+    )
     return NextResponse.json({ context })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

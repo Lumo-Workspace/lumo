@@ -167,24 +167,6 @@ describe('linkSlackPermalink — error mapping', () => {
     ).rejects.toMatchObject({ status: 412, message: 'not_connected' })
   })
 
-  it('throws 400 wrong_team when permalink team mismatches integration', async () => {
-    // integration's team subdomain is "lumo"; the permalink below is "different-team".
-    tokenMock.mockResolvedValue({
-      token: 'tok',
-      slackTeamId: 'T1',
-      slackTeamName: 'lumo',
-    })
-    await expect(
-      taskSlackContextService.linkSlackPermalink({
-        taskId: 'tsk_1',
-        workspaceId: 'ws_1',
-        permalink:
-          'https://different-team.slack.com/archives/C9/p1700000000000100',
-        actorMemberId: 'mem_1',
-      })
-    ).rejects.toMatchObject({ status: 400, message: 'wrong_team' })
-  })
-
   it('maps SlackApiError("not_in_channel") to status 403', async () => {
     tokenMock.mockResolvedValue({
       token: 'tok',
@@ -297,7 +279,7 @@ describe('refreshContext', () => {
       new Map([['U1', { name: 'alice', avatarUrl: null }]])
     )
 
-    await taskSlackContextService.refreshContext('ctx_1')
+    await taskSlackContextService.refreshContext('ctx_1', 'ws_1')
 
     expect(repoUpdateSnapshot).toHaveBeenCalledWith(
       'ctx_1',
@@ -327,7 +309,7 @@ describe('refreshContext', () => {
     fetchSingle.mockRejectedValue(new SlackApiError('not_in_channel'))
 
     await expect(
-      taskSlackContextService.refreshContext('ctx_1')
+      taskSlackContextService.refreshContext('ctx_1', 'ws_1')
     ).rejects.toMatchObject({
       status: 403,
     })
@@ -341,10 +323,29 @@ describe('refreshContext', () => {
   it('throws 404 when the context id does not exist', async () => {
     repoGetById.mockResolvedValue(null)
     await expect(
-      taskSlackContextService.refreshContext('ctx_x')
+      taskSlackContextService.refreshContext('ctx_x', 'ws_1')
     ).rejects.toMatchObject({
       status: 404,
     })
+  })
+})
+
+describe('refreshContext — cross-workspace guard', () => {
+  it('throws 404 when the context belongs to a different workspace', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'ctx_1',
+      workspaceId: 'ws_OTHER',
+      slackChannelId: 'C9',
+      threadTs: null,
+      rootTs: '1700000000.000100',
+      isThread: false,
+    })
+    await expect(
+      taskSlackContextService.refreshContext('ctx_1', 'ws_1')
+    ).rejects.toMatchObject({ status: 404 })
+    // The token must not have been fetched
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(repoUpdateSnapshot).not.toHaveBeenCalled()
   })
 })
 
@@ -352,15 +353,25 @@ describe('unlinkContext', () => {
   it('throws 404 when not found', async () => {
     repoGetById.mockResolvedValue(null)
     await expect(
-      taskSlackContextService.unlinkContext('ctx_x')
+      taskSlackContextService.unlinkContext('ctx_x', 'ws_1')
     ).rejects.toMatchObject({
       status: 404,
     })
   })
 
   it('delegates to repo.delete on success', async () => {
-    repoGetById.mockResolvedValue({ id: 'ctx_1' })
-    await taskSlackContextService.unlinkContext('ctx_1')
+    repoGetById.mockResolvedValue({ id: 'ctx_1', workspaceId: 'ws_1' })
+    await taskSlackContextService.unlinkContext('ctx_1', 'ws_1')
     expect(repoDelete).toHaveBeenCalledWith('ctx_1')
+  })
+})
+
+describe('unlinkContext — cross-workspace guard', () => {
+  it('throws 404 when the context belongs to a different workspace', async () => {
+    repoGetById.mockResolvedValue({ id: 'ctx_1', workspaceId: 'ws_OTHER' })
+    await expect(
+      taskSlackContextService.unlinkContext('ctx_1', 'ws_1')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(repoDelete).not.toHaveBeenCalled()
   })
 })

@@ -50,10 +50,6 @@ export const taskSlackContextService = {
     const integration = await getSlackIntegrationToken(input.workspaceId)
     if (!integration) throw err('not_connected', 412)
 
-    if (parsed.teamSubdomain !== integration.slackTeamName) {
-      throw err('wrong_team', 400)
-    }
-
     let raw
     try {
       raw = parsed.threadTs
@@ -99,9 +95,10 @@ export const taskSlackContextService = {
     })
   },
 
-  async refreshContext(contextId: string) {
+  async refreshContext(contextId: string, expectedWorkspaceId: string) {
     const ctx = await taskSlackContextRepository.getById(contextId)
-    if (!ctx) throw err('not_found', 404)
+    if (!ctx || ctx.workspaceId !== expectedWorkspaceId)
+      throw err('not_found', 404)
 
     const integration = await getSlackIntegrationToken(ctx.workspaceId)
     if (!integration) throw err('not_connected', 412)
@@ -135,9 +132,10 @@ export const taskSlackContextService = {
     return taskSlackContextRepository.updateSnapshot(contextId, snapshot, null)
   },
 
-  async unlinkContext(contextId: string) {
+  async unlinkContext(contextId: string, expectedWorkspaceId: string) {
     const ctx = await taskSlackContextRepository.getById(contextId)
-    if (!ctx) throw err('not_found', 404)
+    if (!ctx || ctx.workspaceId !== expectedWorkspaceId)
+      throw err('not_found', 404)
     await taskSlackContextRepository.delete(contextId)
   },
 }
