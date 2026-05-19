@@ -3,7 +3,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { sessionSummaryService } from '@/lib/services/session-summary'
 
-type Params = { params: Promise<{ id: string }> }
+type Params = { params: Promise<{ sessionId: string }> }
 
 interface ErrorLike {
   message?: string
@@ -11,7 +11,7 @@ interface ErrorLike {
 }
 
 /**
- * POST /api/sessions/[id]/summarize
+ * POST /api/sessions/[sessionId]/summarize
  * Generate (or regenerate) an AI summary of the session and persist it.
  * Returns 404 if the session doesn't exist, 403 if it belongs to a workspace
  * the caller isn't a member of.
@@ -21,9 +21,9 @@ export async function POST(_request: NextRequest, { params }: Params) {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
     const { userId } = authResult
-    const { id } = await params
+    const { sessionId } = await params
 
-    const session = await sessionRepository.findWorkspaceId(id)
+    const session = await sessionRepository.findWorkspaceId(sessionId)
     if (!session) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
@@ -35,7 +35,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
     if (memberResult instanceof NextResponse) return memberResult
 
     const result = await sessionSummaryService.generateSummary({
-      sessionId: id,
+      sessionId,
       workspaceMemberId: memberResult.id,
     })
 
@@ -50,7 +50,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
     const status = typeof err.status === 'number' ? err.status : 500
     const message = err.message ?? 'Internal Server Error'
     if (status >= 500) {
-      console.error('POST /api/sessions/[id]/summarize error:', error)
+      console.error('POST /api/sessions/[sessionId]/summarize error:', error)
     }
     return NextResponse.json({ error: message }, { status })
   }
