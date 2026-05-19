@@ -1,0 +1,173 @@
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
+import { tagRepository } from '@/lib/repositories/tag.repository'
+import type { TaskPriority, TaskStatus } from '@prisma/client'
+import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
+
+/**
+ * Create a human-authored task. Validates parent membership + sprint
+ * inheritance, auto-computes order when the caller doesn't supply one, and
+ * dispatches the create-task notification side effects fire-and-forget.
+ *
+ * Throws with `{ status, message }`: 404 for unknown project, 400 for cross-
+ * project parent or out-of-workspace assignee.
+ */
+export async function createTask(
+  projectId: string,
+  input: {
+    title: string
+    description?: string | null | undefined
+    status: TaskStatus
+    priority: TaskPriority
+    assigneeActorId?: string | null | undefined
+    parentTaskId?: string | null | undefined
+    repositoryId?: string | null | undefined
+    sprintId?: string | null | undefined
+    order?: number | undefined
+    dueDate?: string | null | undefined
+  },
+  actorId: string,
+  actorClerkId: string
+) {
+  const project = await projectRepository.findByIdWithDefaults(projectId)
+  if (!project) {
+    throw Object.assign(new Error('Project not found'), { status: 404 })
+  }
+
+  const {
+    title,
+    description,
+    status,
+    priority,
+    assigneeActorId,
+    parentTaskId,
+    repositoryId,
+    order,
+    dueDate,
+  } = input
+
+  // Validate parentTaskId belongs to the same project, and resolve sprint inheritance
+  let resolvedSprintId: string | null =
+    input.sprintId !== undefined ? (input.sprintId ?? null) : null
+  if (parentTaskId) {
+    const parent = await taskRepository.findWithProject(parentTaskId)
+    if (!parent || parent.projectId !== projectId) {
+      throw Object.assign(new Error('Parent task not found in this project'), {
+        status: 400,
+      })
+    }
+    // Inherit parent's sprintId when caller did not explicitly set one
+    if (input.sprintId === undefined && parent.sprintId) {
+      resolvedSprintId = parent.sprintId
+    }
+  }
+
+  // Auto-calculate order if not provided
+  let taskOrder = order
+  if (taskOrder === undefined) {
+    const maxOrderTask = await taskRepository.findMaxOrder(
+      projectId,
+      parentTaskId ?? null
+    )
+    taskOrder = (maxOrderTask?.order ?? 0) + 1
+  }
+
+  // Validate assigneeActorId belongs to the same workspace
+  let assigneeIsAgent = false
+  if (assigneeActorId) {
+    const actor = await taskRepository.findActorById(assigneeActorId)
+    if (!actor || actor.workspaceId !== project.workspaceId) {
+      throw Object.assign(new Error('Assignee is not part of this workspace'), {
+        status: 400,
+      })
+    }
+    assigneeIsAgent = actor.type === 'AGENT'
+  }
+
+  const task = await taskRepository.createWithSequence({
+    projectId,
+    teamId: project.teamId,
+    title,
+    description: description ?? null,
+    status,
+    priority,
+    assigneeActorId: assigneeActorId ?? null,
+    agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
+    reviewerActorId: null,
+    parentTaskId: parentTaskId ?? null,
+    repositoryId: repositoryId ?? null,
+    sprintId: resolvedSprintId,
+    order: taskOrder,
+    dueDate: dueDate ?? null,
+    ownerMemberId: project.owner?.id ?? null,
+  })
+
+  // Fire-and-forget side-effects
+  dispatchCreateTaskSideEffects({
+    task: {
+      id: task.id,
+      title: task.title,
+      teamIdentifier: task.teamIdentifier,
+      number: task.number,
+    },
+    projectId,
+    workspaceId: project.workspaceId,
+    workspaceSlug: project.workspace?.slug ?? '',
+    actorId,
+    actorClerkId,
+    assigneeActorId: assigneeActorId ?? null,
+  })
+
+  return { task }
+}
+
+/**
+ * Create a task from a webhook-driven flow (e.g. Sentry alert). Same as
+ * `createTask` but without the human-actor notification path — the caller
+ * doesn't have a human actor id to attribute the create activity to, and the
+ * notification dispatch requires one. Callers that need notifications are
+ * responsible for dispatching them separately.
+ *
+ * Also wires in tag associations atomically — useful for Sentry-issue tags.
+ */
+export async function createFromAutomation(
+  projectId: string,
+  input: {
+    title: string
+    description: string | null
+    priority: TaskPriority
+    assigneeActorId: string | null
+    tagIds: string[]
+  }
+) {
+  const project = await projectRepository.findByIdWithDefaults(projectId)
+  if (!project) {
+    throw Object.assign(new Error('Project not found'), { status: 404 })
+  }
+
+  const maxOrderTask = await taskRepository.findMaxOrder(projectId, null)
+  const order = (maxOrderTask?.order ?? 0) + 1
+
+  const task = await taskRepository.createWithSequence({
+    projectId,
+    teamId: project.teamId,
+    title: input.title,
+    description: input.description,
+    status: 'TODO',
+    priority: input.priority,
+    assigneeActorId: input.assigneeActorId,
+    agentStatus: null,
+    reviewerActorId: null,
+    parentTaskId: null,
+    repositoryId: null,
+    order,
+    dueDate: null,
+    ownerMemberId: project.owner?.id ?? null,
+  })
+
+  if (input.tagIds.length > 0) {
+    await tagRepository.syncTaskTags(task.id, input.tagIds)
+  }
+
+  return { task }
+}
