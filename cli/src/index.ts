@@ -10,6 +10,7 @@ import { hookCommand } from './commands/hook'
 import { sessionAttach } from './commands/session-attach'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
+import { taskUpdate } from './commands/task-update'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -101,6 +102,34 @@ task
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
+    )
+  )
+
+task
+  .command('update <identifier>')
+  .description(
+    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee. Use "" to clear description or assignee.'
+  )
+  .option('-t, --title <text>', 'New title')
+  .option(
+    '-d, --description <text>',
+    'New description (empty string to clear)'
+  )
+  .option(
+    '-s, --status <value>',
+    'New status: todo | in_progress | in_review | done'
+  )
+  .option(
+    '-p, --priority <level>',
+    'New priority: low | medium | high | urgent'
+  )
+  .option(
+    '-a, --assignee <ref>',
+    'New assignee: email, name, or "me" (empty string to clear)'
+  )
+  .action(
+    wrap((identifier, options) =>
+      taskUpdate(identifier as string, options as Record<string, string>)
     )
   )
 
