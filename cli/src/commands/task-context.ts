@@ -3,13 +3,14 @@ import { trimTrailingSlash } from '../lib/api'
 
 interface TaskContextResponse {
   task: {
-    id: string
+    id?: string
     identifier: string
     title: string
     status: string
     description: string | null
   }
   memorySection?: string
+  slackContextSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -95,6 +96,11 @@ export function formatTaskContextMarkdown(
   // first. Server returns "" when empty, in which case we skip the section.
   if (data.memorySection && data.memorySection.trim().length > 0) {
     lines.push(data.memorySection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.slackContextSection && data.slackContextSection.trim().length > 0) {
+    lines.push(data.slackContextSection.trimEnd())
     lines.push('')
   }
 
