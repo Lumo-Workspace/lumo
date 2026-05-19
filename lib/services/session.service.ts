@@ -27,6 +27,7 @@ interface BindSessionToTaskResult {
   taskId: string
   taskIdentifier: string
   taskTitle: string
+  retaggedEventCount: number
 }
 
 export const sessionService = {
@@ -125,15 +126,17 @@ export const sessionService = {
     }
 
     await sessionRepository.updateTaskId(sessionId, task.id)
-    await hookEventRepository.bulkSetTaskIdForNullEventsInSession(
-      sessionId,
-      task.id
-    )
+    const { count } =
+      await hookEventRepository.bulkSetTaskIdForNullEventsInSession(
+        sessionId,
+        task.id
+      )
 
     return {
       taskId: task.id,
       taskIdentifier: task.identifier,
       taskTitle: task.title,
+      retaggedEventCount: count,
     }
   },
 }

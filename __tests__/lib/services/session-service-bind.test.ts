@@ -80,6 +80,7 @@ describe('sessionService.bindSessionToTask', () => {
       taskId: 'task_1',
       taskIdentifier: 'LUM-42',
       taskTitle: 'Fix login bug',
+      retaggedEventCount: 3,
     })
   })
 
