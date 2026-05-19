@@ -98,4 +98,46 @@ export const taskSlackContextService = {
       createdById: input.actorMemberId,
     })
   },
+
+  async refreshContext(contextId: string) {
+    const ctx = await taskSlackContextRepository.getById(contextId)
+    if (!ctx) throw err('not_found', 404)
+
+    const integration = await getSlackIntegrationToken(ctx.workspaceId)
+    if (!integration) throw err('not_connected', 412)
+
+    let raw
+    try {
+      raw = ctx.isThread
+        ? await fetchThread(integration.token, ctx.slackChannelId, ctx.rootTs)
+        : [
+            await fetchSingleMessage(
+              integration.token,
+              ctx.slackChannelId,
+              ctx.rootTs
+            ),
+          ]
+    } catch (e) {
+      const mapped = mapSlackError(e)
+      await taskSlackContextRepository.updateSnapshot(
+        contextId,
+        null,
+        mapped.message
+      )
+      throw mapped
+    }
+
+    const users = await resolveUsers(
+      integration.token,
+      raw.map(m => m.user)
+    )
+    const snapshot = toSnapshot(raw, users)
+    return taskSlackContextRepository.updateSnapshot(contextId, snapshot, null)
+  },
+
+  async unlinkContext(contextId: string) {
+    const ctx = await taskSlackContextRepository.getById(contextId)
+    if (!ctx) throw err('not_found', 404)
+    await taskSlackContextRepository.delete(contextId)
+  },
 }

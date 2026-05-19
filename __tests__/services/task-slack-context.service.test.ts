@@ -266,3 +266,101 @@ describe('listForTask', () => {
     expect(out).toEqual([{ id: 'ctx_1' }])
   })
 })
+
+// Additional mocks for refresh + unlink tests
+const repoGetById = taskSlackContextRepository.getById as jest.Mock
+const repoUpdateSnapshot =
+  taskSlackContextRepository.updateSnapshot as jest.Mock
+const repoDelete = taskSlackContextRepository.delete as jest.Mock
+
+describe('refreshContext', () => {
+  it('refetches and updates snapshot on success', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'ctx_1',
+      workspaceId: 'ws_1',
+      slackChannelId: 'C9',
+      threadTs: null,
+      rootTs: '1700000000.000100',
+      isThread: false,
+    })
+    tokenMock.mockResolvedValue({
+      token: 'tok',
+      slackTeamId: 'T1',
+      slackTeamName: 'lumo',
+    })
+    fetchSingle.mockResolvedValue({
+      ts: '1700000000.000100',
+      user: 'U1',
+      text: 'fresh',
+    })
+    resolveU.mockResolvedValue(
+      new Map([['U1', { name: 'alice', avatarUrl: null }]])
+    )
+
+    await taskSlackContextService.refreshContext('ctx_1')
+
+    expect(repoUpdateSnapshot).toHaveBeenCalledWith(
+      'ctx_1',
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({ ts: '1700000000.000100', text: 'fresh' }),
+        ],
+      }),
+      null
+    )
+  })
+
+  it('preserves old snapshot and writes refreshError on Slack failure', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'ctx_1',
+      workspaceId: 'ws_1',
+      slackChannelId: 'C9',
+      threadTs: null,
+      rootTs: '1700000000.000100',
+      isThread: false,
+    })
+    tokenMock.mockResolvedValue({
+      token: 'tok',
+      slackTeamId: 'T1',
+      slackTeamName: 'lumo',
+    })
+    fetchSingle.mockRejectedValue(new SlackApiError('not_in_channel'))
+
+    await expect(
+      taskSlackContextService.refreshContext('ctx_1')
+    ).rejects.toMatchObject({
+      status: 403,
+    })
+    expect(repoUpdateSnapshot).toHaveBeenCalledWith(
+      'ctx_1',
+      null,
+      'not_in_channel'
+    )
+  })
+
+  it('throws 404 when the context id does not exist', async () => {
+    repoGetById.mockResolvedValue(null)
+    await expect(
+      taskSlackContextService.refreshContext('ctx_x')
+    ).rejects.toMatchObject({
+      status: 404,
+    })
+  })
+})
+
+describe('unlinkContext', () => {
+  it('throws 404 when not found', async () => {
+    repoGetById.mockResolvedValue(null)
+    await expect(
+      taskSlackContextService.unlinkContext('ctx_x')
+    ).rejects.toMatchObject({
+      status: 404,
+    })
+  })
+
+  it('delegates to repo.delete on success', async () => {
+    repoGetById.mockResolvedValue({ id: 'ctx_1' })
+    await taskSlackContextService.unlinkContext('ctx_1')
+    expect(repoDelete).toHaveBeenCalledWith('ctx_1')
+  })
+})
