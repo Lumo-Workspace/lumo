@@ -10,6 +10,8 @@ jest.mock('@/lib/services/task-slack-context.service', () => ({
   taskSlackContextService: {
     listForTask: jest.fn(),
     linkSlackPermalink: jest.fn(),
+    unlinkContext: jest.fn(),
+    refreshContext: jest.fn(),
   },
 }))
 
@@ -111,5 +113,42 @@ describe('POST /api/tasks/[id]/slack-contexts', () => {
     )) as Response
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'not_in_channel' })
+  })
+})
+
+import { DELETE } from '@/app/api/tasks/[id]/slack-contexts/[contextId]/route'
+
+const unlink = taskSlackContextService.unlinkContext as jest.Mock
+
+const deleteParams = {
+  params: Promise.resolve({ id: 'tsk_1', contextId: 'ctx_1' }),
+}
+
+describe('DELETE /api/tasks/[id]/slack-contexts/[contextId]', () => {
+  it('returns 204 on success', async () => {
+    auth.mockResolvedValue({ userId: 'clerk_1' })
+    findTask.mockResolvedValue({ project: { workspaceId: 'ws_1' } })
+    member.mockResolvedValue({ id: 'mem_1' })
+    unlink.mockResolvedValue(undefined)
+    const res = (await DELETE(
+      mockRequest() as unknown as NextRequest,
+      deleteParams
+    )) as Response
+    expect(res.status).toBe(204)
+    expect(unlink).toHaveBeenCalledWith('ctx_1')
+  })
+
+  it('returns 404 when service throws status 404', async () => {
+    auth.mockResolvedValue({ userId: 'clerk_1' })
+    findTask.mockResolvedValue({ project: { workspaceId: 'ws_1' } })
+    member.mockResolvedValue({ id: 'mem_1' })
+    unlink.mockRejectedValue(
+      Object.assign(new Error('not_found'), { status: 404 })
+    )
+    const res = (await DELETE(
+      mockRequest() as unknown as NextRequest,
+      deleteParams
+    )) as Response
+    expect(res.status).toBe(404)
   })
 })
