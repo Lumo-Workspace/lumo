@@ -14,7 +14,7 @@ interface BindSessionToTaskResult {
   taskId: string
   taskIdentifier: string
   taskTitle: string
-  /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach). */
+  /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
   retaggedEventCount: number
 }
 
@@ -32,14 +32,6 @@ export const sessionService = {
       throw Object.assign(new Error('Not a workspace member'), { status: 403 })
     }
 
-    const session = await sessionRepository.findByIdForMember(
-      sessionId,
-      memberId
-    )
-    if (!session) {
-      throw Object.assign(new Error('Session not found'), { status: 404 })
-    }
-
     const task = await taskService.resolveIdentifier(
       identity.workspace.id,
       taskIdentifier
@@ -51,7 +43,22 @@ export const sessionService = {
       )
     }
 
-    await sessionRepository.updateTaskId(sessionId, task.id)
+    // Upsert the session row so attach can run before any hook fires.
+    // If the row exists and belongs to a different member, refuse — the
+    // session_id space is per-user and cross-member writes would be a hijack.
+    const upserted = await sessionRepository.upsertWithTaskId({
+      id: sessionId,
+      workspaceId: identity.workspace.id,
+      workspaceMemberId: memberId,
+      taskId: task.id,
+      now: new Date(),
+    })
+    if (upserted.ownedByOther) {
+      throw Object.assign(new Error('Session belongs to another member'), {
+        status: 403,
+      })
+    }
+
     const { count } =
       await hookEventRepository.bulkSetTaskIdForNullEventsInSession(
         sessionId,

@@ -4,16 +4,11 @@
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(),
 }))
-jest.mock('@/cli/src/lib/session-binding', () => ({
-  writeSessionBinding: jest.fn(),
-}))
 
 import { readCredentials } from '@/cli/src/lib/config'
-import { writeSessionBinding } from '@/cli/src/lib/session-binding'
 import { sessionAttach } from '@/cli/src/commands/session-attach'
 
 const mockRead = readCredentials as jest.Mock
-const mockWrite = writeSessionBinding as jest.Mock
 
 const originalEnv = process.env.CLAUDE_CODE_SESSION_ID
 let consoleErrorSpy: jest.SpyInstance
@@ -42,7 +37,6 @@ describe('sessionAttach', () => {
   it('exits 1 when CLAUDE_CODE_SESSION_ID env is not set', async () => {
     const exit = await sessionAttach('LUM-42')
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('CLAUDE_CODE_SESSION_ID')
     )
@@ -52,7 +46,6 @@ describe('sessionAttach', () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const exit = await sessionAttach(undefined)
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
   })
 
   it('exits 1 when credentials are missing', async () => {
@@ -60,10 +53,9 @@ describe('sessionAttach', () => {
     mockRead.mockReturnValue(null)
     const exit = await sessionAttach('LUM-42')
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
   })
 
-  it('POSTs to /api/sessions/<sid>/bind-task and writes per-session file on 200', async () => {
+  it('POSTs to /api/sessions/<sid>/bind-task on 200', async () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
@@ -86,19 +78,13 @@ describe('sessionAttach', () => {
         body: JSON.stringify({ taskIdentifier: 'LUM-42' }),
       })
     )
-    expect(mockWrite).toHaveBeenCalledWith(
-      'S1',
-      expect.objectContaining({
-        taskId: 'task_1',
-        taskIdentifier: 'LUM-42',
-        taskTitle: 'Fix bug',
-        workspaceSlug: 'lumo',
-      })
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Attached session S1 to LUM-42')
     )
     fetchSpy.mockRestore()
   })
 
-  it('exits 1 and does not write file when server returns 404', async () => {
+  it('exits 1 when server returns 404', async () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,
@@ -109,11 +95,10 @@ describe('sessionAttach', () => {
     const exit = await sessionAttach('LUM-999')
 
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
   })
 
-  it('exits 1 and does not write file when server returns 401', async () => {
+  it('exits 1 when server returns 401', async () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,
@@ -124,11 +109,10 @@ describe('sessionAttach', () => {
     const exit = await sessionAttach('LUM-42')
 
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
   })
 
-  it('exits 1 and does not write file when fetch throws', async () => {
+  it('exits 1 when fetch throws', async () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'S1'
     const fetchSpy = jest
       .spyOn(global, 'fetch')
@@ -137,7 +121,6 @@ describe('sessionAttach', () => {
     const exit = await sessionAttach('LUM-42')
 
     expect(exit).toBe(1)
-    expect(mockWrite).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
   })
 })
