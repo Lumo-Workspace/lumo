@@ -46,12 +46,15 @@ interface TaskDetailPageProps {
   workspaceUrl: string
   /** Pre-set source for breadcrumb (e.g. 'my-tasks'). Falls back to sessionStorage. */
   source?: string | undefined
+  /** Whether this workspace has a connected Slack integration. */
+  slackConnected: boolean
 }
 
 export function TaskDetailPage({
   initialTask,
   workspaceUrl,
   source: sourceProp,
+  slackConnected,
 }: TaskDetailPageProps) {
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const intl = useIntl()
@@ -342,9 +345,7 @@ export function TaskDetailPage({
                 user,
                 tc,
               }}
-              slackConnected={
-                true /* TODO LUM-44: derive from workspace.slackIntegration */
-              }
+              slackConnected={slackConnected}
             />
           </div>
 

@@ -65,6 +65,32 @@ describe('slackRepository.findIntegrationWithToken', () => {
   })
 })
 
+// ── findIntegrationId ───────────────────────────────────────────────────
+
+describe('slackRepository.findIntegrationId', () => {
+  it('returns id row when integration exists', async () => {
+    const mock = prisma.slackIntegration.findUnique as jest.Mock
+    mock.mockResolvedValue({ id: 'si-1' })
+
+    const result = await slackRepository.findIntegrationId('ws-1')
+
+    expect(mock).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-1' },
+      select: { id: true },
+    })
+    expect(result).toEqual({ id: 'si-1' })
+  })
+
+  it('returns null when no integration exists', async () => {
+    const mock = prisma.slackIntegration.findUnique as jest.Mock
+    mock.mockResolvedValue(null)
+
+    const result = await slackRepository.findIntegrationId('ws-1')
+
+    expect(result).toBeNull()
+  })
+})
+
 // ── upsertIntegration ───────────────────────────────────────────────────
 
 describe('slackRepository.upsertIntegration', () => {

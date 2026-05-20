@@ -21,6 +21,7 @@ export default async function MyTaskDetailPage({
 
   const workspace = await prisma.workspace.findFirst({
     where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+    include: { slackIntegration: { select: { id: true } } },
   })
   if (!workspace) redirect('/onboarding')
 
@@ -128,6 +129,7 @@ export default async function MyTaskDetailPage({
       initialTask={task}
       workspaceUrl={workspaceUrl}
       source='my-tasks'
+      slackConnected={workspace.slackIntegration !== null}
     />
   )
 }

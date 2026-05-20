@@ -44,14 +44,18 @@ describe('fetchSingleMessage', () => {
     const [url, init] = (fetchSpy as jest.Mock).mock.calls[0]
     expect(url).toBe('https://slack.com/api/conversations.history')
     expect((init as RequestInit).method).toBe('POST')
+    const headers = (init as { headers: Record<string, string> }).headers
+    expect(headers.Authorization).toBe('Bearer tok')
+    expect(headers['Content-Type']).toBe(
+      'application/x-www-form-urlencoded; charset=utf-8'
+    )
     expect(
-      (init as { headers: Record<string, string> }).headers.Authorization
-    ).toBe('Bearer tok')
-    expect(JSON.parse((init as { body: string }).body)).toEqual({
+      Object.fromEntries(new URLSearchParams((init as { body: string }).body))
+    ).toEqual({
       channel: 'C9',
       latest: '1.000100',
-      inclusive: true,
-      limit: 1,
+      inclusive: 'true',
+      limit: '1',
     })
     expect(msg).toMatchObject({
       ts: '1.000100',
@@ -101,7 +105,9 @@ describe('fetchThread', () => {
 
     const msgs = await fetchThread('tok', 'C9', '1.000100')
     expect(msgs.map(m => m.ts)).toEqual(['1.000100', '1.000200'])
-    expect(JSON.parse(calls[1]!.body as string)).toMatchObject({
+    expect(
+      Object.fromEntries(new URLSearchParams(calls[1]!.body as string))
+    ).toMatchObject({
       cursor: 'CUR',
     })
   })
