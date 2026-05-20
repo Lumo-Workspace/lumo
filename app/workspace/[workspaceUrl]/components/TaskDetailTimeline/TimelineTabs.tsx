@@ -7,20 +7,39 @@ import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
-import { SlackContextTab } from './SlackContextTab'
+import { ContextTab } from './ContextTab'
 
-type TabValue = 'comments' | 'activity' | 'slack' | 'agent'
+type TabValue = 'comments' | 'activity' | 'context' | 'agent'
+
+interface PullRequestSummary {
+  id: string
+  number: number
+  title: string
+  url: string
+  state: string
+  ciStatus: string | null
+}
 
 interface TimelineTabsProps {
   taskId: string
+  workspaceId: string
+  workspaceUrl: string
   commentsProps: React.ComponentProps<typeof TaskDetailComments>
   slackConnected: boolean
+  pullRequests: PullRequestSummary[]
+  onLinkPr: () => void
+  onUnlinkPr: (prId: string) => void
 }
 
 export function TimelineTabs({
   taskId,
+  workspaceId,
+  workspaceUrl,
   commentsProps,
   slackConnected,
+  pullRequests,
+  onLinkPr,
+  onUnlinkPr,
 }: TimelineTabsProps) {
   const intl = useIntl()
   const [activeTab, setActiveTab] = useState<TabValue>('comments')
@@ -42,7 +61,6 @@ export function TimelineTabs({
 
   return (
     <div className='mt-8'>
-      {/* Tab bar */}
       <div className='flex gap-4 mb-4'>
         <button
           className={tabClass(activeTab === 'comments')}
@@ -63,12 +81,12 @@ export function TimelineTabs({
           })}
         </button>
         <button
-          className={tabClass(activeTab === 'slack')}
-          onClick={() => setActiveTab('slack')}
+          className={tabClass(activeTab === 'context')}
+          onClick={() => setActiveTab('context')}
         >
           {intl.formatMessage({
-            id: 'slackContext.tab',
-            defaultMessage: 'Slack Context',
+            id: 'task.context.tab',
+            defaultMessage: 'Context',
           })}
         </button>
         <button
@@ -82,10 +100,7 @@ export function TimelineTabs({
           {unsyncedMemoryCount > 0 && (
             <span className='normal-case tracking-normal text-[10px] font-medium px-1.5 py-px rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400'>
               {intl.formatMessage(
-                {
-                  id: 'agentRun.memoryBadge',
-                  defaultMessage: '+{n} 条新记忆',
-                },
+                { id: 'agentRun.memoryBadge', defaultMessage: '+{n} 条新记忆' },
                 { n: unsyncedMemoryCount }
               )}
             </span>
@@ -93,7 +108,6 @@ export function TimelineTabs({
         </button>
       </div>
 
-      {/* Tab content */}
       {activeTab === 'activity' && (
         <ActivityTimeline
           entries={timeline.entries}
@@ -106,8 +120,17 @@ export function TimelineTabs({
         />
       )}
       {activeTab === 'comments' && <TaskDetailComments {...commentsProps} />}
-      {activeTab === 'slack' && (
-        <SlackContextTab taskId={taskId} slackConnected={slackConnected} />
+      {activeTab === 'context' && (
+        <ContextTab
+          taskId={taskId}
+          workspaceId={workspaceId}
+          workspaceUrl={workspaceUrl}
+          slackConnected={slackConnected}
+          pullRequests={pullRequests}
+          onLinkPr={onLinkPr}
+          onUnlinkPr={onUnlinkPr}
+          enabled={activeTab === 'context'}
+        />
       )}
       {activeTab === 'agent' && (
         <AgentRunTab

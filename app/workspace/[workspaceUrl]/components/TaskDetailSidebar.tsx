@@ -1,14 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  GitPullRequest,
-  GitBranch,
-  X,
-} from 'lucide-react'
+import { Check, Copy, ExternalLink, GitBranch, X } from 'lucide-react'
 import type {
   TaskDetail,
   WorkspaceMemberInfo,
@@ -25,8 +18,6 @@ import {
 } from './fields'
 import { CreateBranchDialog } from './CreateBranchDialog'
 import { UnlinkBranchDialog } from './UnlinkBranchDialog'
-import { PrStateBadge, CiIcon } from './pr-helpers'
-import { LinkPrPopover } from './LinkPrPopover'
 import {
   Select,
   SelectContent,
@@ -50,8 +41,6 @@ interface TaskDetailSidebarProps {
   onPatch: (patch: Record<string, unknown>) => void
   onCopyBranch: (id: string, name: string) => void
   workspaceId: string
-  onUnlinkPr: (prId: string) => void
-  onLinkPr: () => void
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
   /** Called when tags change (full objects). */
@@ -73,11 +62,9 @@ export function TaskDetailSidebar({
   createBranchOpen,
   setCreateBranchOpen,
   workspaceUrl,
-  workspaceId,
+  workspaceId: _workspaceId,
   onPatch,
   onCopyBranch,
-  onUnlinkPr,
-  onLinkPr,
   allTags,
   onTagsChange,
   onCreateTag,
@@ -307,56 +294,6 @@ export function TaskDetailSidebar({
             <GitBranch size={12} />
             {intl.formatMessage({ id: 'task.createBranch' })}
           </button>
-        )}
-      </div>
-
-      {/* ── Pull Requests ───────────────────────────────────────────── */}
-      <div className='pt-3'>
-        <div className='flex items-center justify-between mb-2'>
-          <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
-            <GitPullRequest size={12} />
-            {intl.formatMessage({ id: 'task.pullRequests' })}
-          </p>
-          <LinkPrPopover
-            taskId={task.id}
-            workspaceId={workspaceId}
-            onLinked={onLinkPr}
-          />
-        </div>
-        {task.pullRequests && task.pullRequests.length > 0 ? (
-          <ul className='space-y-2.5'>
-            {task.pullRequests.map(pr => {
-              return (
-                <li key={pr.id} className='flex items-start gap-2 group'>
-                  <CiIcon status={pr.ciStatus} />
-                  <div className='min-w-0 flex-1'>
-                    <a
-                      href={pr.url}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
-                    >
-                      #{pr.number} {pr.title}
-                    </a>
-                    <div className='flex items-center gap-1.5 mt-1'>
-                      <PrStateBadge state={pr.state} />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onUnlinkPr(pr.id)}
-                    className='shrink-0 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-all'
-                    title={intl.formatMessage({ id: 'task.unlinkPr' })}
-                  >
-                    <X size={12} />
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        ) : (
-          <p className='text-xs text-zinc-400 dark:text-zinc-500'>
-            {intl.formatMessage({ id: 'task.noPullRequests' })}
-          </p>
         )}
       </div>
 
