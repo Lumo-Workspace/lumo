@@ -24,15 +24,24 @@ export interface RawSlackMessage {
 async function slackPost(
   token: string,
   method: string,
-  body: object
+  body: Record<string, unknown>
 ): Promise<{ [k: string]: unknown }> {
+  // Slack's Web API has uneven JSON-body support: conversations.history works
+  // with JSON, but conversations.info / users.info silently ignore JSON-encoded
+  // params and respond with "missing required field: channel" (LUM-50).
+  // application/x-www-form-urlencoded is the format Slack documents universally
+  // and accepts on every method.
+  const form = new URLSearchParams()
+  for (const [k, v] of Object.entries(body)) {
+    if (v != null) form.set(k, String(v))
+  }
   const res = await fetch(`https://slack.com/api/${method}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
     },
-    body: JSON.stringify(body),
+    body: form.toString(),
   })
   if (!res.ok) {
     throw new SlackApiError('slack_unavailable', `HTTP ${res.status}`)
