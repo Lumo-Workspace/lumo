@@ -30,15 +30,27 @@ async function slackPost(
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
     },
     body: JSON.stringify(body),
   })
   if (!res.ok) {
     throw new SlackApiError('slack_unavailable', `HTTP ${res.status}`)
   }
-  const json = (await res.json()) as { ok: boolean; error?: string }
+  const json = (await res.json()) as {
+    ok: boolean
+    error?: string
+    response_metadata?: { messages?: string[]; warnings?: string[] }
+  }
   if (!json.ok) {
+    // Slack returns extra diagnostic info in response_metadata.messages /
+    // .warnings (e.g. "team_id required", "channel migrated"). Log the full
+    // payload alongside the params we sent so we can diagnose asymmetric
+    // failures (e.g. history works but info fails) without redeploying.
+    console.warn(
+      `[slack-api] ${method} failed:`,
+      JSON.stringify({ params: body, response: json })
+    )
     throw new SlackApiError(json.error ?? 'slack_unknown_error')
   }
   return json as { [k: string]: unknown }
