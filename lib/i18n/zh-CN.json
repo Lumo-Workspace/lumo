@@ -894,7 +894,6 @@
   "memory.field.scope": "适用范围：{value}",
   "memory.field.alternatives": "考虑过的替代方案：{value}",
   "memory.field.implications": "后续影响：{value}",
-
   "lumo.sync.button": "同步到 LUMO.md",
   "lumo.sync.generating": "正在生成提案…",
   "lumo.sync.dialogTitle": "同步到 LUMO.md",
@@ -903,15 +902,12 @@
   "lumo.sync.prCreated": "PR 创建成功",
   "lumo.sync.generateFailed": "提案生成失败",
   "lumo.sync.syncFailed": "PR 创建失败",
-
   "lumo.sync.noOperations": "AI 已审查这些记忆，没有需要添加的内容。LUMO.md 只收录团队通过实战发现的高影响知识——踩过的坑、带有非显而易见理由的决策、意外形成的惯例。不收录：读代码即可了解的事实、项目初始即可制定的规则、或遗忘后不会造成显著损失的内容。",
-
   "lumo.sync.banner.ready": "{n} 条新记忆待同步",
   "lumo.sync.banner.button": "同步 {n} 条到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",
   "lumo.sync.banner.viewPr": "查看 PR",
   "lumo.sync.sidebar.hint": "在上方 Agent 运行 tab 中同步",
-
   "waitlist.heading": "加入候补名单",
   "waitlist.subheading": "抢先体验 Lumo。",
   "waitlist.success.title": "你已加入候补名单！",
@@ -933,7 +929,6 @@
   "waitlist.button.submitting": "提交中…",
   "waitlist.footer": "我们绝不会泄露你的邮箱。可随时退订。",
   "waitlist.error.network": "网络错误，请稍后重试。",
-
   "onboarding.workspace.title": "创建你的工作区",
   "onboarding.workspace.nameLabel": "工作区名称",
   "onboarding.workspace.namePlaceholder": "示例公司",
@@ -949,7 +944,6 @@
   "onboarding.invite.skip": "稍后再说",
   "onboarding.invite.error.send": "发送邀请失败",
   "onboarding.error.generic": "出错了",
-
   "invite.accepted.title": "邀请已接受",
   "invite.accepted.body": "这个邀请链接已经被使用过了。",
   "invite.accepted.cta": "前往工作区",
@@ -971,5 +965,24 @@
   "logoUploader.uploadFailed": "上传失败",
   "logoUploader.uploadRetry": "上传失败，请重试",
   "logoUploader.success": "Logo 已更新",
-  "logoUploader.dialogTitle": "裁剪 Logo"
+  "logoUploader.dialogTitle": "裁剪 Logo",
+  "slackContext.add": "添加 Slack 消息",
+  "slackContext.dialog.permalinkLabel": "Slack 永久链接",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "附加",
+  "slackContext.dialog.title": "附加 Slack 消息",
+  "slackContext.empty.noContexts": "尚未附加任何 Slack 消息。",
+  "slackContext.empty.notConnected": "连接 Slack 以将消息附加为任务上下文。",
+  "slackContext.error.invalidPermalink": "这不是有效的 Slack 消息永久链接。",
+  "slackContext.error.messageGone": "该 Slack 消息已无法访问。",
+  "slackContext.error.notConnected": "Slack 未连接到此工作区。",
+  "slackContext.error.notInChannel": "LumoBot 不是此 Slack 频道的成员。邀请机器人以读取此消息。",
+  "slackContext.error.slackUnavailable": "当前无法连接到 Slack。请稍后重试。",
+  "slackContext.error.wrongTeam": "此永久链接来自不同的 Slack 工作区。",
+  "slackContext.fetchedAgo": "获取于 {ago}",
+  "slackContext.refresh": "刷新",
+  "slackContext.refresh.failedBanner": "刷新失败 · {ago}",
+  "slackContext.tab": "Slack 上下文",
+  "slackContext.thread.replies": "{n, plural, one {1 条回复} other {# 条回复}}",
+  "slackContext.unlink": "移除"
 }

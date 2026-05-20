@@ -902,15 +902,12 @@
   "lumo.sync.prCreated": "PR 建立成功",
   "lumo.sync.generateFailed": "提案產生失敗",
   "lumo.sync.syncFailed": "PR 建立失敗",
-
   "lumo.sync.noOperations": "AI 已審查這些記憶，沒有需要添加的內容。LUMO.md 只收錄團隊透過實戰發現的高影響知識——踩過的坑、帶有非顯而易見理由的決策、意外形成的慣例。不收錄：讀程式碼即可了解的事實、專案初始即可制定的規則、或遺忘後不會造成顯著損失的內容。",
-
   "lumo.sync.banner.ready": "{n} 條新記憶待同步",
   "lumo.sync.banner.button": "同步 {n} 條到 LUMO.md →",
   "lumo.sync.banner.synced": "已同步到 LUMO.md",
   "lumo.sync.banner.viewPr": "查看 PR",
   "lumo.sync.sidebar.hint": "在上方 Agent 運行分頁中同步",
-
   "waitlist.heading": "加入候補名單",
   "waitlist.subheading": "搶先體驗 Lumo。",
   "waitlist.success.title": "你已加入候補名單！",
@@ -932,7 +929,6 @@
   "waitlist.button.submitting": "提交中…",
   "waitlist.footer": "我們絕不會洩露你的信箱，可隨時取消訂閱。",
   "waitlist.error.network": "網路錯誤，請稍後再試。",
-
   "onboarding.workspace.title": "建立你的工作區",
   "onboarding.workspace.nameLabel": "工作區名稱",
   "onboarding.workspace.namePlaceholder": "範例公司",
@@ -948,7 +944,6 @@
   "onboarding.invite.skip": "稍後再說",
   "onboarding.invite.error.send": "傳送邀請失敗",
   "onboarding.error.generic": "發生錯誤",
-
   "invite.accepted.title": "邀請已接受",
   "invite.accepted.body": "這個邀請連結已經被使用過了。",
   "invite.accepted.cta": "前往工作區",
@@ -970,5 +965,24 @@
   "logoUploader.uploadFailed": "上傳失敗",
   "logoUploader.uploadRetry": "上傳失敗，請重試",
   "logoUploader.success": "Logo 已更新",
-  "logoUploader.dialogTitle": "裁剪 Logo"
+  "logoUploader.dialogTitle": "裁剪 Logo",
+  "slackContext.add": "新增 Slack 訊息",
+  "slackContext.dialog.permalinkLabel": "Slack 永久連結",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "附加",
+  "slackContext.dialog.title": "附加 Slack 訊息",
+  "slackContext.empty.noContexts": "尚未附加任何 Slack 訊息。",
+  "slackContext.empty.notConnected": "連接 Slack 以將訊息附加為工作環境資訊。",
+  "slackContext.error.invalidPermalink": "這不是有效的 Slack 訊息永久連結。",
+  "slackContext.error.messageGone": "該 Slack 訊息已無法存取。",
+  "slackContext.error.notConnected": "Slack 未連接到此工作區。",
+  "slackContext.error.notInChannel": "LumoBot 不是此 Slack 頻道的成員。邀請機器人以讀取此訊息。",
+  "slackContext.error.slackUnavailable": "目前無法連上 Slack。請稍後重試。",
+  "slackContext.error.wrongTeam": "此永久連結來自不同的 Slack 工作區。",
+  "slackContext.fetchedAgo": "已取得 {ago}",
+  "slackContext.refresh": "重新整理",
+  "slackContext.refresh.failedBanner": "重新整理失敗 · {ago}",
+  "slackContext.tab": "Slack 上下文",
+  "slackContext.thread.replies": "{n, plural, one {1 則回覆} other {# 則回覆}}",
+  "slackContext.unlink": "移除"
 }

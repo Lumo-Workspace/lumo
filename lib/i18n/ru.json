@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR успешно создан",
   "lumo.sync.generateFailed": "Не удалось сгенерировать предложение",
   "lumo.sync.syncFailed": "Не удалось создать PR",
-
   "lumo.sync.noOperations": "ИИ проверил эти воспоминания и не нашёл ничего для добавления. LUMO.md фиксирует только значимые знания, обнаруженные в ходе работы — встреченные ловушки, решения с неочевидным обоснованием и конвенции, возникшие неожиданно. Исключаются: факты, читаемые из кода, правила, которые можно определить в первый день, и то, забывание чего не приведёт к значительным потерям.",
-
   "lumo.sync.banner.ready": "{n, plural, one {# новое воспоминание готово к синхронизации} other {# новых воспоминаний готово к синхронизации}}",
   "lumo.sync.banner.button": "Синхронизировать {n} в LUMO.md →",
   "lumo.sync.banner.synced": "Синхронизировано с LUMO.md",
   "lumo.sync.banner.viewPr": "Посмотреть PR",
   "lumo.sync.sidebar.hint": "Синхронизируйте из вкладки запуска Агента выше",
-
   "waitlist.heading": "Записаться в лист ожидания",
   "waitlist.subheading": "Получите ранний доступ к Lumo.",
   "waitlist.success.title": "Вы в списке ожидания!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "Отправка…",
   "waitlist.footer": "Мы никогда не передадим вашу почту третьим лицам. Отписаться можно в любой момент.",
   "waitlist.error.network": "Ошибка сети. Попробуйте снова.",
-
   "onboarding.workspace.title": "Создайте рабочее пространство",
   "onboarding.workspace.nameLabel": "Название пространства",
   "onboarding.workspace.namePlaceholder": "ООО «Пример»",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "Пока пропустить",
   "onboarding.invite.error.send": "Не удалось отправить приглашения",
   "onboarding.error.generic": "Что-то пошло не так",
-
   "invite.accepted.title": "Приглашение уже принято",
   "invite.accepted.body": "Эта ссылка-приглашение уже использована.",
   "invite.accepted.cta": "В рабочее пространство",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "Фокус на сегодня",
   "summary.topBlockers": "Главные блокеры",
   "workspaceSettings.riskUpdateFailed": "Не удалось обновить пороги риска",
-  "workspaceSettings.riskUpdated": "Пороги риска обновлены"
+  "workspaceSettings.riskUpdated": "Пороги риска обновлены",
+  "slackContext.add": "Добавить сообщение Slack",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Прикрепить",
+  "slackContext.dialog.title": "Прикрепить сообщение Slack",
+  "slackContext.empty.noContexts": "Сообщений Slack еще не прикреплено.",
+  "slackContext.empty.notConnected": "Подключите Slack, чтобы прикреплять сообщения как контекст задачи.",
+  "slackContext.error.invalidPermalink": "Это некорректный permalink сообщения Slack.",
+  "slackContext.error.messageGone": "Сообщение Slack больше недоступно.",
+  "slackContext.error.notConnected": "Slack не подключен к этому workspace.",
+  "slackContext.error.notInChannel": "LumoBot не является участником этого канала Slack. Пригласите бота, чтобы прочитать это сообщение.",
+  "slackContext.error.slackUnavailable": "Не удается подключиться к Slack. Попробуйте позже.",
+  "slackContext.error.wrongTeam": "Этот permalink из другого workspace Slack.",
+  "slackContext.fetchedAgo": "Получено {ago}",
+  "slackContext.refresh": "Обновить",
+  "slackContext.refresh.failedBanner": "Обновление не удалось · {ago}",
+  "slackContext.tab": "Контекст Slack",
+  "slackContext.thread.replies": "{n, plural, one {1 ответ} other {# ответов}}",
+  "slackContext.unlink": "Удалить"
 }

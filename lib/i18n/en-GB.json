@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR created successfully",
   "lumo.sync.generateFailed": "Failed to generate proposal",
   "lumo.sync.syncFailed": "Failed to create PR",
-
   "lumo.sync.noOperations": "AI reviewed these memories and found nothing to add. LUMO.md only captures high-impact knowledge discovered through real work — traps hit, decisions with non-obvious rationale, and conventions that emerged by surprise. It excludes facts readable from code, rules that could be written on day one, and things that won't cost significant time if forgotten.",
-
   "lumo.sync.banner.ready": "{n, plural, one {# new memory ready to sync} other {# new memories ready to sync}}",
   "lumo.sync.banner.button": "Sync {n} to LUMO.md →",
   "lumo.sync.banner.synced": "Synced to LUMO.md",
   "lumo.sync.banner.viewPr": "View PR",
   "lumo.sync.sidebar.hint": "Sync from the Agent run tab above",
-
   "waitlist.heading": "Join the Waitlist",
   "waitlist.subheading": "Get early access to Lumo.",
   "waitlist.success.title": "You're on the list!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "Submitting…",
   "waitlist.footer": "We'll never share your email. Unsubscribe at any time.",
   "waitlist.error.network": "Network error. Please try again.",
-
   "onboarding.workspace.title": "Create your workspace",
   "onboarding.workspace.nameLabel": "Workspace name",
   "onboarding.workspace.namePlaceholder": "Acme Ltd.",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "Skip for now",
   "onboarding.invite.error.send": "Failed to send invites",
   "onboarding.error.generic": "Something went wrong",
-
   "invite.accepted.title": "Invitation already accepted",
   "invite.accepted.body": "This invite link has already been used.",
   "invite.accepted.cta": "Go to workspace",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "Today's focus",
   "summary.topBlockers": "Top blockers",
   "workspaceSettings.riskUpdateFailed": "Failed to update risk thresholds",
-  "workspaceSettings.riskUpdated": "Risk thresholds updated"
+  "workspaceSettings.riskUpdated": "Risk thresholds updated",
+  "slackContext.add": "Add Slack message",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Attach",
+  "slackContext.dialog.title": "Attach a Slack message",
+  "slackContext.empty.noContexts": "No Slack messages attached yet.",
+  "slackContext.empty.notConnected": "Connect Slack to attach messages as task context.",
+  "slackContext.error.invalidPermalink": "That is not a valid Slack message permalink.",
+  "slackContext.error.messageGone": "The Slack message is no longer accessible.",
+  "slackContext.error.notConnected": "Slack is not connected to this workspace.",
+  "slackContext.error.notInChannel": "LumoBot is not a member of this Slack channel. Invite the bot to read this message.",
+  "slackContext.error.slackUnavailable": "Could not reach Slack right now. Try again in a moment.",
+  "slackContext.error.wrongTeam": "This permalink is from a different Slack workspace.",
+  "slackContext.fetchedAgo": "Fetched {ago}",
+  "slackContext.refresh": "Refresh",
+  "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
+  "slackContext.tab": "Slack Context",
+  "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
+  "slackContext.unlink": "Remove"
 }

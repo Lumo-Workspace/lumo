@@ -2,6 +2,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskService } from '@/lib/services/task.service'
+import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -34,6 +35,8 @@ export interface TaskContext {
    * memory-shape knowledge in the CLI bundle.
    */
   memorySection: string
+  /** Pre-rendered "## Slack Context" markdown; empty when no contexts attached. */
+  slackContextSection: string
   sessions: SessionContext[]
 }
 
@@ -77,6 +80,61 @@ function summaryUnresolved(summary: unknown): string[] {
   return u.filter((x): x is string => typeof x === 'string' && x.length > 0)
 }
 
+/** Strip Slack mrkdwn tokens that would confuse the agent. */
+function plainText(text: string): string {
+  return text
+    .replace(/<@([UW][A-Z0-9]+)>/g, '@$1')
+    .replace(/<#[CG][A-Z0-9]+\|([^>]+)>/g, '#$1')
+    .replace(/<#[CG][A-Z0-9]+>/g, '#channel')
+}
+
+function renderSlackContextSection(
+  contexts: Array<{
+    isThread: boolean
+    slackChannelName: string | null
+    permalink: string
+    snapshotAt: Date
+    refreshError: string | null
+    snapshot: {
+      messages: Array<{
+        ts: string
+        userName: string | null
+        userId: string
+        text: string
+      }>
+    }
+  }>
+): string {
+  if (contexts.length === 0) return ''
+
+  const lines: string[] = ['## Slack Context', '']
+
+  for (const c of contexts) {
+    const channelLabel = c.slackChannelName
+      ? `#${c.slackChannelName}`
+      : '#channel'
+    const fetchedAt =
+      c.snapshotAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+    const meta = c.isThread
+      ? `Thread (${c.snapshot.messages.length} messages, fetched ${fetchedAt})`
+      : `Single message (fetched ${fetchedAt})`
+    const errSuffix = c.refreshError
+      ? ` (refresh failed: ${c.refreshError})`
+      : ''
+    lines.push(`### ${channelLabel} · ${meta}${errSuffix}`)
+    lines.push(`permalink: ${c.permalink}`)
+    lines.push('')
+
+    for (const m of c.snapshot.messages) {
+      const author = m.userName ?? `@${m.userId}`
+      lines.push(`- **${author}**: ${plainText(m.text)}`)
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n')
+}
+
 export const taskContextService = {
   /**
    * Assemble a task's historical context for the coding agent: the task
@@ -104,6 +162,10 @@ export const taskContextService = {
     if (!full) return null
 
     const sessions = await sessionRepository.listForTask(resolved.id)
+
+    const slackContexts = await taskSlackContextRepository.listByTask(
+      resolved.id
+    )
 
     const [taskMemories, projectMemories] = await Promise.all([
       memoryRepository.findActiveTaskMemories(resolved.id),
@@ -139,6 +201,11 @@ export const taskContextService = {
         description: full.description,
       },
       memorySection,
+      slackContextSection: renderSlackContextSection(
+        slackContexts as unknown as Parameters<
+          typeof renderSlackContextSection
+        >[0]
+      ),
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR erfolgreich erstellt",
   "lumo.sync.generateFailed": "Vorschlag konnte nicht generiert werden",
   "lumo.sync.syncFailed": "PR konnte nicht erstellt werden",
-
   "lumo.sync.noOperations": "Die KI hat diese Erinnerungen überprüft und nichts Hinzuzufügendes gefunden. LUMO.md erfasst nur wirkungsvolles Wissen aus der Praxis — aufgetretene Fallen, Entscheidungen mit nicht offensichtlicher Begründung und überraschend entstandene Konventionen. Ausgeschlossen sind: aus dem Code ablesbare Fakten, am ersten Tag festlegbare Regeln und Dinge, deren Vergessen keinen erheblichen Aufwand verursacht.",
-
   "lumo.sync.banner.ready": "{n, plural, one {# neue Erinnerung bereit zur Synchronisierung} other {# neue Erinnerungen bereit zur Synchronisierung}}",
   "lumo.sync.banner.button": "{n} mit LUMO.md synchronisieren →",
   "lumo.sync.banner.synced": "Mit LUMO.md synchronisiert",
   "lumo.sync.banner.viewPr": "PR anzeigen",
   "lumo.sync.sidebar.hint": "Im Agent-Lauf-Tab oben synchronisieren",
-
   "waitlist.heading": "Auf die Warteliste setzen",
   "waitlist.subheading": "Frühzeitig auf Lumo zugreifen.",
   "waitlist.success.title": "Sie sind auf der Liste!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "Wird gesendet…",
   "waitlist.footer": "Wir geben Ihre E-Mail nie weiter. Jederzeit abbestellbar.",
   "waitlist.error.network": "Netzwerkfehler. Bitte erneut versuchen.",
-
   "onboarding.workspace.title": "Workspace erstellen",
   "onboarding.workspace.nameLabel": "Workspace-Name",
   "onboarding.workspace.namePlaceholder": "Acme GmbH",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "Vorerst überspringen",
   "onboarding.invite.error.send": "Einladungen konnten nicht gesendet werden",
   "onboarding.error.generic": "Etwas ist schiefgelaufen",
-
   "invite.accepted.title": "Einladung bereits angenommen",
   "invite.accepted.body": "Dieser Einladungslink wurde bereits verwendet.",
   "invite.accepted.cta": "Zum Workspace",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "Fokus heute",
   "summary.topBlockers": "Wichtigste Blocker",
   "workspaceSettings.riskUpdateFailed": "Risikoschwellenwerte konnten nicht aktualisiert werden",
-  "workspaceSettings.riskUpdated": "Risikoschwellenwerte aktualisiert"
+  "workspaceSettings.riskUpdated": "Risikoschwellenwerte aktualisiert",
+  "slackContext.add": "Slack-Nachricht hinzufügen",
+  "slackContext.dialog.permalinkLabel": "Slack-Permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Anhängen",
+  "slackContext.dialog.title": "Slack-Nachricht anhängen",
+  "slackContext.empty.noContexts": "Noch keine Slack-Nachrichten angehängt.",
+  "slackContext.empty.notConnected": "Verbinde Slack, um Nachrichten als Task-Kontext anzuhängen.",
+  "slackContext.error.invalidPermalink": "Das ist kein gültiger Slack-Nachrichten-Permalink.",
+  "slackContext.error.messageGone": "Die Slack-Nachricht ist nicht mehr verfügbar.",
+  "slackContext.error.notConnected": "Slack ist nicht mit diesem Workspace verbunden.",
+  "slackContext.error.notInChannel": "LumoBot ist kein Mitglied dieses Slack-Kanals. Lade den Bot ein, um diese Nachricht zu lesen.",
+  "slackContext.error.slackUnavailable": "Slack ist momentan nicht erreichbar. Versuche es in einem Moment erneut.",
+  "slackContext.error.wrongTeam": "Dieser Permalink ist aus einem anderen Slack-Workspace.",
+  "slackContext.fetchedAgo": "Abgerufen vor {ago}",
+  "slackContext.refresh": "Aktualisieren",
+  "slackContext.refresh.failedBanner": "Aktualisierung fehlgeschlagen · vor {ago}",
+  "slackContext.tab": "Slack-Kontext",
+  "slackContext.thread.replies": "{n, plural, one {1 Antwort} other {# Antworten}}",
+  "slackContext.unlink": "Entfernen"
 }

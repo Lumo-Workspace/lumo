@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
+import { getSlackIntegrationToken } from './token'
 import {
   SlackEventType,
   NotificationPayload,
@@ -60,12 +61,8 @@ function buildBlocks(
 async function getIntegrationToken(
   workspaceId: string
 ): Promise<string | null> {
-  const integration = await prisma.slackIntegration.findUnique({
-    where: { workspaceId },
-    select: { accessToken: true },
-  })
-  if (!integration) return null
-  return decrypt(integration.accessToken)
+  const result = await getSlackIntegrationToken(workspaceId)
+  return result?.token ?? null
 }
 
 async function postToChannel(

@@ -171,6 +171,7 @@ model Workspace {
   hookEvents         HookEvent[]
   sessions           Session[]
   memories           Memory[]
+  taskSlackContexts  TaskSlackContext[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -259,9 +260,10 @@ model WorkspaceMember {
   hookEvents         HookEvent[]
   sessions           Session[]
   preference         UserPreference?
-  createdDocuments   Document[]          @relation("DocumentCreator")
-  documentShares     DocumentShare[]     @relation("DocumentShareMember")
-  documentEdits      DocumentEditor[]
+  createdDocuments      Document[]          @relation("DocumentCreator")
+  documentShares        DocumentShare[]     @relation("DocumentShareMember")
+  documentEdits         DocumentEditor[]
+  createdSlackContexts  TaskSlackContext[]  @relation("TaskSlackContextCreator")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -418,6 +420,7 @@ model Task {
   sentryIssueLinks  SentryIssueLink[]
   memories          Memory[]
   lumoProposals     LumoProposal[]
+  slackContexts     TaskSlackContext[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1287,4 +1290,36 @@ model LumoProposal {
   @@index([projectId])
   @@index([taskId])
   @@map("lumo_proposals")
+}
+
+// ─── Task Slack Context ──────────────────────────────────────────────────────
+
+model TaskSlackContext {
+  id               String   @id @default(cuid())
+  taskId           String
+  workspaceId      String
+
+  permalink        String
+  slackTeamId      String
+  slackChannelId   String
+  slackChannelName String?
+  rootTs           String
+  threadTs         String?
+  isThread         Boolean
+
+  snapshot         Json
+  snapshotAt       DateTime
+  refreshError     String?
+
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  task             Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy        WorkspaceMember @relation("TaskSlackContextCreator", fields: [createdById], references: [id])
+
+  @@index([taskId])
+  @@index([workspaceId])
+  @@map("task_slack_contexts")
 }

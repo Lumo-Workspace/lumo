@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR berhasil dibuat",
   "lumo.sync.generateFailed": "Gagal membuat proposal",
   "lumo.sync.syncFailed": "Gagal membuat PR",
-
   "lumo.sync.noOperations": "AI telah meninjau memori ini dan tidak menemukan yang perlu ditambahkan. LUMO.md hanya mencatat pengetahuan berdampak tinggi yang ditemukan melalui kerja nyata — jebakan yang ditemui, keputusan dengan alasan yang tidak jelas, dan konvensi yang muncul secara mengejutkan. Yang dikecualikan: fakta yang bisa dibaca dari kode, aturan yang bisa ditetapkan di hari pertama, dan hal yang tidak menyebabkan kerugian signifikan jika terlupakan.",
-
   "lumo.sync.banner.ready": "{n} memori baru siap disinkronkan",
   "lumo.sync.banner.button": "Sinkronkan {n} ke LUMO.md →",
   "lumo.sync.banner.synced": "Disinkronkan ke LUMO.md",
   "lumo.sync.banner.viewPr": "Lihat PR",
   "lumo.sync.sidebar.hint": "Sinkronkan dari tab Agent run di atas",
-
   "waitlist.heading": "Bergabung ke Daftar Tunggu",
   "waitlist.subheading": "Akses awal ke Lumo.",
   "waitlist.success.title": "Anda sudah ada dalam daftar!",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "Mengirim…",
   "waitlist.footer": "Kami tidak akan pernah membagikan email Anda. Berhenti berlangganan kapan saja.",
   "waitlist.error.network": "Kesalahan jaringan. Silakan coba lagi.",
-
   "onboarding.workspace.title": "Buat ruang kerja Anda",
   "onboarding.workspace.nameLabel": "Nama ruang kerja",
   "onboarding.workspace.namePlaceholder": "Acme Tbk.",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "Lewati dulu",
   "onboarding.invite.error.send": "Gagal mengirim undangan",
   "onboarding.error.generic": "Terjadi kesalahan",
-
   "invite.accepted.title": "Undangan sudah diterima",
   "invite.accepted.body": "Tautan undangan ini sudah pernah digunakan.",
   "invite.accepted.cta": "Ke ruang kerja",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "Fokus hari ini",
   "summary.topBlockers": "Pemblokir utama",
   "workspaceSettings.riskUpdateFailed": "Gagal memperbarui ambang batas risiko",
-  "workspaceSettings.riskUpdated": "Ambang batas risiko diperbarui"
+  "workspaceSettings.riskUpdated": "Ambang batas risiko diperbarui",
+  "slackContext.add": "Tambahkan pesan Slack",
+  "slackContext.dialog.permalinkLabel": "Slack permalink",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "Lampirkan",
+  "slackContext.dialog.title": "Lampirkan pesan Slack",
+  "slackContext.empty.noContexts": "Belum ada pesan Slack yang dilampirkan.",
+  "slackContext.empty.notConnected": "Hubungkan Slack untuk melampirkan pesan sebagai konteks tugas.",
+  "slackContext.error.invalidPermalink": "Itu bukan permalink pesan Slack yang valid.",
+  "slackContext.error.messageGone": "Pesan Slack tidak lagi dapat diakses.",
+  "slackContext.error.notConnected": "Slack tidak terhubung ke workspace ini.",
+  "slackContext.error.notInChannel": "LumoBot bukan anggota channel Slack ini. Undang bot untuk membaca pesan ini.",
+  "slackContext.error.slackUnavailable": "Tidak dapat menjangkau Slack sekarang. Coba lagi nanti.",
+  "slackContext.error.wrongTeam": "Permalink ini berasal dari workspace Slack yang berbeda.",
+  "slackContext.fetchedAgo": "Diambil {ago}",
+  "slackContext.refresh": "Segarkan",
+  "slackContext.refresh.failedBanner": "Penyegaran gagal · {ago}",
+  "slackContext.tab": "Konteks Slack",
+  "slackContext.thread.replies": "{n, plural, one {1 balasan} other {# balasan}}",
+  "slackContext.unlink": "Hapus"
 }

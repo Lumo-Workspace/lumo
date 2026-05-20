@@ -859,15 +859,12 @@
   "lumo.sync.prCreated": "PR が正常に作成されました",
   "lumo.sync.generateFailed": "提案の生成に失敗しました",
   "lumo.sync.syncFailed": "PR の作成に失敗しました",
-
   "lumo.sync.noOperations": "AI がこれらのメモリーを確認しましたが、追加すべき内容はありませんでした。LUMO.md は実務で発見された高インパクトな知識のみを記録します——遭遇した落とし穴、自明でない理由を持つ意思決定、偶然生まれた慣習。コードから読み取れる事実、初日に書ける規則、忘れても大きな損失にならない事柄は対象外です。",
-
   "lumo.sync.banner.ready": "{n} 件の新しいメモリーが同期待ち",
   "lumo.sync.banner.button": "{n} 件を LUMO.md に同期 →",
   "lumo.sync.banner.synced": "LUMO.md に同期済み",
   "lumo.sync.banner.viewPr": "PR を表示",
   "lumo.sync.sidebar.hint": "上の Agent 実行タブから同期",
-
   "waitlist.heading": "ウェイトリストに登録",
   "waitlist.subheading": "Lumo にいち早くアクセス。",
   "waitlist.success.title": "ウェイトリストに登録されました！",
@@ -889,7 +886,6 @@
   "waitlist.button.submitting": "送信中…",
   "waitlist.footer": "メールアドレスを共有することは一切ありません。いつでも配信解除できます。",
   "waitlist.error.network": "ネットワークエラーが発生しました。もう一度お試しください。",
-
   "onboarding.workspace.title": "ワークスペースを作成",
   "onboarding.workspace.nameLabel": "ワークスペース名",
   "onboarding.workspace.namePlaceholder": "株式会社サンプル",
@@ -905,7 +901,6 @@
   "onboarding.invite.skip": "後で",
   "onboarding.invite.error.send": "招待の送信に失敗しました",
   "onboarding.error.generic": "エラーが発生しました",
-
   "invite.accepted.title": "招待は既に承諾されています",
   "invite.accepted.body": "この招待リンクは既に使用されました。",
   "invite.accepted.cta": "ワークスペースへ",
@@ -970,5 +965,24 @@
   "summary.todayFocus": "今日のフォーカス",
   "summary.topBlockers": "主なブロッカー",
   "workspaceSettings.riskUpdateFailed": "リスクしきい値の更新に失敗しました",
-  "workspaceSettings.riskUpdated": "リスクしきい値を更新しました"
+  "workspaceSettings.riskUpdated": "リスクしきい値を更新しました",
+  "slackContext.add": "Slackメッセージを追加",
+  "slackContext.dialog.permalinkLabel": "Slackパーマリンク",
+  "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
+  "slackContext.dialog.submit": "添付",
+  "slackContext.dialog.title": "Slackメッセージを添付",
+  "slackContext.empty.noContexts": "まだSlackメッセージが添付されていません。",
+  "slackContext.empty.notConnected": "メッセージをタスクコンテキストとして添付するにはSlackに接続してください。",
+  "slackContext.error.invalidPermalink": "有効なSlackメッセージパーマリンクではありません。",
+  "slackContext.error.messageGone": "Slackメッセージにアクセスできなくなりました。",
+  "slackContext.error.notConnected": "このワークスペースではSlackが接続されていません。",
+  "slackContext.error.notInChannel": "LumoBotはこのSlackチャンネルのメンバーではありません。メッセージを読むためにボットを招待してください。",
+  "slackContext.error.slackUnavailable": "現在Slackに接続できません。しばらく経ってからもう一度お試しください。",
+  "slackContext.error.wrongTeam": "このパーマリンクは別のSlackワークスペースからのものです。",
+  "slackContext.fetchedAgo": "{ago}に取得",
+  "slackContext.refresh": "更新",
+  "slackContext.refresh.failedBanner": "更新に失敗しました · {ago}",
+  "slackContext.tab": "Slack コンテキスト",
+  "slackContext.thread.replies": "{n, plural, one {返信 1 件} other {返信 # 件}}",
+  "slackContext.unlink": "削除"
 }
