@@ -375,7 +375,6 @@ export function TaskDetailPage({
             createBranchOpen={createBranchOpen}
             setCreateBranchOpen={setCreateBranchOpen}
             workspaceUrl={workspaceUrl}
-            workspaceId={task.project.workspaceId ?? ''}
             onPatch={handlePatch}
             onCopyBranch={actions.handleCopyBranch}
             allTags={allTags}

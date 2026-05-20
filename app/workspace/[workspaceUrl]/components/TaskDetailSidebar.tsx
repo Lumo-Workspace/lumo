@@ -40,7 +40,6 @@ interface TaskDetailSidebarProps {
   workspaceUrl: string
   onPatch: (patch: Record<string, unknown>) => void
   onCopyBranch: (id: string, name: string) => void
-  workspaceId: string
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
   /** Called when tags change (full objects). */
@@ -62,7 +61,6 @@ export function TaskDetailSidebar({
   createBranchOpen,
   setCreateBranchOpen,
   workspaceUrl,
-  workspaceId: _workspaceId,
   onPatch,
   onCopyBranch,
   allTags,
