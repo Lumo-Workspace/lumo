@@ -324,6 +324,21 @@ export const taskRepository = {
     })
   },
 
+  /**
+   * Batch variant of {@link findForUpdate}. Returns a Map keyed by id so the
+   * caller can look up each row without scanning, and skips fetching when
+   * `ids` is empty. Used by quick-dispatch to pre-fetch all tasks in a batch
+   * with one query instead of fetching per-action.
+   */
+  async findManyForUpdate(ids: string[]) {
+    if (ids.length === 0) return new Map<string, never>()
+    const rows = await prisma.task.findMany({
+      where: { id: { in: ids } },
+      include: TASK_UPDATE_INCLUDE,
+    })
+    return new Map(rows.map(row => [row.id, row]))
+  },
+
   /** Find a task by ID with only the project relation (for auth checks). */
   async findWithProject(id: string) {
     return prisma.task.findUnique({ where: { id }, include: { project: true } })
