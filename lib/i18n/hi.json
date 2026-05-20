@@ -514,6 +514,10 @@
   "task.noPullRequests": "कोई पुल रिक्वेस्ट नहीं",
   "task.activity": "गतिविधि",
   "task.comments": "टिप्पणियां",
+  "task.context.documents.empty": "कोई दस्तावेज़ लिंक नहीं",
+  "task.context.section.documents": "दस्तावेज़",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "संदर्भ",
   "task.edited": "संपादित किया",
   "task.copyCommentLink": "लिंक कॉपी करें",
   "task.reply": "उत्तर दें",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Fetched {ago}",
   "slackContext.refresh": "Refresh करें",
   "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
-  "slackContext.tab": "Slack संदर्भ",
   "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
   "slackContext.unlink": "Remove करें",
   "slackContext.error.missingScope": "LumoBot के पास आवश्यक Slack अनुमतियाँ नहीं हैं। Channel history तक पहुंच प्रदान करने के लिए workspace settings में Slack को दोबारा कनेक्ट करें।"

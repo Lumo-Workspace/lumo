@@ -514,6 +514,10 @@
   "task.noPullRequests": "Keine Pull Requests",
   "task.activity": "Aktivität",
   "task.comments": "Kommentare",
+  "task.context.documents.empty": "Keine Dokumente verknüpft",
+  "task.context.section.documents": "Dokumente",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "Kontext",
   "task.edited": "bearbeitet",
   "task.copyCommentLink": "Link kopieren",
   "task.reply": "Antworten",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Abgerufen vor {ago}",
   "slackContext.refresh": "Aktualisieren",
   "slackContext.refresh.failedBanner": "Aktualisierung fehlgeschlagen · vor {ago}",
-  "slackContext.tab": "Slack-Kontext",
   "slackContext.thread.replies": "{n, plural, one {1 Antwort} other {# Antworten}}",
   "slackContext.unlink": "Entfernen",
   "slackContext.error.missingScope": "LumoBot hat nicht die erforderlichen Slack-Berechtigungen. Verbinden Sie Slack in den Workspace-Einstellungen erneut, um Zugriff auf den Kanal-Verlauf zu gewähren."

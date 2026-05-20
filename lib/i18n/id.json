@@ -514,6 +514,10 @@
   "task.noPullRequests": "Tidak ada pull request",
   "task.activity": "Aktivitas",
   "task.comments": "Komentar",
+  "task.context.documents.empty": "Tidak ada dokumen tertaut",
+  "task.context.section.documents": "Dokumen",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "Konteks",
   "task.edited": "diedit",
   "task.copyCommentLink": "Salin tautan",
   "task.reply": "Balas",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Diambil {ago}",
   "slackContext.refresh": "Segarkan",
   "slackContext.refresh.failedBanner": "Penyegaran gagal · {ago}",
-  "slackContext.tab": "Konteks Slack",
   "slackContext.thread.replies": "{n, plural, one {1 balasan} other {# balasan}}",
   "slackContext.unlink": "Hapus",
   "slackContext.error.missingScope": "LumoBot kehilangan izin Slack yang diperlukan. Hubungkan kembali Slack di pengaturan workspace untuk memberikan akses ke riwayat channel."
