@@ -6,8 +6,6 @@ import {
   type TaskDocumentResource,
 } from '@/lib/api-client/task-documents'
 
-export type { TaskDocumentResource }
-
 interface UseTaskDocumentsResult {
   documents: TaskDocumentResource[]
   loading: boolean
