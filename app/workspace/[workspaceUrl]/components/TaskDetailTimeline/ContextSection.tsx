@@ -34,10 +34,19 @@ export function ContextSection({
           <span className='flex items-center gap-2'>
             {icon}
             <span className='font-medium'>{label}</span>
-            <span className='text-xs text-zinc-500 tabular-nums'>{count}</span>
+            <span
+              className='text-xs text-zinc-500 tabular-nums'
+              aria-label={`${count} items`}
+            >
+              {count}
+            </span>
           </span>
         </AccordionTrigger>
-        {addSlot && <div className='shrink-0 ml-2'>{addSlot}</div>}
+        {addSlot && (
+          <div className='shrink-0 ml-2' onClick={e => e.stopPropagation()}>
+            {addSlot}
+          </div>
+        )}
       </div>
       <AccordionContent className='px-3 pb-3'>{children}</AccordionContent>
     </AccordionItem>
