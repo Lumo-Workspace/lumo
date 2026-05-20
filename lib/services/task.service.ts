@@ -37,9 +37,11 @@ function splitTaskIdentifier(
 
 /**
  * Resolve a human-facing task identifier ("LUM-30") scoped to a workspace
- * into the minimal descriptor used by the CLI's session-start flow. Returns
- * null if the identifier is malformed or no matching task exists in the
- * workspace — callers map that to HTTP 404.
+ * into the minimal descriptor `{ id, identifier, title, status }`. Shared
+ * by the CLI command paths (`session attach`, `task context`, `task
+ * create`/`update`), the `/api/tasks/resolve/:identifier` route, and the
+ * task-context service. Returns null if the identifier is malformed or no
+ * matching task exists in the workspace — callers map that to HTTP 404.
  */
 async function resolveIdentifier(workspaceId: string, identifier: string) {
   const parts = splitTaskIdentifier(identifier)

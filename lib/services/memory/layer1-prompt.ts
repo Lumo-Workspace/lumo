@@ -156,22 +156,22 @@ Output:
 
 Example 5 — Plain-language headline (contrastive)
 Turn (excerpt):
-  [turn end] "Hit it again: Session.taskId is immutable per first-event-wins in session.repository.ts, but hook payload.task_id reflects ~/.lumo/current-task.json live. Use payload.task_id at query time."
+  [turn end] "Hit it again: SubagentStop hook handler blocked because the memory-extraction call to the server had no timeout, and the parent agent team deadlocked waiting on the sub-agent to exit."
 Existing memories: (none)
 
 BAD output (headline is a noun-phrase log line; detail is too terse to be useful):
   { "type": "ADD", "category": "TRAP",
     "content": {
-      "trigger": "Session.taskId vs payload.task_id divergence mid-session",
-      "outcome": "Data inconsistency between recorded and actual task"
+      "trigger": "SubagentStop hook deadlock",
+      "outcome": "Sub-agent fails to complete"
     } }
 
 GOOD output (headline is a full sentence; detail explains what happens and why):
   { "operations": [
     { "type": "ADD", "category": "TRAP",
       "content": {
-        "trigger": "If you read the current task ID from the Session row while the user switches tasks mid-session, you will get the wrong task.",
-        "outcome": "Session.taskId is set once on the first event (first-event-wins, see session.repository.ts) and never updated. But each hook payload's task_id reflects the live ~/.lumo/current-task.json. Code that trusts Session.taskId will silently route later events to the original task instead of the user's current one."
+        "trigger": "If a SubagentStop hook handler blocks or throws, Claude Code waits on it before allowing the sub-agent to exit, and the parent agent team deadlocks.",
+        "outcome": "Slow synchronous work in the handler (e.g., an HTTP call without a timeout) stalls the parent agent indefinitely; uncaught exceptions have the same effect. Memory-extraction handlers must return quickly and swallow failures so a broken extraction never blocks completion."
       } } ] }
 
 Example 6 — DELETE + ADD when a memory is contradicted
