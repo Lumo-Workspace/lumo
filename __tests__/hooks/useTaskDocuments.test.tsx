@@ -30,7 +30,7 @@ describe('useTaskDocuments', () => {
 
     expect(mockList).toHaveBeenCalledWith('tsk_1')
     expect(result.current.documents).toHaveLength(1)
-    expect(result.current.documents[0].title).toBe('Doc')
+    expect(result.current.documents[0]?.title).toBe('Doc')
   })
 
   it('skips fetch when enabled=false', async () => {

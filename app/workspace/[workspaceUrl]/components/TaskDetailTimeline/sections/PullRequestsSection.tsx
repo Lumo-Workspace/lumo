@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from 'react'
 import { useIntl } from 'react-intl'
 import { X } from 'lucide-react'
 import { PrStateBadge, CiIcon } from '../../pr-helpers'
