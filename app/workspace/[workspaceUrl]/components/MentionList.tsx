@@ -1,6 +1,7 @@
 'use client'
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useIntl } from 'react-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 // Bot icon removed — agent features disabled for now
 import { StatusIcon } from './StatusIcon'
@@ -39,6 +40,7 @@ interface MentionListProps {
 
 export const MentionList = forwardRef<MentionListRef, MentionListProps>(
   ({ items, command }, ref) => {
+    const intl = useIntl()
     const [selectedIndex, setSelectedIndex] = useState(0)
 
     useEffect(() => {
@@ -80,7 +82,11 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     }))
 
     if (!items.length) {
-      return <div className='px-3 py-2 text-xs text-zinc-400'>No results</div>
+      return (
+        <div className='px-3 py-2 text-xs text-zinc-400'>
+          {intl.formatMessage({ id: 'mention.empty' })}
+        </div>
+      )
     }
 
     const users = items.filter(i => i.type === 'user')
@@ -153,7 +159,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
         {users.length > 0 && (
           <>
             <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
-              Users
+              {intl.formatMessage({ id: 'mention.users' })}
             </div>
             {users.map((item, i) => renderItem(item, userOffset + i))}
           </>
@@ -167,7 +173,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                   'mt-1 border-t border-zinc-100 dark:border-zinc-800 pt-2'
               )}
             >
-              Tasks
+              {intl.formatMessage({ id: 'mention.tasks' })}
             </div>
             {tasks.map((item, i) => renderItem(item, taskOffset + i))}
           </>

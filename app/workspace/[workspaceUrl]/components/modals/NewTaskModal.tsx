@@ -573,14 +573,24 @@ export function NewTaskModal({
                   >
                     <SelectTrigger className={triggerClass}>
                       <GitBranch size={12} className='mr-1 shrink-0' />
-                      <SelectValue placeholder='Repository' />
+                      <SelectValue
+                        placeholder={intl.formatMessage({
+                          id: 'newTask.repositoryPlaceholder',
+                        })}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value='__none__'>No repository</SelectItem>
+                      <SelectItem value='__none__'>
+                        {intl.formatMessage({ id: 'newTask.noRepository' })}
+                      </SelectItem>
                       {projectRepos.map(repo => (
                         <SelectItem key={repo.id} value={repo.id}>
-                          {repo.name}
-                          {repo.isDefault ? ' (default)' : ''}
+                          {repo.isDefault
+                            ? intl.formatMessage(
+                                { id: 'newTask.defaultRepoLabel' },
+                                { name: repo.name }
+                              )
+                            : repo.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

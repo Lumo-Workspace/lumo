@@ -451,7 +451,9 @@ export function ProjectSlackDialog({
                         }
                         className='w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400'
                       >
-                        <option value=''>Select a channel…</option>
+                        <option value=''>
+                          {intl.formatMessage({ id: 'slack.selectChannel' })}
+                        </option>
                         {loadState.availableChannels.map(c => (
                           <option key={c.id} value={c.id}>
                             {c.name}
@@ -465,7 +467,7 @@ export function ProjectSlackDialog({
                   {/* Event checklist */}
                   <div className='space-y-2'>
                     <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400'>
-                      Notify on
+                      {intl.formatMessage({ id: 'slack.notifyOn' })}
                     </p>
                     {ALL_SLACK_EVENTS.map(event => (
                       <label
