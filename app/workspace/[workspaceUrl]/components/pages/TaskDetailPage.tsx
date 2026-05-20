@@ -333,6 +333,8 @@ export function TaskDetailPage({
             {/* Activity / Comments Timeline */}
             <TimelineTabs
               taskId={task.id}
+              workspaceId={task.project.workspaceId ?? ''}
+              workspaceUrl={workspaceUrl}
               commentsProps={{
                 workspaceUrl,
                 projectName: task.project.name,
@@ -346,6 +348,20 @@ export function TaskDetailPage({
                 tc,
               }}
               slackConnected={slackConnected}
+              pullRequests={task.pullRequests ?? []}
+              onLinkPr={async () => {
+                const data = await tasksClient.getById<{ task: TaskDetail }>(
+                  task.id
+                )
+                if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
+              }}
+              onUnlinkPr={async (prId: string) => {
+                await tasksClient.unlinkPr(task.id, prId)
+                const data = await tasksClient.getById<{ task: TaskDetail }>(
+                  task.id
+                )
+                if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
+              }}
             />
           </div>
 
@@ -359,22 +375,8 @@ export function TaskDetailPage({
             createBranchOpen={createBranchOpen}
             setCreateBranchOpen={setCreateBranchOpen}
             workspaceUrl={workspaceUrl}
-            workspaceId={task.project.workspaceId ?? ''}
             onPatch={handlePatch}
             onCopyBranch={actions.handleCopyBranch}
-            onUnlinkPr={async (prId: string) => {
-              await tasksClient.unlinkPr(task.id, prId)
-              const data = await tasksClient.getById<{ task: TaskDetail }>(
-                task.id
-              )
-              if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
-            }}
-            onLinkPr={async () => {
-              const data = await tasksClient.getById<{ task: TaskDetail }>(
-                task.id
-              )
-              if (data?.task) setTask(prev => ({ ...prev, ...data.task }))
-            }}
             allTags={allTags}
             onTagsChange={tags => {
               setTask(prev => ({ ...prev, tags }))

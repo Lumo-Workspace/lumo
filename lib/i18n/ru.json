@@ -514,6 +514,10 @@
   "task.noPullRequests": "Pull-запросов нет",
   "task.activity": "Активность",
   "task.comments": "Комментарии",
+  "task.context.documents.empty": "Связанных документов нет",
+  "task.context.section.documents": "Документы",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "Контекст",
   "task.edited": "отредактировано",
   "task.copyCommentLink": "Скопировать ссылку",
   "task.reply": "Ответить",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Получено {ago}",
   "slackContext.refresh": "Обновить",
   "slackContext.refresh.failedBanner": "Обновление не удалось · {ago}",
-  "slackContext.tab": "Контекст Slack",
   "slackContext.thread.replies": "{n, plural, one {1 ответ} other {# ответов}}",
   "slackContext.unlink": "Удалить",
   "slackContext.error.missingScope": "LumoBot не имеет необходимых разрешений Slack. Переподключите Slack в настройках рабочего пространства, чтобы предоставить доступ к истории канала."

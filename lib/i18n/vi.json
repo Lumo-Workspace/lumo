@@ -514,6 +514,10 @@
   "task.noPullRequests": "Không có pull request",
   "task.activity": "Hoạt động",
   "task.comments": "Bình luận",
+  "task.context.documents.empty": "Chưa có tài liệu liên kết",
+  "task.context.section.documents": "Tài liệu",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "Ngữ cảnh",
   "task.edited": "đã chỉnh sửa",
   "task.copyCommentLink": "Sao chép liên kết",
   "task.reply": "Trả lời",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Tìm nạp {ago}",
   "slackContext.refresh": "Làm mới",
   "slackContext.refresh.failedBanner": "Làm mới thất bại · {ago}",
-  "slackContext.tab": "Ngữ cảnh Slack",
   "slackContext.thread.replies": "{n, plural, one {1 phản hồi} other {# phản hồi}}",
   "slackContext.unlink": "Xóa",
   "slackContext.error.missingScope": "LumoBot thiếu quyền Slack cần thiết. Kết nối lại Slack trong cài đặt workspace để cấp quyền truy cập lịch sử kênh."

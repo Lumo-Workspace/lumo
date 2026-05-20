@@ -659,6 +659,10 @@
   "task.noPullRequests": "暫無拉取請求",
   "task.activity": "動態",
   "task.comments": "留言",
+  "task.context.documents.empty": "尚無關聯文件",
+  "task.context.section.documents": "文件",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "上下文",
   "task.edited": "已編輯",
   "task.copyCommentLink": "複製連結",
   "task.reply": "回覆",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "已取得 {ago}",
   "slackContext.refresh": "重新整理",
   "slackContext.refresh.failedBanner": "重新整理失敗 · {ago}",
-  "slackContext.tab": "Slack 上下文",
   "slackContext.thread.replies": "{n, plural, one {1 則回覆} other {# 則回覆}}",
   "slackContext.unlink": "移除",
   "slackContext.error.missingScope": "LumoBot 缺少必要的 Slack 權限。請在工作區設定中重新連接 Slack，以授予頻道歷史記錄的存取權限。"

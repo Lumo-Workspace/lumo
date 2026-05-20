@@ -514,6 +514,10 @@
   "task.noPullRequests": "풀 리퀘스트 없음",
   "task.activity": "활동",
   "task.comments": "댓글",
+  "task.context.documents.empty": "연결된 문서가 없습니다",
+  "task.context.section.documents": "문서",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "컨텍스트",
   "task.edited": "편집됨",
   "task.copyCommentLink": "링크 복사",
   "task.reply": "답글",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "{ago}에 가져옴",
   "slackContext.refresh": "새로고침",
   "slackContext.refresh.failedBanner": "새로고침 실패 · {ago}",
-  "slackContext.tab": "Slack 컨텍스트",
   "slackContext.thread.replies": "{n, plural, one {1개 reply} other {# replies}}",
   "slackContext.unlink": "제거",
   "slackContext.error.missingScope": "LumoBot에 필요한 Slack 권한이 없습니다. 워크스페이스 설정에서 Slack을 다시 연결하여 채널 히스토리 접근 권한을 부여하세요."

@@ -514,6 +514,10 @@
   "task.noPullRequests": "Sin pull requests",
   "task.activity": "Actividad",
   "task.comments": "Comentarios",
+  "task.context.documents.empty": "No hay documentos vinculados",
+  "task.context.section.documents": "Documentos",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "Contexto",
   "task.edited": "editado",
   "task.copyCommentLink": "Copiar enlace",
   "task.reply": "Responder",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "Obtenido {ago}",
   "slackContext.refresh": "Actualizar",
   "slackContext.refresh.failedBanner": "Actualización fallida · {ago}",
-  "slackContext.tab": "Contexto de Slack",
   "slackContext.thread.replies": "{n, plural, one {1 respuesta} other {# respuestas}}",
   "slackContext.unlink": "Eliminar",
   "slackContext.error.missingScope": "LumoBot no tiene los permisos necesarios de Slack. Reconecta Slack en los ajustes del espacio de trabajo para otorgar acceso al historial del canal."

@@ -514,6 +514,10 @@
   "task.noPullRequests": "プルリクエストなし",
   "task.activity": "アクティビティ",
   "task.comments": "コメント",
+  "task.context.documents.empty": "リンクされたドキュメントはありません",
+  "task.context.section.documents": "ドキュメント",
+  "task.context.section.slack": "Slack",
+  "task.context.tab": "コンテキスト",
   "task.edited": "編集済み",
   "task.copyCommentLink": "リンクをコピー",
   "task.reply": "返信",
@@ -982,7 +986,6 @@
   "slackContext.fetchedAgo": "{ago}に取得",
   "slackContext.refresh": "更新",
   "slackContext.refresh.failedBanner": "更新に失敗しました · {ago}",
-  "slackContext.tab": "Slack コンテキスト",
   "slackContext.thread.replies": "{n, plural, one {返信 1 件} other {返信 # 件}}",
   "slackContext.unlink": "削除",
   "slackContext.error.missingScope": "LumoBotに必要なSlackパーミッションがありません。ワークスペース設定でSlackを再接続してチャンネル履歴へのアクセスを許可してください。"
