@@ -1,4 +1,3 @@
-import { waitUntil } from '@vercel/functions'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { clerkClient } from '@clerk/nextjs/server'
@@ -8,7 +7,6 @@ import {
   memberRepository,
   taskRepository,
 } from '@/lib/repositories'
-import { pushProjectEvent } from '@/lib/integrations/pusher'
 import { getHumanActorId } from '@/lib/actor'
 import {
   QUICK_DISPATCH_V2_SYSTEM_PROMPT,
@@ -56,33 +54,47 @@ export const quickDispatchService = {
         }
     >,
     workspaceId: string,
-    actorId: string
+    actorId: string,
+    actorClerkId: string
   ): Promise<ActionResult[]> {
     const results: ActionResult[] = []
+
+    // Pre-fetch taskCheck rows for every update action in one query so we can
+    // call updateTaskWithSideEffects (which dispatches activity events,
+    // real-time push, and notifications) without an extra DB round-trip per
+    // action. Skipped when the batch has no updates.
+    const updateIds = actions
+      .filter(a => a.type === 'update')
+      .map(a => (a as { taskId: string }).taskId)
+    const taskChecks =
+      updateIds.length > 0
+        ? await taskRepository.findManyForUpdate(updateIds)
+        : new Map()
 
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i]!
 
       if (action.type === 'update') {
+        const taskCheck = taskChecks.get(action.taskId)
+        if (!taskCheck) {
+          results.push({
+            type: 'update',
+            taskId: action.taskId,
+            taskIdentifier: null,
+            success: false,
+            message: 'Task not found',
+            index: i,
+          })
+          continue
+        }
         try {
-          const result = await taskService.updateTask(
+          await taskService.updateTaskWithSideEffects(
             action.taskId,
-            action.fields
+            action.fields,
+            taskCheck,
+            actorId,
+            actorClerkId
           )
-
-          waitUntil(
-            pushProjectEvent(result.task.projectId as string, {
-              type: 'task:updated',
-              taskId: action.taskId,
-              fields: result.changedFields,
-              patch: result.task,
-            })
-          )
-
-          // TODO: Dispatch task update notifications (assignee change, status change, etc.)
-          // Deferred because fetching full task detail before each update in a batch would be
-          // expensive. See app/api/tasks/[id]/route.ts for the full notification pattern using
-          // buildTaskNotificationCtx + dispatchTaskUpdateNotifications.
 
           results.push({
             type: 'update',

@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     const results = await quickDispatchService.executeActions(
       actions,
       workspaceId,
-      actorId
+      actorId,
+      userId
     )
 
     return NextResponse.json({ results })
