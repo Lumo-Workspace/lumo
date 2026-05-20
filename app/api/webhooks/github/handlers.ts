@@ -10,7 +10,6 @@ import {
 } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
-import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { githubService } from '@/lib/services/github.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -136,10 +135,6 @@ export async function handlePullRequest(
 
   if (action === 'opened' || action === 'reopened') {
     if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {
-      await transitionTaskStatus(task.id, task.projectId, 'IN_REVIEW', {
-        currentStatus: task.status,
-      })
-      // Reviewer notification is handled by domain event handler (task → IN_REVIEW)
       const prOpenedPayload = {
         taskId: task.id,
         taskTitle: task.title,
@@ -172,9 +167,6 @@ export async function handlePullRequest(
       }
     }
   } else if (action === 'closed' && pr.merged) {
-    await transitionTaskStatus(task.id, task.projectId, 'DONE', {
-      currentStatus: task.status,
-    })
     const mergePayload = {
       taskId: task.id,
       taskTitle: task.title,
@@ -192,19 +184,6 @@ export async function handlePullRequest(
         task.projectId
       )
     )
-    waitUntil(
-      sendChannelNotification(
-        workspaceId,
-        'task_done',
-        {
-          taskId: task.id,
-          taskTitle: task.title,
-          taskIdentifier,
-          taskUrl,
-        },
-        task.projectId
-      )
-    )
     if (task.assigneeActorId) {
       const assigneeClerkId = await getActorClerkId(task.assigneeActorId)
       if (assigneeClerkId) {
@@ -216,21 +195,7 @@ export async function handlePullRequest(
             mergePayload
           )
         )
-        waitUntil(
-          sendDMNotification(workspaceId, assigneeClerkId, 'task_done', {
-            taskId: task.id,
-            taskTitle: task.title,
-            taskIdentifier,
-            taskUrl,
-          })
-        )
       }
-    }
-  } else if (action === 'closed' && !pr.merged) {
-    if (task.status === 'IN_REVIEW') {
-      await transitionTaskStatus(task.id, task.projectId, 'IN_PROGRESS', {
-        currentStatus: 'IN_REVIEW',
-      })
     }
   }
 }

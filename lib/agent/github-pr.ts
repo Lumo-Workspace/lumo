@@ -3,13 +3,8 @@ import { AgentError } from './errors'
 import { fireProgress } from './pipeline'
 import { markRunCompleted } from './run-lifecycle'
 import { transitionAgentStatus } from './state-machine'
-import {
-  transitionTaskStatus,
-  type TaskStatusValue,
-} from '@/lib/task/state-machine'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import { notifyAgentVerify } from '@/lib/services/notification.service'
-import type { DomainEvent } from '@/lib/events/types'
 import type { RunContext, ChangedFile } from './execute'
 
 // ── GitHub helpers ─────────────────────────────────────────────────────────
@@ -237,47 +232,9 @@ export async function upsertBranchAndPR(params: {
 
 // ── Complete agent run ────────────────────────────────────────────────────
 
-export async function transitionStatuses(
-  taskId: string,
-  projectId: string,
-  taskStatus: string
-): Promise<DomainEvent[]> {
-  const agentEvents = await transitionAgentStatus(
-    taskId,
-    projectId,
-    'COMPLETED',
-    { skipDispatch: true }
-  )
-  const taskEvents = await tryTransitionTaskStatus(
-    taskId,
-    projectId,
-    taskStatus
-  )
-  return [...agentEvents, ...taskEvents]
-}
-
-export async function tryTransitionTaskStatus(
-  taskId: string,
-  projectId: string,
-  taskStatus: string
-): Promise<DomainEvent[]> {
-  try {
-    return await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
-      currentStatus: taskStatus as TaskStatusValue,
-      skipDispatch: true,
-    })
-  } catch {
-    console.warn(
-      `[Agent] Skipping task status → IN_REVIEW: invalid from ${taskStatus}`
-    )
-    return []
-  }
-}
-
 export async function completeAgentRun(params: {
   taskId: string
   projectId: string
-  taskStatus: string
   branchName: string
   resolvedRepo: string
   agentRunId: string
@@ -291,10 +248,11 @@ export async function completeAgentRun(params: {
     url: string
   }
 }): Promise<void> {
-  const events = await transitionStatuses(
+  const events = await transitionAgentStatus(
     params.taskId,
     params.projectId,
-    params.taskStatus
+    'COMPLETED',
+    { skipDispatch: true }
   )
   await upsertBranchAndPR(params)
   await dispatchEvents(events)
@@ -336,7 +294,6 @@ export async function reuseExistingPR(
   await completeAgentRun({
     taskId: ctx.taskId,
     projectId: ctx.task.project.id,
-    taskStatus: ctx.task.status,
     branchName: ctx.branchName,
     resolvedRepo: ctx.resolvedRepo,
     agentRunId: ctx.currentRunId,
@@ -369,7 +326,6 @@ export async function createNewPR(
   await completeAgentRun({
     taskId: ctx.taskId,
     projectId: ctx.task.project.id,
-    taskStatus: ctx.task.status,
     branchName: ctx.branchName,
     resolvedRepo: ctx.resolvedRepo,
     agentRunId: ctx.currentRunId,
