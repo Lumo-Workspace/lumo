@@ -168,8 +168,104 @@ async function createFromCli(args: {
   return { id: task.id, identifier, title: task.title, url }
 }
 
+async function updateFromCli(args: {
+  workspaceId: string
+  workspaceSlug: string
+  callerClerkId: string
+  identifier: string
+  input: {
+    title?: string | undefined
+    description?: string | null | undefined
+    status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | undefined
+    priority?: TaskPriority | undefined
+    assigneeRef?: string | null | undefined
+  }
+}): Promise<{ id: string; identifier: string; title: string; url: string }> {
+  const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
+
+  const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
+  if (!resolved) {
+    throw httpError(404, `Task ${identifier} not found`)
+  }
+
+  const detail = await taskService.getTaskDetail(resolved.id)
+  if (!detail) {
+    throw httpError(404, `Task ${identifier} not found`)
+  }
+
+  // Resolve assignee:
+  //   undefined → field absent → don't touch
+  //   null      → clear
+  //   string    → resolve via ref helper
+  let assigneeActorId: string | null | undefined = undefined
+  if ('assigneeRef' in input) {
+    if (input.assigneeRef === null) {
+      assigneeActorId = null
+    } else if (input.assigneeRef !== undefined) {
+      assigneeActorId = await resolveAssigneeActorId({
+        workspaceId,
+        callerClerkId,
+        assigneeRef: input.assigneeRef,
+      })
+    }
+  }
+
+  const callerMember = await memberRepository.findByWorkspaceAndClerkId(
+    workspaceId,
+    callerClerkId
+  )
+  if (!callerMember) {
+    throw httpError(400, 'Caller is not a member of this workspace')
+  }
+  const callerActor = await memberRepository.findActorByMemberId(
+    callerMember.id
+  )
+  if (!callerActor) {
+    throw httpError(
+      500,
+      'Member has no actor row — workspace data is inconsistent'
+    )
+  }
+
+  const updateInput: {
+    title?: string
+    description?: string | null
+    status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+    priority?: TaskPriority
+    assigneeActorId?: string | null
+  } = {}
+  if (input.title !== undefined) updateInput.title = input.title
+  if ('description' in input) updateInput.description = input.description ?? null
+  if (input.status !== undefined) updateInput.status = input.status
+  if (input.priority !== undefined) updateInput.priority = input.priority
+  if (assigneeActorId !== undefined) updateInput.assigneeActorId = assigneeActorId
+
+  const result = await taskService.updateTaskWithSideEffects(
+    resolved.id,
+    updateInput,
+    detail,
+    callerActor.id,
+    callerClerkId
+  )
+
+  const teamIdentifier = (
+    result.task as unknown as { teamIdentifier?: string; team?: { identifier: string } }
+  ).teamIdentifier ?? (result.task as unknown as { team: { identifier: string } }).team.identifier
+  const number = (result.task as unknown as { number: number }).number
+  const identOut = `${teamIdentifier}-${number}`
+  const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identOut}`
+
+  return {
+    id: result.task.id,
+    identifier: identOut,
+    title: result.task.title,
+    url,
+  }
+}
+
 export const taskCliService = {
   resolveProjectId,
   resolveAssigneeActorId,
   createFromCli,
+  updateFromCli,
 }

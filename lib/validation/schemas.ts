@@ -153,6 +153,28 @@ export const cliCreateTaskSchema = z.object({
   assigneeRef: z.string().trim().min(1).max(200).optional(),
 })
 
+/**
+ * CLI-side task update: accepts human-friendly refs (`assigneeRef`) and
+ * partial patches. Every field is optional; `null` on description /
+ * assigneeRef means "clear this field." Status / priority use the same
+ * upper-case enums as the web schema; the CLI uppercases before sending.
+ *
+ * Note: there is no at-least-one-field guard here — the route enforces it
+ * after parsing so the error message can name the missing flags.
+ */
+export const cliUpdateTaskSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title cannot be empty')
+    .max(500, 'Title must be at most 500 characters')
+    .optional(),
+  description: z.string().max(10000).nullable().optional(),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
+})
+
 // ─── Batch Task Creation ───────────────────────────────────────────────────
 
 export const batchCreateTasksSchema = z.object({
