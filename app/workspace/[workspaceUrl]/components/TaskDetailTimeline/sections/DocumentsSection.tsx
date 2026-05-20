@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import { FileText } from 'lucide-react'
 import type { TaskDocumentResource } from '@/lib/api-client/task-documents'
@@ -41,12 +42,12 @@ export function DocumentsSection({
               ) : (
                 <FileText size={12} className='text-zinc-400' />
               )}
-              <a
+              <Link
                 href={`/workspace/${workspaceUrl}/documents/${doc.id}`}
                 className='text-zinc-700 dark:text-zinc-300 hover:underline truncate'
               >
                 {doc.title}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
