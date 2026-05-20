@@ -1,14 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api-client/base'
+import {
+  taskDocumentsClient,
+  type TaskDocumentResource,
+} from '@/lib/api-client/task-documents'
 
-export interface TaskDocumentResource {
-  id: string
-  title: string
-  emoji: string | null
-  updatedAt: string
-}
+export type { TaskDocumentResource }
 
 interface UseTaskDocumentsResult {
   documents: TaskDocumentResource[]
@@ -29,9 +27,7 @@ export function useTaskDocuments(
     setLoading(true)
     setError(null)
     try {
-      const { documents } = await apiFetch<{
-        documents: TaskDocumentResource[]
-      }>(`/api/tasks/${taskId}/documents`)
+      const { documents } = await taskDocumentsClient.list(taskId)
       setDocuments(documents)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'unknown_error')

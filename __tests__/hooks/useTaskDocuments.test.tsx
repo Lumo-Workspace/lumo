@@ -1,18 +1,20 @@
-jest.mock('@/lib/api-client/base', () => ({
-  apiFetch: jest.fn(),
+jest.mock('@/lib/api-client/task-documents', () => ({
+  taskDocumentsClient: {
+    list: jest.fn(),
+  },
 }))
 
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useTaskDocuments } from '@/app/workspace/[workspaceUrl]/hooks/useTaskDocuments'
-import { apiFetch } from '@/lib/api-client/base'
+import { taskDocumentsClient } from '@/lib/api-client/task-documents'
 
-const mockApiFetch = apiFetch as jest.Mock
+const mockList = taskDocumentsClient.list as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
 describe('useTaskDocuments', () => {
   it('fetches documents on mount when enabled', async () => {
-    mockApiFetch.mockResolvedValue({
+    mockList.mockResolvedValue({
       documents: [
         {
           id: 'd1',
@@ -26,7 +28,7 @@ describe('useTaskDocuments', () => {
     const { result } = renderHook(() => useTaskDocuments('tsk_1'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/tasks/tsk_1/documents')
+    expect(mockList).toHaveBeenCalledWith('tsk_1')
     expect(result.current.documents).toHaveLength(1)
     expect(result.current.documents[0].title).toBe('Doc')
   })
@@ -34,24 +36,24 @@ describe('useTaskDocuments', () => {
   it('skips fetch when enabled=false', async () => {
     renderHook(() => useTaskDocuments('tsk_1', false))
     await new Promise(r => setTimeout(r, 0))
-    expect(mockApiFetch).not.toHaveBeenCalled()
+    expect(mockList).not.toHaveBeenCalled()
   })
 
   it('captures error message on failure', async () => {
-    mockApiFetch.mockRejectedValue(new Error('boom'))
+    mockList.mockRejectedValue(new Error('boom'))
     const { result } = renderHook(() => useTaskDocuments('tsk_1'))
     await waitFor(() => expect(result.current.error).toBe('boom'))
     expect(result.current.documents).toEqual([])
   })
 
   it('refresh re-fetches on demand', async () => {
-    mockApiFetch.mockResolvedValue({ documents: [] })
+    mockList.mockResolvedValue({ documents: [] })
     const { result } = renderHook(() => useTaskDocuments('tsk_1'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    mockApiFetch.mockClear()
+    mockList.mockClear()
     await act(async () => {
       await result.current.refresh()
     })
-    expect(mockApiFetch).toHaveBeenCalledTimes(1)
+    expect(mockList).toHaveBeenCalledTimes(1)
   })
 })
