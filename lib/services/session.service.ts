@@ -18,6 +18,33 @@ interface BindSessionToTaskResult {
   retaggedEventCount: number
 }
 
+interface SessionScopedInput {
+  identity: VerifyApiKeyResult
+  sessionId: string
+}
+
+export type SessionStatusResult =
+  | { exists: false }
+  | {
+      exists: true
+      sessionId: string
+      startedAt: Date
+      lastActivityAt: Date
+      eventCount: number
+      taskIdentifier: string | null
+      taskTitle: string | null
+    }
+
+export type UnbindSessionResult =
+  | { found: false }
+  | { found: true; alreadyUnbound: true }
+  | {
+      found: true
+      alreadyUnbound: false
+      previousTaskIdentifier: string
+      previousTaskTitle: string
+    }
+
 export const sessionService = {
   async bindSessionToTask({
     identity,
@@ -70,6 +97,73 @@ export const sessionService = {
       taskIdentifier: task.identifier,
       taskTitle: task.title,
       retaggedEventCount: count,
+    }
+  },
+
+  /**
+   * Look up the current binding state for a session owned by the bearer's
+   * member. Returns `{ exists: false }` for sessions that don't exist or
+   * belong to another member — both 404s from the caller's perspective,
+   * with no leak about which case it is.
+   */
+  async getSessionStatus({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<SessionStatusResult> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return { exists: false }
+
+    const row = await sessionRepository.findForMemberWithBinding(
+      sessionId,
+      memberId
+    )
+    if (!row) return { exists: false }
+
+    const task = row.task
+    return {
+      exists: true,
+      sessionId: row.id,
+      startedAt: row.startedAt,
+      lastActivityAt: row.lastActivityAt,
+      eventCount: row.eventCount,
+      taskIdentifier: task ? `${task.team.identifier}-${task.number}` : null,
+      taskTitle: task ? task.title : null,
+    }
+  },
+
+  /**
+   * Clear the task binding on a session owned by the bearer's member.
+   * Idempotent: re-detaching an already-unbound session returns
+   * `alreadyUnbound: true` instead of an error.
+   *
+   * Untagged hook events on the session are left untouched — they remain
+   * associated with the prior task for historical accuracy. Only future
+   * events on this session will be unbound.
+   */
+  async unbindSession({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<UnbindSessionResult> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return { found: false }
+
+    const result = await sessionRepository.clearTaskIdForMember(
+      sessionId,
+      memberId
+    )
+    if (!result) return { found: false }
+    if (result.alreadyUnbound) return { found: true, alreadyUnbound: true }
+    return {
+      found: true,
+      alreadyUnbound: false,
+      previousTaskIdentifier: result.previous.taskIdentifier,
+      previousTaskTitle: result.previous.taskTitle,
     }
   },
 }

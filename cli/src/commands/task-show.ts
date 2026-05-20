@@ -1,0 +1,98 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+
+interface ShowResponse {
+  task: {
+    id: string
+    identifier: string
+    title: string
+    status: string
+    priority: string
+    description: string | null
+    url: string
+    project: { id: string; name: string }
+    assignee: {
+      type: 'member' | 'agent'
+      label: string
+      email: string | null
+    } | null
+  }
+}
+
+/**
+ * Render task detail as a key:value block. Multi-line description is
+ * indented under a `Description:` label so the structure stays scannable.
+ */
+export function formatTaskShow(task: ShowResponse['task']): string {
+  const lines: string[] = []
+  lines.push(`${task.identifier}  ${task.title}`)
+  lines.push(`Status:    ${task.status}`)
+  lines.push(`Priority:  ${task.priority}`)
+  lines.push(`Project:   ${task.project.name}`)
+  if (task.assignee) {
+    const detail =
+      task.assignee.email && task.assignee.type === 'member'
+        ? `${task.assignee.label} <${task.assignee.email}>`
+        : task.assignee.label
+    lines.push(`Assignee:  ${detail}`)
+  } else {
+    lines.push('Assignee:  (unassigned)')
+  }
+  lines.push(`URL:       ${task.url}`)
+  if (task.description && task.description.trim().length > 0) {
+    lines.push('')
+    lines.push('Description:')
+    for (const line of task.description.split('\n')) {
+      lines.push(`  ${line}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+export async function taskShow(
+  identifier: string | undefined
+): Promise<number | void> {
+  if (!identifier) {
+    console.error('Error: missing <identifier>. Usage: lumo task show <LUM-42>')
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const url = `${trimTrailingSlash(apiUrl)}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (res.status === 404) {
+    console.error(
+      `Error: task ${identifier} not found in workspace ${creds.workspaceSlug}`
+    )
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: task show failed (HTTP ${res.status})`)
+    return 1
+  }
+
+  const data = (await res.json()) as ShowResponse
+  process.stdout.write(formatTaskShow(data.task) + '\n')
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, requireIdentity } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { createProjectSchema } from '@/lib/validation/schemas'
 import { projectService } from '@/lib/services'
@@ -8,19 +8,17 @@ import { projectService } from '@/lib/services'
  * GET /api/projects
  * - isIdea=false  → visible to all workspace members
  * - isIdea=true   → only visible to the member who created it (private draft)
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
-
-    const ws = await requireUserWorkspace(userId)
-    if (ws instanceof NextResponse) return ws
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const projects = await projectService.listProjects(
-      ws.workspaceId,
-      ws.member.id
+      identity.workspaceId,
+      identity.memberId
     )
 
     return NextResponse.json({ projects })
