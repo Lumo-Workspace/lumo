@@ -14,6 +14,7 @@ export default async function ProjectTaskIdentifierPage({
 
   const workspace = await prisma.workspace.findFirst({
     where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+    include: { slackIntegration: { select: { id: true } } },
   })
   if (!workspace) redirect('/onboarding')
 
@@ -107,5 +108,11 @@ export default async function ProjectTaskIdentifierPage({
     },
   } as Parameters<typeof TaskDetailPage>[0]['initialTask']
 
-  return <TaskDetailPage initialTask={task} workspaceUrl={workspaceUrl} />
+  return (
+    <TaskDetailPage
+      initialTask={task}
+      workspaceUrl={workspaceUrl}
+      slackConnected={workspace.slackIntegration !== null}
+    />
+  )
 }
