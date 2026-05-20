@@ -11,12 +11,7 @@ import {
 import { AgentError, userFriendlyError } from './errors.js'
 import { generateSpecDraft } from './generate-spec.js'
 import { transitionAgentStatus } from './state-machine.js'
-import {
-  transitionTaskStatus,
-  type TaskStatusValue,
-} from './task-state-machine.js'
 import { dispatchEvents } from '../events/dispatcher.js'
-import type { DomainEvent } from '@lumo/shared'
 import {
   notifyAgentVerify,
   notifyAgentFailed,
@@ -742,47 +737,9 @@ async function collectRunMetadata(ctx: {
 
 // ── Complete agent run ────────────────────────────────────────────────────
 
-async function transitionStatuses(
-  taskId: string,
-  projectId: string,
-  taskStatus: string
-): Promise<DomainEvent[]> {
-  const agentEvents = await transitionAgentStatus(
-    taskId,
-    projectId,
-    'COMPLETED',
-    { skipDispatch: true }
-  )
-  const taskEvents = await tryTransitionTaskStatus(
-    taskId,
-    projectId,
-    taskStatus
-  )
-  return [...agentEvents, ...taskEvents]
-}
-
-async function tryTransitionTaskStatus(
-  taskId: string,
-  projectId: string,
-  taskStatus: string
-): Promise<DomainEvent[]> {
-  try {
-    return await transitionTaskStatus(taskId, projectId, 'IN_REVIEW', {
-      currentStatus: taskStatus as TaskStatusValue,
-      skipDispatch: true,
-    })
-  } catch {
-    console.warn(
-      `[Agent] Skipping task status → IN_REVIEW: invalid from ${taskStatus}`
-    )
-    return []
-  }
-}
-
 async function completeAgentRun(params: {
   taskId: string
   projectId: string
-  taskStatus: string
   branchName: string
   resolvedRepo: string
   agentRunId: string
@@ -796,10 +753,11 @@ async function completeAgentRun(params: {
     url: string
   }
 }): Promise<void> {
-  const events = await transitionStatuses(
+  const events = await transitionAgentStatus(
     params.taskId,
     params.projectId,
-    params.taskStatus
+    'COMPLETED',
+    { skipDispatch: true }
   )
   await upsertBranchAndPR(params)
   await dispatchEvents(events)
@@ -910,7 +868,6 @@ async function reuseExistingPR(
   await completeAgentRun({
     taskId: ctx.taskId,
     projectId: ctx.task.project.id,
-    taskStatus: ctx.task.status,
     branchName: ctx.branchName,
     resolvedRepo: ctx.resolvedRepo,
     agentRunId: ctx.currentRunId,
@@ -950,7 +907,6 @@ async function createNewPR(
   await completeAgentRun({
     taskId: ctx.taskId,
     projectId: ctx.task.project.id,
-    taskStatus: ctx.task.status,
     branchName: ctx.branchName,
     resolvedRepo: ctx.resolvedRepo,
     agentRunId: ctx.currentRunId,
