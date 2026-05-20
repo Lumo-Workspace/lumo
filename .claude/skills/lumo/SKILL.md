@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, and update tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind the current session to a task, is about to start development work on a specific task, or wants to update a task''s status/title/description/priority/assignee. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "bind session", "which task", "work on LUM", "update task", "change task status", "rename task", "reassign task", "mark task as done".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, and update tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind the current session to a task, is about to start development work on a specific task, or wants to update a task''s status/title/description/priority/assignee. Triggers on: "LUM-", "task context", "load context", "session attach", "attach session", "bind session", "which task", "work on LUM", "update task", "change task status", "rename task", "reassign task", "mark task as done".'
 ---
 
 ## Prerequisites
@@ -48,13 +48,13 @@ The command prints a markdown document to stdout containing:
 
 Pure flag-driven update. Provide at least one of:
 
-| Flag                   | Type   | Notes                                                                 |
-| ---------------------- | ------ | --------------------------------------------------------------------- |
-| `-t, --title <text>`   | string | Cannot be empty.                                                      |
-| `-d, --description <>` | string | `--description ""` clears the field.                                  |
-| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).        |
-| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                    |
-| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field.   |
+| Flag                   | Type   | Notes                                                               |
+| ---------------------- | ------ | ------------------------------------------------------------------- |
+| `-t, --title <text>`   | string | Cannot be empty.                                                    |
+| `-d, --description <>` | string | `--description ""` clears the field.                                |
+| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).      |
+| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                  |
+| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field. |
 
 Examples:
 
@@ -96,18 +96,18 @@ What it does:
 
 - Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets this automatically). If it is not set, the command errors out — it must run from inside a Claude Code session.
 - Calls `POST /api/sessions/<session_id>/bind-task` on the Lumo server, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
-- Writes a per-session sentinel file at `~/.lumo/sessions/<session_id>.json`. All subsequent hook events in this session pick up the new `task_id`.
+- The binding is server-authoritative — there is no local sentinel file. Subsequent hook events look up the task via the session row on the server.
 
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
 ### Parallel sessions
 
-Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID` and its own per-session sentinel file. Two terminals running `claude code` and binding to different tasks will not interfere with each other.
+Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`, and binding is stored per-session on the server. Two terminals running `claude code` and binding to different tasks will not interfere with each other.
 
 ### When to suggest session binding
 
 - If the user mentions a task ID (e.g., "let's work on LUM-42") and no session is currently bound, **suggest running `lumo session attach`**.
-- If the user switches tasks mid-session, run `attach` with the new task ID — this rewrites the per-session sentinel and updates the server's Session row.
+- If the user switches tasks mid-session, run `attach` with the new task ID — this updates `Session.taskId` server-side.
 
 ## Workflow Example
 

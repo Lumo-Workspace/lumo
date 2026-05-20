@@ -71,7 +71,7 @@ export const hookEventRepository = {
    * timeline to reconstruct what Claude Code did during each session.
    *
    * Per-event taskId takes precedence over session.taskId so a session
-   * that was re-tagged mid-flight (`lumo session start <other-task>`)
+   * that was re-tagged mid-flight (`lumo session attach <other-task>`)
    * routes each event to the task that was active when it fired:
    *   1. HookEvent.taskId set → only the matching task sees this event.
    *   2. HookEvent.taskId NULL → fall through to Session.taskId (the
