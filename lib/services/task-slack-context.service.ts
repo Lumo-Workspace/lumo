@@ -22,6 +22,9 @@ function mapSlackError(e: unknown): Error & { status: number } {
       case 'channel_not_found':
       case 'message_not_found':
         return err('message_gone', 404)
+      case 'missing_scope':
+        // Bot installed with an older scope set; admin needs to reinstall.
+        return err('missing_scope', 403)
       case 'slack_unavailable':
         return err('slack_unavailable', 502)
       default:

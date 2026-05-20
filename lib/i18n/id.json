@@ -984,5 +984,6 @@
   "slackContext.refresh.failedBanner": "Penyegaran gagal · {ago}",
   "slackContext.tab": "Konteks Slack",
   "slackContext.thread.replies": "{n, plural, one {1 balasan} other {# balasan}}",
-  "slackContext.unlink": "Hapus"
+  "slackContext.unlink": "Hapus",
+  "slackContext.error.missingScope": "LumoBot kehilangan izin Slack yang diperlukan. Hubungkan kembali Slack di pengaturan workspace untuk memberikan akses ke riwayat channel."
 }

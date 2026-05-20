@@ -984,5 +984,6 @@
   "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
   "slackContext.tab": "Slack Context",
   "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
-  "slackContext.unlink": "Remove"
+  "slackContext.unlink": "Remove",
+  "slackContext.error.missingScope": "LumoBot is missing required Slack permissions. Reconnect Slack in workspace settings to grant access to channel history."
 }

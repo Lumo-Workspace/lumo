@@ -15,6 +15,7 @@ const ERROR_CODE_TO_KEY: Record<string, string> = {
   wrong_team: 'slackContext.error.wrongTeam',
   not_in_channel: 'slackContext.error.notInChannel',
   message_gone: 'slackContext.error.messageGone',
+  missing_scope: 'slackContext.error.missingScope',
   slack_unavailable: 'slackContext.error.slackUnavailable',
 }
 

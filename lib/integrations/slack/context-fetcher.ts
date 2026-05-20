@@ -117,7 +117,15 @@ export async function resolveUsers(
             profile?.display_name?.trim() || profile?.real_name?.trim() || null,
           avatarUrl: profile?.image_72 ?? null,
         })
-      } catch {
+      } catch (e) {
+        // Don't fail the whole snapshot if one user lookup fails — fall back
+        // to the user id. Log the cause so missing scopes / rate limits are
+        // diagnosable; UI will render `@<userId>` until the user re-installs
+        // the bot with the right scopes.
+        console.warn(
+          `[slack-fetcher] users.info failed for ${id}:`,
+          e instanceof Error ? e.message : e
+        )
         out.set(id, { name: null, avatarUrl: null })
       }
     })
@@ -135,7 +143,13 @@ export async function resolveChannelName(
     })
     const channel = json.channel as { name?: string } | undefined
     return channel?.name ?? null
-  } catch {
+  } catch (e) {
+    // Falls back to the placeholder "#channel" label. Log the cause so
+    // missing groups:read / channels:read scopes are visible server-side.
+    console.warn(
+      `[slack-fetcher] conversations.info failed for ${channelId}:`,
+      e instanceof Error ? e.message : e
+    )
     return null
   }
 }

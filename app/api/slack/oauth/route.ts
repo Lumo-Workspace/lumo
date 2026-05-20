@@ -5,6 +5,9 @@ import { encrypt } from '@/lib/crypto'
 const SLACK_SCOPES = [
   'chat:write',
   'channels:read',
+  'channels:history', // LUM-44: read public-channel messages for task context
+  'groups:read', // LUM-44: read private-channel metadata for task context
+  'groups:history', // LUM-44: read private-channel messages for task context
   'users:read',
   'users:read.email',
   'app_mentions:read',

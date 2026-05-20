@@ -984,5 +984,6 @@
   "slackContext.refresh.failedBanner": "Làm mới thất bại · {ago}",
   "slackContext.tab": "Ngữ cảnh Slack",
   "slackContext.thread.replies": "{n, plural, one {1 phản hồi} other {# phản hồi}}",
-  "slackContext.unlink": "Xóa"
+  "slackContext.unlink": "Xóa",
+  "slackContext.error.missingScope": "LumoBot thiếu quyền Slack cần thiết. Kết nối lại Slack trong cài đặt workspace để cấp quyền truy cập lịch sử kênh."
 }

@@ -221,6 +221,24 @@ describe('linkSlackPermalink — error mapping', () => {
     ).rejects.toMatchObject({ status: 404, message: 'message_gone' })
   })
 
+  it('maps SlackApiError("missing_scope") to status 403', async () => {
+    tokenMock.mockResolvedValue({
+      token: 'tok',
+      slackTeamId: 'T1',
+      slackTeamName: 'lumo',
+    })
+    fetchSingle.mockRejectedValue(new SlackApiError('missing_scope'))
+    resolveC.mockResolvedValue(null)
+    await expect(
+      taskSlackContextService.linkSlackPermalink({
+        taskId: 'tsk_1',
+        workspaceId: 'ws_1',
+        permalink: SINGLE_URL,
+        actorMemberId: 'mem_1',
+      })
+    ).rejects.toMatchObject({ status: 403, message: 'missing_scope' })
+  })
+
   it('maps SlackApiError("slack_unavailable") to status 502', async () => {
     tokenMock.mockResolvedValue({
       token: 'tok',

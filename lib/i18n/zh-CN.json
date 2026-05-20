@@ -984,5 +984,6 @@
   "slackContext.refresh.failedBanner": "刷新失败 · {ago}",
   "slackContext.tab": "Slack 上下文",
   "slackContext.thread.replies": "{n, plural, one {1 条回复} other {# 条回复}}",
-  "slackContext.unlink": "移除"
+  "slackContext.unlink": "移除",
+  "slackContext.error.missingScope": "LumoBot 缺少必要的 Slack 权限。请在工作区设置中重新连接 Slack 以授予频道历史记录访问权限。"
 }
