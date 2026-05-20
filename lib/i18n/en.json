@@ -334,6 +334,7 @@
   "slackContext.empty.notConnected": "Connect Slack to attach messages as task context.",
   "slackContext.error.invalidPermalink": "That is not a valid Slack message permalink.",
   "slackContext.error.messageGone": "The Slack message is no longer accessible.",
+  "slackContext.error.missingScope": "LumoBot is missing required Slack permissions. Reconnect Slack in workspace settings to grant access to channel history.",
   "slackContext.error.notConnected": "Slack is not connected to this workspace.",
   "slackContext.error.notInChannel": "LumoBot is not a member of this Slack channel. Invite the bot to read this message.",
   "slackContext.error.slackUnavailable": "Could not reach Slack right now. Try again in a moment.",

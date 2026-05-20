@@ -984,5 +984,6 @@
   "slackContext.refresh.failedBanner": "Обновление не удалось · {ago}",
   "slackContext.tab": "Контекст Slack",
   "slackContext.thread.replies": "{n, plural, one {1 ответ} other {# ответов}}",
-  "slackContext.unlink": "Удалить"
+  "slackContext.unlink": "Удалить",
+  "slackContext.error.missingScope": "LumoBot не имеет необходимых разрешений Slack. Переподключите Slack в настройках рабочего пространства, чтобы предоставить доступ к истории канала."
 }
