@@ -99,6 +99,14 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - types/ → Shared TypeScript types
 - shared/ → Cross-project types, errors, constants (used by main app + agent-server)
 
+## CLI & Skills 同步
+
+- 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `.claude/skills/lumo/SKILL.md`：
+  - frontmatter `description` 字段里的触发词要覆盖新增用法
+  - 对应的 `##` / `###` 章节要反映命令的真实行为（flags、示例、空字符串语义、状态枚举等）
+- 例外：纯内部重构、错误文案微调、不影响调用方式的 bug fix 不需要更新文档
+- 不要让 CLI 文档和实际行为漂移——agent 依赖 SKILL.md 决定调用方式，文档错了会反复踩坑
+
 ## Forbidden
 
 - Never delete files in prisma/migrations/
@@ -113,4 +121,5 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - [ ] No console.log statements
 - [ ] Branch name follows convention lumo/{task-id}-{description}
 - [ ] PR title includes task ID [LUM-N]
+- [ ] If `cli/src/commands/` changed → `.claude/skills/lumo/SKILL.md` updated to match
       @import LUMO.md
