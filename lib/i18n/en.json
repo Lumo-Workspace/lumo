@@ -994,5 +994,10 @@
   "logoUploader.uploadFailed": "Upload failed",
   "logoUploader.uploadRetry": "Upload failed, please try again",
   "logoUploader.success": "Logo updated",
-  "logoUploader.dialogTitle": "Crop logo"
+  "logoUploader.dialogTitle": "Crop logo",
+  "common.empty": "Nothing here yet.",
+  "status.inProgress": "In Progress",
+  "status.inReview": "In Review",
+  "status.done": "Done",
+  "status.todo": "Todo"
 }

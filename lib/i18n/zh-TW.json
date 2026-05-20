@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "重新整理失敗 · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 則回覆} other {# 則回覆}}",
   "slackContext.unlink": "移除",
-  "slackContext.error.missingScope": "LumoBot 缺少必要的 Slack 權限。請在工作區設定中重新連接 Slack，以授予頻道歷史記錄的存取權限。"
+  "slackContext.error.missingScope": "LumoBot 缺少必要的 Slack 權限。請在工作區設定中重新連接 Slack，以授予頻道歷史記錄的存取權限。",
+  "common.empty": "暫無內容。",
+  "status.inProgress": "進行中",
+  "status.inReview": "審核中",
+  "status.done": "已完成",
+  "status.todo": "待辦"
 }

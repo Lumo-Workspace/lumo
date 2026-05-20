@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "Aktualisierung fehlgeschlagen · vor {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 Antwort} other {# Antworten}}",
   "slackContext.unlink": "Entfernen",
-  "slackContext.error.missingScope": "LumoBot hat nicht die erforderlichen Slack-Berechtigungen. Verbinden Sie Slack in den Workspace-Einstellungen erneut, um Zugriff auf den Kanal-Verlauf zu gewähren."
+  "slackContext.error.missingScope": "LumoBot hat nicht die erforderlichen Slack-Berechtigungen. Verbinden Sie Slack in den Workspace-Einstellungen erneut, um Zugriff auf den Kanal-Verlauf zu gewähren.",
+  "common.empty": "Hier ist noch nichts.",
+  "status.inProgress": "In Bearbeitung",
+  "status.inReview": "In Prüfung",
+  "status.done": "Erledigt",
+  "status.todo": "Zu erledigen"
 }

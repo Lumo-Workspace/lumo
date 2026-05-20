@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "Segar semula gagal · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 balasan} other {# balasan}}",
   "slackContext.unlink": "Buang",
-  "slackContext.error.missingScope": "LumoBot tidak mempunyai kebenaran Slack yang diperlukan. Sambung semula Slack dalam tetapan ruang kerja untuk memberikan akses kepada sejarah saluran."
+  "slackContext.error.missingScope": "LumoBot tidak mempunyai kebenaran Slack yang diperlukan. Sambung semula Slack dalam tetapan ruang kerja untuk memberikan akses kepada sejarah saluran.",
+  "common.empty": "Belum ada apa-apa di sini.",
+  "status.inProgress": "Sedang dilaksanakan",
+  "status.inReview": "Dalam semakan",
+  "status.done": "Selesai",
+  "status.todo": "Perlu dilakukan"
 }

@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "새로고침 실패 · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1개 reply} other {# replies}}",
   "slackContext.unlink": "제거",
-  "slackContext.error.missingScope": "LumoBot에 필요한 Slack 권한이 없습니다. 워크스페이스 설정에서 Slack을 다시 연결하여 채널 히스토리 접근 권한을 부여하세요."
+  "slackContext.error.missingScope": "LumoBot에 필요한 Slack 권한이 없습니다. 워크스페이스 설정에서 Slack을 다시 연결하여 채널 히스토리 접근 권한을 부여하세요.",
+  "common.empty": "아직 아무것도 없습니다.",
+  "status.inProgress": "진행 중",
+  "status.inReview": "검토 중",
+  "status.done": "완료",
+  "status.todo": "할 일"
 }

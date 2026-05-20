@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "Actualisation échouée · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 réponse} other {# réponses}}",
   "slackContext.unlink": "Supprimer",
-  "slackContext.error.missingScope": "LumoBot n'a pas les permissions Slack requises. Reconnectez Slack dans les paramètres de l'espace de travail pour accorder l'accès à l'historique des canaux."
+  "slackContext.error.missingScope": "LumoBot n'a pas les permissions Slack requises. Reconnectez Slack dans les paramètres de l'espace de travail pour accorder l'accès à l'historique des canaux.",
+  "common.empty": "Rien ici pour le moment.",
+  "status.inProgress": "En cours",
+  "status.inReview": "En révision",
+  "status.done": "Terminé",
+  "status.todo": "À faire"
 }

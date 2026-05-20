@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 
 interface AsyncContentProps {
@@ -21,10 +22,11 @@ export function AsyncContent({
   children,
   className,
 }: AsyncContentProps) {
+  const intl = useIntl()
   if (loading) {
     return (
       <div className='flex items-center justify-center h-40 text-sm text-zinc-400'>
-        Loading…
+        {intl.formatMessage({ id: 'common.loading' })}
       </div>
     )
   }
@@ -38,7 +40,7 @@ export function AsyncContent({
           onClick={onRetry}
           className='text-xs text-zinc-500 underline h-auto p-0 hover:bg-transparent hover:underline'
         >
-          Retry
+          {intl.formatMessage({ id: 'common.retry' })}
         </Button>
       </div>
     )
@@ -47,7 +49,9 @@ export function AsyncContent({
     return (
       <div className='flex flex-1 items-center justify-center p-8'>
         {emptyState ?? (
-          <p className='text-sm text-zinc-400'>Nothing here yet.</p>
+          <p className='text-sm text-zinc-400'>
+            {intl.formatMessage({ id: 'common.empty' })}
+          </p>
         )}
       </div>
     )

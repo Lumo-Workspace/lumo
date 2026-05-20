@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "更新に失敗しました · {ago}",
   "slackContext.thread.replies": "{n, plural, one {返信 1 件} other {返信 # 件}}",
   "slackContext.unlink": "削除",
-  "slackContext.error.missingScope": "LumoBotに必要なSlackパーミッションがありません。ワークスペース設定でSlackを再接続してチャンネル履歴へのアクセスを許可してください。"
+  "slackContext.error.missingScope": "LumoBotに必要なSlackパーミッションがありません。ワークスペース設定でSlackを再接続してチャンネル履歴へのアクセスを許可してください。",
+  "common.empty": "まだ何もありません。",
+  "status.inProgress": "進行中",
+  "status.inReview": "レビュー中",
+  "status.done": "完了",
+  "status.todo": "未着手"
 }

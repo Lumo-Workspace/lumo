@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "Làm mới thất bại · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 phản hồi} other {# phản hồi}}",
   "slackContext.unlink": "Xóa",
-  "slackContext.error.missingScope": "LumoBot thiếu quyền Slack cần thiết. Kết nối lại Slack trong cài đặt workspace để cấp quyền truy cập lịch sử kênh."
+  "slackContext.error.missingScope": "LumoBot thiếu quyền Slack cần thiết. Kết nối lại Slack trong cài đặt workspace để cấp quyền truy cập lịch sử kênh.",
+  "common.empty": "Chưa có gì ở đây.",
+  "status.inProgress": "Đang thực hiện",
+  "status.inReview": "Đang xem xét",
+  "status.done": "Hoàn thành",
+  "status.todo": "Cần làm"
 }

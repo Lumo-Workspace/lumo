@@ -988,5 +988,10 @@
   "slackContext.refresh.failedBanner": "Refresh failed · {ago}",
   "slackContext.thread.replies": "{n, plural, one {1 reply} other {# replies}}",
   "slackContext.unlink": "Remove करें",
-  "slackContext.error.missingScope": "LumoBot के पास आवश्यक Slack अनुमतियाँ नहीं हैं। Channel history तक पहुंच प्रदान करने के लिए workspace settings में Slack को दोबारा कनेक्ट करें।"
+  "slackContext.error.missingScope": "LumoBot के पास आवश्यक Slack अनुमतियाँ नहीं हैं। Channel history तक पहुंच प्रदान करने के लिए workspace settings में Slack को दोबारा कनेक्ट करें।",
+  "common.empty": "अभी यहाँ कुछ नहीं है।",
+  "status.inProgress": "प्रगति पर",
+  "status.inReview": "समीक्षा में",
+  "status.done": "पूर्ण",
+  "status.todo": "करना है"
 }
