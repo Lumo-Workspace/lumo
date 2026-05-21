@@ -236,6 +236,13 @@ export function DescriptionEditor({
   const intl = useIntl()
   const placeholder =
     placeholderProp ?? intl.formatMessage({ id: 'task.descriptionPlaceholder' })
+  // Tiptap extensions are configured once at editor creation, so the initial
+  // placeholder string would be frozen at first render (when IntlWrapper
+  // forces `locale='en'` to avoid hydration mismatch). Route through a ref so
+  // the Placeholder extension reads the current value every time it renders
+  // its decoration.
+  const placeholderRef = useRef(placeholder)
+  placeholderRef.current = placeholder
   const imageUploadFailedMsg = intl.formatMessage({
     id: 'task.imageUploadFailed',
   })
@@ -288,7 +295,7 @@ export function DescriptionEditor({
     immediatelyRender: false,
     extensions: [
       ...getBaseExtensions(),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: () => placeholderRef.current }),
       SlashCommandExtension.configure({
         suggestion: buildSlashCommandSuggestion(
           state => setSlashPopup(state),
@@ -574,6 +581,15 @@ export function DescriptionEditor({
     },
     [documentId]
   )
+
+  // Force the Placeholder decoration to redraw whenever the resolved string
+  // changes (e.g. locale switches from the SSR-safe 'en' to the user's
+  // preferred locale on mount). Dispatching an empty transaction is the
+  // documented way to invalidate decorations without touching content.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    editor.view.dispatch(editor.state.tr)
+  }, [placeholder, editor])
 
   // Sync external value changes without overwriting active edits
   useEffect(() => {
