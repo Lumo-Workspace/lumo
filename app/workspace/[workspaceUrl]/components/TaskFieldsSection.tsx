@@ -11,7 +11,6 @@ import type {
 import {
   StatusSelect,
   AssigneeSelect,
-  ReviewerSelect,
   ProjectSelect,
   PrioritySelect,
   DueDatePicker,
@@ -29,11 +28,9 @@ export interface TaskFieldsSectionProps {
   status: ApiStatus
   priority: ApiPriority
   assigneeActorId: string | null
-  reviewerActorId: string | null
   projectId: string
   dueDate: string | null
   assignee: ActorInfo | null
-  ownerId: string | null
   parent: TaskDetail['parent']
   membersWithActorId: (WorkspaceMemberInfo & { actorId: string })[]
   agentActors: { actorId: string; name: string; avatarColor: string }[]
@@ -53,11 +50,9 @@ export function TaskFieldsSection({
   status,
   priority,
   assigneeActorId,
-  reviewerActorId,
   projectId,
   dueDate,
   assignee,
-  ownerId,
   parent,
   membersWithActorId,
   agentActors,
@@ -83,14 +78,6 @@ export function TaskFieldsSection({
         members={membersWithActorId}
         agentActors={agentActors}
         assignee={assignee}
-        triggerClassName={FIELD_TRIGGER_CLS}
-      />
-      <SeparatorDot />
-      <ReviewerSelect
-        value={reviewerActorId}
-        onChange={v => onPatch({ reviewerActorId: v })}
-        members={membersWithActorId}
-        inheritedId={ownerId}
         triggerClassName={FIELD_TRIGGER_CLS}
       />
       <SeparatorDot />
