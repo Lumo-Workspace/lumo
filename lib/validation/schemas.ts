@@ -110,6 +110,7 @@ export const createTaskSchema = z.object({
   parentTaskId: z.string().nullable().optional(),
   repositoryId: z.string().nullable().optional(),
   sprintId: z.string().nullable().optional(),
+  milestoneId: z.string().nullable().optional(),
   order: z.number().optional(),
   dueDate: z.string().datetime().nullable().optional(),
 })
@@ -128,6 +129,7 @@ export const updateTaskSchema = z.object({
   dueDate: z.string().datetime().nullable().optional(),
   tagIds: z.array(z.string().cuid()).max(20).optional(),
   sprintId: z.string().nullable().optional(),
+  milestoneId: z.string().nullable().optional(),
 })
 
 /**
@@ -472,4 +474,25 @@ export const searchPullRequestsSchema = z.object({
   q: z.string().min(1).max(100),
   workspaceId: z.string().min(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+
+// ─── Milestones ────────────────────────────────────────────────────────────
+
+export const createMilestoneSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name is required')
+    .max(120, 'Name must be at most 120 characters'),
+  description: z.string().max(2000).nullable().optional(),
+  startDate: z.coerce.date().optional(),
+  targetDate: z.coerce.date().optional(),
+})
+
+export const updateMilestoneSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']).optional(),
+  startDate: z.coerce.date().nullable().optional(),
+  targetDate: z.coerce.date().nullable().optional(),
 })
