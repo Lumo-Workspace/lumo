@@ -77,10 +77,6 @@ export function TaskDetailComments({
 
   return (
     <>
-      <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-8 mb-4'>
-        {intl.formatMessage({ id: 'task.comments' })}
-      </p>
-
       {/* Skeleton while loading */}
       {tc.commentsLoading && tc.comments.length === 0 ? (
         <div className='space-y-3'>
