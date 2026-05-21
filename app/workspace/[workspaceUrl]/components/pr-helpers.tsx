@@ -29,5 +29,5 @@ export function CiIcon({ status }: { status: string | null }) {
     return <XCircle size={13} className='text-red-500 shrink-0' />
   if (status === 'pending')
     return <Loader2 size={13} className='text-zinc-400 shrink-0 animate-spin' />
-  return null
+  return <span aria-hidden className='block w-[13px] shrink-0' />
 }
