@@ -164,19 +164,14 @@ export const projectService = {
     if (input.isIdea !== undefined) data.isIdea = input.isIdea
     if (input.ownerId !== undefined) {
       if (input.ownerId !== null) {
-        const reviewerMember = await memberRepository.findByActorId(
-          input.ownerId
-        )
-        if (
-          !reviewerMember ||
-          reviewerMember.workspaceId !== project.workspaceId
-        ) {
+        const ownerMember = await memberRepository.findByActorId(input.ownerId)
+        if (!ownerMember || ownerMember.workspaceId !== project.workspaceId) {
           throw Object.assign(
-            new Error('Reviewer is not a member of this workspace'),
+            new Error('Owner is not a member of this workspace'),
             { status: 400 }
           )
         }
-        data.ownerId = reviewerMember.id
+        data.ownerId = ownerMember.id
       } else {
         data.ownerId = null
       }
