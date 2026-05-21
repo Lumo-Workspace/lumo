@@ -5,6 +5,11 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useParams: () => ({ workspaceUrl: 'test-workspace' }),
+}))
+
 import { render, screen } from '@testing-library/react'
 import { Accordion } from '@/components/landing/ui/accordion'
 import { SlackContextSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/sections/SlackContextSection'
@@ -24,7 +29,7 @@ describe('SlackContextSection', () => {
       </Accordion>
     )
     expect(
-      screen.getByText('slackContext.empty.notConnected')
+      screen.getByText('slackContext.notConnected.title')
     ).toBeInTheDocument()
   })
 

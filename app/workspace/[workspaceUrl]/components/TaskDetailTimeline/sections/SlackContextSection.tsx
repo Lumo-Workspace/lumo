@@ -1,10 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Plus } from 'lucide-react'
 import type { SlackContextResource } from '@/lib/api-client/slack-contexts'
+import { SlackIcon } from '@/components/icons/SlackIcon'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { ContextSection } from '../ContextSection'
+import { SectionAddButton } from '../SectionAddButton'
 import { SlackContextCard } from '../SlackContextCard'
 import { AddSlackContextDialog } from '../AddSlackContextDialog'
 
@@ -24,20 +36,33 @@ export function SlackContextSection({
   onUnlink,
 }: Props): React.ReactElement {
   const intl = useIntl()
+  const router = useRouter()
+  const params = useParams<{ workspaceUrl: string }>()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [promptOpen, setPromptOpen] = useState(false)
 
-  const addSlot = slackConnected ? (
-    <button
-      onClick={() => setDialogOpen(true)}
-      className='inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-    >
-      <Plus size={12} />
-      {intl.formatMessage({
+  const handleAddClick = () => {
+    if (slackConnected) {
+      setDialogOpen(true)
+    } else {
+      setPromptOpen(true)
+    }
+  }
+
+  const handleOpenSettings = () => {
+    setPromptOpen(false)
+    router.push(`/workspace/${params.workspaceUrl}/settings/integrations`)
+  }
+
+  const addSlot = (
+    <SectionAddButton
+      onClick={handleAddClick}
+      label={intl.formatMessage({
         id: 'slackContext.add',
         defaultMessage: 'Add Slack message',
       })}
-    </button>
-  ) : null
+    />
+  )
 
   return (
     <>
@@ -47,22 +72,22 @@ export function SlackContextSection({
           id: 'task.context.section.slack',
           defaultMessage: 'Slack',
         })}
+        icon={<SlackIcon size={14} />}
         count={contexts.length}
         addSlot={addSlot}
       >
         {!slackConnected ? (
-          <div className='py-4 text-sm text-zinc-500'>
+          <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
             {intl.formatMessage({
-              id: 'slackContext.empty.notConnected',
-              defaultMessage:
-                'Connect Slack to attach messages as task context.',
+              id: 'slackContext.notConnected.title',
+              defaultMessage: 'Slack not connected',
             })}
           </div>
         ) : contexts.length === 0 ? (
-          <div className='py-4 text-sm text-zinc-500 text-center'>
+          <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
             {intl.formatMessage({
               id: 'slackContext.empty.noContexts',
-              defaultMessage: 'No Slack messages attached yet.',
+              defaultMessage: 'No Slack messages',
             })}
           </div>
         ) : (
@@ -86,6 +111,40 @@ export function SlackContextSection({
           await onLink(permalink)
         }}
       />
+
+      <AlertDialog open={promptOpen} onOpenChange={setPromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {intl.formatMessage({
+                id: 'slackContext.notConnected.title',
+                defaultMessage: 'Slack not connected',
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage({
+                id: 'slackContext.empty.notConnected',
+                defaultMessage:
+                  'Connect Slack to attach messages as task context.',
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {intl.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              })}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleOpenSettings}>
+              {intl.formatMessage({
+                id: 'slackContext.notConnected.confirm',
+                defaultMessage: 'Open settings',
+              })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

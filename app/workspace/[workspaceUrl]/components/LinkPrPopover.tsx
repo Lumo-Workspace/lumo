@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
-import { Plus, Loader2, Link as LinkIcon } from 'lucide-react'
+import { Loader2, Link as LinkIcon } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { SectionAddButton } from './TaskDetailTimeline/SectionAddButton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -138,12 +139,9 @@ export function LinkPrPopover({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
-            className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-            title={intl.formatMessage({ id: 'linkPr.title' })}
-          >
-            <Plus size={14} />
-          </button>
+          <SectionAddButton
+            label={intl.formatMessage({ id: 'linkPr.title' })}
+          />
         </PopoverTrigger>
         <PopoverContent align='end' className='w-80 p-0'>
           <div className='p-2 border-b border-zinc-100 dark:border-zinc-800'>

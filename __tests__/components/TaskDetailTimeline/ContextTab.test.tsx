@@ -5,6 +5,11 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useParams: () => ({ workspaceUrl: 'test-workspace' }),
+}))
+
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSlackContexts', () => ({
   useSlackContexts: jest.fn(),
 }))

@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { X } from 'lucide-react'
+import { GithubIcon } from '@/components/icons/GithubIcon'
 import { PrStateBadge, CiIcon } from '../../pr-helpers'
 import { LinkPrPopover } from '../../LinkPrPopover'
 import { ContextSection } from '../ContextSection'
@@ -44,6 +45,9 @@ export function PullRequestsSection({
     <ContextSection
       value='pullRequests'
       label={intl.formatMessage({ id: 'task.pullRequests' })}
+      icon={
+        <GithubIcon size={14} className='text-zinc-700 dark:text-zinc-300' />
+      }
       count={pullRequests.length}
       addSlot={addSlot}
     >
