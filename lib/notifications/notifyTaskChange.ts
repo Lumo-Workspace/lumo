@@ -158,7 +158,6 @@ export function dispatchTaskUpdateNotifications(params: {
   newStatus?: string | undefined
   oldAssigneeActorId: string | null
   newAssigneeActorId?: string | null | undefined
-  updatedReviewerActorId: string | null
   workspaceId: string
   triggerActorId: string | null
 }): void {
@@ -169,7 +168,6 @@ export function dispatchTaskUpdateNotifications(params: {
     newStatus,
     oldAssigneeActorId,
     newAssigneeActorId,
-    updatedReviewerActorId,
     workspaceId,
     triggerActorId,
   } = params
@@ -182,8 +180,6 @@ export function dispatchTaskUpdateNotifications(params: {
         notifyTaskInReview({
           workspaceId,
           taskId,
-          reviewerActorId: updatedReviewerActorId,
-          ownerActorId: null,
           triggerActorId,
         }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
     )

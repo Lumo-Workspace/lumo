@@ -89,5 +89,5 @@ export async function generateSpecDraft(
 
   await pushAgentEvent(taskId, { type: 'agent:spec_draft', spec: specHtml })
 
-  // Reviewer notification is handled by domain event handler (agent → INPUT_REQUIRED with spec_review reason)
+  // Owner notification is handled by domain event handler (agent → INPUT_REQUIRED with spec_review reason)
 }

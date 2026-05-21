@@ -1,11 +1,9 @@
 import { prisma } from '../../db/prisma.js'
-import { getHumanActorId } from '../../auth/actor.js'
 import { notifyTaskInReview } from '../../notifications/notifyTaskInReview.js'
 import type { TaskStatusChangedEvent } from '@lumo/shared'
 
 /**
- * When task transitions to IN_REVIEW, notify the reviewer
- * (or fallback to workspace owners) via inbox.
+ * When task transitions to IN_REVIEW, notify all workspace owners via inbox.
  */
 export async function handleNotifyTaskInReview(
   event: TaskStatusChangedEvent
@@ -15,23 +13,16 @@ export async function handleNotifyTaskInReview(
   const task = await prisma.task.findUnique({
     where: { id: event.taskId },
     select: {
-      reviewerActorId: true,
       project: {
-        select: { workspaceId: true, ownerId: true },
+        select: { workspaceId: true },
       },
     },
   })
   if (!task) return
 
-  const ownerActorId = task.project.ownerId
-    ? await getHumanActorId(task.project.ownerId)
-    : null
-
   await notifyTaskInReview({
     workspaceId: task.project.workspaceId,
     taskId: event.taskId,
-    reviewerActorId: task.reviewerActorId,
-    ownerActorId,
     triggerActorId: null,
   })
 }

@@ -41,12 +41,6 @@ const FILTER_CATEGORIES = [
     types: new Set(['ASSIGNEE_CHANGED']),
   },
   {
-    id: 'reviewer',
-    labelId: 'activity.filter.reviewer',
-    defaultLabel: 'Reviewer',
-    types: new Set(['REVIEWER_CHANGED']),
-  },
-  {
     id: 'content',
     labelId: 'activity.filter.content',
     defaultLabel: 'Content',

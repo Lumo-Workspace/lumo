@@ -157,7 +157,7 @@ export const projectRepository = {
     })
   },
 
-  /** Find project by ID with default reviewer and workspace slug. */
+  /** Find project by ID with default owner and workspace slug. */
   async findByIdWithDefaults(id: string) {
     return prisma.project.findUnique({
       where: { id },

@@ -204,41 +204,6 @@ function formatActivityText(
         defaultMessage: 'removed assignee',
       })
     }
-    case 'REVIEWER_CHANGED': {
-      const fromMention = buildActorMention(p.fromActorId, members, agentActors)
-      const toMention = buildActorMention(p.toActorId, members, agentActors)
-      if (fromMention && toMention) {
-        return (
-          <>
-            {intl.formatMessage({
-              id: 'activity.reviewerFromTo.prefix',
-              defaultMessage: 'changed reviewer from',
-            })}{' '}
-            {fromMention}{' '}
-            {intl.formatMessage({
-              id: 'activity.reviewerFromTo.to',
-              defaultMessage: 'to',
-            })}{' '}
-            {toMention}
-          </>
-        )
-      }
-      if (toMention) {
-        return (
-          <>
-            {intl.formatMessage({
-              id: 'activity.reviewerTo',
-              defaultMessage: 'set reviewer to',
-            })}{' '}
-            {toMention}
-          </>
-        )
-      }
-      return intl.formatMessage({
-        id: 'activity.reviewerRemoved',
-        defaultMessage: 'removed reviewer',
-      })
-    }
     case 'TITLE_CHANGED':
       return intl.formatMessage({
         id: 'activity.titleChanged',

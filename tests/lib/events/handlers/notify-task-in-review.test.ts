@@ -9,20 +9,14 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-jest.mock('@/lib/actor', () => ({
-  getHumanActorId: jest.fn(),
-}))
-
 jest.mock('@/lib/services/notification.service', () => ({
   notifyTaskInReview: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { getHumanActorId } from '@/lib/actor'
 import { notifyTaskInReview } from '@/lib/services/notification.service'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
-const mockGetHumanActorId = getHumanActorId as jest.Mock
 const mockNotify = notifyTaskInReview as jest.Mock
 
 beforeEach(() => {
@@ -40,10 +34,9 @@ describe('handleNotifyTaskInReview', () => {
     to: 'IN_REVIEW',
   }
 
-  it('notifies reviewer when task transitions to IN_REVIEW', async () => {
+  it('notifies workspace owners when task transitions to IN_REVIEW', async () => {
     mockTaskFindUnique.mockResolvedValue({
-      reviewerActorId: 'actor-reviewer',
-      project: { workspaceId: 'ws-1', ownerId: null },
+      project: { workspaceId: 'ws-1' },
     })
 
     await handleNotifyTaskInReview(inReviewEvent)
@@ -51,42 +44,8 @@ describe('handleNotifyTaskInReview', () => {
     expect(mockNotify).toHaveBeenCalledWith({
       workspaceId: 'ws-1',
       taskId: 'task-1',
-      reviewerActorId: 'actor-reviewer',
-      ownerActorId: null,
       triggerActorId: null,
     })
-  })
-
-  it('resolves ownerId to actor ID when no task reviewer', async () => {
-    mockTaskFindUnique.mockResolvedValue({
-      reviewerActorId: null,
-      project: { workspaceId: 'ws-1', ownerId: 'member-default' },
-    })
-    mockGetHumanActorId.mockResolvedValue('actor-default')
-
-    await handleNotifyTaskInReview(inReviewEvent)
-
-    expect(mockGetHumanActorId).toHaveBeenCalledWith('member-default')
-    expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reviewerActorId: null,
-        ownerActorId: 'actor-default',
-      })
-    )
-  })
-
-  it('passes null ownerActorId when actor not found', async () => {
-    mockTaskFindUnique.mockResolvedValue({
-      reviewerActorId: null,
-      project: { workspaceId: 'ws-1', ownerId: 'member-gone' },
-    })
-    mockGetHumanActorId.mockResolvedValue(null)
-
-    await handleNotifyTaskInReview(inReviewEvent)
-
-    expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerActorId: null })
-    )
   })
 
   it('skips notification when task is not found', async () => {

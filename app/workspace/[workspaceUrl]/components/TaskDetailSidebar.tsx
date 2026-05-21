@@ -11,7 +11,6 @@ import type {
 import {
   StatusSelect,
   AssigneeSelect,
-  ReviewerSelect,
   ProjectSelect,
   PrioritySelect,
   FIELD_TRIGGER_CLS,
@@ -108,21 +107,6 @@ export function TaskDetailSidebar({
                   )}
                   agentActors={[]}
                   assignee={task.assignee}
-                  triggerClassName={FIELD_TRIGGER_CLS}
-                />
-              ),
-            },
-            {
-              label: intl.formatMessage({ id: 'task.reviewer' }),
-              node: (
-                <ReviewerSelect
-                  value={task.reviewerActorId ?? null}
-                  onChange={v => onPatch({ reviewerActorId: v })}
-                  members={members.filter(
-                    (m): m is WorkspaceMemberInfo & { actorId: string } =>
-                      m.actorId !== null
-                  )}
-                  inheritedId={task.project?.ownerId ?? null}
                   triggerClassName={FIELD_TRIGGER_CLS}
                 />
               ),

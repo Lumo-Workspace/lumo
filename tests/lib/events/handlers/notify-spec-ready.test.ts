@@ -10,14 +10,14 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 jest.mock('@/lib/services/notification.service', () => ({
-  notifyReviewerOrOwners: jest.fn().mockResolvedValue(undefined),
+  notifyWorkspaceOwners: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { notifyReviewerOrOwners } from '@/lib/services/notification.service'
+import { notifyWorkspaceOwners } from '@/lib/services/notification.service'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
-const mockNotify = notifyReviewerOrOwners as jest.Mock
+const mockNotify = notifyWorkspaceOwners as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -36,13 +36,12 @@ describe('handleNotifySpecReady', () => {
     patch: { agentStatus: 'INPUT_REQUIRED' },
   }
 
-  it('notifies reviewer when agent transitions to INPUT_REQUIRED with spec_review reason', async () => {
-    // First call: check inputReason; second call: fetch reviewer info
+  it('notifies workspace owners when agent transitions to INPUT_REQUIRED with spec_review reason', async () => {
+    // First call: check inputReason; second call: fetch workspace info
     mockTaskFindUnique
       .mockResolvedValueOnce({ inputReason: 'spec_review' })
       .mockResolvedValueOnce({
-        reviewerActorId: 'actor-reviewer',
-        project: { workspaceId: 'ws-1', ownerId: 'member-default' },
+        project: { workspaceId: 'ws-1' },
       })
 
     await handleNotifySpecReady(specReviewEvent)
@@ -51,8 +50,6 @@ describe('handleNotifySpecReady', () => {
       workspaceId: 'ws-1',
       taskId: 'task-1',
       type: 'TASK_SPEC_READY',
-      reviewerActorId: 'actor-reviewer',
-      ownerMemberId: 'member-default',
       triggerActorId: null,
     })
   })
@@ -83,23 +80,5 @@ describe('handleNotifySpecReady', () => {
 
     expect(mockTaskFindUnique).not.toHaveBeenCalled()
     expect(mockNotify).not.toHaveBeenCalled()
-  })
-
-  it('passes null reviewerActorId when task has no reviewer', async () => {
-    mockTaskFindUnique
-      .mockResolvedValueOnce({ inputReason: 'spec_review' })
-      .mockResolvedValueOnce({
-        reviewerActorId: null,
-        project: { workspaceId: 'ws-1', ownerId: null },
-      })
-
-    await handleNotifySpecReady(specReviewEvent)
-
-    expect(mockNotify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reviewerActorId: null,
-        ownerMemberId: null,
-      })
-    )
   })
 })

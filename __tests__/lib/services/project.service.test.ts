@@ -102,7 +102,7 @@ describe('listProjects', () => {
     expect(result[0]).toEqual(
       expect.objectContaining({
         id: 'p1',
-        // Reviewer ids exposed to the API are actor ids — both the FK field
+        // Owner ids exposed to the API are actor ids — both the FK field
         // and the flattened object use actor.id, not WorkspaceMember.id.
         ownerId: 'actor_alice',
         todoCount: 2,
@@ -129,7 +129,7 @@ describe('listProjects', () => {
     })
   })
 
-  it('skips Clerk lookup when no project has a reviewer', async () => {
+  it('skips Clerk lookup when no project has an owner', async () => {
     mockFindByWorkspace.mockResolvedValue([
       {
         id: 'p1',
@@ -385,7 +385,7 @@ describe('updateProject', () => {
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
   })
 
-  it('throws 400 when reviewer actor belongs to a different workspace', async () => {
+  it('throws 400 when owner actor belongs to a different workspace', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
@@ -393,7 +393,7 @@ describe('updateProject', () => {
       workspaceId: 'ws-1',
     })
     mockMemberFindByActorId.mockResolvedValue({
-      id: 'reviewer-member-1',
+      id: 'owner-member-1',
       workspaceId: 'ws-other',
     })
 
@@ -402,7 +402,7 @@ describe('updateProject', () => {
         ownerId: 'actor_someone',
       })
     ).rejects.toMatchObject({
-      message: 'Reviewer is not a member of this workspace',
+      message: 'Owner is not a member of this workspace',
       status: 400,
     })
     expect(mockMemberFindByActorId).toHaveBeenCalledWith('actor_someone')
@@ -422,12 +422,12 @@ describe('updateProject', () => {
         ownerId: 'actor_unknown',
       })
     ).rejects.toMatchObject({
-      message: 'Reviewer is not a member of this workspace',
+      message: 'Owner is not a member of this workspace',
       status: 400,
     })
   })
 
-  it('translates actor id to member id when storing the reviewer FK', async () => {
+  it('translates actor id to member id when storing the owner FK', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
@@ -435,14 +435,14 @@ describe('updateProject', () => {
       workspaceId: 'ws-1',
     })
     mockMemberFindByActorId.mockResolvedValue({
-      id: 'reviewer-member-1',
+      id: 'owner-member-1',
       workspaceId: 'ws-1',
     })
     mockUpdate.mockResolvedValue({
       id: 'p1',
       name: 'P',
       owner: {
-        id: 'reviewer-member-1',
+        id: 'owner-member-1',
         clerkId: 'user_x',
         actor: { id: 'actor_x' },
       },
@@ -459,7 +459,7 @@ describe('updateProject', () => {
 
     // Repository stores the resolved memberId
     expect(mockUpdate).toHaveBeenCalledWith('p1', {
-      ownerId: 'reviewer-member-1',
+      ownerId: 'owner-member-1',
     })
     // Response surfaces the actor id back to the UI
     expect(result).toEqual({
@@ -469,7 +469,7 @@ describe('updateProject', () => {
     })
   })
 
-  it('clears the reviewer when ownerId is null', async () => {
+  it('clears the owner when ownerId is null', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,
@@ -496,7 +496,7 @@ describe('updateProject', () => {
     expect(result.ownerId).toBeNull()
   })
 
-  it('updates non-reviewer fields without touching the reviewer FK', async () => {
+  it('updates non-owner fields without touching the owner FK', async () => {
     mockFindById.mockResolvedValue({
       id: 'p1',
       isIdea: false,

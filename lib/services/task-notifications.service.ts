@@ -159,20 +159,6 @@ export function buildActivityEvents(
     })
   }
   if (
-    input.reviewerActorId !== undefined &&
-    result.changedFields.includes('reviewerActorId')
-  ) {
-    activityEvents.push({
-      type: 'task:reviewer_changed',
-      taskId,
-      projectId,
-      actorId: triggerActorId ?? '',
-      fromActorId: (taskCheck as any).reviewerActorId ?? null,
-      toActorId: input.reviewerActorId ?? null,
-      toName: null,
-    })
-  }
-  if (
     input.description !== undefined &&
     result.changedFields.includes('description')
   ) {
@@ -310,7 +296,6 @@ export function dispatchUpdateTaskSideEffects(opts: {
     newStatus: input.status,
     oldAssigneeActorId: result.oldAssigneeActorId,
     newAssigneeActorId: input.assigneeActorId,
-    updatedReviewerActorId: (result.task.reviewerActorId as string) ?? null,
     workspaceId: taskCheck.project.workspaceId,
     triggerActorId,
   })

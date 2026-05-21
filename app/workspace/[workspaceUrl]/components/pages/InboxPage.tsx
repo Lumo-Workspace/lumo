@@ -57,7 +57,6 @@ interface InboxPageProps {
       title: string
       status: ApiStatus
       assigneeActorId: string | null
-      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority

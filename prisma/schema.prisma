@@ -66,11 +66,11 @@ enum DocShareRole {
 }
 
 enum NotificationType {
-  TASK_IN_REVIEW // task moved to IN_REVIEW — sent to reviewer / OWNERs
+  TASK_IN_REVIEW // task moved to IN_REVIEW — sent to workspace owners
   TASK_MENTIONED // someone @mentioned you in a comment
   TASK_SENT_BACK // owner sent a task back to IN_PROGRESS — sent to assignee
   TASK_ASSIGNED // task assigned to you
-  TASK_SPEC_READY // agent generated a spec draft — sent to reviewer
+  TASK_SPEC_READY // agent generated a spec draft — sent to workspace owners
   TASK_DONE // task marked as done — sent to assignee
   AGENT_CLARIFY // agent needs clarification — requires reply to continue
   AGENT_AUTHORIZE // agent needs authorization for a high-risk operation
@@ -105,7 +105,6 @@ enum TaskActivityType {
   STATUS_CHANGED
   PRIORITY_CHANGED
   ASSIGNEE_CHANGED
-  REVIEWER_CHANGED
   TITLE_CHANGED
   DESCRIPTION_CHANGED
   DUE_DATE_CHANGED
@@ -302,7 +301,6 @@ model Actor {
   agent     AgentProfile?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   assignedTasks          Task[]         @relation("TaskAssignee")
-  reviewerTasks          Task[]         @relation("TaskReviewer")
   comments               Comment[]      @relation("CommentAuthor")
   activities             TaskActivity[]
   receivedNotifications  Notification[] @relation("NotificationRecipient")
@@ -381,7 +379,6 @@ model Task {
   number          Int
   parentTaskId    String?
   assigneeActorId String?
-  reviewerActorId String?
   repositoryId    String? // optional link to ProjectRepository
   sprintId        String?
   title           String
@@ -404,7 +401,6 @@ model Task {
   parent     Task?              @relation("TaskChildren", fields: [parentTaskId], references: [id], onDelete: SetNull)
   children   Task[]             @relation("TaskChildren")
   assignee   Actor?             @relation("TaskAssignee", fields: [assigneeActorId], references: [id], onDelete: SetNull)
-  reviewer   Actor?             @relation("TaskReviewer", fields: [reviewerActorId], references: [id], onDelete: SetNull)
 
   viewTaskOrders    ViewTaskOrder[]
   comments          Comment[]
@@ -429,7 +425,6 @@ model Task {
   @@index([teamId, status])
   @@index([parentTaskId])
   @@index([assigneeActorId])
-  @@index([reviewerActorId])
   @@index([repositoryId])
   @@index([sprintId])
   @@map("tasks")

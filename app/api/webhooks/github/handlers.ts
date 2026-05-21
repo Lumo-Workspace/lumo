@@ -1,5 +1,5 @@
 import { waitUntil } from '@vercel/functions'
-import { getActorClerkId } from '@/lib/actor'
+import { getActorClerkId, getHumanActorId } from '@/lib/actor'
 import {
   parseBranchIdentifier,
   splitIdentifier,
@@ -152,18 +152,21 @@ export async function handlePullRequest(
           task.projectId
         )
       )
-      if (task.reviewerActorId) {
-        const reviewerClerkId = await getActorClerkId(task.reviewerActorId)
-        if (reviewerClerkId) {
-          waitUntil(
-            sendDMNotification(
-              workspaceId,
-              reviewerClerkId,
-              'pr_opened',
-              prOpenedPayload
-            )
+      const ownerActorId = task.project.ownerId
+        ? await getHumanActorId(task.project.ownerId)
+        : null
+      const ownerClerkId = ownerActorId
+        ? await getActorClerkId(ownerActorId)
+        : null
+      if (ownerClerkId) {
+        waitUntil(
+          sendDMNotification(
+            workspaceId,
+            ownerClerkId,
+            'pr_opened',
+            prOpenedPayload
           )
-        }
+        )
       }
     }
   } else if (action === 'closed' && pr.merged) {

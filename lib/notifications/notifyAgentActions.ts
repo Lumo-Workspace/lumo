@@ -8,7 +8,6 @@ import { shouldNotify } from '@/lib/notifications/preferenceGate'
 
 interface TaskForNotify {
   assigneeActorId: string | null
-  reviewerActorId: string | null
   team: { workspace: { id: string } }
   project: { ownerId: string | null }
 }
@@ -18,7 +17,6 @@ async function loadTask(taskId: string): Promise<TaskForNotify | null> {
     where: { id: taskId },
     select: {
       assigneeActorId: true,
-      reviewerActorId: true,
       team: { select: { workspace: { select: { id: true } } } },
       project: { select: { ownerId: true } },
     },
@@ -84,17 +82,13 @@ async function resolveAssigneeActorId(
 }
 
 /**
- * Resolve the actor to notify for agent verify / reviewer-targeted events.
- * Tries reviewerActorId, then project.ownerId (member → actor),
- * then falls back to workspace owners.
+ * Resolve the actor(s) to notify for agent verify / owner-targeted events.
+ * Tries the project owner (member → actor), then falls back to workspace owners.
  */
-async function resolveReviewerActorId(
-  reviewerActorId: string | null,
+async function resolveOwnerRecipients(
   ownerMemberId: string | null,
   workspaceId: string
 ): Promise<string[]> {
-  if (reviewerActorId) return [reviewerActorId]
-
   if (ownerMemberId) {
     const actor = await prisma.actor.findUnique({
       where: { memberId: ownerMemberId },
@@ -144,7 +138,7 @@ export async function notifyAgentClarify(
 }
 
 /**
- * Notify the task reviewer (or owners) that agent work is ready for verification.
+ * Notify the workspace owners that agent work is ready for verification.
  * Sends an AGENT_VERIFY notification (requiresAction=true).
  *
  * Called from execute.ts after completeAgentRun succeeds.
@@ -156,8 +150,7 @@ export async function notifyAgentVerify(
   const task = await loadTask(taskId)
   if (!task) return
 
-  const recipients = await resolveReviewerActorId(
-    task.reviewerActorId,
+  const recipients = await resolveOwnerRecipients(
     task.project.ownerId,
     task.team.workspace.id
   )

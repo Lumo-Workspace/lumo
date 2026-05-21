@@ -16,7 +16,6 @@ export interface TaskUpdateData {
   dueDate?: string | Date | null | undefined
   parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
-  reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
@@ -47,13 +46,6 @@ const TASK_DETAIL_INCLUDE = {
       type: true,
       member: { select: { id: true, clerkId: true } },
       agent: { select: { id: true, name: true, avatarColor: true } },
-    },
-  },
-  reviewer: {
-    select: {
-      id: true,
-      type: true,
-      member: { select: { id: true, clerkId: true } },
     },
   },
   pullRequests: {
@@ -660,13 +652,11 @@ export const taskRepository = {
     priority: TaskPriority
     assigneeActorId: string | null
     agentStatus: AgentStatus | null
-    reviewerActorId: string | null
     parentTaskId: string | null
     repositoryId: string | null
     sprintId?: string | null
     order: number | undefined
     dueDate: Date | string | null
-    ownerMemberId: string | null
   }) {
     const taskId = await prisma.$transaction(async tx => {
       const { taskSeq } = await tx.team.update({
@@ -674,15 +664,6 @@ export const taskRepository = {
         data: { taskSeq: { increment: 1 } },
         select: { taskSeq: true },
       })
-
-      // Resolve default reviewer to actor
-      let ownerActorId: string | null = null
-      if (data.ownerMemberId) {
-        const reviewerActor = await tx.actor.findUnique({
-          where: { memberId: data.ownerMemberId },
-        })
-        ownerActorId = reviewerActor?.id ?? null
-      }
 
       const task = await tx.task.create({
         data: {
@@ -695,7 +676,6 @@ export const taskRepository = {
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
           agentStatus: data.agentStatus,
-          reviewerActorId: ownerActorId,
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
           sprintId: data.sprintId ?? null,

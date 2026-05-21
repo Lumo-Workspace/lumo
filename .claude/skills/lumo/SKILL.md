@@ -113,7 +113,7 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 
 ### Out of scope
 
-The CLI does **not** currently update tags / labels, reviewer, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
+The CLI does **not** currently update tags / labels, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
 
 ### `lumo task list [flags]` — list tasks assigned to you
 

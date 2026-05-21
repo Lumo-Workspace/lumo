@@ -14,7 +14,6 @@ export interface UpdateTaskInput {
   dueDate?: string | null | undefined
   parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
-  reviewerActorId?: string | null | undefined
   projectId?: string | undefined
   repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
@@ -30,7 +29,6 @@ export interface TaskUpdateResult {
     status: string
     priority: string
     assigneeActorId: string | null
-    reviewerActorId: string | null
     teamIdentifier: string
     team: { identifier: string }
     tags: Array<{ id: string; name: string; color: string | null }>

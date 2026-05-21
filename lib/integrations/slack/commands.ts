@@ -50,7 +50,6 @@ function taskBlocks(task: {
   teamIdentifier: string
   workspaceSlug: string
   assigneeName?: string | null
-  reviewerName?: string | null
   projectName?: string | null
 }): object[] {
   const identifier = `${task.teamIdentifier}-${task.number}`
@@ -63,7 +62,6 @@ function taskBlocks(task: {
           `*${identifier} · ${task.title}*`,
           `Status: ${task.status}   Priority: ${task.priority}`,
           task.assigneeName ? `Assignee: ${task.assigneeName}` : null,
-          task.reviewerName ? `Reviewer: ${task.reviewerName}` : null,
           task.projectName ? `Project: ${task.projectName}` : null,
         ]
           .filter(Boolean)
@@ -100,7 +98,6 @@ async function findTaskByIdentifier(identifier: string, workspaceId: string) {
       priority: true,
       projectId: true,
       assigneeActorId: true,
-      reviewerActorId: true,
       project: { select: { name: true } },
       team: {
         select: { identifier: true, workspace: { select: { slug: true } } },

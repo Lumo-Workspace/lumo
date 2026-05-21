@@ -144,7 +144,6 @@ const CREATED_TASK = {
   priority: 'MEDIUM',
   projectId: 'proj1',
   assigneeActorId: null,
-  reviewerActorId: null,
   sprintId: null,
   team: { identifier: 'LUM' },
 }

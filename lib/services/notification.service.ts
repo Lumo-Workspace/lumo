@@ -23,7 +23,7 @@ export {
   notifyAgentDone,
 } from '@/lib/notifications/notifyAgentActions'
 
-export { notifyReviewerOrOwners } from '@/lib/notifications/notifyReviewerOrOwners'
+export { notifyWorkspaceOwners } from '@/lib/notifications/notifyWorkspaceOwners'
 export { notifyTaskInReview } from '@/lib/notifications/notifyTaskInReview'
 
 export const notificationService = {

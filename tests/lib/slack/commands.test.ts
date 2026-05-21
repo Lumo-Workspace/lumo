@@ -44,7 +44,6 @@ const mockTask = {
   priority: 'HIGH',
   projectId: 'proj-1',
   assigneeId: null,
-  reviewerId: null,
   team: { identifier: 'ENG', workspace: { slug: 'acme' } },
   project: { name: 'Core' },
 }

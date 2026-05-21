@@ -22,7 +22,7 @@ export type TaskFieldChangedEvent = {
 }
 
 export type TaskActorChangedEvent = {
-  type: 'task:assignee_changed' | 'task:reviewer_changed'
+  type: 'task:assignee_changed'
   taskId: string
   projectId: string
   actorId: string

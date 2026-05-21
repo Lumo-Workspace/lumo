@@ -15,11 +15,11 @@ import {
 import type { WorkspaceMemberInfo } from '../../types'
 import { MemberAvatar } from './shared'
 
-export interface ReviewerSelectProps {
+export interface OwnerSelectProps {
   value: string | null
   onChange: (v: string | null) => void
   members: (WorkspaceMemberInfo & { actorId: string })[]
-  /** The project-level default reviewer ID — used to show "inherited" state */
+  /** The project-level owner ID — used to show "inherited" state */
   inheritedId?: string | null
   triggerClassName?: string
   /** Text shown in the trigger and dropdown when no value is selected. */
@@ -28,16 +28,16 @@ export interface ReviewerSelectProps {
   tooltipText?: string
 }
 
-export function ReviewerSelect({
+export function OwnerSelect({
   value,
   onChange,
   members,
   inheritedId,
   triggerClassName,
-  unassignedLabel = 'No reviewer',
-  tooltipText = 'Reviewer — notified when task moves to In Review',
-}: ReviewerSelectProps) {
-  const reviewer = members.find(m => m.actorId === value)
+  unassignedLabel = 'No owner',
+  tooltipText = 'Owner — notified about project changes',
+}: OwnerSelectProps) {
+  const owner = members.find(m => m.actorId === value)
   const inherited =
     !value && inheritedId ? members.find(m => m.actorId === inheritedId) : null
 
@@ -49,10 +49,10 @@ export function ReviewerSelect({
       <Tooltip>
         <TooltipTrigger asChild>
           <SelectTrigger className={triggerClassName}>
-            {reviewer ? (
+            {owner ? (
               <div className='flex items-center gap-1.5'>
-                <MemberAvatar member={reviewer} size='xs' />
-                <span>{reviewer.name}</span>
+                <MemberAvatar member={owner} size='xs' />
+                <span>{owner.name}</span>
               </div>
             ) : inherited ? (
               <div className='flex items-center gap-1.5 text-zinc-400'>
