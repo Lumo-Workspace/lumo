@@ -1,6 +1,6 @@
 export { StatusSelect } from './StatusSelect'
 export { AssigneeSelect } from './AssigneeSelect'
-export { ReviewerSelect } from './ReviewerSelect'
+export { OwnerSelect } from './OwnerSelect'
 export { PrioritySelect } from './PrioritySelect'
 export { AiPrioritySelect } from './AiPrioritySelect'
 export { ProjectSelect } from './ProjectSelect'
