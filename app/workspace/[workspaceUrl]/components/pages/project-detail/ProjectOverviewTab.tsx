@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
 import { ApiProject, ApiRepository, WorkspaceMemberInfo } from '../../../types'
-import { ReviewerSelect, FIELD_TRIGGER_CLS } from '../../fields'
+import { OwnerSelect, FIELD_TRIGGER_CLS } from '../../fields'
 import { ProjectRiskOverrideCard } from '../../summary/ProjectRiskOverrideCard'
 import { DescriptionEditor } from '../../DescriptionEditor'
 import { TypographyH3 } from '@/components/ui/typography'
@@ -230,7 +230,7 @@ export function ProjectOverviewTab({
                   defaultMessage: 'Owner',
                 })}
               </p>
-              <ReviewerSelect
+              <OwnerSelect
                 value={project.ownerId ?? null}
                 onChange={v => onUpdateProject(project.id, { ownerId: v })}
                 members={members.filter(
