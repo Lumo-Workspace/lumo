@@ -14,5 +14,11 @@ export { usersClient } from './users'
 export { sessionsClient } from './sessions'
 export type { RegenerateSummaryResult } from './sessions'
 export { invitesClient } from './invites'
+export { milestonesClient } from './milestones'
+export type {
+  ApiMilestone,
+  MilestoneCreateInput,
+  MilestoneUpdateInput,
+} from './milestones'
 export { waitlistClient } from './waitlist'
 export type { WaitlistSignupInput, WaitlistSignupResult } from './waitlist'
