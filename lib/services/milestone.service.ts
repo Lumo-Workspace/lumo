@@ -42,8 +42,8 @@ export const milestoneService = {
       projectId,
       name: input.name,
       description: input.description ?? null,
-      startDate: input.startDate,
-      targetDate: input.targetDate,
+      ...(input.startDate !== undefined && { startDate: input.startDate }),
+      ...(input.targetDate !== undefined && { targetDate: input.targetDate }),
     })
   },
 
