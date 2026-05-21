@@ -138,7 +138,7 @@ export async function notifyAgentClarify(
 }
 
 /**
- * Notify the task reviewer (or owners) that agent work is ready for verification.
+ * Notify the workspace owners that agent work is ready for verification.
  * Sends an AGENT_VERIFY notification (requiresAction=true).
  *
  * Called from execute.ts after completeAgentRun succeeds.

@@ -50,7 +50,6 @@ function taskBlocks(task: {
   teamIdentifier: string
   workspaceSlug: string
   assigneeName?: string | null
-  reviewerName?: string | null
   projectName?: string | null
 }): object[] {
   const identifier = `${task.teamIdentifier}-${task.number}`
@@ -63,7 +62,6 @@ function taskBlocks(task: {
           `*${identifier} · ${task.title}*`,
           `Status: ${task.status}   Priority: ${task.priority}`,
           task.assigneeName ? `Assignee: ${task.assigneeName}` : null,
-          task.reviewerName ? `Reviewer: ${task.reviewerName}` : null,
           task.projectName ? `Project: ${task.projectName}` : null,
         ]
           .filter(Boolean)
