@@ -182,8 +182,6 @@ export function dispatchTaskUpdateNotifications(params: {
         notifyTaskInReview({
           workspaceId,
           taskId,
-          reviewerActorId: updatedReviewerActorId,
-          ownerActorId: null,
           triggerActorId,
         }).catch(err => console.error('[notify] TASK_IN_REVIEW failed:', err))
     )

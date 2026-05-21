@@ -1,15 +1,18 @@
 import { waitUntil } from '@vercel/functions'
 import { prisma } from '@/lib/db/prisma'
-import { getActorClerkId } from '@/lib/actor'
+import { getHumanActorId, getActorClerkId } from '@/lib/actor'
 import {
   sendChannelNotification,
   sendDMNotification,
 } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
-import { notifyReviewerOrOwners } from './notifyReviewerOrOwners'
+import { notifyWorkspaceOwners } from './notifyWorkspaceOwners'
 
 /**
- * Fires a TASK_IN_REVIEW notification to the effective reviewer.
+ * Fires a TASK_IN_REVIEW notification:
+ * - Slack channel announcement
+ * - Slack DM to the project owner (when resolvable)
+ * - Inbox notification to every workspace OWNER
  *
  * triggerActorId is an Actor.id when triggered by a user action,
  * or null when triggered by GitHub webhook (no actor).
@@ -17,31 +20,18 @@ import { notifyReviewerOrOwners } from './notifyReviewerOrOwners'
 export async function notifyTaskInReview(params: {
   workspaceId: string
   taskId: string
-  reviewerActorId: string | null
-  ownerActorId: string | null
   triggerActorId: string | null
 }): Promise<void> {
-  const {
-    workspaceId,
-    taskId,
-    reviewerActorId,
-    ownerActorId,
-    triggerActorId,
-  } = params
-  const effectiveActorId = reviewerActorId ?? ownerActorId ?? null
+  const { workspaceId, taskId, triggerActorId } = params
 
-  // Resolve effective reviewer actor → clerkId for Slack DM
-  const effectiveReviewerClerkId = effectiveActorId
-    ? await getActorClerkId(effectiveActorId)
-    : null
-
-  // Load task data for notification payloads
+  // Load task data for notification payloads + project owner resolution
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: {
       title: true,
       number: true,
       projectId: true,
+      project: { select: { ownerId: true } },
       team: {
         select: {
           identifier: true,
@@ -52,6 +42,12 @@ export async function notifyTaskInReview(params: {
   })
   if (!task) return
 
+  // Resolve project owner → actor → Clerk ID for Slack DM target
+  const ownerActorId = task.project.ownerId
+    ? await getHumanActorId(task.project.ownerId)
+    : null
+  const ownerClerkId = ownerActorId ? await getActorClerkId(ownerActorId) : null
+
   const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
   const taskUrl = buildTaskUrl(
     task.team.workspace.slug,
@@ -60,7 +56,7 @@ export async function notifyTaskInReview(params: {
   )
   const payload = { taskId, taskTitle: task.title, taskIdentifier, taskUrl }
 
-  // Slack: channel + DM
+  // Slack: channel + DM (DM only if project owner resolvable)
   waitUntil(
     sendChannelNotification(
       task.team.workspace.id,
@@ -69,25 +65,22 @@ export async function notifyTaskInReview(params: {
       task.projectId
     )
   )
-  if (effectiveReviewerClerkId) {
+  if (ownerClerkId) {
     waitUntil(
       sendDMNotification(
         task.team.workspace.id,
-        effectiveReviewerClerkId,
+        ownerClerkId,
         'task_in_review',
         payload
       )
     )
   }
 
-  // Inbox: notify reviewer or fallback to workspace owners
-  // effectiveActorId is already resolved (reviewer or default reviewer actor)
-  await notifyReviewerOrOwners({
+  // Inbox: notify all workspace owners
+  await notifyWorkspaceOwners({
     workspaceId,
     taskId,
     type: 'TASK_IN_REVIEW',
-    reviewerActorId: effectiveActorId,
-    ownerMemberId: null,
     triggerActorId,
   })
 }
