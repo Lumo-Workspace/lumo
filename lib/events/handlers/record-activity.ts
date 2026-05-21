@@ -50,16 +50,6 @@ function toActivityRecord(event: TaskActivityEvent): ActivityRecord {
         },
       }
 
-    case 'task:reviewer_changed':
-      return {
-        type: 'REVIEWER_CHANGED',
-        payload: {
-          fromActorId: event.fromActorId,
-          toActorId: event.toActorId,
-          toName: event.toName,
-        },
-      }
-
     case 'task:parent_changed':
       return {
         type: 'PARENT_CHANGED',
