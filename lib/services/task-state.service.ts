@@ -2,6 +2,7 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import {
   isValidTaskTransition,
   type TaskStatusValue,
@@ -62,6 +63,7 @@ export async function updateTask(
     projectId,
     repositoryId,
     sprintId,
+    milestoneId,
     tagIds,
     ...rest
   } = input
@@ -115,6 +117,19 @@ export async function updateTask(
     }
   }
 
+  // Validate milestone belongs to the task's project (or the new project if
+  // we're moving the task). Reject cross-project milestone assignment.
+  if (milestoneId !== undefined && milestoneId !== null) {
+    const milestone = await milestoneRepository.findById(milestoneId)
+    const expectedProjectId = projectId ?? task.projectId
+    if (!milestone || milestone.projectId !== expectedProjectId) {
+      throw Object.assign(
+        new Error('Milestone does not belong to this project'),
+        { status: 400 }
+      )
+    }
+  }
+
   // Validate assignee
   let newAssigneeType: 'HUMAN' | 'AGENT' | null = null
   if (assigneeActorId !== undefined && assigneeActorId !== null) {
@@ -150,6 +165,7 @@ export async function updateTask(
   if (projectId !== undefined) data.projectId = projectId
   if (repositoryId !== undefined) data.repositoryId = repositoryId
   if (sprintId !== undefined) data.sprintId = sprintId
+  if (milestoneId !== undefined) data.milestoneId = milestoneId
 
   // Write SPRINT_CHANGED activity when sprintId changes
   if ('sprintId' in input && sprintId !== task.sprintId) {

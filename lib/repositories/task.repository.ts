@@ -19,6 +19,7 @@ export interface TaskUpdateData {
   projectId?: string | undefined
   repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
+  milestoneId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
 }
@@ -655,6 +656,7 @@ export const taskRepository = {
     parentTaskId: string | null
     repositoryId: string | null
     sprintId?: string | null
+    milestoneId?: string | null
     order: number | undefined
     dueDate: Date | string | null
   }) {
@@ -679,6 +681,7 @@ export const taskRepository = {
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
           sprintId: data.sprintId ?? null,
+          milestoneId: data.milestoneId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
           dueDate: data.dueDate,
         },
