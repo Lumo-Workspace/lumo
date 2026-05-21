@@ -17,6 +17,7 @@ import { taskList } from './commands/task-list'
 import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
 import { projectList } from './commands/project-list'
+import { milestoneList } from './commands/milestone-list'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -166,6 +167,18 @@ projectCmd
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
   .action(wrap(() => projectList()))
+
+const milestoneCmd = program
+  .command('milestone')
+  .description('Inspect milestones from the terminal')
+
+milestoneCmd
+  .command('list')
+  .description(
+    'List milestones for a project. --project required when workspace has >1 project.'
+  )
+  .option('--project <ref>', 'Project name or slug')
+  .action(wrap(options => milestoneList(options as Record<string, string>)))
 
 task
   .command('update <identifier>')
