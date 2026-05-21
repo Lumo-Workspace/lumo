@@ -99,6 +99,13 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - types/ → Shared TypeScript types
 - shared/ → Cross-project types, errors, constants (used by main app + agent-server)
 
+## Database Migrations
+
+- **Dev**: schema changes are applied locally via `prisma migrate dev`. If the dev DB has stale checksum drift on a previously-applied migration (Prisma rejects with P3008 / P3012), the workaround is: hand-write the SQL into `prisma/migrations/<timestamp>_<name>/migration.sql`, apply with `npx prisma db execute --file <path>`, record with `npx prisma migrate resolve --applied <name>`, then `npx prisma generate`. **Never** `prisma migrate reset` or direct-UPDATE `_prisma_migrations` without explicit user approval.
+- **Production**: migrations are applied **only** by CI/CD running `prisma migrate deploy` on deploy. **Never** apply a migration to production manually, even from a maintenance script.
+- A merged PR with a new migration ≠ production is migrated. Production is migrated only after the deploy completes. After merging a schema-change PR, verify the migration applied on prod (deploy log, or `prisma migrate status` against the prod URL).
+- When opening a PR with a schema change, mention in the description what production needs (e.g. "requires `migrate deploy` on next deploy", or call out any data-deletion the migration performs).
+
 ## CLI & Skills 同步
 
 - 修改 `cli/src/commands/` 下的命令（新增子命令、改 flag、改输出格式、改触发条件）时，**必须同步更新** `.claude/skills/lumo/SKILL.md`：
