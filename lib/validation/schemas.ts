@@ -152,6 +152,7 @@ export const cliCreateTaskSchema = z.object({
     .default('LOW'),
   projectRef: z.string().trim().min(1).max(200).optional(),
   assigneeRef: z.string().trim().min(1).max(200).optional(),
+  milestoneRef: z.string().trim().min(1).max(200).optional(),
 })
 
 /**
@@ -174,6 +175,7 @@ export const cliUpdateTaskSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
+  milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
 })
 
 // ─── Batch Task Creation ───────────────────────────────────────────────────

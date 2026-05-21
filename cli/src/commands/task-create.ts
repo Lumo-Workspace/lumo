@@ -9,6 +9,7 @@ export interface CreateTaskOptions {
   priority?: string
   assignee?: string
   project?: string
+  milestone?: string
 }
 
 interface CreatedTaskResponse {
@@ -88,6 +89,7 @@ export async function taskCreate(
   if (opts.description !== undefined) body.description = opts.description
   if (opts.project !== undefined) body.projectRef = opts.project
   if (opts.assignee !== undefined) body.assigneeRef = opts.assignee
+  if (opts.milestone !== undefined) body.milestoneRef = opts.milestone
 
   let res: Response
   try {

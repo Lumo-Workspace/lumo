@@ -1,5 +1,6 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
 import { slugify } from '@/lib/utils/slugify'
@@ -53,6 +54,28 @@ async function resolveProjectId(
     400,
     `multiple projects match "${projectRef}". Use a more specific name.`
   )
+}
+
+/**
+ * Resolve a `--milestone <ref>` argument to a milestone id within a project.
+ * Matches case-insensitively against the milestone name. Returns null on
+ * empty / undefined ref. Throws 400 when the name is not found.
+ */
+async function resolveMilestoneId(
+  projectId: string,
+  milestoneRef: string | undefined
+): Promise<string | null> {
+  if (!milestoneRef) return null
+  const milestones = await milestoneRepository.findByProject(projectId)
+  const ref = milestoneRef.trim().toLowerCase()
+  const match = milestones.find(m => m.name.toLowerCase() === ref)
+  if (!match) {
+    throw httpError(
+      400,
+      `no milestone matches "${milestoneRef}" in this project. Try \`lumo milestone list\`.`
+    )
+  }
+  return match.id
 }
 
 async function resolveAssigneeActorId(args: {
@@ -119,6 +142,7 @@ async function createFromCli(args: {
     priority: TaskPriority
     projectRef?: string | undefined
     assigneeRef?: string | undefined
+    milestoneRef?: string | undefined
   }
 }): Promise<{ id: string; identifier: string; title: string; url: string }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
@@ -129,6 +153,7 @@ async function createFromCli(args: {
     callerClerkId,
     assigneeRef: input.assigneeRef,
   })
+  const milestoneId = await resolveMilestoneId(projectId, input.milestoneRef)
 
   // We need the caller's own actor id to attribute the create activity.
   // For assigneeRef === "me" this is identical to assigneeActorId; for
@@ -158,6 +183,7 @@ async function createFromCli(args: {
       status: 'TODO',
       priority: input.priority,
       assigneeActorId,
+      milestoneId,
     },
     callerActor.id,
     callerClerkId
@@ -180,6 +206,7 @@ async function updateFromCli(args: {
     status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | undefined
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
+    milestoneRef?: string | null | undefined
   }
 }): Promise<{ id: string; identifier: string; title: string; url: string }> {
   const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
@@ -211,6 +238,19 @@ async function updateFromCli(args: {
     }
   }
 
+  // Resolve milestone (same tri-state as assigneeRef).
+  let milestoneId: string | null | undefined = undefined
+  if ('milestoneRef' in input) {
+    if (input.milestoneRef === null) {
+      milestoneId = null
+    } else if (input.milestoneRef !== undefined) {
+      milestoneId = await resolveMilestoneId(
+        detail.projectId,
+        input.milestoneRef
+      )
+    }
+  }
+
   const callerMember = await memberRepository.findByWorkspaceAndClerkId(
     workspaceId,
     callerClerkId
@@ -234,6 +274,7 @@ async function updateFromCli(args: {
     status?: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
     priority?: TaskPriority
     assigneeActorId?: string | null
+    milestoneId?: string | null
   } = {}
   if (input.title !== undefined) updateInput.title = input.title
   if ('description' in input)
@@ -242,6 +283,7 @@ async function updateFromCli(args: {
   if (input.priority !== undefined) updateInput.priority = input.priority
   if (assigneeActorId !== undefined)
     updateInput.assigneeActorId = assigneeActorId
+  if (milestoneId !== undefined) updateInput.milestoneId = milestoneId
 
   const result = await taskService.updateTaskWithSideEffects(
     resolved.id,

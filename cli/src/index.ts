@@ -151,6 +151,7 @@ task
   )
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option('--project <ref>', 'Project name or slug')
+  .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
@@ -198,6 +199,10 @@ task
   .option(
     '-a, --assignee <ref>',
     'New assignee: email, name, or "me" (empty string to clear)'
+  )
+  .option(
+    '--milestone <ref>',
+    'Milestone name (case-insensitive); empty string to unbind'
   )
   .action(
     wrap((identifier, options) =>
