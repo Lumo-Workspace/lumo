@@ -15,14 +15,14 @@ export interface UpdateProjectInput {
 // ── Project Service ─────────────────────────────────────────────────────────
 
 export const projectService = {
-  /** List projects with permission filtering, status counts, and Clerk-resolved reviewer name. */
+  /** List projects with permission filtering, status counts, and Clerk-resolved owner name. */
   async listProjects(workspaceId: string, memberId: string) {
     const [projects, statusCounts] = await Promise.all([
       projectRepository.findByWorkspace(workspaceId, memberId),
       projectRepository.countTasksByStatus(workspaceId, memberId),
     ])
 
-    // Batch-resolve reviewer display names from Clerk (one call for all reviewers).
+    // Batch-resolve owner display names from Clerk (one call for all owners).
     const clerkIds = Array.from(
       new Set(
         projects.map(p => p.owner?.clerkId).filter((c): c is string => !!c)
@@ -53,21 +53,21 @@ export const projectService = {
         DONE: 0,
       }
       const { owner, ...rest } = p
-      // Reviewer ids exposed to the API are actor ids — the same id space the
-      // UI's ReviewerSelect uses for tasks. The DB stores WorkspaceMember.id
-      // on the FK; we translate via the joined `actor` row.
-      const reviewerActorId = owner?.actor?.id ?? null
+      // Owner ids exposed to the API are actor ids — the same id space the
+      // UI's OwnerSelect uses for project owner. The DB stores
+      // WorkspaceMember.id on the FK; we translate via the joined `actor` row.
+      const ownerActorId = owner?.actor?.id ?? null
       return {
         ...rest,
-        ownerId: reviewerActorId,
+        ownerId: ownerActorId,
         todoCount: counts.TODO,
         inProgressCount: counts.IN_PROGRESS,
         inReviewCount: counts.IN_REVIEW,
         doneCount: counts.DONE,
         owner:
-          owner && reviewerActorId
+          owner && ownerActorId
             ? {
-                id: reviewerActorId,
+                id: ownerActorId,
                 name: nameByClerkId.get(owner.clerkId) ?? 'Unknown',
               }
             : null,
@@ -136,9 +136,9 @@ export const projectService = {
   },
 
   /**
-   * Update a project. Validates idea edit permission and reviewer workspace
+   * Update a project. Validates idea edit permission and owner workspace
    * membership. `input.ownerId` is interpreted as an Actor.id (the
-   * same id space the UI's ReviewerSelect uses for tasks); the service
+   * same id space the UI's OwnerSelect uses for project owner); the service
    * resolves it to the underlying WorkspaceMember.id for storage and
    * translates the response back to actor.id for the UI.
    */
