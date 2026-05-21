@@ -7,6 +7,7 @@
 - Timeline sessions with only SESSION_START and SESSION_END events (eventCount ≤ 2, memoryCount === 0) represent transient Claude Code lifecycle noise, not real work, and clutter the timeline if displayed. <!-- from: LUM-39 -->
 - A Session row has a single taskId foreign key. If a user switches tasks mid-session, all events in that session—including work done on prior tasks—will be attributed to whichever task the session was last attached to. <!-- from: LUM-40 -->
 - When multiple Claude Code sessions run in parallel, switching the global task context in one session overwrites ~/.lumo/current-task.json for all sessions, causing subsequent hook events in other sessions to read the wrong task ID and mis-attribute work. <!-- from: LUM-40 -->
+- Tiptap editor placeholders freeze at initialization-time locale and do not update when the language context changes, causing stale i18n strings to persist across locale switches. <!-- from: LUM-57 -->
 ## Decisions
 
 - Memory extraction from sub-agents uses the SubagentStop hook rather than manual polling or post-processing because the hook provides immediate access to agent_result when execution completes. <!-- from: LUM-37 -->
@@ -21,3 +22,4 @@
 
 - To dismiss a 0-operation Lumo proposal without losing sync state: POST /api/lumo-proposals/[proposalId]/dismiss to mark it APPLIED with current appliedAt, then call onSynced to refetch getTimeline. This prevents the banner from reappearing on tab switch. <!-- from: LUM-39 -->
 - When refactoring an API route with direct Prisma calls: check if a service method exists for that query. If yes, replace the Prisma call with the service method. If no, create the service method first, then delegate to it from the route. <!-- from: LUM-41 -->
+- To fix frozen Tiptap placeholders: store formatMessage() result in a ref, update the ref in a useEffect listening to locale changes, and trigger editor.commands.updateExtensions() to force a redraw without mutating the document. <!-- from: LUM-57 -->
