@@ -229,6 +229,7 @@ export function ProjectDetailPage({
       {/* ── Tasks tab ── */}
       {tab === 'tasks' && (
         <ProjectTasksTab
+          projectId={project.id}
           tasks={tasks}
           setTasks={setTasks}
           filteredTasks={filteredTasks}
