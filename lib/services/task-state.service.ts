@@ -34,7 +34,7 @@ async function isDescendant(
 /**
  * Update a task with full validation: status-machine transition, parent
  * project + circular-reference guard, project cross-workspace check,
- * assignee / reviewer workspace membership. Writes a SPRINT_CHANGED activity
+ * assignee workspace membership. Writes a SPRINT_CHANGED activity
  * when `sprintId` is in the patch, and syncs tag associations when `tagIds`
  * is provided.
  *
@@ -59,7 +59,6 @@ export async function updateTask(
   const {
     parentTaskId,
     assigneeActorId,
-    reviewerActorId,
     projectId,
     repositoryId,
     sprintId,
@@ -128,16 +127,6 @@ export async function updateTask(
     newAssigneeType = actor.type as 'HUMAN' | 'AGENT'
   }
 
-  // Validate reviewer
-  if (reviewerActorId !== undefined && reviewerActorId !== null) {
-    const actor = await taskRepository.findActorById(reviewerActorId)
-    if (!actor || actor.workspaceId !== task.project.workspaceId) {
-      throw Object.assign(new Error('Reviewer is not part of this workspace'), {
-        status: 400,
-      })
-    }
-  }
-
   // Build update data
   const data: import('@/lib/repositories/task.repository').TaskUpdateData = {}
   if (rest.title !== undefined) data.title = rest.title
@@ -158,7 +147,6 @@ export async function updateTask(
       data.agentError = null
     }
   }
-  if (reviewerActorId !== undefined) data.reviewerActorId = reviewerActorId
   if (projectId !== undefined) data.projectId = projectId
   if (repositoryId !== undefined) data.repositoryId = repositoryId
   if (sprintId !== undefined) data.sprintId = sprintId
