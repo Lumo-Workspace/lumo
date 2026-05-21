@@ -93,13 +93,11 @@ export async function createTask(
     priority,
     assigneeActorId: assigneeActorId ?? null,
     agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
-    reviewerActorId: null,
     parentTaskId: parentTaskId ?? null,
     repositoryId: repositoryId ?? null,
     sprintId: resolvedSprintId,
     order: taskOrder,
     dueDate: dueDate ?? null,
-    ownerMemberId: project.owner?.id ?? null,
   })
 
   // Fire-and-forget side-effects
@@ -157,12 +155,10 @@ export async function createFromAutomation(
     priority: input.priority,
     assigneeActorId: input.assigneeActorId,
     agentStatus: null,
-    reviewerActorId: null,
     parentTaskId: null,
     repositoryId: null,
     order,
     dueDate: null,
-    ownerMemberId: project.owner?.id ?? null,
   })
 
   if (input.tagIds.length > 0) {
