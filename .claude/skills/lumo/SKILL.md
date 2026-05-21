@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, or update a task''s status/title/description/priority/assignee. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone".'
 ---
 
 ## Prerequisites
@@ -48,12 +48,13 @@ The command prints a markdown document to stdout containing:
 
 Use this when the user wants to file a new task from the terminal. Title is positional and required (non-empty).
 
-| Flag                     | Type   | Notes                                                                            |
-| ------------------------ | ------ | -------------------------------------------------------------------------------- |
-| `-d, --description <>`   | string | Optional task description.                                                       |
-| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.         |
-| `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                              |
-| `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.** |
+| Flag                     | Type   | Notes                                                                               |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------- |
+| `-d, --description <>`   | string | Optional task description.                                                          |
+| `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.            |
+| `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                 |
+| `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**    |
+| `--milestone <ref>`      | string | Milestone name (case-insensitive) within the resolved project. Omit for no binding. |
 
 Examples:
 
@@ -61,6 +62,7 @@ Examples:
 lumo task create "Fix Slack OAuth redirect bug"
 lumo task create "Refactor task service" --priority high --description "Split into smaller files"
 lumo task create "Investigate slow query" --assignee teammate@example.com --project backend
+lumo task create "Plan API design" --milestone "v1.0"
 ```
 
 On success the command prints one line to stdout:
@@ -81,13 +83,14 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 
 Pure flag-driven update. Provide at least one of:
 
-| Flag                   | Type   | Notes                                                               |
-| ---------------------- | ------ | ------------------------------------------------------------------- |
-| `-t, --title <text>`   | string | Cannot be empty.                                                    |
-| `-d, --description <>` | string | `--description ""` clears the field.                                |
-| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).      |
-| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                  |
-| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field. |
+| Flag                   | Type   | Notes                                                                                  |
+| ---------------------- | ------ | -------------------------------------------------------------------------------------- |
+| `-t, --title <text>`   | string | Cannot be empty.                                                                       |
+| `-d, --description <>` | string | `--description ""` clears the field.                                                   |
+| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).                         |
+| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                                     |
+| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field.                    |
+| `--milestone <ref>`    | string | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds. |
 
 Examples:
 
@@ -97,6 +100,8 @@ lumo task update LUM-48 --title "Update task from CLI" --priority high
 lumo task update LUM-48 --assignee me
 lumo task update LUM-48 --description ""        # clear description
 lumo task update LUM-48 --assignee ""           # unassign
+lumo task update LUM-48 --milestone "v1.0"      # attach to milestone
+lumo task update LUM-48 --milestone ""          # unbind milestone
 ```
 
 On success the command prints one line to stdout:
@@ -114,6 +119,8 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 ### Out of scope
 
 The CLI does **not** currently update tags / labels, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
+
+Milestone updates (`--milestone`) work, but creating / editing / deleting milestones themselves is web-UI only — use the [Milestones tab on the project detail page](https://www.uselumo.ai/) or `lumo milestone list` for discovery.
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
@@ -164,6 +171,22 @@ Prints `<slug>  <Display Name>` lines. The slug column matches the `--project <r
 ```bash
 lumo project list
 ```
+
+### `lumo milestone list [--project <ref>]` — list milestones in a project
+
+Prints fixed-width rows: `<STATUS>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc.
+
+```bash
+lumo milestone list                  # one-project workspace
+lumo milestone list --project lumo   # multi-project workspace
+```
+
+`--project <ref>` is required when the workspace has more than one project (consistent with `task create --project`). Match is by project name or slug, case-insensitive.
+
+### When to suggest `milestone list`
+
+- Before suggesting `task create --milestone <ref>` or `task update --milestone <ref>` to confirm the milestone exists under the expected name.
+- When the user asks "what milestones do we have", "what's on v1.0", or similar.
 
 When to suggest: before `task create --project <ref>` when the workspace has more than one project and the user hasn't specified which one.
 
