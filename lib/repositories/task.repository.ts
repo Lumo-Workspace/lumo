@@ -549,12 +549,20 @@ export const taskRepository = {
   },
 
   /** Find all tasks for a project with full list details (for project task list).
-   * @param sprintId - undefined: no sprint filter; null: only backlog (sprintId IS NULL); string: only that sprint
+   * @param sprintId    - undefined: no sprint filter; null: only backlog (sprintId IS NULL); string: only that sprint
+   * @param milestoneId - undefined: no milestone filter; null: only tasks with no milestone; string: only that milestone
    */
-  async findByProjectWithDetails(projectId: string, sprintId?: string | null) {
+  async findByProjectWithDetails(
+    projectId: string,
+    sprintId?: string | null,
+    milestoneId?: string | null
+  ) {
     const where: Prisma.TaskWhereInput = { projectId }
     if (sprintId !== undefined) {
       where.sprintId = sprintId === null ? null : sprintId
+    }
+    if (milestoneId !== undefined) {
+      where.milestoneId = milestoneId === null ? null : milestoneId
     }
     return prisma.task.findMany({
       where,
