@@ -26,7 +26,7 @@ const FILTER_CATEGORIES = [
     id: 'status',
     labelId: 'activity.filter.status',
     defaultLabel: 'Status',
-    types: new Set(['STATUS_CHANGED']),
+    types: new Set(['TASK_CREATED', 'STATUS_CHANGED']),
   },
   {
     id: 'priority',
@@ -82,7 +82,6 @@ const FILTER_CATEGORIES = [
     labelId: 'activity.filter.other',
     defaultLabel: 'Other',
     types: new Set([
-      'TASK_CREATED',
       'DUE_DATE_CHANGED',
       'PARENT_CHANGED',
       'COMMENT_DELETED',
