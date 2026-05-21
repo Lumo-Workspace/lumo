@@ -100,7 +100,6 @@ async function findTaskByIdentifier(identifier: string, workspaceId: string) {
       priority: true,
       projectId: true,
       assigneeActorId: true,
-      reviewerActorId: true,
       project: { select: { name: true } },
       team: {
         select: { identifier: true, workspace: { select: { slug: true } } },
