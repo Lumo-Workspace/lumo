@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
+import { TaskMilestoneField } from './milestones/TaskMilestoneField'
 import React, { useState } from 'react'
 
 interface TaskDetailSidebarProps {
@@ -194,6 +195,17 @@ export function TaskDetailSidebar({
                   },
                 ]
               : []),
+            {
+              label: intl.formatMessage({ id: 'task.field.milestone' }),
+              node: (
+                <TaskMilestoneField
+                  projectId={task.projectId}
+                  value={task.milestoneId ?? null}
+                  onChange={v => onPatch({ milestoneId: v })}
+                  triggerClassName={FIELD_TRIGGER_CLS}
+                />
+              ),
+            },
             ...(allTags && onTagsChange
               ? [
                   {
