@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Adjuntar",
   "slackContext.dialog.title": "Adjuntar un mensaje de Slack",
-  "slackContext.empty.noContexts": "Sin mensajes de Slack adjuntos aún.",
+  "slackContext.empty.noContexts": "Sin mensajes de Slack",
   "slackContext.empty.notConnected": "Conecta Slack para adjuntar mensajes como contexto de tarea.",
   "slackContext.notConnected.title": "Slack no conectado",
   "slackContext.notConnected.confirm": "Abrir configuración",

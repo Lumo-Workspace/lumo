@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Attach करें",
   "slackContext.dialog.title": "Slack message attach करें",
-  "slackContext.empty.noContexts": "अभी कोई Slack messages attach नहीं हैं।",
+  "slackContext.empty.noContexts": "कोई Slack messages नहीं",
   "slackContext.empty.notConnected": "Task context के रूप में messages attach करने के लिए Slack को connect करें।",
   "slackContext.notConnected.title": "Slack कनेक्ट नहीं है",
   "slackContext.notConnected.confirm": "सेटिंग्स खोलें",

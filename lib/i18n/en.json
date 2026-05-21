@@ -330,7 +330,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Attach",
   "slackContext.dialog.title": "Attach a Slack message",
-  "slackContext.empty.noContexts": "No Slack messages attached yet.",
+  "slackContext.empty.noContexts": "No Slack messages",
   "slackContext.empty.notConnected": "Connect Slack to attach messages as task context.",
   "slackContext.notConnected.title": "Slack not connected",
   "slackContext.notConnected.confirm": "Open settings",

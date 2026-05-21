@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Anhängen",
   "slackContext.dialog.title": "Slack-Nachricht anhängen",
-  "slackContext.empty.noContexts": "Noch keine Slack-Nachrichten angehängt.",
+  "slackContext.empty.noContexts": "Keine Slack-Nachrichten",
   "slackContext.empty.notConnected": "Verbinde Slack, um Nachrichten als Task-Kontext anzuhängen.",
   "slackContext.notConnected.title": "Slack nicht verbunden",
   "slackContext.notConnected.confirm": "Einstellungen öffnen",

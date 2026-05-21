@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Lampirkan",
   "slackContext.dialog.title": "Lampirkan mesej Slack",
-  "slackContext.empty.noContexts": "Tiada mesej Slack yang dilampirkan lagi.",
+  "slackContext.empty.noContexts": "Tiada mesej Slack",
   "slackContext.empty.notConnected": "Sambungkan Slack untuk melampirkan mesej sebagai konteks tugas.",
   "slackContext.notConnected.title": "Slack tidak disambungkan",
   "slackContext.notConnected.confirm": "Buka tetapan",

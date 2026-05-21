@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "첨부",
   "slackContext.dialog.title": "Slack 메시지 첨부",
-  "slackContext.empty.noContexts": "첨부된 Slack 메시지가 없습니다.",
+  "slackContext.empty.noContexts": "Slack 메시지 없음",
   "slackContext.empty.notConnected": "Slack을 연결하여 메시지를 task context로 첨부하세요.",
   "slackContext.notConnected.title": "Slack이 연결되지 않음",
   "slackContext.notConnected.confirm": "설정 열기",

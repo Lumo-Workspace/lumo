@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "添付",
   "slackContext.dialog.title": "Slackメッセージを添付",
-  "slackContext.empty.noContexts": "まだSlackメッセージが添付されていません。",
+  "slackContext.empty.noContexts": "Slackメッセージなし",
   "slackContext.empty.notConnected": "メッセージをタスクコンテキストとして添付するにはSlackに接続してください。",
   "slackContext.notConnected.title": "Slackが接続されていません",
   "slackContext.notConnected.confirm": "設定を開く",

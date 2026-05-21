@@ -29,7 +29,7 @@ describe('SlackContextSection', () => {
       </Accordion>
     )
     expect(
-      screen.getByText('slackContext.empty.notConnected')
+      screen.getByText('slackContext.notConnected.title')
     ).toBeInTheDocument()
   })
 

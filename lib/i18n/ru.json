@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Прикрепить",
   "slackContext.dialog.title": "Прикрепить сообщение Slack",
-  "slackContext.empty.noContexts": "Сообщений Slack еще не прикреплено.",
+  "slackContext.empty.noContexts": "Нет сообщений Slack",
   "slackContext.empty.notConnected": "Подключите Slack, чтобы прикреплять сообщения как контекст задачи.",
   "slackContext.notConnected.title": "Slack не подключён",
   "slackContext.notConnected.confirm": "Открыть настройки",

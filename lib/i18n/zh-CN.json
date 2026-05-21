@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "附加",
   "slackContext.dialog.title": "附加 Slack 消息",
-  "slackContext.empty.noContexts": "尚未附加任何 Slack 消息。",
+  "slackContext.empty.noContexts": "暂无 Slack 消息",
   "slackContext.empty.notConnected": "连接 Slack 以将消息附加为任务上下文。",
   "slackContext.notConnected.title": "Slack 未连接",
   "slackContext.notConnected.confirm": "打开设置",

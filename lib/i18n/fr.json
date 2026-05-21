@@ -977,7 +977,7 @@
   "slackContext.dialog.permalinkPlaceholder": "https://your-team.slack.com/archives/…/p…",
   "slackContext.dialog.submit": "Joindre",
   "slackContext.dialog.title": "Joindre un message Slack",
-  "slackContext.empty.noContexts": "Aucun message Slack joint pour l'instant.",
+  "slackContext.empty.noContexts": "Aucun message Slack",
   "slackContext.empty.notConnected": "Connectez Slack pour joindre les messages en tant que contexte de tâche.",
   "slackContext.notConnected.title": "Slack non connecté",
   "slackContext.notConnected.confirm": "Ouvrir les paramètres",
