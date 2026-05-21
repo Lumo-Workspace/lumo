@@ -156,7 +156,6 @@ export interface ApiTask {
   teamId?: string
   parentTaskId: string | null
   assigneeActorId: string | null
-  reviewerActorId: string | null
   assignee?: ActorInfo | null
   repositoryId: string | null
   agentStatus?: AgentStatusValue | null
@@ -317,10 +316,8 @@ export interface TaskDetail {
     title: string
   } | null
   assigneeActorId: string | null
-  reviewerActorId: string | null
   repositoryId: string | null
   assignee: ActorInfo | null
-  reviewer: ActorInfo | null
   description: string | null
   updatedAt: string
   dueDate?: string | null
