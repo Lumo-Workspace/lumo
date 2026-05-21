@@ -47,7 +47,6 @@ export interface TaskDetailPanelProps {
       title: string
       status: ApiStatus
       assigneeActorId: string | null
-      reviewerActorId: string | null
       description: string | null
       projectId: string
       priority: ApiPriority
@@ -85,9 +84,7 @@ export function TaskDetailPanel({
         : { id: initialTask.projectId, name: '' },
     parentTaskId: initialTask.parentTaskId,
     assigneeActorId: initialTask.assigneeActorId,
-    reviewerActorId: initialTask.reviewerActorId,
     assignee: initialTask.assignee ?? null,
-    reviewer: null,
     description: cachedDescription ?? null,
     dueDate: initialTask.dueDate ?? null,
     updatedAt: initialTask.updatedAt,
@@ -104,7 +101,6 @@ export function TaskDetailPanel({
   }))
 
   const projectName = task.project?.name ?? ''
-  const projectDefaultReviewerId = task.project?.ownerId ?? null
   const projectRepositories = task.project?.repositories
 
   const { user } = useCurrentUser()
@@ -123,7 +119,7 @@ export function TaskDetailPanel({
 
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
 
-  // Members with actorId (non-null only) for AssigneeSelect / ReviewerSelect
+  // Members with actorId (non-null only) for AssigneeSelect
   const membersWithActorId = useMemo(
     () =>
       members.filter(
@@ -224,16 +220,14 @@ export function TaskDetailPanel({
           {task.title}
         </TypographyH3>
 
-        {/* Status · Assignee · Reviewer · Project · Priority · Sprint */}
+        {/* Status · Assignee · Project · Priority · Sprint */}
         <TaskFieldsSection
           status={task.status}
           priority={task.priority}
           assigneeActorId={task.assigneeActorId ?? null}
-          reviewerActorId={task.reviewerActorId ?? null}
           projectId={task.projectId}
           dueDate={task.dueDate ?? null}
           assignee={task.assignee}
-          ownerId={projectDefaultReviewerId}
           parent={task.parent}
           membersWithActorId={membersWithActorId}
           agentActors={[]}
