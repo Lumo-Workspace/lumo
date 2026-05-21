@@ -56,7 +56,6 @@ describe('quickDispatchService.executeActions update actions', () => {
         projectId: 'p-1',
         title: 'updated',
         team: { identifier: 'LUM' },
-        reviewerActorId: null,
         teamIdentifier: 'LUM',
         tags: [],
       },
