@@ -10,14 +10,14 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 jest.mock('@/lib/services/notification.service', () => ({
-  notifyReviewerOrOwners: jest.fn().mockResolvedValue(undefined),
+  notifyWorkspaceOwners: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { prisma } from '@/lib/db/prisma'
-import { notifyReviewerOrOwners } from '@/lib/services/notification.service'
+import { notifyWorkspaceOwners } from '@/lib/services/notification.service'
 
 const mockTaskFindUnique = prisma.task.findUnique as jest.Mock
-const mockNotify = notifyReviewerOrOwners as jest.Mock
+const mockNotify = notifyWorkspaceOwners as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()

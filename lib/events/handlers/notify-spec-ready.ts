@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
-import { notifyReviewerOrOwners } from '@/lib/services/notification.service'
+import { notifyWorkspaceOwners } from '@/lib/services/notification.service'
 import type { AgentStatusChangedEvent } from '../types'
 
 /**
  * When agent transitions to INPUT_REQUIRED with reason 'spec_review',
- * notify the reviewer (or fallback to workspace owners) that a spec is ready.
+ * notify all workspace owners that a spec is ready.
  */
 export async function handleNotifySpecReady(
   event: AgentStatusChangedEvent
@@ -21,20 +21,17 @@ export async function handleNotifySpecReady(
   const task = await prisma.task.findUnique({
     where: { id: event.taskId },
     select: {
-      reviewerActorId: true,
       project: {
-        select: { workspaceId: true, ownerId: true },
+        select: { workspaceId: true },
       },
     },
   })
   if (!task) return
 
-  await notifyReviewerOrOwners({
+  await notifyWorkspaceOwners({
     workspaceId: task.project.workspaceId,
     taskId: event.taskId,
     type: 'TASK_SPEC_READY',
-    reviewerActorId: task.reviewerActorId,
-    ownerMemberId: task.project.ownerId,
     triggerActorId: null,
   })
 }

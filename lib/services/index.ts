@@ -62,7 +62,7 @@ export {
   notifyAgentVerify,
   notifyAgentFailed,
   notifyAgentDone,
-  notifyReviewerOrOwners,
+  notifyWorkspaceOwners,
   notifyTaskInReview,
 } from './notification.service'
 export type { TaskNotificationCtx } from './notification.service'
