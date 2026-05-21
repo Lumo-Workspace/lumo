@@ -278,7 +278,9 @@ export function DocumentEditorPage({
   if (!doc) {
     return (
       <div className='flex-1 flex items-center justify-center'>
-        <div className='text-muted-foreground text-sm'>Document not found</div>
+        <div className='text-muted-foreground text-sm'>
+          {intl.formatMessage({ id: 'documentEditor.notFound' })}
+        </div>
       </div>
     )
   }

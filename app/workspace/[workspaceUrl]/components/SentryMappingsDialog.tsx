@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import {
@@ -25,6 +26,7 @@ interface Project {
 
 export function SentryMappingsDialog({ open, onOpenChange }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const intl = useIntl()
   const [mappings, setMappings] = useState<SentryMapping[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [newSlug, setNewSlug] = useState('')
@@ -43,9 +45,11 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
         setMappings(m)
         setProjects(projectsResp.projects)
       })
-      .catch(() => toast.error('Failed to load mappings'))
+      .catch(() =>
+        toast.error(intl.formatMessage({ id: 'sentry.mappingsLoadFailed' }))
+      )
       .finally(() => setLoading(false))
-  }, [open, workspaceUrl])
+  }, [open, workspaceUrl, intl])
 
   const addMapping = async () => {
     if (!newSlug || !newProjectId) return
@@ -58,9 +62,12 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
       setMappings(prev => [...prev, created])
       setNewSlug('')
       setNewProjectId('')
-      toast.success('Mapping added')
+      toast.success(intl.formatMessage({ id: 'sentry.mappingAdded' }))
     } catch (err) {
-      toast.error((err as Error).message || 'Failed to add mapping')
+      toast.error(
+        (err as Error).message ||
+          intl.formatMessage({ id: 'sentry.mappingAddFailed' })
+      )
     } finally {
       setSubmitting(false)
     }
@@ -71,7 +78,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
       await sentryApi.deleteMapping(workspaceUrl, id)
       setMappings(prev => prev.filter(m => m.id !== id))
     } catch {
-      toast.error('Failed to remove mapping')
+      toast.error(intl.formatMessage({ id: 'sentry.mappingRemoveFailed' }))
     }
   }
 
@@ -82,22 +89,28 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-lg'>
         <DialogHeader>
-          <DialogTitle>Sentry project mappings</DialogTitle>
+          <DialogTitle>
+            {intl.formatMessage({ id: 'sentry.mappingsTitle' })}
+          </DialogTitle>
         </DialogHeader>
         <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-          Route Sentry alerts for a given Sentry project to a Lumo project. The
-          slug is the last segment of{' '}
-          <span className='font-mono'>
-            /organizations/&lt;org&gt;/projects/&lt;slug&gt;/
-          </span>
-          .
+          <FormattedMessage
+            id='sentry.mappingsDesc'
+            values={{
+              path: chunks => <span className='font-mono'>{chunks}</span>,
+            }}
+          />
         </p>
 
         <div className='mt-3 space-y-2'>
           {loading ? (
-            <div className='text-xs text-zinc-500'>Loading…</div>
+            <div className='text-xs text-zinc-500'>
+              {intl.formatMessage({ id: 'common.loading' })}
+            </div>
           ) : mappings.length === 0 ? (
-            <div className='text-xs text-zinc-500'>No mappings yet.</div>
+            <div className='text-xs text-zinc-500'>
+              {intl.formatMessage({ id: 'sentry.mappingsEmpty' })}
+            </div>
           ) : (
             mappings.map(m => (
               <div
@@ -112,7 +125,9 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
                 <button
                   className='text-red-500 hover:bg-red-500/10 p-1 rounded'
                   onClick={() => removeMapping(m.id)}
-                  aria-label='Remove mapping'
+                  aria-label={intl.formatMessage({
+                    id: 'sentry.mappingsRemoveAriaLabel',
+                  })}
                 >
                   <Trash2 className='h-4 w-4' />
                 </button>
@@ -122,11 +137,13 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className='mt-4 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
-          <p className='text-xs font-medium'>Add mapping</p>
+          <p className='text-xs font-medium'>
+            {intl.formatMessage({ id: 'sentry.addMapping' })}
+          </p>
           <div className='mt-2 flex items-end gap-2'>
             <label className='flex-1'>
               <span className='text-xs text-zinc-600 dark:text-zinc-300'>
-                Sentry slug
+                {intl.formatMessage({ id: 'sentry.sentrySlugLabel' })}
               </span>
               <input
                 className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-xs font-mono'
@@ -137,7 +154,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             </label>
             <label className='flex-1'>
               <span className='text-xs text-zinc-600 dark:text-zinc-300'>
-                Lumo project
+                {intl.formatMessage({ id: 'sentry.lumoProjectLabel' })}
               </span>
               <select
                 className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-xs'
@@ -157,7 +174,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
               disabled={submitting || !newSlug || !newProjectId}
               onClick={addMapping}
             >
-              Add
+              {intl.formatMessage({ id: 'common.add' })}
             </button>
           </div>
         </div>

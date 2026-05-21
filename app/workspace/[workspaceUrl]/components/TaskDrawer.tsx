@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { useIntl } from 'react-intl'
 import { Drawer as DrawerPrimitive } from 'vaul'
 import { X, SquareArrowOutUpRight, Link as LinkIcon, Check } from 'lucide-react'
 import { useRouter, useParams } from 'next/navigation'
@@ -64,6 +65,7 @@ export function TaskDrawer({
   onTasksChanged,
 }: TaskDrawerProps) {
   const router = useRouter()
+  const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
 
   const projectName =
@@ -108,7 +110,7 @@ export function TaskDrawer({
         >
           {/* Header */}
           <DrawerPrimitive.Title className='sr-only'>
-            Task detail
+            {intl.formatMessage({ id: 'taskDrawer.title' })}
           </DrawerPrimitive.Title>
           <div className='flex items-center justify-between px-5 pt-4 shrink-0'>
             <Button
@@ -120,7 +122,7 @@ export function TaskDrawer({
                 router.push(taskUrl(source))
               }}
               className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              title='Open full page'
+              title={intl.formatMessage({ id: 'taskDrawer.openFull' })}
             >
               <SquareArrowOutUpRight size={14} />
             </Button>
@@ -136,7 +138,9 @@ export function TaskDrawer({
                     {copied ? <Check size={14} /> : <LinkIcon size={14} />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Copy link</TooltipContent>
+                <TooltipContent>
+                  {intl.formatMessage({ id: 'common.copyLink' })}
+                </TooltipContent>
               </Tooltip>
               <Button
                 variant='ghost'

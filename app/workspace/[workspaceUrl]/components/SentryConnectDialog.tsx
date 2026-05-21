@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -23,6 +24,7 @@ export function SentryConnectDialog({
   onConnected,
 }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+  const intl = useIntl()
   const [orgSlug, setOrgSlug] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -36,15 +38,15 @@ export function SentryConnectDialog({
     setSubmitting(true)
     try {
       await sentryApi.connect(workspaceUrl, { orgSlug, clientSecret })
-      toast.success(
-        'Sentry connected. Send a test webhook from Sentry to verify.'
-      )
+      toast.success(intl.formatMessage({ id: 'sentry.connectSuccess' }))
       onConnected()
       onOpenChange(false)
       setOrgSlug('')
       setClientSecret('')
     } catch (err) {
-      const msg = (err as Error).message || 'Failed to connect Sentry'
+      const msg =
+        (err as Error).message ||
+        intl.formatMessage({ id: 'sentry.connectFailed' })
       toast.error(msg)
     } finally {
       setSubmitting(false)
@@ -55,22 +57,23 @@ export function SentryConnectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-lg'>
         <DialogHeader>
-          <DialogTitle>Connect Sentry</DialogTitle>
+          <DialogTitle>
+            {intl.formatMessage({ id: 'sentry.connectTitle' })}
+          </DialogTitle>
         </DialogHeader>
 
         <div className='space-y-4 text-sm'>
           <div>
             <p className='font-medium'>
-              1. Create a Sentry Internal Integration
+              {intl.formatMessage({ id: 'sentry.connectStep1Title' })}
             </p>
             <p className='mt-1 text-xs text-zinc-500'>
-              In Sentry, go to{' '}
-              <code className='font-mono'>
-                Organization Settings → Developer Settings → New Internal
-                Integration
-              </code>
-              . Paste this webhook URL and enable &quot;Issue Alert&quot; under
-              Alerts:
+              <FormattedMessage
+                id='sentry.connectStep1Desc'
+                values={{
+                  code: chunks => <code className='font-mono'>{chunks}</code>,
+                }}
+              />
             </p>
             <div className='mt-2 flex items-center gap-2'>
               <code className='flex-1 rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 font-mono text-xs break-all'>
@@ -80,17 +83,19 @@ export function SentryConnectDialog({
                 className='text-xs px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700'
                 onClick={() => navigator.clipboard.writeText(webhookUrl)}
               >
-                Copy
+                {intl.formatMessage({ id: 'common.copy' })}
               </button>
             </div>
           </div>
 
           <div>
-            <p className='font-medium'>2. Paste your Sentry details</p>
+            <p className='font-medium'>
+              {intl.formatMessage({ id: 'sentry.connectStep2Title' })}
+            </p>
             <div className='mt-2 space-y-2'>
               <label className='block'>
                 <span className='text-xs text-zinc-600 dark:text-zinc-300'>
-                  Organization Slug
+                  {intl.formatMessage({ id: 'sentry.connectOrgSlugLabel' })}
                 </span>
                 <input
                   className='mt-1 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 py-1 text-sm'
@@ -101,7 +106,9 @@ export function SentryConnectDialog({
               </label>
               <label className='block'>
                 <span className='text-xs text-zinc-600 dark:text-zinc-300'>
-                  Client Secret
+                  {intl.formatMessage({
+                    id: 'sentry.connectClientSecretLabel',
+                  })}
                 </span>
                 <input
                   type='password'
@@ -119,14 +126,16 @@ export function SentryConnectDialog({
               onClick={() => onOpenChange(false)}
               disabled={submitting}
             >
-              Cancel
+              {intl.formatMessage({ id: 'common.cancel' })}
             </button>
             <button
               className='text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 disabled:opacity-50'
               onClick={submit}
               disabled={submitting || !orgSlug || !clientSecret}
             >
-              {submitting ? 'Connecting…' : 'Connect'}
+              {submitting
+                ? intl.formatMessage({ id: 'sentry.connecting' })
+                : intl.formatMessage({ id: 'sentry.connectSentry' })}
             </button>
           </div>
         </div>

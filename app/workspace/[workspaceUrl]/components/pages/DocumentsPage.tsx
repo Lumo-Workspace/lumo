@@ -521,7 +521,9 @@ export function DocumentsPage({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteId) onDeleteDocument(deleteId)
