@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useIntl } from 'react-intl'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { Loader2, Link as LinkIcon } from 'lucide-react'
 import {
   Popover,
@@ -140,7 +140,7 @@ export function LinkPrPopover({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <SectionAddButton
-            label={intl.formatMessage({ id: 'task.linkPullRequest' })}
+            label={intl.formatMessage({ id: 'linkPr.title' })}
           />
         </PopoverTrigger>
         <PopoverContent align='end' className='w-80 p-0'>
@@ -148,7 +148,9 @@ export function LinkPrPopover({
             <input
               ref={inputRef}
               type='text'
-              placeholder='Search PRs or paste GitHub URL...'
+              placeholder={intl.formatMessage({
+                id: 'linkPr.searchPlaceholder',
+              })}
               value={query}
               onChange={e => setQuery(e.target.value)}
               className='w-full text-sm bg-transparent outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-zinc-900 dark:text-zinc-100 px-1 py-1'
@@ -165,7 +167,7 @@ export function LinkPrPopover({
               >
                 <LinkIcon size={14} className='shrink-0 text-zinc-400' />
                 <span className='text-zinc-700 dark:text-zinc-300'>
-                  Link PR from URL
+                  {intl.formatMessage({ id: 'linkPr.linkFromUrl' })}
                 </span>
                 {linking && (
                   <Loader2
@@ -211,8 +213,12 @@ export function LinkPrPopover({
                         <PrStateBadge state={pr.state} />
                         {linkedToOther && (
                           <span className='text-[10px] text-zinc-400'>
-                            Linked to {pr.task!.team.identifier}-
-                            {pr.task!.number}
+                            {intl.formatMessage(
+                              { id: 'linkPr.linkedTo' },
+                              {
+                                identifier: `${pr.task!.team.identifier}-${pr.task!.number}`,
+                              }
+                            )}
                           </span>
                         )}
                       </div>
@@ -224,14 +230,14 @@ export function LinkPrPopover({
             {/* Empty state */}
             {!loading && !isUrl && query.trim() && results.length === 0 && (
               <div className='px-3 py-4 text-xs text-zinc-400 text-center'>
-                No pull requests found
+                {intl.formatMessage({ id: 'linkPr.empty' })}
               </div>
             )}
 
             {/* Initial state */}
             {!query.trim() && (
               <div className='px-3 py-4 text-xs text-zinc-400 text-center'>
-                Type to search pull requests
+                {intl.formatMessage({ id: 'linkPr.initial' })}
               </div>
             )}
           </div>
@@ -247,19 +253,30 @@ export function LinkPrPopover({
       >
         <AlertDialogContent className='max-w-sm'>
           <AlertDialogHeader>
-            <AlertDialogTitle>PR already linked</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'linkPr.conflictTitle' })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This pull request is currently linked to{' '}
-              <span className='font-medium text-zinc-700 dark:text-zinc-300'>
-                {conflict?.taskIdentifier}
-              </span>{' '}
-              ({conflict?.taskTitle}). Do you want to move it to this task?
+              <FormattedMessage
+                id='linkPr.conflictDesc'
+                values={{
+                  identifier: conflict?.taskIdentifier ?? '',
+                  title: conflict?.taskTitle ?? '',
+                  strong: chunks => (
+                    <span className='font-medium text-zinc-700 dark:text-zinc-300'>
+                      {chunks}
+                    </span>
+                  ),
+                }}
+              />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleForceLink}>
-              Move to this task
+              {intl.formatMessage({ id: 'linkPr.moveToThisTask' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

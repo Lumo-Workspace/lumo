@@ -1,3 +1,7 @@
+'use client'
+
+import { useIntl } from 'react-intl'
+
 export function StatusIcon({
   status,
   size = 14,
@@ -5,6 +9,7 @@ export function StatusIcon({
   status: string
   size?: number
 }) {
+  const intl = useIntl()
   const s = size
   const cx = s / 2
   const cy = s / 2
@@ -20,7 +25,7 @@ export function StatusIcon({
         height={s}
         viewBox={`0 0 ${s} ${s}`}
         fill='none'
-        aria-label='In Progress'
+        aria-label={intl.formatMessage({ id: 'status.inProgress' })}
       >
         {/* Outer ring */}
         <circle
@@ -49,7 +54,7 @@ export function StatusIcon({
         height={s}
         viewBox={`0 0 ${s} ${s}`}
         fill='none'
-        aria-label='In Review'
+        aria-label={intl.formatMessage({ id: 'status.inReview' })}
       >
         {/* Outer ring */}
         <circle
@@ -78,7 +83,7 @@ export function StatusIcon({
         height={s}
         viewBox={`0 0 ${s} ${s}`}
         fill='none'
-        aria-label='Done'
+        aria-label={intl.formatMessage({ id: 'status.done' })}
       >
         <circle cx={cx} cy={cy} r={cr} fill='#10b981' />
         <path
@@ -100,7 +105,7 @@ export function StatusIcon({
       height={s}
       viewBox={`0 0 ${s} ${s}`}
       fill='none'
-      aria-label='Todo'
+      aria-label={intl.formatMessage({ id: 'status.todo' })}
     >
       <circle
         cx={cx}

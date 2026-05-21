@@ -117,7 +117,7 @@ export function NewProjectModal({
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title='New project'
+        title={intl.formatMessage({ id: 'sidebar.newProject' })}
         footer={
           <div className='flex items-center gap-3 ml-auto'>
             {onSaveDraft && (
@@ -126,7 +126,7 @@ export function NewProjectModal({
               </Button>
             )}
             <Button variant='ghost' onClick={handleClose}>
-              Cancel
+              {intl.formatMessage({ id: 'common.cancel' })}
             </Button>
             <Button onClick={handleSubmit} disabled={!name.trim()}>
               Create Project {submitModLabel}↵
@@ -145,7 +145,9 @@ export function NewProjectModal({
             <input
               autoFocus
               className='w-full bg-transparent border-none p-0 text-xl font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:ring-0 outline-none'
-              placeholder='Project name'
+              placeholder={intl.formatMessage({
+                id: 'newProject.namePlaceholder',
+              })}
               type='text'
               value={name}
               onChange={e => setName(e.target.value)}
@@ -155,7 +157,9 @@ export function NewProjectModal({
             />
             <textarea
               className={`w-full bg-transparent border-none p-0 text-sm text-zinc-600 dark:text-zinc-400 placeholder:text-zinc-400 focus:ring-0 outline-none resize-none leading-relaxed font-sans ${expanded ? 'flex-1 min-h-0' : 'min-h-[80px]'}`}
-              placeholder='What is this project about?'
+              placeholder={intl.formatMessage({
+                id: 'newProject.descPlaceholder',
+              })}
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
@@ -166,7 +170,7 @@ export function NewProjectModal({
                 className='gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400'
               >
                 <Sparkles size={13} className='text-violet-500' />
-                Refine with AI
+                {intl.formatMessage({ id: 'newProject.refineWithAI' })}
               </Button>
             </div>
           </div>

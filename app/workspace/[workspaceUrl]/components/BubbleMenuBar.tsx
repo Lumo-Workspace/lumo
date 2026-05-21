@@ -36,27 +36,27 @@ import { ColorPicker } from './bubble-menu/ColorPicker'
 
 const TEXT_STYLES = [
   {
-    label: 'Regular text',
+    id: 'editor.textStyle.regular',
     action: (e: Editor) => e.chain().focus().setParagraph().run(),
     isActive: (e: Editor) => e.isActive('paragraph'),
   },
   {
-    label: 'Heading 1',
+    id: 'editor.textStyle.h1',
     action: (e: Editor) => e.chain().focus().toggleHeading({ level: 1 }).run(),
     isActive: (e: Editor) => e.isActive('heading', { level: 1 }),
   },
   {
-    label: 'Heading 2',
+    id: 'editor.textStyle.h2',
     action: (e: Editor) => e.chain().focus().toggleHeading({ level: 2 }).run(),
     isActive: (e: Editor) => e.isActive('heading', { level: 2 }),
   },
   {
-    label: 'Heading 3',
+    id: 'editor.textStyle.h3',
     action: (e: Editor) => e.chain().focus().toggleHeading({ level: 3 }).run(),
     isActive: (e: Editor) => e.isActive('heading', { level: 3 }),
   },
   {
-    label: 'Heading 4',
+    id: 'editor.textStyle.h4',
     action: (e: Editor) => e.chain().focus().toggleHeading({ level: 4 }).run(),
     isActive: (e: Editor) => e.isActive('heading', { level: 4 }),
   },
@@ -64,19 +64,19 @@ const TEXT_STYLES = [
 
 const LIST_STYLES = [
   {
-    label: 'List',
+    id: 'editor.list.bulleted',
     icon: <List size={14} />,
     action: (e: Editor) => e.chain().focus().toggleBulletList().run(),
     isActive: (e: Editor) => e.isActive('bulletList'),
   },
   {
-    label: 'Numbered list',
+    id: 'editor.list.numbered',
     icon: <ListOrdered size={14} />,
     action: (e: Editor) => e.chain().focus().toggleOrderedList().run(),
     isActive: (e: Editor) => e.isActive('orderedList'),
   },
   {
-    label: 'Checklist',
+    id: 'editor.list.checklist',
     icon: <ListTodo size={14} />,
     action: (e: Editor) => e.chain().focus().toggleTaskList().run(),
     isActive: (e: Editor) => e.isActive('taskList'),
@@ -253,28 +253,28 @@ export function BubbleMenuBar({
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={state.isBold}
-          title={`Bold ${mod}B`}
+          title={`${intl.formatMessage({ id: 'editor.bold' })} ${mod}B`}
         >
           <Bold size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleItalic().run()}
           active={state.isItalic}
-          title={`Italic ${mod}I`}
+          title={`${intl.formatMessage({ id: 'editor.italic' })} ${mod}I`}
         >
           <Italic size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           active={state.isUnderline}
-          title={`Underline ${mod}U`}
+          title={`${intl.formatMessage({ id: 'editor.underline' })} ${mod}U`}
         >
           <UnderlineIcon size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleStrike().run()}
           active={state.isStrike}
-          title='Strikethrough'
+          title={intl.formatMessage({ id: 'editor.strikethrough' })}
         >
           <Strikethrough size={14} />
         </ToolbarButton>
@@ -289,21 +289,21 @@ export function BubbleMenuBar({
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign('left').run()}
           active={state.alignLeft}
-          title='Align left'
+          title={intl.formatMessage({ id: 'editor.alignLeft' })}
         >
           <AlignLeft size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign('center').run()}
           active={state.alignCenter}
-          title='Align center'
+          title={intl.formatMessage({ id: 'editor.alignCenter' })}
         >
           <AlignCenter size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign('right').run()}
           active={state.alignRight}
-          title='Align right'
+          title={intl.formatMessage({ id: 'editor.alignRight' })}
         >
           <AlignRight size={14} />
         </ToolbarButton>
@@ -313,7 +313,7 @@ export function BubbleMenuBar({
         <ToolbarButton
           onClick={openLinkInput}
           active={state.isLink}
-          title={`Link ${mod}K`}
+          title={`${intl.formatMessage({ id: 'editor.link' })} ${mod}K`}
         >
           <Link2 size={14} />
         </ToolbarButton>
@@ -352,7 +352,7 @@ export function BubbleMenuBar({
           }}
           className='text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors px-1'
         >
-          Apply
+          {intl.formatMessage({ id: 'editor.link.apply' })}
         </button>
         {state.isLink && (
           <Tooltip>
@@ -369,7 +369,9 @@ export function BubbleMenuBar({
                 <Link2Off size={13} />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Remove link</TooltipContent>
+            <TooltipContent>
+              {intl.formatMessage({ id: 'editor.link.remove' })}
+            </TooltipContent>
           </Tooltip>
         )}
       </div>
@@ -390,17 +392,19 @@ export function BubbleMenuBar({
               }}
               className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
             >
-              {activeStyle.label}
+              {intl.formatMessage({ id: activeStyle.id })}
               <ChevronDown size={12} />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{activeStyle.label}</TooltipContent>
+          <TooltipContent>
+            {intl.formatMessage({ id: activeStyle.id })}
+          </TooltipContent>
         </Tooltip>
         {styleOpen && (
           <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
             {TEXT_STYLES.map((style, i) => (
               <button
-                key={style.label}
+                key={style.id}
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -414,7 +418,7 @@ export function BubbleMenuBar({
                     : 'text-zinc-600 dark:text-zinc-400'
                 )}
               >
-                {style.label}
+                {intl.formatMessage({ id: style.id })}
               </button>
             ))}
           </div>
@@ -427,35 +431,35 @@ export function BubbleMenuBar({
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={state.isBold}
-        title={`Bold ${mod}B`}
+        title={`${intl.formatMessage({ id: 'editor.bold' })} ${mod}B`}
       >
         <Bold size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={state.isItalic}
-        title={`Italic ${mod}I`}
+        title={`${intl.formatMessage({ id: 'editor.italic' })} ${mod}I`}
       >
         <Italic size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={state.isUnderline}
-        title={`Underline ${mod}U`}
+        title={`${intl.formatMessage({ id: 'editor.underline' })} ${mod}U`}
       >
         <UnderlineIcon size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={openLinkInput}
         active={state.isLink}
-        title={`Link ${mod}K`}
+        title={`${intl.formatMessage({ id: 'editor.link' })} ${mod}K`}
       >
         <Link2 size={14} />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
         active={state.isStrike}
-        title='Strikethrough'
+        title={intl.formatMessage({ id: 'editor.strikethrough' })}
       >
         <Strikethrough size={14} />
       </ToolbarButton>
@@ -471,7 +475,7 @@ export function BubbleMenuBar({
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleCode().run()}
         active={state.isCode}
-        title='Inline code'
+        title={intl.formatMessage({ id: 'editor.inlineCode' })}
       >
         <Code size={14} />
       </ToolbarButton>
@@ -480,7 +484,7 @@ export function BubbleMenuBar({
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         active={state.isCodeBlock}
-        title='Code block'
+        title={intl.formatMessage({ id: 'editor.codeBlock' })}
       >
         <Code2 size={14} />
       </ToolbarButton>
@@ -489,7 +493,7 @@ export function BubbleMenuBar({
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         active={state.isBlockquote}
-        title={`Quote ${isMac ? '⌘⇧B' : 'Ctrl+Shift+B'}`}
+        title={`${intl.formatMessage({ id: 'editor.quote' })} ${isMac ? '⌘⇧B' : 'Ctrl+Shift+B'}`}
       >
         <Quote size={14} />
       </ToolbarButton>
@@ -518,11 +522,13 @@ export function BubbleMenuBar({
             </button>
           </TooltipTrigger>
           <TooltipContent>
-            {state.isOrderedList
-              ? 'Numbered list'
-              : state.isTaskList
-                ? 'Checklist'
-                : 'List'}
+            {intl.formatMessage({
+              id: state.isOrderedList
+                ? 'editor.list.numbered'
+                : state.isTaskList
+                  ? 'editor.list.checklist'
+                  : 'editor.list.bulleted',
+            })}
           </TooltipContent>
         </Tooltip>
         {listOpen && (
@@ -531,7 +537,7 @@ export function BubbleMenuBar({
               const active = style.isActive(editor)
               return (
                 <button
-                  key={style.label}
+                  key={style.id}
                   type='button'
                   onMouseDown={e => {
                     e.preventDefault()
@@ -546,7 +552,7 @@ export function BubbleMenuBar({
                   )}
                 >
                   {style.icon}
-                  {style.label}
+                  {intl.formatMessage({ id: style.id })}
                 </button>
               )
             })}
@@ -565,13 +571,16 @@ export function BubbleMenuBar({
             .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
             .run()
         }
-        title='Insert table'
+        title={intl.formatMessage({ id: 'editor.insertTable' })}
       >
         <Table2 size={14} />
       </ToolbarButton>
 
       {/* Insert image */}
-      <ToolbarButton onClick={onInsertImage} title='Insert image'>
+      <ToolbarButton
+        onClick={onInsertImage}
+        title={intl.formatMessage({ id: 'editor.insertImage' })}
+      >
         <ImageIcon size={14} />
       </ToolbarButton>
     </div>
