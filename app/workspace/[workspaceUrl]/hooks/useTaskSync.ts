@@ -54,7 +54,6 @@ export function useTaskSync({
         prev.status === liveTask.status &&
         prev.priority === liveTask.priority &&
         prev.assigneeActorId === liveTask.assigneeActorId &&
-        prev.reviewerActorId === liveTask.reviewerActorId &&
         prev.projectId === liveTask.projectId &&
         prev.dueDate === (liveTask.dueDate ?? null)
       )
@@ -65,7 +64,6 @@ export function useTaskSync({
         status: liveTask.status,
         priority: liveTask.priority,
         assigneeActorId: liveTask.assigneeActorId,
-        reviewerActorId: liveTask.reviewerActorId,
         projectId: liveTask.projectId,
         dueDate: liveTask.dueDate ?? null,
       }
@@ -83,9 +81,7 @@ export function useTaskSync({
             ...prev,
             description: t.description,
             project: t.project,
-            reviewerActorId: t.reviewerActorId,
             assignee: t.assignee,
-            reviewer: t.reviewer,
             number: t.number,
             teamIdentifier: t.teamIdentifier,
             pullRequests: t.pullRequests ?? [],
@@ -139,9 +135,7 @@ export function useTaskSync({
               ...prev,
               description: t.description,
               project: t.project,
-              reviewerActorId: t.reviewerActorId,
               assignee: t.assignee,
-              reviewer: t.reviewer,
               pullRequests: t.pullRequests ?? [],
               branches: t.branches ?? [],
             }))
@@ -168,9 +162,7 @@ export function useTaskSync({
           ...prev,
           description: t.description,
           project: t.project,
-          reviewerActorId: t.reviewerActorId,
           assignee: t.assignee,
-          reviewer: t.reviewer,
           number: t.number,
           teamIdentifier: t.teamIdentifier,
           pullRequests: t.pullRequests ?? [],

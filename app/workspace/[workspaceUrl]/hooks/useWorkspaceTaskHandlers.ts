@@ -93,7 +93,6 @@ export function useWorkspaceTaskHandlers({
         title: string
         status: ApiStatus
         assigneeActorId: string | null
-        reviewerActorId: string | null
         description: string | null
         projectId: string
         priority: ApiPriority
@@ -184,7 +183,6 @@ export function useWorkspaceTaskHandlers({
         projectId,
         parentTaskId: null,
         assigneeActorId: assigneeId ?? null,
-        reviewerActorId: null,
         repositoryId: repositoryId ?? null,
         createdAt: now,
         updatedAt: now,
