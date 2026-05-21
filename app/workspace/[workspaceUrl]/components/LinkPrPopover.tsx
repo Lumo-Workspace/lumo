@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Loader2, Link as LinkIcon } from 'lucide-react'
+import { useIntl } from 'react-intl'
+import { Loader2, Link as LinkIcon } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { SectionAddButton } from './TaskDetailTimeline/SectionAddButton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +44,7 @@ export function LinkPrPopover({
   workspaceId,
   onLinked,
 }: LinkPrPopoverProps) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ApiPullRequestSearchResult[]>([])
@@ -136,12 +139,9 @@ export function LinkPrPopover({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
-            className='text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-            title='Link pull request'
-          >
-            <Plus size={14} />
-          </button>
+          <SectionAddButton
+            label={intl.formatMessage({ id: 'task.linkPullRequest' })}
+          />
         </PopoverTrigger>
         <PopoverContent align='end' className='w-80 p-0'>
           <div className='p-2 border-b border-zinc-100 dark:border-zinc-800'>

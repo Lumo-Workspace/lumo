@@ -24,6 +24,7 @@ export function DocumentsSection({
         id: 'task.context.section.documents',
         defaultMessage: 'Documents',
       })}
+      icon={<FileText size={14} className='text-zinc-500 dark:text-zinc-400' />}
       count={documents.length}
     >
       {documents.length === 0 ? (
