@@ -4,17 +4,17 @@ import type { MilestoneStatus } from '@prisma/client'
 
 interface CreateInput {
   name: string
-  description?: string | null
-  startDate?: Date
-  targetDate?: Date
+  description?: string | null | undefined
+  startDate?: Date | undefined
+  targetDate?: Date | undefined
 }
 
 interface UpdateInput {
-  name?: string
-  description?: string | null
-  status?: MilestoneStatus
-  startDate?: Date | null
-  targetDate?: Date | null
+  name?: string | undefined
+  description?: string | null | undefined
+  status?: MilestoneStatus | undefined
+  startDate?: Date | null | undefined
+  targetDate?: Date | null | undefined
 }
 
 export const milestoneService = {
