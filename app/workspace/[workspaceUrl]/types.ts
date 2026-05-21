@@ -79,6 +79,7 @@ export type Page =
   | 'dashboard'
   | 'sprints'
   | 'sprint-detail'
+  | 'milestone-detail'
 
 export interface ApiDraft {
   id: string

@@ -16,6 +16,7 @@ import type { useWorkspaceDocumentHandlers } from '../hooks/useWorkspaceDocument
 import type { useDocumentTree } from '../hooks/useDocumentTree'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { MilestoneDetailPage } from './pages/MilestoneDetailPage'
 import { MyTasksPage } from './pages/MyTasksPage'
 import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
@@ -350,6 +351,9 @@ export function WorkspacePageRouter(props: Props) {
           onOpenTask={handleOpenTask}
         />
       )
+
+    case 'milestone-detail':
+      return <MilestoneDetailPage />
 
     case 'inbox':
       return (
