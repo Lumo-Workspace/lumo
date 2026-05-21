@@ -1703,20 +1703,75 @@ git commit -m "i18n: add milestone keys across all locales [LUM-61]"
 
 ---
 
-## Phase 9 — Frontend: API Client
+## Phase 9 — Frontend: API constants + Client + queryKeys + Hooks
 
-### Task 9.1: Milestone API client
+The codebase uses a strict layering for frontend data: `API.<resource>.*` URL constants → `<resource>sClient` wraps `apiFetch` → `queryKeys.<resource>.*` for cache stability → custom hooks wrap `useQuery`. Components depend on hooks (CLAUDE.md DIP). Mirror that exactly — do **not** put inline `useQuery({ queryFn: fetch(...) })` into components.
+
+### Task 9.1: API URL constants
 
 **Files:**
 
-- Create: `lib/api-client/milestone.ts`
+- Modify: `app/workspace/[workspaceUrl]/constants.ts`
 
-- [ ] **Step 1:** Create the file.
+- [ ] **Step 1:** Find the `API` constant (it's an object with `projects: { ... }, sprints: { ... }`, etc.). Add a `milestones` block alongside `sprints`:
 
 ```typescript
-import type { MilestoneStatus } from '@prisma/client'
+  milestones: {
+    listByProject: (projectId: string) =>
+      `/api/projects/${projectId}/milestones`,
+    byId: (milestoneId: string) => `/api/milestones/${milestoneId}`,
+  },
+```
 
-export interface Milestone {
+- [ ] **Step 2:** Type-check.
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: clean.
+
+### Task 9.2: `queryKeys.milestones.*`
+
+**Files:**
+
+- Modify: `lib/query/keys.ts`
+
+- [ ] **Step 1:** Inside the `queryKeys` object, after the `sprints: { ... }` block, add:
+
+```typescript
+  milestones: {
+    all: () => ['milestones'] as const,
+    byProject: (projectId: string) =>
+      ['milestones', 'byProject', projectId] as const,
+    detail: (milestoneId: string) =>
+      ['milestones', 'detail', milestoneId] as const,
+  },
+```
+
+- [ ] **Step 2:** Type-check.
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: clean.
+
+### Task 9.3: `milestonesClient`
+
+**Files:**
+
+- Create: `lib/api-client/milestones.ts`
+- Modify: `lib/api-client/index.ts`
+
+- [ ] **Step 1:** Create `lib/api-client/milestones.ts`.
+
+```typescript
+import { apiFetch } from './base'
+import { API } from '@/app/workspace/[workspaceUrl]/constants'
+import type { MilestoneStatus, TaskStatus } from '@prisma/client'
+
+export interface ApiMilestone {
   id: string
   projectId: string
   name: string
@@ -1727,6 +1782,7 @@ export interface Milestone {
   completedAt: string | null
   createdAt: string
   updatedAt: string
+  taskCounts?: Record<TaskStatus, number>
 }
 
 export interface MilestoneCreateInput {
@@ -1744,67 +1800,49 @@ export interface MilestoneUpdateInput {
   targetDate?: string | null
 }
 
-async function handle<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`
-    try {
-      const body = (await res.json()) as { error?: string }
-      if (body.error) message = body.error
-    } catch {
-      // ignore
-    }
-    throw new Error(message)
-  }
-  return (await res.json()) as T
-}
+export const milestonesClient = {
+  listByProject(projectId: string) {
+    return apiFetch<{ milestones: ApiMilestone[] }>(
+      API.milestones.listByProject(projectId)
+    )
+  },
 
-export const milestoneApi = {
-  async list(projectId: string): Promise<Milestone[]> {
-    const res = await fetch(`/api/projects/${projectId}/milestones`)
-    const data = await handle<{ milestones: Milestone[] }>(res)
-    return data.milestones
+  getById(milestoneId: string) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.byId(milestoneId)
+    )
   },
-  async get(milestoneId: string): Promise<Milestone> {
-    const res = await fetch(`/api/milestones/${milestoneId}`)
-    const data = await handle<{ milestone: Milestone }>(res)
-    return data.milestone
+
+  create(projectId: string, data: MilestoneCreateInput) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.listByProject(projectId),
+      { method: 'POST', body: data }
+    )
   },
-  async create(
-    projectId: string,
-    input: MilestoneCreateInput
-  ): Promise<Milestone> {
-    const res = await fetch(`/api/projects/${projectId}/milestones`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    })
-    const data = await handle<{ milestone: Milestone }>(res)
-    return data.milestone
+
+  update(milestoneId: string, data: MilestoneUpdateInput) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.byId(milestoneId),
+      { method: 'PATCH', body: data }
+    )
   },
-  async update(
-    milestoneId: string,
-    input: MilestoneUpdateInput
-  ): Promise<Milestone> {
-    const res = await fetch(`/api/milestones/${milestoneId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    })
-    const data = await handle<{ milestone: Milestone }>(res)
-    return data.milestone
-  },
-  async delete(milestoneId: string): Promise<void> {
-    const res = await fetch(`/api/milestones/${milestoneId}`, {
+
+  delete(milestoneId: string) {
+    return apiFetch<void>(API.milestones.byId(milestoneId), {
       method: 'DELETE',
     })
-    await handle<{ ok: true }>(res)
   },
 }
 ```
 
-- [ ] **Step 2:** Type-check.
+- [ ] **Step 2:** Append a re-export in `lib/api-client/index.ts`:
 
-Run:
+```typescript
+export { milestonesClient } from './milestones'
+export type { ApiMilestone } from './milestones'
+```
+
+- [ ] **Step 3:** Type-check.
 
 ```bash
 npx tsc --noEmit
@@ -1812,11 +1850,104 @@ npx tsc --noEmit
 
 Expected: clean.
 
-- [ ] **Step 3:** Commit.
+### Task 9.4: `useMilestones(projectId)` hook
+
+**Files:**
+
+- Create: `app/workspace/[workspaceUrl]/hooks/useMilestones.ts`
+
+- [ ] **Step 1:** Create the file. Pattern mirrors `useSummary.ts`.
+
+```typescript
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+
+export function useMilestones(projectId: string | null | undefined) {
+  const query = useQuery<ApiMilestone[]>({
+    queryKey: projectId
+      ? queryKeys.milestones.byProject(projectId)
+      : ['milestones', 'byProject', 'disabled'],
+    queryFn: async () => {
+      const data = await milestonesClient.listByProject(projectId as string)
+      return data.milestones
+    },
+    enabled: !!projectId,
+  })
+
+  return {
+    milestones: query.data ?? [],
+    loading: query.isPending && !!projectId,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load milestones.')
+      : null,
+    refetch: query.refetch,
+  }
+}
+```
+
+- [ ] **Step 2:** Type-check.
 
 ```bash
-git add lib/api-client/milestone.ts
-git commit -m "feat: add milestone API client [LUM-61]"
+npx tsc --noEmit
+```
+
+Expected: clean.
+
+### Task 9.5: `useMilestone(milestoneId)` hook
+
+**Files:**
+
+- Create: `app/workspace/[workspaceUrl]/hooks/useMilestone.ts`
+
+- [ ] **Step 1:** Create the file.
+
+```typescript
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+
+export function useMilestone(milestoneId: string | null | undefined) {
+  const query = useQuery<ApiMilestone | null>({
+    queryKey: milestoneId
+      ? queryKeys.milestones.detail(milestoneId)
+      : ['milestones', 'detail', 'disabled'],
+    queryFn: async () => {
+      const data = await milestonesClient.getById(milestoneId as string)
+      return data.milestone
+    },
+    enabled: !!milestoneId,
+  })
+
+  return {
+    milestone: query.data ?? null,
+    loading: query.isPending && !!milestoneId,
+    error: query.error
+      ? ((query.error as Error).message ?? 'Could not load milestone.')
+      : null,
+  }
+}
+```
+
+- [ ] **Step 2:** Type-check.
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: clean.
+
+### Task 9.6: Commit Phase 9
+
+- [ ] **Step 1:** Commit.
+
+```bash
+git add app/workspace/[workspaceUrl]/constants.ts lib/query/keys.ts lib/api-client/milestones.ts lib/api-client/index.ts app/workspace/[workspaceUrl]/hooks/useMilestones.ts app/workspace/[workspaceUrl]/hooks/useMilestone.ts
+git commit -m "feat: add milestones api-client, queryKeys, and hooks [LUM-61]"
 ```
 
 ---
@@ -1885,18 +2016,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import type { Milestone } from '@/lib/api-client/milestone'
+import type { ApiMilestone } from '@/lib/api-client'
 
 interface Props {
-  milestone: Milestone
+  milestone: ApiMilestone
   progress: { done: number; total: number }
   workspaceUrl: string
   projectSlug: string
-  onEdit: (m: Milestone) => void
-  onDelete: (m: Milestone) => void
+  onEdit: (m: ApiMilestone) => void
+  onDelete: (m: ApiMilestone) => void
 }
 
-const STATUS_CLASS: Record<Milestone['status'], string> = {
+const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
   ACTIVE: 'bg-blue-100 text-blue-800',
   COMPLETED: 'bg-green-100 text-green-800',
@@ -1966,10 +2097,12 @@ export function MilestoneCard({
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { milestoneApi, type Milestone } from '@/lib/api-client/milestone'
+import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+import { useMilestones } from '../../hooks/useMilestones'
 import { MilestoneCard } from './MilestoneCard'
 import { MilestoneFormDialog } from './MilestoneFormDialog'
 
@@ -1983,22 +2116,21 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const params = useParams<{ workspaceUrl: string }>()
   const qc = useQueryClient()
 
-  const { data: milestones = [], isLoading } = useQuery({
-    queryKey: ['milestones', projectId],
-    queryFn: () => milestoneApi.list(projectId),
-  })
+  const { milestones, loading } = useMilestones(projectId)
 
   const [dialogState, setDialogState] = useState<
-    { mode: 'create' } | { mode: 'edit'; milestone: Milestone } | null
+    { mode: 'create' } | { mode: 'edit'; milestone: ApiMilestone } | null
   >(null)
 
   const deleteMutation = useMutation({
-    mutationFn: (m: Milestone) => milestoneApi.delete(m.id),
+    mutationFn: (m: ApiMilestone) => milestonesClient.delete(m.id),
     onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] }),
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.byProject(projectId),
+      }),
   })
 
-  if (isLoading) return null
+  if (loading) return null
 
   return (
     <div className='space-y-4 p-4'>
@@ -2068,20 +2200,20 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
 
 - [ ] **Step 3:** Pass `projectSlug` from `ProjectDetailPage.tsx` to `<ProjectMilestonesTab>` (update the call site added in 10.1).
 
-- [ ] **Step 4:** Replace the `progress` placeholder in `MilestoneCard`. The simplest path: extend the GET `/api/projects/[projectId]/milestones` route to include `_count` per status. To do that:
-
-In `app/api/projects/[projectId]/milestones/route.ts` GET handler, replace `milestoneService.listMilestones(...)` with a wrapper that, for each milestone, calls `milestoneRepository.countTasksByStatus(m.id)` and returns `{ ...m, taskCounts: { TODO, IN_PROGRESS, IN_REVIEW, DONE } }`. Update the `Milestone` type in `lib/api-client/milestone.ts` to include `taskCounts?: { TODO: number; IN_PROGRESS: number; IN_REVIEW: number; DONE: number }`.
-
-Then in `ProjectMilestonesTab`, derive `progress` per card:
+- [ ] **Step 4:** Extend the GET `/api/projects/[projectId]/milestones` route to include `taskCounts` per milestone. In `app/api/projects/[projectId]/milestones/route.ts` GET handler, after `milestoneService.listMilestones(...)`, enrich each row:
 
 ```typescript
-const total =
-  (m.taskCounts?.TODO ?? 0) +
-  (m.taskCounts?.IN_PROGRESS ?? 0) +
-  (m.taskCounts?.IN_REVIEW ?? 0) +
-  (m.taskCounts?.DONE ?? 0)
-const done = m.taskCounts?.DONE ?? 0
+const milestones = await milestoneService.listMilestones(projectId, member.id)
+const enriched = await Promise.all(
+  milestones.map(async m => ({
+    ...m,
+    taskCounts: await milestoneRepository.countTasksByStatus(m.id),
+  }))
+)
+return NextResponse.json({ milestones: enriched })
 ```
+
+(`ApiMilestone` in `lib/api-client/milestones.ts` already declares the optional `taskCounts` field — Phase 9.3.)
 
 - [ ] **Step 5:** Type-check (will still fail on `MilestoneFormDialog` import).
 
@@ -2120,15 +2252,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  milestoneApi,
-  type Milestone,
-  type MilestoneStatus,
-} from '@/lib/api-client/milestone'
+import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+import type { MilestoneStatus } from '@prisma/client'
 
 interface Props {
   projectId: string
-  milestone?: Milestone
+  milestone?: ApiMilestone
   onClose: () => void
 }
 
@@ -2158,21 +2288,23 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      milestoneApi.create(projectId, {
+      milestonesClient.create(projectId, {
         name,
         description: description || null,
         startDate: startDate || null,
         targetDate: targetDate || null,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] })
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.byProject(projectId),
+      })
       onClose()
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      milestoneApi.update(milestone!.id, {
+      milestonesClient.update(milestone!.id, {
         name,
         description: description || null,
         status,
@@ -2180,7 +2312,12 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         targetDate: targetDate || null,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', projectId] })
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.byProject(projectId),
+      })
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.detail(milestone!.id),
+      })
       onClose()
     },
   })
@@ -2356,8 +2493,10 @@ if (rest.startsWith('/projects/')) {
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { milestoneApi, type Milestone } from '@/lib/api-client/milestone'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
+import { useMilestone } from '../../hooks/useMilestone'
 import { Button } from '@/components/ui/button'
 import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
 import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
@@ -2367,7 +2506,7 @@ interface Props {
   milestoneId: string
 }
 
-const STATUS_CLASS: Record<Milestone['status'], string> = {
+const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
   ACTIVE: 'bg-blue-100 text-blue-800',
   COMPLETED: 'bg-green-100 text-green-800',
@@ -2379,15 +2518,16 @@ export function MilestoneDetailPage({ projectSlug, milestoneId }: Props) {
   const qc = useQueryClient()
   const [editing, setEditing] = useState(false)
 
-  const { data: milestone } = useQuery({
-    queryKey: ['milestone', milestoneId],
-    queryFn: () => milestoneApi.get(milestoneId),
-  })
+  const { milestone } = useMilestone(milestoneId)
 
   const deleteMutation = useMutation({
-    mutationFn: () => milestoneApi.delete(milestoneId),
+    mutationFn: () => milestonesClient.delete(milestoneId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['milestones', milestone!.projectId] })
+      if (milestone) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.milestones.byProject(milestone.projectId),
+        })
+      }
       window.history.back()
     },
   })
@@ -2545,7 +2685,6 @@ git commit -m "feat: add milestone detail page with task list [LUM-61]"
 'use client'
 
 import { useIntl } from 'react-intl'
-import { useQuery } from '@tanstack/react-query'
 import {
   Select,
   SelectContent,
@@ -2553,7 +2692,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { milestoneApi } from '@/lib/api-client/milestone'
+import { useMilestones } from '../../hooks/useMilestones'
 
 interface Props {
   projectId: string
@@ -2571,10 +2710,7 @@ export function TaskMilestoneField({
   triggerClassName,
 }: Props) {
   const intl = useIntl()
-  const { data: milestones = [] } = useQuery({
-    queryKey: ['milestones', projectId],
-    queryFn: () => milestoneApi.list(projectId),
-  })
+  const { milestones } = useMilestones(projectId)
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
 
@@ -2669,7 +2805,6 @@ git commit -m "feat: add milestone selector to task detail sidebar [LUM-61]"
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
-import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -2678,7 +2813,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
-import { milestoneApi } from '@/lib/api-client/milestone'
+import { useMilestones } from '../../hooks/useMilestones'
 
 interface Props {
   projectId: string
@@ -2686,16 +2821,10 @@ interface Props {
   onChange: (v: string | null | undefined) => void
 }
 
-const NONE = '__none__'
-const CLEAR = '__clear__'
-
 export function MilestoneFilterPicker({ projectId, value, onChange }: Props) {
   const intl = useIntl()
   const [open, setOpen] = useState(false)
-  const { data: milestones = [] } = useQuery({
-    queryKey: ['milestones', projectId],
-    queryFn: () => milestoneApi.list(projectId),
-  })
+  const { milestones } = useMilestones(projectId)
 
   const selected =
     value === null
