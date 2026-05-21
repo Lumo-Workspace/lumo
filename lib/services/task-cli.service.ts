@@ -1,6 +1,7 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
+import { authService } from '@/lib/services/auth.service'
 import { slugify } from '@/lib/utils/slugify'
 import type { TaskPriority } from '@prisma/client'
 
@@ -235,10 +236,12 @@ async function updateFromCli(args: {
     assigneeActorId?: string | null
   } = {}
   if (input.title !== undefined) updateInput.title = input.title
-  if ('description' in input) updateInput.description = input.description ?? null
+  if ('description' in input)
+    updateInput.description = input.description ?? null
   if (input.status !== undefined) updateInput.status = input.status
   if (input.priority !== undefined) updateInput.priority = input.priority
-  if (assigneeActorId !== undefined) updateInput.assigneeActorId = assigneeActorId
+  if (assigneeActorId !== undefined)
+    updateInput.assigneeActorId = assigneeActorId
 
   const result = await taskService.updateTaskWithSideEffects(
     resolved.id,
@@ -248,9 +251,14 @@ async function updateFromCli(args: {
     callerClerkId
   )
 
-  const teamIdentifier = (
-    result.task as unknown as { teamIdentifier?: string; team?: { identifier: string } }
-  ).teamIdentifier ?? (result.task as unknown as { team: { identifier: string } }).team.identifier
+  const teamIdentifier =
+    (
+      result.task as unknown as {
+        teamIdentifier?: string
+        team?: { identifier: string }
+      }
+    ).teamIdentifier ??
+    (result.task as unknown as { team: { identifier: string } }).team.identifier
   const number = (result.task as unknown as { number: number }).number
   const identOut = `${teamIdentifier}-${number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identOut}`
@@ -263,9 +271,81 @@ async function updateFromCli(args: {
   }
 }
 
+export interface ShowTaskFromCliResult {
+  id: string
+  identifier: string
+  title: string
+  status: string
+  priority: string
+  description: string | null
+  url: string
+  project: { id: string; name: string }
+  assignee: {
+    type: 'member' | 'agent'
+    label: string
+    email: string | null
+  } | null
+}
+
+async function showFromCli(args: {
+  workspaceId: string
+  workspaceSlug: string
+  identifier: string
+}): Promise<ShowTaskFromCliResult> {
+  const { workspaceId, workspaceSlug, identifier } = args
+
+  const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
+  if (!resolved) {
+    throw httpError(404, `Task ${identifier} not found`)
+  }
+
+  const detail = await taskService.getTaskDetail(resolved.id)
+  if (!detail) {
+    throw httpError(404, `Task ${identifier} not found`)
+  }
+
+  const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${resolved.identifier}`
+
+  // Member display name comes from Clerk, not the DB — fetch it on demand
+  // so the CLI can render "Assignee: Alice <alice@example.com>". Agent
+  // assignees already carry their display name in the DB.
+  let assignee: ShowTaskFromCliResult['assignee'] = null
+  if (detail.assignee) {
+    if (detail.assignee.type === 'HUMAN' && detail.assignee.member) {
+      const profile = await authService.fetchUserProfile(
+        detail.assignee.member.clerkId
+      )
+      assignee = {
+        type: 'member',
+        label: profile.name || profile.email,
+        email: profile.email || null,
+      }
+    } else if (detail.assignee.type === 'AGENT' && detail.assignee.agent) {
+      assignee = {
+        type: 'agent',
+        label: detail.assignee.agent.name,
+        email: null,
+      }
+    }
+  }
+
+  return {
+    id: detail.id,
+    identifier: resolved.identifier,
+    title: detail.title,
+    status: detail.status,
+    priority: detail.priority,
+    description: detail.description,
+    url,
+    project: { id: detail.project.id, name: detail.project.name },
+    assignee,
+  }
+}
+
 export const taskCliService = {
   resolveProjectId,
   resolveAssigneeActorId,
   createFromCli,
   updateFromCli,
+  showFromCli,
 }

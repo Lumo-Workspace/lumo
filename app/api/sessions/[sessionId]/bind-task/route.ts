@@ -53,3 +53,29 @@ export async function POST(
     )
   }
 }
+
+/**
+ * DELETE /api/sessions/[sessionId]/bind-task
+ *
+ * Detach the session from its current task. Ownership-scoped: 404 if the
+ * session doesn't exist or belongs to another member (no enumeration).
+ *
+ * Idempotent — re-detaching returns 200 with `alreadyUnbound: true`.
+ * Existing HookEvent rows are not retagged; only future events get
+ * `taskId: null`.
+ */
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ sessionId: string }> }
+): Promise<Response> {
+  const identity = await verifyBearer(request)
+  if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
+
+  const { sessionId } = await context.params
+
+  const result = await sessionService.unbindSession({ identity, sessionId })
+  if (!result.found) {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  }
+  return NextResponse.json(result)
+}

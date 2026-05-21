@@ -6,6 +6,46 @@ import { taskCliService } from '@/lib/services/task-cli.service'
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 /**
+ * GET /api/tasks/by-identifier/[identifier]
+ *
+ * Bearer-authed CLI endpoint for `lumo task show`. Returns a CLI-shaped view
+ * of the task: identifier, title, status, priority, description, project,
+ * assignee (with member name/email resolved from Clerk), and URL. Web
+ * callers should use GET /api/tasks/[id] (richer payload, Clerk auth).
+ */
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ identifier: string }> }
+): Promise<Response> {
+  const identity = await verifyBearer(request)
+  if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
+
+  const { identifier } = await context.params
+
+  try {
+    const task = await taskCliService.showFromCli({
+      workspaceId: identity.workspace.id,
+      workspaceSlug: identity.workspace.slug,
+      identifier,
+    })
+    return NextResponse.json({ task })
+  } catch (err) {
+    const errStatus = (err as { status?: unknown })?.status
+    const status = typeof errStatus === 'number' ? errStatus : 500
+    const message =
+      status === 500
+        ? 'Internal Server Error'
+        : err instanceof Error
+          ? err.message
+          : 'Error'
+    if (status === 500) {
+      console.error('GET /api/tasks/by-identifier error:', err)
+    }
+    return NextResponse.json({ error: message }, { status })
+  }
+}
+
+/**
  * PATCH /api/tasks/by-identifier/[identifier]
  *
  * Bearer-authed CLI endpoint for `lumo task update`. Accepts human-friendly

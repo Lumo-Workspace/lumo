@@ -8,9 +8,15 @@ import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
 import { sessionAttach } from './commands/session-attach'
+import { sessionDetach } from './commands/session-detach'
+import { sessionStatus } from './commands/session-status'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
+import { taskList } from './commands/task-list'
+import { taskShow } from './commands/task-show'
+import { taskComment } from './commands/task-comment'
+import { projectList } from './commands/project-list'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -76,6 +82,20 @@ session
   )
   .action(wrap(identifier => sessionAttach(identifier as string)))
 
+session
+  .command('status')
+  .description(
+    'Show the task currently bound to this Claude Code session (or "no task" if none).'
+  )
+  .action(wrap(() => sessionStatus()))
+
+session
+  .command('detach')
+  .description(
+    'Clear the task binding on the current Claude Code session. Past hook events keep their taskId; only future events become untagged.'
+  )
+  .action(wrap(() => sessionDetach()))
+
 const task = program
   .command('task')
   .description('Inspect tasks from the terminal')
@@ -86,6 +106,37 @@ task
     'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup.'
   )
   .action(wrap(identifier => taskContext(identifier as string)))
+
+task
+  .command('list')
+  .description(
+    'List tasks assigned to you. Filter with --status, --project, --limit.'
+  )
+  .option(
+    '-s, --status <value>',
+    'Filter by status: todo | in_progress | in_review | done'
+  )
+  .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
+  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .action(wrap(options => taskList(options as Record<string, string>)))
+
+task
+  .command('show <identifier>')
+  .description(
+    'Show a single task: title, status, priority, assignee, project, URL, description.'
+  )
+  .action(wrap(identifier => taskShow(identifier as string)))
+
+task
+  .command('comment <identifier> <body>')
+  .description(
+    'Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.'
+  )
+  .action(
+    wrap((identifier, body) =>
+      taskComment(identifier as string, body as string)
+    )
+  )
 
 task
   .command('create <title>')
@@ -105,16 +156,24 @@ task
     )
   )
 
+const projectCmd = program
+  .command('project')
+  .description('Inspect projects from the terminal')
+
+projectCmd
+  .command('list')
+  .description(
+    'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
+  )
+  .action(wrap(() => projectList()))
+
 task
   .command('update <identifier>')
   .description(
     'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee. Use "" to clear description or assignee.'
   )
   .option('-t, --title <text>', 'New title')
-  .option(
-    '-d, --description <text>',
-    'New description (empty string to clear)'
-  )
+  .option('-d, --description <text>', 'New description (empty string to clear)')
   .option(
     '-s, --status <value>',
     'New status: todo | in_progress | in_review | done'

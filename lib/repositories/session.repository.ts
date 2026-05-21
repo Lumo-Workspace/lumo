@@ -120,6 +120,73 @@ export const sessionRepository = {
   },
 
   /**
+   * Ownership-scoped lookup: return the session row + current task binding
+   * for the given member, or `null` if the session doesn't exist or belongs
+   * to a different member. Used by `lumo session status` and `session
+   * detach` so unrelated bearer tokens cannot read or mutate someone else's
+   * session.
+   */
+  async findForMemberWithBinding(sessionId: string, workspaceMemberId: string) {
+    const row = await prisma.session.findFirst({
+      where: { id: sessionId, workspaceMemberId },
+      select: {
+        id: true,
+        startedAt: true,
+        lastActivityAt: true,
+        eventCount: true,
+        task: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+    if (!row) return null
+    return row
+  },
+
+  /**
+   * Ownership-scoped detach: clear taskId on the session, but only if the
+   * caller owns it. Returns the previous binding for the caller to report,
+   * or `null` if the session does not exist / is not owned / had no binding.
+   */
+  async clearTaskIdForMember(sessionId: string, workspaceMemberId: string) {
+    return prisma.$transaction(async tx => {
+      const existing = await tx.session.findFirst({
+        where: { id: sessionId, workspaceMemberId },
+        select: {
+          taskId: true,
+          task: {
+            select: {
+              number: true,
+              title: true,
+              team: { select: { identifier: true } },
+            },
+          },
+        },
+      })
+      if (!existing) return null
+      if (existing.taskId === null) {
+        return { alreadyUnbound: true as const }
+      }
+      await tx.session.update({
+        where: { id: sessionId },
+        data: { taskId: null },
+      })
+      return {
+        alreadyUnbound: false as const,
+        previous: {
+          taskIdentifier: `${existing.task!.team.identifier}-${existing.task!.number}`,
+          taskTitle: existing.task!.title,
+        },
+      }
+    })
+  },
+
+  /**
    * Check whether a session is bound to a task. Used by the session-start
    * hook to return task binding status in the response, so the CLI can
    * inject it into Claude Code's conversation context via stdout.

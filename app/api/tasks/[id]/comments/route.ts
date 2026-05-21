@@ -1,6 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { createCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { getHumanActorId } from '@/lib/actor'
@@ -13,22 +13,20 @@ type Params = { params: Promise<{ id: string }> }
  * GET /api/tasks/[id]/comments
  * Returns only top-level comments (parentId = null), each with their replies
  * nested under a `replies` array, ordered oldest-first.
+ *
+ * Accepts Clerk sessions and bearer tokens.
  */
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
 
     const task = await taskRepository.findWithProjectWorkspaceId(id)
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-    const memberResult = await requireWorkspaceMember(
-      task.project.workspaceId,
-      userId
-    )
-    if (memberResult instanceof NextResponse) return memberResult
+    if (task.project.workspaceId !== identity.workspaceId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const comments = await commentService.getComments(id)
 
@@ -47,24 +45,22 @@ export async function GET(_request: NextRequest, { params }: Params) {
  * Creates a comment or reply. If `parentId` is supplied it must reference a
  * top-level comment on the same task (replies cannot themselves be replied to).
  * Fires TASK_MENTIONED notifications for @mention chips in the body.
+ *
+ * Accepts Clerk sessions and bearer tokens.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
 
     const task = await taskRepository.findForComment(id)
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (task.project.workspaceId !== identity.workspaceId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-    const memberResult = await requireWorkspaceMember(
-      task.project.workspaceId,
-      userId
-    )
-    if (memberResult instanceof NextResponse) return memberResult
-
-    const authorActorId = await getHumanActorId(memberResult.id)
+    const authorActorId = await getHumanActorId(identity.memberId)
     if (!authorActorId) {
       return NextResponse.json({ error: 'Actor not found' }, { status: 500 })
     }
@@ -81,7 +77,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       body: commentBody,
       parentId: parentId ?? null,
       quotedCommentId: quotedCommentId ?? null,
-      authorClerkId: userId,
+      authorClerkId: identity.clerkId,
       workspaceId: task.project.workspaceId,
       projectId: task.projectId,
       taskTitle: task.title,

@@ -71,3 +71,4 @@ export async function getUserWorkspace(clerkId: string) {
 }
 
 export { verifyBearer } from './bearer'
+export { requireIdentity, type Identity } from './identity'

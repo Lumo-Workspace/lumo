@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
 import { getHumanActorId } from '@/lib/actor'
 import { taskRepository, viewRepository } from '@/lib/repositories'
 
@@ -9,19 +8,18 @@ import { taskRepository, viewRepository } from '@/lib/repositories'
  * Returns all tasks assigned to the current workspace member with per-view ordering.
  * Also lazy-creates the personal KANBAN view for the member on first access.
  *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI). When the
+ * caller is a bearer token, "me" means the member whose API key was used.
+ *
  * Query params:
  *   sprintIds — comma-separated sprint IDs to filter by (optional)
  */
 export async function GET(req: Request) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
 
-    const ws = await requireUserWorkspace(userId)
-    if (ws instanceof NextResponse) return ws
-
-    const actorId = await getHumanActorId(ws.member.id)
+    const actorId = await getHumanActorId(identity.memberId)
     if (!actorId) {
       return NextResponse.json({ tasks: [], myTasksViewId: null })
     }
@@ -39,8 +37,8 @@ export async function GET(req: Request) {
 
     // Lazy-create personal KANBAN view for this member
     const myView = await viewRepository.findOrCreateMemberKanban(
-      ws.member.workspaceId,
-      ws.member.id
+      identity.workspaceId,
+      identity.memberId
     )
 
     // Build viewOrder map
