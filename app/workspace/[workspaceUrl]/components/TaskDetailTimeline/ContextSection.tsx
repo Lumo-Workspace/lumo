@@ -30,7 +30,7 @@ export function ContextSection({
       className='border border-zinc-200 dark:border-zinc-800 rounded-md mb-2 last:mb-0'
     >
       <div className='flex items-center pr-2'>
-        <AccordionTrigger className='flex-1 px-3 py-2 text-sm hover:no-underline'>
+        <AccordionTrigger className='flex-1 cursor-pointer px-3 py-2 text-sm hover:no-underline'>
           <span className='flex items-center gap-2'>
             {icon}
             <span className='font-medium'>{label}</span>
