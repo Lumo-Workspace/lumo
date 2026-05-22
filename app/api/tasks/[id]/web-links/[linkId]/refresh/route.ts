@@ -3,6 +3,9 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 type Params = { params: Promise<{ id: string; linkId: string }> }
 
 export async function POST(_request: NextRequest, { params }: Params) {

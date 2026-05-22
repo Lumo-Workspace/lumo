@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Заметки не могут содержать более 500 символов",
   "task.webLinks.error.fetchFailed": "Предпросмотр недоступен",
   "task.webLinks.card.refresh": "Обновить предпросмотр",
+  "task.webLinks.card.loading": "Загрузка предварительного просмотра…",
   "task.webLinks.card.delete": "Удалить",
   "task.webLinks.confirmDelete": "Удалить эту ссылку?"
 }

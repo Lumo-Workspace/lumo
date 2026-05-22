@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Nota tidak boleh melebihi 500 aksara",
   "task.webLinks.error.fetchFailed": "Pratonton tidak tersedia",
   "task.webLinks.card.refresh": "Muat semula pratonton",
+  "task.webLinks.card.loading": "Memuatkan pratonton…",
   "task.webLinks.card.delete": "Padam",
   "task.webLinks.confirmDelete": "Padam pautan ini?"
 }

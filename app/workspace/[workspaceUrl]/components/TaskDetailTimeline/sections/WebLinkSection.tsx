@@ -71,9 +71,7 @@ export function WebLinkSection({ taskId }: Props): React.ReactElement {
       <WebLinkAddDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onSubmit={async payload => {
-          await add(payload)
-        }}
+        onSubmit={payload => add(payload)}
       />
     </>
   )

@@ -1102,6 +1102,7 @@
   "task.webLinks.error.noteTooLong": "Notes must be 500 characters or fewer",
   "task.webLinks.error.fetchFailed": "Preview unavailable",
   "task.webLinks.card.refresh": "Refresh preview",
+  "task.webLinks.card.loading": "Loading preview…",
   "task.webLinks.card.delete": "Delete",
   "task.webLinks.confirmDelete": "Delete this link?"
 }

@@ -1,5 +1,8 @@
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { fetchOpenGraph } from '@/lib/integrations/og-metadata/fetch'
+import { fetchOpenGraphChromium } from '@/lib/integrations/og-metadata/fetch-chromium'
+import { shouldEscalateToChromium } from '@/lib/integrations/og-metadata/should-escalate'
+import type { FetchResult } from '@/lib/integrations/og-metadata/fetch'
 
 function err(message: string, status: number): Error & { status: number } {
   return Object.assign(new Error(message), { status })
@@ -11,6 +14,17 @@ function normalizeUrl(raw: string): { url: string; domain: string } {
   u.hostname = u.hostname.toLowerCase()
   u.hash = ''
   return { url: u.toString(), domain: u.hostname }
+}
+
+// Single entrypoint: try fast, escalate to chromium on block signal.
+async function fetchWithFallback(url: string): Promise<FetchResult> {
+  const fast = await fetchOpenGraph(url)
+  if (fast.ok) return fast
+  if (!shouldEscalateToChromium(fast.error)) return fast
+  console.info(
+    `[og] escalating to chromium: ${new URL(url).hostname} reason=${fast.error}`
+  )
+  return fetchOpenGraphChromium(url)
 }
 
 export interface AddWebLinkInput {
@@ -28,7 +42,7 @@ export const taskWebLinkService = {
 
   async addWebLink(input: AddWebLinkInput) {
     const { url, domain } = normalizeUrl(input.url)
-    const og = await fetchOpenGraph(url)
+    const og = await fetchWithFallback(url)
 
     const payload = og.ok
       ? {
@@ -68,7 +82,7 @@ export const taskWebLinkService = {
     if (!link || link.task.project.workspaceId !== expectedWorkspaceId) {
       throw err('not_found', 404)
     }
-    const og = await fetchOpenGraph(link.url)
+    const og = await fetchWithFallback(link.url)
     if (og.ok) {
       return taskWebLinkRepository.updateFetch(linkId, {
         ok: true,

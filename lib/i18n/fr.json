@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Les notes ne doivent pas dépasser 500 caractères",
   "task.webLinks.error.fetchFailed": "Aperçu indisponible",
   "task.webLinks.card.refresh": "Actualiser l'aperçu",
+  "task.webLinks.card.loading": "Chargement de l'aperçu…",
   "task.webLinks.card.delete": "Supprimer",
   "task.webLinks.confirmDelete": "Supprimer ce lien ?"
 }

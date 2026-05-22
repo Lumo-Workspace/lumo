@@ -11,9 +11,13 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
 jest.mock('@/lib/integrations/og-metadata/fetch', () => ({
   fetchOpenGraph: jest.fn(),
 }))
+jest.mock('@/lib/integrations/og-metadata/fetch-chromium', () => ({
+  fetchOpenGraphChromium: jest.fn(),
+}))
 
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { fetchOpenGraph } from '@/lib/integrations/og-metadata/fetch'
+import { fetchOpenGraphChromium } from '@/lib/integrations/og-metadata/fetch-chromium'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
 
 const repoCreate = taskWebLinkRepository.create as jest.Mock
@@ -22,6 +26,7 @@ const repoGetById = taskWebLinkRepository.getById as jest.Mock
 const repoUpdateFetch = taskWebLinkRepository.updateFetch as jest.Mock
 const repoDelete = taskWebLinkRepository.delete as jest.Mock
 const ogMock = fetchOpenGraph as jest.Mock
+const chromiumMock = fetchOpenGraphChromium as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -35,7 +40,7 @@ const baseInput: import('@/lib/services/task-web-link.service').AddWebLinkInput 
 
 describe('taskWebLinkService.addWebLink', () => {
   it('normalizes URL (lowercase scheme/host, strips fragment) before storing', async () => {
-    ogMock.mockResolvedValue({ ok: false, error: 'timeout' })
+    ogMock.mockResolvedValue({ ok: false, error: 'http 404' }) // non-escalating
     repoCreate.mockResolvedValue({ id: 'wl_1' })
     await taskWebLinkService.addWebLink(baseInput)
     expect(repoCreate).toHaveBeenCalledWith(
@@ -44,6 +49,7 @@ describe('taskWebLinkService.addWebLink', () => {
         domain: 'example.com',
       })
     )
+    expect(chromiumMock).not.toHaveBeenCalled()
   })
 
   it('writes OG fields on fetch success', async () => {
@@ -114,6 +120,71 @@ describe('taskWebLinkService.addWebLink', () => {
       expect.objectContaining({ createdById: 'mem_1' })
     )
   })
+
+  it('does not call chromium when fast fetch succeeds', async () => {
+    ogMock.mockResolvedValue({
+      ok: true,
+      data: { title: 't', description: 'd', imageUrl: 'i', faviconUrl: 'f' },
+      finalUrl: 'https://example.com/path?x=1',
+    })
+    repoCreate.mockResolvedValue({ id: 'wl_ok' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(chromiumMock).not.toHaveBeenCalled()
+  })
+
+  it('escalates to chromium on block signal and writes success', async () => {
+    ogMock.mockResolvedValue({ ok: false, error: 'http 403' })
+    chromiumMock.mockResolvedValue({
+      ok: true,
+      data: {
+        title: 'Real',
+        description: 'desc',
+        imageUrl: 'https://x.test/i.png',
+        faviconUrl: 'https://x.test/f.ico',
+      },
+      finalUrl: 'https://example.com/path?x=1',
+    })
+    repoCreate.mockResolvedValue({ id: 'wl_cr' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(chromiumMock).toHaveBeenCalledWith('https://example.com/path?x=1')
+    expect(repoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Real',
+        description: 'desc',
+        imageUrl: 'https://x.test/i.png',
+        faviconUrl: 'https://x.test/f.ico',
+        fetchedAt: expect.any(Date),
+        fetchError: null,
+      })
+    )
+  })
+
+  it('writes chromium failure error when chromium also fails', async () => {
+    ogMock.mockResolvedValue({ ok: false, error: 'http 403' })
+    chromiumMock.mockResolvedValue({
+      ok: false,
+      error: 'chromium: timeout',
+    })
+    repoCreate.mockResolvedValue({ id: 'wl_fail' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(repoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: null,
+        fetchedAt: null,
+        fetchError: 'chromium: timeout',
+      })
+    )
+  })
+
+  it('does not escalate on non-block-signal failures', async () => {
+    ogMock.mockResolvedValue({ ok: false, error: 'http 404' })
+    repoCreate.mockResolvedValue({ id: 'wl_404' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(chromiumMock).not.toHaveBeenCalled()
+    expect(repoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ fetchError: 'http 404' })
+    )
+  })
 })
 
 describe('taskWebLinkService.refreshWebLink', () => {
@@ -163,13 +234,39 @@ describe('taskWebLinkService.refreshWebLink', () => {
       url: 'https://example.com/',
       task: { project: { workspaceId: 'ws_1' } },
     })
-    ogMock.mockResolvedValue({ ok: false, error: 'timeout' })
+    ogMock.mockResolvedValue({ ok: false, error: 'http 404' })
     repoUpdateFetch.mockResolvedValue({ id: 'wl_1' })
     await taskWebLinkService.refreshWebLink('wl_1', 'ws_1')
     expect(repoUpdateFetch).toHaveBeenCalledWith('wl_1', {
       ok: false,
-      error: 'timeout',
+      error: 'http 404',
     })
+  })
+
+  it('escalates to chromium on refresh when fast returns block signal', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'wl_1',
+      url: 'https://blocked.test/x',
+      task: { project: { workspaceId: 'ws_1' } },
+    })
+    ogMock.mockResolvedValue({ ok: false, error: 'http 403' })
+    chromiumMock.mockResolvedValue({
+      ok: true,
+      data: {
+        title: 'After',
+        description: 'desc',
+        imageUrl: undefined,
+        faviconUrl: undefined,
+      },
+      finalUrl: 'https://blocked.test/x',
+    })
+    repoUpdateFetch.mockResolvedValue({ id: 'wl_1' })
+    await taskWebLinkService.refreshWebLink('wl_1', 'ws_1')
+    expect(chromiumMock).toHaveBeenCalledWith('https://blocked.test/x')
+    expect(repoUpdateFetch).toHaveBeenCalledWith(
+      'wl_1',
+      expect.objectContaining({ ok: true, title: 'After' })
+    )
   })
 })
 

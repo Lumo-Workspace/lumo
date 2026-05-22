@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Las notas no pueden superar los 500 caracteres",
   "task.webLinks.error.fetchFailed": "Vista previa no disponible",
   "task.webLinks.card.refresh": "Actualizar vista previa",
+  "task.webLinks.card.loading": "Cargando vista previa…",
   "task.webLinks.card.delete": "Eliminar",
   "task.webLinks.confirmDelete": "¿Eliminar este enlace?"
 }
