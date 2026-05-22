@@ -4,18 +4,60 @@ import { useCallback, useEffect, useState } from 'react'
 import { webLinksClient } from '@/lib/api-client/task-web-links'
 import type { TaskWebLink } from '@prisma/client'
 
+// Optimistic placeholders share TaskWebLink's shape (so WebLinkCard works
+// uniformly) but carry a tempId + loading flag. Server rows never have these.
+export type OptimisticWebLink = TaskWebLink & {
+  tempId?: string
+  loading?: boolean
+}
+
 interface UseWebLinksResult {
-  webLinks: TaskWebLink[]
+  webLinks: OptimisticWebLink[]
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
-  add: (payload: { url: string; note?: string }) => Promise<void>
+  add: (payload: { url: string; note?: string }) => void
   remove: (linkId: string) => Promise<void>
   refreshOne: (linkId: string) => Promise<void>
 }
 
+function makeOptimisticPlaceholder(
+  payload: { url: string; note?: string },
+  taskId: string
+): OptimisticWebLink {
+  let domain = ''
+  try {
+    domain = new URL(payload.url.trim()).hostname.toLowerCase()
+  } catch {
+    domain = payload.url
+  }
+  const tempId = `tmp_${Math.random().toString(36).slice(2, 10)}`
+  // Cast: the optimistic row has only the fields the card reads; the rest are
+  // never displayed during the loading state. We satisfy TaskWebLink's shape
+  // with safe defaults.
+  return {
+    id: tempId,
+    tempId,
+    taskId,
+    workspaceId: '',
+    url: payload.url,
+    domain,
+    title: null,
+    description: null,
+    note: payload.note ?? null,
+    imageUrl: null,
+    faviconUrl: null,
+    fetchedAt: null,
+    fetchError: null,
+    createdById: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    loading: true,
+  }
+}
+
 export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
-  const [webLinks, setWebLinks] = useState<TaskWebLink[]>([])
+  const [webLinks, setWebLinks] = useState<OptimisticWebLink[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,9 +80,26 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
   }, [enabled, refresh])
 
   const add = useCallback(
-    async (payload: { url: string; note?: string }) => {
-      const { webLink } = await webLinksClient.add(taskId, payload)
-      setWebLinks(prev => [webLink, ...prev])
+    (payload: { url: string; note?: string }) => {
+      const placeholder = makeOptimisticPlaceholder(payload, taskId)
+      setWebLinks(prev => [placeholder, ...prev])
+      void (async () => {
+        try {
+          const { webLink } = await webLinksClient.add(taskId, payload)
+          setWebLinks(prev =>
+            prev.map(l => (l.tempId === placeholder.tempId ? webLink : l))
+          )
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'add failed'
+          setWebLinks(prev =>
+            prev.map(l =>
+              l.tempId === placeholder.tempId
+                ? { ...l, loading: false, fetchError: msg }
+                : l
+            )
+          )
+        }
+      })()
     },
     [taskId]
   )
