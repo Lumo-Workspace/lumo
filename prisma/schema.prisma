@@ -270,6 +270,7 @@ model WorkspaceMember {
   documentShares       DocumentShare[]     @relation("DocumentShareMember")
   documentEdits        DocumentEditor[]
   createdSlackContexts TaskSlackContext[]  @relation("TaskSlackContextCreator")
+  createdWebLinks      TaskWebLink[]       @relation("TaskWebLinkCreator")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -427,6 +428,7 @@ model Task {
   memories          Memory[]
   lumoProposals     LumoProposal[]
   slackContexts     TaskSlackContext[]
+  webLinks          TaskWebLink[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1348,4 +1350,25 @@ model TaskSlackContext {
   @@index([taskId])
   @@index([workspaceId])
   @@map("task_slack_contexts")
+}
+
+model TaskWebLink {
+  id          String          @id @default(cuid())
+  taskId      String
+  task        Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  url         String
+  domain      String
+  title       String?
+  description String?
+  note        String?
+  imageUrl    String?
+  faviconUrl  String?
+  fetchedAt   DateTime?
+  fetchError  String?
+  createdById String
+  createdBy   WorkspaceMember @relation("TaskWebLinkCreator", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([taskId, createdAt])
 }
