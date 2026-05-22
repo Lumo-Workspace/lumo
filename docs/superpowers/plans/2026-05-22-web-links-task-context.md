@@ -978,6 +978,7 @@ describe('taskWebLinkRepository', () => {
     create.mockResolvedValue({ id: 'wl_1' })
     const input = {
       taskId: 'tsk_1',
+      workspaceId: 'ws_1',
       url: 'https://example.com/',
       domain: 'example.com',
       title: 'T',
@@ -1071,6 +1072,7 @@ import { prisma } from '@/lib/db/prisma'
 
 export interface CreateTaskWebLinkInput {
   taskId: string
+  workspaceId: string // denormalized for workspace-scoped queries; mirrors TaskSlackContext
   url: string
   domain: string
   title: string | null
@@ -1570,6 +1572,7 @@ export const taskWebLinkService = {
     const payload = og.ok
       ? {
           taskId: input.taskId,
+          workspaceId: input.workspaceId,
           url,
           domain,
           title: og.data.title ?? null,
@@ -1583,6 +1586,7 @@ export const taskWebLinkService = {
         }
       : {
           taskId: input.taskId,
+          workspaceId: input.workspaceId,
           url,
           domain,
           title: null,
