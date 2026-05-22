@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Notizen dürfen höchstens 500 Zeichen lang sein",
   "task.webLinks.error.fetchFailed": "Vorschau nicht verfügbar",
   "task.webLinks.card.refresh": "Vorschau aktualisieren",
+  "task.webLinks.card.loading": "Vorschau wird geladen…",
   "task.webLinks.card.delete": "Löschen",
   "task.webLinks.confirmDelete": "Diesen Link löschen?"
 }

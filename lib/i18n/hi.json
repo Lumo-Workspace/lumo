@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "नोट्स 500 से अधिक अक्षर नहीं हो सकते",
   "task.webLinks.error.fetchFailed": "पूर्वावलोकन उपलब्ध नहीं",
   "task.webLinks.card.refresh": "पूर्वावलोकन रिफ्रेश करें",
+  "task.webLinks.card.loading": "प्रीव्यू लोड हो रहा है…",
   "task.webLinks.card.delete": "हटाएं",
   "task.webLinks.confirmDelete": "इस लिंक को हटाएं?"
 }

@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "메모는 500자 이하여야 합니다",
   "task.webLinks.error.fetchFailed": "미리보기를 사용할 수 없습니다",
   "task.webLinks.card.refresh": "미리보기 새로고침",
+  "task.webLinks.card.loading": "미리보기 로드 중…",
   "task.webLinks.card.delete": "삭제",
   "task.webLinks.confirmDelete": "이 링크를 삭제하시겠습니까?"
 }

@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Ghi chú không được vượt quá 500 ký tự",
   "task.webLinks.error.fetchFailed": "Không thể tải bản xem trước",
   "task.webLinks.card.refresh": "Làm mới bản xem trước",
+  "task.webLinks.card.loading": "Đang tải bản xem trước…",
   "task.webLinks.card.delete": "Xóa",
   "task.webLinks.confirmDelete": "Xóa liên kết này?"
 }

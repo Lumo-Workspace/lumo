@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "备注最多 500 字符",
   "task.webLinks.error.fetchFailed": "暂无预览",
   "task.webLinks.card.refresh": "刷新预览",
+  "task.webLinks.card.loading": "正在加载预览…",
   "task.webLinks.card.delete": "删除",
   "task.webLinks.confirmDelete": "确定删除此链接？"
 }

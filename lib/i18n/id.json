@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "Catatan tidak boleh lebih dari 500 karakter",
   "task.webLinks.error.fetchFailed": "Pratinjau tidak tersedia",
   "task.webLinks.card.refresh": "Segarkan pratinjau",
+  "task.webLinks.card.loading": "Memuat pratinjau…",
   "task.webLinks.card.delete": "Hapus",
   "task.webLinks.confirmDelete": "Hapus tautan ini?"
 }

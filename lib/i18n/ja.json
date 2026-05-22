@@ -1096,6 +1096,7 @@
   "task.webLinks.error.noteTooLong": "メモは500文字以内にしてください",
   "task.webLinks.error.fetchFailed": "プレビューを取得できません",
   "task.webLinks.card.refresh": "プレビューを更新",
+  "task.webLinks.card.loading": "プレビューを読み込み中…",
   "task.webLinks.card.delete": "削除",
   "task.webLinks.confirmDelete": "このリンクを削除しますか？"
 }
