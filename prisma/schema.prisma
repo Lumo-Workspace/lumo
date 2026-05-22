@@ -178,6 +178,7 @@ model Workspace {
   sessions           Session[]
   memories           Memory[]
   taskSlackContexts  TaskSlackContext[]
+  taskWebLinks       TaskWebLink[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -1353,9 +1354,10 @@ model TaskSlackContext {
 }
 
 model TaskWebLink {
-  id          String          @id @default(cuid())
+  id          String @id @default(cuid())
   taskId      String
-  task        Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspaceId String
+
   url         String
   domain      String
   title       String?
@@ -1365,10 +1367,16 @@ model TaskWebLink {
   faviconUrl  String?
   fetchedAt   DateTime?
   fetchError  String?
+
   createdById String
-  createdBy   WorkspaceMember @relation("TaskWebLinkCreator", fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task      Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy WorkspaceMember @relation("TaskWebLinkCreator", fields: [createdById], references: [id])
 
   @@index([taskId, createdAt])
+  @@index([workspaceId])
+  @@map("task_web_links")
 }
