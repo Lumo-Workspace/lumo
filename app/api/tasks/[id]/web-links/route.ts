@@ -5,6 +5,9 @@ import { taskWebLinkService } from '@/lib/services/task-web-link.service'
 import { createWebLinkBodySchema } from '@/lib/validation/task-web-link'
 import { zodError } from '@/lib/api/helpers'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(_request: NextRequest, { params }: Params) {
