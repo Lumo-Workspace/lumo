@@ -127,6 +127,11 @@ export const API = {
       `/api/sprints/${sprintId}/summary/retry`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
+  milestones: {
+    listByProject: (projectId: string) =>
+      `/api/projects/${projectId}/milestones`,
+    byId: (milestoneId: string) => `/api/milestones/${milestoneId}`,
+  },
   teams: {
     tasks: (teamId: string) => `/api/teams/${teamId}/tasks`,
   },

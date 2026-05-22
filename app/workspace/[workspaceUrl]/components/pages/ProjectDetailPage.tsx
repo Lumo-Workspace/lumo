@@ -20,6 +20,7 @@ import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { ProjectHeader } from './project-detail/ProjectHeader'
 import { ProjectOverviewTab } from './project-detail/ProjectOverviewTab'
 import { ProjectTasksTab } from './project-detail/ProjectTasksTab'
+import { ProjectMilestonesTab } from '../milestones/ProjectMilestonesTab'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -79,7 +80,9 @@ export function ProjectDetailPage({
   copied,
   workspaceUrl,
 }: ProjectDetailPageProps) {
-  const [tab, setTab] = useState<'overview' | 'tasks' | 'summary'>('overview')
+  const [tab, setTab] = useState<
+    'overview' | 'milestones' | 'tasks' | 'summary'
+  >('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
 
@@ -179,7 +182,7 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(['overview', 'tasks', 'summary'] as const).map(t => (
+        {(['overview', 'milestones', 'tasks', 'summary'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -209,6 +212,13 @@ export function ProjectDetailPage({
         />
       )}
 
+      {/* ── Milestones tab ── */}
+      {tab === 'milestones' && (
+        <div className='flex-1 overflow-y-auto'>
+          <ProjectMilestonesTab projectId={project.id} />
+        </div>
+      )}
+
       {/* ── Summary tab ── */}
       {tab === 'summary' && (
         <div className='flex-1 overflow-y-auto'>
@@ -219,6 +229,7 @@ export function ProjectDetailPage({
       {/* ── Tasks tab ── */}
       {tab === 'tasks' && (
         <ProjectTasksTab
+          projectId={project.id}
           tasks={tasks}
           setTasks={setTasks}
           filteredTasks={filteredTasks}

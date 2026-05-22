@@ -8,6 +8,12 @@ interface TaskContextResponse {
     title: string
     status: string
     description: string | null
+    milestone?: {
+      id: string
+      name: string
+      status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+      targetDate: string | null
+    } | null
   }
   memorySection?: string
   slackContextSection?: string
@@ -87,6 +93,14 @@ export function formatTaskContextMarkdown(
   lines.push(`# Task: ${data.task.identifier}`)
   lines.push(`**Title**: ${data.task.title}`)
   lines.push(`**Status**: ${data.task.status}`)
+  if (data.task.milestone) {
+    const target = data.task.milestone.targetDate
+      ? `, target ${data.task.milestone.targetDate.slice(0, 10)}`
+      : ''
+    lines.push(
+      `**Milestone**: ${data.task.milestone.name} (${data.task.milestone.status}${target})`
+    )
+  }
   if (data.task.description && data.task.description.trim().length > 0) {
     lines.push(`**Description**: ${data.task.description}`)
   }

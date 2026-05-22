@@ -1,6 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
 
@@ -23,6 +24,7 @@ export async function createTask(
     parentTaskId?: string | null | undefined
     repositoryId?: string | null | undefined
     sprintId?: string | null | undefined
+    milestoneId?: string | null | undefined
     order?: number | undefined
     dueDate?: string | null | undefined
   },
@@ -62,6 +64,19 @@ export async function createTask(
     }
   }
 
+  // Validate milestoneId belongs to the same project
+  const resolvedMilestoneId: string | null =
+    input.milestoneId !== undefined ? (input.milestoneId ?? null) : null
+  if (resolvedMilestoneId) {
+    const milestone = await milestoneRepository.findById(resolvedMilestoneId)
+    if (!milestone || milestone.projectId !== projectId) {
+      throw Object.assign(
+        new Error('Milestone does not belong to this project'),
+        { status: 400 }
+      )
+    }
+  }
+
   // Auto-calculate order if not provided
   let taskOrder = order
   if (taskOrder === undefined) {
@@ -96,6 +111,7 @@ export async function createTask(
     parentTaskId: parentTaskId ?? null,
     repositoryId: repositoryId ?? null,
     sprintId: resolvedSprintId,
+    milestoneId: resolvedMilestoneId,
     order: taskOrder,
     dueDate: dueDate ?? null,
   })

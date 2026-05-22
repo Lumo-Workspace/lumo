@@ -19,6 +19,7 @@ export interface TaskUpdateData {
   projectId?: string | undefined
   repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
+  milestoneId?: string | null | undefined
   agentStatus?: AgentStatus | null | undefined
   agentError?: string | null | undefined
 }
@@ -548,12 +549,20 @@ export const taskRepository = {
   },
 
   /** Find all tasks for a project with full list details (for project task list).
-   * @param sprintId - undefined: no sprint filter; null: only backlog (sprintId IS NULL); string: only that sprint
+   * @param sprintId    - undefined: no sprint filter; null: only backlog (sprintId IS NULL); string: only that sprint
+   * @param milestoneId - undefined: no milestone filter; null: only tasks with no milestone; string: only that milestone
    */
-  async findByProjectWithDetails(projectId: string, sprintId?: string | null) {
+  async findByProjectWithDetails(
+    projectId: string,
+    sprintId?: string | null,
+    milestoneId?: string | null
+  ) {
     const where: Prisma.TaskWhereInput = { projectId }
     if (sprintId !== undefined) {
       where.sprintId = sprintId === null ? null : sprintId
+    }
+    if (milestoneId !== undefined) {
+      where.milestoneId = milestoneId === null ? null : milestoneId
     }
     return prisma.task.findMany({
       where,
@@ -655,6 +664,7 @@ export const taskRepository = {
     parentTaskId: string | null
     repositoryId: string | null
     sprintId?: string | null
+    milestoneId?: string | null
     order: number | undefined
     dueDate: Date | string | null
   }) {
@@ -679,6 +689,7 @@ export const taskRepository = {
           parentTaskId: data.parentTaskId,
           repositoryId: data.repositoryId,
           sprintId: data.sprintId ?? null,
+          milestoneId: data.milestoneId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
           dueDate: data.dueDate,
         },

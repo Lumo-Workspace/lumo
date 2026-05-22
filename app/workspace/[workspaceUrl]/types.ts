@@ -79,6 +79,7 @@ export type Page =
   | 'dashboard'
   | 'sprints'
   | 'sprint-detail'
+  | 'milestone-detail'
 
 export interface ApiDraft {
   id: string
@@ -181,6 +182,7 @@ export interface ApiTask {
     status: import('@prisma/client').SprintStatus
     name: string
   } | null
+  milestoneId?: string | null
 }
 
 export interface ApiPullRequest {
@@ -339,6 +341,7 @@ export interface TaskDetail {
     status: import('@prisma/client').SprintStatus
     name: string
   } | null
+  milestoneId?: string | null
   teamId?: string
   /** Whether the owning team has sprints enabled. Sourced from `team.sprintsEnabled`
    * and flattened in `taskService.getTaskDetail`. UI uses it to gate sprint controls. */

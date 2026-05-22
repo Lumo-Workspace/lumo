@@ -1,6 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import {
@@ -27,6 +28,12 @@ export interface TaskContext {
     title: string
     status: string
     description: string | null
+    milestone: {
+      id: string
+      name: string
+      status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+      targetDate: string | null
+    } | null
   }
   /**
    * Pre-rendered "## Relevant Memory" markdown block, already trimmed to a
@@ -192,6 +199,10 @@ export const taskContextService = {
     const budgeted = applyTokenBudget(ordered)
     const memorySection = renderMemorySection(budgeted)
 
+    const milestone = full.milestoneId
+      ? await milestoneRepository.findById(full.milestoneId)
+      : null
+
     return {
       task: {
         id: full.id,
@@ -199,6 +210,16 @@ export const taskContextService = {
         title: full.title,
         status: full.status,
         description: full.description,
+        milestone: milestone
+          ? {
+              id: milestone.id,
+              name: milestone.name,
+              status: milestone.status,
+              targetDate: milestone.targetDate
+                ? milestone.targetDate.toISOString()
+                : null,
+            }
+          : null,
       },
       memorySection,
       slackContextSection: renderSlackContextSection(

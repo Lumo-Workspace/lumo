@@ -49,6 +49,14 @@ export const queryKeys = {
     summary: (sprintId: string) => ['sprints', 'summary', sprintId] as const,
   },
 
+  milestones: {
+    all: () => ['milestones'] as const,
+    byProject: (projectId: string) =>
+      ['milestones', 'byProject', projectId] as const,
+    detail: (milestoneId: string) =>
+      ['milestones', 'detail', milestoneId] as const,
+  },
+
   documents: {
     all: () => ['documents'] as const,
     detail: (docId: string) => ['documents', 'detail', docId] as const,

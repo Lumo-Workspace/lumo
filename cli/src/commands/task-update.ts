@@ -11,6 +11,7 @@ export interface UpdateTaskOptions {
   status?: string
   priority?: string
   assignee?: string
+  milestone?: string
 }
 
 interface UpdatedTaskResponse {
@@ -67,6 +68,10 @@ export function buildUpdatePayload(opts: UpdateTaskOptions): {
   if (opts.assignee !== undefined) {
     payload.assigneeRef = opts.assignee === '' ? null : opts.assignee
     flagsGiven.push('--assignee')
+  }
+  if (opts.milestone !== undefined) {
+    payload.milestoneRef = opts.milestone === '' ? null : opts.milestone
+    flagsGiven.push('--milestone')
   }
 
   return { payload, flagsGiven }
@@ -130,7 +135,7 @@ export async function taskUpdate(
 
   if (flagsGiven.length === 0) {
     console.error(
-      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee)'
+      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone)'
     )
     return 1
   }

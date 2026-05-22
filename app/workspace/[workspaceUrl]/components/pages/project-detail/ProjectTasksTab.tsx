@@ -30,6 +30,7 @@ import { createTaskColumns, TaskPatch } from '../../data-table/task-columns'
 import { TaskSelectionBar } from '../../data-table/TaskSelectionBar'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { MilestoneFilterPicker } from '../../milestones/MilestoneFilterPicker'
 import type {
   SensorDescriptor,
   SensorOptions,
@@ -44,6 +45,7 @@ interface DisplayOptions {
 }
 
 interface ProjectTasksTabProps {
+  projectId: string
   tasks: ApiTask[]
   setTasks: React.Dispatch<React.SetStateAction<ApiTask[]>>
   filteredTasks: ApiTask[]
@@ -70,6 +72,7 @@ interface ProjectTasksTabProps {
 }
 
 export function ProjectTasksTab({
+  projectId,
   tasks,
   setTasks,
   filteredTasks,
@@ -95,6 +98,19 @@ export function ProjectTasksTab({
   onDragEnd,
 }: ProjectTasksTabProps) {
   const intl = useIntl()
+
+  // ─── Milestone filter (client-side, applied on top of filteredTasks) ───────
+  const [milestoneFilter, setMilestoneFilter] = useState<
+    string | null | undefined
+  >(undefined)
+
+  const visibleTasks = useMemo(() => {
+    if (milestoneFilter === undefined) return filteredTasks
+    if (milestoneFilter === null) {
+      return filteredTasks.filter(t => !t.milestoneId)
+    }
+    return filteredTasks.filter(t => t.milestoneId === milestoneFilter)
+  }, [filteredTasks, milestoneFilter])
 
   // ─── Row selection ──────────────────────────────────────────────────────────
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
@@ -191,6 +207,11 @@ export function ProjectTasksTab({
       {/* Toolbar */}
       <div className='h-12 shrink-0 relative'>
         <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8'>
+          <MilestoneFilterPicker
+            projectId={projectId}
+            value={milestoneFilter}
+            onChange={setMilestoneFilter}
+          />
           <DisplayOptionsMenu
             completedFilter={displayOptions.completedFilter}
             onCompletedFilterChange={setCompletedFilter}
@@ -216,7 +237,7 @@ export function ProjectTasksTab({
       <AsyncContent
         loading={loading}
         error={error}
-        empty={filteredTasks.length === 0 && viewMode !== 'board'}
+        empty={visibleTasks.length === 0 && viewMode !== 'board'}
         onRetry={onRetry}
         className='flex-1 flex flex-col overflow-hidden'
         emptyState={
@@ -255,7 +276,7 @@ export function ProjectTasksTab({
           <div className='flex-1 overflow-auto'>
             <DataTable
               columns={taskColumns}
-              data={filteredTasks}
+              data={visibleTasks}
               enableSelection
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
@@ -271,7 +292,7 @@ export function ProjectTasksTab({
           </div>
         ) : (
           <BoardView
-            tasks={filteredTasks}
+            tasks={visibleTasks}
             sensors={sensors}
             activeId={activeId}
             onDragStart={onDragStart}

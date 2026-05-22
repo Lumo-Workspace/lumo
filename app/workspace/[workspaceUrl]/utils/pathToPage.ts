@@ -11,7 +11,11 @@ import { Page } from '../types'
 export function pathToPage(
   pathname: string,
   workspaceUrl: string
-): { page: Page; projectSlug?: string | undefined } {
+): {
+  page: Page
+  projectSlug?: string | undefined
+  milestoneId?: string | undefined
+} {
   const base = `/workspace/${workspaceUrl}`
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : ''
 
@@ -23,7 +27,11 @@ export function pathToPage(
   if (rest.startsWith('/dashboard')) return { page: 'dashboard' }
   if (rest.startsWith('/inbox')) return { page: 'inbox' }
   if (rest.startsWith('/projects/')) {
-    const projectSlug = rest.slice('/projects/'.length).split('/')[0]
+    const after = rest.slice('/projects/'.length)
+    const [projectSlug, segment, milestoneId] = after.split('/')
+    if (segment === 'milestones' && milestoneId) {
+      return { page: 'milestone-detail', projectSlug, milestoneId }
+    }
     return { page: 'project-detail', projectSlug }
   }
   if (rest.startsWith('/projects')) return { page: 'projects' }

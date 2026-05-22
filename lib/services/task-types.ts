@@ -17,6 +17,7 @@ export interface UpdateTaskInput {
   projectId?: string | undefined
   repositoryId?: string | null | undefined
   sprintId?: string | null | undefined
+  milestoneId?: string | null | undefined
   tagIds?: string[] | undefined
 }
 

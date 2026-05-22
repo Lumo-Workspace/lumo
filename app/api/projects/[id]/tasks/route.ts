@@ -50,7 +50,20 @@ export async function GET(request: NextRequest, { params }: Params) {
           ? null
           : sprintIdParam
 
-    const tasks = await taskRepository.findByProjectWithDetails(id, sprintId)
+    // Parse optional milestoneId filter (same semantics as sprintId).
+    const milestoneIdParam = searchParams.get('milestoneId')
+    const milestoneId: string | null | undefined =
+      milestoneIdParam === null
+        ? undefined
+        : milestoneIdParam === 'null'
+          ? null
+          : milestoneIdParam
+
+    const tasks = await taskRepository.findByProjectWithDetails(
+      id,
+      sprintId,
+      milestoneId
+    )
 
     // Lazy-create KANBAN view for this project
     const kanbanView = await viewRepository.findOrCreateProjectKanban(
