@@ -40,3 +40,8 @@ export { preferenceRepository } from './preference.repository'
 export { statsRepository } from './stats.repository'
 export { taskSlackContextRepository } from './task-slack-context.repository'
 export type { CreateTaskSlackContextInput } from './task-slack-context.repository'
+export { taskWebLinkRepository } from './task-web-link.repository'
+export type {
+  CreateTaskWebLinkInput,
+  UpdateFetchInput,
+} from './task-web-link.repository'
