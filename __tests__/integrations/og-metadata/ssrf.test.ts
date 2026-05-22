@@ -36,6 +36,7 @@ describe('assertExternalHost', () => {
     ['IPv4 link-local 169.254/16', '169.254.169.254'],
     ['IPv4 multicast', '224.0.0.1'],
     ['IPv4 reserved 0/8', '0.0.0.5'],
+    ['IPv4 all-zero 0.0.0.0', '0.0.0.0'],
   ])('rejects %s', async (_label, ip) => {
     lookupMock.mockResolvedValue([{ address: ip, family: 4 }])
     await expect(assertExternalHost('https://x.test/')).rejects.toThrow(
