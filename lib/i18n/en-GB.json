@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Project name",
   "newProject.descPlaceholder": "What is this project about?",
   "newProject.refineWithAI": "Refine with AI",
-  "documentEditor.notFound": "Document not found"
+  "documentEditor.notFound": "Document not found",
+  "task.webLinks.sectionTitle": "Web Links",
+  "task.webLinks.empty": "No links yet",
+  "task.webLinks.addButton": "Add link",
+  "task.webLinks.dialog.title": "Add a web link",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Notes (optional)",
+  "task.webLinks.dialog.submit": "Add link",
+  "task.webLinks.error.invalidUrl": "URL must start with http:// or https://",
+  "task.webLinks.error.urlTooLong": "URL is too long",
+  "task.webLinks.error.noteTooLong": "Notes must be 500 characters or fewer",
+  "task.webLinks.error.fetchFailed": "Preview unavailable",
+  "task.webLinks.card.refresh": "Refresh preview",
+  "task.webLinks.card.delete": "Delete",
+  "task.webLinks.confirmDelete": "Delete this link?"
 }

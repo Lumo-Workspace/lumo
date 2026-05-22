@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Nombre del proyecto",
   "newProject.descPlaceholder": "¿De qué trata este proyecto?",
   "newProject.refineWithAI": "Refinar con IA",
-  "documentEditor.notFound": "Documento no encontrado"
+  "documentEditor.notFound": "Documento no encontrado",
+  "task.webLinks.sectionTitle": "Enlaces web",
+  "task.webLinks.empty": "Sin enlaces aún",
+  "task.webLinks.addButton": "Añadir enlace",
+  "task.webLinks.dialog.title": "Añadir un enlace web",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Notas (opcional)",
+  "task.webLinks.dialog.submit": "Añadir enlace",
+  "task.webLinks.error.invalidUrl": "La URL debe comenzar con http:// o https://",
+  "task.webLinks.error.urlTooLong": "La URL es demasiado larga",
+  "task.webLinks.error.noteTooLong": "Las notas no pueden superar los 500 caracteres",
+  "task.webLinks.error.fetchFailed": "Vista previa no disponible",
+  "task.webLinks.card.refresh": "Actualizar vista previa",
+  "task.webLinks.card.delete": "Eliminar",
+  "task.webLinks.confirmDelete": "¿Eliminar este enlace?"
 }

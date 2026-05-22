@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "プロジェクト名",
   "newProject.descPlaceholder": "このプロジェクトはどんな内容ですか?",
   "newProject.refineWithAI": "AI で改善",
-  "documentEditor.notFound": "ドキュメントが見つかりません"
+  "documentEditor.notFound": "ドキュメントが見つかりません",
+  "task.webLinks.sectionTitle": "Webリンク",
+  "task.webLinks.empty": "リンクはまだありません",
+  "task.webLinks.addButton": "リンクを追加",
+  "task.webLinks.dialog.title": "Webリンクを追加",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "メモ（任意）",
+  "task.webLinks.dialog.submit": "リンクを追加",
+  "task.webLinks.error.invalidUrl": "URLはhttp://またはhttps://で始まる必要があります",
+  "task.webLinks.error.urlTooLong": "URLが長すぎます",
+  "task.webLinks.error.noteTooLong": "メモは500文字以内にしてください",
+  "task.webLinks.error.fetchFailed": "プレビューを取得できません",
+  "task.webLinks.card.refresh": "プレビューを更新",
+  "task.webLinks.card.delete": "削除",
+  "task.webLinks.confirmDelete": "このリンクを削除しますか？"
 }

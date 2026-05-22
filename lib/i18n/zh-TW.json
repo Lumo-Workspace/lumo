@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "專案名稱",
   "newProject.descPlaceholder": "簡述這個專案",
   "newProject.refineWithAI": "AI 潤飾",
-  "documentEditor.notFound": "找不到文件"
+  "documentEditor.notFound": "找不到文件",
+  "task.webLinks.sectionTitle": "網頁連結",
+  "task.webLinks.empty": "尚無連結",
+  "task.webLinks.addButton": "新增連結",
+  "task.webLinks.dialog.title": "新增網頁連結",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "備註（選填）",
+  "task.webLinks.dialog.submit": "新增",
+  "task.webLinks.error.invalidUrl": "URL 必須以 http:// 或 https:// 開頭",
+  "task.webLinks.error.urlTooLong": "URL 過長",
+  "task.webLinks.error.noteTooLong": "備註最多 500 個字元",
+  "task.webLinks.error.fetchFailed": "暫無預覽",
+  "task.webLinks.card.refresh": "重新整理預覽",
+  "task.webLinks.card.delete": "刪除",
+  "task.webLinks.confirmDelete": "確定刪除此連結？"
 }

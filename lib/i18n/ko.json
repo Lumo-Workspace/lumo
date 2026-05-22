@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "프로젝트 이름",
   "newProject.descPlaceholder": "이 프로젝트는 어떤 내용인가요?",
   "newProject.refineWithAI": "AI로 다듬기",
-  "documentEditor.notFound": "문서를 찾을 수 없습니다"
+  "documentEditor.notFound": "문서를 찾을 수 없습니다",
+  "task.webLinks.sectionTitle": "웹 링크",
+  "task.webLinks.empty": "아직 링크가 없습니다",
+  "task.webLinks.addButton": "링크 추가",
+  "task.webLinks.dialog.title": "웹 링크 추가",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "메모 (선택 사항)",
+  "task.webLinks.dialog.submit": "링크 추가",
+  "task.webLinks.error.invalidUrl": "URL은 http:// 또는 https://로 시작해야 합니다",
+  "task.webLinks.error.urlTooLong": "URL이 너무 깁니다",
+  "task.webLinks.error.noteTooLong": "메모는 500자 이하여야 합니다",
+  "task.webLinks.error.fetchFailed": "미리보기를 사용할 수 없습니다",
+  "task.webLinks.card.refresh": "미리보기 새로고침",
+  "task.webLinks.card.delete": "삭제",
+  "task.webLinks.confirmDelete": "이 링크를 삭제하시겠습니까?"
 }

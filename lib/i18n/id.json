@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Nama proyek",
   "newProject.descPlaceholder": "Tentang apa proyek ini?",
   "newProject.refineWithAI": "Sempurnakan dengan AI",
-  "documentEditor.notFound": "Dokumen tidak ditemukan"
+  "documentEditor.notFound": "Dokumen tidak ditemukan",
+  "task.webLinks.sectionTitle": "Tautan Web",
+  "task.webLinks.empty": "Belum ada tautan",
+  "task.webLinks.addButton": "Tambah tautan",
+  "task.webLinks.dialog.title": "Tambahkan tautan web",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Catatan (opsional)",
+  "task.webLinks.dialog.submit": "Tambah tautan",
+  "task.webLinks.error.invalidUrl": "URL harus dimulai dengan http:// atau https://",
+  "task.webLinks.error.urlTooLong": "URL terlalu panjang",
+  "task.webLinks.error.noteTooLong": "Catatan tidak boleh lebih dari 500 karakter",
+  "task.webLinks.error.fetchFailed": "Pratinjau tidak tersedia",
+  "task.webLinks.card.refresh": "Segarkan pratinjau",
+  "task.webLinks.card.delete": "Hapus",
+  "task.webLinks.confirmDelete": "Hapus tautan ini?"
 }
