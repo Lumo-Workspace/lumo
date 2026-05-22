@@ -4,6 +4,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
+import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -44,6 +45,8 @@ export interface TaskContext {
   memorySection: string
   /** Pre-rendered "## Slack Context" markdown; empty when no contexts attached. */
   slackContextSection: string
+  /** Pre-rendered "## Web Links" markdown; empty when no links attached. */
+  webLinkSection: string
   sessions: SessionContext[]
 }
 
@@ -202,6 +205,8 @@ export const taskContextService = {
       resolved.id
     )
 
+    const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
+
     const [taskMemories, projectMemories] = await Promise.all([
       memoryRepository.findActiveTaskMemories(resolved.id),
       memoryRepository.findActiveProjectMemories(full.projectId),
@@ -255,6 +260,7 @@ export const taskContextService = {
           typeof renderSlackContextSection
         >[0]
       ),
+      webLinkSection: renderWebLinkSection(webLinks),
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),
