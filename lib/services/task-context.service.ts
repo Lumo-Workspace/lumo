@@ -142,6 +142,34 @@ function renderSlackContextSection(
   return lines.join('\n')
 }
 
+export function renderWebLinkSection(
+  links: Array<{
+    url: string
+    domain: string
+    title: string | null
+    description: string | null
+    note: string | null
+    fetchedAt: Date | null
+    fetchError: string | null
+  }>
+): string {
+  if (links.length === 0) return ''
+
+  const lines: string[] = ['## Web Links', '']
+
+  for (const l of links) {
+    const titleLine = l.title
+      ? `- [${l.title}](${l.url}) — ${l.domain}`
+      : `- ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
+    lines.push(titleLine)
+    const body = l.note ?? l.description
+    if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
+  }
+  lines.push('')
+
+  return lines.join('\n')
+}
+
 export const taskContextService = {
   /**
    * Assemble a task's historical context for the coding agent: the task
