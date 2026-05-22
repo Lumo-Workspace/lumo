@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2, Link } from 'lucide-react'
-import type { TaskWebLink } from '@prisma/client'
+import type { OptimisticWebLink } from '../../hooks/useWebLinks'
 
 interface Props {
-  link: TaskWebLink
+  link: OptimisticWebLink
   onRefresh: (linkId: string) => Promise<void>
   onRemove: (linkId: string) => Promise<void>
 }
@@ -149,43 +149,56 @@ export function WebLinkCard({
                 <p className='text-xs text-zinc-400 dark:text-zinc-500 truncate'>
                   {link.url}
                 </p>
-                <p className='mt-0.5 text-xs text-amber-600 dark:text-amber-400'>
-                  {intl.formatMessage({
-                    id: 'task.webLinks.error.fetchFailed',
-                    defaultMessage: 'Preview unavailable',
-                  })}
+                <p
+                  className={`mt-0.5 text-xs ${
+                    link.loading
+                      ? 'text-zinc-400 dark:text-zinc-500'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  {link.loading
+                    ? intl.formatMessage({
+                        id: 'task.webLinks.card.loading',
+                        defaultMessage: 'Loading preview…',
+                      })
+                    : intl.formatMessage({
+                        id: 'task.webLinks.error.fetchFailed',
+                        defaultMessage: 'Preview unavailable',
+                      })}
                 </p>
               </div>
-              <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
-                <button
-                  onClick={e => {
-                    e.preventDefault()
-                    void handleRefresh()
-                  }}
-                  disabled={busy}
-                  title={intl.formatMessage({
-                    id: 'task.webLinks.card.refresh',
-                    defaultMessage: 'Refresh preview',
-                  })}
-                  className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <button
-                  onClick={e => {
-                    e.preventDefault()
-                    void handleRemove()
-                  }}
-                  disabled={busy}
-                  title={intl.formatMessage({
-                    id: 'task.webLinks.card.delete',
-                    defaultMessage: 'Delete',
-                  })}
-                  className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              {!link.loading && (
+                <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
+                  <button
+                    onClick={e => {
+                      e.preventDefault()
+                      void handleRefresh()
+                    }}
+                    disabled={busy}
+                    title={intl.formatMessage({
+                      id: 'task.webLinks.card.refresh',
+                      defaultMessage: 'Refresh preview',
+                    })}
+                    className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.preventDefault()
+                      void handleRemove()
+                    }}
+                    disabled={busy}
+                    title={intl.formatMessage({
+                      id: 'task.webLinks.card.delete',
+                      defaultMessage: 'Delete',
+                    })}
+                    className='p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50'
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
             <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
               {relativeAgo(new Date(link.createdAt))}
