@@ -57,8 +57,8 @@ model TaskWebLink {
   faviconUrl    String?
   fetchedAt     DateTime?              // last successful OG fetch; null = never succeeded
   fetchError    String?                // short reason string when last fetch failed
-  createdById   String
-  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdById   String                 // WorkspaceMember.id of the user who added the link
+  createdBy     WorkspaceMember @relation("TaskWebLinkCreator", fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -66,7 +66,7 @@ model TaskWebLink {
 }
 ```
 
-Add `webLinks TaskWebLink[]` to the `Task` model.
+Add `webLinks TaskWebLink[]` to the `Task` model and `createdWebLinks TaskWebLink[] @relation("TaskWebLinkCreator")` to the `WorkspaceMember` model (mirrors the `createdSlackContexts` back-relation on `WorkspaceMember`).
 
 **`description` vs `note`** — two distinct concepts, kept in separate columns to avoid coupling refresh semantics to user input:
 
@@ -109,48 +109,54 @@ export const createWebLinkSchema = z.object({
 
 ## API Endpoints
 
-| Method   | Path                                         | Body             | Returns                                                                 |
-| -------- | -------------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
-| `GET`    | `/api/tasks/[id]/web-links`                  | —                | `TaskWebLinkDTO[]`, sorted `createdAt desc`                             |
-| `POST`   | `/api/tasks/[id]/web-links`                  | `{ url, note? }` | `TaskWebLinkDTO` (synchronous OG fetch attempted, included in response) |
-| `DELETE` | `/api/tasks/[id]/web-links/[linkId]`         | —                | `204`                                                                   |
-| `POST`   | `/api/tasks/[id]/web-links/[linkId]/refresh` | —                | `TaskWebLinkDTO` (re-fetches OG, updates record)                        |
+| Method   | Path                                         | Body             | Status | Returns                                                                        |
+| -------- | -------------------------------------------- | ---------------- | ------ | ------------------------------------------------------------------------------ |
+| `GET`    | `/api/tasks/[id]/web-links`                  | —                | 200    | `{ webLinks: TaskWebLinkDTO[] }`, sorted `createdAt desc`                      |
+| `POST`   | `/api/tasks/[id]/web-links`                  | `{ url, note? }` | 201    | `{ webLink: TaskWebLinkDTO }` (synchronous OG fetch, may have fallback fields) |
+| `DELETE` | `/api/tasks/[id]/web-links/[linkId]`         | —                | 204    | empty body                                                                     |
+| `POST`   | `/api/tasks/[id]/web-links/[linkId]/refresh` | —                | 200    | `{ webLink: TaskWebLinkDTO }` (re-fetches OG, updates record)                  |
+
+Response shape mirrors `TaskSlackContext`'s `{ context }` / `{ contexts }` envelope.
 
 Each route stays in the project's 50–100 line budget: parse → zod validate → resolve session → call service → return.
 
-`TaskWebLinkDTO` shape — direct projection of the Prisma columns plus `createdBy: { id, name, email }`.
+`TaskWebLinkDTO` is the raw Prisma `TaskWebLink` row. We do not eagerly join `createdBy` in v1 — the UI doesn't display the creator's name today (it just shows a relative timestamp). If we add a "added by X" line later, switch the repo's reads to include the WorkspaceMember + User join.
 
 ## Service Layer
 
 `lib/services/task-web-link.service.ts`:
 
+Note: `actorMemberId` everywhere is the `WorkspaceMember.id` of the requester (mirrors `TaskSlackContext` — workspace membership is the auth/identity boundary, not Clerk's `userId`). API routes obtain it via `requireWorkspaceMember(workspaceId, clerkUserId)` then pass `memberResult.id` to the service.
+
 ```ts
-addWebLink({ taskId, url, note, userId, workspaceId }): Promise<TaskWebLinkDTO>
-  // 1. Resolve task, verify it belongs to workspaceId.
-  // 2. Verify userId is a workspace member.
-  // 3. Normalize URL, derive domain.
-  // 4. Call fetchOpenGraph(url) — never throws; returns { ok, data?, error? }.
-  // 5. Build payload:
+addWebLink({ taskId, workspaceId, url, note, actorMemberId }): Promise<TaskWebLink>
+  // Workspace + task-access checks already done at the API route.
+  // 1. Normalize URL, derive domain.
+  // 2. Call fetchOpenGraph(url) — never throws; returns { ok, data?, error? }.
+  // 3. Build payload:
   //      - title, description, imageUrl, faviconUrl from og data (or null on failure)
   //      - note from user input (untouched by fetcher)
   //      - fetchedAt = now on success, null on failure
   //      - fetchError = null on success, error string on failure
-  // 6. repo.create(payload).
-  // 7. Return DTO.
+  // 4. repo.create({ ...payload, createdById: actorMemberId }).
+  // 5. Return row.
 
-listWebLinks({ taskId, userId, workspaceId }): Promise<TaskWebLinkDTO[]>
-  // Verify task access → repo.listByTask.
+listForTask(taskId): Promise<TaskWebLink[]>
+  // Thin wrapper around repo.listByTask. (Workspace-access check happens at the route layer.)
 
-deleteWebLink({ linkId, userId, workspaceId }): Promise<void>
-  // Load link, verify task in workspace, verify (createdById === userId)
-  //   || workspace role === OWNER. Else throw 403.
-  // repo.delete.
+unlinkWebLink(linkId, expectedWorkspaceId): Promise<void>
+  // Load link, verify it belongs to a task in expectedWorkspaceId. Else throw 404.
+  // repo.delete. ANY workspace member who reaches here may delete — matches the
+  // existing TaskSlackContext.unlinkContext pattern.
 
-refreshWebLink({ linkId, userId, workspaceId }): Promise<TaskWebLinkDTO>
-  // Verify task access (any workspace member, no destructive change).
+refreshWebLink(linkId, expectedWorkspaceId): Promise<TaskWebLink>
+  // Load link, verify it belongs to a task in expectedWorkspaceId. Else throw 404.
   // Re-fetch OG; repo.update overwrites title, description, imageUrl, faviconUrl,
   //   fetchedAt, fetchError. NEVER overwrites note — that column is user-owned.
-  // Return DTO.
+  // On fetch failure: still update fetchError and (do NOT) reset fetchedAt — the
+  //   previous successful fetch timestamp stays so the UI can show "last refreshed".
+  //   Mirrors task-slack-context.repository.updateSnapshot's failure branch.
+  // Return updated row.
 ```
 
 Errors use the project's existing pattern: `throw Object.assign(new Error(msg), { status: 403 })` etc.
@@ -210,14 +216,14 @@ This must run on each redirect target too — hence manual redirect handling (ma
 
 ## Permissions
 
-| Operation | Allowed roles                         |
-| --------- | ------------------------------------- |
-| List      | Any workspace member                  |
-| Create    | Any workspace member                  |
-| Delete    | Link creator **OR** workspace `OWNER` |
-| Refresh   | Any workspace member                  |
+| Operation | Allowed roles        |
+| --------- | -------------------- |
+| List      | Any workspace member |
+| Create    | Any workspace member |
+| Delete    | Any workspace member |
+| Refresh   | Any workspace member |
 
-Same model as `TaskSlackContext`.
+Same model as `TaskSlackContext` — workspace membership is the only gate. (Earlier draft restricted delete to creator + OWNER, but `TaskSlackContext.unlinkContext` does not actually enforce that, and the project has no `ADMIN` role anyway; staying aligned keeps the audit story consistent.)
 
 ## Frontend
 
@@ -246,7 +252,7 @@ API client: `lib/api-client/task-web-links.ts` with `listWebLinks / addWebLink /
 
 Second-line text is the user's `note` if present, otherwise the fetched `description`. Both ellipsized to 2 lines.
 
-Whole card is an `<a href={url} target="_blank" rel="noopener noreferrer">`. Actions menu (top-right): `Refresh preview` (any member), `Delete` (creator or workspace owner — hidden otherwise).
+Whole card is an `<a href={url} target="_blank" rel="noopener noreferrer">`. Actions menu (top-right): `Refresh preview` and `Delete` — both visible to every workspace member, matching Slack context behavior.
 
 ### Fetch-failed fallback
 
@@ -286,26 +292,25 @@ Per project rules: add keys to **every** locale file in `lib/i18n/`, not just `e
 
 Namespace: `task.webLinks.*`.
 
-| Key                                    | en                                                       | zh-CN                               |
-| -------------------------------------- | -------------------------------------------------------- | ----------------------------------- |
-| `task.webLinks.sectionTitle`           | Web Links                                                | 网页链接                            |
-| `task.webLinks.empty`                  | No links yet                                             | 暂无链接                            |
-| `task.webLinks.addButton`              | Add link                                                 | 添加链接                            |
-| `task.webLinks.dialog.title`           | Add a web link                                           | 添加网页链接                        |
-| `task.webLinks.dialog.urlLabel`        | URL                                                      | URL                                 |
-| `task.webLinks.dialog.urlPlaceholder`  | https://…                                                | https://…                           |
-| `task.webLinks.dialog.noteLabel`       | Notes (optional)                                         | 备注（可选）                        |
-| `task.webLinks.dialog.submit`          | Add link                                                 | 添加                                |
-| `task.webLinks.error.invalidUrl`       | URL must start with http:// or https://                  | URL 必须以 http:// 或 https:// 开头 |
-| `task.webLinks.error.urlTooLong`       | URL is too long                                          | URL 太长                            |
-| `task.webLinks.error.noteTooLong`      | Notes must be 500 characters or fewer                    | 备注最多 500 字符                   |
-| `task.webLinks.error.fetchFailed`      | Preview unavailable                                      | 暂无预览                            |
-| `task.webLinks.error.permissionDenied` | Only the link creator or workspace owner can delete this | 只有添加者或工作区所有者可以删除    |
-| `task.webLinks.card.refresh`           | Refresh preview                                          | 刷新预览                            |
-| `task.webLinks.card.delete`            | Delete                                                   | 删除                                |
-| `task.webLinks.confirmDelete`          | Delete this link?                                        | 确定删除此链接？                    |
+| Key                                   | en                                      | zh-CN                               |
+| ------------------------------------- | --------------------------------------- | ----------------------------------- |
+| `task.webLinks.sectionTitle`          | Web Links                               | 网页链接                            |
+| `task.webLinks.empty`                 | No links yet                            | 暂无链接                            |
+| `task.webLinks.addButton`             | Add link                                | 添加链接                            |
+| `task.webLinks.dialog.title`          | Add a web link                          | 添加网页链接                        |
+| `task.webLinks.dialog.urlLabel`       | URL                                     | URL                                 |
+| `task.webLinks.dialog.urlPlaceholder` | https://…                               | https://…                           |
+| `task.webLinks.dialog.noteLabel`      | Notes (optional)                        | 备注（可选）                        |
+| `task.webLinks.dialog.submit`         | Add link                                | 添加                                |
+| `task.webLinks.error.invalidUrl`      | URL must start with http:// or https:// | URL 必须以 http:// 或 https:// 开头 |
+| `task.webLinks.error.urlTooLong`      | URL is too long                         | URL 太长                            |
+| `task.webLinks.error.noteTooLong`     | Notes must be 500 characters or fewer   | 备注最多 500 字符                   |
+| `task.webLinks.error.fetchFailed`     | Preview unavailable                     | 暂无预览                            |
+| `task.webLinks.card.refresh`          | Refresh preview                         | 刷新预览                            |
+| `task.webLinks.card.delete`           | Delete                                  | 删除                                |
+| `task.webLinks.confirmDelete`         | Delete this link?                       | 确定删除此链接？                    |
 
-If the project also has `ja.json` / `zh-TW.json` etc., translate the same keys. Implementation plan must enumerate the full locale list from `lib/i18n/` to ensure none are missed.
+Full locale list (16): `en`, `en-AU`, `en-GB`, `de`, `es`, `es-419`, `fr`, `hi`, `id`, `ja`, `ko`, `ms`, `ru`, `vi`, `zh-CN`, `zh-TW`. Every file in `lib/i18n/` must get a full translation for the new keys — no English fallbacks in non-English locales.
 
 ## Task Context Integration
 
@@ -340,10 +345,10 @@ Per `CLAUDE.md`: every new function gets at least one test. Jest, `__tests__/`, 
 - `addWebLink` fetch fails → record stored, OG fields null, `fetchError` set, `note` still populated if user supplied one
 - `addWebLink` URL normalization: fragment stripped, scheme/host lowercased
 - `addWebLink` user-supplied `note` stored in `note` column; OG `description` stored in `description` column — they are independent
-- `addWebLink` non-member user → 403
-- `deleteWebLink` non-creator non-owner → 403
-- `deleteWebLink` creator → success
-- `deleteWebLink` owner (non-creator) → success
+- `addWebLink` is workspace-agnostic at the service layer (the API route enforces membership before calling) — no in-service membership test needed here
+- `unlinkWebLink` non-existent linkId → 404
+- `unlinkWebLink` link belongs to a different workspace → 404 (workspace boundary check)
+- `unlinkWebLink` happy path → row deleted
 - `refreshWebLink` updates `fetchedAt` and overwrites OG-owned fields (title/description/imageUrl/faviconUrl)
 - `refreshWebLink` preserves `note` — assert that an existing user note is unchanged after refresh
 
@@ -372,7 +377,7 @@ Per `CLAUDE.md`: every new function gets at least one test. Jest, `__tests__/`, 
 - `POST` success → 200 + DTO
 - `GET` cross-workspace task → 404
 - `DELETE` non-existent → 404
-- `DELETE` unauthorized → 403
+- `DELETE` link in a different workspace from the requester → 403 / 404 (depending on auth path)
 
 **Manual verification** (preview server, before declaring done):
 
@@ -380,7 +385,7 @@ Per `CLAUDE.md`: every new function gets at least one test. Jest, `__tests__/`, 
 - Add a malformed/blocked URL, see inline error
 - Add a public URL that fails fetch (e.g. 404), see fallback card
 - Refresh button refetches
-- Non-creator non-owner user does not see delete option
+- Every workspace member sees the Delete option (no role-gated UI)
 - Switch i18n to zh-CN; all strings render
 
 ## Acceptance Checklist
