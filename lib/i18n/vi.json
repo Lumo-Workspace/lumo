@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Tên dự án",
   "newProject.descPlaceholder": "Dự án này nói về điều gì?",
   "newProject.refineWithAI": "Tinh chỉnh bằng AI",
-  "documentEditor.notFound": "Không tìm thấy tài liệu"
+  "documentEditor.notFound": "Không tìm thấy tài liệu",
+  "task.webLinks.sectionTitle": "Liên kết web",
+  "task.webLinks.empty": "Chưa có liên kết",
+  "task.webLinks.addButton": "Thêm liên kết",
+  "task.webLinks.dialog.title": "Thêm liên kết web",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Ghi chú (tùy chọn)",
+  "task.webLinks.dialog.submit": "Thêm liên kết",
+  "task.webLinks.error.invalidUrl": "URL phải bắt đầu bằng http:// hoặc https://",
+  "task.webLinks.error.urlTooLong": "URL quá dài",
+  "task.webLinks.error.noteTooLong": "Ghi chú không được vượt quá 500 ký tự",
+  "task.webLinks.error.fetchFailed": "Không thể tải bản xem trước",
+  "task.webLinks.card.refresh": "Làm mới bản xem trước",
+  "task.webLinks.card.delete": "Xóa",
+  "task.webLinks.confirmDelete": "Xóa liên kết này?"
 }

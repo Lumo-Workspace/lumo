@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "项目名称",
   "newProject.descPlaceholder": "简要描述这个项目",
   "newProject.refineWithAI": "AI 润色",
-  "documentEditor.notFound": "未找到文档"
+  "documentEditor.notFound": "未找到文档",
+  "task.webLinks.sectionTitle": "网页链接",
+  "task.webLinks.empty": "暂无链接",
+  "task.webLinks.addButton": "添加链接",
+  "task.webLinks.dialog.title": "添加网页链接",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "备注（可选）",
+  "task.webLinks.dialog.submit": "添加",
+  "task.webLinks.error.invalidUrl": "URL 必须以 http:// 或 https:// 开头",
+  "task.webLinks.error.urlTooLong": "URL 太长",
+  "task.webLinks.error.noteTooLong": "备注最多 500 字符",
+  "task.webLinks.error.fetchFailed": "暂无预览",
+  "task.webLinks.card.refresh": "刷新预览",
+  "task.webLinks.card.delete": "删除",
+  "task.webLinks.confirmDelete": "确定删除此链接？"
 }

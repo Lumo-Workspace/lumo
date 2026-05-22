@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Nom du projet",
   "newProject.descPlaceholder": "De quoi parle ce projet ?",
   "newProject.refineWithAI": "Affiner avec IA",
-  "documentEditor.notFound": "Document introuvable"
+  "documentEditor.notFound": "Document introuvable",
+  "task.webLinks.sectionTitle": "Liens web",
+  "task.webLinks.empty": "Aucun lien pour l'instant",
+  "task.webLinks.addButton": "Ajouter un lien",
+  "task.webLinks.dialog.title": "Ajouter un lien web",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Notes (facultatif)",
+  "task.webLinks.dialog.submit": "Ajouter un lien",
+  "task.webLinks.error.invalidUrl": "L'URL doit commencer par http:// ou https://",
+  "task.webLinks.error.urlTooLong": "L'URL est trop longue",
+  "task.webLinks.error.noteTooLong": "Les notes ne doivent pas dépasser 500 caractères",
+  "task.webLinks.error.fetchFailed": "Aperçu indisponible",
+  "task.webLinks.card.refresh": "Actualiser l'aperçu",
+  "task.webLinks.card.delete": "Supprimer",
+  "task.webLinks.confirmDelete": "Supprimer ce lien ?"
 }

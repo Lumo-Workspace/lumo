@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Nama projek",
   "newProject.descPlaceholder": "Tentang apa projek ini?",
   "newProject.refineWithAI": "Tambah baik dengan AI",
-  "documentEditor.notFound": "Dokumen tidak dijumpai"
+  "documentEditor.notFound": "Dokumen tidak dijumpai",
+  "task.webLinks.sectionTitle": "Pautan Web",
+  "task.webLinks.empty": "Tiada pautan lagi",
+  "task.webLinks.addButton": "Tambah pautan",
+  "task.webLinks.dialog.title": "Tambah pautan web",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Nota (pilihan)",
+  "task.webLinks.dialog.submit": "Tambah pautan",
+  "task.webLinks.error.invalidUrl": "URL mesti bermula dengan http:// atau https://",
+  "task.webLinks.error.urlTooLong": "URL terlalu panjang",
+  "task.webLinks.error.noteTooLong": "Nota tidak boleh melebihi 500 aksara",
+  "task.webLinks.error.fetchFailed": "Pratonton tidak tersedia",
+  "task.webLinks.card.refresh": "Muat semula pratonton",
+  "task.webLinks.card.delete": "Padam",
+  "task.webLinks.confirmDelete": "Padam pautan ini?"
 }

@@ -5,6 +5,7 @@ import { Accordion } from '@/components/landing/ui/accordion'
 import { useSlackContexts } from '../../hooks/useSlackContexts'
 import { useTaskDocuments } from '../../hooks/useTaskDocuments'
 import { SlackContextSection } from './sections/SlackContextSection'
+import { WebLinkSection } from './sections/WebLinkSection'
 import { PullRequestsSection } from './sections/PullRequestsSection'
 import { DocumentsSection } from './sections/DocumentsSection'
 
@@ -62,6 +63,7 @@ export function ContextTab({
         onRefreshOne={slack.refreshOne}
         onUnlink={slack.unlink}
       />
+      <WebLinkSection taskId={taskId} />
       <PullRequestsSection
         taskId={taskId}
         workspaceId={workspaceId}

@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "प्रोजेक्ट का नाम",
   "newProject.descPlaceholder": "यह प्रोजेक्ट किस बारे में है?",
   "newProject.refineWithAI": "AI से परिष्कृत करें",
-  "documentEditor.notFound": "दस्तावेज़ नहीं मिला"
+  "documentEditor.notFound": "दस्तावेज़ नहीं मिला",
+  "task.webLinks.sectionTitle": "वेब लिंक",
+  "task.webLinks.empty": "अभी कोई लिंक नहीं",
+  "task.webLinks.addButton": "लिंक जोड़ें",
+  "task.webLinks.dialog.title": "वेब लिंक जोड़ें",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "नोट्स (वैकल्पिक)",
+  "task.webLinks.dialog.submit": "लिंक जोड़ें",
+  "task.webLinks.error.invalidUrl": "URL को http:// या https:// से शुरू होना चाहिए",
+  "task.webLinks.error.urlTooLong": "URL बहुत लंबा है",
+  "task.webLinks.error.noteTooLong": "नोट्स 500 से अधिक अक्षर नहीं हो सकते",
+  "task.webLinks.error.fetchFailed": "पूर्वावलोकन उपलब्ध नहीं",
+  "task.webLinks.card.refresh": "पूर्वावलोकन रिफ्रेश करें",
+  "task.webLinks.card.delete": "हटाएं",
+  "task.webLinks.confirmDelete": "इस लिंक को हटाएं?"
 }

@@ -4,6 +4,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
+import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -44,6 +45,8 @@ export interface TaskContext {
   memorySection: string
   /** Pre-rendered "## Slack Context" markdown; empty when no contexts attached. */
   slackContextSection: string
+  /** Pre-rendered "## Web Links" markdown; empty when no links attached. */
+  webLinkSection: string
   sessions: SessionContext[]
 }
 
@@ -142,6 +145,34 @@ function renderSlackContextSection(
   return lines.join('\n')
 }
 
+export function renderWebLinkSection(
+  links: Array<{
+    url: string
+    domain: string
+    title: string | null
+    description: string | null
+    note: string | null
+    fetchedAt: Date | null
+    fetchError: string | null
+  }>
+): string {
+  if (links.length === 0) return ''
+
+  const lines: string[] = ['## Web Links', '']
+
+  for (const l of links) {
+    const titleLine = l.title
+      ? `- [${l.title}](${l.url}) — ${l.domain}`
+      : `- ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
+    lines.push(titleLine)
+    const body = l.note ?? l.description
+    if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
+  }
+  lines.push('')
+
+  return lines.join('\n')
+}
+
 export const taskContextService = {
   /**
    * Assemble a task's historical context for the coding agent: the task
@@ -173,6 +204,8 @@ export const taskContextService = {
     const slackContexts = await taskSlackContextRepository.listByTask(
       resolved.id
     )
+
+    const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
     const [taskMemories, projectMemories] = await Promise.all([
       memoryRepository.findActiveTaskMemories(resolved.id),
@@ -227,6 +260,7 @@ export const taskContextService = {
           typeof renderSlackContextSection
         >[0]
       ),
+      webLinkSection: renderWebLinkSection(webLinks),
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

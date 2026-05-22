@@ -23,6 +23,11 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
     listByTask: jest.fn().mockResolvedValue([]),
   },
 }))
+jest.mock('@/lib/repositories/task-web-link.repository', () => ({
+  taskWebLinkRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
 // task.service.ts fans out imports; stub the unrelated ones so the module
 // loads without side effects.
 jest.mock('@/lib/repositories/project.repository', () => ({

@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Projektname",
   "newProject.descPlaceholder": "Worum geht es in diesem Projekt?",
   "newProject.refineWithAI": "Mit KI verfeinern",
-  "documentEditor.notFound": "Dokument nicht gefunden"
+  "documentEditor.notFound": "Dokument nicht gefunden",
+  "task.webLinks.sectionTitle": "Weblinks",
+  "task.webLinks.empty": "Noch keine Links",
+  "task.webLinks.addButton": "Link hinzufügen",
+  "task.webLinks.dialog.title": "Weblink hinzufügen",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Notizen (optional)",
+  "task.webLinks.dialog.submit": "Link hinzufügen",
+  "task.webLinks.error.invalidUrl": "Die URL muss mit http:// oder https:// beginnen",
+  "task.webLinks.error.urlTooLong": "Die URL ist zu lang",
+  "task.webLinks.error.noteTooLong": "Notizen dürfen höchstens 500 Zeichen lang sein",
+  "task.webLinks.error.fetchFailed": "Vorschau nicht verfügbar",
+  "task.webLinks.card.refresh": "Vorschau aktualisieren",
+  "task.webLinks.card.delete": "Löschen",
+  "task.webLinks.confirmDelete": "Diesen Link löschen?"
 }

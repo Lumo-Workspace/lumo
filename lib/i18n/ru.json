@@ -1082,5 +1082,20 @@
   "newProject.namePlaceholder": "Название проекта",
   "newProject.descPlaceholder": "О чём этот проект?",
   "newProject.refineWithAI": "Уточнить с помощью ИИ",
-  "documentEditor.notFound": "Документ не найден"
+  "documentEditor.notFound": "Документ не найден",
+  "task.webLinks.sectionTitle": "Веб-ссылки",
+  "task.webLinks.empty": "Ссылок пока нет",
+  "task.webLinks.addButton": "Добавить ссылку",
+  "task.webLinks.dialog.title": "Добавить веб-ссылку",
+  "task.webLinks.dialog.urlLabel": "URL",
+  "task.webLinks.dialog.urlPlaceholder": "https://…",
+  "task.webLinks.dialog.noteLabel": "Заметки (необязательно)",
+  "task.webLinks.dialog.submit": "Добавить ссылку",
+  "task.webLinks.error.invalidUrl": "URL должен начинаться с http:// или https://",
+  "task.webLinks.error.urlTooLong": "URL слишком длинный",
+  "task.webLinks.error.noteTooLong": "Заметки не могут содержать более 500 символов",
+  "task.webLinks.error.fetchFailed": "Предпросмотр недоступен",
+  "task.webLinks.card.refresh": "Обновить предпросмотр",
+  "task.webLinks.card.delete": "Удалить",
+  "task.webLinks.confirmDelete": "Удалить эту ссылку?"
 }
