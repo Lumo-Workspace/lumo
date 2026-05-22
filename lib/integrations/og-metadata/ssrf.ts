@@ -9,9 +9,11 @@ function ipv4ToInt(ip: string): number {
   ) {
     throw new Error(`invalid IPv4: ${ip}`)
   }
-  return (
-    ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
-  )
+  const a = parts[0]!
+  const b = parts[1]!
+  const c = parts[2]!
+  const d = parts[3]!
+  return ((a << 24) | (b << 16) | (c << 8) | d) >>> 0
 }
 
 function isPrivateIPv4(ip: string): boolean {
@@ -44,13 +46,13 @@ function isPrivateIPv4(ip: string): boolean {
 function isPrivateIPv6(ip: string): boolean {
   // IPv4-mapped IPv6: ::ffff:a.b.c.d — re-check against IPv4 rules.
   const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)
-  if (mapped) return isPrivateIPv4(mapped[1])
+  if (mapped) return isPrivateIPv4(mapped[1]!)
 
   // Also normalize shortened ::ffff:HHHH:HHHH that browsers can emit.
   const hexMapped = ip.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i)
   if (hexMapped) {
-    const hi = parseInt(hexMapped[1], 16)
-    const lo = parseInt(hexMapped[2], 16)
+    const hi = parseInt(hexMapped[1]!, 16)
+    const lo = parseInt(hexMapped[2]!, 16)
     const dotted = [
       (hi >> 8) & 0xff,
       hi & 0xff,
@@ -67,7 +69,7 @@ function isPrivateIPv6(ip: string): boolean {
   // Parse the first 16-bit group for prefix checks.
   const firstGroupMatch = lower.match(/^([0-9a-f]{1,4})(?:[:]|$)/)
   if (!firstGroupMatch) return false
-  const g = parseInt(firstGroupMatch[1], 16)
+  const g = parseInt(firstGroupMatch[1]!, 16)
   if ((g & 0xffc0) === 0xfe80) return true // fe80::/10 link-local
   if ((g & 0xfe00) === 0xfc00) return true // fc00::/7 unique-local
   if ((g & 0xff00) === 0xff00) return true // ff00::/8 multicast

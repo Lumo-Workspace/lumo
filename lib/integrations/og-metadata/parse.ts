@@ -2,10 +2,10 @@
 import { parse } from 'node-html-parser'
 
 export interface OgData {
-  title?: string
-  description?: string
-  imageUrl?: string
-  faviconUrl?: string
+  title?: string | undefined
+  description?: string | undefined
+  imageUrl?: string | undefined
+  faviconUrl?: string | undefined
 }
 
 function resolve(href: string | undefined, base: string): string | undefined {
