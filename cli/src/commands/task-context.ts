@@ -17,6 +17,7 @@ interface TaskContextResponse {
   }
   memorySection?: string
   slackContextSection?: string
+  webLinkSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -115,6 +116,11 @@ export function formatTaskContextMarkdown(
 
   if (data.slackContextSection && data.slackContextSection.trim().length > 0) {
     lines.push(data.slackContextSection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.webLinkSection && data.webLinkSection.trim().length > 0) {
+    lines.push(data.webLinkSection.trimEnd())
     lines.push('')
   }
 
