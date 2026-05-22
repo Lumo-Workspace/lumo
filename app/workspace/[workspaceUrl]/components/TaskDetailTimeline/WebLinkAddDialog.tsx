@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl'
 interface Props {
   open: boolean
   onClose: () => void
-  onSubmit: (payload: { url: string; note?: string }) => Promise<void>
+  onSubmit: (payload: { url: string; note?: string }) => void
 }
 
 export function WebLinkAddDialog({
@@ -18,16 +18,14 @@ export function WebLinkAddDialog({
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
   if (!open) return null
 
-  const handleSubmit = async () => {
-    setSubmitting(true)
+  const handleSubmit = () => {
     setErrorMsg(null)
+    const trimmedNote = note.trim()
     try {
-      const trimmedNote = note.trim()
-      await onSubmit(trimmedNote ? { url, note: trimmedNote } : { url })
+      onSubmit(trimmedNote ? { url, note: trimmedNote } : { url })
       setUrl('')
       setNote('')
       onClose()
@@ -35,8 +33,6 @@ export function WebLinkAddDialog({
       const msg =
         e instanceof Error ? e.message : 'Failed to add link. Please try again.'
       setErrorMsg(msg)
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -96,7 +92,7 @@ export function WebLinkAddDialog({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || url.length === 0}
+            disabled={url.length === 0}
             className='text-sm px-3 py-1 rounded bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 disabled:opacity-50'
           >
             {intl.formatMessage({
