@@ -143,7 +143,7 @@ listWebLinks({ taskId, userId, workspaceId }): Promise<TaskWebLinkDTO[]>
 
 deleteWebLink({ linkId, userId, workspaceId }): Promise<void>
   // Load link, verify task in workspace, verify (createdById === userId)
-  //   || workspace role in { OWNER, ADMIN }. Else throw 403.
+  //   || workspace role === OWNER. Else throw 403.
   // repo.delete.
 
 refreshWebLink({ linkId, userId, workspaceId }): Promise<TaskWebLinkDTO>
@@ -210,12 +210,12 @@ This must run on each redirect target too — hence manual redirect handling (ma
 
 ## Permissions
 
-| Operation | Allowed roles                                   |
-| --------- | ----------------------------------------------- |
-| List      | Any workspace member                            |
-| Create    | Any workspace member                            |
-| Delete    | Link creator **OR** workspace `OWNER` / `ADMIN` |
-| Refresh   | Any workspace member                            |
+| Operation | Allowed roles                         |
+| --------- | ------------------------------------- |
+| List      | Any workspace member                  |
+| Create    | Any workspace member                  |
+| Delete    | Link creator **OR** workspace `OWNER` |
+| Refresh   | Any workspace member                  |
 
 Same model as `TaskSlackContext`.
 
@@ -246,7 +246,7 @@ API client: `lib/api-client/task-web-links.ts` with `listWebLinks / addWebLink /
 
 Second-line text is the user's `note` if present, otherwise the fetched `description`. Both ellipsized to 2 lines.
 
-Whole card is an `<a href={url} target="_blank" rel="noopener noreferrer">`. Actions menu (top-right): `Refresh preview` (any member), `Delete` (creator or admin — hidden otherwise).
+Whole card is an `<a href={url} target="_blank" rel="noopener noreferrer">`. Actions menu (top-right): `Refresh preview` (any member), `Delete` (creator or workspace owner — hidden otherwise).
 
 ### Fetch-failed fallback
 
@@ -286,24 +286,24 @@ Per project rules: add keys to **every** locale file in `lib/i18n/`, not just `e
 
 Namespace: `task.webLinks.*`.
 
-| Key                                    | en                                                        | zh-CN                               |
-| -------------------------------------- | --------------------------------------------------------- | ----------------------------------- |
-| `task.webLinks.sectionTitle`           | Web Links                                                 | 网页链接                            |
-| `task.webLinks.empty`                  | No links yet                                              | 暂无链接                            |
-| `task.webLinks.addButton`              | Add link                                                  | 添加链接                            |
-| `task.webLinks.dialog.title`           | Add a web link                                            | 添加网页链接                        |
-| `task.webLinks.dialog.urlLabel`        | URL                                                       | URL                                 |
-| `task.webLinks.dialog.urlPlaceholder`  | https://…                                                 | https://…                           |
-| `task.webLinks.dialog.noteLabel`       | Notes (optional)                                          | 备注（可选）                        |
-| `task.webLinks.dialog.submit`          | Add link                                                  | 添加                                |
-| `task.webLinks.error.invalidUrl`       | URL must start with http:// or https://                   | URL 必须以 http:// 或 https:// 开头 |
-| `task.webLinks.error.urlTooLong`       | URL is too long                                           | URL 太长                            |
-| `task.webLinks.error.noteTooLong`      | Notes must be 500 characters or fewer                     | 备注最多 500 字符                   |
-| `task.webLinks.error.fetchFailed`      | Preview unavailable                                       | 暂无预览                            |
-| `task.webLinks.error.permissionDenied` | Only the link creator or workspace admins can delete this | 只有添加者或工作区管理员可以删除    |
-| `task.webLinks.card.refresh`           | Refresh preview                                           | 刷新预览                            |
-| `task.webLinks.card.delete`            | Delete                                                    | 删除                                |
-| `task.webLinks.confirmDelete`          | Delete this link?                                         | 确定删除此链接？                    |
+| Key                                    | en                                                       | zh-CN                               |
+| -------------------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| `task.webLinks.sectionTitle`           | Web Links                                                | 网页链接                            |
+| `task.webLinks.empty`                  | No links yet                                             | 暂无链接                            |
+| `task.webLinks.addButton`              | Add link                                                 | 添加链接                            |
+| `task.webLinks.dialog.title`           | Add a web link                                           | 添加网页链接                        |
+| `task.webLinks.dialog.urlLabel`        | URL                                                      | URL                                 |
+| `task.webLinks.dialog.urlPlaceholder`  | https://…                                                | https://…                           |
+| `task.webLinks.dialog.noteLabel`       | Notes (optional)                                         | 备注（可选）                        |
+| `task.webLinks.dialog.submit`          | Add link                                                 | 添加                                |
+| `task.webLinks.error.invalidUrl`       | URL must start with http:// or https://                  | URL 必须以 http:// 或 https:// 开头 |
+| `task.webLinks.error.urlTooLong`       | URL is too long                                          | URL 太长                            |
+| `task.webLinks.error.noteTooLong`      | Notes must be 500 characters or fewer                    | 备注最多 500 字符                   |
+| `task.webLinks.error.fetchFailed`      | Preview unavailable                                      | 暂无预览                            |
+| `task.webLinks.error.permissionDenied` | Only the link creator or workspace owner can delete this | 只有添加者或工作区所有者可以删除    |
+| `task.webLinks.card.refresh`           | Refresh preview                                          | 刷新预览                            |
+| `task.webLinks.card.delete`            | Delete                                                   | 删除                                |
+| `task.webLinks.confirmDelete`          | Delete this link?                                        | 确定删除此链接？                    |
 
 If the project also has `ja.json` / `zh-TW.json` etc., translate the same keys. Implementation plan must enumerate the full locale list from `lib/i18n/` to ensure none are missed.
 
@@ -341,9 +341,9 @@ Per `CLAUDE.md`: every new function gets at least one test. Jest, `__tests__/`, 
 - `addWebLink` URL normalization: fragment stripped, scheme/host lowercased
 - `addWebLink` user-supplied `note` stored in `note` column; OG `description` stored in `description` column — they are independent
 - `addWebLink` non-member user → 403
-- `deleteWebLink` non-creator non-admin → 403
+- `deleteWebLink` non-creator non-owner → 403
 - `deleteWebLink` creator → success
-- `deleteWebLink` admin (non-creator) → success
+- `deleteWebLink` owner (non-creator) → success
 - `refreshWebLink` updates `fetchedAt` and overwrites OG-owned fields (title/description/imageUrl/faviconUrl)
 - `refreshWebLink` preserves `note` — assert that an existing user note is unchanged after refresh
 
@@ -380,7 +380,7 @@ Per `CLAUDE.md`: every new function gets at least one test. Jest, `__tests__/`, 
 - Add a malformed/blocked URL, see inline error
 - Add a public URL that fails fetch (e.g. 404), see fallback card
 - Refresh button refetches
-- Non-creator non-admin user does not see delete option
+- Non-creator non-owner user does not see delete option
 - Switch i18n to zh-CN; all strings render
 
 ## Acceptance Checklist
