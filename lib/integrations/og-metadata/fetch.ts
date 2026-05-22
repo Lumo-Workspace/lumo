@@ -67,6 +67,8 @@ async function singleFetch(url: string): Promise<Response | { error: string }> {
 export async function fetchOpenGraph(rawUrl: string): Promise<FetchResult> {
   let currentUrl = rawUrl
   try {
+    // Follow up to MAX_REDIRECTS hops then one final non-redirect response.
+    // hop=0..MAX_REDIRECTS inclusive ⇒ up to MAX_REDIRECTS+1 total fetches.
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       try {
         await assertExternalHost(currentUrl)
@@ -81,7 +83,11 @@ export async function fetchOpenGraph(rawUrl: string): Promise<FetchResult> {
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location')
         if (!location) return { ok: false, error: `http ${res.status}` }
-        currentUrl = new URL(location, currentUrl).toString()
+        try {
+          currentUrl = new URL(location, currentUrl).toString()
+        } catch {
+          return { ok: false, error: 'invalid redirect url' }
+        }
         continue
       }
 

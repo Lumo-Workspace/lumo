@@ -128,4 +128,15 @@ describe('fetchOpenGraph', () => {
     const result = await fetchOpenGraph('https://example.com/loop')
     expect(result).toEqual({ ok: false, error: 'too many redirects' })
   })
+
+  it('returns not-ok when redirect Location is malformed', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: { location: 'http://[malformed' },
+      })
+    )
+    const result = await fetchOpenGraph('https://example.com/redirect')
+    expect(result).toEqual({ ok: false, error: 'invalid redirect url' })
+  })
 })
