@@ -41,7 +41,7 @@ const md = new MarkdownIt({ html: false, linkify: true, breaks: false })
  * Unsupported nodes degrade to plain text inside a paragraph.
  */
 export function markdownToTiptap(input: string): TiptapDoc {
-  if (!input || input.length === 0) {
+  if (!input) {
     return { type: 'doc' as const, content: [] }
   }
   const tokens = md.parse(input, {}) as MarkdownItToken[]
@@ -239,16 +239,15 @@ function renderBlock(block: TiptapNode): string {
       )
     case 'codeBlock': {
       const lang = (block.attrs?.language as string | undefined) ?? ''
-      const body = (block.content ?? [])
-        .map(c => c.text ?? '')
-        .join('')
+      const body = (block.content ?? []).map(c => c.text ?? '').join('')
       return '```' + lang + '\n' + body + '```\n'
     }
     case 'blockquote':
       return (
         (block.content ?? [])
           .map(b => '> ' + renderBlock(b))
-          .join('') + '\n'
+          .join('')
+          .trimEnd() + '\n'
       )
     default:
       return ''
