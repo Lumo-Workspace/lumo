@@ -1,4 +1,4 @@
-import { type DocVisibility, type DocShareRole } from '@prisma/client'
+import { type DocVisibility, type DocShareRole, type DocMentionSource } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -211,6 +211,37 @@ export const documentRepository = {
     })
   },
 
+  /**
+   * Add or upgrade a doc↔task mention as EXPLICIT.
+   * If an EXPLICIT row exists, no-op. If a CONTENT row exists, upgrade to EXPLICIT.
+   */
+  async addExplicitMention(documentId: string, taskId: string) {
+    return prisma.documentMention.upsert({
+      where: { documentId_taskId: { documentId, taskId } },
+      create: { documentId, taskId, source: 'EXPLICIT' as DocMentionSource },
+      update: { source: 'EXPLICIT' as DocMentionSource },
+    })
+  },
+
+  /**
+   * Delete an explicit mention. Returns the number of rows deleted (0 or 1).
+   * Refuses to delete CONTENT-sourced rows (where clause filters by source).
+   */
+  async removeExplicitMention(documentId: string, taskId: string): Promise<number> {
+    const result = await prisma.documentMention.deleteMany({
+      where: { documentId, taskId, source: 'EXPLICIT' as DocMentionSource },
+    })
+    return result.count
+  },
+
+  /** Returns the source of an existing mention row, or null if none exists. */
+  async findMention(documentId: string, taskId: string) {
+    return prisma.documentMention.findUnique({
+      where: { documentId_taskId: { documentId, taskId } },
+      select: { source: true },
+    })
+  },
+
   /** Update document with optional child reordering and mention sync, all in a single transaction. */
   async updateWithChildrenAndMentions(
     id: string,
@@ -239,28 +270,44 @@ export const documentRepository = {
         }
       }
 
-      // Sync mentions if mentionTaskIds is provided
+      // Sync mentions if mentionTaskIds is provided.
+      // Only replaces source=CONTENT rows; EXPLICIT rows are preserved across content edits.
       if (mentionTaskIds !== undefined) {
-        const existing = await tx.documentMention.findMany({
-          where: { documentId: id },
+        const existingContent = await tx.documentMention.findMany({
+          where: { documentId: id, source: 'CONTENT' as DocMentionSource },
           select: { taskId: true },
         })
-        const existingIds = new Set(existing.map(m => m.taskId))
+        const existingContentIds = new Set(existingContent.map(m => m.taskId))
         const newIds = new Set(mentionTaskIds)
 
-        // Delete removed mentions
-        const toDelete = [...existingIds].filter(mid => !newIds.has(mid))
+        const toDelete = [...existingContentIds].filter(mid => !newIds.has(mid))
         if (toDelete.length > 0) {
           await tx.documentMention.deleteMany({
-            where: { documentId: id, taskId: { in: toDelete } },
+            where: {
+              documentId: id,
+              taskId: { in: toDelete },
+              source: 'CONTENT' as DocMentionSource,
+            },
           })
         }
 
-        // Create new mentions
-        const toCreate = [...newIds].filter(mid => !existingIds.has(mid))
+        // Determine which mentionTaskIds need a new row. Skip any that
+        // already exist (as either CONTENT or EXPLICIT) — for CONTENT
+        // they're a no-op match; for EXPLICIT they were explicitly bound
+        // and the content node is redundant with no semantic change.
+        const allExisting = await tx.documentMention.findMany({
+          where: { documentId: id },
+          select: { taskId: true },
+        })
+        const everExisting = new Set(allExisting.map(m => m.taskId))
+        const toCreate = [...newIds].filter(mid => !everExisting.has(mid))
         if (toCreate.length > 0) {
           await tx.documentMention.createMany({
-            data: toCreate.map(taskId => ({ documentId: id, taskId })),
+            data: toCreate.map(taskId => ({
+              documentId: id,
+              taskId,
+              source: 'CONTENT' as DocMentionSource,
+            })),
           })
         }
       }
