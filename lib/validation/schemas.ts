@@ -273,6 +273,10 @@ export const createDocumentSchema = z.object({
   emoji: z.string().max(10).nullable().optional(),
   parentId: z.string().cuid().nullable().optional(),
   projectId: z.string().cuid().nullable().optional(),
+  // Human-friendly project ref (name or slug, case-insensitive). The route
+  // resolves it to a cuid within the caller's workspace. Mirrors
+  // cliCreateTaskSchema.projectRef.
+  projectRef: z.string().trim().min(1).max(200).optional(),
   workspaceId: z.string().cuid().optional(),
   visibility: z
     .enum(['PRIVATE', 'SHARED', 'WORKSPACE'])
@@ -288,6 +292,9 @@ export const updateDocumentSchema = z.object({
   emoji: z.string().max(10).nullable().optional(),
   visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
   projectId: z.string().cuid().nullable().optional(),
+  // Human-friendly project ref. `null` clears the project binding (mirrors
+  // the CLI's `doc update --project ""` mapping to JSON null).
+  projectRef: z.string().trim().min(1).max(200).nullable().optional(),
   sortOrder: z.number().optional(),
   childOrder: z.array(z.string()).optional(),
   publicToken: z.string().max(30).nullable().optional(),

@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
 import { documentService } from '@/lib/services'
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id, taskId } = await params
 
@@ -20,8 +15,8 @@ export async function DELETE(
     const result = await documentService.removeExplicitMention(
       id,
       taskId,
-      ws.workspaceId,
-      ws.member.id
+      identity.workspaceId,
+      identity.memberId
     )
     if ('refused' in result && result.refused === true) {
       return NextResponse.json(

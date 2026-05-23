@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getUserWorkspace, requireWorkspaceMember } from '@/lib/auth'
 import { prisma } from '@/lib/db/prisma'
+import { projectRepository } from '@/lib/repositories/project.repository'
+import { slugify } from '@/lib/utils/slugify'
 
 // ── Workspace guards ────────────────────────────────────────────────────────
 
@@ -73,6 +75,37 @@ export async function requireTaskMember<
   const member = await requireWorkspaceMember(task.project.workspaceId, userId)
   if (member instanceof NextResponse) return member
   return { task, member }
+}
+
+// ── Ref resolvers ───────────────────────────────────────────────────────────
+
+/**
+ * Resolve a human-friendly `projectRef` (name or slug, case-insensitive) to
+ * a project id within a workspace. Throws 404 with the ref echoed back when
+ * no project matches, 409 when more than one matches.
+ */
+export async function resolveProjectRef(
+  workspaceId: string,
+  projectRef: string
+): Promise<string> {
+  const ref = projectRef.trim().toLowerCase()
+  const refSlug = slugify(projectRef)
+  const projects = await projectRepository.findByWorkspaceNonIdea(workspaceId)
+  const matches = projects.filter(
+    p => p.name.toLowerCase() === ref || slugify(p.name) === refSlug
+  )
+  if (matches.length === 1) return matches[0]!.id
+  if (matches.length === 0) {
+    throw Object.assign(new Error(`No project matches "${projectRef}"`), {
+      status: 404,
+    })
+  }
+  throw Object.assign(
+    new Error(
+      `Multiple projects match "${projectRef}". Use a more specific name.`
+    ),
+    { status: 409 }
+  )
 }
 
 // ── Validation helpers ──────────────────────────────────────────────────────

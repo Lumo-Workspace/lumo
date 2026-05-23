@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { resolveProjectRef, zodError } from '@/lib/api/helpers'
 import { updateDocumentSchema } from '@/lib/validation/schemas'
 import { documentService, type UpdateDocumentInput } from '@/lib/services'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
 
   try {
     const result = await documentService.getDocument(
       id,
-      ws.member.id,
-      ws.workspaceId
+      identity.memberId,
+      identity.workspaceId
     )
     return NextResponse.json(result)
   } catch (error) {
@@ -39,18 +35,43 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
 
   const body = await request.json()
   const parsed = updateDocumentSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
+
+  // Resolve projectRef before any write so the 404/409 is reported atomically.
+  // projectRef takes precedence over projectId:
+  //   undefined → field absent → don't touch projectId
+  //   null      → clear binding
+  //   string    → resolve via projectRepository
+  let projectIdField: string | null | undefined
+  if (parsed.data.projectRef !== undefined) {
+    if (parsed.data.projectRef === null) {
+      projectIdField = null
+    } else {
+      try {
+        projectIdField = await resolveProjectRef(
+          identity.workspaceId,
+          parsed.data.projectRef
+        )
+      } catch (error) {
+        if (error instanceof Error && 'status' in error) {
+          return NextResponse.json(
+            { error: error.message },
+            { status: (error as Error & { status: number }).status }
+          )
+        }
+        throw error
+      }
+    }
+  } else if (parsed.data.projectId !== undefined) {
+    projectIdField = parsed.data.projectId ?? null
+  }
 
   try {
     const data: UpdateDocumentInput = {}
@@ -61,8 +82,7 @@ export async function PATCH(
     if (parsed.data.emoji !== undefined) data.emoji = parsed.data.emoji ?? null
     if (parsed.data.visibility !== undefined)
       data.visibility = parsed.data.visibility
-    if (parsed.data.projectId !== undefined)
-      data.projectId = parsed.data.projectId ?? null
+    if (projectIdField !== undefined) data.projectId = projectIdField
     if (parsed.data.sortOrder !== undefined)
       data.sortOrder = parsed.data.sortOrder
     if (parsed.data.publicToken !== undefined)
@@ -74,8 +94,8 @@ export async function PATCH(
 
     const document = await documentService.updateDocument(
       id,
-      ws.member.id,
-      ws.workspaceId,
+      identity.memberId,
+      identity.workspaceId,
       data
     )
     return NextResponse.json({ document })
@@ -91,20 +111,20 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
 
   try {
-    await documentService.deleteDocument(id, ws.member.id, ws.workspaceId)
+    await documentService.deleteDocument(
+      id,
+      identity.memberId,
+      identity.workspaceId
+    )
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
