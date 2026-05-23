@@ -23,7 +23,7 @@ interface CreatedDocResponse {
   document: {
     id: string
     title: string
-    documentTags?: Array<{ tag: { name: string } }>
+    docTags?: Array<{ id: string; name: string }>
   }
 }
 
@@ -138,7 +138,7 @@ export async function docCreate(
 
   const { document } = (await res.json()) as CreatedDocResponse
   const fullUrl = docUrl(apiUrl, creds.workspaceSlug ?? 'lumo', document.id)
-  const responseTagNames = (document.documentTags ?? []).map(dt => dt.tag.name)
+  const responseTagNames = (document.docTags ?? []).map(t => t.name)
   console.log(
     formatCreatedDocLine({
       id: document.id,
