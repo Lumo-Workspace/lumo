@@ -268,8 +268,13 @@ export const documentService = {
     })
     const creatorUser = clerkUsers.data[0]
 
+    // Fetch attached tags so the create response includes them
+    const attachedTags = await tagRepository.findByDocument(document.id)
+    const documentTags = attachedTags.map(tag => ({ tag: { name: tag.name } }))
+
     return {
       ...document,
+      documentTags,
       createdBy: {
         id: document.createdBy.id,
         name: resolveClerkName(creatorUser, document.createdBy.clerkId),

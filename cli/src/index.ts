@@ -50,6 +50,8 @@ const pkg = require(path.resolve(__dirname, '../../..', 'package.json')) as {
   } catch {}
 })()
 
+const collect = (val: string, acc: string[]): string[] => [...acc, val]
+
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
 function wrap(fn: CommandFn) {
@@ -273,6 +275,8 @@ doc
   .option('--scope <scope>', 'personal | workspace (default: personal)')
   .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
+  .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
+  .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .action(
     wrap((title, opts) =>
       docCreate(title as string | undefined, opts as Record<string, string>)

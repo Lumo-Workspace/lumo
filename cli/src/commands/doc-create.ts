@@ -5,6 +5,7 @@ import {
   readStdinToString,
   readFileUtf8,
 } from '../lib/doc-input'
+import { resolveTagRefs } from '../lib/tag-resolver'
 
 export type Scope = 'PRIVATE' | 'WORKSPACE'
 
@@ -14,12 +15,15 @@ export interface CreateDocOptions {
   scope?: string
   project?: string
   task?: string
+  tag?: string[]
+  tagId?: string[]
 }
 
 interface CreatedDocResponse {
   document: {
     id: string
     title: string
+    documentTags?: Array<{ tag: { name: string } }>
   }
 }
 
@@ -35,9 +39,14 @@ export function formatCreatedDocLine(doc: {
   id: string
   title: string
   url: string
+  tags?: string[]
 }): string {
   const escaped = doc.title.replace(/"/g, '\\"')
-  return `Created ${doc.id} "${escaped}"  ${doc.url}`
+  const head = `Created ${doc.id} "${escaped}"  ${doc.url}`
+  if (doc.tags && doc.tags.length > 0) {
+    return `${head}\nTags: ${doc.tags.join(', ')}`
+  }
+  return head
 }
 
 function docUrl(apiUrl: string, workspaceSlug: string, id: string): string {
@@ -82,12 +91,29 @@ export async function docCreate(
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
   const url = `${trimTrailingSlash(apiUrl)}/api/documents`
 
+  let tagIds: string[] | undefined
+  if (
+    (opts.tag && opts.tag.length > 0) ||
+    (opts.tagId && opts.tagId.length > 0)
+  ) {
+    try {
+      tagIds = await resolveTagRefs(
+        { names: opts.tag ?? [], ids: opts.tagId ?? [] },
+        { apiUrl, token: creds.token }
+      )
+    } catch (err) {
+      console.error(`Error: ${(err as Error).message}`)
+      return 1
+    }
+  }
+
   const body: Record<string, unknown> = {
     title: title?.trim() ?? '',
     visibility,
   }
   if (content.kind === 'ok') body.contentMarkdown = content.markdown
   if (opts.project !== undefined) body.projectRef = opts.project
+  if (tagIds && tagIds.length > 0) body.tagIds = tagIds
 
   let res: Response
   try {
@@ -112,8 +138,14 @@ export async function docCreate(
 
   const { document } = (await res.json()) as CreatedDocResponse
   const fullUrl = docUrl(apiUrl, creds.workspaceSlug ?? 'lumo', document.id)
+  const responseTagNames = (document.documentTags ?? []).map(dt => dt.tag.name)
   console.log(
-    formatCreatedDocLine({ id: document.id, title: document.title, url: fullUrl })
+    formatCreatedDocLine({
+      id: document.id,
+      title: document.title,
+      url: fullUrl,
+      tags: responseTagNames,
+    })
   )
 
   if (opts.task) {

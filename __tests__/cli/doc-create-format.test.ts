@@ -44,3 +44,34 @@ describe('normalizeScope', () => {
     expect(normalizeScope('')).toBeNull()
   })
 })
+
+describe('formatCreatedDocLine — tags', () => {
+  it('includes Tags line when tags present', () => {
+    const line = formatCreatedDocLine({
+      id: 'cmd_x',
+      title: 't',
+      url: 'https://x',
+      tags: ['urgent', 'rfc'],
+    })
+    expect(line).toBe(`Created cmd_x "t"  https://x\nTags: urgent, rfc`)
+  })
+
+  it('omits Tags line when tags is empty', () => {
+    const line = formatCreatedDocLine({
+      id: 'cmd_x',
+      title: 't',
+      url: 'https://x',
+      tags: [],
+    })
+    expect(line).toBe(`Created cmd_x "t"  https://x`)
+  })
+
+  it('omits Tags line when tags is undefined', () => {
+    const line = formatCreatedDocLine({
+      id: 'cmd_x',
+      title: 't',
+      url: 'https://x',
+    })
+    expect(line).toBe(`Created cmd_x "t"  https://x`)
+  })
+})
