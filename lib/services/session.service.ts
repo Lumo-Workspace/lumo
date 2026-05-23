@@ -2,6 +2,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
+import { taskContextService } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 interface BindSessionToTaskInput {
@@ -16,6 +17,8 @@ interface BindSessionToTaskResult {
   taskTitle: string
   /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
   retaggedEventCount: number
+  /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
+  memorySection: string
 }
 
 interface SessionScopedInput {
@@ -92,11 +95,16 @@ export const sessionService = {
         task.id
       )
 
+    const memorySection = await taskContextService.buildMemorySectionForTask(
+      task.id
+    )
+
     return {
       taskId: task.id,
       taskIdentifier: task.identifier,
       taskTitle: task.title,
       retaggedEventCount: count,
+      memorySection,
     }
   },
 

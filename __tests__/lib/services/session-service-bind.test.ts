@@ -21,11 +21,17 @@ jest.mock('@/lib/services/task.service', () => ({
     resolveIdentifier: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/task-context.service', () => ({
+  taskContextService: {
+    buildMemorySectionForTask: jest.fn(),
+  },
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
+import { taskContextService } from '@/lib/services/task-context.service'
 import { sessionService } from '@/lib/services/session.service'
 
 const sessRepo = sessionRepository as jest.Mocked<typeof sessionRepository>
@@ -53,6 +59,7 @@ beforeEach(() => {
     session: { id: 'sess_1', taskId: 'task_1' },
   } as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
+  ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
 })
 
 describe('sessionService.bindSessionToTask', () => {
@@ -82,6 +89,7 @@ describe('sessionService.bindSessionToTask', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Fix login bug',
       retaggedEventCount: 3,
+      memorySection: '',
     })
   })
 
