@@ -4,7 +4,7 @@ import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 /**
- * GET /api/user/api-keys
+ * GET /api/users/api-keys
  * Lists active (non-revoked) API keys for the current user.
  * Never returns the full key — only prefix and metadata.
  */
@@ -23,7 +23,7 @@ export async function GET() {
 
     return NextResponse.json({ keys })
   } catch (error) {
-    console.error('GET /api/user/api-keys error:', error)
+    console.error('GET /api/users/api-keys error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/user/api-keys
+ * POST /api/users/api-keys
  * Creates a new API key. Returns the full key ONCE — never stored in plaintext.
  * Body: { label: string }
  */
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     // Return the full key only on creation
     return NextResponse.json({ ...created, key }, { status: 201 })
   } catch (error) {
-    console.error('POST /api/user/api-keys error:', error)
+    console.error('POST /api/users/api-keys error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
