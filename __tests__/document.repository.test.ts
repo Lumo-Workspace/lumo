@@ -49,7 +49,10 @@ jest.mock('@/lib/db/prisma', () => ({
           delete: (...args: any[]) => mockDelete(...args),
         },
         documentMention: {
+          findMany: (...args: any[]) => mockMentionFindMany(...args),
           deleteMany: (...args: any[]) => mockDeleteMany(...args),
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          update: jest.fn().mockResolvedValue({}),
         },
         documentShare: {
           deleteMany: (...args: any[]) => mockDeleteMany(...args),
@@ -64,11 +67,6 @@ jest.mock('@/lib/db/prisma', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockMentionUpsert.mockReset()
-  mockMentionDeleteMany.mockReset()
-  mockMentionFindMany.mockReset()
-  mockMentionCreateMany.mockReset()
-  mockMentionFindUnique.mockReset()
 })
 
 // ── Tests ───────────────────────────────────────────────────────────────────

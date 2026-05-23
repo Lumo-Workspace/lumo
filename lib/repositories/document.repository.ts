@@ -1,4 +1,4 @@
-import { type DocVisibility, type DocShareRole, type DocMentionSource } from '@prisma/client'
+import { type DocVisibility, type DocShareRole, DocMentionSource } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -218,8 +218,8 @@ export const documentRepository = {
   async addExplicitMention(documentId: string, taskId: string) {
     return prisma.documentMention.upsert({
       where: { documentId_taskId: { documentId, taskId } },
-      create: { documentId, taskId, source: 'EXPLICIT' as DocMentionSource },
-      update: { source: 'EXPLICIT' as DocMentionSource },
+      create: { documentId, taskId, source: DocMentionSource.EXPLICIT },
+      update: { source: DocMentionSource.EXPLICIT },
     })
   },
 
@@ -229,7 +229,7 @@ export const documentRepository = {
    */
   async removeExplicitMention(documentId: string, taskId: string): Promise<number> {
     const result = await prisma.documentMention.deleteMany({
-      where: { documentId, taskId, source: 'EXPLICIT' as DocMentionSource },
+      where: { documentId, taskId, source: DocMentionSource.EXPLICIT },
     })
     return result.count
   },
@@ -274,7 +274,7 @@ export const documentRepository = {
       // Only replaces source=CONTENT rows; EXPLICIT rows are preserved across content edits.
       if (mentionTaskIds !== undefined) {
         const existingContent = await tx.documentMention.findMany({
-          where: { documentId: id, source: 'CONTENT' as DocMentionSource },
+          where: { documentId: id, source: DocMentionSource.CONTENT },
           select: { taskId: true },
         })
         const existingContentIds = new Set(existingContent.map(m => m.taskId))
@@ -282,11 +282,12 @@ export const documentRepository = {
 
         const toDelete = [...existingContentIds].filter(mid => !newIds.has(mid))
         if (toDelete.length > 0) {
+          // belt-and-suspenders: toDelete is already CONTENT-only from the findMany above
           await tx.documentMention.deleteMany({
             where: {
               documentId: id,
               taskId: { in: toDelete },
-              source: 'CONTENT' as DocMentionSource,
+              source: DocMentionSource.CONTENT,
             },
           })
         }
@@ -306,7 +307,7 @@ export const documentRepository = {
             data: toCreate.map(taskId => ({
               documentId: id,
               taskId,
-              source: 'CONTENT' as DocMentionSource,
+              source: DocMentionSource.CONTENT,
             })),
           })
         }

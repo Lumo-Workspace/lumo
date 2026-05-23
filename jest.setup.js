@@ -51,8 +51,11 @@ process.env.SUPA_POSTGRES_PRISMA_URL =
 process.env.ACCESS_TOKEN_KEY = 'test-access-token-key-32-chars'
 process.env.REFRESH_TOKEN_KEY = 'test-refresh-token-key-32-chars'
 
-// Mock Prisma Client
+// Mock Prisma Client — spread actual module so runtime enum objects (e.g.
+// DocMentionSource, DocVisibility, TaskStatus …) are available in tests
+// that import them directly from '@prisma/client'.
 jest.mock('@prisma/client', () => ({
+  ...jest.requireActual('@prisma/client'),
   PrismaClient: jest.fn().mockImplementation(() => ({
     user: {
       create: jest.fn(),
