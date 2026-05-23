@@ -33,6 +33,23 @@ function req(url = 'http://x/api/milestones/m-1/tasks') {
 
 const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
 
+const rawTask = {
+  id: 't-1',
+  number: 42,
+  title: 'Fix bug',
+  status: 'IN_PROGRESS',
+  priority: 'HIGH',
+  team: { identifier: 'LUM' },
+  project: {
+    id: 'p-1',
+    name: 'Lumo',
+    owner: { actor: { id: 'actor-9' } },
+  },
+  parent: null,
+  children: [],
+  _count: { children: 0 },
+}
+
 describe('GET /api/milestones/[id]/tasks', () => {
   it('returns 401 when identity fails', async () => {
     mockIdentity.mockResolvedValue(
@@ -44,10 +61,18 @@ describe('GET /api/milestones/[id]/tasks', () => {
 
   it('returns all tasks when assigned filter is absent', async () => {
     mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
-    mockList.mockResolvedValue([{ id: 't-1' }])
+    mockList.mockResolvedValue([rawTask])
     const res = await GET(req(), params)
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ tasks: [{ id: 't-1' }] })
+    const body = await res.json()
+    expect(body.tasks).toHaveLength(1)
+    expect(body.tasks[0]).toMatchObject({
+      id: 't-1',
+      teamIdentifier: 'LUM',
+      project: { id: 'p-1', name: 'Lumo', ownerActorId: 'actor-9' },
+      parent: null,
+      childrenDoneCount: 0,
+    })
     expect(mockList).toHaveBeenCalledWith('m-1', 'mem-1', {})
     expect(mockActor).not.toHaveBeenCalled()
   })
@@ -62,14 +87,16 @@ describe('GET /api/milestones/[id]/tasks', () => {
     })
   })
 
-  it('returns 401 when assigned=me but member has no human actor', async () => {
+  it('returns empty list when assigned=me but member has no human actor', async () => {
     mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
     mockActor.mockResolvedValue(null)
     const res = await GET(
       req('http://x/api/milestones/m-1/tasks?assigned=me'),
       params
     )
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ tasks: [] })
+    expect(mockList).not.toHaveBeenCalled()
   })
 
   it('propagates service errors with status code', async () => {
@@ -79,5 +106,12 @@ describe('GET /api/milestones/[id]/tasks', () => {
     )
     const res = await GET(req(), params)
     expect(res.status).toBe(404)
+  })
+
+  it('returns 500 when service throws unknown error', async () => {
+    mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
+    mockList.mockRejectedValue(new Error('boom'))
+    const res = await GET(req(), params)
+    expect(res.status).toBe(500)
   })
 })
