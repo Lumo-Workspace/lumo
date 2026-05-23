@@ -61,18 +61,41 @@ export async function milestoneCreate(
   }
 
   const payload = buildCreatePayload(name.trim(), opts)
-  const res = await fetch(`${base}/api/projects/${projectId}/milestones`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${creds.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/projects/${projectId}/milestones`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${creds.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
 
   if (!res.ok) {
-    const body = await res.text()
-    console.error(`Error: milestone create failed (HTTP ${res.status}) ${body}`)
+    let serverMsg: string | null = null
+    try {
+      const errBody = (await res.json()) as { error?: string }
+      if (typeof errBody.error === 'string') serverMsg = errBody.error
+    } catch {
+      // Body wasn't JSON; fall through to status-only message
+    }
+    if (serverMsg) {
+      console.error(`Error: ${serverMsg}`)
+    } else {
+      console.error(`Error: milestone create failed (HTTP ${res.status})`)
+    }
     return 1
   }
 
