@@ -275,7 +275,9 @@ const doc = program.command('doc').description('Manage Lumo documents')
 
 doc
   .command('create [title]')
-  .description('Create a new document')
+  .description(
+    'Create a new document. Body comes from --content, --file, or piped stdin (pick one). --scope defaults to personal. Use --task LUM-N to bind the new doc to a task, --parent to file it under another doc.'
+  )
   .option('--content <text>', 'Inline markdown content')
   .option('--file <path>', 'Read markdown content from file')
   .option('--scope <scope>', 'personal | workspace (default: personal)')
@@ -292,7 +294,9 @@ doc
 
 doc
   .command('update <doc>')
-  .description('Update an existing document (doc = title or cuid)')
+  .description(
+    'Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+  )
   .option('--title <text>', 'New title')
   .option('--content <text>', 'Replace content (inline)')
   .option('--file <path>', 'Replace content from file')
@@ -312,10 +316,15 @@ doc
   )
   .option('--add-tag <name>', 'Add tag by name (repeatable)', collect, [])
   .option('--add-tag-id <cuid>', 'Add tag by id (repeatable)', collect, [])
-  .option('--remove-tag <name>', 'Remove tag by name (repeatable)', collect, [])
+  .option(
+    '--remove-tag <name>',
+    'Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows.',
+    collect,
+    []
+  )
   .option(
     '--remove-tag-id <cuid>',
-    'Remove tag by id (repeatable)',
+    'Remove tag by id (repeatable). Unknown ids are a no-op.',
     collect,
     []
   )
@@ -342,7 +351,9 @@ doc
 
 doc
   .command('move <doc>')
-  .description('Move a doc under a different parent or to top level')
+  .description(
+    'Move a doc under a different parent or to top level. Exactly one of --parent or --root is required. The moved doc lands at the end of its new sibling list; reordering among siblings is web-UI only.'
+  )
   .option('--parent <doc>', 'New parent doc (cuid or title)')
   .option('--root', 'Move to top level (no parent)')
   .action(
@@ -363,7 +374,9 @@ doc
 
 doc
   .command('bind <doc> <task>')
-  .description('Bind a document to a task')
+  .description(
+    'Bind a document to a task by adding an EXPLICIT mention row. Idempotent. If a CONTENT-derived mention already exists for the same pair, it is upgraded to EXPLICIT so `doc unbind` can later remove it.'
+  )
   .action(
     wrap((docRef, task) =>
       docBind(docRef as string | undefined, task as string | undefined)
@@ -372,7 +385,9 @@ doc
 
 doc
   .command('unbind <doc> <task>')
-  .description('Unbind a document from a task (explicit mentions only)')
+  .description(
+    'Unbind a document from a task. Removes EXPLICIT mentions only — purely CONTENT-derived mentions (from @LUM-N in the body) cannot be removed via CLI and fail with 409; edit the doc body in the web UI instead.'
+  )
   .action(
     wrap((docRef, task) =>
       docUnbind(docRef as string | undefined, task as string | undefined)
@@ -416,7 +431,7 @@ doc
 task
   .command('update <identifier>')
   .description(
-    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee. Use "" to clear description or assignee.'
+    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, or tag flags. Use "" to clear description, assignee, or milestone. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
   )
   .option('-t, --title <text>', 'New title')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -450,10 +465,15 @@ task
   )
   .option('--add-tag <name>', 'Add tag by name (repeatable)', collect, [])
   .option('--add-tag-id <cuid>', 'Add tag by id (repeatable)', collect, [])
-  .option('--remove-tag <name>', 'Remove tag by name (repeatable)', collect, [])
+  .option(
+    '--remove-tag <name>',
+    'Remove tag by name (repeatable). Unknown names are find-or-create, so prefer --remove-tag-id to avoid orphan rows.',
+    collect,
+    []
+  )
   .option(
     '--remove-tag-id <cuid>',
-    'Remove tag by id (repeatable)',
+    'Remove tag by id (repeatable). Unknown ids are a no-op.',
     collect,
     []
   )
