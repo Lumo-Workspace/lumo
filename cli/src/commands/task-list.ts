@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { resolveMilestoneId } from '../lib/resolve'
 
 export { formatTaskListTable } from '../lib/format'
 export type { TaskRow } from '../lib/format'
@@ -12,6 +13,15 @@ export interface ListTaskOptions {
   status?: string
   project?: string
   limit?: string
+  milestone?: string
+}
+
+export function resolveTaskListEndpoint(
+  base: string,
+  milestoneId: string | undefined
+): string {
+  if (!milestoneId) return `${base}/api/tasks/me`
+  return `${base}/api/milestones/${milestoneId}/tasks?assigned=me`
 }
 
 interface ListResponse {
@@ -55,7 +65,27 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
 
   const envUrl = process.env.LUMO_API_URL?.trim()
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
-  const url = `${trimTrailingSlash(apiUrl)}/api/tasks/me`
+  const base = trimTrailingSlash(apiUrl)
+
+  let milestoneId: string | undefined
+  if (opts.milestone !== undefined) {
+    try {
+      const resolved = await resolveMilestoneId(
+        base,
+        creds.token,
+        opts.milestone,
+        opts.project
+      )
+      milestoneId = resolved.id
+    } catch (err) {
+      console.error(
+        `Error: ${err instanceof Error ? err.message : String(err)}`
+      )
+      return 1
+    }
+  }
+
+  const url = resolveTaskListEndpoint(base, milestoneId)
 
   let res: Response
   try {
