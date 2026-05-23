@@ -7,10 +7,6 @@
     {
       "path": "/api/summaries/generate",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/consolidate-memory",
-      "schedule": "0 4 * * *"
     }
   ]
 }

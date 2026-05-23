@@ -74,20 +74,6 @@ export const memoryRepository = {
   },
 
   /**
-   * Distinct projectIds that currently have at least one TASK-scope memory.
-   * Used by Layer 2 consolidation to enumerate work: there's no point
-   * running the pipeline for a project that has nothing to promote.
-   */
-  async findProjectIdsWithTaskScopeMemory(): Promise<string[]> {
-    const rows = await prisma.memory.findMany({
-      where: { scope: 'TASK', taskId: { not: null } },
-      distinct: ['projectId'],
-      select: { projectId: true },
-    })
-    return rows.map(r => r.projectId)
-  },
-
-  /**
    * All task-scoped memories grouped by sourceSessionId. Used by the Agent
    * Run timeline so each Run card can show the memories that were sedimented
    * during that Claude Code session.
