@@ -1,7 +1,4 @@
-import {
-  markdownToTiptap,
-  tiptapToMarkdown,
-} from '@/lib/utils/markdown-tiptap'
+import { markdownToTiptap, tiptapToMarkdown } from '@/lib/utils/markdown-tiptap'
 
 describe('markdownToTiptap', () => {
   it('wraps a plain paragraph', () => {
@@ -169,6 +166,51 @@ describe('tiptapToMarkdown', () => {
       ],
     })
     expect(md).toContain('@LUM-42')
+  })
+
+  it('renders bold, italic, inline code, and link marks back to markdown', () => {
+    const md = tiptapToMarkdown({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
+            { type: 'text', text: ' and ' },
+            { type: 'text', text: 'italic', marks: [{ type: 'italic' }] },
+            { type: 'text', text: ' and ' },
+            { type: 'text', text: 'code', marks: [{ type: 'code' }] },
+            { type: 'text', text: ' and ' },
+            {
+              type: 'text',
+              text: 'lumo',
+              marks: [{ type: 'link', attrs: { href: 'https://uselumo.ai' } }],
+            },
+          ],
+        },
+      ],
+    })
+    expect(md).toBe(
+      '**bold** and *italic* and `code` and [lumo](https://uselumo.ai)\n'
+    )
+  })
+
+  it('emits a blockquote with a single trailing newline', () => {
+    const md = tiptapToMarkdown({
+      type: 'doc',
+      content: [
+        {
+          type: 'blockquote',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'quoted' }],
+            },
+          ],
+        },
+      ],
+    })
+    expect(md).toBe('> quoted\n')
   })
 
   it('returns empty string for empty doc', () => {
