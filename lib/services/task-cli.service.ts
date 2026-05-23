@@ -219,7 +219,13 @@ async function updateFromCli(args: {
     addTagIds?: string[] | undefined
     removeTagIds?: string[] | undefined
   }
-}): Promise<{ id: string; identifier: string; title: string; url: string }> {
+}): Promise<{
+  id: string
+  identifier: string
+  title: string
+  url: string
+  taskTags: Array<{ id: string; name: string }>
+}> {
   const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
 
   const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
@@ -323,11 +329,20 @@ async function updateFromCli(args: {
   const identOut = `${teamIdentifier}-${number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identOut}`
 
+  const taskTags = (
+    result.task.tags as Array<{
+      id: string
+      name: string
+      color: string | null
+    }>
+  ).map(t => ({ id: t.id, name: t.name }))
+
   return {
     id: result.task.id,
     identifier: identOut,
     title: result.task.title,
     url,
+    taskTags,
   }
 }
 

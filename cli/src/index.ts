@@ -385,6 +385,27 @@ task
     '--milestone <ref>',
     'Milestone name (case-insensitive); empty string to unbind'
   )
+  .option(
+    '--tag <name>',
+    'Set tags by name (bulk replace, repeatable)',
+    collect,
+    []
+  )
+  .option(
+    '--tag-id <cuid>',
+    'Set tags by id (bulk replace, repeatable)',
+    collect,
+    []
+  )
+  .option('--add-tag <name>', 'Add tag by name (repeatable)', collect, [])
+  .option('--add-tag-id <cuid>', 'Add tag by id (repeatable)', collect, [])
+  .option('--remove-tag <name>', 'Remove tag by name (repeatable)', collect, [])
+  .option(
+    '--remove-tag-id <cuid>',
+    'Remove tag by id (repeatable)',
+    collect,
+    []
+  )
   .action(
     wrap((identifier, options) =>
       taskUpdate(identifier as string, options as Record<string, string>)
