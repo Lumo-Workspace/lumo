@@ -143,6 +143,7 @@ async function createFromCli(args: {
     projectRef?: string | undefined
     assigneeRef?: string | undefined
     milestoneRef?: string | undefined
+    tagIds?: string[] | undefined
   }
 }): Promise<{ id: string; identifier: string; title: string; url: string }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
@@ -184,6 +185,7 @@ async function createFromCli(args: {
       priority: input.priority,
       assigneeActorId,
       milestoneId,
+      ...(input.tagIds !== undefined ? { tagIds: input.tagIds } : {}),
     },
     callerActor.id,
     callerClerkId
@@ -207,6 +209,9 @@ async function updateFromCli(args: {
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
     milestoneRef?: string | null | undefined
+    tagIds?: string[] | undefined
+    addTagIds?: string[] | undefined
+    removeTagIds?: string[] | undefined
   }
 }): Promise<{ id: string; identifier: string; title: string; url: string }> {
   const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
@@ -275,6 +280,9 @@ async function updateFromCli(args: {
     priority?: TaskPriority
     assigneeActorId?: string | null
     milestoneId?: string | null
+    tagIds?: string[]
+    addTagIds?: string[]
+    removeTagIds?: string[]
   } = {}
   if (input.title !== undefined) updateInput.title = input.title
   if ('description' in input)
@@ -284,6 +292,10 @@ async function updateFromCli(args: {
   if (assigneeActorId !== undefined)
     updateInput.assigneeActorId = assigneeActorId
   if (milestoneId !== undefined) updateInput.milestoneId = milestoneId
+  if (input.tagIds !== undefined) updateInput.tagIds = input.tagIds
+  if (input.addTagIds !== undefined) updateInput.addTagIds = input.addTagIds
+  if (input.removeTagIds !== undefined)
+    updateInput.removeTagIds = input.removeTagIds
 
   const result = await taskService.updateTaskWithSideEffects(
     resolved.id,

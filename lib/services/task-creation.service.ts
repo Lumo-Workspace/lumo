@@ -27,6 +27,7 @@ export async function createTask(
     milestoneId?: string | null | undefined
     order?: number | undefined
     dueDate?: string | null | undefined
+    tagIds?: string[] | undefined
   },
   actorId: string,
   actorClerkId: string
@@ -115,6 +116,10 @@ export async function createTask(
     order: taskOrder,
     dueDate: dueDate ?? null,
   })
+
+  if (input.tagIds && input.tagIds.length > 0) {
+    await tagRepository.syncTaskTags(task.id, input.tagIds)
+  }
 
   // Fire-and-forget side-effects
   dispatchCreateTaskSideEffects({

@@ -66,6 +66,8 @@ export async function updateTask(
     sprintId,
     milestoneId,
     tagIds,
+    addTagIds,
+    removeTagIds,
     ...rest
   } = input
 
@@ -182,9 +184,16 @@ export async function updateTask(
     })
   }
 
-  // Sync tag associations if tagIds provided
+  // Sync or incrementally modify tag associations
   if (tagIds !== undefined) {
     await tagRepository.syncTaskTags(taskId, tagIds)
+  } else {
+    if (addTagIds && addTagIds.length > 0) {
+      await tagRepository.addTaskTags(taskId, addTagIds)
+    }
+    if (removeTagIds && removeTagIds.length > 0) {
+      await tagRepository.removeTaskTags(taskId, removeTagIds)
+    }
   }
 
   const updated = await taskRepository.update(taskId, data)
