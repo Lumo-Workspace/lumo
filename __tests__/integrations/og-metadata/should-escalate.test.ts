@@ -6,11 +6,12 @@ describe('shouldEscalateToChromium', () => {
     ['http 403', true],
     ['non-html content', true],
     ['timeout', true],
+    ['body too large', true],
+    ['empty extraction', true],
     ['http 401', false],
     ['http 404', false],
     ['http 500', false],
     ['http 429', false],
-    ['body too large', false],
     ['network error', false],
   ])('returns %j for %s', (error, expected) => {
     expect(shouldEscalateToChromium(error)).toBe(expected)

@@ -67,6 +67,13 @@ export async function fetchOpenGraphChromium(
     const html = await page.content()
     const finalUrl = page.url()
     const data = parseHtml(html, finalUrl)
+    // If even Chromium's rendered DOM has no title, accept it as blocked —
+    // typically a CF challenge page that survived JS execution, or a site
+    // that genuinely has no metadata. Surfacing this as an error lets the
+    // UI show "Preview unavailable" rather than a blank rich card.
+    if (!data.title) {
+      return { ok: false, error: 'chromium: empty extraction' }
+    }
     return { ok: true, data, finalUrl }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'unknown'

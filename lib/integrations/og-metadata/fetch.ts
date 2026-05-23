@@ -102,6 +102,11 @@ export async function fetchOpenGraph(rawUrl: string): Promise<FetchResult> {
       if (!body.ok) return { ok: false, error: body.error }
 
       const data = parseHtml(body.text, currentUrl)
+      // Treat "got HTML but no title at all" as a failure so the service
+      // layer can escalate to Chromium. Common case: CF challenge pages and
+      // client-rendered SPAs return 200 + HTML with no meaningful <head>
+      // metadata; without this signal we'd silently store a blank card.
+      if (!data.title) return { ok: false, error: 'empty extraction' }
       return { ok: true, data, finalUrl: currentUrl }
     }
     return { ok: false, error: 'too many redirects' }
