@@ -80,27 +80,26 @@ describe('taskContextService.buildMemorySectionForTask', () => {
       {
         id: 'mem-p',
         category: 'CONVENTION',
-        content: { rule: 'Use named exports', scope: 'project' },
+        content: { rule: 'Project rule', scope: 'project' },
       },
     ])
     ;(memoryRepository.findActiveTaskMemories as jest.Mock).mockResolvedValue([
       {
         id: 'mem-t',
-        category: 'TRAP',
-        content: { trigger: 'X', outcome: 'Y' },
+        category: 'CONVENTION',
+        content: { rule: 'Task rule', scope: 'task' },
       },
     ])
 
     const result = await taskContextService.buildMemorySectionForTask('task-1')
 
     expect(result).toContain('## Relevant Memory')
-    expect(result).toContain('### Traps')
-    expect(result).toContain('[task]')
     expect(result).toContain('### Conventions')
     expect(result).toContain('[project]')
-    expect(result.indexOf('### Traps')).toBeLessThan(
-      result.indexOf('### Conventions')
-    )
+    expect(result).toContain('[task]')
+    // Both memories are CONVENTION, so the only thing that can drive order
+    // is scope. The service orders PROJECT before TASK.
+    expect(result.indexOf('[project]')).toBeLessThan(result.indexOf('[task]'))
   })
 
   it('returns "" when task does not exist', async () => {
