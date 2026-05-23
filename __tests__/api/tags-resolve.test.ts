@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { POST } from '@/app/api/tags/resolve/route'
 
 jest.mock('@/lib/auth', () => ({
@@ -98,11 +98,44 @@ describe('POST /api/tags/resolve', () => {
 
   it('requires auth — returns 401 when unauthenticated', async () => {
     requireAuth.mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     )
     const res = await POST(mkReq({ names: ['tag1'] }))
     expect(res.status).toBe(401)
     expect(tagRepository.findOrCreateMany).not.toHaveBeenCalled()
+  })
+
+  it('preserves input order in the response (regression guard)', async () => {
+    // Repo returns tags in a different order than the input (simulates
+    // Prisma `findMany` returning rows in DB insertion order, not `IN`-clause order).
+    tagRepository.findOrCreateMany.mockResolvedValueOnce([
+      { id: 'id-alpha', name: 'alpha', color: null },
+      { id: 'id-mike', name: 'mike', color: null },
+      { id: 'id-zulu', name: 'zulu', color: null },
+    ])
+
+    const res = await POST(mkReq({ names: ['zulu', 'alpha', 'mike'] }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.tags).toHaveLength(3)
+    // Must match the INPUT order: zulu → alpha → mike
+    expect(json.tags[0].id).toBe('id-zulu')
+    expect(json.tags[1].id).toBe('id-alpha')
+    expect(json.tags[2].id).toBe('id-mike')
+  })
+
+  it('returns 500 without leaking error details when the repository throws', async () => {
+    tagRepository.findOrCreateMany.mockRejectedValueOnce(
+      new Error('DB connection failed — secret details here')
+    )
+
+    const res = await POST(mkReq({ names: ['bug'] }))
+    expect(res.status).toBe(500)
+    const json = await res.json()
+    expect(json.error).toBe('Internal server error')
+    // Must not leak the underlying error message
+    expect(JSON.stringify(json)).not.toContain('DB connection failed')
+    expect(JSON.stringify(json)).not.toContain('secret details')
   })
 
   it('scopes to caller workspace — same name in two workspaces yields different ids', async () => {

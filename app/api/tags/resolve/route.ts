@@ -21,13 +21,13 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest): Promise<Response> {
   // 1. Auth
   const authResult = await requireAuth()
-  if (authResult instanceof Response) return authResult
+  if (authResult instanceof NextResponse) return authResult
 
   const { userId } = authResult
 
   // 2. Workspace
   const ws = await requireUserWorkspace(userId)
-  if (ws instanceof Response) return ws
+  if (ws instanceof NextResponse) return ws
 
   // 3. Parse + validate body
   let raw: unknown
@@ -69,8 +69,21 @@ export async function POST(req: NextRequest): Promise<Response> {
     )
   }
 
-  // 7. Find-or-create
-  const tags = await tagRepository.findOrCreateMany(ws.workspaceId, cleaned)
+  // 7. Find-or-create, then reorder to match input order
+  let tags: Awaited<ReturnType<typeof tagRepository.findOrCreateMany>>
+  try {
+    tags = await tagRepository.findOrCreateMany(ws.workspaceId, cleaned)
+  } catch {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
 
-  return NextResponse.json({ tags })
+  // Prisma `findMany({ where: { name: { in: [...] } } })` does not preserve
+  // insertion order — reorder to match `cleaned` (the deduplicated input order).
+  const tagByLowerName = new Map(tags.map(t => [t.name.toLowerCase(), t]))
+  const ordered = cleaned.map(n => tagByLowerName.get(n.toLowerCase())!)
+
+  return NextResponse.json({ tags: ordered })
 }
