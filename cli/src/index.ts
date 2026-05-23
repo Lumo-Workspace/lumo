@@ -337,6 +337,7 @@ doc
   .option('--project <ref>', 'Filter by project name/slug')
   .option('--task <LUM-N>', 'Only docs bound to this task')
   .option('--limit <n>', 'Cap output to first N rows')
+  .option('--tree', 'Render as an indented tree')
   .action(wrap(opts => docList(opts as Record<string, string>)))
 
 doc

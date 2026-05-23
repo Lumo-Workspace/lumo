@@ -1,12 +1,14 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { normalizeScope } from './doc-create'
+import { buildTree, flattenWithDepth } from '../lib/doc-tree'
 
 export interface ListDocOptions {
   scope?: string
   project?: string
   task?: string
   limit?: string
+  tree?: boolean
 }
 
 interface DocRow {
@@ -14,6 +16,8 @@ interface DocRow {
   title: string
   visibility: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
   project: { name: string } | null
+  parentId: string | null
+  sortOrder: number
 }
 
 function visibilityLabel(v: DocRow['visibility']): string {
@@ -27,6 +31,18 @@ export function formatDocListRows(rows: DocRow[]): string[] {
     const label = visibilityLabel(r.visibility).padEnd(10, ' ')
     const project = (r.project?.name ?? '-').padEnd(14, ' ')
     return `${r.id}  ${label}  ${project}  ${r.title}`
+  })
+}
+
+export function formatDocListRowsAsTree(rows: DocRow[]): string[] {
+  if (rows.length === 0) return []
+  const tree = buildTree(rows)
+  const flat = flattenWithDepth(tree)
+  return flat.map(({ row, depth }) => {
+    const label = visibilityLabel(row.visibility).padEnd(10, ' ')
+    const project = (row.project?.name ?? '-').padEnd(14, ' ')
+    const indent = '  '.repeat(depth)
+    return `${row.id}  ${label}  ${project}  ${indent}${row.title}`
   })
 }
 
@@ -76,8 +92,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   }
   if (opts.task && opts.project) {
     rows = rows.filter(
-      r =>
-        (r.project?.name ?? '').toLowerCase() === opts.project!.toLowerCase()
+      r => (r.project?.name ?? '').toLowerCase() === opts.project!.toLowerCase()
     )
   }
 
@@ -86,6 +101,8 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
     if (!Number.isNaN(n)) rows = rows.slice(0, n)
   }
 
-  const lines = formatDocListRows(rows)
+  const lines = opts.tree
+    ? formatDocListRowsAsTree(rows)
+    : formatDocListRows(rows)
   for (const line of lines) console.log(line)
 }
