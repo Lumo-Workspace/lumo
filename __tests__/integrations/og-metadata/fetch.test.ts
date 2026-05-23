@@ -71,11 +71,22 @@ describe('fetchOpenGraph', () => {
   })
 
   it('returns not-ok when body exceeds MAX_BODY_BYTES', async () => {
-    // Build a stream that yields > 3MB
-    const big = 'x'.repeat(4 * 1024 * 1024)
+    // Body just over the 10 MB cap (raised from 3 MB; see constants.ts).
+    const big = 'x'.repeat(11 * 1024 * 1024)
     fetchMock.mockResolvedValue(htmlResponse(big))
     const result = await fetchOpenGraph('https://example.com/big')
     expect(result).toEqual({ ok: false, error: 'body too large' })
+  })
+
+  it('returns not-ok with "empty extraction" when no title is parseable', async () => {
+    // 200 + valid HTML content-type, but the body has no <title> / og:title /
+    // twitter:title — common pattern for CF challenge pages and JS-only SPAs.
+    // The service layer escalates this to Chromium.
+    fetchMock.mockResolvedValue(
+      htmlResponse('<html><body>no head here</body></html>')
+    )
+    const result = await fetchOpenGraph('https://example.com/empty')
+    expect(result).toEqual({ ok: false, error: 'empty extraction' })
   })
 
   it('re-checks SSRF on each redirect hop', async () => {

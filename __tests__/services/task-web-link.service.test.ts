@@ -185,6 +185,54 @@ describe('taskWebLinkService.addWebLink', () => {
       expect.objectContaining({ fetchError: 'http 404' })
     )
   })
+
+  it('escalates on "empty extraction" (200 + html with no title)', async () => {
+    // Real-world example: guide.michelin.com returns 200 + JS shell with no
+    // meaningful <head> metadata. fetch.ts treats that as 'empty extraction'
+    // and the classifier escalates to Chromium.
+    ogMock.mockResolvedValue({ ok: false, error: 'empty extraction' })
+    chromiumMock.mockResolvedValue({
+      ok: true,
+      data: {
+        title: 'After-render Title',
+        description: 'd',
+        imageUrl: undefined,
+        faviconUrl: undefined,
+      },
+      finalUrl: 'https://example.com/path?x=1',
+    })
+    repoCreate.mockResolvedValue({ id: 'wl_empty' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(chromiumMock).toHaveBeenCalled()
+    expect(repoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'After-render Title',
+        fetchError: null,
+      })
+    )
+  })
+
+  it('escalates on "body too large" (oversize fast response)', async () => {
+    // CNN-class sites ship >10MB of HTML. The fast fetcher gives up; Chromium
+    // parses the rendered DOM and isn't bound by our body cap.
+    ogMock.mockResolvedValue({ ok: false, error: 'body too large' })
+    chromiumMock.mockResolvedValue({
+      ok: true,
+      data: {
+        title: 'Big page title',
+        description: undefined,
+        imageUrl: undefined,
+        faviconUrl: undefined,
+      },
+      finalUrl: 'https://example.com/path?x=1',
+    })
+    repoCreate.mockResolvedValue({ id: 'wl_big' })
+    await taskWebLinkService.addWebLink(baseInput)
+    expect(chromiumMock).toHaveBeenCalled()
+    expect(repoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Big page title' })
+    )
+  })
 })
 
 describe('taskWebLinkService.refreshWebLink', () => {
