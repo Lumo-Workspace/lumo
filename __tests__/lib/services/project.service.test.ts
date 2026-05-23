@@ -19,6 +19,7 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
     findByActorId: jest.fn(),
+    findById: jest.fn(),
   },
 }))
 
@@ -50,12 +51,20 @@ const mockUpdate = projectRepository.update as jest.Mock
 const mockDelete = projectRepository.delete as jest.Mock
 const mockGetDefaultTeam = getDefaultTeam as jest.Mock
 const mockMemberFindByActorId = memberRepository.findByActorId as jest.Mock
+const mockMemberFindById = memberRepository.findById as jest.Mock
 
 let mockClerkGetUserList: jest.Mock
 beforeEach(async () => {
   jest.clearAllMocks()
   const c = await (clerkClient as unknown as jest.Mock)()
   mockClerkGetUserList = c.users.getUserList as jest.Mock
+  // Default: caller's member is in workspace 'ws-1'. Tests that need a
+  // cross-workspace scenario override this explicitly.
+  mockMemberFindById.mockResolvedValue({
+    id: 'member-1',
+    workspaceId: 'ws-1',
+    role: 'MEMBER',
+  })
 })
 
 // ── listProjects ───────────────────────────────────────────────────────────
@@ -157,6 +166,7 @@ describe('getProject', () => {
       name: 'Test',
       isIdea: false,
       createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
       _count: { tasks: 3, views: 1 },
     }
     mockFindById.mockResolvedValue(project)
@@ -179,6 +189,7 @@ describe('getProject', () => {
       id: 'p1',
       isIdea: true,
       createdByMemberId: 'other-member',
+      workspaceId: 'ws-1',
     })
 
     await expect(
@@ -191,6 +202,7 @@ describe('getProject', () => {
       id: 'p1',
       isIdea: true,
       createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
       _count: { tasks: 0, views: 1 },
     }
     mockFindById.mockResolvedValue(project)
@@ -198,6 +210,43 @@ describe('getProject', () => {
     const result = await projectService.getProject('p1', 'member-1')
 
     expect(result).toEqual(project)
+  })
+
+  it('throws 404 when caller is in a different workspace than the project', async () => {
+    // Cross-workspace access attempt: caller's member belongs to ws-B but
+    // the project lives in ws-A. Must return 404 (not 403) to avoid
+    // leaking the existence of the foreign project.
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      name: 'Foreign',
+      isIdea: false,
+      createdByMemberId: 'someone-in-ws-a',
+      workspaceId: 'ws-A',
+      _count: { tasks: 5, views: 1 },
+    })
+    mockMemberFindById.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'ws-B',
+      role: 'MEMBER',
+    })
+
+    await expect(
+      projectService.getProject('p1', 'member-1')
+    ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
+  })
+
+  it('throws 404 when the calling member id does not exist', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'someone',
+      workspaceId: 'ws-1',
+    })
+    mockMemberFindById.mockResolvedValue(null)
+
+    await expect(
+      projectService.getProject('p1', 'orphan-member')
+    ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
   })
 })
 
@@ -383,6 +432,25 @@ describe('updateProject', () => {
     await expect(
       projectService.updateProject('p1', 'acme', 'member-1', { name: 'X' })
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
+  })
+
+  it('throws 404 when caller is in a different workspace than the project', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'someone',
+      workspaceId: 'ws-A',
+    })
+    mockMemberFindById.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'ws-B',
+      role: 'MEMBER',
+    })
+
+    await expect(
+      projectService.updateProject('p1', 'acme', 'member-1', { name: 'New' })
+    ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('throws 400 when owner actor belongs to a different workspace', async () => {
@@ -596,11 +664,31 @@ describe('deleteProject', () => {
       id: 'p1',
       isIdea: true,
       createdByMemberId: 'other-member',
+      workspaceId: 'ws-1',
     })
 
     await expect(
       projectService.deleteProject('p1', 'acme', 'member-1')
     ).rejects.toMatchObject({ message: 'Forbidden', status: 403 })
+  })
+
+  it('throws 404 when caller is in a different workspace than the project', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'p1',
+      isIdea: false,
+      createdByMemberId: 'someone',
+      workspaceId: 'ws-A',
+    })
+    mockMemberFindById.mockResolvedValue({
+      id: 'member-1',
+      workspaceId: 'ws-B',
+      role: 'MEMBER',
+    })
+
+    await expect(
+      projectService.deleteProject('p1', 'acme', 'member-1')
+    ).rejects.toMatchObject({ message: 'Project not found', status: 404 })
+    expect(mockDelete).not.toHaveBeenCalled()
   })
 
   it('deletes and broadcasts project-deleted when authorized', async () => {
@@ -612,6 +700,7 @@ describe('deleteProject', () => {
       id: 'p1',
       isIdea: false,
       createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
     })
 
     await projectService.deleteProject('p1', 'acme', 'member-1')
@@ -632,6 +721,7 @@ describe('deleteProject', () => {
       id: 'idea-1',
       isIdea: true,
       createdByMemberId: 'member-1',
+      workspaceId: 'ws-1',
     })
 
     await projectService.deleteProject('idea-1', 'acme', 'member-1')
