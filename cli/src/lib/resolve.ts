@@ -1,0 +1,110 @@
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value)
+}
+
+interface ProjectRow {
+  id: string
+  name: string
+  isIdea?: boolean
+}
+
+interface MilestoneRow {
+  id: string
+  name: string
+  status: string
+}
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+async function fetchJson<T>(
+  base: string,
+  token: string,
+  path: string
+): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) {
+    throw new Error('API key invalid or revoked. Run `lumo auth login`.')
+  }
+  if (!res.ok) {
+    throw new Error(`Request failed (HTTP ${res.status}): ${path}`)
+  }
+  return (await res.json()) as T
+}
+
+/**
+ * Resolve `--project <ref>` to a project id.
+ * - `ref` undefined and workspace has 1 visible project → auto-select
+ * - `ref` undefined and workspace has >1 visible project → throw
+ * - `ref` set → match by name or slug, case-insensitive
+ */
+export async function resolveProjectId(
+  base: string,
+  token: string,
+  ref: string | undefined
+): Promise<string> {
+  const { projects } = await fetchJson<{ projects: ProjectRow[] }>(
+    base,
+    token,
+    '/api/projects'
+  )
+  const visible = projects.filter(p => !p.isIdea)
+
+  if (!ref) {
+    if (visible.length === 0) throw new Error('workspace has no projects yet.')
+    if (visible.length === 1) return visible[0]!.id
+    throw new Error('workspace has multiple projects; pass --project <slug>.')
+  }
+
+  const needle = ref.trim().toLowerCase()
+  const match = visible.find(
+    p => p.name.toLowerCase() === needle || slugify(p.name) === needle
+  )
+  if (!match) {
+    throw new Error(`project "${ref}" not found. Try \`lumo project list\`.`)
+  }
+  return match.id
+}
+
+/**
+ * Resolve a milestone `<identifier>`:
+ * - If it's a UUID, return as-is (project not fetched).
+ * - Otherwise, resolve the project (via `--project <ref>` or auto-select),
+ *   list its milestones, and match by name case-insensitively.
+ */
+export async function resolveMilestoneId(
+  base: string,
+  token: string,
+  identifier: string,
+  projectRef: string | undefined
+): Promise<{ id: string; name: string; projectId: string }> {
+  if (isUuid(identifier)) {
+    // Caller will fetch /api/milestones/<id> to learn the projectId & name.
+    return { id: identifier, name: '', projectId: '' }
+  }
+
+  const projectId = await resolveProjectId(base, token, projectRef)
+  const { milestones } = await fetchJson<{ milestones: MilestoneRow[] }>(
+    base,
+    token,
+    `/api/projects/${projectId}/milestones`
+  )
+  const needle = identifier.trim().toLowerCase()
+  const match = milestones.find(m => m.name.toLowerCase() === needle)
+  if (!match) {
+    throw new Error(
+      `no milestone matches "${identifier}" in this project. Try \`lumo milestone list\`.`
+    )
+  }
+  return { id: match.id, name: match.name, projectId }
+}
