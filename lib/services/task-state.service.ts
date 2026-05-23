@@ -247,9 +247,8 @@ export async function updateTaskWithSideEffects(
     const projectId = result.task.projectId as string
     waitUntil(
       (async () => {
-        const { layer2Service } = await import(
-          '@/lib/services/memory/layer2.service'
-        )
+        const { layer2Service } =
+          await import('@/lib/services/memory/layer2.service')
         await layer2Service.triggerForTaskCompletion({ taskId, projectId })
       })()
     )

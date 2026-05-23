@@ -9,6 +9,13 @@ const mockGetMaxSortOrder = jest.fn()
 const mockCreate = jest.fn()
 const mockDeleteWithDescendants = jest.fn()
 const mockUpsertEditor = jest.fn()
+const mockFindMention = jest.fn()
+const mockAddExplicitMention = jest.fn()
+const mockRemoveExplicitMention = jest.fn()
+const mockUpdateWithChildrenAndMentions = jest.fn()
+
+const mockFindByWorkspaceIdentifier = jest.fn()
+const mockFindByIdForMention = jest.fn()
 
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
@@ -21,6 +28,12 @@ jest.mock('@/lib/repositories/document.repository', () => ({
       mockDeleteWithDescendants(...args),
     upsertEditor: (...args: any[]) => mockUpsertEditor(...args),
     findNodeWithChildren: jest.fn().mockResolvedValue(null),
+    findMention: (...args: any[]) => mockFindMention(...args),
+    addExplicitMention: (...args: any[]) => mockAddExplicitMention(...args),
+    removeExplicitMention: (...args: any[]) =>
+      mockRemoveExplicitMention(...args),
+    updateWithChildrenAndMentions: (...args: any[]) =>
+      mockUpdateWithChildrenAndMentions(...args),
   },
 }))
 
@@ -28,6 +41,14 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   tagRepository: {
     findByDocument: jest.fn().mockResolvedValue([]),
     syncDocumentTags: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findByWorkspaceIdentifier: (...args: any[]) =>
+      mockFindByWorkspaceIdentifier(...args),
+    findByIdForMention: (...args: any[]) => mockFindByIdForMention(...args),
   },
 }))
 
@@ -350,6 +371,248 @@ describe('documentService', () => {
       })
 
       expect(documentService.extractTaskMentionIds(content)).toEqual([])
+    })
+  })
+})
+
+// ── Explicit mention tests ──────────────────────────────────────────────────
+
+describe('documentService — explicit mentions', () => {
+  const ownerDoc = {
+    id: 'doc1',
+    createdById: 'member1',
+    shares: [],
+  }
+
+  it('addExplicitMention upgrades an existing CONTENT row to EXPLICIT', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    // resolveTask queries: { id, number, team: { identifier } }
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue({ source: 'CONTENT' })
+    mockAddExplicitMention.mockResolvedValue({
+      documentId: 'doc1',
+      taskId: 'task_cuid_1',
+      source: 'EXPLICIT',
+    })
+
+    const result = await documentService.addExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.upgradedFromContent).toBe(true)
+    expect(result.source).toBe('EXPLICIT')
+    expect(result.taskIdentifier).toBe('LUM-42')
+  })
+
+  it('addExplicitMention is idempotent when row is already EXPLICIT', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue({ source: 'EXPLICIT' })
+    mockAddExplicitMention.mockResolvedValue({
+      documentId: 'doc1',
+      taskId: 'task_cuid_1',
+      source: 'EXPLICIT',
+    })
+
+    const result = await documentService.addExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.alreadyBound).toBe(true)
+    expect(result.upgradedFromContent).toBe(false)
+  })
+
+  it('addExplicitMention creates a fresh row when no existing mention is found', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue(null)
+    mockAddExplicitMention.mockResolvedValue({
+      documentId: 'doc1',
+      taskId: 'task_cuid_1',
+      source: 'EXPLICIT',
+    })
+
+    const result = await documentService.addExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.alreadyBound).toBe(false)
+    expect(result.upgradedFromContent).toBe(false)
+    expect(result.source).toBe('EXPLICIT')
+    expect(result.taskIdentifier).toBe('LUM-42')
+  })
+
+  it('addExplicitMention 404s when task identifier does not resolve', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue(null)
+
+    await expect(
+      documentService.addExplicitMention(
+        'doc1',
+        'LUM-99999',
+        'workspace1',
+        'member1'
+      )
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/Task not found/),
+      status: 404,
+    })
+  })
+
+  it('removeExplicitMention returns refused when row is CONTENT-only', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue({ source: 'CONTENT' })
+
+    const result = await documentService.removeExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.refused).toBe(true)
+    expect(result.reason).toMatch(/content-derived/i)
+    expect(result.removed).toBe(0)
+  })
+
+  it('removeExplicitMention returns removed=0 when no row exists', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_999',
+      number: 999,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue(null)
+    mockRemoveExplicitMention.mockResolvedValue(0)
+
+    const result = await documentService.removeExplicitMention(
+      'doc1',
+      'LUM-999',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.removed).toBe(0)
+    expect(result.refused).toBeFalsy()
+  })
+
+  it('removeExplicitMention returns removed=1 for an EXPLICIT row', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue({ source: 'EXPLICIT' })
+    mockRemoveExplicitMention.mockResolvedValue(1)
+
+    const result = await documentService.removeExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.removed).toBe(1)
+    expect(result.taskIdentifier).toBe('LUM-42')
+  })
+})
+
+// ── contentMarkdown tests ───────────────────────────────────────────────────
+
+describe('documentService — contentMarkdown', () => {
+  it('createDocument with contentMarkdown stores converted Tiptap JSON', async () => {
+    mockGetMaxSortOrder.mockResolvedValue(0)
+    mockCreate.mockImplementation((data: any) => {
+      return Promise.resolve({
+        id: 'doc-new',
+        content: data.content ?? null,
+        createdBy: { id: 'm-1', clerkId: 'clerk-1' },
+      })
+    })
+
+    const result = await documentService.createDocument('workspace1', 'member1', {
+      title: 't',
+      visibility: 'PRIVATE',
+      contentMarkdown: '# Hello',
+    })
+
+    expect(result.content).toBeTruthy()
+    const parsed = JSON.parse(result.content as string)
+    expect(parsed.type).toBe('doc')
+    expect(parsed.content[0].type).toBe('heading')
+    expect(parsed.content[0].attrs.level).toBe(1)
+  })
+
+  it('updateDocument with contentMarkdown overwrites content', async () => {
+    mockFindWithPermission.mockResolvedValue({
+      id: 'doc1',
+      createdById: 'member1',
+      shares: [],
+    })
+    mockUpdateWithChildrenAndMentions.mockImplementation(
+      (_id: string, updateData: any) => {
+        return Promise.resolve({
+          id: 'doc1',
+          content: updateData.content ?? null,
+        })
+      }
+    )
+    mockUpsertEditor.mockResolvedValue(undefined)
+
+    const result = await documentService.updateDocument(
+      'doc1',
+      'member1',
+      'workspace1',
+      { contentMarkdown: 'just text' }
+    )
+
+    const parsed = JSON.parse(result.content as string)
+    expect(parsed.type).toBe('doc')
+    expect(parsed.content[0].type).toBe('paragraph')
+  })
+
+  it('updateDocument rejects passing both content and contentMarkdown', async () => {
+    mockFindWithPermission.mockResolvedValue({
+      id: 'doc1',
+      createdById: 'member1',
+      shares: [],
+    })
+
+    await expect(
+      documentService.updateDocument('doc1', 'member1', 'workspace1', {
+        content: '{}',
+        contentMarkdown: 'x',
+      })
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/mutually exclusive/i),
+      status: 400,
     })
   })
 })

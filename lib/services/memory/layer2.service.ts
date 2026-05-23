@@ -72,9 +72,7 @@ async function runForProject(
 ): Promise<Layer2ProjectResult | null> {
   const input = await getLayer2Input(projectId)
   if (!input) {
-    console.log(
-      `[memory.layer2] skip project=${projectId} reason=no-input`
-    )
+    console.log(`[memory.layer2] skip project=${projectId} reason=no-input`)
     return null
   }
 

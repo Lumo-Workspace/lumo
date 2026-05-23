@@ -1,0 +1,49 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+import { lookupDocId } from '../lib/resolve-doc-id'
+
+export async function docUnbind(
+  docRef: string | undefined,
+  task: string | undefined
+): Promise<number | void> {
+  if (!docRef || !task) {
+    console.error('Error: usage: lumo doc unbind <doc> <task>')
+    return 1
+  }
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+
+  const docId = await lookupDocId(apiUrl, creds.token, docRef)
+  if (!docId) {
+    console.error(`Error: Document not found: ${docRef}`)
+    return 1
+  }
+
+  // The DELETE route accepts either cuid or LUM-N as the [taskId] segment; the server resolves it.
+  const url = `${trimTrailingSlash(apiUrl)}/api/documents/${docId}/mentions/${encodeURIComponent(task)}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${creds.token}` },
+  })
+  if (res.status === 409) {
+    const { error } = (await res.json()) as { error: string }
+    console.error(`Error: ${error}`)
+    return 1
+  }
+  if (!res.ok) {
+    const text = await res.text()
+    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    return 1
+  }
+  const data = (await res.json()) as { removed: number; taskIdentifier: string }
+  if (data.removed === 0) {
+    console.log(`Already unbound ${docId} ↔ ${data.taskIdentifier}`)
+  } else {
+    console.log(`Unbound ${docId} ↔ ${data.taskIdentifier}`)
+  }
+}

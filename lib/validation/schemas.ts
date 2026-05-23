@@ -278,11 +278,13 @@ export const createDocumentSchema = z.object({
     .enum(['PRIVATE', 'SHARED', 'WORKSPACE'])
     .optional()
     .default('PRIVATE'),
+  contentMarkdown: z.string().max(500000).optional(),
 })
 
 export const updateDocumentSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   content: z.string().max(500000).nullable().optional(),
+  contentMarkdown: z.string().max(500000).optional(),
   emoji: z.string().max(10).nullable().optional(),
   visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
   projectId: z.string().cuid().nullable().optional(),
@@ -291,6 +293,14 @@ export const updateDocumentSchema = z.object({
   publicToken: z.string().max(30).nullable().optional(),
   tags: z.array(z.string().max(30)).max(20).optional(),
   tagIds: z.array(z.string().cuid()).max(20).optional(),
+})
+
+export const createDocumentMentionSchema = z.object({
+  taskIdentifier: z
+    .string()
+    .trim()
+    .min(1, 'taskIdentifier is required')
+    .max(100),
 })
 
 export const moveDocumentSchema = z.object({

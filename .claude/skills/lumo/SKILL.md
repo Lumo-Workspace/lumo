@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope".'
 ---
 
 ## Prerequisites
@@ -294,6 +294,138 @@ Requires `--yes`. No interactive prompt — CLI is agent-friendly. Tasks under t
 ```bash
 lumo milestone delete "Q3 Launch" --yes
 ```
+
+## Document Management
+
+### `lumo doc create [title] [flags]` — create a new document
+
+Use this when the user wants to write a new document from the terminal. Title is positional and optional. When omitted, the doc title defaults to empty (server renders as "Untitled" via i18n).
+
+| Flag               | Type   | Notes                                                                                                            |
+| ------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| `--content <text>` | string | Inline markdown body.                                                                                            |
+| `--file <path>`    | string | Read markdown body from file.                                                                                    |
+| (stdin)            | —      | Pipe markdown; treated as content when stdin is not a TTY.                                                       |
+| `--scope <scope>`  | enum   | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.                                                |
+| `--project <ref>`  | string | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
+| `--task <LUM-N>`   | string | Bind to this task immediately after create.                                                                      |
+
+The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one.
+
+Example:
+
+```bash
+lumo doc create "RFC: doc CLI" --scope workspace --file scratch/rfc.md --task LUM-66
+```
+
+Success output:
+
+```
+Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/cmd_xxx
+```
+
+### When to suggest `doc create`
+
+- User says "write a doc", "起一篇 RFC", "新建文档", or describes a deliverable that should live as a document.
+- After a discussion that needs a write-up, offer to create the doc with a title and the right scope.
+
+### `lumo doc update <doc> [flags]` — update a document
+
+`<doc>` accepts a cuid or a case-insensitive title. Ambiguous titles fail with a candidate list — re-run with the cuid.
+
+| Flag               | Type   | Notes                                                |
+| ------------------ | ------ | ---------------------------------------------------- |
+| `--title <text>`   | string | New title (cannot be empty).                         |
+| `--content <text>` | string | Replace content (inline).                            |
+| `--file <path>`    | string | Replace content from file.                           |
+| (stdin)            | —      | Pipe to replace content.                             |
+| `--scope <scope>`  | enum   | `personal` / `workspace`.                            |
+| `--project <ref>`  | string | Project name/slug. `--project ""` clears the filing. |
+
+Examples:
+
+```bash
+lumo doc update "RFC: doc CLI" --scope personal
+lumo doc update cmd_xxx --title "RFC v2"
+lumo doc update cmd_xxx --file rfc-v2.md
+```
+
+### When to suggest `doc update`
+
+- User wants to revise an existing doc.
+- After running `lumo doc list` or `doc show`, if the user wants to change a doc's scope, title, or content.
+
+### `lumo doc show <doc>` — print one document's detail
+
+Prints a key:value header (id, title, scope, project, created/updated timestamps, mentioned tasks) and the content rendered back to markdown.
+
+```bash
+lumo doc show "RFC: doc CLI"
+```
+
+Note: the markdown rendered by `doc show` is best-effort. Round-trip via `doc show > tmp.md && doc update --file tmp.md` is NOT guaranteed to be a no-op.
+
+Use when the user wants the current state or content of a doc without loading full task context.
+
+### `lumo doc list [flags]` — list documents
+
+Default behavior: lists every document the current user can see, as fixed-width rows: `<cuid>  <SCOPE>  <project|->  <title>`.
+
+| Flag              | Type   | Notes                                                                         |
+| ----------------- | ------ | ----------------------------------------------------------------------------- |
+| `--scope <scope>` | enum   | `personal`, `workspace`, or `all`. Default `all`.                             |
+| `--project <ref>` | string | Filter by project.                                                            |
+| `--task <LUM-N>`  | string | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`. |
+| `--limit <n>`     | int    | Cap output to the first N rows.                                               |
+
+When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
+
+### When to suggest `doc list`
+
+- The user asks "what docs do I have", "show me workspace docs", "what's on LUM-42".
+- Before suggesting `doc update` or `doc delete` when no doc ID is in context — run `doc list` first to surface candidates.
+
+### `lumo doc delete <doc> --yes` — delete a document
+
+Requires `--yes`; no interactive prompt (agent-friendly).
+
+```bash
+lumo doc delete cmd_xxx --yes
+```
+
+### `lumo doc bind <doc> <task>` — bind a doc to a task
+
+Adds an explicit DocumentMention row. Survives content edits in the Web UI. If a CONTENT-derived mention already exists for the same pair, it's upgraded to EXPLICIT so a later `unbind` can remove it.
+
+Output:
+
+```
+Bound cmd_xxx ↔ LUM-42
+Bound cmd_xxx ↔ LUM-42 (upgraded from content)   # when upgrading a CONTENT row
+Already bound cmd_xxx ↔ LUM-42                   # idempotent
+```
+
+### `lumo doc unbind <doc> <task>` — unbind a doc from a task
+
+Removes EXPLICIT mentions only. A purely CONTENT-derived mention can't be unbound from CLI — fails with 409 and a message instructing the user to remove the @LUM-N from the doc body in the Web UI.
+
+```bash
+lumo doc unbind cmd_xxx LUM-42
+```
+
+### Out of scope (CLI v1)
+
+The CLI does **not** currently support:
+
+- SHARED visibility — Web UI only.
+- Doc tree (parent / sortOrder) operations.
+- Tags.
+- `--from-editor` (interactive $EDITOR).
+- Lossless markdown round-trip.
+
+### When to suggest session binding for docs
+
+If user creates a doc with `--task LUM-N` and the current Claude Code session is not bound, suggest `lumo session attach LUM-N` so subsequent hook events also tag that task.
 
 ## Session Management
 

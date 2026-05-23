@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     parentId: docParentId,
     projectId: docProjectId,
     visibility,
+    contentMarkdown,
   } = parsed.data
   const document = await documentService.createDocument(
     ws.workspaceId,
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       emoji: emoji ?? null,
       parentId: docParentId ?? null,
       projectId: docProjectId ?? null,
+      ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
     }
   )
 

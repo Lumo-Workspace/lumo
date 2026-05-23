@@ -63,12 +63,13 @@ import { updateTaskWithSideEffects } from '@/lib/services/task-state.service'
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const trigger =
-  layer2Service.triggerForTaskCompletion as jest.MockedFunction<
-    typeof layer2Service.triggerForTaskCompletion
-  >
+const trigger = layer2Service.triggerForTaskCompletion as jest.MockedFunction<
+  typeof layer2Service.triggerForTaskCompletion
+>
 
-function mockTaskRow(overrides: { status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' }) {
+function mockTaskRow(overrides: {
+  status: 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE'
+}) {
   return {
     id: 'task_1',
     title: 'T',

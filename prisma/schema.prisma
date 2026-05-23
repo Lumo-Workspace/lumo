@@ -72,6 +72,11 @@ enum DocShareRole {
   MANAGER
 }
 
+enum DocMentionSource {
+  CONTENT  // derived from a mention node in document content
+  EXPLICIT // created via CLI or explicit API; survives content re-sync
+}
+
 enum NotificationType {
   TASK_IN_REVIEW // task moved to IN_REVIEW — sent to workspace owners
   TASK_MENTIONED // someone @mentioned you in a comment
@@ -939,6 +944,7 @@ model DocumentMention {
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   taskId     String
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  source     DocMentionSource @default(CONTENT)
 
   createdAt DateTime @default(now())
 
