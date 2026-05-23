@@ -63,15 +63,8 @@ export async function notifyActor(params: {
   notificationType: NotificationType
   slackEventType: SlackEventType
   commentId?: string
-  skipSelfCheck?: boolean // e.g. TASK_DONE notifies assignee regardless
 }): Promise<void> {
-  const {
-    ctx,
-    taskId,
-    recipientActorId,
-    slackEventType,
-    skipSelfCheck = false,
-  } = params
+  const { ctx, taskId, recipientActorId, slackEventType } = params
 
   const actor = await prisma.actor.findUnique({
     where: { id: recipientActorId },
@@ -79,7 +72,7 @@ export async function notifyActor(params: {
   })
 
   if (!actor || actor.type !== 'HUMAN' || !actor.member) return
-  if (!skipSelfCheck && actor.member.clerkId === ctx.triggerClerkId) return
+  if (actor.member.clerkId === ctx.triggerClerkId) return
 
   const payload: NotificationPayload = {
     taskId,
@@ -222,7 +215,6 @@ export function dispatchTaskUpdateNotifications(params: {
       recipientActorId: oldAssigneeActorId,
       notificationType: 'TASK_DONE',
       slackEventType: 'task_done',
-      skipSelfCheck: true,
     })
   }
 }
@@ -235,7 +227,6 @@ export function notifyStatusChange(params: {
   recipientActorId: string | null
   notificationType: NotificationType
   slackEventType: SlackEventType
-  skipSelfCheck?: boolean
 }): void {
   const { ctx, taskId, recipientActorId, slackEventType } = params
 
@@ -249,7 +240,6 @@ export function notifyStatusChange(params: {
         recipientActorId,
         notificationType: params.notificationType,
         slackEventType,
-        skipSelfCheck: params.skipSelfCheck ?? false,
       }).catch(err =>
         console.error(`[notify] ${params.notificationType} failed:`, err)
       )

@@ -75,7 +75,7 @@ export function NotificationItem({
 
   const pendingAction = isPendingAction(notification)
 
-  const VERB: Partial<Record<ApiNotification['type'], string>> = {
+  const VERB: Record<ApiNotification['type'], string> = {
     TASK_IN_REVIEW: intlLocal.formatMessage({
       id: 'notification.verb.taskInReview',
       defaultMessage: 'submitted for review',
@@ -92,6 +92,34 @@ export function NotificationItem({
       id: 'notification.verb.taskMentioned',
       defaultMessage: 'mentioned you in',
     }),
+    TASK_DONE: intlLocal.formatMessage({
+      id: 'notification.verb.taskDone',
+      defaultMessage: 'marked as done',
+    }),
+    TASK_SPEC_READY: intlLocal.formatMessage({
+      id: 'notification.verb.taskSpecReady',
+      defaultMessage: 'generated a spec draft for',
+    }),
+    AGENT_CLARIFY: intlLocal.formatMessage({
+      id: 'notification.verb.agentClarify',
+      defaultMessage: 'has a question about',
+    }),
+    AGENT_AUTHORIZE: intlLocal.formatMessage({
+      id: 'notification.verb.agentAuthorize',
+      defaultMessage: 'needs your approval for',
+    }),
+    AGENT_VERIFY: intlLocal.formatMessage({
+      id: 'notification.verb.agentVerify',
+      defaultMessage: 'completed work on',
+    }),
+    AGENT_FAILED: intlLocal.formatMessage({
+      id: 'notification.verb.agentFailed',
+      defaultMessage: 'failed on',
+    }),
+    AGENT_DONE: intlLocal.formatMessage({
+      id: 'notification.verb.agentDone',
+      defaultMessage: 'finished work on',
+    }),
     SPRINT_STARTED: intlLocal.formatMessage({
       id: 'notification.verb.sprintStarted',
       defaultMessage: 'started sprint',
@@ -104,8 +132,8 @@ export function NotificationItem({
   const verb =
     VERB[type] ??
     intlLocal.formatMessage({
-      id: 'notification.verb.taskMentioned',
-      defaultMessage: 'mentioned you in',
+      id: 'notification.verb.generic',
+      defaultMessage: 'sent you an update on',
     })
 
   const timeAgo = (() => {

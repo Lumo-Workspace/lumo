@@ -231,6 +231,7 @@ export interface ApiNotification {
     | 'TASK_SENT_BACK'
     | 'TASK_ASSIGNED'
     | 'TASK_SPEC_READY'
+    | 'TASK_DONE'
     | 'AGENT_CLARIFY'
     | 'AGENT_AUTHORIZE'
     | 'AGENT_VERIFY'
