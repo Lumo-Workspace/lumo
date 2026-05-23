@@ -1,4 +1,8 @@
-import { type DocVisibility, type DocShareRole, DocMentionSource } from '@prisma/client'
+import {
+  type DocVisibility,
+  type DocShareRole,
+  DocMentionSource,
+} from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -81,6 +85,17 @@ const DOCUMENT_DETAIL_INCLUDE = {
   shares: {
     include: {
       member: { select: { id: true, clerkId: true } },
+    },
+  },
+  mentions: {
+    include: {
+      task: {
+        select: {
+          id: true,
+          number: true,
+          team: { select: { identifier: true } },
+        },
+      },
     },
   },
   _count: { select: { children: true } },
@@ -229,7 +244,10 @@ export const documentRepository = {
    * Delete an explicit mention. Returns the number of rows deleted (0 or 1).
    * Refuses to delete CONTENT-sourced rows (where clause filters by source).
    */
-  async removeExplicitMention(documentId: string, taskId: string): Promise<number> {
+  async removeExplicitMention(
+    documentId: string,
+    taskId: string
+  ): Promise<number> {
     const result = await prisma.documentMention.deleteMany({
       where: { documentId, taskId, source: DocMentionSource.EXPLICIT },
     })

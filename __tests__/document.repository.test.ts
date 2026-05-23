@@ -153,6 +153,36 @@ describe('documentRepository', () => {
 
       expect(result).toBeNull()
     })
+
+    it('passes mentions include so doc show can display linked tasks', async () => {
+      const fakeDoc = {
+        id: 'doc-1',
+        title: 'Test',
+        mentions: [
+          {
+            task: {
+              id: 'task-1',
+              number: 42,
+              team: { identifier: 'LUM' },
+            },
+          },
+        ],
+      }
+      mockFindFirst.mockResolvedValue(fakeDoc)
+
+      const result = await documentRepository.findWithPermission(
+        'doc-1',
+        'member-1',
+        'ws-1'
+      )
+
+      expect(result).toEqual(fakeDoc)
+      // Verify that the include contains the mentions relation
+      const callArg = mockFindFirst.mock.calls[0][0]
+      expect(callArg.include).toHaveProperty('mentions')
+      expect(callArg.include.mentions).toHaveProperty('include')
+      expect(callArg.include.mentions.include).toHaveProperty('task')
+    })
   })
 
   describe('create', () => {
@@ -186,7 +216,11 @@ describe('documentRepository', () => {
     })
 
     it('creates document with optional content field when provided', async () => {
-      const fakeDoc = { id: 'doc-new', title: 'New Doc', content: '{"type":"doc"}' }
+      const fakeDoc = {
+        id: 'doc-new',
+        title: 'New Doc',
+        content: '{"type":"doc"}',
+      }
       mockCreate.mockResolvedValue(fakeDoc)
 
       await documentRepository.create({
