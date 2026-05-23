@@ -4,8 +4,8 @@ import {
   type DocumentFilters,
 } from '@/lib/repositories/document.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { markdownToTiptap } from '@/lib/utils/markdown-tiptap'
-import { prisma } from '@/lib/db/prisma'
 import { DocMentionSource } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ export const documentService = {
     const content =
       data.contentMarkdown !== undefined
         ? JSON.stringify(markdownToTiptap(data.contentMarkdown))
-        : null
+        : undefined
 
     const document = await documentRepository.create({
       title: data.title,
@@ -246,7 +246,7 @@ export const documentService = {
       createdById: memberId,
       visibility: data.visibility,
       sortOrder: maxSortOrder + 1,
-      content,
+      ...(content !== undefined ? { content } : {}),
     })
 
     if (content) {
@@ -439,7 +439,7 @@ export const documentService = {
       throw Object.assign(new Error('Permission denied'), { status: 403 })
     }
 
-    const task = await this.resolveTask(taskIdentifier, workspaceId)
+    const task = await resolveTask(taskIdentifier, workspaceId)
     if (!task) {
       throw Object.assign(new Error(`Task not found: ${taskIdentifier}`), {
         status: 404,
@@ -480,7 +480,7 @@ export const documentService = {
       throw Object.assign(new Error('Permission denied'), { status: 403 })
     }
 
-    const task = await this.resolveTask(taskIdentifier, workspaceId)
+    const task = await resolveTask(taskIdentifier, workspaceId)
     if (!task) {
       throw Object.assign(new Error(`Task not found: ${taskIdentifier}`), {
         status: 404,
@@ -502,51 +502,40 @@ export const documentService = {
       documentId,
       task.id
     )
-    return { removed, taskIdentifier: task.identifier }
+    return { removed, refused: false as const, taskIdentifier: task.identifier }
   },
+}
 
-  /** Resolve task by identifier (TEAM-N format e.g. LUM-42) or cuid within a workspace. */
-  async resolveTask(input: string, workspaceId: string) {
-    const trimmed = input.trim()
-    // Check if it looks like a human identifier (TEAM-NUMBER)
-    const idx = trimmed.lastIndexOf('-')
-    if (idx !== -1) {
-      const teamIdentifier = trimmed.slice(0, idx).toUpperCase()
-      const number = parseInt(trimmed.slice(idx + 1), 10)
-      if (teamIdentifier && !Number.isNaN(number)) {
-        const task = await prisma.task.findFirst({
-          where: {
-            number,
-            team: { identifier: teamIdentifier, workspaceId },
-          },
-          select: {
-            id: true,
-            number: true,
-            team: { select: { identifier: true } },
-          },
-        })
-        if (task) {
-          return {
-            id: task.id,
-            identifier: `${task.team.identifier}-${task.number}`,
-          }
+// ── Module-private helpers ───────────────────────────────────────────────────
+
+/** Resolve task by identifier (TEAM-N format e.g. LUM-42) or cuid within a workspace. */
+async function resolveTask(input: string, workspaceId: string) {
+  const trimmed = input.trim()
+  // Check if it looks like a human identifier (TEAM-NUMBER)
+  const idx = trimmed.lastIndexOf('-')
+  if (idx !== -1) {
+    const teamIdentifier = trimmed.slice(0, idx).toUpperCase()
+    const number = parseInt(trimmed.slice(idx + 1), 10)
+    if (teamIdentifier && !Number.isNaN(number)) {
+      const task = await taskRepository.findByWorkspaceIdentifier(
+        workspaceId,
+        teamIdentifier,
+        number
+      )
+      if (task) {
+        return {
+          id: task.id,
+          identifier: `${task.team.identifier}-${task.number}`,
         }
-        return null
       }
+      return null
     }
-    // Fall back to cuid lookup
-    const task = await prisma.task.findFirst({
-      where: { id: trimmed, team: { workspaceId } },
-      select: {
-        id: true,
-        number: true,
-        team: { select: { identifier: true } },
-      },
-    })
-    if (!task) return null
-    return {
-      id: task.id,
-      identifier: `${task.team.identifier}-${task.number}`,
-    }
-  },
+  }
+  // Fall back to cuid lookup
+  const task = await taskRepository.findByIdForMention(trimmed, workspaceId)
+  if (!task) return null
+  return {
+    id: task.id,
+    identifier: `${task.team.identifier}-${task.number}`,
+  }
 }

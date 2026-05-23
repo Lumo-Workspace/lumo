@@ -14,6 +14,9 @@ const mockAddExplicitMention = jest.fn()
 const mockRemoveExplicitMention = jest.fn()
 const mockUpdateWithChildrenAndMentions = jest.fn()
 
+const mockFindByWorkspaceIdentifier = jest.fn()
+const mockFindByIdForMention = jest.fn()
+
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
     findByWorkspace: (...args: any[]) => mockFindByWorkspace(...args),
@@ -41,6 +44,14 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findByWorkspaceIdentifier: (...args: any[]) =>
+      mockFindByWorkspaceIdentifier(...args),
+    findByIdForMention: (...args: any[]) => mockFindByIdForMention(...args),
+  },
+}))
+
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
     users: {
@@ -48,8 +59,6 @@ jest.mock('@clerk/nextjs/server', () => ({
     },
   }),
 }))
-
-const mockTaskFindFirst = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -70,9 +79,6 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn(),
       createMany: jest.fn(),
-    },
-    task: {
-      findFirst: (...args: any[]) => mockTaskFindFirst(...args),
     },
   },
 }))
@@ -381,7 +387,7 @@ describe('documentService — explicit mentions', () => {
   it('addExplicitMention upgrades an existing CONTENT row to EXPLICIT', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
     // resolveTask queries: { id, number, team: { identifier } }
-    mockTaskFindFirst.mockResolvedValue({
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
       id: 'task_cuid_1',
       number: 42,
       team: { identifier: 'LUM' },
@@ -407,7 +413,7 @@ describe('documentService — explicit mentions', () => {
 
   it('addExplicitMention is idempotent when row is already EXPLICIT', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
-    mockTaskFindFirst.mockResolvedValue({
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
       id: 'task_cuid_1',
       number: 42,
       team: { identifier: 'LUM' },
@@ -430,9 +436,36 @@ describe('documentService — explicit mentions', () => {
     expect(result.upgradedFromContent).toBe(false)
   })
 
+  it('addExplicitMention creates a fresh row when no existing mention is found', async () => {
+    mockFindWithPermission.mockResolvedValue(ownerDoc)
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
+      id: 'task_cuid_1',
+      number: 42,
+      team: { identifier: 'LUM' },
+    })
+    mockFindMention.mockResolvedValue(null)
+    mockAddExplicitMention.mockResolvedValue({
+      documentId: 'doc1',
+      taskId: 'task_cuid_1',
+      source: 'EXPLICIT',
+    })
+
+    const result = await documentService.addExplicitMention(
+      'doc1',
+      'LUM-42',
+      'workspace1',
+      'member1'
+    )
+
+    expect(result.alreadyBound).toBe(false)
+    expect(result.upgradedFromContent).toBe(false)
+    expect(result.source).toBe('EXPLICIT')
+    expect(result.taskIdentifier).toBe('LUM-42')
+  })
+
   it('addExplicitMention 404s when task identifier does not resolve', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
-    mockTaskFindFirst.mockResolvedValue(null)
+    mockFindByWorkspaceIdentifier.mockResolvedValue(null)
 
     await expect(
       documentService.addExplicitMention(
@@ -449,7 +482,7 @@ describe('documentService — explicit mentions', () => {
 
   it('removeExplicitMention returns refused when row is CONTENT-only', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
-    mockTaskFindFirst.mockResolvedValue({
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
       id: 'task_cuid_1',
       number: 42,
       team: { identifier: 'LUM' },
@@ -470,7 +503,7 @@ describe('documentService — explicit mentions', () => {
 
   it('removeExplicitMention returns removed=0 when no row exists', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
-    mockTaskFindFirst.mockResolvedValue({
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
       id: 'task_cuid_999',
       number: 999,
       team: { identifier: 'LUM' },
@@ -491,7 +524,7 @@ describe('documentService — explicit mentions', () => {
 
   it('removeExplicitMention returns removed=1 for an EXPLICIT row', async () => {
     mockFindWithPermission.mockResolvedValue(ownerDoc)
-    mockTaskFindFirst.mockResolvedValue({
+    mockFindByWorkspaceIdentifier.mockResolvedValue({
       id: 'task_cuid_1',
       number: 42,
       team: { identifier: 'LUM' },

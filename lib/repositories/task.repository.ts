@@ -797,6 +797,22 @@ export const taskRepository = {
   },
 
   /**
+   * Resolve a workspace-scoped task by cuid, returning only the fields needed
+   * to reconstruct its human identifier (TEAM-N). Used by documentService when
+   * the caller passes a raw cuid instead of a "LUM-N" string.
+   */
+  async findByIdForMention(id: string, workspaceId: string) {
+    return prisma.task.findFirst({
+      where: { id, team: { workspaceId } },
+      select: {
+        id: true,
+        number: true,
+        team: { select: { identifier: true } },
+      },
+    })
+  },
+
+  /**
    * Lightweight lookup returning only fields sprintService needs for gate checks.
    * Used by addTaskToSprint / removeTaskFromSprint to validate team match
    * and membership without loading unrelated fields.
