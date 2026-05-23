@@ -198,8 +198,15 @@ export async function updateTask(
 
   const updated = await taskRepository.update(taskId, data)
 
+  // Only fetch tags when the request actually touched tag fields —
+  // mirrors the same gate applied in updateDocument (T7 fix).
+  const tagsTouched =
+    tagIds !== undefined ||
+    (addTagIds && addTagIds.length > 0) ||
+    (removeTagIds && removeTagIds.length > 0)
+
   // Attach tags to response
-  const tags = await tagRepository.findByTask(taskId)
+  const tags = tagsTouched ? await tagRepository.findByTask(taskId) : []
 
   // Only report fields whose values actually changed between the pre-
   // update row and the payload. Using `Object.keys(data)` wrote no-op

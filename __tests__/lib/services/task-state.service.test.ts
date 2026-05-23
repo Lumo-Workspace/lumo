@@ -44,6 +44,7 @@ import { updateTaskSchema } from '@/lib/validation/schemas'
 const syncTaskTags = tagRepository.syncTaskTags as jest.Mock
 const addTaskTags = tagRepository.addTaskTags as jest.Mock
 const removeTaskTags = tagRepository.removeTaskTags as jest.Mock
+const findByTask = tagRepository.findByTask as jest.Mock
 
 function mockTaskRow(overrides: Partial<{ status: string }> = {}) {
   return {
@@ -73,12 +74,13 @@ beforeEach(() => {
 // ── updateTask tag branching tests ───────────────────────────────────────────
 
 describe('updateTask — tag branching', () => {
-  it('bulk replace via tagIds calls syncTaskTags', async () => {
+  it('bulk replace via tagIds calls syncTaskTags and fetches tags', async () => {
     await updateTask('task-1', { tagIds: ['tag-b'] })
 
     expect(syncTaskTags).toHaveBeenCalledWith('task-1', ['tag-b'])
     expect(addTaskTags).not.toHaveBeenCalled()
     expect(removeTaskTags).not.toHaveBeenCalled()
+    expect(findByTask).toHaveBeenCalledWith('task-1')
   })
 
   it('addTagIds + removeTagIds applies add then remove (order matters)', async () => {
@@ -98,30 +100,36 @@ describe('updateTask — tag branching', () => {
     const removeOrder = (removeTaskTags as jest.Mock).mock
       .invocationCallOrder[0]!
     expect(addOrder).toBeLessThan(removeOrder)
+
+    // tags were touched, so findByTask must have been called
+    expect(findByTask).toHaveBeenCalledWith('task-1')
   })
 
-  it('only addTagIds → only add called', async () => {
+  it('only addTagIds → only add called, findByTask called', async () => {
     await updateTask('task-1', { addTagIds: ['tag-c'] })
 
     expect(addTaskTags).toHaveBeenCalledWith('task-1', ['tag-c'])
     expect(removeTaskTags).not.toHaveBeenCalled()
     expect(syncTaskTags).not.toHaveBeenCalled()
+    expect(findByTask).toHaveBeenCalledWith('task-1')
   })
 
-  it('only removeTagIds → only remove called', async () => {
+  it('only removeTagIds → only remove called, findByTask called', async () => {
     await updateTask('task-1', { removeTagIds: ['tag-a'] })
 
     expect(removeTaskTags).toHaveBeenCalledWith('task-1', ['tag-a'])
     expect(addTaskTags).not.toHaveBeenCalled()
     expect(syncTaskTags).not.toHaveBeenCalled()
+    expect(findByTask).toHaveBeenCalledWith('task-1')
   })
 
-  it('no tag fields → no tag repo calls', async () => {
+  it('no tag fields → no tag repo calls and findByTask NOT called', async () => {
     await updateTask('task-1', { title: 'New Title' })
 
     expect(syncTaskTags).not.toHaveBeenCalled()
     expect(addTaskTags).not.toHaveBeenCalled()
     expect(removeTaskTags).not.toHaveBeenCalled()
+    expect(findByTask).not.toHaveBeenCalled()
   })
 })
 
