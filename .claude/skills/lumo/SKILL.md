@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份".'
 ---
 
 ## Prerequisites
@@ -14,6 +14,52 @@ which lumo && lumo whoami
 - If `lumo` is not found: tell the user to install it (`cd cli && npm install && npm link`)
 - If `lumo whoami` fails with an auth error: tell the user to run `lumo auth login`
 - Do NOT proceed with any lumo commands until both checks pass
+
+## Authentication
+
+### `lumo auth login` — paste an API key to log in
+
+Walks the user through creating an API key in the web app and pasting it back. Opens the browser to the API Keys settings page, then reads the key from stdin (must start with the `lum_` prefix). On success prints `✓ Logged in as <email>` plus workspace + key name.
+
+```bash
+lumo auth login
+```
+
+Use when:
+
+- `lumo whoami` reports "Not logged in"
+- A bearer call returns 401 (`API key invalid or revoked`) and the user wants to re-auth
+- The user switches workspaces / accounts
+
+The CLI stores credentials in `~/.lumo/credentials.json`. There's no `--token` flag — the paste-from-browser flow is the only auth path, and that's intentional.
+
+### `lumo auth logout` — remove local credentials
+
+Wipes `~/.lumo/credentials.json`. Idempotent — running twice just prints `Not logged in` the second time.
+
+```bash
+lumo auth logout
+```
+
+Use when the user says "log out", "sign out", or wants to clear credentials before switching accounts (then run `lumo auth login` to re-auth).
+
+### `lumo whoami` — show current identity
+
+Prints the logged-in email, workspace name + slug, API key name + prefix, and API URL.
+
+```bash
+lumo whoami
+# Logged in as cli@uselumo.ai
+#   Workspace: Lumo (lumo)
+#   Key: Claude Code (lum_68d4...)
+#   API: https://www.uselumo.ai
+```
+
+Use when:
+
+- The user asks "who am I", "which workspace am I in", "what account is this"
+- You need to disambiguate whether `lumo task list` would hit the user's expected workspace
+- Before suggesting a destructive command on a shared machine — confirm the identity is right
 
 ## Task Context Loading
 
