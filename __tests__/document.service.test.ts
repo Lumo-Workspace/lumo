@@ -1,4 +1,6 @@
 import { documentService } from '@/lib/services/document.service'
+import { tagRepository } from '@/lib/repositories/tag.repository'
+import { updateDocumentSchema } from '@/lib/validation/schemas'
 
 // ── Mock dependencies ───────────────────────────────────────────────────────
 
@@ -41,6 +43,8 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   tagRepository: {
     findByDocument: jest.fn().mockResolvedValue([]),
     syncDocumentTags: jest.fn().mockResolvedValue(undefined),
+    addDocumentTags: jest.fn().mockResolvedValue(undefined),
+    removeDocumentTags: jest.fn().mockResolvedValue(undefined),
   },
 }))
 
@@ -557,11 +561,15 @@ describe('documentService — contentMarkdown', () => {
       })
     })
 
-    const result = await documentService.createDocument('workspace1', 'member1', {
-      title: 't',
-      visibility: 'PRIVATE',
-      contentMarkdown: '# Hello',
-    })
+    const result = await documentService.createDocument(
+      'workspace1',
+      'member1',
+      {
+        title: 't',
+        visibility: 'PRIVATE',
+        contentMarkdown: '# Hello',
+      }
+    )
 
     expect(result.content).toBeTruthy()
     const parsed = JSON.parse(result.content as string)
@@ -614,5 +622,193 @@ describe('documentService — contentMarkdown', () => {
       message: expect.stringMatching(/mutually exclusive/i),
       status: 400,
     })
+  })
+})
+
+// ── createDocument tagIds tests ─────────────────────────────────────────────
+
+describe('createDocument tagIds', () => {
+  it('attaches tags listed in tagIds after create', async () => {
+    mockGetMaxSortOrder.mockResolvedValue(0)
+    mockCreate.mockResolvedValue({
+      id: 'doc-tagged',
+      createdBy: { id: 'm-1', clerkId: 'clerk-1' },
+    })
+    ;(tagRepository.syncDocumentTags as jest.Mock).mockResolvedValue(undefined)
+    ;(tagRepository.findByDocument as jest.Mock).mockResolvedValue([
+      { id: 'tag-1', name: 'alpha' },
+    ])
+
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'Tagged Doc',
+      visibility: 'WORKSPACE',
+      tagIds: ['tag-1'],
+    })
+
+    expect(tagRepository.syncDocumentTags).toHaveBeenCalledWith('doc-tagged', [
+      'tag-1',
+    ])
+  })
+
+  it('omits tag work when tagIds is undefined', async () => {
+    mockGetMaxSortOrder.mockResolvedValue(0)
+    mockCreate.mockResolvedValue({
+      id: 'doc-no-tags',
+      createdBy: { id: 'm-1', clerkId: 'clerk-1' },
+    })
+    ;(tagRepository.syncDocumentTags as jest.Mock).mockClear()
+
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'No Tags Doc',
+      visibility: 'WORKSPACE',
+    })
+
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+  })
+
+  it('omits tag work when tagIds is an empty array', async () => {
+    mockGetMaxSortOrder.mockResolvedValue(0)
+    mockCreate.mockResolvedValue({
+      id: 'doc-empty-tags',
+      createdBy: { id: 'm-1', clerkId: 'clerk-1' },
+    })
+    ;(tagRepository.syncDocumentTags as jest.Mock).mockClear()
+
+    await documentService.createDocument('ws-1', 'm-1', {
+      title: 'Empty Tags Doc',
+      visibility: 'WORKSPACE',
+      tagIds: [],
+    })
+
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+  })
+})
+
+// ── updateDocument tag branching tests ──────────────────────────────────────
+
+describe('updateDocument tag branching', () => {
+  const ownerDocForTags = {
+    id: 'doc-tags',
+    createdById: 'member1',
+    shares: [],
+  }
+
+  beforeEach(() => {
+    mockFindWithPermission.mockResolvedValue(ownerDocForTags)
+    mockUpdateWithChildrenAndMentions.mockResolvedValue({
+      id: 'doc-tags',
+      title: 'Doc',
+    })
+    ;(tagRepository.findByDocument as jest.Mock).mockResolvedValue([])
+    ;(tagRepository.syncDocumentTags as jest.Mock).mockResolvedValue(undefined)
+    ;(tagRepository.addDocumentTags as jest.Mock).mockResolvedValue(undefined)
+    ;(tagRepository.removeDocumentTags as jest.Mock).mockResolvedValue(
+      undefined
+    )
+  })
+
+  it('bulk replace via tagIds calls syncDocumentTags', async () => {
+    await documentService.updateDocument('doc-tags', 'member1', 'ws-1', {
+      tagIds: ['tag-b'],
+    })
+
+    expect(tagRepository.syncDocumentTags).toHaveBeenCalledWith('doc-tags', [
+      'tag-b',
+    ])
+    expect(tagRepository.addDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.removeDocumentTags).not.toHaveBeenCalled()
+  })
+
+  it('incremental via addTagIds + removeTagIds applies add then remove', async () => {
+    await documentService.updateDocument('doc-tags', 'member1', 'ws-1', {
+      addTagIds: ['tag-c'],
+      removeTagIds: ['tag-a'],
+    })
+
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.addDocumentTags).toHaveBeenCalledWith('doc-tags', [
+      'tag-c',
+    ])
+    expect(tagRepository.removeDocumentTags).toHaveBeenCalledWith('doc-tags', [
+      'tag-a',
+    ])
+  })
+
+  it('does not call any tag repo function when no tag fields provided', async () => {
+    await documentService.updateDocument('doc-tags', 'member1', 'ws-1', {
+      title: 'New Title',
+    })
+
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.addDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.removeDocumentTags).not.toHaveBeenCalled()
+  })
+
+  it('only calls addDocumentTags when only addTagIds provided', async () => {
+    await documentService.updateDocument('doc-tags', 'member1', 'ws-1', {
+      addTagIds: ['tag-c'],
+    })
+
+    expect(tagRepository.addDocumentTags).toHaveBeenCalledWith('doc-tags', [
+      'tag-c',
+    ])
+    expect(tagRepository.removeDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+  })
+
+  it('only calls removeDocumentTags when only removeTagIds provided', async () => {
+    await documentService.updateDocument('doc-tags', 'member1', 'ws-1', {
+      removeTagIds: ['tag-a'],
+    })
+
+    expect(tagRepository.removeDocumentTags).toHaveBeenCalledWith('doc-tags', [
+      'tag-a',
+    ])
+    expect(tagRepository.addDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+  })
+})
+
+// ── updateDocumentSchema mutex test ─────────────────────────────────────────
+// The mutex is enforced at the schema layer (API route calls safeParse).
+// The service itself does not duplicate the check, so we verify here at the
+// schema level — not via documentService.updateDocument().
+
+describe('updateDocumentSchema — tagIds mutex', () => {
+  it('rejects tagIds + addTagIds at the schema layer', () => {
+    const result = updateDocumentSchema.safeParse({
+      tagIds: [],
+      addTagIds: ['clid0000000000000000000001'],
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/mutually exclusive/i)
+    }
+  })
+
+  it('rejects tagIds + removeTagIds at the schema layer', () => {
+    const result = updateDocumentSchema.safeParse({
+      tagIds: ['clid0000000000000000000001'],
+      removeTagIds: ['clid0000000000000000000002'],
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/mutually exclusive/i)
+    }
+  })
+
+  it('accepts tagIds alone (no incremental fields)', () => {
+    const result = updateDocumentSchema.safeParse({
+      tagIds: ['clid0000000000000000000001'],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts addTagIds + removeTagIds without tagIds', () => {
+    const result = updateDocumentSchema.safeParse({
+      addTagIds: ['clid0000000000000000000001'],
+      removeTagIds: ['clid0000000000000000000002'],
+    })
+    expect(result.success).toBe(true)
   })
 })

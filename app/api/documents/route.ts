@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     projectId: docProjectId,
     visibility,
     contentMarkdown,
+    tagIds,
   } = parsed.data
   const document = await documentService.createDocument(
     ws.workspaceId,
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
       parentId: docParentId ?? null,
       projectId: docProjectId ?? null,
       ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
+      ...(tagIds !== undefined ? { tagIds } : {}),
     }
   )
 

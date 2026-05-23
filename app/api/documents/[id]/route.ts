@@ -69,6 +69,10 @@ export async function PATCH(
       data.publicToken = parsed.data.publicToken ?? null
     if (parsed.data.tags !== undefined) data.tags = parsed.data.tags
     if (parsed.data.tagIds !== undefined) data.tagIds = parsed.data.tagIds
+    if (parsed.data.addTagIds !== undefined)
+      data.addTagIds = parsed.data.addTagIds
+    if (parsed.data.removeTagIds !== undefined)
+      data.removeTagIds = parsed.data.removeTagIds
     if (parsed.data.childOrder !== undefined)
       data.childOrder = parsed.data.childOrder
 
