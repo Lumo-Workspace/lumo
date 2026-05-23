@@ -291,6 +291,7 @@ describe('taskCliService.createFromCli', () => {
         teamIdentifier: 'LUM',
         number: 44,
       },
+      taskTags: [],
     })
   })
 
@@ -318,6 +319,7 @@ describe('taskCliService.createFromCli', () => {
       identifier: 'LUM-44',
       title: 'Hello',
       url: 'https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-44',
+      taskTags: [],
     })
   })
 

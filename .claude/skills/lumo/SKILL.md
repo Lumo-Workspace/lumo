@@ -101,6 +101,8 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                 |
 | `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**    |
 | `--milestone <ref>`      | string | Milestone name (case-insensitive) within the resolved project. Omit for no binding. |
+| `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.       |
+| `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                           |
 
 Examples:
 
@@ -109,13 +111,18 @@ lumo task create "Fix Slack OAuth redirect bug"
 lumo task create "Refactor task service" --priority high --description "Split into smaller files"
 lumo task create "Investigate slow query" --assignee teammate@example.com --project backend
 lumo task create "Plan API design" --milestone "v1.0"
+lumo task create "Add rate limiting" --tag bug --tag urgent
+lumo task create "Spike: evaluate caching options" --tag rfc --tag-id clm_abc123
 ```
 
-On success the command prints one line to stdout:
+On success the command prints one or two lines to stdout:
 
 ```
 Created LUM-55 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-55
+Tags: bug, urgent
 ```
+
+The `Tags:` line is omitted when no tags were attached.
 
 If the workspace has multiple projects and `--project` is omitted, the server will return an error naming available projects — re-run with `--project <slug>`.
 
@@ -164,7 +171,9 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 
 ### Out of scope
 
-The CLI does **not** currently update tags / labels, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
+The CLI does **not** currently update sprint, due date, or parent task. Those need to be edited in the web UI.
+
+Tags can be attached at create time via `--tag <name>` / `--tag-id <cuid>` on `task create`. Tag updates on existing tasks (`task update`) are not yet supported via the CLI.
 
 Milestone updates (`--milestone`) work, and full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below).
 

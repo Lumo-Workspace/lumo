@@ -145,7 +145,13 @@ async function createFromCli(args: {
     milestoneRef?: string | undefined
     tagIds?: string[] | undefined
   }
-}): Promise<{ id: string; identifier: string; title: string; url: string }> {
+}): Promise<{
+  id: string
+  identifier: string
+  title: string
+  url: string
+  taskTags: Array<{ id: string; name: string }>
+}> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
 
   const projectId = await resolveProjectId(workspaceId, input.projectRef)
@@ -176,7 +182,7 @@ async function createFromCli(args: {
     )
   }
 
-  const { task } = await taskService.createTask(
+  const { task, taskTags } = await taskService.createTask(
     projectId,
     {
       title: input.title,
@@ -194,7 +200,7 @@ async function createFromCli(args: {
   const identifier = `${task.teamIdentifier}-${task.number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
 
-  return { id: task.id, identifier, title: task.title, url }
+  return { id: task.id, identifier, title: task.title, url, taskTags }
 }
 
 async function updateFromCli(args: {

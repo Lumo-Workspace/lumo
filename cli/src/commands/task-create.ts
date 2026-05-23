@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { resolveTagRefs } from '../lib/tag-resolver'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -10,6 +11,8 @@ export interface CreateTaskOptions {
   assignee?: string
   project?: string
   milestone?: string
+  tag?: string[]
+  tagId?: string[]
 }
 
 interface CreatedTaskResponse {
@@ -18,6 +21,7 @@ interface CreatedTaskResponse {
     identifier: string
     title: string
     url: string
+    taskTags?: Array<{ id: string; name: string }>
   }
 }
 
@@ -36,16 +40,22 @@ export function normalizePriority(value: string): Priority | null {
 /**
  * Format the single-line success output. Title is double-quoted; embedded
  * double-quotes are backslash-escaped so the output stays parseable as one
- * shell-safe token group.
+ * shell-safe token group. An optional Tags line is appended when tags are
+ * present.
  */
 export function formatCreatedTaskLine(task: {
   id: string
   identifier: string
   title: string
   url: string
+  tags?: string[]
 }): string {
   const escapedTitle = task.title.replace(/"/g, '\\"')
-  return `Created ${task.identifier} "${escapedTitle}"  ${task.url}`
+  const head = `Created ${task.identifier} "${escapedTitle}"  ${task.url}`
+  if (task.tags && task.tags.length > 0) {
+    return `${head}\nTags: ${task.tags.join(', ')}`
+  }
+  return head
 }
 
 export async function taskCreate(
@@ -82,6 +92,22 @@ export async function taskCreate(
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
   const url = `${trimTrailingSlash(apiUrl)}/api/tasks`
 
+  let tagIds: string[] | undefined
+  if (
+    (opts.tag && opts.tag.length > 0) ||
+    (opts.tagId && opts.tagId.length > 0)
+  ) {
+    try {
+      tagIds = await resolveTagRefs(
+        { names: opts.tag ?? [], ids: opts.tagId ?? [] },
+        { apiUrl, token: creds.token }
+      )
+    } catch (err) {
+      console.error(`Error: ${(err as Error).message}`)
+      return 1
+    }
+  }
+
   const body: Record<string, unknown> = {
     title: title.trim(),
     priority,
@@ -90,6 +116,7 @@ export async function taskCreate(
   if (opts.project !== undefined) body.projectRef = opts.project
   if (opts.assignee !== undefined) body.assigneeRef = opts.assignee
   if (opts.milestone !== undefined) body.milestoneRef = opts.milestone
+  if (tagIds && tagIds.length > 0) body.tagIds = tagIds
 
   let res: Response
   try {
@@ -114,7 +141,10 @@ export async function taskCreate(
 
   if (res.status === 201) {
     const data = (await res.json()) as CreatedTaskResponse
-    process.stdout.write(formatCreatedTaskLine(data.task) + '\n')
+    const responseTagNames = (data.task.taskTags ?? []).map(t => t.name)
+    process.stdout.write(
+      formatCreatedTaskLine({ ...data.task, tags: responseTagNames }) + '\n'
+    )
     return
   }
 

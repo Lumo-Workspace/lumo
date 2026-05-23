@@ -173,6 +173,8 @@ task
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option('--project <ref>', 'Project name or slug')
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
+  .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
+  .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
