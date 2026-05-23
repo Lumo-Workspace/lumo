@@ -131,6 +131,8 @@ export const API = {
     listByProject: (projectId: string) =>
       `/api/projects/${projectId}/milestones`,
     byId: (milestoneId: string) => `/api/milestones/${milestoneId}`,
+    byProjectAndSlug: (projectId: string, slug: string) =>
+      `/api/projects/${projectId}/milestones/by-slug/${encodeURIComponent(slug)}`,
   },
   teams: {
     tasks: (teamId: string) => `/api/teams/${teamId}/tasks`,

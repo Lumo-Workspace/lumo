@@ -6,6 +6,7 @@ export interface ApiMilestone {
   id: string
   projectId: string
   name: string
+  slug: string
   description: string | null
   status: MilestoneStatus
   startDate: string | null
@@ -42,6 +43,12 @@ export const milestonesClient = {
   getById(milestoneId: string) {
     return apiFetch<{ milestone: ApiMilestone }>(
       API.milestones.byId(milestoneId)
+    )
+  },
+
+  getByProjectAndSlug(projectId: string, slug: string) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.byProjectAndSlug(projectId, slug)
     )
   },
 

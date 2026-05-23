@@ -69,12 +69,14 @@ describe('milestoneRepository.create', () => {
     const result = await milestoneRepository.create({
       projectId: 'p1',
       name: 'v1.0',
+      slug: 'v1-0',
     })
     expect(result).toEqual(created)
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
         projectId: 'p1',
         name: 'v1.0',
+        slug: 'v1-0',
         description: null,
         startDate: null,
         targetDate: null,
