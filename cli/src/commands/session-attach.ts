@@ -6,6 +6,7 @@ interface BindResponse {
   taskIdentifier: string
   taskTitle: string
   retaggedEventCount: number
+  memorySection: string
 }
 
 /**
@@ -94,4 +95,8 @@ export async function sessionAttach(
       result.retaggedEventCount === 1 ? '' : 's'
     } in this session.`
   )
+  if (result.memorySection !== '') {
+    console.log('')
+    console.log(result.memorySection)
+  }
 }

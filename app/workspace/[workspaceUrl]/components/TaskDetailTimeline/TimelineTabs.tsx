@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
-import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
@@ -49,9 +48,6 @@ export function TimelineTabs({
     enabled: activeTab === 'activity',
   })
 
-  const agentRuns = useAgentRuns({ taskId, enabled: true })
-  const unsyncedMemoryCount = agentRuns.data?.unsyncedMemoryCount ?? 0
-
   const tabClass = (active: boolean) =>
     `pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
       active
@@ -90,21 +86,13 @@ export function TimelineTabs({
           })}
         </button>
         <button
-          className={`flex items-center gap-1.5 ${tabClass(activeTab === 'agent')}`}
+          className={tabClass(activeTab === 'agent')}
           onClick={() => setActiveTab('agent')}
         >
           {intl.formatMessage({
             id: 'task.agentRun',
             defaultMessage: 'Agent 运行',
           })}
-          {unsyncedMemoryCount > 0 && (
-            <span className='normal-case tracking-normal text-[10px] font-medium px-1.5 py-px rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400'>
-              {intl.formatMessage(
-                { id: 'agentRun.memoryBadge', defaultMessage: '+{n} 条新记忆' },
-                { n: unsyncedMemoryCount }
-              )}
-            </span>
-          )}
         </button>
       </div>
 
@@ -136,7 +124,6 @@ export function TimelineTabs({
         <AgentRunTab
           taskId={taskId}
           enabled={activeTab === 'agent'}
-          memoryCount={unsyncedMemoryCount}
         />
       )}
     </div>

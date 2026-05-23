@@ -1,7 +1,6 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { lumoProposalRepository } from '@/lib/repositories/lumo-proposal.repository'
 import type { HookEventType, MemoryCategory } from '@prisma/client'
 
 // Wire-format types returned to the client. Kept separate from Prisma
@@ -43,7 +42,6 @@ export interface AgentRunSession {
 
 export interface AgentRunTimelineResult {
   runs: AgentRunSession[]
-  unsyncedMemoryCount: number
 }
 
 export const agentRunTimelineService = {
@@ -58,11 +56,10 @@ export const agentRunTimelineService = {
    * as a single trailing "Unlinked" run so they're still visible.
    */
   async getTimeline(taskId: string): Promise<AgentRunTimelineResult> {
-    const [sessions, events, memories, latestApplied] = await Promise.all([
+    const [sessions, events, memories] = await Promise.all([
       sessionRepository.listForTask(taskId, 50),
       hookEventRepository.findByTaskId(taskId),
       memoryRepository.findByTaskIdWithSession(taskId),
-      lumoProposalRepository.findLatestAppliedForTask(taskId),
     ])
 
     // Bucket events + memories by sessionId.
@@ -163,13 +160,8 @@ export const agentRunTimelineService = {
       r.runNumber = i + 1
     })
 
-    const syncCutoff = latestApplied?.appliedAt ?? null
-    const unsyncedMemoryCount = syncCutoff
-      ? memories.filter(m => m.createdAt > syncCutoff).length
-      : memories.length
-
     // Newest run first.
-    return { runs: nonEmptyRuns.reverse(), unsyncedMemoryCount }
+    return { runs: nonEmptyRuns.reverse() }
   },
 }
 

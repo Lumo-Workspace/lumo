@@ -73,28 +73,51 @@ function readStdin(): Promise<string> {
 }
 
 /**
- * Format the session-start response body into a human/Claude-readable string
- * that gets written to stdout so Claude Code injects it into conversation
- * context.
+ * Build the array of stdout lines to emit for a given hook path + response
+ * body. Returns an empty array for any path other than 'session-start'.
  *
- * Returns null when the body is missing required fields or not an object —
- * callers should treat null as "nothing to print".
+ * For 'session-start' the array contains:
+ *   [0] plain-text bind/unbound status line (always present when taskBinding exists)
+ *   [1] (optional) hookSpecificOutput JSON when memorySection is a non-empty string
+ *
+ * The JSON on line [1] conforms to Claude Code's hookSpecificOutput envelope so
+ * the runtime injects additionalContext into the conversation automatically.
  */
-export function formatSessionStartOutput(body: unknown): string | null {
-  if (!body || typeof body !== 'object') return null
-  const b = body as Record<string, unknown>
-  const sessionId = b.sessionId
-  const binding = b.taskBinding
-  if (typeof sessionId !== 'string' || !binding || typeof binding !== 'object')
-    return null
-  const tb = binding as Record<string, unknown>
-  if (tb.bound === true) {
-    return `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${tb.taskTitle}`
+export function formatHookStdoutLines(
+  path: string,
+  responseBody: unknown
+): string[] {
+  if (path !== 'session-start') return []
+  if (responseBody == null || typeof responseBody !== 'object') return []
+  const body = responseBody as {
+    sessionId?: string
+    taskBinding?: { bound: boolean; taskIdentifier?: string; taskTitle?: string }
+    memorySection?: string
   }
-  if (tb.bound === false) {
-    return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+  if (!body.sessionId) return []
+  const lines: string[] = []
+  const sessionId = body.sessionId
+  const tb = body.taskBinding
+  if (tb && tb.bound === true) {
+    lines.push(
+      `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${tb.taskTitle}`
+    )
+  } else if (tb && tb.bound === false) {
+    lines.push(
+      `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+    )
   }
-  return null
+  if (typeof body.memorySection === 'string' && body.memorySection !== '') {
+    lines.push(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'SessionStart',
+          additionalContext: body.memorySection,
+        },
+      })
+    )
+  }
+  return lines
 }
 
 /**
@@ -152,8 +175,9 @@ export async function runHookWithBody(
         // server failure doesn't desync local state from server state.
         try {
           const responseBody = await res.json()
-          const output = formatSessionStartOutput(responseBody)
-          if (output) process.stdout.write(output + '\n')
+          for (const line of formatHookStdoutLines(path, responseBody)) {
+            process.stdout.write(line + '\n')
+          }
         } catch {
           // response body parse failure is non-fatal
         }

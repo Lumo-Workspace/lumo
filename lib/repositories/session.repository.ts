@@ -194,12 +194,13 @@ export const sessionRepository = {
   async findTaskBinding(
     sessionId: string
   ): Promise<
-    | { bound: true; taskIdentifier: string; taskTitle: string }
+    | { bound: true; taskId: string; taskIdentifier: string; taskTitle: string }
     | { bound: false }
   > {
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
       select: {
+        taskId: true,
         task: {
           select: {
             number: true,
@@ -209,9 +210,10 @@ export const sessionRepository = {
         },
       },
     })
-    if (!session?.task) return { bound: false }
+    if (!session?.task || !session.taskId) return { bound: false }
     return {
       bound: true,
+      taskId: session.taskId,
       taskIdentifier: `${session.task.team.identifier}-${session.task.number}`,
       taskTitle: session.task.title,
     }

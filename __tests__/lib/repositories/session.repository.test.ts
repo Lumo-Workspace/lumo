@@ -243,17 +243,20 @@ describe('sessionRepository.findTaskBinding', () => {
 
   it('returns bound:true with identifier and title when session has a task', async () => {
     findUnique().mockResolvedValue({
+      taskId: 'task-abc',
       task: { number: 12, title: 'Add OAuth', team: { identifier: 'LUM' } },
     })
     const result = await sessionRepository.findTaskBinding('sess_1')
     expect(result).toEqual({
       bound: true,
+      taskId: 'task-abc',
       taskIdentifier: 'LUM-12',
       taskTitle: 'Add OAuth',
     })
     expect(findUnique()).toHaveBeenCalledWith({
       where: { id: 'sess_1' },
       select: {
+        taskId: true,
         task: {
           select: {
             number: true,

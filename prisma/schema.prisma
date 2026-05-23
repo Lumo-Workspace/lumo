@@ -355,7 +355,6 @@ model Project {
   priorityOverrides     PriorityOverride[]
   summaries             ProjectSummary[]
   memories              Memory[]
-  lumoProposals         LumoProposal[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -427,7 +426,6 @@ model Task {
   taskTags          TaskTag[]
   sentryIssueLinks  SentryIssueLink[]
   memories          Memory[]
-  lumoProposals     LumoProposal[]
   slackContexts     TaskSlackContext[]
   webLinks          TaskWebLink[]
 
@@ -1289,36 +1287,6 @@ model Memory {
   @@index([projectId, scope])
   @@index([taskId])
   @@map("memories")
-}
-
-// ─── LUMO.md Proposals (Layer 2 memory → knowledge file) ─────────────────────
-
-enum LumoProposalStatus {
-  PENDING
-  APPLIED
-  REJECTED
-  SUPERSEDED
-}
-
-model LumoProposal {
-  id             String             @id @default(cuid())
-  projectId      String
-  taskId         String
-  status         LumoProposalStatus @default(PENDING)
-  operations     Json
-  lumoMdSnapshot String?            @db.Text
-  summary        String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  appliedAt      DateTime?
-  prUrl          String?
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([projectId])
-  @@index([taskId])
-  @@map("lumo_proposals")
 }
 
 // ─── Task Slack Context ──────────────────────────────────────────────────────
