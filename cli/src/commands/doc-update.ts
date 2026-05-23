@@ -6,7 +6,7 @@ import {
   readFileUtf8,
 } from '../lib/doc-input'
 import { normalizeScope } from './doc-create'
-import { resolveDoc, isLikelyCuid } from '../lib/resolve-doc'
+import { lookupDocId } from '../lib/resolve-doc-id'
 
 export interface UpdateDocOptions {
   title?: string
@@ -23,35 +23,6 @@ export function formatUpdatedDocLine(doc: {
 }): string {
   const escaped = doc.title.replace(/"/g, '\\"')
   return `Updated ${doc.id} "${escaped}"  ${doc.url}`
-}
-
-async function lookupDocId(
-  apiUrl: string,
-  token: string,
-  reference: string
-): Promise<string | null> {
-  if (isLikelyCuid(reference)) return reference
-  const listUrl = `${trimTrailingSlash(apiUrl)}/api/documents`
-  const res = await fetch(listUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) return null
-  const { documents } = (await res.json()) as {
-    documents: { id: string; title: string }[]
-  }
-  const result = resolveDoc(reference, documents)
-  if (result.kind === 'found') return result.doc.id
-  if (result.kind === 'ambiguous') {
-    console.error(
-      `Error: title "${reference}" matches ${result.candidates.length} docs:`
-    )
-    for (const c of result.candidates) {
-      console.error(`  ${c.id}  ${c.title}`)
-    }
-    console.error('Re-run with the cuid.')
-    return null
-  }
-  return null
 }
 
 export async function docUpdate(
