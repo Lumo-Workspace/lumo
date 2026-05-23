@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 
 interface Params {
   params: Promise<{ milestoneId: string }>
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       milestoneId,
       identity.memberId
     )
-    return NextResponse.json({ milestone })
+    const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
+    return NextResponse.json({ milestone: { ...milestone, taskCounts } })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

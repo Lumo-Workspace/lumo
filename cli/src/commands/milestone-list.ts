@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { resolveProjectId } from '../lib/resolve'
 
 interface MilestoneRow {
   id: string
@@ -11,16 +12,6 @@ interface MilestoneRow {
 
 interface MilestonesResponse {
   milestones: MilestoneRow[]
-}
-
-interface ProjectRow {
-  id: string
-  name: string
-  isIdea?: boolean
-}
-
-interface ProjectsResponse {
-  projects: ProjectRow[]
 }
 
 export interface MilestoneListOptions {
@@ -50,17 +41,6 @@ export function formatMilestoneList(rows: MilestoneRow[]): string {
     .join('\n')
 }
 
-/**
- * Mirror of `lib/utils/slugify` — keep in sync with project-list.ts.
- */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 export async function milestoneList(
   options: MilestoneListOptions
 ): Promise<number | void> {
@@ -73,52 +53,12 @@ export async function milestoneList(
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
   const base = trimTrailingSlash(apiUrl)
 
-  // Resolve project: --project flag, or the only project in the workspace.
-  let projectsRes: Response
+  let projectId: string
   try {
-    projectsRes = await fetch(`${base}/api/projects`, {
-      headers: { Authorization: `Bearer ${creds.token}` },
-    })
+    projectId = await resolveProjectId(base, creds.token, options.project)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
-  }
-
-  if (projectsRes.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
-    return 1
-  }
-  if (!projectsRes.ok) {
-    console.error(`Error: could not list projects (HTTP ${projectsRes.status})`)
-    return 1
-  }
-
-  const { projects } = (await projectsRes.json()) as ProjectsResponse
-  const visible = projects.filter(p => !p.isIdea)
-
-  let projectId: string | undefined
-  if (options.project) {
-    const ref = options.project.trim().toLowerCase()
-    const match = visible.find(
-      p => p.name.toLowerCase() === ref || slugify(p.name) === ref
-    )
-    if (!match) {
-      console.error(
-        `Error: project "${options.project}" not found. Try \`lumo project list\`.`
-      )
-      return 1
-    }
-    projectId = match.id
-  } else if (visible.length === 1) {
-    projectId = visible[0]!.id
-  } else if (visible.length === 0) {
-    console.error('Error: workspace has no projects yet.')
-    return 1
-  } else {
-    console.error(
-      'Error: workspace has multiple projects; pass --project <slug>.'
-    )
+    console.error(`Error: ${msg}`)
     return 1
   }
 

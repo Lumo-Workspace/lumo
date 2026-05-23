@@ -18,6 +18,10 @@ import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
+import { milestoneCreate } from './commands/milestone-create'
+import { milestoneShow } from './commands/milestone-show'
+import { milestoneUpdate } from './commands/milestone-update'
+import { milestoneDelete } from './commands/milestone-delete'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -111,7 +115,7 @@ task
 task
   .command('list')
   .description(
-    'List tasks assigned to you. Filter with --status, --project, --limit.'
+    'List tasks assigned to you. Filter with --status, --project, --milestone, --limit.'
   )
   .option(
     '-s, --status <value>',
@@ -119,6 +123,10 @@ task
   )
   .option('-p, --project <ref>', 'Filter by project name (case-insensitive)')
   .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option(
+    '-m, --milestone <ref>',
+    'Filter by milestone name or UUID (scopes to my tasks under that milestone)'
+  )
   .action(wrap(options => taskList(options as Record<string, string>)))
 
 task
@@ -180,6 +188,69 @@ milestoneCmd
   )
   .option('--project <ref>', 'Project name or slug')
   .action(wrap(options => milestoneList(options as Record<string, string>)))
+
+milestoneCmd
+  .command('create <name>')
+  .description(
+    'Create a milestone. --project required when workspace has >1 project.'
+  )
+  .option('--project <ref>', 'Project name or slug')
+  .option('-d, --description <text>', 'Milestone description')
+  .option('--start <date>', 'Start date (YYYY-MM-DD)')
+  .option('--target <date>', 'Target date (YYYY-MM-DD)')
+  .action(
+    wrap((name, options) =>
+      milestoneCreate(name as string, options as Record<string, string>)
+    )
+  )
+
+milestoneCmd
+  .command('show <identifier>')
+  .description(
+    'Show a milestone: status, dates, description, task counts, and tasks under it. Identifier accepts UUID or name.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .action(
+    wrap((identifier, options) =>
+      milestoneShow(identifier as string, options as Record<string, string>)
+    )
+  )
+
+milestoneCmd
+  .command('update <identifier>')
+  .description(
+    'Update a milestone. Provide at least one of --name, --description, --status, --start, --target. Use "" to clear nullable fields.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option('-n, --name <text>', 'New name')
+  .option('-d, --description <text>', 'New description (empty string to clear)')
+  .option(
+    '-s, --status <value>',
+    'New status: planned | active | completed | cancelled'
+  )
+  .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
+  .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
+  .action(
+    wrap((identifier, options) =>
+      milestoneUpdate(identifier as string, options as Record<string, string>)
+    )
+  )
+
+milestoneCmd
+  .command('delete <identifier>')
+  .description(
+    'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option('--yes', 'Required: confirm deletion without TTY prompt')
+  .action(
+    wrap((identifier, options) =>
+      milestoneDelete(
+        identifier as string,
+        options as { project?: string; yes?: boolean }
+      )
+    )
+  )
 
 task
   .command('update <identifier>')
