@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档".'
 ---
 
 ## Prerequisites
@@ -333,6 +333,7 @@ Use this when the user wants to write a new document from the terminal. Title is
 | `--task <LUM-N>`   | string              | Bind to this task immediately after create.                                                                      |
 | `--tag <name>`     | string (repeatable) | Attach tag by name. Creates tag if missing. Max 20 per call.                                                     |
 | `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
+| `--parent <doc>`   | string              | cuid or case-insensitive title. Files the new doc under this parent. Omit for root.                              |
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one.
 
@@ -342,6 +343,7 @@ Examples:
 lumo doc create "RFC: doc CLI" --scope workspace --file scratch/rfc.md --task LUM-66
 lumo doc create "RFC: tags" --tag rfc --tag draft
 lumo doc create "Design spec" --tag-id clm_abc123 --tag draft
+lumo doc create "Sub-doc" --parent "RFC"
 ```
 
 Success output:
@@ -412,19 +414,63 @@ Use when the user wants the current state or content of a doc without loading fu
 
 Default behavior: lists every document the current user can see, as fixed-width rows: `<cuid>  <SCOPE>  <project|->  <title>`.
 
-| Flag              | Type   | Notes                                                                         |
-| ----------------- | ------ | ----------------------------------------------------------------------------- |
-| `--scope <scope>` | enum   | `personal`, `workspace`, or `all`. Default `all`.                             |
-| `--project <ref>` | string | Filter by project.                                                            |
-| `--task <LUM-N>`  | string | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`. |
-| `--limit <n>`     | int    | Cap output to the first N rows.                                               |
+| Flag              | Type    | Notes                                                                                  |
+| ----------------- | ------- | -------------------------------------------------------------------------------------- |
+| `--scope <scope>` | enum    | `personal`, `workspace`, or `all`. Default `all`.                                      |
+| `--project <ref>` | string  | Filter by project.                                                                     |
+| `--task <LUM-N>`  | string  | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`.          |
+| `--limit <n>`     | int     | Cap output to the first N rows.                                                        |
+| `--tree`          | boolean | Render as an indented tree (two spaces per depth level) instead of the flat row table. |
+
+`--tree` plus the existing filters work together: the CLI fetches with the filters applied, then builds the tree from whatever rows came back. Docs whose parent is **not** in the result (e.g. filtered out by `--task LUM-N`) render as top-level rows. `--limit N --tree` truncates the flat list to N rows _before_ the tree is built, so a deeply nested subtree may not appear contiguously.
 
 When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
+
+Examples:
+
+```bash
+lumo doc list --scope workspace
+lumo doc list --task LUM-42
+lumo doc list --scope workspace --tree
+```
 
 ### When to suggest `doc list`
 
 - The user asks "what docs do I have", "show me workspace docs", "what's on LUM-42".
 - Before suggesting `doc update` or `doc delete` when no doc ID is in context — run `doc list` first to surface candidates.
+
+### `lumo doc move <doc> [flags]` — move a doc under a different parent or to root
+
+Reparents a doc. `<doc>` accepts a cuid or a case-insensitive title; ambiguous titles fail with a candidate list — re-run with the cuid.
+
+| Flag             | Type    | Notes                                            |
+| ---------------- | ------- | ------------------------------------------------ |
+| `--parent <doc>` | string  | New parent doc (cuid or case-insensitive title). |
+| `--root`         | boolean | Move to top level (`parentId = null`).           |
+
+`--parent` and `--root` are **mutually exclusive** and one of them is **required**. CLI errors before any network call if both or neither is supplied.
+
+The new `sortOrder` is computed CLI-side as `max(sibling.sortOrder) + 1` — the moved doc lands at the end of its new sibling list. Reordering among siblings (`--before` / `--after`) is not yet supported; for now use the Web UI to reorder.
+
+Examples:
+
+```bash
+lumo doc move "Sub-doc" --parent "Roadmap"
+lumo doc move "Sub-doc" --root
+lumo doc move cmd_xxx --parent cmd_yyy
+```
+
+Output:
+
+```
+Moved cmd_xxx "Sub-doc" → "Roadmap"
+Moved cmd_xxx "Sub-doc" → root
+```
+
+### When to suggest `doc move`
+
+- User says "move doc X under Y", "把文档 X 挂到 Y 下", "reparent X to root", "promote X to top level".
+- After `doc create`, if the user realizes the new doc should live elsewhere in the tree — suggest `doc move` rather than recreating.
 
 ### `lumo doc delete <doc> --yes` — delete a document
 
@@ -507,9 +553,9 @@ lumo doc share-list "RFC"
 
 The CLI does **not** currently support:
 
-- Doc tree (parent / sortOrder) operations.
 - `--from-editor` (interactive $EDITOR).
 - Lossless markdown round-trip.
+- Reordering siblings within the same parent (`--before` / `--after`); use the Web UI for that.
 
 ### When to suggest session binding for docs
 

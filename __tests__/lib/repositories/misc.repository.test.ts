@@ -206,7 +206,8 @@ describe('miscRepository.createPriorityOverride', () => {
 // ── DocumentMention ────────────────────────────────────────────────────────
 
 describe('miscRepository.findDocumentMentionsByTask', () => {
-  it('returns document mentions with document details', async () => {
+  it('returns document mentions with document details including tree fields', async () => {
+    const updatedAt = new Date()
     const mentions = [
       {
         id: 'dm1',
@@ -214,7 +215,11 @@ describe('miscRepository.findDocumentMentionsByTask', () => {
           id: 'doc1',
           title: 'Design',
           emoji: null,
-          updatedAt: new Date(),
+          updatedAt,
+          parentId: null,
+          sortOrder: 0,
+          visibility: 'WORKSPACE',
+          project: { id: 'prj1', name: 'Lumo' },
         },
       },
     ]
@@ -241,7 +246,16 @@ describe('miscRepository.findDocumentMentionsByTask', () => {
       },
       include: {
         document: {
-          select: { id: true, title: true, emoji: true, updatedAt: true },
+          select: {
+            id: true,
+            title: true,
+            emoji: true,
+            updatedAt: true,
+            parentId: true,
+            sortOrder: true,
+            visibility: true,
+            project: { select: { id: true, name: true } },
+          },
         },
       },
     })
