@@ -89,6 +89,17 @@ export const reorderProjectsSchema = z.object({
     .max(500, 'orderedIds is limited to 500 entries'),
 })
 
+// ─── Tag shared shapes ─────────────────────────────────────────────────────
+
+const tagsIncrementalShape = {
+  addTagIds: z.array(z.string().cuid()).max(20).optional(),
+  removeTagIds: z.array(z.string().cuid()).max(20).optional(),
+} as const
+
+const tagIdsShape = {
+  tagIds: z.array(z.string().cuid()).max(20).optional(),
+} as const
+
 // ─── Task ───────────────────────────────────────────────────────────────────
 
 export const createTaskSchema = z.object({
@@ -113,24 +124,31 @@ export const createTaskSchema = z.object({
   milestoneId: z.string().nullable().optional(),
   order: z.number().optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  ...tagIdsShape,
 })
 
-export const updateTaskSchema = z.object({
-  title: z.string().trim().min(1).max(500).optional(),
-  description: z.string().max(10000).nullable().optional(),
-  spec: z.string().max(20000).nullable().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  assigneeActorId: z.string().nullable().optional(),
-  projectId: z.string().optional(),
-  parentTaskId: z.string().nullable().optional(),
-  repositoryId: z.string().nullable().optional(),
-  order: z.number().optional(),
-  dueDate: z.string().datetime().nullable().optional(),
-  tagIds: z.array(z.string().cuid()).max(20).optional(),
-  sprintId: z.string().nullable().optional(),
-  milestoneId: z.string().nullable().optional(),
-})
+export const updateTaskSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500).optional(),
+    description: z.string().max(10000).nullable().optional(),
+    spec: z.string().max(20000).nullable().optional(),
+    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+    assigneeActorId: z.string().nullable().optional(),
+    projectId: z.string().optional(),
+    parentTaskId: z.string().nullable().optional(),
+    repositoryId: z.string().nullable().optional(),
+    order: z.number().optional(),
+    dueDate: z.string().datetime().nullable().optional(),
+    tagIds: z.array(z.string().cuid()).max(20).optional(),
+    sprintId: z.string().nullable().optional(),
+    milestoneId: z.string().nullable().optional(),
+    ...tagsIncrementalShape,
+  })
+  .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
+    message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
+    path: ['tagIds'],
+  })
 
 /**
  * CLI-side task create: accepts human-friendly refs (project name/slug,
@@ -153,6 +171,7 @@ export const cliCreateTaskSchema = z.object({
   projectRef: z.string().trim().min(1).max(200).optional(),
   assigneeRef: z.string().trim().min(1).max(200).optional(),
   milestoneRef: z.string().trim().min(1).max(200).optional(),
+  ...tagIdsShape,
 })
 
 /**
@@ -164,19 +183,26 @@ export const cliCreateTaskSchema = z.object({
  * Note: there is no at-least-one-field guard here — the route enforces it
  * after parsing so the error message can name the missing flags.
  */
-export const cliUpdateTaskSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, 'Title cannot be empty')
-    .max(500, 'Title must be at most 500 characters')
-    .optional(),
-  description: z.string().max(10000).nullable().optional(),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
-  milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
-})
+export const cliUpdateTaskSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Title cannot be empty')
+      .max(500, 'Title must be at most 500 characters')
+      .optional(),
+    description: z.string().max(10000).nullable().optional(),
+    status: z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']).optional(),
+    priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+    assigneeRef: z.string().trim().min(1).max(200).nullable().optional(),
+    milestoneRef: z.string().trim().min(1).max(200).nullable().optional(),
+    ...tagIdsShape,
+    ...tagsIncrementalShape,
+  })
+  .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
+    message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
+    path: ['tagIds'],
+  })
 
 // ─── Batch Task Creation ───────────────────────────────────────────────────
 
@@ -279,21 +305,28 @@ export const createDocumentSchema = z.object({
     .optional()
     .default('PRIVATE'),
   contentMarkdown: z.string().max(500000).optional(),
+  ...tagIdsShape,
 })
 
-export const updateDocumentSchema = z.object({
-  title: z.string().trim().min(1).max(500).optional(),
-  content: z.string().max(500000).nullable().optional(),
-  contentMarkdown: z.string().max(500000).optional(),
-  emoji: z.string().max(10).nullable().optional(),
-  visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
-  projectId: z.string().cuid().nullable().optional(),
-  sortOrder: z.number().optional(),
-  childOrder: z.array(z.string()).optional(),
-  publicToken: z.string().max(30).nullable().optional(),
-  tags: z.array(z.string().max(30)).max(20).optional(),
-  tagIds: z.array(z.string().cuid()).max(20).optional(),
-})
+export const updateDocumentSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500).optional(),
+    content: z.string().max(500000).nullable().optional(),
+    contentMarkdown: z.string().max(500000).optional(),
+    emoji: z.string().max(10).nullable().optional(),
+    visibility: z.enum(['PRIVATE', 'SHARED', 'WORKSPACE']).optional(),
+    projectId: z.string().cuid().nullable().optional(),
+    sortOrder: z.number().optional(),
+    childOrder: z.array(z.string()).optional(),
+    publicToken: z.string().max(30).nullable().optional(),
+    tags: z.array(z.string().max(30)).max(20).optional(),
+    tagIds: z.array(z.string().cuid()).max(20).optional(),
+    ...tagsIncrementalShape,
+  })
+  .refine(v => !(v.tagIds && (v.addTagIds || v.removeTagIds)), {
+    message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
+    path: ['tagIds'],
+  })
 
 export const createDocumentMentionSchema = z.object({
   taskIdentifier: z
