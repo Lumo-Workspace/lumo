@@ -59,9 +59,7 @@ Rules:
   - Neither → CLI error before any network call: `Specify --parent <doc> or --root`.
   - Both → CLI error before any network call: `--parent and --root are mutually exclusive`.
 - `<doc>` and `--parent <doc>` are resolved via the existing `lookupDocId()`. Resolution failure / ambiguity → CLI error.
-- `sortOrder` is computed CLI-side as `max(sibling.sortOrder) + 1` (empty siblings → `0`). Siblings are fetched via:
-  - `GET /api/documents?parentId=<id>` when moving under a parent,
-  - `GET /api/documents?rootOnly=true` when moving to root.
+- `sortOrder` is computed CLI-side via pure helper `pickNextSortOrder(siblings)` = `max(sibling.sortOrder) + 1` (empty siblings → `0`). Siblings are derived from the same `GET /api/documents` payload already fetched for ref resolution — no extra round trip.
 - The PATCH call is `PATCH /api/documents/<docId>/move` with body `{ parentId, sortOrder }`.
 - Subtree-cycle prevention already runs server-side; CLI surfaces the 400 message as-is.
 
@@ -86,14 +84,14 @@ Output (single line):
 
 **CLI** (new / changed files under `cli/`):
 
-| File                              | Action | Purpose                                                                                                  |
-| --------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
-| `cli/src/commands/doc-move.ts`    | new    | `docMove(reference, opts)` handler.                                                                      |
-| `cli/src/commands/doc-create.ts`  | edit   | Accept new `parent` option, resolve to cuid via `lookupDocId()`, include `parentId` in request body.     |
-| `cli/src/commands/doc-list.ts`    | edit   | Accept new `tree` option, branch to `renderDocTree()` instead of the flat row formatter.                 |
-| `cli/src/lib/doc-tree.ts`         | new    | Pure functions `buildTree(rows)` and `flattenWithDepth(tree)` for tree assembly and rendering.           |
-| `cli/src/lib/get-doc-siblings.ts` | new    | `getNextSortOrder(apiUrl, token, parentId \| null)` — calls the list endpoint, returns next `sortOrder`. |
-| `cli/src/index.ts`                | edit   | Register `doc move`, add `--parent` to `doc create`, add `--tree` to `doc list`.                         |
+| File                             | Action | Purpose                                                                                              |
+| -------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `cli/src/commands/doc-move.ts`   | new    | `docMove(reference, opts)` handler.                                                                  |
+| `cli/src/commands/doc-create.ts` | edit   | Accept new `parent` option, resolve to cuid via `lookupDocId()`, include `parentId` in request body. |
+| `cli/src/commands/doc-list.ts`   | edit   | Accept new `tree` option, branch to `renderDocTree()` instead of the flat row formatter.             |
+| `cli/src/lib/doc-tree.ts`        | new    | Pure functions `buildTree(rows)` and `flattenWithDepth(tree)` for tree assembly and rendering.       |
+| `cli/src/lib/doc-sort-order.ts`  | new    | Pure function `pickNextSortOrder(siblings)` — `max(sibling.sortOrder) + 1` or `0` for empty input.   |
+| `cli/src/index.ts`               | edit   | Register `doc move`, add `--parent` to `doc create`, add `--tree` to `doc list`.                     |
 
 **Server** (the only non-CLI file touched):
 
