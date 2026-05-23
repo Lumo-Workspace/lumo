@@ -2,9 +2,9 @@
  * @jest-environment node
  */
 
-import { formatSessionStartOutput } from '@/cli/src/lib/hook-runner'
+import { formatHookStdoutLines } from '@/cli/src/lib/hook-runner'
 
-describe('formatSessionStartOutput', () => {
+describe('formatHookStdoutLines (session-start stdout)', () => {
   it('returns bound message when taskBinding.bound is true', () => {
     const body = {
       sessionId: 'sess_abc',
@@ -14,7 +14,9 @@ describe('formatSessionStartOutput', () => {
         taskTitle: 'Add OAuth',
       },
     }
-    expect(formatSessionStartOutput(body)).toBe(
+    const lines = formatHookStdoutLines('session-start', body)
+    expect(lines.length).toBeGreaterThanOrEqual(1)
+    expect(lines[0]).toBe(
       '[Lumo] session_id=sess_abc | 当前任务: LUM-12 - Add OAuth'
     )
   })
@@ -24,22 +26,24 @@ describe('formatSessionStartOutput', () => {
       sessionId: 'sess_abc',
       taskBinding: { bound: false },
     }
-    expect(formatSessionStartOutput(body)).toBe(
+    const lines = formatHookStdoutLines('session-start', body)
+    expect(lines.length).toBeGreaterThanOrEqual(1)
+    expect(lines[0]).toBe(
       '[Lumo] session_id=sess_abc | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。'
     )
   })
 
-  it('returns null when body has no taskBinding', () => {
-    expect(formatSessionStartOutput({ ok: true })).toBeNull()
+  it('returns [] when body has no taskBinding', () => {
+    expect(formatHookStdoutLines('session-start', { ok: true })).toHaveLength(0)
   })
 
-  it('returns null when body has no sessionId', () => {
+  it('returns [] when body has no sessionId', () => {
     const body = { taskBinding: { bound: false } }
-    expect(formatSessionStartOutput(body)).toBeNull()
+    expect(formatHookStdoutLines('session-start', body)).toHaveLength(0)
   })
 
-  it('returns null for null/undefined body', () => {
-    expect(formatSessionStartOutput(null)).toBeNull()
-    expect(formatSessionStartOutput(undefined)).toBeNull()
+  it('returns [] for null/undefined body', () => {
+    expect(formatHookStdoutLines('session-start', null)).toHaveLength(0)
+    expect(formatHookStdoutLines('session-start', undefined)).toHaveLength(0)
   })
 })

@@ -73,33 +73,6 @@ function readStdin(): Promise<string> {
 }
 
 /**
- * Format the session-start response body into a human/Claude-readable string
- * that gets written to stdout so Claude Code injects it into conversation
- * context.
- *
- * Returns null when the body is missing required fields or not an object —
- * callers should treat null as "nothing to print".
- *
- * @deprecated Use formatHookStdoutLines instead.
- */
-export function formatSessionStartOutput(body: unknown): string | null {
-  if (!body || typeof body !== 'object') return null
-  const b = body as Record<string, unknown>
-  const sessionId = b.sessionId
-  const binding = b.taskBinding
-  if (typeof sessionId !== 'string' || !binding || typeof binding !== 'object')
-    return null
-  const tb = binding as Record<string, unknown>
-  if (tb.bound === true) {
-    return `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${tb.taskTitle}`
-  }
-  if (tb.bound === false) {
-    return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
-  }
-  return null
-}
-
-/**
  * Build the array of stdout lines to emit for a given hook path + response
  * body. Returns an empty array for any path other than 'session-start'.
  *
@@ -115,11 +88,13 @@ export function formatHookStdoutLines(
   responseBody: unknown
 ): string[] {
   if (path !== 'session-start') return []
+  if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as {
     sessionId?: string
     taskBinding?: { bound: boolean; taskIdentifier?: string; taskTitle?: string }
     memorySection?: string
   }
+  if (!body.sessionId) return []
   const lines: string[] = []
   const sessionId = body.sessionId
   const tb = body.taskBinding
