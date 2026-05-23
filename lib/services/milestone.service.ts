@@ -1,5 +1,10 @@
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
+import {
+  buildMilestoneSlugBase,
+  resolveUniqueMilestoneSlug,
+} from '@/lib/utils/milestone-slug'
 import type { MilestoneStatus } from '@prisma/client'
 
 interface CreateInput {
@@ -32,15 +37,35 @@ export const milestoneService = {
     return milestone
   },
 
+  async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {
+    await projectService.getProject(projectId, memberId)
+    const milestone = await milestoneRepository.findByProjectAndSlug(
+      projectId,
+      slug
+    )
+    if (!milestone) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    return milestone
+  },
+
   async createMilestone(
     projectId: string,
     memberId: string,
     input: CreateInput
   ) {
     await projectService.getProject(projectId, memberId)
+    const existingSlugs = new Set(
+      await milestoneRepository.findSlugsByProject(projectId)
+    )
+    const slug = resolveUniqueMilestoneSlug(
+      buildMilestoneSlugBase(input.name),
+      existingSlugs
+    )
     return milestoneRepository.create({
       projectId,
       name: input.name,
+      slug,
       description: input.description ?? null,
       ...(input.startDate !== undefined && { startDate: input.startDate }),
       ...(input.targetDate !== undefined && { targetDate: input.targetDate }),
@@ -86,6 +111,22 @@ export const milestoneService = {
     }
     await projectService.getProject(existing.projectId, memberId)
     await milestoneRepository.delete(milestoneId)
+  },
+
+  async listTasks(
+    milestoneId: string,
+    memberId: string,
+    opts: { assigneeActorId?: string }
+  ) {
+    const milestone = await milestoneRepository.findById(milestoneId)
+    if (!milestone) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    await projectService.getProject(milestone.projectId, memberId)
+    return taskRepository.findByMilestone({
+      milestoneId,
+      ...(opts.assigneeActorId && { assigneeActorId: opts.assigneeActorId }),
+    })
   },
 }
 

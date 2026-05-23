@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope".'
 ---
 
 ## Prerequisites
@@ -14,6 +14,52 @@ which lumo && lumo whoami
 - If `lumo` is not found: tell the user to install it (`cd cli && npm install && npm link`)
 - If `lumo whoami` fails with an auth error: tell the user to run `lumo auth login`
 - Do NOT proceed with any lumo commands until both checks pass
+
+## Authentication
+
+### `lumo auth login` — paste an API key to log in
+
+Walks the user through creating an API key in the web app and pasting it back. Opens the browser to the API Keys settings page, then reads the key from stdin (must start with the `lum_` prefix). On success prints `✓ Logged in as <email>` plus workspace + key name.
+
+```bash
+lumo auth login
+```
+
+Use when:
+
+- `lumo whoami` reports "Not logged in"
+- A bearer call returns 401 (`API key invalid or revoked`) and the user wants to re-auth
+- The user switches workspaces / accounts
+
+The CLI stores credentials in `~/.lumo/credentials.json`. There's no `--token` flag — the paste-from-browser flow is the only auth path, and that's intentional.
+
+### `lumo auth logout` — remove local credentials
+
+Wipes `~/.lumo/credentials.json`. Idempotent — running twice just prints `Not logged in` the second time.
+
+```bash
+lumo auth logout
+```
+
+Use when the user says "log out", "sign out", or wants to clear credentials before switching accounts (then run `lumo auth login` to re-auth).
+
+### `lumo whoami` — show current identity
+
+Prints the logged-in email, workspace name + slug, API key name + prefix, and API URL.
+
+```bash
+lumo whoami
+# Logged in as cli@uselumo.ai
+#   Workspace: Lumo (lumo)
+#   Key: Claude Code (lum_68d4...)
+#   API: https://www.uselumo.ai
+```
+
+Use when:
+
+- The user asks "who am I", "which workspace am I in", "what account is this"
+- You need to disambiguate whether `lumo task list` would hit the user's expected workspace
+- Before suggesting a destructive command on a shared machine — confirm the identity is right
 
 ## Task Context Loading
 
@@ -120,7 +166,7 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 
 The CLI does **not** currently update tags / labels, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
 
-Milestone updates (`--milestone`) work, but creating / editing / deleting milestones themselves is web-UI only — use the [Milestones tab on the project detail page](https://www.uselumo.ai/) or `lumo milestone list` for discovery.
+Milestone updates (`--milestone`) work, and full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below).
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
@@ -131,11 +177,14 @@ LUM-42  IN_PROGRESS  HIGH    web        Fix Slack OAuth redirect
 LUM-48  TODO         MEDIUM  backend    Investigate slow query
 ```
 
-| Flag                   | Type    | Notes                                                                            |
-| ---------------------- | ------- | -------------------------------------------------------------------------------- |
-| `-s, --status <value>` | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
-| `-p, --project <ref>`  | string  | Filter by project name (case-insensitive match against display name).            |
-| `-n, --limit <count>`  | integer | Cap output to the first N rows.                                                  |
+| Flag                    | Type    | Notes                                                                            |
+| ----------------------- | ------- | -------------------------------------------------------------------------------- |
+| `-s, --status <value>`  | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
+| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).            |
+| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                          |
+| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                  |
+
+When `--milestone` is set, the CLI calls `GET /api/milestones/<id>/tasks?assigned=me` instead of `/api/tasks/me`. Other filters (`--status`, `--limit`) still apply client-side to the milestone-scoped result.
 
 Filtering is currently client-side — the server returns the full "my tasks" set and the CLI slices it. This is fine for typical workspaces (dozens of tasks); revisit if a workspace has hundreds.
 
@@ -190,20 +239,76 @@ lumo milestone list --project lumo   # multi-project workspace
 
 When to suggest: before `task create --project <ref>` when the workspace has more than one project and the user hasn't specified which one.
 
+### `lumo milestone create <name>` — create a milestone
+
+| Flag                   | Type   | Notes                                   |
+| ---------------------- | ------ | --------------------------------------- |
+| `--project <ref>`      | string | Required when workspace has >1 project. |
+| `-d, --description <>` | string | Optional.                               |
+| `--start <date>`       | string | YYYY-MM-DD.                             |
+| `--target <date>`      | string | YYYY-MM-DD.                             |
+
+Examples:
+
+```bash
+lumo milestone create "Q3 Launch"
+lumo milestone create "Q3 Launch" --start 2026-06-01 --target 2026-08-31
+```
+
+On success: `Created milestone "Q3 Launch"  <id>`.
+
+### `lumo milestone show <identifier>` — show milestone detail + tasks
+
+Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
+
+Prints a key:value header (name, status, dates, project, description), task counts, and the full task table under the milestone.
+
+```bash
+lumo milestone show "Q3 Launch"
+lumo milestone show 11111111-2222-3333-4444-555555555555
+```
+
+### `lumo milestone update <identifier>` — patch a milestone
+
+| Flag                   | Type   | Notes                                                            |
+| ---------------------- | ------ | ---------------------------------------------------------------- |
+| `--project <ref>`      | string | Required when identifier is a name and workspace has >1 project. |
+| `-n, --name <text>`    | string | Cannot be empty.                                                 |
+| `-d, --description <>` | string | `--description ""` clears.                                       |
+| `-s, --status <value>` | enum   | `planned \| active \| completed \| cancelled`.                   |
+| `--start <date>`       | string | `--start ""` clears.                                             |
+| `--target <date>`      | string | `--target ""` clears.                                            |
+
+At least one field required.
+
+```bash
+lumo milestone update "Q3 Launch" --status active
+lumo milestone update "Q3 Launch" --target 2026-09-15
+lumo milestone update "Q3 Launch" --description ""
+```
+
+### `lumo milestone delete <identifier>` — delete a milestone
+
+Requires `--yes`. No interactive prompt — CLI is agent-friendly. Tasks under the milestone keep their data; their `milestoneId` is cleared.
+
+```bash
+lumo milestone delete "Q3 Launch" --yes
+```
+
 ## Document Management
 
 ### `lumo doc create [title] [flags]` — create a new document
 
 Use this when the user wants to write a new document from the terminal. Title is positional and optional. When omitted, the doc title defaults to empty (server renders as "Untitled" via i18n).
 
-| Flag | Type | Notes |
-| --- | --- | --- |
-| `--content <text>` | string | Inline markdown body. |
-| `--file <path>` | string | Read markdown body from file. |
-| (stdin) | — | Pipe markdown; treated as content when stdin is not a TTY. |
-| `--scope <scope>` | enum | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE. |
-| `--project <ref>` | string | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
-| `--task <LUM-N>` | string | Bind to this task immediately after create. |
+| Flag               | Type   | Notes                                                                                                            |
+| ------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| `--content <text>` | string | Inline markdown body.                                                                                            |
+| `--file <path>`    | string | Read markdown body from file.                                                                                    |
+| (stdin)            | —      | Pipe markdown; treated as content when stdin is not a TTY.                                                       |
+| `--scope <scope>`  | enum   | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.                                                |
+| `--project <ref>`  | string | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
+| `--task <LUM-N>`   | string | Bind to this task immediately after create.                                                                      |
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one.
 
@@ -228,14 +333,14 @@ Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/
 
 `<doc>` accepts a cuid or a case-insensitive title. Ambiguous titles fail with a candidate list — re-run with the cuid.
 
-| Flag | Type | Notes |
-| --- | --- | --- |
-| `--title <text>` | string | New title (cannot be empty). |
-| `--content <text>` | string | Replace content (inline). |
-| `--file <path>` | string | Replace content from file. |
-| (stdin) | — | Pipe to replace content. |
-| `--scope <scope>` | enum | `personal` / `workspace`. |
-| `--project <ref>` | string | Project name/slug. `--project ""` clears the filing. |
+| Flag               | Type   | Notes                                                |
+| ------------------ | ------ | ---------------------------------------------------- |
+| `--title <text>`   | string | New title (cannot be empty).                         |
+| `--content <text>` | string | Replace content (inline).                            |
+| `--file <path>`    | string | Replace content from file.                           |
+| (stdin)            | —      | Pipe to replace content.                             |
+| `--scope <scope>`  | enum   | `personal` / `workspace`.                            |
+| `--project <ref>`  | string | Project name/slug. `--project ""` clears the filing. |
 
 Examples:
 
@@ -266,12 +371,12 @@ Use when the user wants the current state or content of a doc without loading fu
 
 Default behavior: lists every document the current user can see, as fixed-width rows: `<cuid>  <SCOPE>  <project|->  <title>`.
 
-| Flag | Type | Notes |
-| --- | --- | --- |
-| `--scope <scope>` | enum | `personal`, `workspace`, or `all`. Default `all`. |
-| `--project <ref>` | string | Filter by project. |
-| `--task <LUM-N>` | string | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`. |
-| `--limit <n>` | int | Cap output to the first N rows. |
+| Flag              | Type   | Notes                                                                         |
+| ----------------- | ------ | ----------------------------------------------------------------------------- |
+| `--scope <scope>` | enum   | `personal`, `workspace`, or `all`. Default `all`.                             |
+| `--project <ref>` | string | Filter by project.                                                            |
+| `--task <LUM-N>`  | string | Only docs bound to this task. Routes through `GET /api/tasks/<id>/documents`. |
+| `--limit <n>`     | int    | Cap output to the first N rows.                                               |
 
 When `--task` is combined with `--scope` / `--project`, those become client-side filters on the task-scoped result.
 

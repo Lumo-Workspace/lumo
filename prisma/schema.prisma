@@ -475,6 +475,7 @@ model Milestone {
   id          String          @id @default(cuid())
   projectId   String
   name        String
+  slug        String
   description String?
   status      MilestoneStatus @default(PLANNED)
   startDate   DateTime?
@@ -486,6 +487,7 @@ model Milestone {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
 
+  @@unique([projectId, slug])
   @@index([projectId])
   @@index([projectId, status])
   @@map("milestones")

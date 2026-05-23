@@ -8,6 +8,7 @@ import {
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
+import { waitUntil } from '@vercel/functions'
 import type {
   UpdateTaskInput,
   TaskUpdateResult,
@@ -231,6 +232,27 @@ export async function updateTaskWithSideEffects(
     actorId,
     actorClerkId,
   })
+
+  // Layer 2 memory consolidation: fire when a task just transitioned to
+  // DONE. This is the natural sediment point — every TASK-scope memory
+  // from this task is now stable, and the next agent on a sibling task in
+  // the same project benefits from any promoted lessons. Fire-and-forget;
+  // failures inside the service are caught there and never reach here.
+  //
+  // The import is dynamic on purpose: `layer2.service` transitively pulls
+  // in the AI SDK gateway, whose `TransformStream` use blows up in the
+  // default jest environment. A top-level static import would force every
+  // test that touches `task-state.service` to load that chain.
+  if (result.changedFields.includes('status') && input.status === 'DONE') {
+    const projectId = result.task.projectId as string
+    waitUntil(
+      (async () => {
+        const { layer2Service } =
+          await import('@/lib/services/memory/layer2.service')
+        await layer2Service.triggerForTaskCompletion({ taskId, projectId })
+      })()
+    )
+  }
 
   return result
 }

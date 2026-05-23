@@ -55,6 +55,8 @@ export const queryKeys = {
       ['milestones', 'byProject', projectId] as const,
     detail: (milestoneId: string) =>
       ['milestones', 'detail', milestoneId] as const,
+    byProjectAndSlug: (projectId: string, slug: string) =>
+      ['milestones', 'byProjectAndSlug', projectId, slug] as const,
   },
 
   documents: {

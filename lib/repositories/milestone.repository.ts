@@ -18,6 +18,12 @@ export const milestoneRepository = {
     return prisma.milestone.findUnique({ where: { id } })
   },
 
+  async findByProjectAndSlug(projectId: string, slug: string) {
+    return prisma.milestone.findUnique({
+      where: { projectId_slug: { projectId, slug } },
+    })
+  },
+
   async findByProject(projectId: string) {
     return prisma.milestone.findMany({
       where: { projectId },
@@ -28,9 +34,18 @@ export const milestoneRepository = {
     })
   },
 
+  async findSlugsByProject(projectId: string): Promise<string[]> {
+    const rows = await prisma.milestone.findMany({
+      where: { projectId },
+      select: { slug: true },
+    })
+    return rows.map(r => r.slug)
+  },
+
   async create(data: {
     projectId: string
     name: string
+    slug: string
     description?: string | null
     startDate?: Date | null
     targetDate?: Date | null
@@ -39,6 +54,7 @@ export const milestoneRepository = {
       data: {
         projectId: data.projectId,
         name: data.name,
+        slug: data.slug,
         description: data.description ?? null,
         startDate: data.startDate ?? null,
         targetDate: data.targetDate ?? null,

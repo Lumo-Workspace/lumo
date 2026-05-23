@@ -571,6 +571,24 @@ export const taskRepository = {
     })
   },
 
+  /** Find tasks under a milestone, optionally filtered by assignee.
+   * Used by GET /api/milestones/[id]/tasks (milestone show + task list --milestone).
+   */
+  async findByMilestone(opts: {
+    milestoneId: string
+    assigneeActorId?: string
+  }) {
+    const where: Prisma.TaskWhereInput = { milestoneId: opts.milestoneId }
+    if (opts.assigneeActorId) {
+      where.assigneeActorId = opts.assigneeActorId
+    }
+    return prisma.task.findMany({
+      where,
+      include: TASK_ASSIGNED_INCLUDE,
+      orderBy: { order: 'asc' },
+    })
+  },
+
   /** Find all tasks for a sprint (across all projects in the team).
    * Used by GET /api/sprints/[sprintId]/tasks for the Sprint Board.
    *

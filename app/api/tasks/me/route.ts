@@ -46,6 +46,7 @@ export async function GET(req: Request) {
     const orderMap = new Map(taskOrders.map(o => [o.taskId, o.order]))
 
     return NextResponse.json({
+      // TODO(LUM-65 follow-up): adopt flattenTaskForListing
       tasks: tasks.map(t => {
         const { owner, ...projectFields } = t.project
         return {

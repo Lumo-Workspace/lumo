@@ -12,6 +12,28 @@ export interface UpdateProjectInput {
   ownerId?: string | null | undefined
 }
 
+// ── Internal helpers ────────────────────────────────────────────────────────
+
+/**
+ * Defense-in-depth workspace scoping for any service method that resolves a
+ * project by id alone. Routes that already validate workspace membership
+ * upfront (via `loadProjectAndMember` / `requireWorkspaceMember`) get this
+ * check as a redundant pass; bearer-token / MCP / agent flows that hand a
+ * raw projectId to the service rely on it as their primary defense.
+ *
+ * Throws 404 (not 403) on mismatch so the existence of foreign projects
+ * doesn't leak through the error code.
+ */
+async function ensureMemberInProjectWorkspace(
+  memberId: string,
+  projectWorkspaceId: string
+): Promise<void> {
+  const member = await memberRepository.findById(memberId)
+  if (!member || member.workspaceId !== projectWorkspaceId) {
+    throw Object.assign(new Error('Project not found'), { status: 404 })
+  }
+}
+
 // ── Project Service ─────────────────────────────────────────────────────────
 
 export const projectService = {
@@ -75,12 +97,18 @@ export const projectService = {
     })
   },
 
-  /** Get a single project. Throws 404 if not found or if idea not owned by member. */
+  /** Get a single project. Throws 404 if not found, if the caller belongs to
+   * a different workspace, or if the project is an idea draft not owned by
+   * the caller. The workspace check is the primary defense for bearer-token
+   * and MCP callers that don't validate workspace membership at the route
+   * layer — see `ensureMemberInProjectWorkspace`. */
   async getProject(projectId: string, memberId: string) {
     const project = await projectRepository.findById(projectId)
     if (!project) {
       throw Object.assign(new Error('Project not found'), { status: 404 })
     }
+
+    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
 
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Project not found'), { status: 404 })
@@ -153,6 +181,8 @@ export const projectService = {
       throw Object.assign(new Error('Project not found'), { status: 404 })
     }
 
+    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
+
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
@@ -195,7 +225,7 @@ export const projectService = {
     }
   },
 
-  /** Delete a project. Validates idea delete permission. */
+  /** Delete a project. Validates workspace scoping and idea delete permission. */
   async deleteProject(
     projectId: string,
     workspaceSlug: string,
@@ -205,6 +235,8 @@ export const projectService = {
     if (!project) {
       throw Object.assign(new Error('Project not found'), { status: 404 })
     }
+
+    await ensureMemberInProjectWorkspace(memberId, project.workspaceId)
 
     if (project.isIdea && project.createdByMemberId !== memberId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })

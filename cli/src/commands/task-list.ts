@@ -1,5 +1,10 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { resolveMilestoneId } from '../lib/resolve'
+
+export { formatTaskListTable } from '../lib/format'
+export type { TaskRow } from '../lib/format'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -8,16 +13,15 @@ export interface ListTaskOptions {
   status?: string
   project?: string
   limit?: string
+  milestone?: string
 }
 
-interface TaskRow {
-  id: string
-  number: number
-  title: string
-  status: string
-  priority: string
-  teamIdentifier: string
-  project: { id: string; name: string }
+export function resolveTaskListEndpoint(
+  base: string,
+  milestoneId: string | undefined
+): string {
+  if (!milestoneId) return `${base}/api/tasks/me`
+  return `${base}/api/milestones/${milestoneId}/tasks?assigned=me`
 }
 
 interface ListResponse {
@@ -30,39 +34,6 @@ function normalizeStatusFilter(value: string): Status | null {
   return (ALLOWED_STATUSES as readonly string[]).includes(upper)
     ? (upper as Status)
     : null
-}
-
-/**
- * Render the task list as a fixed-width table. Each row:
- *   LUM-42  IN_PROGRESS  HIGH    project-name   Title here
- * Columns are right-padded to the widest cell in the result set so output
- * lines up regardless of identifier or project-name length.
- */
-export function formatTaskListTable(tasks: TaskRow[]): string {
-  if (tasks.length === 0) return 'No tasks.'
-  const rows = tasks.map(t => ({
-    identifier: `${t.teamIdentifier}-${t.number}`,
-    status: t.status,
-    priority: t.priority,
-    project: t.project.name,
-    title: t.title,
-  }))
-  const widths = {
-    identifier: Math.max(...rows.map(r => r.identifier.length)),
-    status: Math.max(...rows.map(r => r.status.length)),
-    priority: Math.max(...rows.map(r => r.priority.length)),
-    project: Math.max(...rows.map(r => r.project.length)),
-  }
-  return rows
-    .map(
-      r =>
-        `${r.identifier.padEnd(widths.identifier)}  ` +
-        `${r.status.padEnd(widths.status)}  ` +
-        `${r.priority.padEnd(widths.priority)}  ` +
-        `${r.project.padEnd(widths.project)}  ` +
-        r.title
-    )
-    .join('\n')
 }
 
 export async function taskList(opts: ListTaskOptions): Promise<number | void> {
@@ -94,7 +65,27 @@ export async function taskList(opts: ListTaskOptions): Promise<number | void> {
 
   const envUrl = process.env.LUMO_API_URL?.trim()
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
-  const url = `${trimTrailingSlash(apiUrl)}/api/tasks/me`
+  const base = trimTrailingSlash(apiUrl)
+
+  let milestoneId: string | undefined
+  if (opts.milestone !== undefined) {
+    try {
+      const resolved = await resolveMilestoneId(
+        base,
+        creds.token,
+        opts.milestone,
+        opts.project
+      )
+      milestoneId = resolved.id
+    } catch (err) {
+      console.error(
+        `Error: ${err instanceof Error ? err.message : String(err)}`
+      )
+      return 1
+    }
+  }
+
+  const url = resolveTaskListEndpoint(base, milestoneId)
 
   let res: Response
   try {

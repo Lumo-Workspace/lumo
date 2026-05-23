@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { slugify } from '../lib/resolve'
 
 interface ProjectRow {
   id: string
@@ -15,6 +16,9 @@ interface ProjectsResponse {
  * Render projects as `slug-style-name  Display Name` lines. The slug form
  * matches what `lumo task create --project <ref>` accepts (slugify(name)),
  * so users can copy a slug straight into the create flag.
+ *
+ * Slug source of truth: `cli/src/lib/resolve.ts` (mirrors server's
+ * `lib/utils/slugify.ts`). Keep that single copy in sync with the server.
  */
 export function formatProjectList(projects: ProjectRow[]): string {
   if (projects.length === 0) return 'No projects.'
@@ -24,18 +28,6 @@ export function formatProjectList(projects: ProjectRow[]): string {
   if (rows.length === 0) return 'No projects.'
   const w = Math.max(...rows.map(r => r.slug.length))
   return rows.map(r => `${r.slug.padEnd(w)}  ${r.name}`).join('\n')
-}
-
-/**
- * Mirror of `lib/utils/slugify` so CLI output matches the server's
- * `--project <ref>` matching exactly. Keep these two in sync.
- */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 export async function projectList(): Promise<number | void> {

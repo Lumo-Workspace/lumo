@@ -31,9 +31,9 @@ export const memoryRepository = {
   },
 
   /**
-   * All project-scoped memories for a project. Used by Layer 3 to feed the
-   * merge LLM the existing project facts so it can decide ADD vs UPDATE vs
-   * NOOP without dual-writing or stale-overwriting.
+   * All project-scoped memories for a project. Used by Layer 2 consolidation
+   * to feed the LLM existing project facts so it can decide ADD vs UPDATE vs
+   * NOOP without duplicating an already-promoted lesson.
    */
   async findActiveProjectMemories(projectId: string) {
     return prisma.memory.findMany({
@@ -43,6 +43,31 @@ export const memoryRepository = {
         id: true,
         category: true,
         content: true,
+        createdAt: true,
+      },
+    })
+  },
+
+  /**
+   * Most recent TASK-scope memories for a project, newest first, capped at
+   * `limit`. Layer 2 consolidation reads these to look for recurring lessons
+   * across tasks. The `taskId` is included so the prompt can group rows by
+   * source task (the "this lesson surfaced in N different tasks" signal).
+   *
+   * `limit` exists to bound prompt size; v1 picks a small cap (e.g. 200) and
+   * accepts that very old rows will not be re-considered. If a workspace
+   * outgrows this, switch to a cursor-based scan.
+   */
+  async findRecentTaskScopeMemoriesByProject(projectId: string, limit: number) {
+    return prisma.memory.findMany({
+      where: { projectId, scope: 'TASK', taskId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        category: true,
+        content: true,
+        taskId: true,
         createdAt: true,
       },
     })
