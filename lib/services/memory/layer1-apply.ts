@@ -83,13 +83,19 @@ export async function applyLayer1Operations(
         continue
       }
       const category = op.category
+      // PROJECT-scope memories MUST have taskId=null so they aren't double-
+      // counted under the source task's view (they're surfaced via the
+      // project-scope path on every task in the project). LLM omits scope
+      // → fall back to TASK to keep pre-scope outputs working.
+      const scope = op.scope ?? 'TASK'
+      const taskId = scope === 'PROJECT' ? null : input.taskId
       plans.push(async tx => {
         await memoryRepository.create(
           {
             workspaceId: input.workspaceId,
             projectId: input.projectId,
-            taskId: input.taskId,
-            scope: 'TASK',
+            taskId,
+            scope,
             category,
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: input.sessionId,

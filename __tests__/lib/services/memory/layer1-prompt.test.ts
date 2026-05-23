@@ -176,6 +176,33 @@ describe('buildLayer1Prompt', () => {
     expect(out.system).toContain('GOOD:')
   })
 
+  it('explains the TASK vs PROJECT scope distinction in the system prompt', () => {
+    // Without this guidance the LLM never produces PROJECT-scope ADDs and
+    // the cross-task injection block stays empty (regression: LUM-68).
+    const out = buildLayer1Prompt({
+      task: baseTask,
+      turnEvents: [],
+      existingMemories: [],
+    })
+    expect(out.system).toMatch(/scope/i)
+    expect(out.system).toContain('TASK')
+    expect(out.system).toContain('PROJECT')
+    // Must describe when each scope applies in plain terms.
+    expect(out.system).toMatch(/this (specific )?task/i)
+    expect(out.system).toMatch(/any task|every task|all tasks/i)
+  })
+
+  it('embeds at least one ADD example that demonstrates scope=PROJECT', () => {
+    // Examples teach by example; without a PROJECT instance the LLM tends
+    // to default everything to TASK.
+    const out = buildLayer1Prompt({
+      task: baseTask,
+      turnEvents: [],
+      existingMemories: [],
+    })
+    expect(out.user).toMatch(/"scope":\s*"PROJECT"/)
+  })
+
   it('embeds examples covering ADD, UPDATE, DELETE, and NOOP', () => {
     const out = buildLayer1Prompt({
       task: baseTask,

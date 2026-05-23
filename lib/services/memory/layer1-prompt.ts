@@ -64,10 +64,24 @@ Write for a teammate who joins the project tomorrow and never saw this conversat
 
 # Operations
 
-- ADD: new memory. Provide category + content.
+- ADD: new memory. Provide category + content, plus an optional \`scope\` (see below).
 - UPDATE: refine an existing memory. Provide its id and a full replacement content object (same category as the existing row).
 - DELETE: an existing memory was contradicted or superseded. Provide its id.
 - NOOP: nothing in this turn worth recording. Output a single { type: "NOOP" } if the turn is unremarkable.
+
+# Scope (ADD only)
+
+Every ADD has an optional \`scope\` field with two values:
+
+- TASK (default) — useful ONLY while working on this specific task. The lesson does not generalize to other tasks in the project. Example: a DECISION about how to ship this specific feature ("this PR is split into two commits, the second backfills").
+- PROJECT — useful when working on ANY task in this project. The lesson generalizes across tasks. Example: a CONVENTION the team adopts going forward ("all new schemas must use Zod"), a TRAP about the toolchain ("Postgres enums can't be altered and used in the same migration"), or a PROCEDURAL workflow ("how to safely add a new enum value").
+
+When in doubt, prefer TASK. A future agent working on a different task should not be shown information that only mattered for the original task.
+
+Rules of thumb (not laws — judge per memory):
+- CONVENTION → almost always PROJECT (project-wide rules by definition).
+- TRAP / PROCEDURAL → PROJECT when about the toolchain, framework, or environment that every task touches; TASK when about a specific feature or file you're currently building.
+- DECISION → TASK when the choice is about this feature's design; PROJECT when the choice changes how the team builds going forward.
 
 # Quality rules
 
@@ -101,31 +115,31 @@ export function buildLayer1Prompt(input: BuildPromptInput): BuiltPrompt {
 
   const examples = `# Examples
 
-Example 1 — TRAP from a tool failure (problem only, workaround goes to PROCEDURAL)
+Example 1 — TRAP + PROCEDURAL from a tool failure (PROJECT scope — toolchain lesson applies to every migration task)
 Turn (excerpt):
   [12:00:01] Bash "npx prisma migrate dev --name add_status" ERR — stderr: P3009: enum can't add value mid-migration
 Existing memories: (none)
 Output:
   { "operations": [
-    { "type": "ADD", "category": "TRAP",
+    { "type": "ADD", "category": "TRAP", "scope": "PROJECT",
       "content": {
         "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
         "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
       } },
-    { "type": "ADD", "category": "PROCEDURAL",
+    { "type": "ADD", "category": "PROCEDURAL", "scope": "PROJECT",
       "content": {
         "workflow": "How to safely add a new Postgres enum value in Prisma",
         "trigger": "Whenever you need to add a value to an existing enum and use it in the same change.",
         "steps": ["Create a first migration that only adds the new enum value.", "Create a second migration that uses the value (e.g. sets it as a column default or backfills rows)."]
       } } ] }
 
-Example 2 — CONVENTION from a user instruction
+Example 2 — CONVENTION from a user instruction (PROJECT scope — applies to every future task)
 Turn (excerpt):
   [turn end] "Per user: 'all new schemas need to use Zod' — applied to OrgInvite schema."
 Existing memories: (none)
 Output:
   { "operations": [
-    { "type": "ADD", "category": "CONVENTION",
+    { "type": "ADD", "category": "CONVENTION", "scope": "PROJECT",
       "content": {
         "rule": "All new request and response schemas must be defined with Zod, not handwritten TypeScript types or other validators.",
         "scope": "Applies to every new schema added to this project from now on. Existing schemas can be migrated opportunistically but are not required to change immediately."

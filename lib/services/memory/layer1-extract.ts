@@ -20,10 +20,13 @@ const memoryCategorySchema = z.enum([
  * minor shape error on one op doesn't reject the whole batch) while still
  * gating writes on the strict per-category Zod schemas.
  */
+const memoryScopeSchema = z.enum(['TASK', 'PROJECT'])
+
 export const layer1OperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('ADD'),
     category: memoryCategorySchema,
+    scope: memoryScopeSchema.optional(),
     content: z.unknown(),
   }),
   z.object({
