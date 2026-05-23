@@ -4,7 +4,7 @@
   "private": true,
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
   "bin": {
-    "lumo": "./dist/index.js"
+    "lumo": "./dist/cli/src/index.js"
   },
   "files": [
     "dist"

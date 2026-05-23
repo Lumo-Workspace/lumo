@@ -117,3 +117,11 @@ export interface RetryAgentRequest {
   taskId: string
   actorClerkId: string
 }
+
+// ── Markdown ↔ Tiptap converter ───────────────────────────────────────────────
+export {
+  markdownToTiptap,
+  tiptapToMarkdown,
+  type TiptapNode,
+  type TiptapDoc,
+} from './markdown-tiptap'

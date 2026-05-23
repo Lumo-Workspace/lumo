@@ -26,7 +26,11 @@ import { docDelete } from './commands/doc-delete'
 import { docBind } from './commands/doc-bind'
 import { docUnbind } from './commands/doc-unbind'
 
-const pkg = require('../package.json') as { version: string }
+// Resolve package.json relative to __dirname so this works regardless of how
+// deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
+const pkg = require(path.resolve(__dirname, '../../..', 'package.json')) as {
+  version: string
+}
 
 // One-shot cleanup of pre-LUM-46 local state. The session→task binding
 // is now server-authoritative; the legacy global pointer and the
