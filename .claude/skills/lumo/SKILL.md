@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag".'
 ---
 
 ## Prerequisites
@@ -136,14 +136,22 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 
 Pure flag-driven update. Provide at least one of:
 
-| Flag                   | Type   | Notes                                                                                  |
-| ---------------------- | ------ | -------------------------------------------------------------------------------------- |
-| `-t, --title <text>`   | string | Cannot be empty.                                                                       |
-| `-d, --description <>` | string | `--description ""` clears the field.                                                   |
-| `-s, --status <value>` | enum   | `todo \| in_progress \| in_review \| done` (case-insensitive).                         |
-| `-p, --priority <lvl>` | enum   | `low \| medium \| high \| urgent`.                                                     |
-| `-a, --assignee <ref>` | string | `me`, an email, or a member name. `--assignee ""` clears the field.                    |
-| `--milestone <ref>`    | string | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds. |
+| Flag                     | Type                | Notes                                                                                                                         |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `-t, --title <text>`     | string              | Cannot be empty.                                                                                                              |
+| `-d, --description <>`   | string              | `--description ""` clears the field.                                                                                          |
+| `-s, --status <value>`   | enum                | `todo \| in_progress \| in_review \| done` (case-insensitive).                                                                |
+| `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                            |
+| `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                           |
+| `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                        |
+| `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`. |
+| `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                           |
+| `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                  |
+| `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                     |
+| `--remove-tag <name>`    | string (repeatable) | Detach tag by name. Unknown names are a silent no-op. Max 20.                                                                 |
+| `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a silent no-op. Max 20.                                                                     |
+
+`--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
 
 Examples:
 
@@ -155,13 +163,20 @@ lumo task update LUM-48 --description ""        # clear description
 lumo task update LUM-48 --assignee ""           # unassign
 lumo task update LUM-48 --milestone "v1.0"      # attach to milestone
 lumo task update LUM-48 --milestone ""          # unbind milestone
+lumo task update LUM-42 --add-tag urgent --remove-tag draft
+lumo task update LUM-42 --tag final --tag approved   # replace entire tag set
+lumo task update LUM-42 --tag final --add-tag oops
+# Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id
 ```
 
-On success the command prints one line to stdout:
+On success the command prints one or two lines to stdout:
 
 ```
 Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
+Tags: urgent
 ```
+
+The `Tags:` line is omitted when the resulting tag set is empty.
 
 ### When to suggest `task update`
 
@@ -172,8 +187,6 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 ### Out of scope
 
 The CLI does **not** currently update sprint, due date, or parent task. Those need to be edited in the web UI.
-
-Tags can be attached at create time via `--tag <name>` / `--tag-id <cuid>` on `task create`. Tag updates on existing tasks (`task update`) are not yet supported via the CLI.
 
 Milestone updates (`--milestone`) work, and full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below).
 
@@ -310,28 +323,35 @@ lumo milestone delete "Q3 Launch" --yes
 
 Use this when the user wants to write a new document from the terminal. Title is positional and optional. When omitted, the doc title defaults to empty (server renders as "Untitled" via i18n).
 
-| Flag               | Type   | Notes                                                                                                            |
-| ------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
-| `--content <text>` | string | Inline markdown body.                                                                                            |
-| `--file <path>`    | string | Read markdown body from file.                                                                                    |
-| (stdin)            | —      | Pipe markdown; treated as content when stdin is not a TTY.                                                       |
-| `--scope <scope>`  | enum   | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.                                                |
-| `--project <ref>`  | string | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
-| `--task <LUM-N>`   | string | Bind to this task immediately after create.                                                                      |
+| Flag               | Type                | Notes                                                                                                            |
+| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--content <text>` | string              | Inline markdown body.                                                                                            |
+| `--file <path>`    | string              | Read markdown body from file.                                                                                    |
+| (stdin)            | —                   | Pipe markdown; treated as content when stdin is not a TTY.                                                       |
+| `--scope <scope>`  | enum                | `personal` (default) or `workspace`. Maps to PRIVATE / WORKSPACE.                                                |
+| `--project <ref>`  | string              | Project name or slug to file under. Default null. (Note: v1 does not server-resolve names; pass a cuid or omit.) |
+| `--task <LUM-N>`   | string              | Bind to this task immediately after create.                                                                      |
+| `--tag <name>`     | string (repeatable) | Attach tag by name. Creates tag if missing. Max 20 per call.                                                     |
+| `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
 
 The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one.
 
-Example:
+Examples:
 
 ```bash
 lumo doc create "RFC: doc CLI" --scope workspace --file scratch/rfc.md --task LUM-66
+lumo doc create "RFC: tags" --tag rfc --tag draft
+lumo doc create "Design spec" --tag-id clm_abc123 --tag draft
 ```
 
 Success output:
 
 ```
 Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/cmd_xxx
+Tags: rfc, draft
 ```
+
+The `Tags:` line is omitted when no tags were attached.
 
 ### When to suggest `doc create`
 
@@ -342,14 +362,22 @@ Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/
 
 `<doc>` accepts a cuid or a case-insensitive title. Ambiguous titles fail with a candidate list — re-run with the cuid.
 
-| Flag               | Type   | Notes                                                |
-| ------------------ | ------ | ---------------------------------------------------- |
-| `--title <text>`   | string | New title (cannot be empty).                         |
-| `--content <text>` | string | Replace content (inline).                            |
-| `--file <path>`    | string | Replace content from file.                           |
-| (stdin)            | —      | Pipe to replace content.                             |
-| `--scope <scope>`  | enum   | `personal` / `workspace`.                            |
-| `--project <ref>`  | string | Project name/slug. `--project ""` clears the filing. |
+| Flag                     | Type                | Notes                                                                                                                         |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--title <text>`         | string              | New title (cannot be empty).                                                                                                  |
+| `--content <text>`       | string              | Replace content (inline).                                                                                                     |
+| `--file <path>`          | string              | Replace content from file.                                                                                                    |
+| (stdin)                  | —                   | Pipe to replace content.                                                                                                      |
+| `--scope <scope>`        | enum                | `personal` / `workspace`.                                                                                                     |
+| `--project <ref>`        | string              | Project name/slug. `--project ""` clears the filing.                                                                          |
+| `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`. |
+| `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                           |
+| `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                  |
+| `--add-tag-id <cuid>`    | string (repeatable) | Attach tag by id. Max 20.                                                                                                     |
+| `--remove-tag <name>`    | string (repeatable) | Detach tag by name. Unknown names are a silent no-op. Max 20.                                                                 |
+| `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a silent no-op. Max 20.                                                                     |
+
+`--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
 
 Examples:
 
@@ -357,6 +385,10 @@ Examples:
 lumo doc update "RFC: doc CLI" --scope personal
 lumo doc update cmd_xxx --title "RFC v2"
 lumo doc update cmd_xxx --file rfc-v2.md
+lumo doc update RFC --add-tag urgent --remove-tag draft
+lumo doc update cmd_xxx --tag final --tag approved   # replace entire tag set
+lumo doc update RFC --tag final --add-tag oops
+# Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id
 ```
 
 ### When to suggest `doc update`
@@ -428,7 +460,6 @@ The CLI does **not** currently support:
 
 - SHARED visibility — Web UI only.
 - Doc tree (parent / sortOrder) operations.
-- Tags.
 - `--from-editor` (interactive $EDITOR).
 - Lossless markdown round-trip.
 
