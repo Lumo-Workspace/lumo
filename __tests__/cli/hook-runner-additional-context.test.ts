@@ -23,7 +23,7 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
     expect(lines[0]).toContain('LUM-42')
     expect(lines[0]).toContain('Test task')
 
-    const parsed = JSON.parse(lines[1])
+    const parsed = JSON.parse(lines[1]!)
     expect(parsed).toEqual({
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
