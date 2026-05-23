@@ -56,6 +56,8 @@ export async function PATCH(
     const data: UpdateDocumentInput = {}
     if (parsed.data.title !== undefined) data.title = parsed.data.title
     if (parsed.data.content !== undefined) data.content = parsed.data.content
+    if (parsed.data.contentMarkdown !== undefined)
+      data.contentMarkdown = parsed.data.contentMarkdown
     if (parsed.data.emoji !== undefined) data.emoji = parsed.data.emoji ?? null
     if (parsed.data.visibility !== undefined)
       data.visibility = parsed.data.visibility
