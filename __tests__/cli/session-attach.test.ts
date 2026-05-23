@@ -65,6 +65,7 @@ describe('sessionAttach', () => {
         taskIdentifier: 'LUM-42',
         taskTitle: 'Fix bug',
         retaggedEventCount: 3,
+        memorySection: '',
       }),
     } as Response)
 

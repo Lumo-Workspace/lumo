@@ -73,6 +73,8 @@ describe('lumo session attach — memorySection stdout', () => {
 
     const outputs = consoleLogSpy.mock.calls.map(c => String(c[0]))
     expect(outputs.some(o => o.includes('## Relevant Memory'))).toBe(false)
+    // Should be exactly 2 calls: bind line + retag line — no blank line + no empty section
+    expect(consoleLogSpy.mock.calls.length).toBe(2)
 
     fetchSpy.mockRestore()
   })
