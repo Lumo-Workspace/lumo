@@ -87,6 +87,84 @@ describe('applyLayer1Operations', () => {
     )
   })
 
+  it('defaults to scope=TASK when the LLM omits the scope field on ADD', async () => {
+    // No explicit scope — apply step must fall back to TASK so existing
+    // (pre-scope) LLM outputs keep working unchanged.
+    const ops: Layer1Operation[] = [
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+      },
+    ]
+    await applyLayer1Operations({ ...baseInput, operations: ops })
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'TASK', taskId: 'task_1' }),
+      expect.anything()
+    )
+  })
+
+  it('writes scope=PROJECT ADDs with taskId=null', async () => {
+    // Project-scope memories must NOT carry a taskId — they are read by
+    // every task in the project, so leaving taskId set would silently
+    // double-count them under the source task's view.
+    const ops: Layer1Operation[] = [
+      {
+        type: 'ADD',
+        category: 'CONVENTION',
+        scope: 'PROJECT',
+        content: { rule: 'use Zod', scope: 'this project' },
+      },
+    ]
+    const result = await applyLayer1Operations({
+      ...baseInput,
+      operations: ops,
+    })
+    expect(result.added).toBe(1)
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'PROJECT',
+        taskId: null,
+        projectId: 'proj_1',
+        workspaceId: 'ws_1',
+        category: 'CONVENTION',
+        sourceSessionId: 'sess_1',
+      }),
+      expect.anything()
+    )
+  })
+
+  it('preserves taskId on scope=TASK ADDs even when both kinds are batched', async () => {
+    // A turn can sediment both a task-only lesson and a project-wide rule.
+    // The router must apply scope per-op, not per-batch.
+    const ops: Layer1Operation[] = [
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        scope: 'TASK',
+        content: { trigger: 't', outcome: 'o' },
+      },
+      {
+        type: 'ADD',
+        category: 'CONVENTION',
+        scope: 'PROJECT',
+        content: { rule: 'r', scope: 's' },
+      },
+    ]
+    await applyLayer1Operations({ ...baseInput, operations: ops })
+    expect(repo.create).toHaveBeenCalledTimes(2)
+    expect(repo.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ scope: 'TASK', taskId: 'task_1' }),
+      expect.anything()
+    )
+    expect(repo.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ scope: 'PROJECT', taskId: null }),
+      expect.anything()
+    )
+  })
+
   it('drops an ADD whose content fails the per-category Zod schema', async () => {
     // TRAP requires { trigger, outcome }; this is missing both.
     const ops: Layer1Operation[] = [
