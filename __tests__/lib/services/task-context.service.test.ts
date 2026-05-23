@@ -200,7 +200,9 @@ describe('taskContextService.getContextForIdentifier', () => {
 
   it('renders project + task memories into memorySection (project first)', async () => {
     mockResolve.mockResolvedValueOnce(task)
-    mockFindById.mockResolvedValueOnce(task)
+    // findById is called twice: once in getContextForIdentifier to get the
+    // full task row, and again inside buildMemorySectionForTask.
+    mockFindById.mockResolvedValueOnce(task).mockResolvedValueOnce(task)
     mockSessions.mockResolvedValueOnce([])
     mockProjMem.mockResolvedValueOnce([
       {

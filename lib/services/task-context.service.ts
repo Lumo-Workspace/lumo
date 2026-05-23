@@ -175,6 +175,43 @@ export function renderWebLinkSection(
 
 export const taskContextService = {
   /**
+   * Build the "## Relevant Memory" markdown block for a given task.
+   *
+   * Fetches both task-scope and project-scope memories, orders them
+   * (project first — broader applicability, survive task archival), applies
+   * the token budget, and delegates rendering to renderMemorySection.
+   *
+   * Returns an empty string when the task doesn't exist or has no memories.
+   */
+  async buildMemorySectionForTask(taskId: string): Promise<string> {
+    const task = await taskRepository.findById(taskId)
+    if (!task) return ''
+
+    const [taskMemories, projectMemories] = await Promise.all([
+      memoryRepository.findActiveTaskMemories(taskId),
+      memoryRepository.findActiveProjectMemories(task.projectId),
+    ])
+
+    // Project memories first (broader applicability, survive task archival),
+    // then task memories. applyTokenBudget drops the tail on overflow.
+    const ordered: RenderableMemory[] = [
+      ...projectMemories.map(m => ({
+        id: m.id,
+        scope: 'PROJECT' as const,
+        category: m.category,
+        content: m.content,
+      })),
+      ...taskMemories.map(m => ({
+        id: m.id,
+        scope: 'TASK' as const,
+        category: m.category,
+        content: m.content,
+      })),
+    ]
+    return renderMemorySection(applyTokenBudget(ordered))
+  },
+
+  /**
    * Assemble a task's historical context for the coding agent: the task
    * itself plus prior sessions tagged with it (newest first), each reduced
    * to duration + one-line headline + unresolved items.
@@ -207,30 +244,8 @@ export const taskContextService = {
 
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
-    const [taskMemories, projectMemories] = await Promise.all([
-      memoryRepository.findActiveTaskMemories(resolved.id),
-      memoryRepository.findActiveProjectMemories(full.projectId),
-    ])
-
-    // Project memories first (broader applicability, survive task archival),
-    // then task memories. applyTokenBudget drops the tail on overflow, so
-    // task-specific items are first to be cut when we hit the cap.
-    const ordered: RenderableMemory[] = [
-      ...projectMemories.map(m => ({
-        id: m.id,
-        scope: 'PROJECT' as const,
-        category: m.category,
-        content: m.content,
-      })),
-      ...taskMemories.map(m => ({
-        id: m.id,
-        scope: 'TASK' as const,
-        category: m.category,
-        content: m.content,
-      })),
-    ]
-    const budgeted = applyTokenBudget(ordered)
-    const memorySection = renderMemorySection(budgeted)
+    const memorySection =
+      await taskContextService.buildMemorySectionForTask(full.id)
 
     const milestone = full.milestoneId
       ? await milestoneRepository.findById(full.milestoneId)
