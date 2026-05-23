@@ -369,8 +369,13 @@ export const documentService = {
       await documentRepository.upsertEditor(id, memberId)
     }
 
-    // Attach tags to response
-    const docTags = await tagRepository.findByDocument(id)
+    // Attach tags to response — only query when tags were actually touched
+    const tagsTouched =
+      data.tagIds !== undefined ||
+      (data.addTagIds && data.addTagIds.length > 0) ||
+      (data.removeTagIds && data.removeTagIds.length > 0)
+
+    const docTags = tagsTouched ? await tagRepository.findByDocument(id) : []
 
     return { ...updated, docTags }
   },

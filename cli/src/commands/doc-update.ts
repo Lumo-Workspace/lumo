@@ -134,6 +134,8 @@ export async function docUpdate(
         (opts.removeTag && opts.removeTag.length > 0) ||
         (opts.removeTagId && opts.removeTagId.length > 0)
       ) {
+        // NOTE: --remove-tag <unknown-name> creates the Tag via find-or-create, then
+        // the detach is a no-op. Net effect: orphan Tag row. Acceptable v1 trade-off.
         removeTagIds = await resolveTagRefs(
           { names: opts.removeTag ?? [], ids: opts.removeTagId ?? [] },
           deps

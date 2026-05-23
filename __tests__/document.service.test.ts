@@ -746,6 +746,7 @@ describe('updateDocument tag branching', () => {
     expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
     expect(tagRepository.addDocumentTags).not.toHaveBeenCalled()
     expect(tagRepository.removeDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.findByDocument).not.toHaveBeenCalled()
   })
 
   it('only calls addDocumentTags when only addTagIds provided', async () => {
