@@ -3,7 +3,7 @@ import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 
 /**
- * DELETE /api/user/api-keys/:id
+ * DELETE /api/users/api-keys/:id
  * Revokes (soft-deletes) an API key. Only the owner can revoke their own keys.
  */
 export async function DELETE(
@@ -36,7 +36,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true })
   } catch (error) {
-    console.error('DELETE /api/user/api-keys error:', error)
+    console.error('DELETE /api/users/api-keys error:', error)
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

@@ -46,7 +46,7 @@ export function useApiKeys(): UseApiKeysReturn {
     queryFn: async () => {
       try {
         const data = await apiFetch<{ keys: ApiKeyRecord[] }>(
-          '/api/user/api-keys'
+          '/api/users/api-keys'
         )
         return data.keys
       } catch (err) {
@@ -67,7 +67,7 @@ export function useApiKeys(): UseApiKeysReturn {
     if (!label.trim()) return
     setCreating(true)
     try {
-      const result = await apiFetch<NewKeyResult>('/api/user/api-keys', {
+      const result = await apiFetch<NewKeyResult>('/api/users/api-keys', {
         method: 'POST',
         body: { label: label.trim() },
       })
@@ -88,7 +88,7 @@ export function useApiKeys(): UseApiKeysReturn {
     if (!revokeTarget) return
     setRevoking(true)
     try {
-      await apiFetch<void>(`/api/user/api-keys/${revokeTarget.id}`, {
+      await apiFetch<void>(`/api/users/api-keys/${revokeTarget.id}`, {
         method: 'DELETE',
       })
       queryClient.setQueryData<ApiKeyRecord[]>(QUERY_KEY, prev =>
