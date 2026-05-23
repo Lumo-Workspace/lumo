@@ -4,6 +4,9 @@ import {
   type DocumentFilters,
 } from '@/lib/repositories/document.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
+import { markdownToTiptap } from '@/lib/utils/markdown-tiptap'
+import { prisma } from '@/lib/db/prisma'
+import { DocMentionSource } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -13,11 +16,13 @@ export interface CreateDocumentInput {
   parentId?: string | null
   projectId?: string | null
   visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
+  contentMarkdown?: string
 }
 
 export interface UpdateDocumentInput {
   title?: string
   content?: string | null
+  contentMarkdown?: string
   emoji?: string | null
   visibility?: string
   projectId?: string | null
@@ -227,6 +232,11 @@ export const documentService = {
       parentId
     )
 
+    const content =
+      data.contentMarkdown !== undefined
+        ? JSON.stringify(markdownToTiptap(data.contentMarkdown))
+        : null
+
     const document = await documentRepository.create({
       title: data.title,
       emoji: data.emoji ?? null,
@@ -236,7 +246,12 @@ export const documentService = {
       createdById: memberId,
       visibility: data.visibility,
       sortOrder: maxSortOrder + 1,
+      content,
     })
+
+    if (content) {
+      await this.syncDocumentMentions(document.id, content)
+    }
 
     // Resolve creator name via Clerk
     const client = await clerkClient()
@@ -287,6 +302,17 @@ export const documentService = {
       throw Object.assign(new Error('Only the owner can change public link'), {
         status: 403,
       })
+    }
+
+    // contentMarkdown and content are mutually exclusive
+    if (data.content !== undefined && data.contentMarkdown !== undefined) {
+      throw Object.assign(
+        new Error('content and contentMarkdown are mutually exclusive'),
+        { status: 400 }
+      )
+    }
+    if (data.contentMarkdown !== undefined) {
+      data.content = JSON.stringify(markdownToTiptap(data.contentMarkdown))
     }
 
     const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =
@@ -388,5 +414,139 @@ export const documentService = {
       undefined,
       taskIds
     )
+  },
+
+  /**
+   * Add an explicit doc↔task binding by task identifier (LUM-N) or cuid.
+   * Returns metadata about whether it was newly created, idempotent, or upgraded from CONTENT.
+   */
+  async addExplicitMention(
+    documentId: string,
+    taskIdentifier: string,
+    workspaceId: string,
+    memberId: string
+  ) {
+    const doc = await documentRepository.findWithPermission(
+      documentId,
+      memberId,
+      workspaceId
+    )
+    if (!doc) {
+      throw Object.assign(new Error('Document not found'), { status: 404 })
+    }
+    const role = this.getUserRole(doc, memberId)
+    if (!role || role === 'VIEWER') {
+      throw Object.assign(new Error('Permission denied'), { status: 403 })
+    }
+
+    const task = await this.resolveTask(taskIdentifier, workspaceId)
+    if (!task) {
+      throw Object.assign(new Error(`Task not found: ${taskIdentifier}`), {
+        status: 404,
+      })
+    }
+
+    const existing = await documentRepository.findMention(documentId, task.id)
+    const row = await documentRepository.addExplicitMention(documentId, task.id)
+
+    return {
+      taskId: task.id,
+      taskIdentifier: task.identifier,
+      source: row.source,
+      alreadyBound: existing?.source === 'EXPLICIT',
+      upgradedFromContent: existing?.source === 'CONTENT',
+    }
+  },
+
+  /**
+   * Remove an explicit mention. Refuses to remove CONTENT-only rows.
+   */
+  async removeExplicitMention(
+    documentId: string,
+    taskIdentifier: string,
+    workspaceId: string,
+    memberId: string
+  ) {
+    const doc = await documentRepository.findWithPermission(
+      documentId,
+      memberId,
+      workspaceId
+    )
+    if (!doc) {
+      throw Object.assign(new Error('Document not found'), { status: 404 })
+    }
+    const role = this.getUserRole(doc, memberId)
+    if (!role || role === 'VIEWER') {
+      throw Object.assign(new Error('Permission denied'), { status: 403 })
+    }
+
+    const task = await this.resolveTask(taskIdentifier, workspaceId)
+    if (!task) {
+      throw Object.assign(new Error(`Task not found: ${taskIdentifier}`), {
+        status: 404,
+      })
+    }
+
+    const existing = await documentRepository.findMention(documentId, task.id)
+    if (existing && existing.source === DocMentionSource.CONTENT) {
+      return {
+        removed: 0,
+        refused: true as const,
+        reason:
+          'Cannot unbind a content-derived mention; remove the @LUM-N from the doc body instead.',
+        taskIdentifier: task.identifier,
+      }
+    }
+
+    const removed = await documentRepository.removeExplicitMention(
+      documentId,
+      task.id
+    )
+    return { removed, taskIdentifier: task.identifier }
+  },
+
+  /** Resolve task by identifier (TEAM-N format e.g. LUM-42) or cuid within a workspace. */
+  async resolveTask(input: string, workspaceId: string) {
+    const trimmed = input.trim()
+    // Check if it looks like a human identifier (TEAM-NUMBER)
+    const idx = trimmed.lastIndexOf('-')
+    if (idx !== -1) {
+      const teamIdentifier = trimmed.slice(0, idx).toUpperCase()
+      const number = parseInt(trimmed.slice(idx + 1), 10)
+      if (teamIdentifier && !Number.isNaN(number)) {
+        const task = await prisma.task.findFirst({
+          where: {
+            number,
+            team: { identifier: teamIdentifier, workspaceId },
+          },
+          select: {
+            id: true,
+            number: true,
+            team: { select: { identifier: true } },
+          },
+        })
+        if (task) {
+          return {
+            id: task.id,
+            identifier: `${task.team.identifier}-${task.number}`,
+          }
+        }
+        return null
+      }
+    }
+    // Fall back to cuid lookup
+    const task = await prisma.task.findFirst({
+      where: { id: trimmed, team: { workspaceId } },
+      select: {
+        id: true,
+        number: true,
+        team: { select: { identifier: true } },
+      },
+    })
+    if (!task) return null
+    return {
+      id: task.id,
+      identifier: `${task.team.identifier}-${task.number}`,
+    }
   },
 }

@@ -12,6 +12,7 @@ export interface CreateDocumentData {
   createdById: string
   visibility: DocVisibility
   sortOrder: number
+  content?: string | null
 }
 
 export interface DocumentUpdateData {
@@ -194,6 +195,7 @@ export const documentRepository = {
         createdById: data.createdById,
         visibility: data.visibility,
         sortOrder: data.sortOrder,
+        ...(data.content !== undefined ? { content: data.content } : {}),
       },
       include: {
         project: { select: { id: true, name: true } },

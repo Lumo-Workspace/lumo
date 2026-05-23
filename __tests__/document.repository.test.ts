@@ -184,6 +184,28 @@ describe('documentRepository', () => {
         })
       )
     })
+
+    it('creates document with optional content field when provided', async () => {
+      const fakeDoc = { id: 'doc-new', title: 'New Doc', content: '{"type":"doc"}' }
+      mockCreate.mockResolvedValue(fakeDoc)
+
+      await documentRepository.create({
+        title: 'New Doc',
+        workspaceId: 'ws-1',
+        createdById: 'member-1',
+        visibility: 'WORKSPACE',
+        sortOrder: 1,
+        content: '{"type":"doc"}',
+      })
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: '{"type":"doc"}',
+          }),
+        })
+      )
+    })
   })
 
   describe('getMaxSortOrder', () => {
