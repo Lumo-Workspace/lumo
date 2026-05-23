@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
 import { getOrCreateHumanActor } from '@/lib/actor'
 import { memberService } from '@/lib/services/member.service'
 
@@ -11,16 +10,12 @@ import { memberService } from '@/lib/services/member.service'
  * enriched with Clerk display name and avatar.
  * Also returns agentActors for the workspace.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
-    const ws = await requireUserWorkspace(userId)
-    if (ws instanceof NextResponse) return ws
-
-    const workspaceId = ws.workspaceId
+    const workspaceId = identity.workspaceId
 
     const members = await memberService.listMembers(workspaceId)
 
