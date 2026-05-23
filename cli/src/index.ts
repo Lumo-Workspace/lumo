@@ -32,6 +32,7 @@ import { docUnbind } from './commands/doc-unbind'
 import { docShare } from './commands/doc-share'
 import { docUnshare } from './commands/doc-unshare'
 import { docShareList } from './commands/doc-share-list'
+import { docMove } from './commands/doc-move'
 
 // Resolve package.json relative to __dirname so this works regardless of how
 // deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
@@ -336,6 +337,17 @@ doc
   .option('--task <LUM-N>', 'Only docs bound to this task')
   .option('--limit <n>', 'Cap output to first N rows')
   .action(wrap(opts => docList(opts as Record<string, string>)))
+
+doc
+  .command('move <doc>')
+  .description('Move a doc under a different parent or to top level')
+  .option('--parent <doc>', 'New parent doc (cuid or title)')
+  .option('--root', 'Move to top level (no parent)')
+  .action(
+    wrap((reference, opts) =>
+      docMove(reference as string | undefined, opts as Record<string, unknown>)
+    )
+  )
 
 doc
   .command('delete <doc>')

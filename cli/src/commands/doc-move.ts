@@ -1,0 +1,138 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+import { resolveDoc } from '../lib/resolve-doc'
+import { pickNextSortOrder } from '../lib/doc-sort-order'
+
+export interface MoveDocOptions {
+  parent?: string
+  root?: boolean
+}
+
+interface DocLike {
+  id: string
+  title: string
+  parentId: string | null
+  sortOrder: number
+}
+
+export async function docMove(
+  reference: string | undefined,
+  opts: MoveDocOptions
+): Promise<number | void> {
+  if (!reference) {
+    console.error('Error: usage: lumo doc move <doc> --parent <doc> | --root')
+    return 1
+  }
+
+  const hasParent = typeof opts.parent === 'string' && opts.parent.length > 0
+  const hasRoot = Boolean(opts.root)
+  if (hasParent && hasRoot) {
+    console.error('Error: --parent and --root are mutually exclusive')
+    return 1
+  }
+  if (!hasParent && !hasRoot) {
+    console.error('Error: specify --parent <doc> or --root')
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+
+  const listUrl = `${trimTrailingSlash(apiUrl)}/api/documents`
+  let listRes: Response
+  try {
+    listRes = await fetch(listUrl, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    console.error(`Error: network failure: ${(err as Error).message}`)
+    return 1
+  }
+  if (!listRes.ok) {
+    const text = await listRes.text()
+    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${text}`)
+    return 1
+  }
+  const { documents } = (await listRes.json()) as { documents: DocLike[] }
+
+  const docMatch = resolveDoc(reference, documents)
+  if (docMatch.kind === 'ambiguous') {
+    console.error(
+      `Error: title "${reference}" matches ${docMatch.candidates.length} docs:`
+    )
+    for (const c of docMatch.candidates) {
+      console.error(`  ${c.id}  ${c.title}`)
+    }
+    console.error('Re-run with the cuid.')
+    return 1
+  }
+  if (docMatch.kind === 'not-found') {
+    console.error(`Error: Document not found: ${reference}`)
+    return 1
+  }
+  const docRow = documents.find(d => d.id === docMatch.doc.id)!
+
+  let newParentId: string | null = null
+  let parentTitleForOutput = 'root'
+  if (hasParent) {
+    const parentMatch = resolveDoc(opts.parent!, documents)
+    if (parentMatch.kind === 'ambiguous') {
+      console.error(
+        `Error: --parent "${opts.parent}" matches ${parentMatch.candidates.length} docs:`
+      )
+      for (const c of parentMatch.candidates) {
+        console.error(`  ${c.id}  ${c.title}`)
+      }
+      console.error('Re-run with the cuid.')
+      return 1
+    }
+    if (parentMatch.kind === 'not-found') {
+      console.error(`Error: Document not found: ${opts.parent}`)
+      return 1
+    }
+    const parentRow = documents.find(d => d.id === parentMatch.doc.id)!
+    newParentId = parentRow.id
+    parentTitleForOutput = `"${parentRow.title.replace(/"/g, '\\"')}"`
+  }
+
+  const siblings = documents.filter(
+    d => d.parentId === newParentId && d.id !== docRow.id
+  )
+  const sortOrder = pickNextSortOrder(siblings)
+
+  const moveUrl = `${trimTrailingSlash(apiUrl)}/api/documents/${docRow.id}/move`
+  let moveRes: Response
+  try {
+    moveRes = await fetch(moveUrl, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${creds.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ parentId: newParentId, sortOrder }),
+    })
+  } catch (err) {
+    console.error(`Error: network failure: ${(err as Error).message}`)
+    return 1
+  }
+  if (!moveRes.ok) {
+    const text = await moveRes.text()
+    let msg = text
+    try {
+      const json = JSON.parse(text) as { error?: string }
+      if (json.error) msg = json.error
+    } catch {}
+    console.error(`Error: ${moveRes.status} ${moveRes.statusText}: ${msg}`)
+    return 1
+  }
+
+  const escapedDocTitle = docRow.title.replace(/"/g, '\\"')
+  console.log(
+    `Moved ${docRow.id} "${escapedDocTitle}" → ${parentTitleForOutput}`
+  )
+}
