@@ -65,25 +65,52 @@ describe('resolveDocContent', () => {
     expect(result.kind).toBe('error')
   })
 
-  it('errors when --content and stdin pipe are both set', async () => {
+  it('prefers --content over non-TTY stdin (silently ignores stdin)', async () => {
+    let stdinRead = false
     const result = await resolveDocContent({
-      content: 'a',
+      content: 'from-flag',
       file: undefined,
       stdinIsTTY: false,
-      readStdin: async () => 'b',
+      readStdin: async () => {
+        stdinRead = true
+        return 'from-stdin'
+      },
       readFile: async () => '',
     })
-    expect(result.kind).toBe('error')
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') expect(result.markdown).toBe('from-flag')
+    expect(stdinRead).toBe(false)
   })
 
-  it('errors when --file and stdin pipe are both set', async () => {
+  it('prefers --file over non-TTY stdin (silently ignores stdin)', async () => {
+    let stdinRead = false
     const result = await resolveDocContent({
       content: undefined,
       file: '/tmp/x.md',
       stdinIsTTY: false,
-      readStdin: async () => 'b',
+      readStdin: async () => {
+        stdinRead = true
+        return 'from-stdin'
+      },
+      readFile: async () => 'from-file',
+    })
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') expect(result.markdown).toBe('from-file')
+    expect(stdinRead).toBe(false)
+  })
+
+  it('handles non-TTY shell with no actual pipe (e.g. < /dev/null) when --content is set', async () => {
+    // Regression for LUM-84: in Claude Code's Bash tool and other non-TTY
+    // shells, stdin is non-TTY even when nothing is piped. --content must
+    // still work without erroring.
+    const result = await resolveDocContent({
+      content: 'hello',
+      file: undefined,
+      stdinIsTTY: false,
+      readStdin: async () => '',
       readFile: async () => '',
     })
-    expect(result.kind).toBe('error')
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') expect(result.markdown).toBe('hello')
   })
 })

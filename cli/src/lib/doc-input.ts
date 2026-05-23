@@ -15,22 +15,21 @@ export type ResolveDocContentResult =
 
 /**
  * Pick one of --content / --file / stdin as the markdown source.
- * The three are mutually exclusive; specifying more than one is an error.
- * If none of them are set and stdin is a TTY, returns 'none'.
+ * Explicit flags win: if --content or --file is set, stdin is ignored
+ * (whether the shell is interactive or not). --content and --file are
+ * mutually exclusive. stdin is only consulted when neither flag is set
+ * and the shell is non-TTY.
  */
 export async function resolveDocContent(
   args: ResolveDocContentArgs
 ): Promise<ResolveDocContentResult> {
   const hasContent = args.content !== undefined
   const hasFile = args.file !== undefined && args.file.length > 0
-  const hasStdin = !args.stdinIsTTY
 
-  const set = [hasContent, hasFile, hasStdin].filter(Boolean).length
-  if (set > 1) {
+  if (hasContent && hasFile) {
     return {
       kind: 'error',
-      message:
-        '--content, --file, and stdin are mutually exclusive (pick one)',
+      message: '--content and --file are mutually exclusive (pick one)',
     }
   }
 
@@ -39,7 +38,7 @@ export async function resolveDocContent(
     const text = await args.readFile(args.file as string)
     return { kind: 'ok', markdown: text }
   }
-  if (hasStdin) {
+  if (!args.stdinIsTTY) {
     const text = await args.readStdin()
     return { kind: 'ok', markdown: text }
   }
