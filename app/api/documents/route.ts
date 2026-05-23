@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { resolveProjectRef, zodError } from '@/lib/api/helpers'
 import { createDocumentSchema } from '@/lib/validation/schemas'
 import { documentService } from '@/lib/services'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { searchParams } = request.nextUrl
   const visibility = searchParams.get('visibility')
@@ -27,8 +23,8 @@ export async function GET(request: NextRequest) {
   if (rootOnly) filters.rootOnly = true
 
   const documents = await documentService.listDocuments(
-    ws.workspaceId,
-    ws.member.id,
+    identity.workspaceId,
+    identity.memberId,
     filters
   )
 
@@ -36,12 +32,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const body = await request.json()
   const parsed = createDocumentSchema.safeParse(body)
@@ -52,18 +44,40 @@ export async function POST(request: NextRequest) {
     emoji,
     parentId: docParentId,
     projectId: docProjectId,
+    projectRef,
     visibility,
     contentMarkdown,
   } = parsed.data
+
+  // projectRef (CLI's name/slug input) wins over projectId when both are
+  // present. Mirrors `task create` resolution.
+  let resolvedProjectId: string | null = docProjectId ?? null
+  if (projectRef !== undefined) {
+    try {
+      resolvedProjectId = await resolveProjectRef(
+        identity.workspaceId,
+        projectRef
+      )
+    } catch (error) {
+      if (error instanceof Error && 'status' in error) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: (error as Error & { status: number }).status }
+        )
+      }
+      throw error
+    }
+  }
+
   const document = await documentService.createDocument(
-    ws.workspaceId,
-    ws.member.id,
+    identity.workspaceId,
+    identity.memberId,
     {
       title,
       visibility,
       emoji: emoji ?? null,
       parentId: docParentId ?? null,
-      projectId: docProjectId ?? null,
+      projectId: resolvedProjectId,
       ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
     }
   )

@@ -6,10 +6,9 @@ import { POST } from '@/app/api/documents/[id]/mentions/route'
 import { DELETE } from '@/app/api/documents/[id]/mentions/[taskId]/route'
 
 jest.mock('@/lib/auth', () => ({
-  requireAuth: jest.fn(),
+  requireIdentity: jest.fn(),
 }))
 jest.mock('@/lib/api/helpers', () => ({
-  requireUserWorkspace: jest.fn(),
   zodError: jest.fn(),
 }))
 jest.mock('@/lib/services', () => ({
@@ -19,13 +18,10 @@ jest.mock('@/lib/services', () => ({
   },
 }))
 
-const { requireAuth } = jest.requireMock('@/lib/auth') as {
-  requireAuth: jest.Mock
+const { requireIdentity } = jest.requireMock('@/lib/auth') as {
+  requireIdentity: jest.Mock
 }
-const { requireUserWorkspace, zodError } = jest.requireMock(
-  '@/lib/api/helpers'
-) as {
-  requireUserWorkspace: jest.Mock
+const { zodError } = jest.requireMock('@/lib/api/helpers') as {
   zodError: jest.Mock
 }
 const { documentService } = jest.requireMock('@/lib/services') as {
@@ -37,10 +33,13 @@ const { documentService } = jest.requireMock('@/lib/services') as {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  requireAuth.mockResolvedValue({ userId: 'user_clerk_1' })
-  requireUserWorkspace.mockResolvedValue({
+  requireIdentity.mockResolvedValue({
+    clerkId: 'user_clerk_1',
+    memberId: 'member1',
     workspaceId: 'ws1',
-    member: { id: 'member1' },
+    workspaceSlug: 'ws',
+    workspaceName: 'WS',
+    source: 'clerk',
   })
   zodError.mockImplementation(
     () => new Response(JSON.stringify({ error: 'zod' }), { status: 400 })
@@ -134,7 +133,8 @@ describe('DELETE /api/documents/[id]/mentions/[taskId]', () => {
     documentService.removeExplicitMention.mockResolvedValueOnce({
       removed: 0,
       refused: true,
-      reason: 'Cannot unbind a content-derived mention; remove the @LUM-N from the doc body instead.',
+      reason:
+        'Cannot unbind a content-derived mention; remove the @LUM-N from the doc body instead.',
       taskIdentifier: 'LUM-42',
     })
     const req = new NextRequest(

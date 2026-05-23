@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
 import { miscRepository, taskRepository } from '@/lib/repositories'
 
 /** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
@@ -21,18 +20,13 @@ function parseIdentifier(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id: rawId } = await params
-  const memberId = ws.member.id
 
   let taskId: string = rawId
 
@@ -43,7 +37,7 @@ export async function GET(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
     const task = await taskRepository.findByWorkspaceIdentifier(
-      ws.workspaceId,
+      identity.workspaceId,
       parsed.teamIdentifier,
       parsed.number
     )
@@ -55,8 +49,8 @@ export async function GET(
 
   const mentions = await miscRepository.findDocumentMentionsByTask(
     taskId,
-    ws.workspaceId,
-    memberId
+    identity.workspaceId,
+    identity.memberId
   )
 
   const documents = mentions.map(m => m.document)
