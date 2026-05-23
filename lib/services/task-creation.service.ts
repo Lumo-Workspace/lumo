@@ -27,6 +27,7 @@ export async function createTask(
     milestoneId?: string | null | undefined
     order?: number | undefined
     dueDate?: string | null | undefined
+    tagIds?: string[] | undefined
   },
   actorId: string,
   actorClerkId: string
@@ -116,6 +117,15 @@ export async function createTask(
     dueDate: dueDate ?? null,
   })
 
+  if (input.tagIds && input.tagIds.length > 0) {
+    await tagRepository.syncTaskTags(task.id, input.tagIds)
+  }
+
+  const taskTags =
+    input.tagIds && input.tagIds.length > 0
+      ? await tagRepository.findByTask(task.id)
+      : []
+
   // Fire-and-forget side-effects
   dispatchCreateTaskSideEffects({
     task: {
@@ -132,7 +142,7 @@ export async function createTask(
     assigneeActorId: assigneeActorId ?? null,
   })
 
-  return { task }
+  return { task, taskTags }
 }
 
 /**

@@ -22,6 +22,7 @@ export interface CreateDocumentInput {
   projectId?: string | null
   visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
   contentMarkdown?: string
+  tagIds?: string[]
 }
 
 export interface UpdateDocumentInput {
@@ -35,6 +36,8 @@ export interface UpdateDocumentInput {
   publicToken?: string | null
   tags?: string[]
   tagIds?: string[]
+  addTagIds?: string[]
+  removeTagIds?: string[]
   childOrder?: string[]
 }
 
@@ -316,6 +319,10 @@ export const documentService = {
       await this.syncDocumentMentions(document.id, content)
     }
 
+    if (data.tagIds && data.tagIds.length > 0) {
+      await tagRepository.syncDocumentTags(document.id, data.tagIds)
+    }
+
     // Resolve creator name via Clerk
     const client = await clerkClient()
     const clerkUsers = await client.users.getUserList({
@@ -324,8 +331,15 @@ export const documentService = {
     })
     const creatorUser = clerkUsers.data[0]
 
+    // Fetch attached tags so the create response includes them (only when tags were attached)
+    const docTags =
+      data.tagIds && data.tagIds.length > 0
+        ? await tagRepository.findByDocument(document.id)
+        : []
+
     return {
       ...document,
+      docTags,
       createdBy: {
         id: document.createdBy.id,
         name: resolveClerkName(creatorUser, document.createdBy.clerkId),
@@ -390,9 +404,16 @@ export const documentService = {
       updateData.publicToken = data.publicToken
     if (data.tags !== undefined) updateData.tags = data.tags
 
-    // Sync tag associations if tagIds provided
+    // Sync or incrementally modify tag associations
     if (data.tagIds !== undefined) {
       await tagRepository.syncDocumentTags(id, data.tagIds)
+    } else {
+      if (data.addTagIds && data.addTagIds.length > 0) {
+        await tagRepository.addDocumentTags(id, data.addTagIds)
+      }
+      if (data.removeTagIds && data.removeTagIds.length > 0) {
+        await tagRepository.removeDocumentTags(id, data.removeTagIds)
+      }
     }
 
     const mentionTaskIds = data.content
@@ -411,8 +432,13 @@ export const documentService = {
       await documentRepository.upsertEditor(id, memberId)
     }
 
-    // Attach tags to response
-    const docTags = await tagRepository.findByDocument(id)
+    // Attach tags to response — only query when tags were actually touched
+    const tagsTouched =
+      data.tagIds !== undefined ||
+      (data.addTagIds && data.addTagIds.length > 0) ||
+      (data.removeTagIds && data.removeTagIds.length > 0)
+
+    const docTags = tagsTouched ? await tagRepository.findByDocument(id) : []
 
     return { ...updated, docTags }
   },

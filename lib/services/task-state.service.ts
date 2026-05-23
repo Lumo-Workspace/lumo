@@ -66,6 +66,8 @@ export async function updateTask(
     sprintId,
     milestoneId,
     tagIds,
+    addTagIds,
+    removeTagIds,
     ...rest
   } = input
 
@@ -182,15 +184,29 @@ export async function updateTask(
     })
   }
 
-  // Sync tag associations if tagIds provided
+  // Sync or incrementally modify tag associations
   if (tagIds !== undefined) {
     await tagRepository.syncTaskTags(taskId, tagIds)
+  } else {
+    if (addTagIds && addTagIds.length > 0) {
+      await tagRepository.addTaskTags(taskId, addTagIds)
+    }
+    if (removeTagIds && removeTagIds.length > 0) {
+      await tagRepository.removeTaskTags(taskId, removeTagIds)
+    }
   }
 
   const updated = await taskRepository.update(taskId, data)
 
+  // Only fetch tags when the request actually touched tag fields —
+  // mirrors the same gate applied in updateDocument (T7 fix).
+  const tagsTouched =
+    tagIds !== undefined ||
+    (addTagIds && addTagIds.length > 0) ||
+    (removeTagIds && removeTagIds.length > 0)
+
   // Attach tags to response
-  const tags = await tagRepository.findByTask(taskId)
+  const tags = tagsTouched ? await tagRepository.findByTask(taskId) : []
 
   // Only report fields whose values actually changed between the pre-
   // update row and the payload. Using `Object.keys(data)` wrote no-op

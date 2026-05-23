@@ -3,10 +3,7 @@ export { API_STATUS_LABEL } from './taskStatus'
 export { formatDueDate, isOverdue } from './dueDate'
 export { pageToPath } from './pageToPath'
 export { pathToPage } from './pathToPage'
-export {
-  getCanonicalMilestonePath,
-  MILESTONE_CUID_RE,
-} from './milestonePath'
+export { getCanonicalMilestonePath, MILESTONE_CUID_RE } from './milestonePath'
 
 // Re-export universal helpers from lib/utils so callers can keep
 // using `from '../utils'` without churn.

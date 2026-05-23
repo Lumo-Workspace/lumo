@@ -23,8 +23,7 @@ import { taskCliService } from '@/lib/services/task-cli.service'
 const mockResolveIdentifier = taskService.resolveIdentifier as jest.Mock
 const mockGetDetail = taskService.getTaskDetail as jest.Mock
 const mockUpdate = taskService.updateTaskWithSideEffects as jest.Mock
-const mockFindMember =
-  memberRepository.findByWorkspaceAndClerkId as jest.Mock
+const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
 const mockFindActor = memberRepository.findActorByMemberId as jest.Mock
 
 beforeEach(() => {
@@ -48,6 +47,7 @@ beforeEach(() => {
       title: 'New title',
       teamIdentifier: 'LUM',
       number: 48,
+      tags: [],
     },
   })
 })

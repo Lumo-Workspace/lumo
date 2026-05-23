@@ -19,6 +19,8 @@ export interface UpdateTaskInput {
   sprintId?: string | null | undefined
   milestoneId?: string | null | undefined
   tagIds?: string[] | undefined
+  addTagIds?: string[] | undefined
+  removeTagIds?: string[] | undefined
 }
 
 export interface TaskUpdateResult {

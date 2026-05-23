@@ -108,6 +108,23 @@ export const tagRepository = {
     })
   },
 
+  /** Incrementally attach tags to a task. Skips already-attached tags (idempotent). */
+  async addTaskTags(taskId: string, tagIds: string[]): Promise<void> {
+    if (tagIds.length === 0) return
+    await prisma.taskTag.createMany({
+      data: tagIds.map(tagId => ({ taskId, tagId })),
+      skipDuplicates: true,
+    })
+  },
+
+  /** Incrementally detach tags from a task. Silently ignores unattached tags. */
+  async removeTaskTags(taskId: string, tagIds: string[]): Promise<void> {
+    if (tagIds.length === 0) return
+    await prisma.taskTag.deleteMany({
+      where: { taskId, tagId: { in: tagIds } },
+    })
+  },
+
   /** Sync tag associations for a document. Performs diff: adds new, removes old. */
   async syncDocumentTags(documentId: string, tagIds: string[]) {
     return prisma.$transaction(async tx => {
@@ -131,6 +148,26 @@ export const tagRepository = {
           data: toCreate.map(tagId => ({ documentId, tagId })),
         })
       }
+    })
+  },
+
+  /** Incrementally attach tags to a document. Skips already-attached tags (idempotent). */
+  async addDocumentTags(documentId: string, tagIds: string[]): Promise<void> {
+    if (tagIds.length === 0) return
+    await prisma.documentTag.createMany({
+      data: tagIds.map(tagId => ({ documentId, tagId })),
+      skipDuplicates: true,
+    })
+  },
+
+  /** Incrementally detach tags from a document. Silently ignores unattached tags. */
+  async removeDocumentTags(
+    documentId: string,
+    tagIds: string[]
+  ): Promise<void> {
+    if (tagIds.length === 0) return
+    await prisma.documentTag.deleteMany({
+      where: { documentId, tagId: { in: tagIds } },
     })
   },
 

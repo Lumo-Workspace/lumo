@@ -143,8 +143,15 @@ async function createFromCli(args: {
     projectRef?: string | undefined
     assigneeRef?: string | undefined
     milestoneRef?: string | undefined
+    tagIds?: string[] | undefined
   }
-}): Promise<{ id: string; identifier: string; title: string; url: string }> {
+}): Promise<{
+  id: string
+  identifier: string
+  title: string
+  url: string
+  taskTags: Array<{ id: string; name: string }>
+}> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
 
   const projectId = await resolveProjectId(workspaceId, input.projectRef)
@@ -175,7 +182,7 @@ async function createFromCli(args: {
     )
   }
 
-  const { task } = await taskService.createTask(
+  const { task, taskTags } = await taskService.createTask(
     projectId,
     {
       title: input.title,
@@ -184,6 +191,7 @@ async function createFromCli(args: {
       priority: input.priority,
       assigneeActorId,
       milestoneId,
+      ...(input.tagIds !== undefined ? { tagIds: input.tagIds } : {}),
     },
     callerActor.id,
     callerClerkId
@@ -192,7 +200,7 @@ async function createFromCli(args: {
   const identifier = `${task.teamIdentifier}-${task.number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
 
-  return { id: task.id, identifier, title: task.title, url }
+  return { id: task.id, identifier, title: task.title, url, taskTags }
 }
 
 async function updateFromCli(args: {
@@ -207,8 +215,17 @@ async function updateFromCli(args: {
     priority?: TaskPriority | undefined
     assigneeRef?: string | null | undefined
     milestoneRef?: string | null | undefined
+    tagIds?: string[] | undefined
+    addTagIds?: string[] | undefined
+    removeTagIds?: string[] | undefined
   }
-}): Promise<{ id: string; identifier: string; title: string; url: string }> {
+}): Promise<{
+  id: string
+  identifier: string
+  title: string
+  url: string
+  taskTags: Array<{ id: string; name: string }>
+}> {
   const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
 
   const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
@@ -275,6 +292,9 @@ async function updateFromCli(args: {
     priority?: TaskPriority
     assigneeActorId?: string | null
     milestoneId?: string | null
+    tagIds?: string[]
+    addTagIds?: string[]
+    removeTagIds?: string[]
   } = {}
   if (input.title !== undefined) updateInput.title = input.title
   if ('description' in input)
@@ -284,6 +304,10 @@ async function updateFromCli(args: {
   if (assigneeActorId !== undefined)
     updateInput.assigneeActorId = assigneeActorId
   if (milestoneId !== undefined) updateInput.milestoneId = milestoneId
+  if (input.tagIds !== undefined) updateInput.tagIds = input.tagIds
+  if (input.addTagIds !== undefined) updateInput.addTagIds = input.addTagIds
+  if (input.removeTagIds !== undefined)
+    updateInput.removeTagIds = input.removeTagIds
 
   const result = await taskService.updateTaskWithSideEffects(
     resolved.id,
@@ -305,11 +329,20 @@ async function updateFromCli(args: {
   const identOut = `${teamIdentifier}-${number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identOut}`
 
+  const taskTags = (
+    result.task.tags as Array<{
+      id: string
+      name: string
+      color: string | null
+    }>
+  ).map(t => ({ id: t.id, name: t.name }))
+
   return {
     id: result.task.id,
     identifier: identOut,
     title: result.task.title,
     url,
+    taskTags,
   }
 }
 

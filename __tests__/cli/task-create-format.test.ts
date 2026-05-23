@@ -30,6 +30,40 @@ describe('formatCreatedTaskLine', () => {
   })
 })
 
+describe('formatCreatedTaskLine — tags', () => {
+  it('includes Tags line when tags present', () => {
+    const line = formatCreatedTaskLine({
+      id: 'LUM-42',
+      identifier: 'LUM-42',
+      title: 't',
+      url: 'https://x',
+      tags: ['urgent', 'rfc'],
+    })
+    expect(line).toBe(`Created LUM-42 "t"  https://x\nTags: urgent, rfc`)
+  })
+
+  it('omits Tags line when tags is empty', () => {
+    const line = formatCreatedTaskLine({
+      id: 'LUM-42',
+      identifier: 'LUM-42',
+      title: 't',
+      url: 'https://x',
+      tags: [],
+    })
+    expect(line).toBe(`Created LUM-42 "t"  https://x`)
+  })
+
+  it('omits Tags line when tags is undefined', () => {
+    const line = formatCreatedTaskLine({
+      id: 'LUM-42',
+      identifier: 'LUM-42',
+      title: 't',
+      url: 'https://x',
+    })
+    expect(line).toBe(`Created LUM-42 "t"  https://x`)
+  })
+})
+
 describe('normalizePriority', () => {
   it('uppercases valid values', () => {
     expect(normalizePriority('low')).toBe('LOW')

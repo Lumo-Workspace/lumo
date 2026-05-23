@@ -21,7 +21,10 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { updateState: jest.fn() },
 }))
 jest.mock('@/lib/repositories/tag.repository', () => ({
-  tagRepository: { syncTaskTags: jest.fn() },
+  tagRepository: {
+    syncTaskTags: jest.fn(),
+    findByTask: jest.fn().mockResolvedValue([]),
+  },
 }))
 // Side-effect dispatchers pull in Slack/Clerk — mock them out.
 jest.mock('@/lib/services/task-notifications.service', () => ({
@@ -122,5 +125,66 @@ describe('taskService.createFromAutomation', () => {
         tagIds: [],
       })
     ).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+// ── createTask tagIds tests ──────────────────────────────────────────────────
+
+describe('taskService.createTask — tagIds', () => {
+  const baseInput = {
+    title: 'Tagged Task',
+    description: null,
+    status: 'TODO' as const,
+    priority: 'MEDIUM' as const,
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(projectRepository.findByIdWithDefaults as jest.Mock).mockResolvedValue({
+      id: 'proj1',
+      workspaceId: 'ws1',
+      teamId: 'team1',
+      owner: null,
+      workspace: { slug: 'acme' },
+    })
+    ;(taskRepository.findMaxOrder as jest.Mock).mockResolvedValue({ order: 0 })
+    ;(taskRepository.createWithSequence as jest.Mock).mockResolvedValue({
+      id: 'task-new',
+      title: 'Tagged Task',
+      teamIdentifier: 'LUM',
+      number: 10,
+      workspaceId: 'ws1',
+    })
+  })
+
+  it('calls syncTaskTags after create when tagIds has entries', async () => {
+    await taskService.createTask(
+      'proj1',
+      { ...baseInput, tagIds: ['tag-1', 'tag-2'] },
+      'actor1',
+      'clerk1'
+    )
+
+    expect(tagRepository.syncTaskTags).toHaveBeenCalledWith('task-new', [
+      'tag-1',
+      'tag-2',
+    ])
+  })
+
+  it('does not call syncTaskTags when tagIds is undefined', async () => {
+    await taskService.createTask('proj1', baseInput, 'actor1', 'clerk1')
+
+    expect(tagRepository.syncTaskTags).not.toHaveBeenCalled()
+  })
+
+  it('does not call syncTaskTags when tagIds is an empty array', async () => {
+    await taskService.createTask(
+      'proj1',
+      { ...baseInput, tagIds: [] },
+      'actor1',
+      'clerk1'
+    )
+
+    expect(tagRepository.syncTaskTags).not.toHaveBeenCalled()
   })
 })
