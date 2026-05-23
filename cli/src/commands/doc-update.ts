@@ -7,6 +7,7 @@ import {
 } from '../lib/doc-input'
 import { normalizeScope } from './doc-create'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { resolveTagRefs } from '../lib/tag-resolver'
 
 export interface UpdateDocOptions {
   title?: string
@@ -14,15 +15,26 @@ export interface UpdateDocOptions {
   file?: string
   scope?: string
   project?: string
+  tag?: string[]
+  tagId?: string[]
+  addTag?: string[]
+  addTagId?: string[]
+  removeTag?: string[]
+  removeTagId?: string[]
 }
 
 export function formatUpdatedDocLine(doc: {
   id: string
   title: string
   url: string
+  tags?: string[]
 }): string {
   const escaped = doc.title.replace(/"/g, '\\"')
-  return `Updated ${doc.id} "${escaped}"  ${doc.url}`
+  const head = `Updated ${doc.id} "${escaped}"  ${doc.url}`
+  if (doc.tags && doc.tags.length > 0) {
+    return `${head}\nTags: ${doc.tags.join(', ')}`
+  }
+  return head
 }
 
 export async function docUpdate(
@@ -40,6 +52,21 @@ export async function docUpdate(
   }
   const envUrl = process.env.LUMO_API_URL?.trim()
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+
+  // CLI-side mutex check: --tag/--tag-id (bulk replace) vs --add-tag/--add-tag-id/--remove-tag/--remove-tag-id (incremental)
+  const hasBulk =
+    (opts.tag && opts.tag.length > 0) || (opts.tagId && opts.tagId.length > 0)
+  const hasIncremental =
+    (opts.addTag && opts.addTag.length > 0) ||
+    (opts.addTagId && opts.addTagId.length > 0) ||
+    (opts.removeTag && opts.removeTag.length > 0) ||
+    (opts.removeTagId && opts.removeTagId.length > 0)
+  if (hasBulk && hasIncremental) {
+    console.error(
+      'Error: --tag/--tag-id are mutually exclusive with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id'
+    )
+    return 1
+  }
 
   const id = await lookupDocId(apiUrl, creds.token, reference)
   if (!id) {
@@ -82,6 +109,46 @@ export async function docUpdate(
   }
   if (content.kind === 'ok') body.contentMarkdown = content.markdown
 
+  // Resolve tag refs into ids
+  const deps = { apiUrl, token: creds.token }
+  let tagIds: string[] | undefined
+  let addTagIds: string[] | undefined
+  let removeTagIds: string[] | undefined
+  try {
+    if (hasBulk) {
+      tagIds = await resolveTagRefs(
+        { names: opts.tag ?? [], ids: opts.tagId ?? [] },
+        deps
+      )
+    } else if (hasIncremental) {
+      if (
+        (opts.addTag && opts.addTag.length > 0) ||
+        (opts.addTagId && opts.addTagId.length > 0)
+      ) {
+        addTagIds = await resolveTagRefs(
+          { names: opts.addTag ?? [], ids: opts.addTagId ?? [] },
+          deps
+        )
+      }
+      if (
+        (opts.removeTag && opts.removeTag.length > 0) ||
+        (opts.removeTagId && opts.removeTagId.length > 0)
+      ) {
+        removeTagIds = await resolveTagRefs(
+          { names: opts.removeTag ?? [], ids: opts.removeTagId ?? [] },
+          deps
+        )
+      }
+    }
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`)
+    return 1
+  }
+
+  if (tagIds !== undefined) body.tagIds = tagIds
+  if (addTagIds !== undefined) body.addTagIds = addTagIds
+  if (removeTagIds !== undefined) body.removeTagIds = removeTagIds
+
   if (Object.keys(body).length === 0) {
     console.error('Error: no fields to update — provide at least one flag')
     return 1
@@ -102,10 +169,23 @@ export async function docUpdate(
     return 1
   }
   const { document } = (await res.json()) as {
-    document: { id: string; title: string }
+    document: { id: string; title: string; docTags?: Array<{ name: string }> }
   }
   const docUrlStr = `${trimTrailingSlash(apiUrl)}/workspace/${creds.workspaceSlug ?? 'lumo'}/documents/${document.id}`
-  console.log(
-    formatUpdatedDocLine({ id: document.id, title: document.title, url: docUrlStr })
-  )
+
+  // Read tag names off the response (present when tags were changed)
+  const responseTagNames =
+    tagIds !== undefined ||
+    addTagIds !== undefined ||
+    removeTagIds !== undefined
+      ? (document.docTags ?? []).map(t => t.name)
+      : undefined
+
+  const lineDoc: { id: string; title: string; url: string; tags?: string[] } = {
+    id: document.id,
+    title: document.title,
+    url: docUrlStr,
+  }
+  if (responseTagNames !== undefined) lineDoc.tags = responseTagNames
+  console.log(formatUpdatedDocLine(lineDoc))
 }

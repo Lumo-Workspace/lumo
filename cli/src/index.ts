@@ -291,6 +291,27 @@ doc
   .option('--file <path>', 'Replace content from file')
   .option('--scope <scope>', 'personal | workspace')
   .option('--project <ref>', 'Project name/slug; pass "" to clear')
+  .option(
+    '--tag <name>',
+    'Set tags by name (bulk replace, repeatable)',
+    collect,
+    []
+  )
+  .option(
+    '--tag-id <cuid>',
+    'Set tags by id (bulk replace, repeatable)',
+    collect,
+    []
+  )
+  .option('--add-tag <name>', 'Add tag by name (repeatable)', collect, [])
+  .option('--add-tag-id <cuid>', 'Add tag by id (repeatable)', collect, [])
+  .option('--remove-tag <name>', 'Remove tag by name (repeatable)', collect, [])
+  .option(
+    '--remove-tag-id <cuid>',
+    'Remove tag by id (repeatable)',
+    collect,
+    []
+  )
   .action(
     wrap((reference, opts) =>
       docUpdate(reference as string | undefined, opts as Record<string, string>)
