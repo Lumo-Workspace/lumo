@@ -35,6 +35,20 @@ interface MarkdownItToken {
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false })
 
 /**
+ * Render a markdown string to HTML.
+ *
+ * Shares the markdown-it instance with `markdownToTiptap` so the doc CLI
+ * pipeline (markdown → HTML for the Tiptap editor) and the agent pipeline
+ * (markdown → tiptap JSON) parse identically. Used by the documents API
+ * when a CLI caller posts `contentMarkdown`: the editor consumes the
+ * resulting HTML directly via `setContent` / `getHTML`.
+ */
+export function markdownToHtml(input: string): string {
+  if (!input) return ''
+  return md.render(input)
+}
+
+/**
  * Parse a markdown string into a Tiptap JSON doc node.
  * Supports paragraphs, headings (h1-h6), bullet/ordered lists, fenced
  * code blocks, blockquotes, and inline marks (bold, italic, code, link).

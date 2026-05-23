@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with".'
 ---
 
 ## Prerequisites
@@ -454,11 +454,59 @@ Removes EXPLICIT mentions only. A purely CONTENT-derived mention can't be unboun
 lumo doc unbind cmd_xxx LUM-42
 ```
 
+### `lumo doc share <doc> <member> [--role viewer|editor|manager]` — share with a workspace member
+
+Adds (or updates) a DocumentShare row for the given member. `<member>` resolves the same way as `task --assignee`: `me`, an email, or a display name (case-insensitive). Role defaults to `viewer`.
+
+**Auto-promotion**: when invoked on a PRIVATE doc, server-side transactionally flips the doc's visibility to SHARED before upserting the share row. No flag needed — sharing a doc is treated as expressing the intent that it should be SHARED.
+
+Examples:
+
+```bash
+lumo doc share "RFC" alice@example.com --role editor
+lumo doc share cmd_xxx "Alice Wong" --role manager
+lumo doc share cmd_xxx me                        # share with yourself (rare; mostly for testing)
+```
+
+Output:
+
+```
+Shared cmd_xxx ↔ Alice Wong (EDITOR)
+```
+
+A second invocation with a different role updates the existing row in place (upsert semantics).
+
+### `lumo doc unshare <doc> <member>` — remove a member's share
+
+Idempotent. If the member has no share row, prints `Not shared with <name>` and exits 0.
+
+```bash
+lumo doc unshare "RFC" alice@example.com
+# → Unshared cmd_xxx ↔ Alice Wong
+```
+
+Unshare does **not** flip visibility back to PRIVATE — that has to be done explicitly via `lumo doc update --scope personal`.
+
+### `lumo doc share-list <doc>` — list current shares
+
+Prints fixed-width rows: `<displayName>  <ROLE>`. Empty output means the doc has no shares (it may still be WORKSPACE-visible).
+
+```bash
+lumo doc share-list "RFC"
+# Alice Wong   EDITOR
+# Bob Chan     VIEWER
+```
+
+### When to suggest the doc share commands
+
+- User says "share doc X with Y", "give Y access to X", "把文档分享给 Y"
+- After `doc create --scope personal`, if the user mentions teammates needing access, suggest `doc share` rather than `doc update --scope workspace` when only specific members should see it
+- Before `doc unshare`, run `doc share-list` if the user hasn't named a specific member
+
 ### Out of scope (CLI v1)
 
 The CLI does **not** currently support:
 
-- SHARED visibility — Web UI only.
 - Doc tree (parent / sortOrder) operations.
 - `--from-editor` (interactive $EDITOR).
 - Lossless markdown round-trip.

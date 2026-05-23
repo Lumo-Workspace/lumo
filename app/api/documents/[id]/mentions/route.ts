@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 import { createDocumentMentionSchema } from '@/lib/validation/schemas'
 import { documentService } from '@/lib/services'
 
@@ -8,12 +8,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
   const body = await request.json()
@@ -24,8 +20,8 @@ export async function POST(
     const mention = await documentService.addExplicitMention(
       id,
       parsed.data.taskIdentifier,
-      ws.workspaceId,
-      ws.member.id
+      identity.workspaceId,
+      identity.memberId
     )
     return NextResponse.json({ mention }, { status: 201 })
   } catch (error) {

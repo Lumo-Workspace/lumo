@@ -5,7 +5,12 @@ import {
 } from '@/lib/repositories/document.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { markdownToTiptap } from '@/lib/utils/markdown-tiptap'
+import {
+  markdownToHtml,
+  tiptapToMarkdown,
+  type TiptapNode,
+} from '@/lib/utils/markdown-tiptap'
+import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import { DocMentionSource } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -59,6 +64,49 @@ function resolveClerkName(
     u.emailAddresses[0]?.emailAddress ||
     fallback
   )
+}
+
+/**
+ * Convert a legacy Tiptap-JSON-string body to HTML for the editor.
+ * Newer bodies are already HTML and pass through unchanged.
+ */
+function renderContentToHtml(
+  content: string | null | undefined
+): string | null {
+  if (typeof content !== 'string' || content.length === 0)
+    return content ?? null
+  if (!content.trimStart().startsWith('{"type":"doc"')) return content
+  try {
+    const parsed = JSON.parse(content) as TiptapNode
+    return markdownToHtml(tiptapToMarkdown(parsed))
+  } catch {
+    return content
+  }
+}
+
+/**
+ * Convert a stored document body to readable markdown.
+ *
+ * New docs are stored as HTML (LUM-83); a small number of legacy docs the
+ * pre-fix CLI wrote out as `JSON.stringify(markdownToTiptap(md))` — detect
+ * that shape and round-trip through `tiptapToMarkdown` instead of asking
+ * turndown to make sense of a JSON literal.
+ */
+function renderContentToMarkdown(
+  content: string | null | undefined
+): string | null {
+  if (typeof content !== 'string' || content.length === 0) return null
+  const trimmed = content.trimStart()
+  if (trimmed.startsWith('{"type":"doc"')) {
+    try {
+      const parsed = JSON.parse(content) as TiptapNode
+      return tiptapToMarkdown(parsed)
+    } catch {
+      // Fall through to HTML path on a parse error — the content isn't
+      // valid JSON, so it's almost certainly HTML or already markdown.
+    }
+  }
+  return htmlToMarkdown(content)
 }
 
 /** Walk the parent chain with loop prevention. Returns ancestors from root → immediate parent. */
@@ -199,8 +247,19 @@ export const documentService = {
     const docTags = await tagRepository.findByDocument(id)
 
     const creatorUser = userMap.get(doc.createdBy.clerkId)
+    // CLI / agent consumers want a readable markdown body — derive it from
+    // the stored content so we don't have to bundle turndown into the CLI.
+    // New docs store HTML; a handful of docs created via the CLI before
+    // LUM-83 stored a JSON-stringified tiptap doc instead — convert both.
+    const contentMarkdown = renderContentToMarkdown(doc.content)
+    // Same defence on the `content` field for the Tiptap editor: a legacy
+    // JSON-string body would be re-parsed as HTML and end up wrapped in
+    // <p> on save. Hand the editor HTML in both cases.
+    const contentForEditor = renderContentToHtml(doc.content)
     const shaped = {
       ...doc,
+      content: contentForEditor,
+      contentMarkdown,
       docTags,
       createdBy: {
         id: doc.createdBy.id,
@@ -235,9 +294,13 @@ export const documentService = {
       parentId
     )
 
+    // Editor (DescriptionEditor.tsx) consumes content via Tiptap's default
+    // string-as-HTML setContent and emits via getHTML(), so the storage
+    // format is HTML. Anything else (e.g. a Tiptap JSON-string) gets
+    // re-escaped as text and wrapped in <p> on the next render — see LUM-83.
     const content =
       data.contentMarkdown !== undefined
-        ? JSON.stringify(markdownToTiptap(data.contentMarkdown))
+        ? markdownToHtml(data.contentMarkdown)
         : undefined
 
     const document = await documentRepository.create({
@@ -326,7 +389,7 @@ export const documentService = {
       )
     }
     if (data.contentMarkdown !== undefined) {
-      data.content = JSON.stringify(markdownToTiptap(data.contentMarkdown))
+      data.content = markdownToHtml(data.contentMarkdown)
     }
 
     const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =

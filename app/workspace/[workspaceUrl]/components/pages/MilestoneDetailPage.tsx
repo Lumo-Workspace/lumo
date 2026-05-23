@@ -1,12 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { slugify } from '@/lib/utils/slugify'
+import {
+  getCanonicalMilestonePath,
+  MILESTONE_CUID_RE,
+} from '../../utils/milestonePath'
 import {
   useMilestone,
   useMilestoneByProjectAndSlug,
@@ -15,12 +19,6 @@ import { useProjects } from '../../hooks/useProjects'
 import { Button } from '@/components/ui/button'
 import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
 import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
-
-// CUIDs are `c` + 24 lowercase alphanumerics. Any URL segment that doesn't
-// match this is treated as a slug. A slug that happens to look like a cuid is
-// extremely unlikely in practice; if it ever happens the user can rename the
-// milestone to disambiguate.
-const CUID_RE = /^c[a-z0-9]{24}$/
 
 const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
   PLANNED: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
@@ -45,7 +43,7 @@ export function MilestoneDetailPage() {
   // here so the right endpoint resolves the milestone; both hooks are always
   // called (one with disabled inputs) to keep the hook order stable.
   const segment = params.milestoneId
-  const isCuid = CUID_RE.test(segment ?? '')
+  const isCuid = MILESTONE_CUID_RE.test(segment ?? '')
   const { projects } = useProjects()
   const project = useMemo(
     () => projects.find(p => slugify(p.name) === params.projectSlug) ?? null,
@@ -59,6 +57,14 @@ export function MilestoneDetailPage() {
   const milestone = byIdQuery.milestone ?? bySlugQuery.milestone
   const loading =
     (isCuid ? byIdQuery.loading : bySlugQuery.loading || !project) && !milestone
+
+  // Canonicalize cuid URLs to their slug form once the milestone loads, so
+  // legacy cuid URLs (bookmarks, pasted, hand-built from CLI ids, or surfaced
+  // by stale frontend bundles) settle on the human-readable URL.
+  useEffect(() => {
+    const canonical = getCanonicalMilestonePath(params, milestone)
+    if (canonical) router.replace(canonical)
+  }, [params, milestone, router])
 
   const deleteMutation = useMutation({
     mutationFn: () => milestonesClient.delete(milestone!.id),

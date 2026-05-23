@@ -5,10 +5,7 @@ import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/tasks/[id]/documents/route'
 
 jest.mock('@/lib/auth', () => ({
-  requireAuth: jest.fn(),
-}))
-jest.mock('@/lib/api/helpers', () => ({
-  requireUserWorkspace: jest.fn(),
+  requireIdentity: jest.fn(),
 }))
 jest.mock('@/lib/repositories', () => ({
   miscRepository: {
@@ -19,11 +16,8 @@ jest.mock('@/lib/repositories', () => ({
   },
 }))
 
-const { requireAuth } = jest.requireMock('@/lib/auth') as {
-  requireAuth: jest.Mock
-}
-const { requireUserWorkspace } = jest.requireMock('@/lib/api/helpers') as {
-  requireUserWorkspace: jest.Mock
+const { requireIdentity } = jest.requireMock('@/lib/auth') as {
+  requireIdentity: jest.Mock
 }
 const { miscRepository, taskRepository } = jest.requireMock(
   '@/lib/repositories'
@@ -34,10 +28,13 @@ const { miscRepository, taskRepository } = jest.requireMock(
 
 beforeEach(() => {
   jest.clearAllMocks()
-  requireAuth.mockResolvedValue({ userId: 'user_clerk_1' })
-  requireUserWorkspace.mockResolvedValue({
+  requireIdentity.mockResolvedValue({
+    clerkId: 'user_clerk_1',
+    memberId: 'member1',
     workspaceId: 'ws1',
-    member: { id: 'member1' },
+    workspaceSlug: 'ws',
+    workspaceName: 'WS',
+    source: 'clerk',
   })
   miscRepository.findDocumentMentionsByTask.mockResolvedValue([])
 })

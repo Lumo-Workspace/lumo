@@ -29,6 +29,9 @@ import { docList } from './commands/doc-list'
 import { docDelete } from './commands/doc-delete'
 import { docBind } from './commands/doc-bind'
 import { docUnbind } from './commands/doc-unbind'
+import { docShare } from './commands/doc-share'
+import { docUnshare } from './commands/doc-unshare'
+import { docShareList } from './commands/doc-share-list'
 
 // Resolve package.json relative to __dirname so this works regardless of how
 // deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
@@ -361,6 +364,40 @@ doc
       docUnbind(docRef as string | undefined, task as string | undefined)
     )
   )
+
+doc
+  .command('share <doc> <member>')
+  .description(
+    'Share a document with a workspace member. PRIVATE docs are auto-promoted to SHARED. <member> accepts "me", an email, or a display name.'
+  )
+  .option('--role <role>', 'viewer | editor | manager (default: viewer)')
+  .action(
+    wrap((docRef, member, opts) =>
+      docShare(
+        docRef as string | undefined,
+        member as string | undefined,
+        opts as { role?: string }
+      )
+    )
+  )
+
+doc
+  .command('unshare <doc> <member>')
+  .description(
+    'Remove a member from a document\'s share list. Idempotent — prints "Not shared with …" if no row exists.'
+  )
+  .action(
+    wrap((docRef, member) =>
+      docUnshare(docRef as string | undefined, member as string | undefined)
+    )
+  )
+
+doc
+  .command('share-list <doc>')
+  .description(
+    'List the members a document is shared with, as fixed-width rows: <displayName>  <ROLE>.'
+  )
+  .action(wrap(docRef => docShareList(docRef as string | undefined)))
 
 task
   .command('update <identifier>')

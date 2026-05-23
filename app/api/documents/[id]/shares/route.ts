@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 import { createDocumentShareSchema } from '@/lib/validation/schemas'
 import { documentRepository } from '@/lib/repositories'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
   const doc = await documentRepository.findManageable(
     id,
-    ws.member.id,
-    ws.workspaceId
+    identity.memberId,
+    identity.workspaceId
   )
   if (!doc) {
     return NextResponse.json(
@@ -37,18 +33,14 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { id } = await params
   const doc = await documentRepository.findManageable(
     id,
-    ws.member.id,
-    ws.workspaceId
+    identity.memberId,
+    identity.workspaceId
   )
   if (!doc) {
     return NextResponse.json(

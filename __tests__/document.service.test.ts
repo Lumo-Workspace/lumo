@@ -551,7 +551,9 @@ describe('documentService — explicit mentions', () => {
 // ── contentMarkdown tests ───────────────────────────────────────────────────
 
 describe('documentService — contentMarkdown', () => {
-  it('createDocument with contentMarkdown stores converted Tiptap JSON', async () => {
+  it('createDocument with contentMarkdown stores HTML for the Tiptap editor', async () => {
+    // LUM-83: content is stored as the HTML the editor consumes via
+    // setContent / getHTML — NOT a JSON-stringified tiptap doc.
     mockGetMaxSortOrder.mockResolvedValue(0)
     mockCreate.mockImplementation((data: any) => {
       return Promise.resolve({
@@ -572,13 +574,11 @@ describe('documentService — contentMarkdown', () => {
     )
 
     expect(result.content).toBeTruthy()
-    const parsed = JSON.parse(result.content as string)
-    expect(parsed.type).toBe('doc')
-    expect(parsed.content[0].type).toBe('heading')
-    expect(parsed.content[0].attrs.level).toBe(1)
+    expect(result.content as string).toMatch(/<h1>Hello<\/h1>/)
+    expect((result.content as string).startsWith('{')).toBe(false)
   })
 
-  it('updateDocument with contentMarkdown overwrites content', async () => {
+  it('updateDocument with contentMarkdown overwrites content as HTML', async () => {
     mockFindWithPermission.mockResolvedValue({
       id: 'doc1',
       createdById: 'member1',
@@ -601,9 +601,8 @@ describe('documentService — contentMarkdown', () => {
       { contentMarkdown: 'just text' }
     )
 
-    const parsed = JSON.parse(result.content as string)
-    expect(parsed.type).toBe('doc')
-    expect(parsed.content[0].type).toBe('paragraph')
+    expect(result.content as string).toMatch(/<p>just text<\/p>/)
+    expect((result.content as string).startsWith('{')).toBe(false)
   })
 
   it('updateDocument rejects passing both content and contentMarkdown', async () => {
