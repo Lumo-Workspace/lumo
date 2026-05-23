@@ -70,6 +70,7 @@ export async function docShow(
       title: string
       visibility?: 'PRIVATE' | 'WORKSPACE' | 'SHARED'
       content?: string | null
+      contentMarkdown?: string | null
       project?: { name?: string } | null
       createdAt?: string
       updatedAt?: string
@@ -87,8 +88,13 @@ export async function docShow(
     console.error('Error: server returned an empty document response')
     return 1
   }
+  // Server returns `contentMarkdown` derived from the HTML body (LUM-83+).
+  // Fall back to parsing the raw content as legacy Tiptap JSON for docs
+  // written before the storage shape changed.
   let body = ''
-  if (d.content) {
+  if (d.contentMarkdown) {
+    body = d.contentMarkdown
+  } else if (d.content) {
     try {
       body = tiptapToMarkdown(JSON.parse(d.content))
     } catch {

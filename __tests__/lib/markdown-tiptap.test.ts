@@ -1,4 +1,8 @@
-import { markdownToTiptap, tiptapToMarkdown } from '@/lib/utils/markdown-tiptap'
+import {
+  markdownToHtml,
+  markdownToTiptap,
+  tiptapToMarkdown,
+} from '@/lib/utils/markdown-tiptap'
 
 describe('markdownToTiptap', () => {
   it('wraps a plain paragraph', () => {
@@ -97,6 +101,52 @@ describe('markdownToTiptap', () => {
 
   it('returns an empty doc for empty input', () => {
     expect(markdownToTiptap('')).toEqual({ type: 'doc', content: [] })
+  })
+})
+
+describe('markdownToHtml (doc CLI pipeline)', () => {
+  it('renders headings, formatting, lists, and code into HTML', () => {
+    const html = markdownToHtml(
+      '# Title\n\nA **bold** and *italic* line.\n\n- one\n- two\n\n```ts\nconst x = 1\n```\n'
+    )
+    expect(html).toMatch(/<h1>Title<\/h1>/)
+    expect(html).toMatch(/<strong>bold<\/strong>/)
+    expect(html).toMatch(/<em>italic<\/em>/)
+    expect(html).toMatch(/<ul>/)
+    expect(html).toMatch(/<li>one<\/li>/)
+    expect(html).toMatch(/<pre>/)
+  })
+
+  it('returns an empty string for empty input', () => {
+    expect(markdownToHtml('')).toBe('')
+  })
+
+  it('handles a 50 KB plan-style markdown without producing JSON', () => {
+    // Bug 1 acceptance: a realistic ~50 KB spec must render as readable HTML.
+    const section = (i: number) =>
+      [
+        `## Step ${i}`,
+        '',
+        `Paragraph ${i} with **bold**, *italic*, \`code\`, and a [link](https://example.com).`,
+        '',
+        '- bullet a',
+        '- bullet b',
+        '',
+        '```ts',
+        `const value${i} = ${i}`,
+        '```',
+        '',
+        '> Heads-up callout',
+      ].join('\n')
+    const md = Array.from({ length: 300 }, (_, i) => section(i)).join('\n\n')
+    expect(md.length).toBeGreaterThanOrEqual(50000)
+
+    const html = markdownToHtml(md)
+    // Editor consumes HTML — no Tiptap-JSON leak through this path.
+    expect(html.startsWith('{')).toBe(false)
+    expect(html).not.toMatch(/^"?\{"type":"doc"/)
+    expect(html).toMatch(/<h2>Step 0<\/h2>/)
+    expect(html).toMatch(/<h2>Step 299<\/h2>/)
   })
 })
 

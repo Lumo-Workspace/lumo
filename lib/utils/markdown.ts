@@ -1,25 +1,9 @@
 import { marked } from 'marked'
+import { isHtml } from './html-to-markdown'
 
-// @ts-ignore — turndown is CJS; bundler interop may wrap as { default }
-import TurndownModule from 'turndown'
-
-type TurndownCtor = new (options?: object) => { turndown(html: string): string }
-
-/** Resolve CJS/ESM interop: bundler may deliver the class directly or as { default } */
-const TurndownService: TurndownCtor =
-  typeof TurndownModule === 'function'
-    ? (TurndownModule as unknown as TurndownCtor)
-    : (TurndownModule as unknown as { default: TurndownCtor }).default
-
-/**
- * Detect whether a string is likely HTML (as opposed to plain markdown).
- * Looks for common HTML tags that would appear in rich-text content.
- */
-export function isHtml(text: string): boolean {
-  return /<(?:p|div|span|br|h[1-6]|ul|ol|li|a\b|strong|em|code|pre|blockquote|table|img\b)[>\s/]/i.test(
-    text
-  )
-}
+// `htmlToMarkdown` (turndown-based) lives in its own module so server callers
+// like the doc service can depend on it without pulling in marked.
+export { htmlToMarkdown, isHtml } from './html-to-markdown'
 
 /**
  * Detect whether a string is likely Markdown (as opposed to HTML).
@@ -38,18 +22,4 @@ export function isMarkdown(text: string): boolean {
 export function markdownToHtml(md: string): string {
   if (isHtml(md)) return md
   return marked.parse(md, { async: false }) as string
-}
-
-/**
- * Convert HTML back to Markdown.
- * If the input is already Markdown (no HTML tags), returns it as-is.
- */
-export function htmlToMarkdown(html: string): string {
-  if (!isHtml(html)) return html
-  const turndown = new TurndownService({
-    headingStyle: 'atx',
-    codeBlockStyle: 'fenced',
-    bulletListMarker: '-',
-  })
-  return turndown.turndown(html)
 }
