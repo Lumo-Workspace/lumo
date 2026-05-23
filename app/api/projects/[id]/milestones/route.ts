@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { createMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
@@ -9,14 +9,13 @@ interface Params {
   params: Promise<{ id: string }>
 }
 
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
 
-    const result = await loadProjectAndMember(id, userId)
+    const result = await loadProjectAndMember(id, identity.clerkId)
     if (result instanceof NextResponse) return result
     const { member } = result
 
@@ -46,12 +45,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
 export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
 
-    const result = await loadProjectAndMember(id, userId)
+    const result = await loadProjectAndMember(id, identity.clerkId)
     if (result instanceof NextResponse) return result
     const { member } = result
 
