@@ -17,12 +17,19 @@ interface MilestoneRow {
   status: string
 }
 
-function slugify(input: string): string {
+/**
+ * Mirror of `lib/utils/slugify` (server). Single source of truth for CLI
+ * slugification — must match the server byte-for-byte so a slug printed by
+ * `lumo project list` resolves correctly when passed as `--project <slug>`.
+ */
+export function slugify(input: string): string {
   return input
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
 }
 
 async function fetchJson<T>(
@@ -30,9 +37,15 @@ async function fetchJson<T>(
   token: string,
   path: string
 ): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not reach Lumo API at ${base} (${msg})`)
+  }
   if (res.status === 401) {
     throw new Error('API key invalid or revoked. Run `lumo auth login`.')
   }

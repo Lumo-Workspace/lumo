@@ -5,6 +5,7 @@ import {
   isUuid,
   resolveProjectId,
   resolveMilestoneId,
+  slugify,
 } from '@/cli/src/lib/resolve'
 
 const mockFetch = jest.fn()
@@ -20,6 +21,17 @@ function jsonResponse(body: unknown, status = 200) {
     json: async () => body,
   } as unknown as Response
 }
+
+describe('slugify', () => {
+  it('matches the server implementation', () => {
+    expect(slugify('foo.bar')).toBe('foobar')
+    expect(slugify('a_b')).toBe('ab')
+    expect(slugify('v1.2')).toBe('v12')
+    expect(slugify('My Cool Project')).toBe('my-cool-project')
+    expect(slugify('  spaced  out  ')).toBe('spaced-out')
+    expect(slugify('UPPER-case')).toBe('upper-case')
+  })
+})
 
 describe('isUuid', () => {
   it('returns true for canonical UUIDs', () => {
@@ -130,5 +142,21 @@ describe('resolveMilestoneId', () => {
     await expect(
       resolveMilestoneId('http://x', 'tok', 'missing', undefined)
     ).rejects.toThrow(/no milestone matches/)
+  })
+})
+
+describe('resolveProjectId network failure', () => {
+  it('wraps fetch errors with the api-url context', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
+    await expect(
+      resolveProjectId('http://x', 'tok', undefined)
+    ).rejects.toThrow(/Could not reach Lumo API at http:\/\/x/)
+  })
+
+  it('throws auth error message on 401', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'x' }, 401))
+    await expect(
+      resolveProjectId('http://x', 'tok', undefined)
+    ).rejects.toThrow(/API key invalid or revoked/)
   })
 })
