@@ -8,7 +8,7 @@ export async function POST(request: Request) {
       if (!ctx.sessionId) return
       const binding = await sessionRepository.findTaskBinding(ctx.sessionId)
       let memorySection = ''
-      if (binding && binding.bound === true && binding.taskId) {
+      if (binding.bound === true) {
         memorySection = await taskContextService.buildMemorySectionForTask(
           binding.taskId
         )

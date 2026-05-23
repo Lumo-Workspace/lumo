@@ -48,7 +48,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
   })
 
   it('returns memorySection when session has a bound task', async () => {
-    mockRecord.mockResolvedValue({ id: 'he_1', sessionId: 's-1', taskId: null })
     ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
       bound: true,
       taskId: 'task-1',
@@ -102,5 +101,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     const body = await res.json()
 
     expect(body.memorySection).toBe('')
+    expect(taskContextService.buildMemorySectionForTask).toHaveBeenCalledWith('task-1')
   })
 })
