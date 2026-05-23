@@ -1,4 +1,5 @@
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
 import type { MilestoneStatus } from '@prisma/client'
 
@@ -86,6 +87,22 @@ export const milestoneService = {
     }
     await projectService.getProject(existing.projectId, memberId)
     await milestoneRepository.delete(milestoneId)
+  },
+
+  async listTasks(
+    milestoneId: string,
+    memberId: string,
+    opts: { assigneeActorId?: string }
+  ) {
+    const milestone = await milestoneRepository.findById(milestoneId)
+    if (!milestone) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    await projectService.getProject(milestone.projectId, memberId)
+    return taskRepository.findByMilestone({
+      milestoneId,
+      ...(opts.assigneeActorId && { assigneeActorId: opts.assigneeActorId }),
+    })
   },
 }
 
