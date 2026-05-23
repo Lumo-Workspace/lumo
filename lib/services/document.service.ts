@@ -268,8 +268,11 @@ export const documentService = {
     })
     const creatorUser = clerkUsers.data[0]
 
-    // Fetch attached tags so the create response includes them
-    const attachedTags = await tagRepository.findByDocument(document.id)
+    // Fetch attached tags so the create response includes them (only when tags were attached)
+    const attachedTags =
+      data.tagIds && data.tagIds.length > 0
+        ? await tagRepository.findByDocument(document.id)
+        : []
     const documentTags = attachedTags.map(tag => ({ tag: { name: tag.name } }))
 
     return {

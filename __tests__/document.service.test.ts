@@ -657,6 +657,7 @@ describe('createDocument tagIds', () => {
       createdBy: { id: 'm-1', clerkId: 'clerk-1' },
     })
     ;(tagRepository.syncDocumentTags as jest.Mock).mockClear()
+    ;(tagRepository.findByDocument as jest.Mock).mockClear()
 
     await documentService.createDocument('ws-1', 'm-1', {
       title: 'No Tags Doc',
@@ -664,6 +665,7 @@ describe('createDocument tagIds', () => {
     })
 
     expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.findByDocument).not.toHaveBeenCalled()
   })
 
   it('omits tag work when tagIds is an empty array', async () => {
@@ -673,6 +675,7 @@ describe('createDocument tagIds', () => {
       createdBy: { id: 'm-1', clerkId: 'clerk-1' },
     })
     ;(tagRepository.syncDocumentTags as jest.Mock).mockClear()
+    ;(tagRepository.findByDocument as jest.Mock).mockClear()
 
     await documentService.createDocument('ws-1', 'm-1', {
       title: 'Empty Tags Doc',
@@ -681,6 +684,7 @@ describe('createDocument tagIds', () => {
     })
 
     expect(tagRepository.syncDocumentTags).not.toHaveBeenCalled()
+    expect(tagRepository.findByDocument).not.toHaveBeenCalled()
   })
 })
 
