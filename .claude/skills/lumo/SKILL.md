@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑".'
 ---
 
 ## Prerequisites
@@ -120,7 +120,7 @@ Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 
 The CLI does **not** currently update tags / labels, sprint, due date, or parent task. Those need to be edited in the web UI. (Tags support is planned as a follow-up.)
 
-Milestone updates (`--milestone`) work, but creating / editing / deleting milestones themselves is web-UI only — use the [Milestones tab on the project detail page](https://www.uselumo.ai/) or `lumo milestone list` for discovery.
+Milestone updates (`--milestone`) work, and full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below).
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
@@ -131,11 +131,14 @@ LUM-42  IN_PROGRESS  HIGH    web        Fix Slack OAuth redirect
 LUM-48  TODO         MEDIUM  backend    Investigate slow query
 ```
 
-| Flag                   | Type    | Notes                                                                            |
-| ---------------------- | ------- | -------------------------------------------------------------------------------- |
-| `-s, --status <value>` | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
-| `-p, --project <ref>`  | string  | Filter by project name (case-insensitive match against display name).            |
-| `-n, --limit <count>`  | integer | Cap output to the first N rows.                                                  |
+| Flag                    | Type    | Notes                                                                            |
+| ----------------------- | ------- | -------------------------------------------------------------------------------- |
+| `-s, --status <value>`  | enum    | Filter by status: `todo \| in_progress \| in_review \| done` (case-insensitive). |
+| `-p, --project <ref>`   | string  | Filter by project name (case-insensitive match against display name).            |
+| `-m, --milestone <ref>` | string  | Filter to my tasks under this milestone (name or UUID).                          |
+| `-n, --limit <count>`   | integer | Cap output to the first N rows.                                                  |
+
+When `--milestone` is set, the CLI calls `GET /api/milestones/<id>/tasks?assigned=me` instead of `/api/tasks/me`. Other filters (`--status`, `--limit`) still apply client-side to the milestone-scoped result.
 
 Filtering is currently client-side — the server returns the full "my tasks" set and the CLI slices it. This is fine for typical workspaces (dozens of tasks); revisit if a workspace has hundreds.
 
@@ -189,6 +192,62 @@ lumo milestone list --project lumo   # multi-project workspace
 - When the user asks "what milestones do we have", "what's on v1.0", or similar.
 
 When to suggest: before `task create --project <ref>` when the workspace has more than one project and the user hasn't specified which one.
+
+### `lumo milestone create <name>` — create a milestone
+
+| Flag                   | Type   | Notes                                   |
+| ---------------------- | ------ | --------------------------------------- |
+| `--project <ref>`      | string | Required when workspace has >1 project. |
+| `-d, --description <>` | string | Optional.                               |
+| `--start <date>`       | string | YYYY-MM-DD.                             |
+| `--target <date>`      | string | YYYY-MM-DD.                             |
+
+Examples:
+
+```bash
+lumo milestone create "Q3 Launch"
+lumo milestone create "Q3 Launch" --start 2026-06-01 --target 2026-08-31
+```
+
+On success: `Created milestone "Q3 Launch"  <id>`.
+
+### `lumo milestone show <identifier>` — show milestone detail + tasks
+
+Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
+
+Prints a key:value header (name, status, dates, project, description), task counts, and the full task table under the milestone.
+
+```bash
+lumo milestone show "Q3 Launch"
+lumo milestone show 11111111-2222-3333-4444-555555555555
+```
+
+### `lumo milestone update <identifier>` — patch a milestone
+
+| Flag                   | Type   | Notes                                                            |
+| ---------------------- | ------ | ---------------------------------------------------------------- |
+| `--project <ref>`      | string | Required when identifier is a name and workspace has >1 project. |
+| `-n, --name <text>`    | string | Cannot be empty.                                                 |
+| `-d, --description <>` | string | `--description ""` clears.                                       |
+| `-s, --status <value>` | enum   | `planned \| active \| completed \| cancelled`.                   |
+| `--start <date>`       | string | `--start ""` clears.                                             |
+| `--target <date>`      | string | `--target ""` clears.                                            |
+
+At least one field required.
+
+```bash
+lumo milestone update "Q3 Launch" --status active
+lumo milestone update "Q3 Launch" --target 2026-09-15
+lumo milestone update "Q3 Launch" --description ""
+```
+
+### `lumo milestone delete <identifier>` — delete a milestone
+
+Requires `--yes`. No interactive prompt — CLI is agent-friendly. Tasks under the milestone keep their data; their `milestoneId` is cleared.
+
+```bash
+lumo milestone delete "Q3 Launch" --yes
+```
 
 ## Session Management
 
