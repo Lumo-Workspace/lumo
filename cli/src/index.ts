@@ -18,6 +18,13 @@ import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
+import { docCreate } from './commands/doc-create'
+import { docUpdate } from './commands/doc-update'
+import { docShow } from './commands/doc-show'
+import { docList } from './commands/doc-list'
+import { docDelete } from './commands/doc-delete'
+import { docBind } from './commands/doc-bind'
+import { docUnbind } from './commands/doc-unbind'
 
 const pkg = require('../package.json') as { version: string }
 
@@ -180,6 +187,84 @@ milestoneCmd
   )
   .option('--project <ref>', 'Project name or slug')
   .action(wrap(options => milestoneList(options as Record<string, string>)))
+
+const doc = program.command('doc').description('Manage Lumo documents')
+
+doc
+  .command('create [title]')
+  .description('Create a new document')
+  .option('--content <text>', 'Inline markdown content')
+  .option('--file <path>', 'Read markdown content from file')
+  .option('--scope <scope>', 'personal | workspace (default: personal)')
+  .option('--project <ref>', 'Project name or slug to file under')
+  .option('--task <LUM-N>', 'Bind to this task after creation')
+  .action(
+    wrap((title, opts) =>
+      docCreate(title as string | undefined, opts as Record<string, string>)
+    )
+  )
+
+doc
+  .command('update <doc>')
+  .description('Update an existing document (doc = title or cuid)')
+  .option('--title <text>', 'New title')
+  .option('--content <text>', 'Replace content (inline)')
+  .option('--file <path>', 'Replace content from file')
+  .option('--scope <scope>', 'personal | workspace')
+  .option('--project <ref>', 'Project name/slug; pass "" to clear')
+  .action(
+    wrap((reference, opts) =>
+      docUpdate(
+        reference as string | undefined,
+        opts as Record<string, string>
+      )
+    )
+  )
+
+doc
+  .command('show <doc>')
+  .description('Show document header and body (doc = title or cuid)')
+  .action(wrap(reference => docShow(reference as string | undefined)))
+
+doc
+  .command('list')
+  .description('List documents visible to the current user')
+  .option('--scope <scope>', 'personal | workspace | all (default: all)')
+  .option('--project <ref>', 'Filter by project name/slug')
+  .option('--task <LUM-N>', 'Only docs bound to this task')
+  .option('--limit <n>', 'Cap output to first N rows')
+  .action(wrap(opts => docList(opts as Record<string, string>)))
+
+doc
+  .command('delete <doc>')
+  .description('Delete a document (requires --yes)')
+  .option('--yes', 'Confirm deletion')
+  .action(
+    wrap((reference, opts) =>
+      docDelete(
+        reference as string | undefined,
+        opts as Record<string, string>
+      )
+    )
+  )
+
+doc
+  .command('bind <doc> <task>')
+  .description('Bind a document to a task')
+  .action(
+    wrap((docRef, task) =>
+      docBind(docRef as string | undefined, task as string | undefined)
+    )
+  )
+
+doc
+  .command('unbind <doc> <task>')
+  .description('Unbind a document from a task (explicit mentions only)')
+  .action(
+    wrap((docRef, task) =>
+      docUnbind(docRef as string | undefined, task as string | undefined)
+    )
+  )
 
 task
   .command('update <identifier>')

@@ -1,6 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
-import { tiptapToMarkdown } from '../../../lib/utils/markdown-tiptap'
+import { tiptapToMarkdown } from '../lib/markdown-tiptap'
 import { lookupDocId } from '../lib/resolve-doc-id'
 
 export interface ShowDocViewModel {
