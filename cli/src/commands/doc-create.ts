@@ -6,6 +6,7 @@ import {
   readFileUtf8,
 } from '../lib/doc-input'
 import { resolveTagRefs } from '../lib/tag-resolver'
+import { lookupDocId } from '../lib/resolve-doc-id'
 
 export type Scope = 'PRIVATE' | 'WORKSPACE'
 
@@ -17,6 +18,7 @@ export interface CreateDocOptions {
   task?: string
   tag?: string[]
   tagId?: string[]
+  parent?: string
 }
 
 interface CreatedDocResponse {
@@ -107,6 +109,16 @@ export async function docCreate(
     }
   }
 
+  let resolvedParentId: string | undefined
+  if (opts.parent !== undefined && opts.parent.length > 0) {
+    const id = await lookupDocId(apiUrl, creds.token, opts.parent)
+    if (!id) {
+      console.error(`Error: --parent doc not found: ${opts.parent}`)
+      return 1
+    }
+    resolvedParentId = id
+  }
+
   const body: Record<string, unknown> = {
     title: title?.trim() ?? '',
     visibility,
@@ -114,6 +126,7 @@ export async function docCreate(
   if (content.kind === 'ok') body.contentMarkdown = content.markdown
   if (opts.project !== undefined) body.projectRef = opts.project
   if (tagIds && tagIds.length > 0) body.tagIds = tagIds
+  if (resolvedParentId !== undefined) body.parentId = resolvedParentId
 
   let res: Response
   try {

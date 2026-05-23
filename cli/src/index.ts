@@ -281,6 +281,7 @@ doc
   .option('--scope <scope>', 'personal | workspace (default: personal)')
   .option('--project <ref>', 'Project name or slug to file under')
   .option('--task <LUM-N>', 'Bind to this task after creation')
+  .option('--parent <doc>', 'File under this parent doc (cuid or title)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .action(
