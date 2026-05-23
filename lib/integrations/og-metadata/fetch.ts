@@ -5,12 +5,14 @@ import {
   TIMEOUT_MS,
   USER_AGENT,
 } from './constants'
-import { parseHtml, type OgData } from './parse'
+import { extractOgData, type OgData } from './extract'
 import { assertExternalHost } from './ssrf'
 
 export type FetchResult =
   | { ok: true; data: OgData; finalUrl: string }
   | { ok: false; error: string }
+
+export type { OgData }
 
 async function readWithLimit(
   body: ReadableStream<Uint8Array> | null
@@ -101,7 +103,7 @@ export async function fetchOpenGraph(rawUrl: string): Promise<FetchResult> {
       const body = await readWithLimit(res.body)
       if (!body.ok) return { ok: false, error: body.error }
 
-      const data = parseHtml(body.text, currentUrl)
+      const data = await extractOgData(body.text, currentUrl)
       return { ok: true, data, finalUrl: currentUrl }
     }
     return { ok: false, error: 'too many redirects' }

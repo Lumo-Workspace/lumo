@@ -7,7 +7,7 @@
 import puppeteer from 'puppeteer-core'
 import chromium from '@sparticuz/chromium-min'
 import { USER_AGENT } from './constants'
-import { parseHtml } from './parse'
+import { extractOgData } from './extract'
 import { assertExternalHost } from './ssrf'
 import type { FetchResult } from './fetch'
 
@@ -66,7 +66,7 @@ export async function fetchOpenGraphChromium(
 
     const html = await page.content()
     const finalUrl = page.url()
-    const data = parseHtml(html, finalUrl)
+    const data = await extractOgData(html, finalUrl)
     return { ok: true, data, finalUrl }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'unknown'
