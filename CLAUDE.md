@@ -129,4 +129,3 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - [ ] Branch name follows convention lumo/{task-id}-{description}
 - [ ] PR title includes task ID [LUM-N]
 - [ ] If `cli/src/commands/` changed → `.claude/skills/lumo/SKILL.md` updated to match
-      @import LUMO.md
