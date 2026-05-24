@@ -1,7 +1,7 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
-import type { OutboundActorKind } from '@prisma/client'
+import type { OutboundActorKind, PrCommentSource } from '@prisma/client'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
@@ -16,6 +16,7 @@ import {
 } from '@/lib/integrations/github/pr-comment-client'
 import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 import { prisma } from '@/lib/db/prisma'
+import { githubActorService } from '@/lib/services/github-actor.service'
 
 interface Repo {
   owner: string
@@ -347,6 +348,65 @@ async function runOutboundDelete(commentId: string) {
   }
 }
 
+const BOT_LOGIN = process.env.LUMO_GITHUB_BOT_LOGIN ?? 'lumo-app[bot]'
+
+interface InboundPayload {
+  event:
+    | 'issue_comment'
+    | 'pull_request_review'
+    | 'pull_request_review_comment'
+  action: 'created' | 'edited' | 'deleted' | 'submitted' | 'dismissed'
+  workspaceId: string
+  taskId: string
+  pullRequestId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  raw: any
+}
+
+interface InboundCommentNode {
+  id: number
+  node_id: string
+  html_url: string
+  body: string | null
+  updated_at: string
+  user: { id: number; login: string; type: string; avatar_url: string }
+  in_reply_to_id?: number
+  path?: string
+  line?: number
+  start_line?: number | null
+  side?: 'LEFT' | 'RIGHT'
+}
+
+function extractCommentNode(payload: InboundPayload): InboundCommentNode {
+  if (payload.event === 'pull_request_review') {
+    return payload.raw.review as InboundCommentNode
+  }
+  return payload.raw.comment as InboundCommentNode
+}
+
+function payloadSource(payload: InboundPayload): PrCommentSource {
+  if (payload.event === 'issue_comment') return 'ISSUE'
+  if (payload.event === 'pull_request_review') return 'REVIEW'
+  return 'REVIEW_LINE'
+}
+
+// Stubs for Task 13 / 14
+async function runInboundCreate(
+  _payload: InboundPayload,
+  _node: InboundCommentNode,
+  _source: PrCommentSource
+) {
+  throw new Error('runInboundCreate not yet implemented — Task 13')
+}
+
+async function runInboundUpdate(
+  _payload: InboundPayload,
+  _existing: { id: string; externalUpdatedAt: Date; commentId: string },
+  _node: InboundCommentNode
+) {
+  throw new Error('runInboundUpdate not yet implemented — Task 14')
+}
+
 export const prCommentMirrorService = {
   async resolveOutboundActor(
     input: ResolveActorInput
@@ -373,8 +433,75 @@ export const prCommentMirrorService = {
     if (op === 'DELETE') return runOutboundDelete(commentId)
   },
 
-  async runInbound(_payload: unknown) {
-    throw new Error('not implemented — Task 12-15')
+  async resolveInboundAuthor(
+    workspaceId: string,
+    ghUser: { id: number; login: string; type: string; avatar_url: string }
+  ): Promise<{ actorId: string } | null> {
+    // Bot defense: skip events from the Lumo bot itself to prevent infinite loops
+    if (ghUser.login === BOT_LOGIN) return null
+
+    // Check if this GitHub login maps to a Lumo member
+    const integration = await githubRepository.findIntegrationByLogin(
+      workspaceId,
+      ghUser.login
+    )
+    if (integration?.member?.actor?.id) {
+      return { actorId: integration.member.actor.id }
+    }
+
+    // Fall back to a GITHUB_USER pseudo-actor
+    const actor = await githubActorService.upsertPseudoActor(workspaceId, {
+      id: ghUser.id,
+      login: ghUser.login,
+      avatar_url: ghUser.avatar_url,
+    })
+    return { actorId: actor.id }
+  },
+
+  async runInbound(payload: InboundPayload) {
+    const node = extractCommentNode(payload)
+    const source = payloadSource(payload)
+
+    // Echo / dedupe via exact externalId match
+    const existing = await prCommentMirrorRepository.findByExternal(
+      source,
+      String(node.id)
+    )
+    if (existing) {
+      const tIncoming = new Date(node.updated_at)
+      if (existing.externalUpdatedAt >= tIncoming) return // echo — drop
+
+      // UPDATE path — handled in Task 14
+      return runInboundUpdate(payload, existing, node)
+    }
+
+    // Race-patch: did we just POST this comment and the webhook beat the response?
+    if (payload.action === 'created' || payload.action === 'submitted') {
+      const placeholder = await prCommentMirrorRepository.findRecentPlaceholder(
+        payload.pullRequestId,
+        computeBodyHash(node.body ?? ''),
+        60
+      )
+      if (placeholder) {
+        await prCommentMirrorRepository.resolvePlaceholder(placeholder.id, {
+          externalId: String(node.id),
+          externalNodeId: node.node_id,
+          externalUrl: node.html_url,
+          externalUpdatedAt: new Date(node.updated_at),
+        })
+        return
+      }
+    }
+
+    if (payload.action === 'deleted') return // unknown comment, ignore delete
+
+    if (
+      payload.action === 'created' ||
+      payload.action === 'submitted' ||
+      payload.action === 'edited' // edit on something we don't know — treat as create
+    ) {
+      return runInboundCreate(payload, node, source)
+    }
   },
 
   async scheduleOutbound(
