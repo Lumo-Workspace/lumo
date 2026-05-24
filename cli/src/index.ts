@@ -28,6 +28,7 @@ import { sprintShow } from './commands/sprint-show'
 import { sprintUpdate } from './commands/sprint-update'
 import { sprintDelete } from './commands/sprint-delete'
 import { sprintStart } from './commands/sprint-start'
+import { sprintClose } from './commands/sprint-close'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -352,6 +353,21 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintStart(identifier as string, options as Record<string, string>)
+    )
+  )
+
+sprintCmd
+  .command('close <identifier>')
+  .description(
+    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog.'
+  )
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .option('--move-all', 'Move all unfinished tasks to the next sprint')
+  .option('--backlog-all', 'Return all unfinished tasks to the backlog')
+  .option('--yes', 'Required when --move-all or --backlog-all is set')
+  .action(
+    wrap((identifier, options) =>
+      sprintClose(identifier as string, options as Record<string, unknown>)
     )
   )
 
