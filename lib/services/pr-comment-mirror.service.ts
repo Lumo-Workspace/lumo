@@ -504,12 +504,62 @@ async function runInboundCreate(
   // TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({ commentId: comment.id, workspaceId: payload.workspaceId })
 }
 
-async function runInboundUpdate(
-  _payload: InboundPayload,
-  _existing: { id: string; externalUpdatedAt: Date; commentId: string },
-  _node: InboundCommentNode
+async function applyInboundUpdate(
+  payload: InboundPayload,
+  existing: { id: string; commentId: string },
+  node: InboundCommentNode
 ) {
-  throw new Error('runInboundUpdate not yet implemented — Task 14')
+  const source = payloadSource(payload)
+  const newBody = buildInboundBody(payload, node, source)
+  await commentRepository.update(existing.commentId, { body: newBody })
+  await prCommentMirrorRepository.patchAfterEdit(
+    existing.id,
+    new Date(node.updated_at),
+    computeBodyHash(node.body ?? '')
+  )
+}
+
+async function runInboundUpdate(
+  payload: InboundPayload,
+  existing: { id: string; commentId: string; externalUpdatedAt: Date },
+  node: InboundCommentNode
+) {
+  const T = new Date(node.updated_at)
+  const M = existing.externalUpdatedAt
+
+  // T <= M: echo — drop
+  if (T <= M) return
+
+  const local = await commentRepository.findById(existing.commentId)
+  if (!local || local.deletedAt) return // local was deleted; inbound update is moot
+
+  const L = local.updatedAt
+
+  if (L <= M) {
+    // No local edits since last sync — apply inbound unconditionally
+    return applyInboundUpdate(payload, existing, node)
+  }
+
+  if (T > L) {
+    // GH timestamp is newer than local edit → GH wins
+    console.warn('pr-mirror conflict: inbound wins', {
+      mirrorId: existing.id,
+      L: L.toISOString(),
+      M: M.toISOString(),
+      T: T.toISOString(),
+      localBody: local.body,
+      remoteBody: node.body,
+    })
+    return applyInboundUpdate(payload, existing, node)
+  }
+
+  // L >= T > M: local is newer → local wins; push local back to GitHub
+  await prCommentSyncJobRepository.enqueue({
+    direction: 'OUTBOUND',
+    payload: { op: 'UPDATE', mirrorId: existing.id },
+    commentId: existing.commentId,
+    workspaceId: payload.workspaceId,
+  })
 }
 
 export const prCommentMirrorService = {
