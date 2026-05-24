@@ -17,6 +17,7 @@ const mockMentionDeleteMany = jest.fn()
 const mockMentionFindMany = jest.fn()
 const mockMentionCreateMany = jest.fn()
 const mockMentionFindUnique = jest.fn()
+const mockWorkspaceUpdate = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -42,10 +43,14 @@ jest.mock('@/lib/db/prisma', () => ({
       upsert: (...args: any[]) => mockUpsert(...args),
       deleteMany: (...args: any[]) => mockDeleteMany(...args),
     },
+    workspace: {
+      update: (...args: any[]) => mockWorkspaceUpdate(...args),
+    },
     $transaction: jest.fn((fn: any) =>
       fn({
         document: {
           findMany: (...args: any[]) => mockFindMany(...args),
+          create: (...args: any[]) => mockCreate(...args),
           delete: (...args: any[]) => mockDelete(...args),
         },
         documentMention: {
@@ -59,6 +64,9 @@ jest.mock('@/lib/db/prisma', () => ({
         },
         documentEditor: {
           deleteMany: (...args: any[]) => mockDeleteMany(...args),
+        },
+        workspace: {
+          update: (...args: any[]) => mockWorkspaceUpdate(...args),
         },
       })
     ),
@@ -132,14 +140,11 @@ describe('documentRepository', () => {
       )
 
       expect(result).toEqual(fakeDoc)
-      expect(mockFindFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            id: 'doc-1',
-            workspaceId: 'ws-1',
-          }),
-        })
-      )
+      const callArg = mockFindFirst.mock.calls[0][0]
+      expect(callArg.where.workspaceId).toBe('ws-1')
+      expect(callArg.where.AND[0]).toEqual({
+        OR: [{ id: 'doc-1' }, { slug: 'doc-1' }],
+      })
     })
 
     it('returns null when document not found', async () => {
@@ -187,7 +192,8 @@ describe('documentRepository', () => {
 
   describe('create', () => {
     it('creates document with correct data', async () => {
-      const fakeDoc = { id: 'doc-new', title: 'New Doc' }
+      mockWorkspaceUpdate.mockResolvedValue({ documentSeq: 1 })
+      const fakeDoc = { id: 'doc-new', title: 'New Doc', number: 1 }
       mockCreate.mockResolvedValue(fakeDoc)
 
       const result = await documentRepository.create({
@@ -216,6 +222,7 @@ describe('documentRepository', () => {
     })
 
     it('creates document with optional content field when provided', async () => {
+      mockWorkspaceUpdate.mockResolvedValue({ documentSeq: 1 })
       const fakeDoc = {
         id: 'doc-new',
         title: 'New Doc',
@@ -239,6 +246,73 @@ describe('documentRepository', () => {
           }),
         })
       )
+    })
+
+    it('allocates per-workspace number and writes derived slug', async () => {
+      mockWorkspaceUpdate.mockResolvedValue({ documentSeq: 12 })
+      mockCreate.mockResolvedValue({ id: 'doc-new', title: 'Design Spec' })
+
+      await documentRepository.create({
+        title: 'Design Spec',
+        workspaceId: 'ws-1',
+        createdById: 'member-1',
+        visibility: 'WORKSPACE',
+        sortOrder: 1,
+      })
+
+      expect(mockWorkspaceUpdate).toHaveBeenCalledWith({
+        where: { id: 'ws-1' },
+        data: { documentSeq: { increment: 1 } },
+        select: { documentSeq: true },
+      })
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            number: 12,
+            slug: 'design-spec-12',
+          }),
+        })
+      )
+    })
+
+    it('falls back to "untitled" prefix when title is empty', async () => {
+      mockWorkspaceUpdate.mockResolvedValue({ documentSeq: 7 })
+      mockCreate.mockResolvedValue({ id: 'doc-new', title: '' })
+
+      await documentRepository.create({
+        title: '',
+        workspaceId: 'ws-1',
+        createdById: 'member-1',
+        visibility: 'PRIVATE',
+        sortOrder: 1,
+      })
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            number: 7,
+            slug: 'untitled-7',
+          }),
+        })
+      )
+    })
+  })
+
+  describe('slug-form lookup', () => {
+    it('findWithPermission resolves a slug-shaped segment', async () => {
+      mockFindFirst.mockResolvedValue({ id: 'doc-1' })
+
+      await documentRepository.findWithPermission(
+        'design-spec-12',
+        'member-1',
+        'ws-1'
+      )
+
+      const callArg = mockFindFirst.mock.calls[0][0]
+      expect(callArg.where.workspaceId).toBe('ws-1')
+      expect(callArg.where.AND[0]).toEqual({
+        OR: [{ id: 'design-spec-12' }, { slug: 'design-spec-12' }],
+      })
     })
   })
 

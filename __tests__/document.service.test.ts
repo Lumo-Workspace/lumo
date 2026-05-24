@@ -240,6 +240,51 @@ describe('documentService', () => {
         status: 403,
       })
     })
+
+    it('regenerates slug when title changes, keeping number stable', async () => {
+      mockFindWithPermission.mockResolvedValue({
+        id: 'doc-1',
+        createdById: 'm-1',
+        shares: [],
+        number: 12,
+        slug: 'old-title-12',
+      })
+      mockUpdateWithChildrenAndMentions.mockResolvedValue({
+        id: 'doc-1',
+        title: 'Fresh Name',
+        slug: 'fresh-name-12',
+      })
+
+      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', {
+        title: 'Fresh Name',
+      })
+
+      expect(mockUpdateWithChildrenAndMentions).toHaveBeenCalledWith(
+        'doc-1',
+        expect.objectContaining({ title: 'Fresh Name', slug: 'fresh-name-12' }),
+        undefined,
+        undefined
+      )
+    })
+
+    it('skips slug regeneration when the doc has no allocated number yet', async () => {
+      mockFindWithPermission.mockResolvedValue({
+        id: 'doc-1',
+        createdById: 'm-1',
+        shares: [],
+        number: null,
+        slug: null,
+      })
+      mockUpdateWithChildrenAndMentions.mockResolvedValue({ id: 'doc-1' })
+
+      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', {
+        title: 'Fresh Name',
+      })
+
+      const updateArgs = mockUpdateWithChildrenAndMentions.mock.calls[0]
+      expect(updateArgs[1]).toEqual({ title: 'Fresh Name' })
+      expect(updateArgs[1].slug).toBeUndefined()
+    })
   })
 
   describe('deleteDocument', () => {

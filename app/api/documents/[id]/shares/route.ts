@@ -24,7 +24,7 @@ export async function GET(
     )
   }
 
-  const shares = await documentRepository.findSharesByDocument(id)
+  const shares = await documentRepository.findSharesByDocument(doc.id)
 
   return NextResponse.json({ shares })
 }
@@ -54,7 +54,7 @@ export async function POST(
   if (!parsed.success) return zodError(parsed)
 
   const share = await documentRepository.upsertShareTransaction(
-    id,
+    doc.id,
     parsed.data.memberId,
     parsed.data.role,
     doc.visibility
