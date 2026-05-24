@@ -89,6 +89,52 @@ export async function resolveProjectId(
   return match.id
 }
 
+interface TeamRow {
+  id: string
+  name: string
+  identifier: string
+}
+
+/**
+ * Resolve `--team <ref>` to a team id + name.
+ * - `ref` undefined and workspace has 1 visible team → auto-select
+ * - `ref` undefined and workspace has >1 visible team → throw
+ * - `ref` is a UUID → return as-is (no fetch)
+ * - `ref` set → match by name or identifier (slug), case-insensitive
+ */
+export async function resolveTeamId(
+  base: string,
+  token: string,
+  ref: string | undefined
+): Promise<{ id: string; name: string }> {
+  if (ref !== undefined && isUuid(ref)) {
+    return { id: ref, name: '' }
+  }
+
+  const { teams } = await fetchJson<{ teams: TeamRow[] }>(
+    base,
+    token,
+    '/api/teams'
+  )
+
+  if (!ref) {
+    if (teams.length === 0) throw new Error('workspace has no teams yet.')
+    if (teams.length === 1) return { id: teams[0]!.id, name: teams[0]!.name }
+    throw new Error('workspace has multiple teams; pass --team <slug>.')
+  }
+
+  const needle = ref.trim().toLowerCase()
+  const match = teams.find(
+    t =>
+      t.name.toLowerCase() === needle ||
+      t.identifier.toLowerCase() === needle
+  )
+  if (!match) {
+    throw new Error(`team "${ref}" not found. Try \`lumo team list\`.`)
+  }
+  return { id: match.id, name: match.name }
+}
+
 /**
  * Resolve a milestone `<identifier>`:
  * - If it's a UUID, return as-is (project not fetched).
