@@ -56,7 +56,7 @@ export const commentService = {
   async createComment(input: CreateCommentInput) {
     if (input.parentId) {
       const parent = await commentRepository.findById(input.parentId)
-      if (!parent || parent.taskId !== input.taskId) {
+      if (!parent || parent.taskId !== input.taskId || parent.deletedAt !== null) {
         throw Object.assign(new Error('Parent comment not found'), {
           status: 404,
         })

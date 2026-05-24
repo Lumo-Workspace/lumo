@@ -8,6 +8,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     notification: {
       createMany: jest.fn(),
@@ -24,6 +25,7 @@ import { commentRepository } from '@/lib/repositories/comment.repository'
 const mockFindMany = prisma.comment.findMany as jest.Mock
 const mockFindUnique = prisma.comment.findUnique as jest.Mock
 const mockCreate = prisma.comment.create as jest.Mock
+const mockUpdate = prisma.comment.update as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -75,5 +77,24 @@ describe('commentRepository.create', () => {
     const result = await commentRepository.create(input)
     expect(result).toEqual({ id: 'c1', ...input })
     expect(mockCreate).toHaveBeenCalledWith({ data: input })
+  })
+})
+
+describe('commentRepository.delete (soft)', () => {
+  it('sets deletedAt instead of hard-deleting', async () => {
+    mockUpdate.mockResolvedValue({ id: 'c1', deletedAt: new Date() })
+    await commentRepository.delete('c1')
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'c1' },
+      data: { deletedAt: expect.any(Date) },
+    })
+  })
+})
+
+describe('commentRepository.findById (soft-delete awareness)', () => {
+  it('returns soft-deleted rows (callers decide policy)', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'c1', deletedAt: new Date() })
+    const result = await commentRepository.findById('c1')
+    expect(result?.deletedAt).toBeInstanceOf(Date)
   })
 })
