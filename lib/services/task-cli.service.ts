@@ -355,6 +355,8 @@ export interface ShowTaskFromCliResult {
   priority: string
   description: string | null
   url: string
+  sprintId: string | null
+  teamId: string
   project: { id: string; name: string }
   assignee: {
     type: 'member' | 'agent'
@@ -413,6 +415,8 @@ async function showFromCli(args: {
     priority: detail.priority,
     description: detail.description,
     url,
+    sprintId: detail.sprintId ?? null,
+    teamId: detail.teamId,
     project: { id: detail.project.id, name: detail.project.name },
     assignee,
   }

@@ -1,0 +1,118 @@
+/**
+ * @jest-environment node
+ *
+ * Tests for taskCliService.showFromCli — specifically verifying that the
+ * response shape includes sprintId and teamId (added for LUM-88).
+ */
+jest.mock('@/lib/services/task.service', () => ({
+  taskService: {
+    resolveIdentifier: jest.fn(),
+    getTaskDetail: jest.fn(),
+  },
+}))
+jest.mock('@/lib/services/auth.service', () => ({
+  authService: {
+    fetchUserProfile: jest.fn(),
+  },
+}))
+
+import { taskService } from '@/lib/services/task.service'
+import { taskCliService } from '@/lib/services/task-cli.service'
+
+const mockResolveIdentifier = taskService.resolveIdentifier as jest.Mock
+const mockGetDetail = taskService.getTaskDetail as jest.Mock
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockResolveIdentifier.mockResolvedValue({
+    id: 'task_1',
+    identifier: 'LUM-48',
+  })
+  mockGetDetail.mockResolvedValue({
+    id: 'task_1',
+    title: 'A task',
+    status: 'TODO',
+    priority: 'LOW',
+    description: null,
+    sprintId: 'sprint-abc',
+    teamId: 'team-xyz',
+    project: { id: 'proj-1', name: 'Lumo', workspaceId: 'ws_1' },
+    assignee: null,
+    pullRequests: [],
+    tags: [],
+    teamIdentifier: 'LUM',
+    sprintsEnabled: true,
+    parent: null,
+  })
+})
+
+describe('taskCliService.showFromCli', () => {
+  it('returns sprintId from the underlying task detail', async () => {
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result).toHaveProperty('sprintId', 'sprint-abc')
+  })
+
+  it('returns teamId from the underlying task detail', async () => {
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result).toHaveProperty('teamId', 'team-xyz')
+  })
+
+  it('returns sprintId as null when task has no sprint binding', async () => {
+    mockGetDetail.mockResolvedValueOnce({
+      id: 'task_1',
+      title: 'A task',
+      status: 'TODO',
+      priority: 'LOW',
+      description: null,
+      sprintId: null,
+      teamId: 'team-xyz',
+      project: { id: 'proj-1', name: 'Lumo', workspaceId: 'ws_1' },
+      assignee: null,
+      pullRequests: [],
+      tags: [],
+      teamIdentifier: 'LUM',
+      sprintsEnabled: true,
+      parent: null,
+    })
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result.sprintId).toBeNull()
+  })
+
+  it('returns sprintId as null when task detail has no sprintId field', async () => {
+    // Edge case: detail row doesn't have sprintId (e.g. old data)
+    mockGetDetail.mockResolvedValueOnce({
+      id: 'task_1',
+      title: 'A task',
+      status: 'TODO',
+      priority: 'LOW',
+      description: null,
+      // sprintId deliberately absent
+      teamId: 'team-xyz',
+      project: { id: 'proj-1', name: 'Lumo', workspaceId: 'ws_1' },
+      assignee: null,
+      pullRequests: [],
+      tags: [],
+      teamIdentifier: 'LUM',
+      sprintsEnabled: true,
+      parent: null,
+    })
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(result.sprintId).toBeNull()
+  })
+})

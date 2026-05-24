@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
+import { resolveSprintId } from '../lib/resolve'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -13,12 +14,49 @@ export interface UpdateTaskOptions {
   priority?: string
   assignee?: string
   milestone?: string
+  sprint?: string
   tag?: string[]
   tagId?: string[]
   addTag?: string[]
   addTagId?: string[]
   removeTag?: string[]
   removeTagId?: string[]
+}
+
+// ---------------------------------------------------------------------------
+// Sprint action decision logic
+// ---------------------------------------------------------------------------
+
+export type SprintAction =
+  | { type: 'noop-clear' }
+  | { type: 'noop-same'; sprintId: string }
+  | { type: 'unbind'; oldSprintId: string }
+  | { type: 'bind'; newSprintId: string }
+  | { type: 'rebind'; oldSprintId: string; newSprintId: string }
+
+/**
+ * Pure function: given the task's current sprint binding and the resolved
+ * sprint id from the --sprint flag ('' to clear), decide what action to take.
+ *
+ * `flag` is the **resolved** sprint id (or '' to clear). It is NOT the raw
+ * CLI flag value — the caller must resolve the sprint ref before calling this.
+ */
+export function decideSprintAction(input: {
+  currentSprintId: string | null
+  flag: string
+}): SprintAction {
+  const { currentSprintId, flag } = input
+
+  if (flag === '') {
+    // Clear intent
+    if (currentSprintId === null) return { type: 'noop-clear' }
+    return { type: 'unbind', oldSprintId: currentSprintId }
+  }
+
+  // Bind intent (non-empty resolved sprint id)
+  if (currentSprintId === null) return { type: 'bind', newSprintId: flag }
+  if (currentSprintId === flag) return { type: 'noop-same', sprintId: flag }
+  return { type: 'rebind', oldSprintId: currentSprintId, newSprintId: flag }
 }
 
 interface UpdatedTaskResponse {
@@ -165,10 +203,11 @@ export async function taskUpdate(
 
   // Tag fields count as "something to update" even when no other flags given
   const hasTagFields = hasBulk || hasIncremental
+  const hasSprintFlag = opts.sprint !== undefined
 
-  if (flagsGiven.length === 0 && !hasTagFields) {
+  if (flagsGiven.length === 0 && !hasTagFields && !hasSprintFlag) {
     console.error(
-      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --tag, --add-tag, --remove-tag)'
+      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --tag, --add-tag, --remove-tag)'
     )
     return 1
   }
@@ -224,67 +263,350 @@ export async function taskUpdate(
   if (addTagIds !== undefined) payload.addTagIds = addTagIds
   if (removeTagIds !== undefined) payload.removeTagIds = removeTagIds
 
-  const url = `${trimTrailingSlash(apiUrl)}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
+  const base = trimTrailingSlash(apiUrl)
 
-  let res: Response
-  try {
-    res = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${creds.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return 1
-  }
+  // Only do the PATCH when there are actual task fields to update.
+  // If --sprint is the only flag given, skip the PATCH entirely.
+  const hasPatchFields = flagsGiven.length > 0 || hasTagFields
 
-  if (res.status === 401) {
-    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
-    return 1
-  }
+  if (hasPatchFields) {
+    const patchUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
 
-  if (res.status === 200) {
-    const data = (await res.json()) as UpdatedTaskResponse
-    // Read tag names off the response (present when tags were changed)
-    const responseTagNames =
-      tagIds !== undefined ||
-      addTagIds !== undefined ||
-      removeTagIds !== undefined
-        ? (data.task.taskTags ?? []).map(t => t.name)
-        : undefined
-
-    const taskLine: {
-      id: string
-      identifier: string
-      title: string
-      url: string
-      tags?: string[]
-    } = {
-      id: data.task.id,
-      identifier: data.task.identifier,
-      title: data.task.title,
-      url: data.task.url,
+    let res: Response
+    try {
+      res = await fetch(patchUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${creds.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+      return 1
     }
-    if (responseTagNames !== undefined) taskLine.tags = responseTagNames
-    process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
-    return
+
+    if (res.status === 401) {
+      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      return 1
+    }
+
+    if (res.status === 200) {
+      const data = (await res.json()) as UpdatedTaskResponse
+
+      // Read tag names off the response (present when tags were changed)
+      const responseTagNames =
+        tagIds !== undefined ||
+        addTagIds !== undefined ||
+        removeTagIds !== undefined
+          ? (data.task.taskTags ?? []).map(t => t.name)
+          : undefined
+
+      const taskLine: {
+        id: string
+        identifier: string
+        title: string
+        url: string
+        tags?: string[]
+      } = {
+        id: data.task.id,
+        identifier: data.task.identifier,
+        title: data.task.title,
+        url: data.task.url,
+      }
+      if (responseTagNames !== undefined) taskLine.tags = responseTagNames
+      process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
+    } else {
+      let serverMsg: string | null = null
+      try {
+        const errBody = (await res.json()) as { error?: string }
+        if (typeof errBody.error === 'string') serverMsg = errBody.error
+      } catch {
+        // Body wasn't JSON; fall through to status-only message
+      }
+      if (serverMsg) {
+        console.error(`Error: ${serverMsg}`)
+      } else {
+        console.error(`Error: task update failed (HTTP ${res.status})`)
+      }
+      return 1
+    }
   }
 
-  let serverMsg: string | null = null
-  try {
-    const errBody = (await res.json()) as { error?: string }
-    if (typeof errBody.error === 'string') serverMsg = errBody.error
-  } catch {
-    // Body wasn't JSON; fall through to status-only message
+  // Sprint flag handling — runs after successful PATCH (or as standalone op)
+  if (hasSprintFlag) {
+    // GET /api/tasks/by-identifier/<id> to learn currentSprintId and teamId
+    const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
+    let showRes: Response
+    try {
+      showRes = await fetch(showUrl, {
+        headers: { Authorization: `Bearer ${creds.token}` },
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+      return 1
+    }
+    if (showRes.status === 401) {
+      console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+      return 1
+    }
+    if (!showRes.ok) {
+      console.error(`Error: task lookup failed (HTTP ${showRes.status})`)
+      return 1
+    }
+    const showData = (await showRes.json()) as {
+      task: {
+        id: string
+        identifier: string
+        sprintId: string | null
+        teamId: string
+      }
+    }
+    const task = showData.task
+
+    // Resolve new sprint id ('' → clear, non-empty → resolve ref).
+    // Also store the sprint number/name once resolved so we don't need extra
+    // GETs for output formatting on bind/rebind/noop-same.
+    let resolvedSprintId = ''
+    let resolvedSprintNumber: number | null = null
+    if (opts.sprint !== '') {
+      const workspaceSlug = creds.workspaceSlug ?? ''
+      let sprint: { id: string; number: number; name: string; teamId: string }
+      try {
+        sprint = await resolveSprintId(
+          base,
+          creds.token,
+          opts.sprint!,
+          undefined,
+          workspaceSlug
+        )
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`)
+        return 1
+      }
+
+      // UUID path: resolveSprintId returns placeholder with teamId === ''
+      if (sprint.teamId === '') {
+        let sprintRes: Response
+        try {
+          sprintRes = await fetch(`${base}/api/sprints/${sprint.id}`, {
+            headers: { Authorization: `Bearer ${creds.token}` },
+          })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+          return 1
+        }
+        if (!sprintRes.ok) {
+          console.error(`Error: sprint lookup failed (HTTP ${sprintRes.status})`)
+          return 1
+        }
+        const { sprint: full } = (await sprintRes.json()) as {
+          sprint: { id: string; number: number; name: string; teamId: string }
+        }
+        sprint = {
+          id: full.id,
+          number: full.number,
+          name: full.name,
+          teamId: full.teamId,
+        }
+      }
+
+      // Cross-team check
+      if (sprint.teamId !== task.teamId) {
+        console.error(
+          `Error: Sprint binding skipped: sprint #${sprint.number} belongs to a different team than task ${task.identifier}`
+        )
+        return 1
+      }
+
+      resolvedSprintId = sprint.id
+      resolvedSprintNumber = sprint.number
+    }
+
+    const action = decideSprintAction({
+      currentSprintId: task.sprintId,
+      flag: resolvedSprintId,
+    })
+
+    if (action.type === 'noop-clear') {
+      process.stdout.write(`Task ${task.identifier} has no sprint binding\n`)
+      return
+    }
+
+    if (action.type === 'noop-same') {
+      // resolvedSprintNumber is always set when we reach this branch
+      const label =
+        resolvedSprintNumber !== null
+          ? `#${resolvedSprintNumber}`
+          : action.sprintId
+      process.stdout.write(
+        `Task ${task.identifier} already in sprint ${label}\n`
+      )
+      return
+    }
+
+    if (action.type === 'unbind') {
+      // Fetch the old sprint number for display (we only know the id here)
+      let oldNumber: number | null = null
+      try {
+        const sprintRes = await fetch(
+          `${base}/api/sprints/${action.oldSprintId}`,
+          { headers: { Authorization: `Bearer ${creds.token}` } }
+        )
+        if (sprintRes.ok) {
+          const body = (await sprintRes.json()) as { sprint: { number: number } }
+          oldNumber = body.sprint.number
+        }
+      } catch {
+        // non-critical — we'll fall back to '-'
+      }
+
+      let deleteRes: Response
+      try {
+        deleteRes = await fetch(
+          `${base}/api/sprints/${action.oldSprintId}/tasks/${task.id}`,
+          {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${creds.token}` },
+          }
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+        return 1
+      }
+      if (!deleteRes.ok) {
+        let errMsg = `sprint unbind failed (HTTP ${deleteRes.status})`
+        try {
+          const b = (await deleteRes.json()) as { error?: string }
+          if (b.error) errMsg = b.error
+        } catch { /* ignore */ }
+        console.error(`Error: ${errMsg}`)
+        return 1
+      }
+
+      const oldLabel = oldNumber !== null ? `#${oldNumber}` : '-'
+      process.stdout.write(`Sprint: ${oldLabel} → -\n`)
+      return
+    }
+
+    if (action.type === 'bind') {
+      let postRes: Response
+      try {
+        postRes = await fetch(
+          `${base}/api/sprints/${action.newSprintId}/tasks`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${creds.token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ taskId: task.id }),
+          }
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+        return 1
+      }
+      if (!postRes.ok) {
+        let errMsg = `sprint bind failed (HTTP ${postRes.status})`
+        try {
+          const b = (await postRes.json()) as { error?: string }
+          if (b.error) errMsg = b.error
+        } catch { /* ignore */ }
+        console.error(`Error: ${errMsg}`)
+        return 1
+      }
+
+      // resolvedSprintNumber is set from the resolveSprintId call above
+      const newLabel =
+        resolvedSprintNumber !== null ? `#${resolvedSprintNumber}` : action.newSprintId
+      process.stdout.write(`Sprint: - → ${newLabel}\n`)
+      return
+    }
+
+    if (action.type === 'rebind') {
+      // Fetch old sprint number for display (only know id from currentSprintId)
+      let oldNumber: number | null = null
+      try {
+        const oldSprintRes = await fetch(
+          `${base}/api/sprints/${action.oldSprintId}`,
+          { headers: { Authorization: `Bearer ${creds.token}` } }
+        )
+        if (oldSprintRes.ok) {
+          const b = (await oldSprintRes.json()) as { sprint: { number: number } }
+          oldNumber = b.sprint.number
+        }
+      } catch {
+        // non-critical
+      }
+
+      // Step 1: DELETE old sprint binding
+      let deleteRes: Response
+      try {
+        deleteRes = await fetch(
+          `${base}/api/sprints/${action.oldSprintId}/tasks/${task.id}`,
+          {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${creds.token}` },
+          }
+        )
+      } catch {
+        console.error(
+          `Task may be in inconsistent sprint state, re-run or check Web UI`
+        )
+        return 1
+      }
+      if (!deleteRes.ok) {
+        console.error(
+          `Task may be in inconsistent sprint state, re-run or check Web UI`
+        )
+        return 1
+      }
+
+      // Step 2: POST new sprint binding
+      let postRes: Response
+      try {
+        postRes = await fetch(
+          `${base}/api/sprints/${action.newSprintId}/tasks`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${creds.token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ taskId: task.id }),
+          }
+        )
+      } catch {
+        console.error(
+          `Task may be in inconsistent sprint state, re-run or check Web UI`
+        )
+        return 1
+      }
+      if (!postRes.ok) {
+        console.error(
+          `Task may be in inconsistent sprint state, re-run or check Web UI`
+        )
+        return 1
+      }
+
+      const oldLabel = oldNumber !== null ? `#${oldNumber}` : '-'
+      // resolvedSprintNumber is set from the resolveSprintId call above
+      const newLabel =
+        resolvedSprintNumber !== null ? `#${resolvedSprintNumber}` : action.newSprintId
+      process.stdout.write(`Sprint: ${oldLabel} → ${newLabel}\n`)
+      return
+    }
   }
-  if (serverMsg) {
-    console.error(`Error: ${serverMsg}`)
-  } else {
-    console.error(`Error: task update failed (HTTP ${res.status})`)
-  }
-  return 1
+
+  // If only --sprint was given (no PATCH fields), we've already returned above.
+  // But if --sprint wasn't given and PATCH succeeded, we returned inside the
+  // PATCH success block. This path is unreachable in normal operation.
+  return
 }

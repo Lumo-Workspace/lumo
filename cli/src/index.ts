@@ -576,7 +576,7 @@ doc
 task
   .command('update <identifier>')
   .description(
-    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, or tag flags. Use "" to clear description, assignee, or milestone. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use "" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
   )
   .option('-t, --title <text>', 'New title')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -595,6 +595,10 @@ task
   .option(
     '--milestone <ref>',
     'Milestone name (case-insensitive); empty string to unbind'
+  )
+  .option(
+    '--sprint <ref>',
+    'Sprint number or UUID to bind the task to; empty string to unbind from current sprint'
   )
   .option(
     '--tag <name>',
