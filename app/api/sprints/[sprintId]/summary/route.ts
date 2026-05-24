@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintRepository, sprintSummaryRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
 
@@ -7,12 +7,13 @@ type Params = { params: Promise<{ sprintId: string }> }
 
 /**
  * GET /api/sprints/[sprintId]/summary — Fetch the generated retro summary.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -22,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     const summary = await sprintSummaryRepository.findBySprintId(sprintId)

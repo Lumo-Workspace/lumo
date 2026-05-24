@@ -89,6 +89,122 @@ export async function resolveProjectId(
   return match.id
 }
 
+interface TeamRow {
+  id: string
+  name: string
+  identifier: string
+}
+
+/**
+ * Resolve `--team <ref>` to a team id + name.
+ * - `ref` undefined and workspace has 1 visible team → auto-select
+ * - `ref` undefined and workspace has >1 visible team → throw
+ * - `ref` is a UUID → return as-is (no fetch)
+ * - `ref` set → match by name or identifier (slug), case-insensitive
+ */
+export async function resolveTeamId(
+  base: string,
+  token: string,
+  ref: string | undefined
+): Promise<{ id: string; name: string }> {
+  if (ref !== undefined && isUuid(ref)) {
+    return { id: ref, name: '' }
+  }
+
+  const { teams } = await fetchJson<{ teams: TeamRow[] }>(
+    base,
+    token,
+    '/api/teams'
+  )
+
+  if (!ref) {
+    if (teams.length === 0) throw new Error('workspace has no teams yet.')
+    if (teams.length === 1) return { id: teams[0]!.id, name: teams[0]!.name }
+    throw new Error('workspace has multiple teams; pass --team <slug>.')
+  }
+
+  const needle = ref.trim().toLowerCase()
+  const match = teams.find(
+    t =>
+      t.name.toLowerCase() === needle ||
+      t.identifier.toLowerCase() === needle
+  )
+  if (!match) {
+    throw new Error(`team "${ref}" not found. Try \`lumo team list\`.`)
+  }
+  return { id: match.id, name: match.name }
+}
+
+interface SprintByNumberResponse {
+  sprint: { id: string; number: number; name: string; teamId: string }
+  progress: { done: number; total: number }
+}
+
+/**
+ * Resolve a sprint `<identifier>`:
+ * - If it's a UUID, return { id, number: 0, name: '', teamId: '' } — caller
+ *   fetches /api/sprints/<id> for full data.
+ * - If it's a positive integer, look up via /api/sprints/by-number scoped
+ *   to the caller's workspace.
+ *
+ * The /by-number endpoint hardcodes the product assumption that a workspace
+ * has at most one sprints-enabled team. If that constraint is ever lifted,
+ * this function will need a `--team` disambiguation step.
+ *
+ * `teamRef` is used to soften the disambiguation hint when --team was already
+ * attempted; today the endpoint still disambiguates via workspace_url only.
+ */
+export async function resolveSprintId(
+  base: string,
+  token: string,
+  identifier: string,
+  teamRef: string | undefined,
+  workspaceSlug: string
+): Promise<{ id: string; number: number; name: string; teamId: string }> {
+  if (isUuid(identifier)) {
+    return { id: identifier, number: 0, name: '', teamId: '' }
+  }
+
+  const n = Number(identifier)
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `sprint "${identifier}" must be a positive integer or a UUID.`
+    )
+  }
+
+  const path = `/api/sprints/by-number?workspaceUrl=${encodeURIComponent(workspaceSlug)}&number=${n}`
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not reach Lumo API at ${base} (${msg})`)
+  }
+  if (res.status === 404) {
+    // teamRef is currently informational only — surface the hint regardless,
+    // but soften the wording when --team was already attempted.
+    const hint = teamRef
+      ? 'Verify the sprint exists for the chosen --team, or pass the UUID.'
+      : 'If your workspace has multiple sprints-enabled teams, pass --team <name> or use the sprint UUID.'
+    throw new Error(`sprint #${n} not found in this workspace. ${hint}`)
+  }
+  if (res.status === 401) {
+    throw new Error('API key invalid or revoked. Run `lumo auth login`.')
+  }
+  if (!res.ok) {
+    throw new Error(`sprint lookup failed (HTTP ${res.status})`)
+  }
+  const body = (await res.json()) as SprintByNumberResponse
+  return {
+    id: body.sprint.id,
+    number: body.sprint.number,
+    name: body.sprint.name,
+    teamId: body.sprint.teamId,
+  }
+}
+
 /**
  * Resolve a milestone `<identifier>`:
  * - If it's a UUID, return as-is (project not fetched).

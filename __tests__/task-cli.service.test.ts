@@ -289,6 +289,7 @@ describe('taskCliService.createFromCli', () => {
         id: 'task-1',
         title: 'Hello',
         teamIdentifier: 'LUM',
+        teamId: 'team-1',
         number: 44,
       },
       taskTags: [],
@@ -319,6 +320,7 @@ describe('taskCliService.createFromCli', () => {
       identifier: 'LUM-44',
       title: 'Hello',
       url: 'https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-44',
+      teamId: 'team-1',
       taskTags: [],
     })
   })
@@ -360,6 +362,26 @@ describe('taskCliService.createFromCli', () => {
       'actor-caller',
       'clerk-1'
     )
+  })
+
+  it('includes teamId in the returned shape', async () => {
+    mockCreateTask.mockResolvedValue({
+      task: {
+        id: 'task-1',
+        title: 'Hello',
+        teamIdentifier: 'LUM',
+        number: 44,
+        teamId: 'team-abc',
+      },
+      taskTags: [],
+    })
+    const result = await taskCliService.createFromCli({
+      workspaceId: 'ws-1',
+      workspaceSlug: 'lumo',
+      callerClerkId: 'clerk-1',
+      input: { title: 'Hello', priority: 'LOW' },
+    })
+    expect(result).toHaveProperty('teamId', 'team-abc')
   })
 
   it('uses LUMO_PUBLIC_URL when set', async () => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { cadenceSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
@@ -9,15 +9,16 @@ type Params = { params: Promise<{ teamId: string }> }
 
 /**
  * PATCH /api/teams/[teamId]/cadence — Configure sprint cadence settings for a team.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    const { memberId } = await requireTeamAccessById(teamId, userId)
+    const { memberId } = await requireTeamAccessById(teamId, identity.clerkId)
 
     const body = await req.json()
     const parsed = cadenceSchema.safeParse(body)

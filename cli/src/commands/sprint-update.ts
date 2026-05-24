@@ -1,0 +1,186 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+import { resolveSprintId } from '../lib/resolve'
+
+export interface UpdateSprintOptions {
+  team?: string
+  name?: string
+  start?: string
+  end?: string
+}
+
+interface UpdatePayload {
+  name?: string
+  startDate?: string
+  endDate?: string
+}
+
+export function buildSprintUpdatePayload(opts: UpdateSprintOptions): {
+  payload: UpdatePayload
+  flagsGiven: string[]
+} {
+  const payload: UpdatePayload = {}
+  const flagsGiven: string[] = []
+  if (opts.name !== undefined) {
+    payload.name = opts.name
+    flagsGiven.push('--name')
+  }
+  if (opts.start !== undefined) {
+    payload.startDate = opts.start
+    flagsGiven.push('--start')
+  }
+  if (opts.end !== undefined) {
+    payload.endDate = opts.end
+    flagsGiven.push('--end')
+  }
+  return { payload, flagsGiven }
+}
+
+interface SprintSnapshot {
+  number: number
+  name: string
+  startDate?: string | null
+  endDate?: string | null
+}
+
+function fmtDate(v: string | null | undefined): string {
+  if (!v) return '-'
+  return v.slice(0, 10)
+}
+
+export function formatSprintUpdateSummary(
+  before: SprintSnapshot,
+  after: UpdatePayload
+): string {
+  const changes: string[] = []
+  if (after.name !== undefined && after.name !== before.name) {
+    changes.push(`name "${before.name}" → "${after.name}"`)
+  }
+  if (after.startDate !== undefined) {
+    changes.push(`start → ${fmtDate(after.startDate)}`)
+  }
+  if (after.endDate !== undefined) {
+    changes.push(`end → ${fmtDate(after.endDate)}`)
+  }
+  return `Updated sprint #${before.number} "${before.name}": ${changes.join(', ')}`
+}
+
+export async function sprintUpdate(
+  identifier: string,
+  opts: UpdateSprintOptions
+): Promise<number | void> {
+  // Reject empty strings — these fields can't be cleared.
+  if (opts.name !== undefined && opts.name === '') {
+    console.error('Error: --name cannot be empty.')
+    return 1
+  }
+  if (opts.start !== undefined && opts.start === '') {
+    console.error('Error: --start cannot be empty.')
+    return 1
+  }
+  if (opts.end !== undefined && opts.end === '') {
+    console.error('Error: --end cannot be empty.')
+    return 1
+  }
+
+  const { payload, flagsGiven } = buildSprintUpdatePayload(opts)
+  if (flagsGiven.length === 0) {
+    console.error(
+      'Error: provide at least one field to update (--name, --start, --end)'
+    )
+    return 1
+  }
+
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const base = trimTrailingSlash(apiUrl)
+
+  let sprintId: string
+  let resolvedNumber: number
+  let resolvedName: string
+  try {
+    const resolved = await resolveSprintId(
+      base,
+      creds.token,
+      identifier,
+      opts.team,
+      creds.workspaceSlug
+    )
+    sprintId = resolved.id
+    resolvedNumber = resolved.number
+    resolvedName = resolved.name
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    return 1
+  }
+
+  // Fetch current values to populate the before-snapshot for the summary.
+  // When resolveSprintId short-circuited on UUID, number/name are empty — we
+  // always GET to get a consistent snapshot regardless of identifier form.
+  let beforeRes: Response
+  try {
+    beforeRes = await fetch(`${base}/api/sprints/${sprintId}`, {
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  if (beforeRes.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (!beforeRes.ok) {
+    console.error(`Error: sprint fetch failed (HTTP ${beforeRes.status})`)
+    return 1
+  }
+  const { sprint: before } = (await beforeRes.json()) as {
+    sprint: SprintSnapshot & { number: number; name: string }
+  }
+  // Use resolved values if available (number-based lookup already returned them).
+  const beforeSnapshot: SprintSnapshot = {
+    number: before.number || resolvedNumber,
+    name: before.name || resolvedName,
+    ...(before.startDate !== undefined && { startDate: before.startDate }),
+    ...(before.endDate !== undefined && { endDate: before.endDate }),
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/sprints/${sprintId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${creds.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (!res.ok) {
+    let errMsg = `sprint update failed (HTTP ${res.status})`
+    try {
+      const errBody = (await res.json()) as { error?: string }
+      if (errBody.error) errMsg = errBody.error
+    } catch {
+      // body wasn't JSON; keep the status-only message
+    }
+    console.error(`Error: ${errMsg}`)
+    return 1
+  }
+
+  process.stdout.write(formatSprintUpdateSummary(beforeSnapshot, payload) + '\n')
+}

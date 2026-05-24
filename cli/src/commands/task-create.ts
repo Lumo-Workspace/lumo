@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
+import { resolveSprintId } from '../lib/resolve'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -13,6 +14,7 @@ export interface CreateTaskOptions {
   milestone?: string
   tag?: string[]
   tagId?: string[]
+  sprint?: string
 }
 
 interface CreatedTaskResponse {
@@ -21,8 +23,86 @@ interface CreatedTaskResponse {
     identifier: string
     title: string
     url: string
+    teamId: string
     taskTags?: Array<{ id: string; name: string }>
   }
+}
+
+interface SprintInfo {
+  id: string
+  number: number
+  name: string
+  teamId: string
+}
+
+/**
+ * Assert that the sprint belongs to the same team as the newly created task.
+ * Throws with a human-readable message on mismatch (caller console.errors it).
+ */
+export function assertSameTeam(
+  task: { teamId: string; identifier: string },
+  sprint: SprintInfo
+): void {
+  if (task.teamId !== sprint.teamId) {
+    throw new Error(
+      `Sprint binding skipped: sprint #${sprint.number} belongs to team "${sprint.teamId}", task belongs to "${task.teamId}"`
+    )
+  }
+}
+
+/**
+ * Bind a newly created task to a sprint.
+ * - Resolves the sprint ref (number or UUID).
+ * - If resolveSprintId returned the UUID placeholder (teamId === ''), does a
+ *   follow-up GET /api/sprints/<id> to fill in { teamId, number, name }.
+ * - Asserts same-team, then POSTs to /api/sprints/<sprintId>/tasks.
+ * Returns the sprint info on success, or throws on failure.
+ */
+async function bindTaskToSprint(
+  base: string,
+  token: string,
+  workspaceSlug: string,
+  sprintRef: string,
+  task: { id: string; teamId: string; identifier: string }
+): Promise<SprintInfo> {
+  let sprint = await resolveSprintId(base, token, sprintRef, undefined, workspaceSlug)
+
+  // UUID path: resolveSprintId returns a placeholder with teamId === ''
+  if (sprint.teamId === '') {
+    const sprintRes = await fetch(`${base}/api/sprints/${sprint.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!sprintRes.ok) {
+      throw new Error(`sprint lookup failed (HTTP ${sprintRes.status})`)
+    }
+    const { sprint: full } = (await sprintRes.json()) as {
+      sprint: { id: string; number: number; name: string; teamId: string }
+    }
+    sprint = { id: full.id, number: full.number, name: full.name, teamId: full.teamId }
+  }
+
+  assertSameTeam(task, sprint)
+
+  const bindRes = await fetch(`${base}/api/sprints/${sprint.id}/tasks`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ taskId: task.id }),
+  })
+  if (!bindRes.ok) {
+    let errMsg = `sprint bind failed (HTTP ${bindRes.status})`
+    try {
+      const errBody = (await bindRes.json()) as { error?: string }
+      if (errBody.error) errMsg = errBody.error
+    } catch {
+      // ignore
+    }
+    throw new Error(errMsg)
+  }
+
+  return sprint
 }
 
 /**
@@ -90,7 +170,8 @@ export async function taskCreate(
 
   const envUrl = process.env.LUMO_API_URL?.trim()
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
-  const url = `${trimTrailingSlash(apiUrl)}/api/tasks`
+  const base = trimTrailingSlash(apiUrl)
+  const url = `${base}/api/tasks`
 
   let tagIds: string[] | undefined
   if (
@@ -145,6 +226,31 @@ export async function taskCreate(
     process.stdout.write(
       formatCreatedTaskLine({ ...data.task, tags: responseTagNames }) + '\n'
     )
+
+    // Sprint binding (optional): if --sprint was passed, bind the new task.
+    if (opts.sprint) {
+      const workspaceSlug = creds.workspaceSlug ?? ''
+      try {
+        const sprint = await bindTaskToSprint(
+          base,
+          creds.token,
+          workspaceSlug,
+          opts.sprint,
+          { id: data.task.id, teamId: data.task.teamId, identifier: data.task.identifier }
+        )
+        process.stdout.write(`Sprint: #${sprint.number} "${sprint.name}"\n`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        // Spec's literal mismatch output — print bare, no "Error:" prefix
+        if (msg.startsWith('Sprint binding skipped:')) {
+          console.error(msg)
+        } else {
+          console.error(`Error: ${msg}`)
+        }
+        return 1
+      }
+    }
+
     return
   }
 

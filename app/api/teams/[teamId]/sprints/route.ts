@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { createSprintSchema } from '@/lib/validation/sprint.schema'
@@ -11,15 +11,16 @@ type Params = { params: Promise<{ teamId: string }> }
 
 /**
  * POST /api/teams/[teamId]/sprints — Create a new draft sprint for the team.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function POST(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    const { memberId } = await requireTeamAccessById(teamId, userId)
+    const { memberId } = await requireTeamAccessById(teamId, identity.clerkId)
 
     const body = await req.json()
     const parsed = createSprintSchema.safeParse(body)
@@ -53,15 +54,16 @@ export async function POST(req: NextRequest, { params }: Params) {
 /**
  * GET /api/teams/[teamId]/sprints — List sprints for the team.
  * Query params: status, cursor, limit (default 20)
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function GET(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    await requireTeamAccessById(teamId, userId)
+    await requireTeamAccessById(teamId, identity.clerkId)
 
     // Lazy top-up of future DRAFT sprints per cadence config. Fire-and-forget
     // is tempting, but we await so the newly-created sprints show up in the

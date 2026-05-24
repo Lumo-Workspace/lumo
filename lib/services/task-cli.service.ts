@@ -150,6 +150,7 @@ async function createFromCli(args: {
   identifier: string
   title: string
   url: string
+  teamId: string
   taskTags: Array<{ id: string; name: string }>
 }> {
   const { workspaceId, workspaceSlug, callerClerkId, input } = args
@@ -200,7 +201,7 @@ async function createFromCli(args: {
   const identifier = `${task.teamIdentifier}-${task.number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
 
-  return { id: task.id, identifier, title: task.title, url, taskTags }
+  return { id: task.id, identifier, title: task.title, url, teamId: task.teamId, taskTags }
 }
 
 async function updateFromCli(args: {
@@ -354,6 +355,8 @@ export interface ShowTaskFromCliResult {
   priority: string
   description: string | null
   url: string
+  sprintId: string | null
+  teamId: string
   project: { id: string; name: string }
   assignee: {
     type: 'member' | 'agent'
@@ -412,6 +415,8 @@ async function showFromCli(args: {
     priority: detail.priority,
     description: detail.description,
     url,
+    sprintId: detail.sprintId ?? null,
+    teamId: detail.teamId,
     project: { id: detail.project.id, name: detail.project.name },
     assignee,
   }

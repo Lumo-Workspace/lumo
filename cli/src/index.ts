@@ -22,6 +22,16 @@ import { milestoneCreate } from './commands/milestone-create'
 import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
+import { sprintCreate } from './commands/sprint-create'
+import { sprintList } from './commands/sprint-list'
+import { sprintShow } from './commands/sprint-show'
+import { sprintUpdate } from './commands/sprint-update'
+import { sprintDelete } from './commands/sprint-delete'
+import { sprintStart } from './commands/sprint-start'
+import { sprintClose } from './commands/sprint-close'
+import { sprintSummary } from './commands/sprint-summary'
+import { sprintAdd } from './commands/sprint-add'
+import { sprintRemove } from './commands/sprint-remove'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -179,6 +189,7 @@ task
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
+  .option('--sprint <ref>', 'Sprint number or UUID to add the task to after creation')
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
@@ -267,6 +278,140 @@ milestoneCmd
       milestoneDelete(
         identifier as string,
         options as { project?: string; yes?: boolean }
+      )
+    )
+  )
+
+const sprintCmd = program
+  .command('sprint')
+  .description('Inspect sprints from the terminal')
+
+sprintCmd
+  .command('list')
+  .description(
+    'List sprints for a team. --team required when workspace has >1 team. Sorted newest first.'
+  )
+  .option('--team <ref>', 'Team name or UUID')
+  .option(
+    '-s, --status <value>',
+    'Filter by status: draft | active | closed (case-insensitive)'
+  )
+  .option('-n, --limit <count>', 'Show only the first N sprints')
+  .action(wrap(options => sprintList(options as Record<string, string>)))
+
+sprintCmd
+  .command('show <identifier>')
+  .description(
+    'Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .action(
+    wrap((identifier, options) =>
+      sprintShow(identifier as string, options as { team?: string })
+    )
+  )
+
+sprintCmd
+  .command('create')
+  .description(
+    'Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.'
+  )
+  .option('--team <ref>', 'Team name or UUID')
+  .option('-n, --name <text>', 'Sprint name (server fills default when omitted)')
+  .option('--start <date>', 'Start date (YYYY-MM-DD)')
+  .option('--end <date>', 'End date (YYYY-MM-DD)')
+  .action(wrap(options => sprintCreate(options as Record<string, string>)))
+
+sprintCmd
+  .command('update <identifier>')
+  .description(
+    'Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option('-n, --name <text>', 'New sprint name')
+  .option('--start <date>', 'New start date (YYYY-MM-DD)')
+  .option('--end <date>', 'New end date (YYYY-MM-DD)')
+  .action(
+    wrap((identifier, options) =>
+      sprintUpdate(identifier as string, options as Record<string, string>)
+    )
+  )
+
+sprintCmd
+  .command('delete <identifier>')
+  .description(
+    'Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints.'
+  )
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .option('--yes', 'Confirm deletion')
+  .action(
+    wrap((identifier, options) =>
+      sprintDelete(identifier as string, options as Record<string, unknown>)
+    )
+  )
+
+sprintCmd
+  .command('start <identifier>')
+  .description('Transition a DRAFT sprint to ACTIVE.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, options) =>
+      sprintStart(identifier as string, options as Record<string, string>)
+    )
+  )
+
+sprintCmd
+  .command('close <identifier>')
+  .description(
+    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog.'
+  )
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .option('--move-all', 'Move all unfinished tasks to the next sprint')
+  .option('--backlog-all', 'Return all unfinished tasks to the backlog')
+  .option('--yes', 'Required when --move-all or --backlog-all is set')
+  .action(
+    wrap((identifier, options) =>
+      sprintClose(identifier as string, options as Record<string, unknown>)
+    )
+  )
+
+sprintCmd
+  .command('summary <identifier>')
+  .description(
+    'Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option('--retry', 'Trigger summary regeneration before fetching')
+  .action(
+    wrap((identifier, options) =>
+      sprintSummary(identifier as string, options as { team?: string; retry?: boolean })
+    )
+  )
+
+sprintCmd
+  .command('add <identifier> <task>')
+  .description('Add a task to a sprint. <task> accepts LUM-N or UUID.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, task, options) =>
+      sprintAdd(
+        identifier as string,
+        task as string,
+        options as Record<string, string>
+      )
+    )
+  )
+
+sprintCmd
+  .command('remove <identifier> <task>')
+  .description('Remove a task from a sprint. <task> accepts LUM-N or UUID.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, task, options) =>
+      sprintRemove(
+        identifier as string,
+        task as string,
+        options as Record<string, string>
       )
     )
   )
@@ -431,7 +576,7 @@ doc
 task
   .command('update <identifier>')
   .description(
-    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, or tag flags. Use "" to clear description, assignee, or milestone. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
+    'Update a task. Provide at least one of --title, --description, --status, --priority, --assignee, --milestone, --sprint, or tag flags. Use "" to clear description, assignee, milestone, or sprint binding. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id.'
   )
   .option('-t, --title <text>', 'New title')
   .option('-d, --description <text>', 'New description (empty string to clear)')
@@ -450,6 +595,10 @@ task
   .option(
     '--milestone <ref>',
     'Milestone name (case-insensitive); empty string to unbind'
+  )
+  .option(
+    '--sprint <ref>',
+    'Sprint number or UUID to bind the task to; empty string to unbind from current sprint'
   )
   .option(
     '--tag <name>',

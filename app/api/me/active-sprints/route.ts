@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireIdentity } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
 
 /**
@@ -9,18 +8,16 @@ import { sprintRepository } from '@/lib/repositories'
  * within the caller's current workspace.
  *
  * Response: { sprintIds: string[] }
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
-
-    const ws = await requireUserWorkspace(userId)
-    if (ws instanceof NextResponse) return ws
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const sprintIds = await sprintRepository.findActiveIdsForMember(
-      ws.member.id
+      identity.memberId
     )
     return NextResponse.json({ sprintIds })
   } catch (error) {

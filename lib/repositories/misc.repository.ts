@@ -167,6 +167,15 @@ export const miscRepository = {
     return row?.id ?? null
   },
 
+  /** Resolve the role of a WorkspaceMember by its primary-key id. */
+  async findMemberRoleById(memberId: string) {
+    const row = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      select: { role: true },
+    })
+    return row?.role ?? null
+  },
+
   // ── DocumentMention ───────────────────────────────────────────────────
 
   /** Find document mentions for a task, filtered by workspace access. */
