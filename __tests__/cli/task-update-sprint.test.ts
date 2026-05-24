@@ -159,7 +159,7 @@ describe('taskUpdate --sprint integration', () => {
     expect(stdoutCalls).toContain('has no sprint binding')
   })
 
-  it('unbind: calls DELETE on old sprint and prints Sprint: #N → -', async () => {
+  it('unbind: calls DELETE on old sprint and prints "Unbound LUM-N from sprint #N"', async () => {
     const fetchMock = jest.fn()
     fetchMock
       .mockResolvedValueOnce(patchOk())
@@ -175,7 +175,7 @@ describe('taskUpdate --sprint integration', () => {
     const exitCode = await taskUpdate('LUM-1', { title: 'New', sprint: '' })
     expect(exitCode).toBeUndefined()
     const stdoutCalls = (stdoutSpy.mock.calls as [string][]).map(c => c[0]).join('')
-    expect(stdoutCalls).toMatch(/Sprint:.*#3.*→.*-/)
+    expect(stdoutCalls).toMatch(/Unbound LUM-1 from sprint #3/)
   })
 
   it('bind: calls POST to new sprint and prints Sprint: - → #5', async () => {

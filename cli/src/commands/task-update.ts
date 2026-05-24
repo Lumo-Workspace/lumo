@@ -489,8 +489,8 @@ export async function taskUpdate(
         return 1
       }
 
-      const oldLabel = oldNumber !== null ? `#${oldNumber}` : '-'
-      process.stdout.write(`Sprint: ${oldLabel} → -\n`)
+      const oldLabel = oldNumber !== null ? `#${oldNumber}` : action.oldSprintId
+      process.stdout.write(`Unbound ${task.identifier} from sprint ${oldLabel}\n`)
       return
     }
 
