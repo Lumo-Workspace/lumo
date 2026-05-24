@@ -189,6 +189,7 @@ model Workspace {
   memories           Memory[]
   taskSlackContexts  TaskSlackContext[]
   taskWebLinks       TaskWebLink[]
+  prCommentSyncJobs  PrCommentSyncJob[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -1451,7 +1452,8 @@ model PrCommentSyncJob {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  comment Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  comment   Comment?   @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([status, scheduledFor])
   @@index([workspaceId])
