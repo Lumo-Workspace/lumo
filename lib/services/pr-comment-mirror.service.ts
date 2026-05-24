@@ -216,6 +216,73 @@ async function runOutboundCreate(commentId: string) {
   }
 }
 
+async function runOutboundUpdate(commentId: string) {
+  const comment = await commentRepository.findById(commentId)
+  if (!comment) return
+  const mirror = await prCommentMirrorRepository.findByCommentId(commentId)
+  if (!mirror) return // never mirrored — nothing to push
+
+  const pr = await pullRequestRepository.findByTaskId(comment.taskId)
+  if (!pr) return
+  const repo = parseRepo(pr.repo)
+
+  // Reuse same actor resolution logic as CREATE; fall back to BOT_APP with app token
+  const memberForActor = comment.authorActorId
+    ? await memberRepository.findByActorId(comment.authorActorId)
+    : null
+  const actorResult = memberForActor
+    ? await prCommentMirrorService.resolveOutboundActor({
+        workspaceId: pr.workspaceId,
+        authorUserId: memberForActor.id,
+        repo,
+      })
+    : {
+        actor: 'BOT_APP' as const,
+        token: await getGithubInstallationToken(),
+        userId: null,
+      }
+
+  const { body, bodyHash } = await buildOutboundBody(
+    comment,
+    actorResult.actor,
+    ''
+  )
+
+  try {
+    const response =
+      mirror.externalSource === 'REVIEW_LINE'
+        ? await prCommentClient.updateReviewLineComment({
+            repo,
+            externalId: mirror.externalId,
+            body,
+            token: actorResult.token,
+          })
+        : await prCommentClient.updateIssueComment({
+            repo,
+            externalId: mirror.externalId,
+            body,
+            token: actorResult.token,
+          })
+
+    await prCommentMirrorRepository.patchAfterEdit(
+      mirror.id,
+      new Date(response.updated_at),
+      bodyHash
+    )
+  } catch (err) {
+    const resetAt =
+      err instanceof GithubApiError ? err.rateLimitResetAt : undefined
+    await prCommentSyncJobRepository.enqueue({
+      direction: 'OUTBOUND',
+      payload: { op: 'UPDATE', mirrorId: mirror.id },
+      commentId,
+      workspaceId: pr.workspaceId,
+      ...(resetAt ? { scheduledFor: resetAt } : {}),
+    })
+    throw err
+  }
+}
+
 export const prCommentMirrorService = {
   async resolveOutboundActor(
     input: ResolveActorInput
@@ -238,7 +305,8 @@ export const prCommentMirrorService = {
 
   async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
     if (op === 'CREATE') return runOutboundCreate(commentId)
-    throw new Error(`runOutbound op=${op} not yet implemented`)
+    if (op === 'UPDATE') return runOutboundUpdate(commentId)
+    throw new Error('DELETE not yet implemented')
   },
 
   async runInbound(_payload: unknown) {
