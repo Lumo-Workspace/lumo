@@ -189,6 +189,7 @@ task
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
+  .option('--sprint <ref>', 'Sprint number or UUID to add the task to after creation')
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
