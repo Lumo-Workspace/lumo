@@ -56,6 +56,30 @@ describe('markdown-bridge', () => {
       const out = githubMarkdownToLumoHtml(md, () => null)
       expect(out).not.toContain(HEADER_MARKER_OPEN)
     })
+
+    it('HTML-escapes displayName containing <script> tag', () => {
+      const out = githubMarkdownToLumoHtml(
+        'hi @attacker',
+        login =>
+          login === 'attacker'
+            ? { clerkId: 'clerk1', displayName: '<script>alert(1)</script>' }
+            : null
+      )
+      expect(out).not.toContain('<script>')
+      expect(out).toContain('&lt;script&gt;')
+    })
+
+    it('HTML-escapes clerkId containing quotes', () => {
+      const out = githubMarkdownToLumoHtml(
+        'hi @xss',
+        login =>
+          login === 'xss'
+            ? { clerkId: 'id"onload="evil()', displayName: 'XSS User' }
+            : null
+      )
+      expect(out).not.toContain('"onload="')
+      expect(out).toContain('&quot;')
+    })
   })
 
   describe('computeBodyHash', () => {

@@ -1,6 +1,15 @@
 import { createHash } from 'crypto'
 
 export const HEADER_MARKER_OPEN = '<!-- pr-mirror-header -->'
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 export const HEADER_MARKER_CLOSE = '<!-- /pr-mirror-header -->'
 
 /** Resolve a Lumo clerkId → GitHub login (or null). */
@@ -59,7 +68,7 @@ export function githubMarkdownToLumoHtml(
   work = work.replace(GH_MENTION_RE, (_m, lead: string, login: string) => {
     const hit = resolver(login)
     if (!hit) return `${lead}@${login}`
-    return `${lead}<span data-type="mention" data-id="${hit.clerkId}">${hit.displayName}</span>`
+    return `${lead}<span data-type="mention" data-id="${escapeHtml(hit.clerkId)}">${escapeHtml(hit.displayName)}</span>`
   })
   // Block-ize: each paragraph (blank-line-separated) becomes <p>...</p>
   const paragraphs = work.split(/\n{2,}/).map(p => p.replace(/\n/g, '<br>'))
