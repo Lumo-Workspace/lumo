@@ -29,6 +29,7 @@ import { sprintUpdate } from './commands/sprint-update'
 import { sprintDelete } from './commands/sprint-delete'
 import { sprintStart } from './commands/sprint-start'
 import { sprintClose } from './commands/sprint-close'
+import { sprintSummary } from './commands/sprint-summary'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -368,6 +369,19 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
+    )
+  )
+
+sprintCmd
+  .command('summary <identifier>')
+  .description(
+    'Show the AI-generated summary for a sprint. Identifier accepts a sprint number or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option('--retry', 'Trigger summary regeneration before fetching')
+  .action(
+    wrap((identifier, options) =>
+      sprintSummary(identifier as string, options as { team?: string; retry?: boolean })
     )
   )
 
