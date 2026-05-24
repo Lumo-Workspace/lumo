@@ -45,3 +45,4 @@ export type {
   CreateTaskWebLinkInput,
   UpdateFetchInput,
 } from './task-web-link.repository'
+export { prCommentMirrorRepository } from './pr-comment-mirror.repository'
