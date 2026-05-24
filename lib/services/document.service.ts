@@ -114,10 +114,12 @@ function renderContentToMarkdown(
 async function findAncestors(parentId: string | null) {
   const ancestors: {
     id: string
+    slug: string
     title: string
     emoji: string | null
     children: {
       id: string
+      slug: string
       title: string
       emoji: string | null
       _count: { children: number }
@@ -134,6 +136,7 @@ async function findAncestors(parentId: string | null) {
     if (!parent) break
     ancestors.unshift({
       id: parent.id,
+      slug: parent.slug,
       title: parent.title,
       emoji: parent.emoji,
       children: parent.children,
@@ -399,14 +402,11 @@ export const documentService = {
     if (data.title !== undefined) {
       updateData.title = data.title
       // Regenerate the URL slug from the new title while keeping the
-      // workspace-allocated `number` stable. Documents created before this
-      // PR may still have `number == null` (waiting for the production
-      // backfill migration to run); skip slug recompute in that case
-      // rather than producing an `-undefined`-suffixed value.
-      const docNumber = (doc as { number: number | null }).number
-      if (docNumber !== null && docNumber !== undefined) {
-        updateData.slug = buildDocumentSlug(data.title, docNumber)
-      }
+      // workspace-allocated `number` stable.
+      updateData.slug = buildDocumentSlug(
+        data.title,
+        (doc as { number: number }).number
+      )
     }
     if (data.content !== undefined) updateData.content = data.content
     if (data.emoji !== undefined) updateData.emoji = data.emoji

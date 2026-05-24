@@ -1,6 +1,7 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db/prisma'
+import { parseDocumentSlugNumber } from '@/lib/utils/document-slug'
 import WorkspaceApp from '../../WorkspaceApp'
 
 export default async function DocumentDetailPage({
@@ -8,7 +9,18 @@ export default async function DocumentDetailPage({
 }: {
   params: Promise<{ workspaceUrl: string; docId: string }>
 }) {
-  const { workspaceUrl } = await params
+  const { workspaceUrl, docId } = await params
+
+  // Reject bare-cuid URLs at the page layer so external links to the old
+  // cuid form (Slack, IM, bookmarks) produce a hard 404 instead of silently
+  // resolving via the SPA shell. Done before the auth check so a stale
+  // cuid link doesn't first bounce the visitor through sign-in only to 404.
+  // Optimistic `temp-<uuid>` ids would also lack a `-<number>` tail, but
+  // those exist purely client-side and never reach this server route.
+  if (parseDocumentSlugNumber(docId) === null) {
+    notFound()
+  }
+
   const { userId } = await auth()
 
   if (!userId) redirect('/signin')

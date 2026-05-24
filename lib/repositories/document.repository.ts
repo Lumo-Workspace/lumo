@@ -78,6 +78,7 @@ const DOCUMENT_DETAIL_INCLUDE = {
     orderBy: { sortOrder: 'asc' as const },
     select: {
       id: true,
+      slug: true,
       title: true,
       emoji: true,
       parentId: true,
@@ -415,6 +416,7 @@ export const documentRepository = {
       where: { id },
       select: {
         id: true,
+        slug: true,
         title: true,
         emoji: true,
         parentId: true,
@@ -422,6 +424,7 @@ export const documentRepository = {
           orderBy: { sortOrder: 'asc' },
           select: {
             id: true,
+            slug: true,
             title: true,
             emoji: true,
             _count: { select: { children: true } },
@@ -446,6 +449,7 @@ export const documentRepository = {
       orderBy: { sortOrder: 'asc' },
       select: {
         id: true,
+        slug: true,
         title: true,
         emoji: true,
         parentId: true,

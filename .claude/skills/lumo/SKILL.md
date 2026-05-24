@@ -349,9 +349,11 @@ lumo doc create "Sub-doc" --parent "RFC"
 Success output:
 
 ```
-Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/cmd_xxx
+Created cmd_xxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42
 Tags: rfc, draft
 ```
+
+The cuid (`cmd_xxx`) is still printed as a stable identifier you can pass back into other `lumo doc ...` commands; the URL switched to the per-workspace slug shape (`slugify(title)-<number>`) and the cuid is no longer a valid web URL.
 
 The `Tags:` line is omitted when no tags were attached.
 

@@ -4,11 +4,20 @@ import { slugify } from '@/lib/utils/slugify'
 /**
  * Convert a Page to its URL path.
  * Used by WorkspaceApp for pushState and by TaskDetailPage for navigation.
+ *
+ * The `project` argument is overloaded — for the `document-editor` page it
+ * carries the doc's URL identifier (`slug` for real docs; `id` for the
+ * optimistic `temp-uuid` window before the server assigns a slug).
  */
 export function pageToPath(
   workspaceUrl: string,
   page: Page,
-  project?: { name: string; id?: string; number?: number } | null
+  project?: {
+    name: string
+    id?: string
+    slug?: string
+    number?: number
+  } | null
 ): string {
   const base = `/workspace/${workspaceUrl}`
   switch (page) {
@@ -27,7 +36,7 @@ export function pageToPath(
     case 'documents':
       return `${base}/documents`
     case 'document-editor':
-      return `${base}/documents/${project?.id ?? ''}`
+      return `${base}/documents/${project?.slug ?? project?.id ?? ''}`
     case 'drafts':
       return `${base}/drafts`
     case 'sprints':

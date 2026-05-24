@@ -406,7 +406,7 @@ export function TaskDetailPanel({
                   type='button'
                   className='flex items-center gap-2 w-full text-left text-xs py-1 px-2 rounded hover:bg-muted transition-colors'
                   onClick={() => {
-                    window.location.href = `/workspace/${workspaceUrl}/documents/${doc.id}`
+                    window.location.href = `/workspace/${workspaceUrl}/documents/${doc.slug}`
                   }}
                 >
                   <span>{doc.emoji ?? '📄'}</span>
