@@ -46,3 +46,4 @@ export type {
   UpdateFetchInput,
 } from './task-web-link.repository'
 export { prCommentMirrorRepository } from './pr-comment-mirror.repository'
+export { prCommentSyncJobRepository } from './pr-comment-sync-job.repository'
