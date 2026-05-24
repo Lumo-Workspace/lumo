@@ -1,6 +1,7 @@
 // lib/services/comment.service.ts
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { memberRepository, notificationRepository } from '@/lib/repositories'
+import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { shouldNotifyBatch } from '@/lib/services/notification.service'
 import {
   sendDMNotification,
@@ -29,6 +30,7 @@ interface CreateCommentWithSideEffectsInput extends CreateCommentInput {
   teamIdentifier: string
   workspaceSlug: string
   waitUntil: (promise: Promise<unknown>) => void
+  mirrorOrigin?: 'inbound' | 'user'
 }
 
 interface NotifyMentionsParams {
@@ -207,6 +209,7 @@ export const commentService = {
       teamIdentifier,
       workspaceSlug,
       waitUntil,
+      mirrorOrigin,
       ...createInput
     } = input
 
@@ -266,6 +269,38 @@ export const commentService = {
       })
       .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
 
+    if (mirrorOrigin !== 'inbound') {
+      await prCommentMirrorService.scheduleOutbound(comment.id, 'CREATE', {
+        mirrorOrigin: mirrorOrigin ?? 'user',
+      })
+    }
+
     return comment
+  },
+
+  async updateCommentWithSideEffects(input: {
+    commentId: string
+    body: string
+    waitUntil: (p: Promise<unknown>) => void
+    mirrorOrigin?: 'inbound' | 'user'
+  }) {
+    const updated = await commentRepository.update(input.commentId, {
+      body: input.body,
+    })
+    await prCommentMirrorService.scheduleOutbound(input.commentId, 'UPDATE', {
+      mirrorOrigin: input.mirrorOrigin ?? 'user',
+    })
+    return updated
+  },
+
+  async deleteCommentWithSideEffects(input: {
+    commentId: string
+    waitUntil: (p: Promise<unknown>) => void
+    mirrorOrigin?: 'inbound' | 'user'
+  }) {
+    await commentRepository.delete(input.commentId)
+    await prCommentMirrorService.scheduleOutbound(input.commentId, 'DELETE', {
+      mirrorOrigin: input.mirrorOrigin ?? 'user',
+    })
   },
 }

@@ -1,6 +1,7 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { waitUntil } from '@vercel/functions'
 import type { OutboundActorKind, PrCommentSource } from '@prisma/client'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -670,10 +671,15 @@ export const prCommentMirrorService = {
   },
 
   async scheduleOutbound(
-    _commentId: string,
-    _op: 'CREATE' | 'UPDATE' | 'DELETE',
-    _opts: { mirrorOrigin?: 'inbound' | 'user' } = {}
+    commentId: string,
+    op: 'CREATE' | 'UPDATE' | 'DELETE',
+    opts: { mirrorOrigin?: 'inbound' | 'user' } = {}
   ) {
-    throw new Error('not implemented — Task 16')
+    if (opts.mirrorOrigin === 'inbound') return
+    waitUntil(
+      prCommentMirrorService.runOutbound(commentId, op).catch(err =>
+        console.error('[pr-mirror] outbound failed', { commentId, op, err })
+      )
+    )
   },
 }

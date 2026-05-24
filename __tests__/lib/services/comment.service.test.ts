@@ -23,6 +23,10 @@ jest.mock('@/lib/actor', () => ({
   getHumanActorId: jest.fn(),
 }))
 
+jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
+  prCommentMirrorService: { scheduleOutbound: jest.fn().mockResolvedValue(undefined) },
+}))
+
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { commentService } from '@/lib/services/comment.service'
 
