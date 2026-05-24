@@ -570,6 +570,7 @@ async function runInboundCreate(
       payload: {
         reason: 'parent-mirror-missing',
         commentId: comment.id,
+        pullRequestId: payload.pullRequestId,
         raw: payload.raw,
       },
       externalId: String(node.id),

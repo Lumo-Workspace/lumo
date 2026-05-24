@@ -222,6 +222,9 @@ describe('runInbound CREATE', () => {
       expect.objectContaining({
         direction: 'INBOUND',
         scheduledFor: expect.any(Date),
+        payload: expect.objectContaining({
+          pullRequestId: 'pr1',
+        }),
       })
     )
   })
