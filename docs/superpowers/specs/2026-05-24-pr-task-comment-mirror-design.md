@@ -19,7 +19,7 @@ In scope (MVP):
 - No backfill — only events that fire after a PR is linked to a task
 - Mirrored inbound comments fire the same notification path (Slack DM / inbox / @mention) as native comments
 
-Out of scope — see §9.
+Out of scope — see §7.
 
 ## §1 Data model + high-level architecture
 
