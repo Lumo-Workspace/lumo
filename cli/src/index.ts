@@ -22,6 +22,7 @@ import { milestoneCreate } from './commands/milestone-create'
 import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
+import { sprintCreate } from './commands/sprint-create'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -270,6 +271,21 @@ milestoneCmd
       )
     )
   )
+
+const sprintCmd = program
+  .command('sprint')
+  .description('Inspect sprints from the terminal')
+
+sprintCmd
+  .command('create')
+  .description(
+    'Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.'
+  )
+  .option('--team <ref>', 'Team name or UUID')
+  .option('-n, --name <text>', 'Sprint name (server fills default when omitted)')
+  .option('--start <date>', 'Start date (YYYY-MM-DD)')
+  .option('--end <date>', 'End date (YYYY-MM-DD)')
+  .action(wrap(options => sprintCreate(options as Record<string, string>)))
 
 const doc = program.command('doc').description('Manage Lumo documents')
 
