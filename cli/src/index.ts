@@ -27,6 +27,7 @@ import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
 import { sprintUpdate } from './commands/sprint-update'
 import { sprintDelete } from './commands/sprint-delete'
+import { sprintStart } from './commands/sprint-start'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -341,6 +342,16 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintDelete(identifier as string, options as Record<string, unknown>)
+    )
+  )
+
+sprintCmd
+  .command('start <identifier>')
+  .description('Transition a DRAFT sprint to ACTIVE.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, options) =>
+      sprintStart(identifier as string, options as Record<string, string>)
     )
   )
 
