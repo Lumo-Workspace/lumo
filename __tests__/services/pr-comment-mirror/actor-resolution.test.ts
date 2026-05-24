@@ -77,4 +77,37 @@ describe('resolveOutboundActor', () => {
     })
     expect(r.actor).toBe('BOT_APP')
   })
+
+  it('two users with similar token prefix do not share cache results', async () => {
+    // Both users have tokens starting with 'gho_' (only 4 real entropy chars after prefix).
+    // Old key was token.slice(0,8)+':'+repo — both would map to same key.
+    // New key is userId+':'+repo — they must be independent.
+    ;(
+      githubRepository.findIntegrationByUserAndWorkspace as jest.Mock
+    ).mockResolvedValue({ accessToken: 'enc', githubLogin: 'any' })
+    ;(decrypt as jest.Mock).mockReturnValue('gho_abc1234')
+
+    // User m1 has push access
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ permissions: { push: true } }), { status: 200 })
+    )
+    const r1 = await prCommentMirrorService.resolveOutboundActor({
+      workspaceId: 'w1',
+      authorUserId: 'm1',
+      repo: { owner: 'o', name: 'r' },
+    })
+    expect(r1.actor).toBe('USER_OAUTH')
+
+    // User m2 has NO push access (different fetch response)
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ permissions: { push: false } }), { status: 200 })
+    )
+    const r2 = await prCommentMirrorService.resolveOutboundActor({
+      workspaceId: 'w1',
+      authorUserId: 'm2',
+      repo: { owner: 'o', name: 'r' },
+    })
+    // m2 must NOT get USER_OAUTH from m1's cached entry
+    expect(r2.actor).toBe('BOT_APP')
+  })
 })

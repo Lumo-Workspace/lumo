@@ -35,8 +35,8 @@ interface OutboundActorResult {
 const CACHE_TTL_MS = 10 * 60 * 1000
 const writeCache = new Map<string, { until: number; canWrite: boolean }>()
 
-async function canWriteRepo(token: string, repo: Repo): Promise<boolean> {
-  const key = `${token.slice(0, 8)}:${repo.owner}/${repo.name}`
+async function canWriteRepo(token: string, repo: Repo, userId: string): Promise<boolean> {
+  const key = `${userId}:${repo.owner}/${repo.name}`
   const cached = writeCache.get(key)
   if (cached && cached.until > Date.now()) return cached.canWrite
   const res = await fetch(
@@ -242,7 +242,7 @@ async function runOutboundUpdate(commentId: string) {
         pr.workspaceId,
         mirror.outboundActorUserId
       )
-    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo))) {
+    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo, mirror.outboundActorUserId))) {
       token = decrypt(integration.accessToken)
     } else {
       // User disconnected or lost write access — fall back to BOT_APP but preserve BOT_APP body shape
@@ -318,7 +318,7 @@ async function runOutboundDelete(commentId: string) {
         pr.workspaceId,
         mirror.outboundActorUserId
       )
-    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo))) {
+    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo, mirror.outboundActorUserId))) {
       token = decrypt(integration.accessToken)
     } else {
       token = await getGithubInstallationToken()
@@ -708,7 +708,7 @@ export const prCommentMirrorService = {
       )
     if (integration) {
       const token = decrypt(integration.accessToken)
-      if (await canWriteRepo(token, input.repo)) {
+      if (await canWriteRepo(token, input.repo, input.authorUserId)) {
         return { actor: 'USER_OAUTH', token, userId: input.authorUserId }
       }
     }
