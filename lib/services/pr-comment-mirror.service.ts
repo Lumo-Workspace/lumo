@@ -8,6 +8,8 @@ import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   lumoHtmlToGithubMarkdown,
+  githubMarkdownToLumoHtml,
+  buildHeader,
   computeBodyHash,
 } from '@/lib/integrations/github/markdown-bridge'
 import {
@@ -390,13 +392,116 @@ function payloadSource(payload: InboundPayload): PrCommentSource {
   return 'REVIEW_LINE'
 }
 
-// Stubs for Task 13 / 14
+function buildInboundBody(
+  payload: InboundPayload,
+  node: InboundCommentNode,
+  source: PrCommentSource
+): string {
+  const md = node.body ?? ''
+  const innerHtml = githubMarkdownToLumoHtml(md, () => null) // mention resolver wired later
+
+  if (source === 'REVIEW_LINE' && node.path && node.line) {
+    const headerInner = `📍 在 <a href="${node.html_url}">${node.path}:${node.line}</a> 评论`
+    return buildHeader(headerInner) + innerHtml
+  }
+
+  if (source === 'REVIEW') {
+    const state = (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      payload.raw.review?.state as string | undefined
+    )?.toLowerCase()
+    let header = '💬 Commented'
+    if (state === 'approved') header = '✅ Approved'
+    else if (state === 'changes_requested') header = '🛑 Requested changes'
+    else if (state === 'dismissed') header = '📭 Review dismissed'
+    return buildHeader(header) + innerHtml
+  }
+
+  return innerHtml
+}
+
+async function resolveInboundParent(
+  source: PrCommentSource,
+  node: InboundCommentNode
+): Promise<{ parentId: string | null; missing: boolean }> {
+  if (source !== 'REVIEW_LINE' || !node.in_reply_to_id) {
+    return { parentId: null, missing: false }
+  }
+  const parent = await prCommentMirrorRepository.findByExternal(
+    'REVIEW_LINE',
+    String(node.in_reply_to_id)
+  )
+  if (parent?.commentId) return { parentId: parent.commentId, missing: false }
+  return { parentId: null, missing: true }
+}
+
 async function runInboundCreate(
-  _payload: InboundPayload,
-  _node: InboundCommentNode,
-  _source: PrCommentSource
+  payload: InboundPayload,
+  node: InboundCommentNode,
+  source: PrCommentSource
 ) {
-  throw new Error('runInboundCreate not yet implemented — Task 13')
+  const author = await prCommentMirrorService.resolveInboundAuthor(
+    payload.workspaceId,
+    node.user
+  )
+  if (!author) return // bot defense triggered
+
+  const body = buildInboundBody(payload, node, source)
+  const { parentId, missing } = await resolveInboundParent(source, node)
+
+  const comment = await prisma.$transaction(async tx => {
+    const c = await commentRepository.create({
+      taskId: payload.taskId,
+      authorActorId: author.actorId,
+      body,
+      parentId,
+      quotedCommentId: null,
+    })
+    await prCommentMirrorRepository.create(
+      {
+        commentId: c.id,
+        pullRequestId: payload.pullRequestId,
+        externalSource: source,
+        externalId: String(node.id),
+        externalNodeId: node.node_id,
+        externalUrl: node.html_url,
+        externalUpdatedAt: new Date(node.updated_at),
+        outboundActor: 'BOT_APP', // origin: external; outbound writer unknown
+        outboundActorUserId: null,
+        bodyHash: computeBodyHash(node.body ?? ''),
+        filePath: source === 'REVIEW_LINE' ? (node.path ?? null) : null,
+        lineStart:
+          source === 'REVIEW_LINE'
+            ? (node.start_line ?? node.line ?? null)
+            : null,
+        lineEnd: source === 'REVIEW_LINE' ? (node.line ?? null) : null,
+        diffSide: source === 'REVIEW_LINE' ? (node.side ?? null) : null,
+        inReplyToExternalId:
+          source === 'REVIEW_LINE' && node.in_reply_to_id
+            ? String(node.in_reply_to_id)
+            : null,
+      },
+      tx
+    )
+    return c
+  })
+
+  if (missing) {
+    // Re-attempt the parent linkage after a short delay
+    await prCommentSyncJobRepository.enqueue({
+      direction: 'INBOUND',
+      payload: {
+        reason: 'parent-mirror-missing',
+        commentId: comment.id,
+        raw: payload.raw,
+      },
+      externalId: String(node.id),
+      workspaceId: payload.workspaceId,
+      scheduledFor: new Date(Date.now() + 30_000),
+    })
+  }
+
+  // TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({ commentId: comment.id, workspaceId: payload.workspaceId })
 }
 
 async function runInboundUpdate(
