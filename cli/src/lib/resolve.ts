@@ -135,6 +135,71 @@ export async function resolveTeamId(
   return { id: match.id, name: match.name }
 }
 
+interface SprintByNumberResponse {
+  sprint: { id: string; number: number; name: string; teamId: string }
+  progress: { done: number; total: number }
+}
+
+/**
+ * Resolve a sprint `<identifier>`:
+ * - If it's a UUID, return { id, number: 0, name: '', teamId: '' } — caller
+ *   fetches /api/sprints/<id> for full data.
+ * - If it's a positive integer, look up via /api/sprints/by-number scoped
+ *   to the caller's workspace.
+ *
+ * The /by-number endpoint hardcodes the product assumption that a workspace
+ * has at most one sprints-enabled team. If that constraint is ever lifted,
+ * this function will need a `--team` disambiguation step.
+ *
+ * `_teamRef` is reserved for future use; today the endpoint disambiguates
+ * via the workspace_url only.
+ */
+export async function resolveSprintId(
+  base: string,
+  token: string,
+  identifier: string,
+  _teamRef: string | undefined,
+  workspaceSlug: string
+): Promise<{ id: string; number: number; name: string; teamId: string }> {
+  if (isUuid(identifier)) {
+    return { id: identifier, number: 0, name: '', teamId: '' }
+  }
+
+  const n = Number(identifier)
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `sprint "${identifier}" must be a positive integer or a UUID.`
+    )
+  }
+
+  const path = `/api/sprints/by-number?workspaceUrl=${encodeURIComponent(workspaceSlug)}&number=${n}`
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not reach Lumo API at ${base} (${msg})`)
+  }
+  if (res.status === 404) {
+    throw new Error(`sprint #${n} not found in this workspace.`)
+  }
+  if (res.status === 401) {
+    throw new Error('API key invalid or revoked. Run `lumo auth login`.')
+  }
+  if (!res.ok) {
+    throw new Error(`sprint lookup failed (HTTP ${res.status})`)
+  }
+  const body = (await res.json()) as SprintByNumberResponse
+  return {
+    id: body.sprint.id,
+    number: body.sprint.number,
+    name: body.sprint.name,
+    teamId: body.sprint.teamId,
+  }
+}
+
 /**
  * Resolve a milestone `<identifier>`:
  * - If it's a UUID, return as-is (project not fetched).
