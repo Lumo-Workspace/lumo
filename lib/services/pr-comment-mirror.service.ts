@@ -450,42 +450,36 @@ async function runInboundCreate(
   const body = buildInboundBody(payload, node, source)
   const { parentId, missing } = await resolveInboundParent(source, node)
 
-  const comment = await prisma.$transaction(async tx => {
-    const c = await commentRepository.create({
-      taskId: payload.taskId,
-      authorActorId: author.actorId,
-      body,
-      parentId,
-      quotedCommentId: null,
-    })
-    await prCommentMirrorRepository.create(
-      {
-        commentId: c.id,
-        pullRequestId: payload.pullRequestId,
-        externalSource: source,
-        externalId: String(node.id),
-        externalNodeId: node.node_id,
-        externalUrl: node.html_url,
-        externalUpdatedAt: new Date(node.updated_at),
-        outboundActor: 'BOT_APP', // origin: external; outbound writer unknown
-        outboundActorUserId: null,
-        bodyHash: computeBodyHash(node.body ?? ''),
-        filePath: source === 'REVIEW_LINE' ? (node.path ?? null) : null,
-        lineStart:
-          source === 'REVIEW_LINE'
-            ? (node.start_line ?? node.line ?? null)
-            : null,
-        lineEnd: source === 'REVIEW_LINE' ? (node.line ?? null) : null,
-        diffSide: source === 'REVIEW_LINE' ? (node.side ?? null) : null,
-        inReplyToExternalId:
-          source === 'REVIEW_LINE' && node.in_reply_to_id
-            ? String(node.in_reply_to_id)
-            : null,
-      },
-      tx
-    )
-    return c
+  const comment = await commentRepository.create({
+    taskId: payload.taskId,
+    authorActorId: author.actorId,
+    body,
+    parentId,
+    quotedCommentId: null,
   })
+  await prCommentMirrorRepository.create({
+    commentId: comment.id,
+    pullRequestId: payload.pullRequestId,
+    externalSource: source,
+    externalId: String(node.id),
+    externalNodeId: node.node_id,
+    externalUrl: node.html_url,
+    externalUpdatedAt: new Date(node.updated_at),
+    outboundActor: 'BOT_APP',
+    outboundActorUserId: null,
+    bodyHash: computeBodyHash(node.body ?? ''),
+    filePath: source === 'REVIEW_LINE' ? (node.path ?? null) : null,
+    lineStart:
+      source === 'REVIEW_LINE' ? (node.start_line ?? node.line ?? null) : null,
+    lineEnd: source === 'REVIEW_LINE' ? (node.line ?? null) : null,
+    diffSide: source === 'REVIEW_LINE' ? (node.side ?? null) : null,
+    inReplyToExternalId:
+      source === 'REVIEW_LINE' && node.in_reply_to_id
+        ? String(node.in_reply_to_id)
+        : null,
+  })
+
+  // TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({...})
 
   if (missing) {
     // Re-attempt the parent linkage after a short delay
@@ -502,7 +496,6 @@ async function runInboundCreate(
     })
   }
 
-  // TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({ commentId: comment.id, workspaceId: payload.workspaceId })
 }
 
 async function applyInboundUpdate(

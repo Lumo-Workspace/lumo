@@ -32,13 +32,16 @@ jest.mock('@clerk/nextjs/server', () => ({
   }),
 }))
 jest.mock('@/lib/db/prisma', () => ({
-  prisma: { $transaction: jest.fn(async (cb: (tx: object) => unknown) => cb({})) },
+  prisma: {
+    workspaceMember: {
+      findUnique: jest.fn(),
+    },
+  },
 }))
 
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
-import { prisma } from '@/lib/db/prisma'
 
 describe('runInbound CREATE', () => {
   beforeEach(() => {
@@ -55,7 +58,7 @@ describe('runInbound CREATE', () => {
     ;(commentRepository.create as jest.Mock).mockResolvedValue({ id: 'c-new' })
   })
 
-  it('creates a Comment + PrCommentMirror in a transaction for an ISSUE event', async () => {
+  it('creates a Comment then a PrCommentMirror sequentially for an ISSUE event', async () => {
     await prCommentMirrorService.runInbound({
       event: 'issue_comment',
       action: 'created',
@@ -73,7 +76,6 @@ describe('runInbound CREATE', () => {
         },
       },
     })
-    expect(prisma.$transaction).toHaveBeenCalled()
     expect(commentRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId: 't1',
@@ -88,8 +90,7 @@ describe('runInbound CREATE', () => {
         pullRequestId: 'pr1',
         externalSource: 'ISSUE',
         externalId: '999',
-      }),
-      expect.anything()
+      })
     )
   })
 
