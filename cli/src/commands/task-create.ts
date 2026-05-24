@@ -240,7 +240,13 @@ export async function taskCreate(
         )
         process.stdout.write(`Sprint: #${sprint.number} "${sprint.name}"\n`)
       } catch (err) {
-        console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+        const msg = err instanceof Error ? err.message : String(err)
+        // Spec's literal mismatch output — print bare, no "Error:" prefix
+        if (msg.startsWith('Sprint binding skipped:')) {
+          console.error(msg)
+        } else {
+          console.error(`Error: ${msg}`)
+        }
         return 1
       }
     }
