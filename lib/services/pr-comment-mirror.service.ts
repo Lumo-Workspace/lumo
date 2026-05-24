@@ -230,25 +230,32 @@ async function runOutboundUpdate(commentId: string) {
   if (!pr) return
   const repo = parseRepo(pr.repo)
 
-  // Reuse same actor resolution logic as CREATE; fall back to BOT_APP with app token
-  const memberForActor = comment.authorActorId
-    ? await memberRepository.findByActorId(comment.authorActorId)
-    : null
-  const actorResult = memberForActor
-    ? await prCommentMirrorService.resolveOutboundActor({
-        workspaceId: pr.workspaceId,
-        authorUserId: memberForActor.id,
-        repo,
-      })
-    : {
-        actor: 'BOT_APP' as const,
-        token: await getGithubInstallationToken(),
-        userId: null,
-      }
+  // Lock actor to mirror.outboundActor (do not re-resolve from comment.authorActorId)
+  let actorKind = mirror.outboundActor
+  let token: string
+  if (
+    mirror.outboundActor === 'USER_OAUTH' &&
+    mirror.outboundActorUserId != null
+  ) {
+    const integration =
+      await githubRepository.findIntegrationByUserAndWorkspace(
+        pr.workspaceId,
+        mirror.outboundActorUserId
+      )
+    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo))) {
+      token = decrypt(integration.accessToken)
+    } else {
+      // User disconnected or lost write access — fall back to BOT_APP but preserve BOT_APP body shape
+      actorKind = 'BOT_APP'
+      token = await getGithubInstallationToken()
+    }
+  } else {
+    token = await getGithubInstallationToken()
+  }
 
   const { body, bodyHash } = await buildOutboundBody(
     comment,
-    actorResult.actor,
+    actorKind,
     ''
   )
 
@@ -259,13 +266,13 @@ async function runOutboundUpdate(commentId: string) {
             repo,
             externalId: mirror.externalId,
             body,
-            token: actorResult.token,
+            token,
           })
         : await prCommentClient.updateIssueComment({
             repo,
             externalId: mirror.externalId,
             body,
-            token: actorResult.token,
+            token,
           })
 
     await prCommentMirrorRepository.patchAfterEdit(
@@ -299,22 +306,21 @@ async function runOutboundDelete(commentId: string) {
 
   const repo = parseRepo(pr.repo)
 
-  // For DELETE: prefer the same actor that wrote the comment (mirror.outboundActor).
+  // For DELETE: use mirror.outboundActor (do not re-resolve from comment.authorActorId).
   // If USER_OAUTH user is no longer available, fall back to BOT_APP token.
   let token: string
-  if (mirror.outboundActor === 'USER_OAUTH' && mirror.outboundActorUserId) {
-    const memberForActor = comment.authorActorId
-      ? await memberRepository.findByActorId(comment.authorActorId)
-      : null
-    if (memberForActor) {
-      const actorResult = await prCommentMirrorService.resolveOutboundActor({
-        workspaceId: pr.workspaceId,
-        authorUserId: memberForActor.id,
-        repo,
-      })
-      token = actorResult.token
+  if (
+    mirror.outboundActor === 'USER_OAUTH' &&
+    mirror.outboundActorUserId != null
+  ) {
+    const integration =
+      await githubRepository.findIntegrationByUserAndWorkspace(
+        pr.workspaceId,
+        mirror.outboundActorUserId
+      )
+    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo))) {
+      token = decrypt(integration.accessToken)
     } else {
-      // getGithubInstallationToken() takes no args (lib/integrations/github/auth.ts:7)
       token = await getGithubInstallationToken()
     }
   } else {

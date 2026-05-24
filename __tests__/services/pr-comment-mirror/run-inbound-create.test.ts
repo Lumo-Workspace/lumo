@@ -36,6 +36,9 @@ jest.mock('@/lib/db/prisma', () => ({
     workspaceMember: {
       findUnique: jest.fn(),
     },
+    task: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
   },
 }))
 
