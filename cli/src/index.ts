@@ -23,6 +23,7 @@ import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
 import { sprintCreate } from './commands/sprint-create'
+import { sprintList } from './commands/sprint-list'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -275,6 +276,19 @@ milestoneCmd
 const sprintCmd = program
   .command('sprint')
   .description('Inspect sprints from the terminal')
+
+sprintCmd
+  .command('list')
+  .description(
+    'List sprints for a team. --team required when workspace has >1 team. Sorted newest first.'
+  )
+  .option('--team <ref>', 'Team name or UUID')
+  .option(
+    '-s, --status <value>',
+    'Filter by status: draft | active | closed (case-insensitive)'
+  )
+  .option('-n, --limit <count>', 'Show only the first N sprints')
+  .action(wrap(options => sprintList(options as Record<string, string>)))
 
 sprintCmd
   .command('create')
