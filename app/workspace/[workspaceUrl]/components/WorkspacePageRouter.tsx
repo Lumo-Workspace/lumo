@@ -282,7 +282,7 @@ export function WorkspacePageRouter(props: Props) {
             onRetry={fetchDocuments}
             onNewDocument={documentHandlers.handleNewDocument}
             onSelectDocument={doc =>
-              documentHandlers.navigateToDocument(doc.id)
+              documentHandlers.navigateToDocument(doc.slug)
             }
             onDeleteDocument={documentHandlers.handleDeleteDocument}
           />

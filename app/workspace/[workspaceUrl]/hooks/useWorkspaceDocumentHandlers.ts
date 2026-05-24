@@ -40,15 +40,22 @@ export function useWorkspaceDocumentHandlers({
   docTree,
   currentUser,
 }: UseWorkspaceDocumentHandlersOptions) {
+  /**
+   * Navigate to a document by its URL identifier — `slug` for real docs,
+   * the optimistic `temp-uuid` string for docs still in flight from
+   * `handleTreeCreateChild`. Internally `selectedDocumentId` (the existing
+   * state name) holds this same identifier; everything downstream
+   * (`/api/documents/<segment>`, the cache key) takes either.
+   */
   const navigateToDocument = useCallback(
-    (id: string) => {
-      setSelectedDocumentId(id)
+    (slugOrTempId: string) => {
+      setSelectedDocumentId(slugOrTempId)
       setCurrentPage('document-editor')
-      docTree.expandPathTo(id)
+      docTree.expandPathTo(slugOrTempId)
       window.history.pushState(
         null,
         '',
-        `/workspace/${workspaceUrl}/documents/${id}`
+        `/workspace/${workspaceUrl}/documents/${slugOrTempId}`
       )
     },
     [workspaceUrl, docTree, setSelectedDocumentId, setCurrentPage]
@@ -64,6 +71,7 @@ export function useWorkspaceDocumentHandlers({
       const tempId = `temp-${crypto.randomUUID()}`
       const node: TreeNode = {
         id: tempId,
+        slug: null,
         title: '',
         emoji: null,
         parentId,
@@ -81,6 +89,8 @@ export function useWorkspaceDocumentHandlers({
       // Write optimistic cache for DocumentEditorPage
       writeCache(CACHE_KEY.documentDetail(tempId), {
         id: tempId,
+        number: 0,
+        slug: tempId,
         title: '',
         emoji: null,
         parentId,
@@ -106,9 +116,14 @@ export function useWorkspaceDocumentHandlers({
       documentsClient
         .create<{ document: ApiDocument; ancestors?: unknown[] }>({ parentId })
         .then(data => {
-          const realId = data.document.id as string
+          // Swap the optimistic identifier (`temp-uuid`) for the real slug.
+          // We index the tree by id (stable cuid, never collides) and route
+          // the URL by slug (regenerated on title change); the same slug is
+          // also what /api/documents/<segment> expects.
+          const realSlug = data.document.slug
+          const realId = data.document.id
           docTree.replaceNodeId(tempId, realId)
-          writeCache(CACHE_KEY.documentDetail(realId), {
+          writeCache(CACHE_KEY.documentDetail(realSlug), {
             ...data.document,
             ancestors: data.ancestors ?? [],
           })
@@ -121,14 +136,14 @@ export function useWorkspaceDocumentHandlers({
           // so the new doc shows up there as well as in the tree.
           setDocuments(prev => [data.document, ...prev])
           setSelectedDocumentId(prev => {
-            if (prev === tempId) return realId
+            if (prev === tempId) return realSlug
             return prev
           })
           if (window.location.pathname.includes(tempId)) {
             window.history.replaceState(
               null,
               '',
-              `/workspace/${workspaceUrl}/documents/${realId}`
+              `/workspace/${workspaceUrl}/documents/${realSlug}`
             )
           }
         })

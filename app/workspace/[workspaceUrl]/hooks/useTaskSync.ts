@@ -27,6 +27,7 @@ interface UseTaskSyncOptions {
 
 interface RelatedDoc {
   id: string
+  slug: string
   title: string
   emoji: string | null
   updatedAt: string

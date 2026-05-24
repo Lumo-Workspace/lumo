@@ -171,9 +171,14 @@ export async function docUpdate(
     return 1
   }
   const { document } = (await res.json()) as {
-    document: { id: string; title: string; docTags?: Array<{ name: string }> }
+    document: {
+      id: string
+      slug: string
+      title: string
+      docTags?: Array<{ name: string }>
+    }
   }
-  const docUrlStr = `${trimTrailingSlash(apiUrl)}/workspace/${creds.workspaceSlug ?? 'lumo'}/documents/${document.id}`
+  const docUrlStr = `${trimTrailingSlash(apiUrl)}/workspace/${creds.workspaceSlug ?? 'lumo'}/documents/${document.slug}`
 
   // Read tag names off the response (present when tags were changed)
   const responseTagNames =

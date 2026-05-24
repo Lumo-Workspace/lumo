@@ -24,6 +24,7 @@ export interface CreateDocOptions {
 interface CreatedDocResponse {
   document: {
     id: string
+    slug: string
     title: string
     docTags?: Array<{ id: string; name: string }>
   }
@@ -150,7 +151,7 @@ export async function docCreate(
   }
 
   const { document } = (await res.json()) as CreatedDocResponse
-  const fullUrl = docUrl(apiUrl, creds.workspaceSlug ?? 'lumo', document.id)
+  const fullUrl = docUrl(apiUrl, creds.workspaceSlug ?? 'lumo', document.slug)
   const responseTagNames = (document.docTags ?? []).map(t => t.name)
   console.log(
     formatCreatedDocLine({

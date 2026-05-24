@@ -372,11 +372,15 @@ function TreeNodeGroup({
               node={node}
               depth={depth}
               isExpanded={isExpanded}
-              isCurrent={node.id === currentDocId}
+              // `currentDocId` holds the URL identifier (slug for real docs,
+              // temp-uuid while a node is still optimistic), so compare
+              // against the same field. Falls back to node.id for the brief
+              // window between optimistic create and server round-trip.
+              isCurrent={(node.slug ?? node.id) === currentDocId}
               draggedId={draggedId}
               dropTarget={dropTarget}
               onToggleExpand={() => onExpandNode(node.id)}
-              onClick={() => onNavigate(node.id)}
+              onClick={() => onNavigate(node.slug ?? node.id)}
               onAddChild={() => onAddChild(node.id)}
               onRename={() => onRenameDoc(node)}
               onDelete={() => onDeleteDoc(node)}

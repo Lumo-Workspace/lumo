@@ -2,6 +2,7 @@ import { apiFetch } from './base'
 
 export interface TaskDocumentResource {
   id: string
+  slug: string
   title: string
   emoji: string | null
   updatedAt: string

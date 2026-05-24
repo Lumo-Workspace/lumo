@@ -44,7 +44,7 @@ export function DocumentsSection({
                 <FileText size={12} className='text-zinc-400' />
               )}
               <Link
-                href={`/workspace/${workspaceUrl}/documents/${doc.id}`}
+                href={`/workspace/${workspaceUrl}/documents/${doc.slug}`}
                 className='text-zinc-700 dark:text-zinc-300 hover:underline truncate'
               >
                 {doc.title}

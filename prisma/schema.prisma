@@ -901,11 +901,9 @@ model Document {
   emoji   String?
 
   // Per-workspace incrementing identifier. Combined with slugified title to
-  // form the user-facing slug below. Nullable during PR-1 staged rollout;
-  // backfilled by migration, switched to NOT NULL in PR-2 once production
-  // verifies `prisma migrate deploy` has run.
-  number Int?
-  slug   String?
+  // form the user-facing slug below.
+  number Int
+  slug   String
 
   parentId     String?
   parent       Document?        @relation("DocTree", fields: [parentId], references: [id])

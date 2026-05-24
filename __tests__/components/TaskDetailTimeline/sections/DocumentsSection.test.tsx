@@ -27,12 +27,14 @@ describe('DocumentsSection', () => {
           documents={[
             {
               id: 'd1',
+              slug: 'spec-1',
               title: 'Spec',
               emoji: null,
               updatedAt: '2026-05-19T00:00:00Z',
             },
             {
               id: 'd2',
+              slug: 'rfc-2',
               title: 'RFC',
               emoji: '📄',
               updatedAt: '2026-05-19T00:00:00Z',
@@ -46,15 +48,36 @@ describe('DocumentsSection', () => {
     expect(screen.getByText('📄')).toBeInTheDocument()
   })
 
+  it('links each row to the slug URL, not the cuid', () => {
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          documents={[
+            {
+              id: 'd1',
+              slug: 'spec-1',
+              title: 'Spec',
+              emoji: null,
+              updatedAt: '',
+            },
+          ]}
+        />
+      </Accordion>
+    )
+    const link = screen.getByRole('link', { name: 'Spec' })
+    expect(link).toHaveAttribute('href', '/workspace/lumo/documents/spec-1')
+  })
+
   it('renders count in header', () => {
     render(
       <Accordion type='multiple'>
         <DocumentsSection
           workspaceUrl='lumo'
           documents={[
-            { id: 'd1', title: 'a', emoji: null, updatedAt: '' },
-            { id: 'd2', title: 'b', emoji: null, updatedAt: '' },
-            { id: 'd3', title: 'c', emoji: null, updatedAt: '' },
+            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '' },
+            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '' },
+            { id: 'd3', slug: 'c-3', title: 'c', emoji: null, updatedAt: '' },
           ]}
         />
       </Accordion>

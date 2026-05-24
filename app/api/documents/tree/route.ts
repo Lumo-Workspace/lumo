@@ -9,6 +9,7 @@ type RawNode = Awaited<
 
 interface TreeNodeResponse {
   id: string
+  slug: string | null
   title: string
   emoji: string | null
   parentId: string | null
@@ -23,6 +24,7 @@ function toTreeNode(
 ): TreeNodeResponse {
   const result: TreeNodeResponse = {
     id: raw.id,
+    slug: raw.slug,
     title: raw.title,
     emoji: raw.emoji,
     parentId: raw.parentId,

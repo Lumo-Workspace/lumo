@@ -248,6 +248,7 @@ describe('miscRepository.findDocumentMentionsByTask', () => {
         document: {
           select: {
             id: true,
+            slug: true,
             title: true,
             emoji: true,
             updatedAt: true,

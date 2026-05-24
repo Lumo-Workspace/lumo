@@ -110,6 +110,7 @@ export function useDocumentTree(currentDocId: string | null) {
         const data = await apiFetch<{
           documents: {
             id: string
+            slug: string
             title: string
             emoji: string | null
             parentId: string | null
@@ -120,6 +121,7 @@ export function useDocumentTree(currentDocId: string | null) {
         const children: TreeNode[] = (data.documents ?? []).map(
           (d: {
             id: string
+            slug: string
             title: string
             emoji: string | null
             parentId: string | null
@@ -127,6 +129,7 @@ export function useDocumentTree(currentDocId: string | null) {
             _count?: { children: number }
           }) => ({
             id: d.id,
+            slug: d.slug,
             title: d.title,
             emoji: d.emoji,
             parentId: d.parentId,

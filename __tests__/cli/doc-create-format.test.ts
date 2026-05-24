@@ -12,10 +12,11 @@ describe('formatCreatedDocLine', () => {
       formatCreatedDocLine({
         id: 'cmdxxxxxxxxxxxxxxxxxxxxx',
         title: 'RFC: doc CLI',
-        url: 'https://www.uselumo.ai/workspace/lumo/documents/cmdxxxxxxxxxxxxxxxxxxxxx',
+        // Post-PR-2 URL shape: <slugify(title)>-<number>.
+        url: 'https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42',
       })
     ).toBe(
-      'Created cmdxxxxxxxxxxxxxxxxxxxxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/cmdxxxxxxxxxxxxxxxxxxxxx'
+      'Created cmdxxxxxxxxxxxxxxxxxxxxx "RFC: doc CLI"  https://www.uselumo.ai/workspace/lumo/documents/rfc-doc-cli-42'
     )
   })
 

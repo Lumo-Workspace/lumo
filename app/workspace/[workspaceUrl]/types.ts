@@ -371,6 +371,8 @@ export type DocShareRole = 'VIEWER' | 'EDITOR' | 'MANAGER'
 
 export interface ApiDocument {
   id: string
+  number: number
+  slug: string
   title: string
   emoji: string | null
   parentId: string | null
@@ -394,10 +396,12 @@ export interface ApiDocument {
 
 export interface ApiDocumentAncestor {
   id: string
+  slug: string
   title: string
   emoji: string | null
   children?: {
     id: string
+    slug: string
     title: string
     emoji: string | null
     _count: { children: number }
@@ -406,6 +410,11 @@ export interface ApiDocumentAncestor {
 
 export interface TreeNode {
   id: string
+  /**
+   * URL-facing slug (`<slugify(title)>-<number>`). May be `null` for an
+   * optimistic node still waiting on the server round-trip; otherwise stable.
+   */
+  slug: string | null
   title: string
   emoji: string | null
   parentId: string | null

@@ -266,25 +266,6 @@ describe('documentService', () => {
         undefined
       )
     })
-
-    it('skips slug regeneration when the doc has no allocated number yet', async () => {
-      mockFindWithPermission.mockResolvedValue({
-        id: 'doc-1',
-        createdById: 'm-1',
-        shares: [],
-        number: null,
-        slug: null,
-      })
-      mockUpdateWithChildrenAndMentions.mockResolvedValue({ id: 'doc-1' })
-
-      await documentService.updateDocument('doc-1', 'm-1', 'ws-1', {
-        title: 'Fresh Name',
-      })
-
-      const updateArgs = mockUpdateWithChildrenAndMentions.mock.calls[0]
-      expect(updateArgs[1]).toEqual({ title: 'Fresh Name' })
-      expect(updateArgs[1].slug).toBeUndefined()
-    })
   })
 
   describe('deleteDocument', () => {
