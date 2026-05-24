@@ -110,6 +110,7 @@ enum AgentStatus {
 enum ActorType {
   HUMAN
   AGENT
+  GITHUB_USER
 }
 
 enum TaskActivityType {
@@ -308,11 +309,13 @@ model AgentProfile {
 }
 
 model Actor {
-  id          String    @id @default(cuid())
-  workspaceId String
-  type        ActorType
-  memberId    String?   @unique
-  agentId     String?   @unique
+  id                String    @id @default(cuid())
+  workspaceId       String
+  type              ActorType
+  memberId          String?   @unique
+  agentId           String?   @unique
+  externalIdentity  String?   // "github:<login>" for GITHUB_USER; null otherwise
+  externalAvatarUrl String?
 
   workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -324,6 +327,7 @@ model Actor {
   receivedNotifications  Notification[] @relation("NotificationRecipient")
   triggeredNotifications Notification[] @relation("NotificationTrigger")
 
+  @@unique([workspaceId, externalIdentity])
   @@index([workspaceId])
   @@map("actors")
 }
@@ -586,13 +590,16 @@ model Comment {
   quotedCommentId String? // which specific comment this reply is quoting
   type            CommentType @default(USER)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  task    Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author  Actor?    @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
-  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies Comment[] @relation("CommentReplies")
+  task     Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author   Actor?             @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
+  parent   Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[]          @relation("CommentReplies")
+  mirror   PrCommentMirror?
+  syncJobs PrCommentSyncJob[]
 
   @@index([taskId])
   @@index([parentId])
@@ -735,9 +742,10 @@ model PullRequest {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  task        Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  integration GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task             Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  mirroredComments PrCommentMirror[]
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -1366,4 +1374,87 @@ model TaskWebLink {
   @@index([taskId, createdAt])
   @@index([workspaceId])
   @@map("task_web_links")
+}
+
+// ─── PR Comment Mirror ───────────────────────────────────────────────────────
+
+enum PrCommentSource {
+  ISSUE
+  REVIEW
+  REVIEW_LINE
+}
+
+enum DiffSide {
+  LEFT
+  RIGHT
+}
+
+enum OutboundActorKind {
+  USER_OAUTH
+  BOT_APP
+}
+
+enum SyncDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum SyncJobStatus {
+  PENDING
+  DEAD_LETTER
+}
+
+model PrCommentMirror {
+  id                  String          @id @default(cuid())
+  commentId           String          @unique
+  pullRequestId       String
+
+  externalSource      PrCommentSource
+  externalId          String
+  externalNodeId      String?
+  externalUrl         String
+  externalUpdatedAt   DateTime
+  lastSyncedAt        DateTime
+  deletedAt           DateTime?
+
+  filePath            String?
+  lineStart           Int?
+  lineEnd             Int?
+  diffSide            DiffSide?
+  inReplyToExternalId String?
+
+  outboundActor       OutboundActorKind
+  outboundActorUserId String?
+
+  bodyHash            String?
+
+  comment     Comment     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([externalSource, externalId])
+  @@index([pullRequestId])
+  @@index([pullRequestId, bodyHash, lastSyncedAt])
+  @@map("pr_comment_mirrors")
+}
+
+model PrCommentSyncJob {
+  id           String        @id @default(cuid())
+  direction    SyncDirection
+  payload      Json
+  commentId    String?
+  externalId   String?
+  attempts     Int           @default(0)
+  lastError    String?
+  status       SyncJobStatus @default(PENDING)
+  scheduledFor DateTime      @default(now())
+  workspaceId  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([status, scheduledFor])
+  @@index([workspaceId])
+  @@index([commentId])
+  @@map("pr_comment_sync_jobs")
 }
