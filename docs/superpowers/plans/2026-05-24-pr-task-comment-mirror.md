@@ -4,7 +4,7 @@
 
 **Goal:** Mirror all three GitHub PR comment kinds (`issue_comment`, `pull_request_review`, `pull_request_review_comment`) bidirectionally with the linked Lumo task's comment thread.
 
-**Architecture:** Inbound via existing `/api/webhooks/github` with three new event branches. Outbound via `commentService` hooks dispatched through `waitUntil`. A new service `pr-comment-mirror.service.ts` owns echo defense, conflict resolution, and the GitHub fetch layer. Failures spill into a small `PrCommentSyncJob` table drained by a 1-minute cron.
+**Architecture:** Inbound via existing `/api/webhooks/github` with three new event branches. Outbound via `commentService` hooks dispatched through `waitUntil`. A new service `pr-comment-mirror.service.ts` owns echo defense, conflict resolution, and the GitHub fetch layer. Failures spill into a small `PrCommentSyncJob` table that is **drained event-driven** — every inbound webhook drains pending inbound jobs for that PR, and every outbound dispatch drains pending outbound jobs for that task. No cron. Known limit: a workspace with zero activity will leave failed jobs PENDING indefinitely (acceptable for MVP; post-MVP can add a low-frequency cron or operator CLI).
 
 **Tech Stack:** Next.js App Router, Prisma + Postgres, GitHub REST API via `fetch` (no octokit), Vercel `waitUntil`, Jest.
 
@@ -88,11 +88,12 @@ model Comment {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  task    Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author  Actor?            @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
-  parent  Comment?          @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies Comment[]         @relation("CommentReplies")
-  mirror  PrCommentMirror?
+  task     Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author   Actor?             @relation("CommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
+  parent   Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[]          @relation("CommentReplies")
+  mirror   PrCommentMirror?
+  syncJobs PrCommentSyncJob[]
 
   @@index([taskId])
   @@index([parentId])
@@ -183,8 +184,11 @@ model PrCommentSyncJob {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
   @@index([status, scheduledFor])
   @@index([workspaceId])
+  @@index([commentId])
   @@map("pr_comment_sync_jobs")
 }
 ```
@@ -369,7 +373,10 @@ Expected: PASS.
 - [ ] **Step 5: Scan other repos/services that select comments without filtering**
 
 Run: `grep -rn 'prisma.comment.findMany\|prisma.comment.findUnique\|prisma.comment.findFirst' lib app`
-Expected: only the comment repository hits. If any other file reads comments directly, add the `deletedAt: null` filter to it in this same task.
+
+**Known offender to fix in this task:** `lib/repositories/notification.repository.ts:160` reads `prisma.comment.findMany` directly. Add `deletedAt: null` to its `where` clause.
+
+If grep surfaces any other direct callsites beyond `commentRepository` and the now-fixed notification repo, patch them too.
 
 - [ ] **Step 6: Run the wider comment test suite**
 
@@ -1734,10 +1741,8 @@ export const prCommentMirrorService = {
         return { actor: 'USER_OAUTH', token, userId: input.authorUserId }
       }
     }
-    const appToken = await getGithubInstallationToken(
-      input.workspaceId,
-      input.repo
-    )
+    // getGithubInstallationToken() takes no args (single Lumo App installation; see lib/integrations/github/auth.ts:7)
+    const appToken = await getGithubInstallationToken()
     return { actor: 'BOT_APP', token: appToken, userId: null }
   },
 
@@ -2001,18 +2006,41 @@ async function buildOutboundBody(
 
   // BOT_APP: prefix with author attribution
   const authorName = comment.authorActorId
-    ? await resolveAuthorDisplayName(comment.authorActorId, workspaceId)
+    ? await resolveAuthorDisplayName(comment.authorActorId)
     : 'Someone'
   const prefixed = `**[${authorName}](${commentUrl}) 在 Lumo 说：**\n\n${rendered}`
   return { body: prefixed, bodyHash: computeBodyHash(prefixed) }
 }
 
-async function resolveAuthorDisplayName(
-  actorId: string,
-  workspaceId: string
-): Promise<string> {
-  const member = await memberRepository.findByActorId(actorId, workspaceId)
-  return member?.displayName ?? 'Someone'
+/**
+ * Resolve actor id → display name for the bot-prefix template.
+ * Strategy:
+ *   1. memberRepository.findByActorId(actorId) gives us { id, workspaceId } — does NOT include displayName
+ *      (real signature: lib/repositories/member.repository.ts:82)
+ *   2. Lookup WorkspaceMember row directly to get clerkId
+ *   3. Fetch Clerk user → firstName + lastName or email-localpart, mirroring the pattern in
+ *      member.repository.ts:245-275 (single-user version)
+ *   4. Any failure → 'Someone' (degraded but safe)
+ */
+async function resolveAuthorDisplayName(actorId: string): Promise<string> {
+  try {
+    const member = await memberRepository.findByActorId(actorId)
+    if (!member) return 'Someone'
+    const row = await prisma.workspaceMember.findUnique({
+      where: { id: member.id },
+      select: { clerkId: true },
+    })
+    if (!row?.clerkId) return 'Someone'
+    const { clerkClient } = await import('@clerk/nextjs/server')
+    const client = await clerkClient()
+    const user = await client.users.getUser(row.clerkId)
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+    if (fullName) return fullName
+    const email = user.emailAddresses[0]?.emailAddress
+    return email ? email.split('@')[0] : 'Someone'
+  } catch {
+    return 'Someone'
+  }
 }
 
 async function runOutboundCreate(commentId: string) {
@@ -2034,12 +2062,9 @@ async function runOutboundCreate(commentId: string) {
   }
   const isReviewLineReply = parentMirror?.externalSource === 'REVIEW_LINE'
 
-  // Resolve outbound actor identity
+  // Resolve outbound actor identity. findByActorId returns { id, workspaceId } — no extra args.
   const memberForActor = comment.authorActorId
-    ? await memberRepository.findByActorId(
-        comment.authorActorId,
-        pr.workspaceId
-      )
+    ? await memberRepository.findByActorId(comment.authorActorId)
     : null
   const actorResult = memberForActor
     ? await prCommentMirrorService.resolveOutboundActor({
@@ -2120,20 +2145,11 @@ async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
 },
 ```
 
-- [ ] **Step 5: Add `memberRepository.findByActorId`**
+- [ ] **Step 5: Verify `memberRepository.findByActorId` already exists**
 
-In `lib/repositories/member.repository.ts`, add:
+The method exists at `lib/repositories/member.repository.ts:82` with signature `findByActorId(actorId: string) → { id, workspaceId } | null`. Do NOT add it — use the existing signature.
 
-```typescript
-async findByActorId(actorId: string, workspaceId: string) {
-  return prisma.workspaceMember.findFirst({
-    where: { workspaceId, actor: { id: actorId } },
-    include: { actor: { select: { id: true } } },
-  })
-}
-```
-
-(`displayName` may already be present on the model; if not, derive from `firstName + lastName` or fall back to `email`.)
+If you find that the existing return shape doesn't include something your code needs, **do not change the existing method** (other callers depend on it). Either fetch the missing pieces with a separate query (e.g. `prisma.workspaceMember.findUnique({ where: { id }, select: { clerkId: true } })` as `resolveAuthorDisplayName` does in Step 4 above), or add a new method beside the existing one. Display names are NOT a field on `WorkspaceMember`; they come from Clerk (pattern: `lib/repositories/member.repository.ts:245-275`).
 
 - [ ] **Step 6: Install `jest-extended` for toHaveBeenCalledBefore (if missing)**
 
@@ -2277,10 +2293,7 @@ async function runOutboundUpdate(commentId: string) {
 
   // Recompute body using the same prefix rules as CREATE (outbound actor read from mirror)
   const memberForActor = comment.authorActorId
-    ? await memberRepository.findByActorId(
-        comment.authorActorId,
-        pr.workspaceId
-      )
+    ? await memberRepository.findByActorId(comment.authorActorId)
     : null
   const actorResult = memberForActor
     ? await prCommentMirrorService.resolveOutboundActor({
@@ -2460,10 +2473,9 @@ async function runOutboundDelete(commentId: string) {
   // outbound actor that wrote the comment originally. Fall back to BOT_APP.
   let token: string
   if (mirror.outboundActor === 'USER_OAUTH' && mirror.outboundActorUserId) {
-    const member = await memberRepository.findByActorId(
-      comment.authorActorId ?? '',
-      pr.workspaceId
-    )
+    const member = comment.authorActorId
+      ? await memberRepository.findByActorId(comment.authorActorId)
+      : null
     const actor = member
       ? await prCommentMirrorService.resolveOutboundActor({
           workspaceId: pr.workspaceId,
@@ -2471,10 +2483,10 @@ async function runOutboundDelete(commentId: string) {
           repo,
         })
       : null
-    token =
-      actor?.token ?? (await getGithubInstallationToken(pr.workspaceId, repo))
+    // getGithubInstallationToken() takes no args (lib/integrations/github/auth.ts:7)
+    token = actor?.token ?? (await getGithubInstallationToken())
   } else {
-    token = await getGithubInstallationToken(pr.workspaceId, repo)
+    token = await getGithubInstallationToken()
   }
 
   try {
@@ -3767,11 +3779,13 @@ async notifyMentionsForMirror(params: {
   authorActorId: string
   workspaceId: string
 }): Promise<void> {
-  // Load task / project context for the existing notifyMentions API
+  // Load task / project context for the existing notifyMentions API.
+  // Use findForComment — its TASK_COMMENT_SELECT shape returns exactly the fields
+  // notifyMentions needs (team.identifier + project.workspace.slug).
+  // (lib/repositories/task.repository.ts:218 TASK_COMMENT_SELECT, :544 findForComment)
   const { taskRepository } = await import('@/lib/repositories')
-  const task = await taskRepository.findById(params.taskId)
+  const task = await taskRepository.findForComment(params.taskId)
   if (!task) return
-  // Best-effort: reuse notifyMentions with a no-op waitUntil
   return commentService.notifyMentions({
     taskId: params.taskId,
     commentId: params.commentId,
@@ -3789,7 +3803,7 @@ async notifyMentionsForMirror(params: {
 },
 ```
 
-(Verify `taskRepository.findById` exists; if not, use `findWithProjectWorkspaceId` or extend.)
+`taskRepository.findForComment` already exists at `lib/repositories/task.repository.ts:544` and selects exactly the fields above — no new repo method required.
 
 After defining the method, edit `runInboundCreate` in `lib/services/pr-comment-mirror.service.ts` and replace the `// TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({...})` marker (added in Task 17) with the real call:
 
@@ -4091,242 +4105,267 @@ git commit -m "feat(webhook): handle issue_comment, pull_request_review(_comment
 
 ---
 
-## Phase E — Retry Cron + Integration
+## Phase E — Event-Driven Retry + Integration
 
-### Task 19: Cron retry endpoint
+### Task 19: Drain-on-event retry (replaces cron)
+
+**Decision:** No cron. Pending `PrCommentSyncJob` rows are drained at the start of every `runOutbound` (per task) and `runInbound` (per PR). Median retry latency = "until the next activity," which is fine because failures will almost always be transient (rate limit, GH 5xx) and any next webhook / comment on the same task drains the backlog. Known limit: a workspace with zero activity will leave failed jobs PENDING indefinitely — acceptable for MVP; post-MVP can add a low-frequency cron or operator CLI.
 
 **Files:**
 
-- Create: `app/api/cron/pr-comment-retry/route.ts`
-- Modify: `vercel.json`
-- Test: `__tests__/api/cron/pr-comment-retry.test.ts`
+- Modify: `lib/repositories/pr-comment-sync-job.repository.ts` (add `findDueByTask`, `findDueByPullRequest`)
+- Modify: `lib/services/pr-comment-mirror.service.ts` (drain at the top of `runOutbound` / `runInbound`; dead-letter logic moves into the drain catch path)
+- Test: extend `__tests__/repositories/pr-comment-sync-job.repository.test.ts` + new `__tests__/services/pr-comment-mirror/drain-on-event.test.ts`
 
-- [ ] **Step 1: Write failing test**
+- [ ] **Step 1: Add repository methods + tests**
+
+Append to `__tests__/repositories/pr-comment-sync-job.repository.test.ts`:
 
 ```typescript
-// __tests__/api/cron/pr-comment-retry.test.ts
-import { GET } from '@/app/api/cron/pr-comment-retry/route'
-import { NextRequest } from 'next/server'
-import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
+it('findDueByTask filters by commentId.taskId joined and limit', async () => {
+  await prCommentSyncJobRepository.findDueByTask('t1', { limit: 10 })
+  expect(prisma.prCommentSyncJob.findMany).toHaveBeenCalledWith({
+    where: {
+      status: 'PENDING',
+      scheduledFor: { lte: expect.any(Date) },
+      direction: 'OUTBOUND',
+      comment: { taskId: 't1' },
+    },
+    orderBy: { scheduledFor: 'asc' },
+    take: 10,
+  })
+})
+
+it('findDueByPullRequest filters by inbound payload.pullRequestId', async () => {
+  await prCommentSyncJobRepository.findDueByPullRequest('pr1', { limit: 10 })
+  expect(prisma.prCommentSyncJob.findMany).toHaveBeenCalledWith({
+    where: {
+      status: 'PENDING',
+      scheduledFor: { lte: expect.any(Date) },
+      direction: 'INBOUND',
+      payload: { path: ['pullRequestId'], equals: 'pr1' },
+    },
+    orderBy: { scheduledFor: 'asc' },
+    take: 10,
+  })
+})
+```
+
+Implement in `lib/repositories/pr-comment-sync-job.repository.ts`:
+
+```typescript
+async findDueByTask(taskId: string, { limit }: { limit: number }) {
+  return prisma.prCommentSyncJob.findMany({
+    where: {
+      status: 'PENDING',
+      scheduledFor: { lte: new Date() },
+      direction: 'OUTBOUND',
+      comment: { taskId },
+    },
+    orderBy: { scheduledFor: 'asc' },
+    take: limit,
+  })
+},
+
+async findDueByPullRequest(pullRequestId: string, { limit }: { limit: number }) {
+  return prisma.prCommentSyncJob.findMany({
+    where: {
+      status: 'PENDING',
+      scheduledFor: { lte: new Date() },
+      direction: 'INBOUND',
+      payload: { path: ['pullRequestId'], equals: pullRequestId },
+    },
+    orderBy: { scheduledFor: 'asc' },
+    take: limit,
+  })
+},
+```
+
+(The OUTBOUND filter uses the `comment` relation, which means OUTBOUND jobs need `commentId` populated — they always do, per the `enqueue` contract in Task 4.)
+
+The `PrCommentSyncJob.comment` relation and the `Comment.syncJobs` back-relation are already declared as part of Task 1's schema, so no additional migration is required here.
+
+- [ ] **Step 2: Write drain-on-event tests**
+
+```typescript
+// __tests__/services/pr-comment-mirror/drain-on-event.test.ts
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
+import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 import { GithubApiError } from '@/lib/integrations/github/pr-comment-client'
 
 jest.mock('@/lib/repositories/pr-comment-sync-job.repository')
-jest.mock('@/lib/services/pr-comment-mirror.service')
+jest.mock('@/lib/repositories/comment.repository')
+jest.mock('@/lib/repositories/pull-request.repository')
+jest.mock('@/lib/repositories/pr-comment-mirror.repository')
 
-const baseEnv = process.env.CRON_SECRET
-beforeAll(() => {
-  process.env.CRON_SECRET = 'test-secret'
-})
-afterAll(() => {
-  process.env.CRON_SECRET = baseEnv
-})
-
-function req(authHeader?: string) {
-  return new NextRequest('http://localhost/api/cron/pr-comment-retry', {
-    headers: authHeader ? { authorization: authHeader } : undefined,
-  })
-}
-
-describe('cron /api/cron/pr-comment-retry', () => {
+describe('drain-on-event', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  it('returns 401 without bearer auth', async () => {
-    const r = await GET(req())
-    expect(r.status).toBe(401)
+  it('runOutbound drains pending OUTBOUND jobs for the same task before its own work', async () => {
+    // Arrange a pending job for the same task as our incoming work
+    ;(prCommentSyncJobRepository.findDueByTask as jest.Mock).mockResolvedValue([
+      { id: 'j-prior', direction: 'OUTBOUND', commentId: 'c-old', payload: { op: 'CREATE' }, attempts: 0 },
+    ])
+    // Skip the actual main-path work for this test by stubbing the lookups to return no PR
+    const { pullRequestRepository } = await import('@/lib/repositories/pull-request.repository')
+    ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(null)
+    const { commentRepository } = await import('@/lib/repositories/comment.repository')
+    ;(commentRepository.findById as jest.Mock).mockResolvedValue({ id: 'c1', taskId: 't1', type: 'USER' })
+
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+
+    expect(prCommentSyncJobRepository.findDueByTask).toHaveBeenCalledWith('t1', { limit: 10 })
   })
 
-  it('runs each due OUTBOUND job and deletes on success', async () => {
-    ;(prCommentSyncJobRepository.findDue as jest.Mock).mockResolvedValue([
-      {
-        id: 'j1',
-        direction: 'OUTBOUND',
-        commentId: 'c1',
-        payload: { op: 'CREATE' },
-        attempts: 0,
-      },
+  it('drain failures escalate to dead-letter after 3rd attempt', async () => {
+    ;(prCommentSyncJobRepository.findDueByTask as jest.Mock).mockResolvedValue([
+      { id: 'j-fail', direction: 'OUTBOUND', commentId: 'c-old', payload: { op: 'CREATE' }, attempts: 2 },
     ])
-    ;(prCommentMirrorService.runOutbound as jest.Mock).mockResolvedValue(
-      undefined
-    )
-    await GET(req('Bearer test-secret'))
-    expect(prCommentMirrorService.runOutbound).toHaveBeenCalledWith(
-      'c1',
-      'CREATE'
-    )
-    expect(prCommentSyncJobRepository.delete).toHaveBeenCalledWith('j1')
-  })
-
-  it('records failure with backoff on non-rate-limit error', async () => {
-    ;(prCommentSyncJobRepository.findDue as jest.Mock).mockResolvedValue([
-      {
-        id: 'j1',
-        direction: 'OUTBOUND',
-        commentId: 'c1',
-        payload: { op: 'CREATE' },
-        attempts: 0,
-      },
-    ])
-    ;(prCommentMirrorService.runOutbound as jest.Mock).mockRejectedValue(
-      new Error('boom')
-    )
-    await GET(req('Bearer test-secret'))
-    expect(prCommentSyncJobRepository.recordFailure).toHaveBeenCalledWith(
-      'j1',
-      0,
-      'boom'
-    )
-  })
-
-  it('reschedules without consuming attempts on rate-limit error', async () => {
-    const reset = new Date(Date.now() + 60_000)
-    const err = new GithubApiError(403, { message: 'rate limit' }, reset)
-    ;(prCommentSyncJobRepository.findDue as jest.Mock).mockResolvedValue([
-      {
-        id: 'j1',
-        direction: 'OUTBOUND',
-        commentId: 'c1',
-        payload: { op: 'CREATE' },
-        attempts: 1,
-      },
-    ])
-    ;(prCommentMirrorService.runOutbound as jest.Mock).mockRejectedValue(err)
-    await GET(req('Bearer test-secret'))
-    expect(prCommentSyncJobRepository.rescheduleAt).toHaveBeenCalledWith(
-      'j1',
-      reset,
-      'rate-limit'
-    )
-    expect(prCommentSyncJobRepository.recordFailure).not.toHaveBeenCalled()
-  })
-
-  it('marks dead-letter on 3rd attempt failure', async () => {
-    ;(prCommentSyncJobRepository.findDue as jest.Mock).mockResolvedValue([
-      {
-        id: 'j1',
-        direction: 'OUTBOUND',
-        commentId: 'c1',
-        payload: { op: 'CREATE' },
-        attempts: 2,
-      },
-    ])
-    ;(prCommentMirrorService.runOutbound as jest.Mock).mockRejectedValue(
-      new Error('boom')
-    )
+    // Force the drained job's retry to throw
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    await GET(req('Bearer test-secret'))
-    expect(prCommentSyncJobRepository.markDeadLetter).toHaveBeenCalledWith(
-      'j1',
-      'boom'
-    )
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('pr-mirror dead-letter'),
-      expect.any(Object)
-    )
+    // Spy on runOutbound to mock the inner retry call (note: drain calls runOutbound recursively for each pending job)
+    // For this test we simulate the recursive failure path by making the second lookup throw
+    const { commentRepository } = await import('@/lib/repositories/comment.repository')
+    ;(commentRepository.findById as jest.Mock).mockImplementation((id) => {
+      if (id === 'c-old') throw new Error('boom')
+      return { id: 'c1', taskId: 't1', type: 'USER' }
+    })
+    const { pullRequestRepository } = await import('@/lib/repositories/pull-request.repository')
+    ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(null)
+
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+
+    expect(prCommentSyncJobRepository.markDeadLetter).toHaveBeenCalledWith('j-fail', 'boom')
     errSpy.mockRestore()
+  })
+
+  it('runInbound drains pending INBOUND jobs for the same PR', async () => {
+    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+    const { prCommentMirrorRepository } = await import('@/lib/repositories/pr-comment-mirror.repository')
+    ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(null)
+    ;(prCommentMirrorRepository.findRecentPlaceholder as jest.Mock).mockResolvedValue(null)
+
+    await prCommentMirrorService.runInbound({
+      event: 'issue_comment',
+      action: 'deleted',
+      workspaceId: 'w1',
+      taskId: 't1',
+      pullRequestId: 'pr1',
+      raw: { comment: { id: 999, node_id: 'IC_x', html_url: 'https://...', body: null, updated_at: '2026-05-24T00:00:00Z', user: { id: 1, login: 'foo', type: 'User', avatar_url: '' } } },
+    })
+
+    expect(prCommentSyncJobRepository.findDueByPullRequest).toHaveBeenCalledWith('pr1', { limit: 10 })
   })
 })
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [ ] **Step 3: Implement drain at the entrypoints**
 
-Run: `npx jest __tests__/api/cron/pr-comment-retry.test.ts -v`
-Expected: FAIL.
-
-- [ ] **Step 3: Implement the route**
-
-Create `app/api/cron/pr-comment-retry/route.ts`:
+In `lib/services/pr-comment-mirror.service.ts`, wrap `runOutbound` and `runInbound` with a drain pass:
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server'
-import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
-import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
-import { GithubApiError } from '@/lib/integrations/github/pr-comment-client'
+const DRAIN_LIMIT = 10
+const DEAD_LETTER_THRESHOLD = 3
 
-const BATCH = 50
-
-export async function GET(request: NextRequest) {
-  const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const jobs = await prCommentSyncJobRepository.findDue({ limit: BATCH })
-  let ok = 0
-  let failed = 0
-  let deadLettered = 0
-
-  for (const job of jobs) {
-    try {
-      if (job.direction === 'OUTBOUND' && job.commentId) {
-        const op =
-          (job.payload as { op?: 'CREATE' | 'UPDATE' | 'DELETE' }).op ??
-          'CREATE'
-        await prCommentMirrorService.runOutbound(job.commentId, op)
-      } else if (job.direction === 'INBOUND') {
-        await prCommentMirrorService.runInbound(job.payload as never)
-      }
-      await prCommentSyncJobRepository.delete(job.id)
-      ok++
-    } catch (err) {
-      if (err instanceof GithubApiError && err.rateLimitResetAt) {
-        await prCommentSyncJobRepository.rescheduleAt(
-          job.id,
-          err.rateLimitResetAt,
-          'rate-limit'
-        )
-        continue
-      }
-      const message = err instanceof Error ? err.message : String(err)
-      const nextAttempts = job.attempts + 1
-      if (nextAttempts >= 3) {
-        await prCommentSyncJobRepository.markDeadLetter(job.id, message)
-        console.error('pr-mirror dead-letter', {
-          jobId: job.id,
-          direction: job.direction,
-          attempts: nextAttempts,
-          error: message,
-        })
-        deadLettered++
-      } else {
-        await prCommentSyncJobRepository.recordFailure(
-          job.id,
-          job.attempts,
-          message
-        )
-        failed++
-      }
+async function drainAndRetry<T>(
+  job: { id: string; attempts: number },
+  work: () => Promise<T>
+): Promise<void> {
+  try {
+    await work()
+    await prCommentSyncJobRepository.delete(job.id)
+  } catch (err) {
+    if (err instanceof GithubApiError && err.rateLimitResetAt) {
+      await prCommentSyncJobRepository.rescheduleAt(
+        job.id,
+        err.rateLimitResetAt,
+        'rate-limit'
+      )
+      return
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    const nextAttempts = job.attempts + 1
+    if (nextAttempts >= DEAD_LETTER_THRESHOLD) {
+      await prCommentSyncJobRepository.markDeadLetter(job.id, message)
+      console.error('pr-mirror dead-letter', {
+        jobId: job.id,
+        attempts: nextAttempts,
+        error: message,
+      })
+    } else {
+      await prCommentSyncJobRepository.recordFailure(
+        job.id,
+        job.attempts,
+        message
+      )
     }
   }
+}
 
-  return NextResponse.json({ ok, failed, deadLettered, total: jobs.length })
+async function drainOutboundForTask(taskId: string) {
+  const due = await prCommentSyncJobRepository.findDueByTask(taskId, {
+    limit: DRAIN_LIMIT,
+  })
+  for (const job of due) {
+    if (!job.commentId) continue
+    const op =
+      (job.payload as { op?: 'CREATE' | 'UPDATE' | 'DELETE' }).op ?? 'CREATE'
+    // Recursive call — but the inner call will drain WHATEVER's still pending,
+    // and findDueByTask returns no rows if we just drained them. Safe.
+    await drainAndRetry(job, () =>
+      prCommentMirrorService.runOutbound(job.commentId!, op)
+    )
+  }
+}
+
+async function drainInboundForPr(pullRequestId: string) {
+  const due = await prCommentSyncJobRepository.findDueByPullRequest(
+    pullRequestId,
+    { limit: DRAIN_LIMIT }
+  )
+  for (const job of due) {
+    await drainAndRetry(job, () =>
+      prCommentMirrorService.runInbound(job.payload as never)
+    )
+  }
 }
 ```
 
-- [ ] **Step 4: Add cron entry to `vercel.json`**
+Inside `runOutbound`, drain BEFORE the main path:
 
-Edit `vercel.json` to append the cron entry:
+```typescript
+async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
+  // Look up the task for drain — needed for both the drain and the main path.
+  const comment = await commentRepository.findById(commentId)
+  if (comment) await drainOutboundForTask(comment.taskId)
 
-```json
-{
-  "crons": [
-    { "path": "/api/cron/check-agent-timeouts", "schedule": "0 * * * *" },
-    { "path": "/api/summaries/generate", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/pr-comment-retry", "schedule": "*/1 * * * *" }
-  ]
-}
+  if (op === 'CREATE') return runOutboundCreate(commentId)
+  if (op === 'UPDATE') return runOutboundUpdate(commentId)
+  if (op === 'DELETE') return runOutboundDelete(commentId)
+},
 ```
 
-- [ ] **Step 5: Run tests**
+Inside `runInbound`, drain BEFORE the main path (right after extracting the source/node):
 
-Run: `npx jest __tests__/api/cron/pr-comment-retry.test.ts -v`
-Expected: PASS (5 cases).
+```typescript
+async runInbound(payload: InboundPayload) {
+  await drainInboundForPr(payload.pullRequestId)
+  // ...existing logic
+},
+```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Run tests until pass**
+
+Run: `npx jest __tests__/services/pr-comment-mirror/drain-on-event.test.ts -v`
+Run: `npx jest __tests__/repositories/pr-comment-sync-job.repository.test.ts -v`
+
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/api/cron/pr-comment-retry/route.ts vercel.json __tests__/api/cron/pr-comment-retry.test.ts
-git commit -m "feat(cron): pr-comment-retry every minute with backoff + dead-letter [LUM-90]"
+git add lib/repositories/pr-comment-sync-job.repository.ts lib/services/pr-comment-mirror.service.ts prisma/schema.prisma prisma/migrations/ __tests__/services/pr-comment-mirror/drain-on-event.test.ts __tests__/repositories/pr-comment-sync-job.repository.test.ts
+git commit -m "feat(pr-mirror): drain pending sync jobs on every runOutbound/runInbound (replaces cron) [LUM-90]"
 ```
 
 ---
@@ -4525,9 +4564,22 @@ If migration did not apply automatically, see CLAUDE.md "Database Migrations / P
 
 ---
 
-## Self-Review Notes (auto-applied)
+## Self-Review Notes
 
-- **Spec coverage check:** §1 schema → Tasks 1–4. §2 outbound → Tasks 8–11. §3 inbound → Tasks 12–15. §4 echo + conflict → woven into Tasks 12, 14, 15. §5 retry + dead-letter → Task 19. §6 testing → tests inside every task plus Task 20 integration. §7 deployment checklist → Task 22. Both open questions (Actor model, Comment soft-delete) resolved during plan write-up and locked into Task 1 / Task 2.
+- **Spec coverage check:** §1 schema → Tasks 1–4. §2 outbound → Tasks 8–11. §3 inbound → Tasks 12–15. §4 echo + conflict → woven into Tasks 12, 14, 15. §5 retry + dead-letter → Task 19 (now drain-on-event, no cron). §6 testing → tests inside every task plus Task 20 integration. §7 deployment checklist → Task 22. Both open questions (Actor model, Comment soft-delete) resolved during plan write-up and locked into Task 1 / Task 2.
 - **Placeholder scan:** no TBDs. The `commentUrl` value in Task 9's `buildOutboundBody` is passed as empty string with a noted comment — acceptable for MVP since the prefix link is best-effort (we don't have a clean way to derive the per-comment URL without the workspace slug and task identifier flowing through the call chain; a follow-up can enrich it).
 - **Type consistency:** `OutboundActorKind` is the enum name used in schema (Task 1) and code (Tasks 8–11). `PrCommentSource` values `ISSUE | REVIEW | REVIEW_LINE` are used consistently. `SyncDirection.OUTBOUND | INBOUND` consistent.
-- **One known concession:** Task 17 collapses the per-inbound-event Prisma `$transaction` into separate sequential writes (Comment + Mirror). The trade-off is acknowledged in the task body — duplicate-detection in the next echo path covers the race.
+- **Known concessions:**
+  - Task 17 collapses the per-inbound-event Prisma `$transaction` into separate sequential writes (Comment + Mirror). The trade-off is acknowledged in the task body — duplicate-detection in the next echo path covers the race.
+  - Task 19 trades cron-bounded retry latency for "drained on next activity." A workspace with zero further activity leaves DEAD_LETTER / PENDING jobs sitting indefinitely. Acceptable for MVP because (a) failures past 3 attempts are rare, (b) any next webhook on the same PR drains, (c) post-MVP we can add a low-frequency safety-net cron.
+  - GitHub review-line threads of depth ≥3 (replies to replies on the same diff line) all chain via `in_reply_to_id`, but Lumo's `Comment.parentId` only allows depth 1. Task 13's parent resolver returns the depth-1 parent in those cases, flattening the chain into siblings. Spec to update post-MVP if real users complain.
+
+## Verification Pass Log
+
+Before kicking off subagent execution, a plan-verification pass surfaced these mismatches (all fixed inline above before commit):
+
+1. **getGithubInstallationToken signature** — actual: `()` returns global Lumo App token. Plan originally called it with `(workspaceId, repo)` in 3 places. Fixed.
+2. **memberRepository.findByActorId signature** — actual: `(actorId) → { id, workspaceId } | null`, no displayName. Plan originally tried to "add" it with a different signature. Fixed: use existing method; derive displayName via Clerk SDK with "Someone" fallback.
+3. **taskRepository.findById / findForComment** — `findById` does exist but `findForComment` (`TASK_COMMENT_SELECT`) returns exactly the fields needed for `notifyMentionsForMirror`. Fixed: use `findForComment`.
+4. **vercel cron `*/1 * * * *`** — Hobby-tier incompatible AND introduces a dependency we don't strictly need. Eliminated entirely; replaced with drain-on-event (Task 19 rewritten).
+5. **notification.repository.ts:160** — reads `prisma.comment.findMany` directly; called out as a known offender in Task 2 step 5.
