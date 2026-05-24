@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { updateSprintSchema } from '@/lib/validation/sprint.schema'
@@ -10,12 +10,13 @@ type Params = { params: Promise<{ sprintId: string }> }
 
 /**
  * GET /api/sprints/[sprintId] — Fetch a single sprint with task progress.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -25,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     const [done, total] = await Promise.all([
@@ -52,12 +53,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
  * PATCH /api/sprints/[sprintId] — Update sprint metadata. Editable in any
  * state; the service rejects date ranges that overlap another sprint on the
  * same team.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -67,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { memberId } = await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     const body = await req.json()
@@ -105,12 +107,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 /**
  * DELETE /api/sprints/[sprintId] — Remove a DRAFT sprint.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -120,7 +123,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const { memberId } = await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     await sprintService.remove(sprintId, { memberId })

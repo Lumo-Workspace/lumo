@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { requireTeamAccessById } from '@/lib/auth/require-team-access'
 
@@ -14,15 +14,16 @@ type Params = { params: Promise<{ teamId: string }> }
  *   (omitted)         → all tasks (no sprint filter)
  *
  * Used by the Backlog panel (sprintId=null) and Sprint Board fallback.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    await requireTeamAccessById(teamId, userId)
+    await requireTeamAccessById(teamId, identity.clerkId)
 
     // Parse optional sprintId filter:
     //   ?sprintId=<id>   → tasks in that sprint

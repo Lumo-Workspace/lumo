@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
@@ -12,12 +12,13 @@ type Params = { params: Promise<{ sprintId: string }> }
  * Re-trigger retro generation for a CLOSED sprint whose last generation failed
  * (or never ran). Creates a fresh pending GenerationJob then fires generate()
  * asynchronously so the HTTP response is immediate (202 Accepted).
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -27,7 +28,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     if (sprint.status !== 'CLOSED') {

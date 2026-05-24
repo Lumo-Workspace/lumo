@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireWorkspaceByUrl } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
 
@@ -11,12 +10,13 @@ import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
  * front-end URLs can use the friendly number instead of the CUID. Assumes
  * the workspace has at most one sprints-enabled team (the agreed constraint
  * for this URL scheme).
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
 
     const workspaceUrl = req.nextUrl.searchParams.get('workspaceUrl')
     const numberStr = req.nextUrl.searchParams.get('number')
@@ -28,11 +28,19 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const ws = await requireWorkspaceByUrl(userId, workspaceUrl)
-    if (ws instanceof NextResponse) return ws
+    // Validate that the requested workspaceUrl matches the caller's workspace.
+    if (!workspaceUrl) {
+      return NextResponse.json(
+        { error: 'workspaceUrl is required' },
+        { status: 400 }
+      )
+    }
+    if (identity.workspaceSlug !== workspaceUrl) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const sprint = await sprintRepository.findByWorkspaceAndNumber(
-      ws.workspaceId,
+      identity.workspaceId,
       number
     )
     if (!sprint)
@@ -41,7 +49,7 @@ export async function GET(req: NextRequest) {
     await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     const [done, total] = await Promise.all([

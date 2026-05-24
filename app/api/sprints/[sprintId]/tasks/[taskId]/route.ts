@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { sprintService } from '@/lib/services'
 import { sprintRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
@@ -9,12 +9,13 @@ type Params = { params: Promise<{ sprintId: string; taskId: string }> }
 
 /**
  * DELETE /api/sprints/[sprintId]/tasks/[taskId] — Remove a task from a sprint.
+ *
+ * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(req)
+    if (identity instanceof NextResponse) return identity
     const { sprintId, taskId } = await params
 
     const sprint = await sprintRepository.findById(sprintId)
@@ -24,7 +25,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const { memberId } = await requireTeamMemberOrOwner(
       sprint.team.workspaceId,
       sprint.teamId,
-      userId
+      identity.clerkId
     )
 
     const actorId = await getHumanActorId(memberId)
