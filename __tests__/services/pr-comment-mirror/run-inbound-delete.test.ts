@@ -36,9 +36,13 @@ jest.mock('@clerk/nextjs/server', () => ({
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
+import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 
 describe('runInbound DELETE', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+  })
 
   it('soft-deletes the local comment and marks mirror deletedAt', async () => {
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue({

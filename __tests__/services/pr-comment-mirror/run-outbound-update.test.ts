@@ -40,6 +40,8 @@ jest.mock('@/lib/integrations/github/pr-comment-client')
 describe('runOutbound UPDATE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       id: 'c1',
       taskId: 't1',

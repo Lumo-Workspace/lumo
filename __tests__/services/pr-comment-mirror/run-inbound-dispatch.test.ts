@@ -37,6 +37,7 @@ import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { githubActorService } from '@/lib/services/github-actor.service'
 import { githubRepository } from '@/lib/repositories/github.repository'
+import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 
 const baseEnv = {
   workspaceId: 'w1',
@@ -67,7 +68,10 @@ const issuePayload = {
 }
 
 describe('runInbound dispatch', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+  })
 
   it('drops echo when matching mirror has externalUpdatedAt >= payload.updated_at', async () => {
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue({

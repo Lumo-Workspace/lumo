@@ -74,4 +74,32 @@ describe('prCommentSyncJobRepository', () => {
       data: { status: 'DEAD_LETTER', lastError: 'final error' },
     })
   })
+
+  it('findDueByTask filters by commentId.taskId joined and limit', async () => {
+    await prCommentSyncJobRepository.findDueByTask('t1', { limit: 10 })
+    expect(prisma.prCommentSyncJob.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'PENDING',
+        scheduledFor: { lte: expect.any(Date) },
+        direction: 'OUTBOUND',
+        comment: { taskId: 't1' },
+      },
+      orderBy: { scheduledFor: 'asc' },
+      take: 10,
+    })
+  })
+
+  it('findDueByPullRequest filters by inbound payload.pullRequestId', async () => {
+    await prCommentSyncJobRepository.findDueByPullRequest('pr1', { limit: 10 })
+    expect(prisma.prCommentSyncJob.findMany).toHaveBeenCalledWith({
+      where: {
+        status: 'PENDING',
+        scheduledFor: { lte: expect.any(Date) },
+        direction: 'INBOUND',
+        payload: { path: ['pullRequestId'], equals: 'pr1' },
+      },
+      orderBy: { scheduledFor: 'asc' },
+      take: 10,
+    })
+  })
 })

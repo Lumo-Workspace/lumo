@@ -351,6 +351,75 @@ async function runOutboundDelete(commentId: string) {
   }
 }
 
+const DRAIN_LIMIT = 10
+const DEAD_LETTER_THRESHOLD = 3
+
+async function drainAndRetry<T>(
+  job: { id: string; attempts: number },
+  work: () => Promise<T>
+): Promise<void> {
+  try {
+    await work()
+    await prCommentSyncJobRepository.delete(job.id)
+  } catch (err) {
+    if (err instanceof GithubApiError && err.rateLimitResetAt) {
+      await prCommentSyncJobRepository.rescheduleAt(
+        job.id,
+        err.rateLimitResetAt,
+        'rate-limit'
+      )
+      return
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    const nextAttempts = job.attempts + 1
+    if (nextAttempts >= DEAD_LETTER_THRESHOLD) {
+      await prCommentSyncJobRepository.markDeadLetter(job.id, message)
+      console.error('pr-mirror dead-letter', {
+        jobId: job.id,
+        attempts: nextAttempts,
+        error: message,
+      })
+    } else {
+      await prCommentSyncJobRepository.recordFailure(
+        job.id,
+        job.attempts,
+        message
+      )
+    }
+  }
+}
+
+async function drainOutboundForTask(taskId: string) {
+  const due = await prCommentSyncJobRepository.findDueByTask(taskId, {
+    limit: DRAIN_LIMIT,
+  })
+  for (const job of due) {
+    if (!job.commentId) continue
+    const op =
+      (job.payload as { op?: 'CREATE' | 'UPDATE' | 'DELETE' }).op ?? 'CREATE'
+    const cId = job.commentId
+    // Call the private helpers directly to avoid re-triggering the drain loop.
+    await drainAndRetry(job, () => {
+      if (op === 'CREATE') return runOutboundCreate(cId)
+      if (op === 'UPDATE') return runOutboundUpdate(cId)
+      return runOutboundDelete(cId)
+    })
+  }
+}
+
+async function drainInboundForPr(pullRequestId: string) {
+  const due = await prCommentSyncJobRepository.findDueByPullRequest(
+    pullRequestId,
+    { limit: DRAIN_LIMIT }
+  )
+  for (const job of due) {
+    const p = job.payload as unknown as InboundPayload
+    // Call runInboundCore (the logic body of runInbound) directly to avoid
+    // re-triggering the drain loop.
+    await drainAndRetry(job, () => runInboundCore(p))
+  }
+}
+
 const BOT_LOGIN = process.env.LUMO_GITHUB_BOT_LOGIN ?? 'lumo-app[bot]'
 
 interface InboundPayload {
@@ -563,6 +632,64 @@ async function runInboundUpdate(
   })
 }
 
+/** Core inbound processing logic, extracted so the drain helper can call it
+ *  without re-triggering the top-level drain pass (which would cause infinite recursion). */
+async function runInboundCore(payload: InboundPayload) {
+  const node = extractCommentNode(payload)
+  const source = payloadSource(payload)
+
+  // DELETE always wins — no conflict matrix needed
+  if (payload.action === 'deleted') {
+    const existingForDelete = await prCommentMirrorRepository.findByExternal(
+      source,
+      String(node.id)
+    )
+    if (!existingForDelete) return // unknown comment, ignore
+    await commentRepository.delete(existingForDelete.commentId)
+    await prCommentMirrorRepository.markDeleted(existingForDelete.id)
+    return
+  }
+
+  // Echo / dedupe via exact externalId match
+  const existing = await prCommentMirrorRepository.findByExternal(
+    source,
+    String(node.id)
+  )
+  if (existing) {
+    const tIncoming = new Date(node.updated_at)
+    if (existing.externalUpdatedAt >= tIncoming) return // echo — drop
+
+    // UPDATE path — handled in Task 14
+    return runInboundUpdate(payload, existing, node)
+  }
+
+  // Race-patch: did we just POST this comment and the webhook beat the response?
+  if (payload.action === 'created' || payload.action === 'submitted') {
+    const placeholder = await prCommentMirrorRepository.findRecentPlaceholder(
+      payload.pullRequestId,
+      computeBodyHash(node.body ?? ''),
+      60
+    )
+    if (placeholder) {
+      await prCommentMirrorRepository.resolvePlaceholder(placeholder.id, {
+        externalId: String(node.id),
+        externalNodeId: node.node_id,
+        externalUrl: node.html_url,
+        externalUpdatedAt: new Date(node.updated_at),
+      })
+      return
+    }
+  }
+
+  if (
+    payload.action === 'created' ||
+    payload.action === 'submitted' ||
+    payload.action === 'edited' // edit on something we don't know — treat as create
+  ) {
+    return runInboundCreate(payload, node, source)
+  }
+}
+
 export const prCommentMirrorService = {
   async resolveOutboundActor(
     input: ResolveActorInput
@@ -584,6 +711,10 @@ export const prCommentMirrorService = {
   },
 
   async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
+    // Drain pending OUTBOUND jobs for the same task before proceeding.
+    const comment = await commentRepository.findById(commentId)
+    if (comment) await drainOutboundForTask(comment.taskId)
+
     if (op === 'CREATE') return runOutboundCreate(commentId)
     if (op === 'UPDATE') return runOutboundUpdate(commentId)
     if (op === 'DELETE') return runOutboundDelete(commentId)
@@ -615,59 +746,9 @@ export const prCommentMirrorService = {
   },
 
   async runInbound(payload: InboundPayload) {
-    const node = extractCommentNode(payload)
-    const source = payloadSource(payload)
-
-    // DELETE always wins — no conflict matrix needed
-    if (payload.action === 'deleted') {
-      const existingForDelete = await prCommentMirrorRepository.findByExternal(
-        source,
-        String(node.id)
-      )
-      if (!existingForDelete) return // unknown comment, ignore
-      await commentRepository.delete(existingForDelete.commentId)
-      await prCommentMirrorRepository.markDeleted(existingForDelete.id)
-      return
-    }
-
-    // Echo / dedupe via exact externalId match
-    const existing = await prCommentMirrorRepository.findByExternal(
-      source,
-      String(node.id)
-    )
-    if (existing) {
-      const tIncoming = new Date(node.updated_at)
-      if (existing.externalUpdatedAt >= tIncoming) return // echo — drop
-
-      // UPDATE path — handled in Task 14
-      return runInboundUpdate(payload, existing, node)
-    }
-
-    // Race-patch: did we just POST this comment and the webhook beat the response?
-    if (payload.action === 'created' || payload.action === 'submitted') {
-      const placeholder = await prCommentMirrorRepository.findRecentPlaceholder(
-        payload.pullRequestId,
-        computeBodyHash(node.body ?? ''),
-        60
-      )
-      if (placeholder) {
-        await prCommentMirrorRepository.resolvePlaceholder(placeholder.id, {
-          externalId: String(node.id),
-          externalNodeId: node.node_id,
-          externalUrl: node.html_url,
-          externalUpdatedAt: new Date(node.updated_at),
-        })
-        return
-      }
-    }
-
-    if (
-      payload.action === 'created' ||
-      payload.action === 'submitted' ||
-      payload.action === 'edited' // edit on something we don't know — treat as create
-    ) {
-      return runInboundCreate(payload, node, source)
-    }
+    // Drain pending INBOUND jobs for the same PR before proceeding.
+    await drainInboundForPr(payload.pullRequestId)
+    return runInboundCore(payload)
   },
 
   async scheduleOutbound(

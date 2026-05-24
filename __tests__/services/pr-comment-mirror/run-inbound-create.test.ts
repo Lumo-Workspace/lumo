@@ -42,10 +42,12 @@ jest.mock('@/lib/db/prisma', () => ({
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
+import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 
 describe('runInbound CREATE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(
       null
     )

@@ -57,6 +57,8 @@ describe('runOutbound CREATE', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     resolveActorSpy = jest
       .spyOn(prCommentMirrorService, 'resolveOutboundActor')
       .mockResolvedValue({ actor: 'BOT_APP', token: 'tok', userId: null })

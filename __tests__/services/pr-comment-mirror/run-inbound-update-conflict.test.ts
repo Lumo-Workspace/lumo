@@ -69,6 +69,7 @@ const basePayload = (updatedAt: string, body = 'remote edit') => ({
 describe('runInbound UPDATE — conflict matrix', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(
       baseExisting
     )

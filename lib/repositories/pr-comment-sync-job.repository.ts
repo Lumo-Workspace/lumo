@@ -64,6 +64,32 @@ export const prCommentSyncJobRepository = {
     })
   },
 
+  async findDueByTask(taskId: string, { limit }: { limit: number }) {
+    return prisma.prCommentSyncJob.findMany({
+      where: {
+        status: 'PENDING',
+        scheduledFor: { lte: new Date() },
+        direction: 'OUTBOUND',
+        comment: { taskId },
+      },
+      orderBy: { scheduledFor: 'asc' },
+      take: limit,
+    })
+  },
+
+  async findDueByPullRequest(pullRequestId: string, { limit }: { limit: number }) {
+    return prisma.prCommentSyncJob.findMany({
+      where: {
+        status: 'PENDING',
+        scheduledFor: { lte: new Date() },
+        direction: 'INBOUND',
+        payload: { path: ['pullRequestId'], equals: pullRequestId },
+      },
+      orderBy: { scheduledFor: 'asc' },
+      take: limit,
+    })
+  },
+
   async delete(id: string) {
     return prisma.prCommentSyncJob.delete({ where: { id } })
   },
