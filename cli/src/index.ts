@@ -24,6 +24,7 @@ import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
+import { sprintShow } from './commands/sprint-show'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -289,6 +290,18 @@ sprintCmd
   )
   .option('-n, --limit <count>', 'Show only the first N sprints')
   .action(wrap(options => sprintList(options as Record<string, string>)))
+
+sprintCmd
+  .command('show <identifier>')
+  .description(
+    'Show a sprint: status, dates, progress, and tasks. Identifier accepts a sprint number or UUID.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .action(
+    wrap((identifier, options) =>
+      sprintShow(identifier as string, options as { team?: string })
+    )
+  )
 
 sprintCmd
   .command('create')
