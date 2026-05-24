@@ -283,6 +283,70 @@ async function runOutboundUpdate(commentId: string) {
   }
 }
 
+async function runOutboundDelete(commentId: string) {
+  const mirror = await prCommentMirrorRepository.findByCommentId(commentId)
+  if (!mirror) return
+
+  const comment = await commentRepository.findById(commentId)
+  if (!comment) return
+
+  const pr = await pullRequestRepository.findByTaskId(comment.taskId)
+  if (!pr) return
+
+  const repo = parseRepo(pr.repo)
+
+  // For DELETE: prefer the same actor that wrote the comment (mirror.outboundActor).
+  // If USER_OAUTH user is no longer available, fall back to BOT_APP token.
+  let token: string
+  if (mirror.outboundActor === 'USER_OAUTH' && mirror.outboundActorUserId) {
+    const memberForActor = comment.authorActorId
+      ? await memberRepository.findByActorId(comment.authorActorId)
+      : null
+    if (memberForActor) {
+      const actorResult = await prCommentMirrorService.resolveOutboundActor({
+        workspaceId: pr.workspaceId,
+        authorUserId: memberForActor.id,
+        repo,
+      })
+      token = actorResult.token
+    } else {
+      // getGithubInstallationToken() takes no args (lib/integrations/github/auth.ts:7)
+      token = await getGithubInstallationToken()
+    }
+  } else {
+    token = await getGithubInstallationToken()
+  }
+
+  try {
+    if (mirror.externalSource === 'REVIEW_LINE') {
+      await prCommentClient.deleteReviewLineComment({
+        repo,
+        externalId: mirror.externalId,
+        token,
+      })
+    } else {
+      await prCommentClient.deleteIssueComment({
+        repo,
+        externalId: mirror.externalId,
+        token,
+      })
+    }
+    // Keep mirror row for echo defense; just tombstone it
+    await prCommentMirrorRepository.markDeleted(mirror.id)
+  } catch (err) {
+    const resetAt =
+      err instanceof GithubApiError ? err.rateLimitResetAt : undefined
+    await prCommentSyncJobRepository.enqueue({
+      direction: 'OUTBOUND',
+      payload: { op: 'DELETE', mirrorId: mirror.id },
+      commentId,
+      workspaceId: pr.workspaceId,
+      ...(resetAt ? { scheduledFor: resetAt } : {}),
+    })
+    throw err
+  }
+}
+
 export const prCommentMirrorService = {
   async resolveOutboundActor(
     input: ResolveActorInput
@@ -306,7 +370,7 @@ export const prCommentMirrorService = {
   async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
     if (op === 'CREATE') return runOutboundCreate(commentId)
     if (op === 'UPDATE') return runOutboundUpdate(commentId)
-    throw new Error('DELETE not yet implemented')
+    if (op === 'DELETE') return runOutboundDelete(commentId)
   },
 
   async runInbound(_payload: unknown) {
