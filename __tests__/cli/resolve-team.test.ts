@@ -91,4 +91,11 @@ describe('resolveTeamId', () => {
       resolveTeamId('http://x', 'tok', 'missing')
     ).rejects.toThrow(/not found/)
   })
+
+  it('throws when no teams exist and ref is undefined', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ teams: [] }))
+    await expect(resolveTeamId('http://x', 'tok', undefined)).rejects.toThrow(
+      /no teams/i
+    )
+  })
 })
