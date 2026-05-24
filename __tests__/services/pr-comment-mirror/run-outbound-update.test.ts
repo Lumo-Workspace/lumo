@@ -16,6 +16,19 @@ jest.mock('@/lib/repositories/github.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/pr-comment-sync-job.repository')
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findForComment: jest.fn().mockResolvedValue({
+      id: 't1',
+      number: 10,
+      team: { identifier: 'LUM' },
+      project: { workspace: { slug: 'my-workspace' } },
+    }),
+  },
+}))
+jest.mock('@/lib/utils/buildTaskUrl', () => ({
+  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'),
+}))
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
     users: {

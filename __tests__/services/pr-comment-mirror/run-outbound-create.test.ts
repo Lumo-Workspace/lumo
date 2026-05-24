@@ -13,6 +13,19 @@ jest.mock('@/lib/repositories/pull-request.repository')
 jest.mock('@/lib/repositories/pr-comment-mirror.repository')
 jest.mock('@/lib/repositories/pr-comment-sync-job.repository')
 jest.mock('@/lib/repositories/member.repository')
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findForComment: jest.fn().mockResolvedValue({
+      id: 't1',
+      number: 10,
+      team: { identifier: 'LUM' },
+      project: { workspace: { slug: 'my-workspace' } },
+    }),
+  },
+}))
+jest.mock('@/lib/utils/buildTaskUrl', () => ({
+  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'),
+}))
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: {
     findIntegrationByUserAndWorkspace: jest.fn(),
@@ -177,12 +190,8 @@ describe('runOutbound CREATE', () => {
       ...baseComment,
       parentId: 'parent1',
     })
-    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
-      {
-        externalSource: 'REVIEW_LINE',
-        externalId: '555',
-      }
-    )
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock)
+      .mockResolvedValueOnce({ externalSource: 'REVIEW_LINE', externalId: '555' })
     ;(prCommentClient.createReviewLineReply as jest.Mock).mockResolvedValue({
       id: 1000,
       node_id: 'PRRC_x',
@@ -194,5 +203,12 @@ describe('runOutbound CREATE', () => {
     expect(prCommentClient.createReviewLineReply).toHaveBeenCalledWith(
       expect.objectContaining({ inReplyTo: 555 })
     )
+  })
+
+  it('prefixes body with a real comment URL when actor is BOT_APP', async () => {
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    const body = (prCommentClient.createIssueComment as jest.Mock).mock
+      .calls[0][0].body as string
+    expect(body).toMatch(/https:\/\/app\.lumo\.dev\/workspace\/my-workspace\/tasks\/LUM-10#comment-c1/)
   })
 })

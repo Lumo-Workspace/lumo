@@ -20,6 +20,8 @@ import {
 import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-job.repository'
 import { prisma } from '@/lib/db/prisma'
 import { githubActorService } from '@/lib/services/github-actor.service'
+import { taskRepository } from '@/lib/repositories/task.repository'
+import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 
 interface Repo {
   owner: string
@@ -166,7 +168,10 @@ async function runOutboundCreate(commentId: string) {
         userId: null,
       }
 
-  const commentUrl = ''
+  const task = await taskRepository.findForComment(comment.taskId)
+  const commentUrl = task
+    ? `${buildTaskUrl(task.project.workspace.slug, task.team.identifier, task.number)}#comment-${commentId}`
+    : ''
   const { body, bodyHash } = await buildOutboundBody(
     comment,
     actorResult.actor,
@@ -253,10 +258,14 @@ async function runOutboundUpdate(commentId: string) {
     token = await getGithubInstallationToken()
   }
 
+  const updateTask = await taskRepository.findForComment(comment.taskId)
+  const updateCommentUrl = updateTask
+    ? `${buildTaskUrl(updateTask.project.workspace.slug, updateTask.team.identifier, updateTask.number)}#comment-${commentId}`
+    : ''
   const { body, bodyHash } = await buildOutboundBody(
     comment,
     actorKind,
-    ''
+    updateCommentUrl
   )
 
   try {

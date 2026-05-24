@@ -14,6 +14,19 @@ jest.mock('@/lib/repositories/pull-request.repository')
 jest.mock('@/lib/repositories/member.repository')
 jest.mock('@/lib/repositories/github.repository')
 jest.mock('@/lib/repositories/pr-comment-sync-job.repository')
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findForComment: jest.fn().mockResolvedValue({
+      id: 't1',
+      number: 1,
+      team: { identifier: 'TST' },
+      project: { workspace: { slug: 'test-ws' } },
+    }),
+  },
+}))
+jest.mock('@/lib/utils/buildTaskUrl', () => ({
+  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/test-ws/tasks/TST-1'),
+}))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn().mockResolvedValue('app-token'),
 }))
