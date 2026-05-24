@@ -38,8 +38,13 @@ describe('commentRepository.findByTaskId', () => {
 
     expect(result).toEqual(mockComments)
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { taskId: 'task-1', parentId: null },
-      include: { replies: { orderBy: { createdAt: 'asc' } } },
+      where: { taskId: 'task-1', parentId: null, deletedAt: null },
+      include: {
+        replies: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     })
   })
