@@ -26,6 +26,7 @@ import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
 import { sprintUpdate } from './commands/sprint-update'
+import { sprintDelete } from './commands/sprint-delete'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -327,6 +328,19 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintUpdate(identifier as string, options as Record<string, string>)
+    )
+  )
+
+sprintCmd
+  .command('delete <identifier>')
+  .description(
+    'Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints.'
+  )
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .option('--yes', 'Confirm deletion')
+  .action(
+    wrap((identifier, options) =>
+      sprintDelete(identifier as string, options as Record<string, unknown>)
     )
   )
 
