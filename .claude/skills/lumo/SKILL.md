@@ -144,6 +144,7 @@ Pure flag-driven update. Provide at least one of:
 | `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
+| `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                          |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
 | `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                   |
 | `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                                                                                                          |
@@ -163,6 +164,8 @@ lumo task update LUM-48 --description ""        # clear description
 lumo task update LUM-48 --assignee ""           # unassign
 lumo task update LUM-48 --milestone "v1.0"      # attach to milestone
 lumo task update LUM-48 --milestone ""          # unbind milestone
+lumo task update LUM-48 --sprint 3              # bind to sprint #3
+lumo task update LUM-48 --sprint ""             # unbind from current sprint
 lumo task update LUM-42 --add-tag urgent --remove-tag draft
 lumo task update LUM-42 --tag final --tag approved   # replace entire tag set
 lumo task update LUM-42 --tag final --add-tag oops
@@ -184,11 +187,25 @@ The `Tags:` line is omitted when the resulting tag set is empty.
 - After the agent finishes a task and the user confirms — offer to move it to `done`.
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
+### Sprint output format
+
+`--sprint <ref>` prints a `Sprint:` line after the update line showing old → new binding:
+
+```
+Sprint: - → #3        # newly bound (was backlog)
+Sprint: #2 → #3       # rebound (moved from sprint 2 to 3)
+Sprint: #3 → -        # unbound
+Task LUM-48 already in sprint #3    # noop (same sprint)
+Task LUM-48 has no sprint binding   # noop (already unbound)
+```
+
+`--sprint` can be combined with other update flags. The PATCH (field updates) runs first; the sprint operation runs after. Failures on either step pass through independently without rollback.
+
 ### Out of scope
 
-The CLI does **not** currently update sprint, due date, or parent task. Those need to be edited in the web UI.
+The CLI does **not** currently update due date or parent task. Those need to be edited in the web UI.
 
-Milestone updates (`--milestone`) work, and full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below).
+Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
