@@ -25,6 +25,7 @@ import { milestoneDelete } from './commands/milestone-delete'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
+import { sprintUpdate } from './commands/sprint-update'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -313,6 +314,21 @@ sprintCmd
   .option('--start <date>', 'Start date (YYYY-MM-DD)')
   .option('--end <date>', 'End date (YYYY-MM-DD)')
   .action(wrap(options => sprintCreate(options as Record<string, string>)))
+
+sprintCmd
+  .command('update <identifier>')
+  .description(
+    'Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared.'
+  )
+  .option('--team <ref>', 'Team name or UUID (when workspace has >1 team)')
+  .option('-n, --name <text>', 'New sprint name')
+  .option('--start <date>', 'New start date (YYYY-MM-DD)')
+  .option('--end <date>', 'New end date (YYYY-MM-DD)')
+  .action(
+    wrap((identifier, options) =>
+      sprintUpdate(identifier as string, options as Record<string, string>)
+    )
+  )
 
 const doc = program.command('doc').description('Manage Lumo documents')
 
