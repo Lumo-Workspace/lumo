@@ -63,6 +63,14 @@ export async function sprintList(
     }
   }
 
+  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined
+  if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
+    console.error(
+      `Error: invalid --limit "${options.limit}" (expected a positive integer)`
+    )
+    return 1
+  }
+
   const creds = readCredentials()
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
@@ -84,7 +92,7 @@ export async function sprintList(
 
   const params = new URLSearchParams()
   if (normalizedStatus) params.set('status', normalizedStatus)
-  if (options.limit) params.set('limit', options.limit)
+  if (limit !== undefined) params.set('limit', String(limit))
 
   const query = params.toString()
   const url = `${base}/api/teams/${teamId}/sprints${query ? `?${query}` : ''}`
