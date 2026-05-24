@@ -151,14 +151,14 @@ interface SprintByNumberResponse {
  * has at most one sprints-enabled team. If that constraint is ever lifted,
  * this function will need a `--team` disambiguation step.
  *
- * `_teamRef` is reserved for future use; today the endpoint disambiguates
- * via the workspace_url only.
+ * `teamRef` is used to soften the disambiguation hint when --team was already
+ * attempted; today the endpoint still disambiguates via workspace_url only.
  */
 export async function resolveSprintId(
   base: string,
   token: string,
   identifier: string,
-  _teamRef: string | undefined,
+  teamRef: string | undefined,
   workspaceSlug: string
 ): Promise<{ id: string; number: number; name: string; teamId: string }> {
   if (isUuid(identifier)) {
@@ -183,7 +183,12 @@ export async function resolveSprintId(
     throw new Error(`Could not reach Lumo API at ${base} (${msg})`)
   }
   if (res.status === 404) {
-    throw new Error(`sprint #${n} not found in this workspace.`)
+    // teamRef is currently informational only — surface the hint regardless,
+    // but soften the wording when --team was already attempted.
+    const hint = teamRef
+      ? 'Verify the sprint exists for the chosen --team, or pass the UUID.'
+      : 'If your workspace has multiple sprints-enabled teams, pass --team <name> or use the sprint UUID.'
+    throw new Error(`sprint #${n} not found in this workspace. ${hint}`)
   }
   if (res.status === 401) {
     throw new Error('API key invalid or revoked. Run `lumo auth login`.')

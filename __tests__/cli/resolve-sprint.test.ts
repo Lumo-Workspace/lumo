@@ -58,7 +58,7 @@ describe('resolveSprintId', () => {
     )
   })
 
-  it('errors with a useful hint on number 404', async () => {
+  it('errors with a useful hint on number 404 (no --team)', async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValue(
@@ -67,6 +67,20 @@ describe('resolveSprintId', () => {
     await expect(
       resolveSprintId('http://x', 'tok', '99', undefined, 'lumo')
     ).rejects.toThrow(/sprint #99 not found/i)
+    await expect(
+      resolveSprintId('http://x', 'tok', '99', undefined, 'lumo')
+    ).rejects.toThrow(/pass --team/i)
+  })
+
+  it('softens the hint when --team was already passed', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ error: 'Sprint not found' }, 404)
+      ) as unknown as typeof fetch
+    await expect(
+      resolveSprintId('http://x', 'tok', '99', 'eng', 'lumo')
+    ).rejects.toThrow(/Verify the sprint exists/i)
   })
 
   it('rejects non-positive-integer identifiers', async () => {
