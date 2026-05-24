@@ -30,6 +30,8 @@ import { sprintDelete } from './commands/sprint-delete'
 import { sprintStart } from './commands/sprint-start'
 import { sprintClose } from './commands/sprint-close'
 import { sprintSummary } from './commands/sprint-summary'
+import { sprintAdd } from './commands/sprint-add'
+import { sprintRemove } from './commands/sprint-remove'
 import { docCreate } from './commands/doc-create'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
@@ -382,6 +384,34 @@ sprintCmd
   .action(
     wrap((identifier, options) =>
       sprintSummary(identifier as string, options as { team?: string; retry?: boolean })
+    )
+  )
+
+sprintCmd
+  .command('add <identifier> <task>')
+  .description('Add a task to a sprint. <task> accepts LUM-N or UUID.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, task, options) =>
+      sprintAdd(
+        identifier as string,
+        task as string,
+        options as Record<string, string>
+      )
+    )
+  )
+
+sprintCmd
+  .command('remove <identifier> <task>')
+  .description('Remove a task from a sprint. <task> accepts LUM-N or UUID.')
+  .option('--team <ref>', 'Team name or UUID (informational)')
+  .action(
+    wrap((identifier, task, options) =>
+      sprintRemove(
+        identifier as string,
+        task as string,
+        options as Record<string, string>
+      )
     )
   )
 
