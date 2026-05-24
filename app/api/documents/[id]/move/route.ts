@@ -28,11 +28,15 @@ export async function PATCH(
   const parsed = moveDocumentSchema.safeParse(body)
   if (!parsed.success) return zodError(parsed)
 
+  // `findEditable` returns the resolved row even when `id` was a slug; use
+  // the cuid for downstream mutations and cycle-detection comparisons.
+  const docId = doc.id
+
   // Prevent moving a document into its own subtree
   if (parsed.data.parentId) {
     let current: string | null = parsed.data.parentId
     while (current) {
-      if (current === id) {
+      if (current === docId) {
         return NextResponse.json(
           { error: 'Cannot move a document into its own subtree' },
           { status: 400 }
@@ -44,7 +48,7 @@ export async function PATCH(
   }
 
   const updated = await documentRepository.move(
-    id,
+    docId,
     parsed.data.parentId,
     parsed.data.sortOrder
   )

@@ -156,12 +156,16 @@ enum SummaryFrequency {
 // ─── Workspace ──────────────────────────────────────────────────────────────
 
 model Workspace {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String
-  logoUrl   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  slug        String
+  logoUrl     String?
+  // Monotonic per-workspace counter used to allocate Document.number on create.
+  // Mirrors Team.taskSeq. Atomic increment inside the create transaction
+  // serialises concurrent inserts without contention on a SELECT MAX query.
+  documentSeq Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   members            WorkspaceMember[]
   teams              Team[]
@@ -896,6 +900,13 @@ model Document {
   content String? @db.Text
   emoji   String?
 
+  // Per-workspace incrementing identifier. Combined with slugified title to
+  // form the user-facing slug below. Nullable during PR-1 staged rollout;
+  // backfilled by migration, switched to NOT NULL in PR-2 once production
+  // verifies `prisma migrate deploy` has run.
+  number Int?
+  slug   String?
+
   parentId     String?
   parent       Document?        @relation("DocTree", fields: [parentId], references: [id])
   children     Document[]       @relation("DocTree")
@@ -919,6 +930,8 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([workspaceId, number])
+  @@unique([workspaceId, slug])
   @@index([workspaceId])
   @@index([parentId])
   @@index([projectId])

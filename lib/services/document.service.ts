@@ -11,6 +11,7 @@ import {
   type TiptapNode,
 } from '@/lib/utils/markdown-tiptap'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { DocMentionSource } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -243,8 +244,9 @@ export const documentService = {
     // Walk ancestor chain
     const ancestors = await findAncestors(doc.parentId)
 
-    // Fetch tag associations
-    const docTags = await tagRepository.findByDocument(id)
+    // Use the resolved cuid for downstream lookups — the `id` param may be a
+    // slug since `findWithPermission` accepts either form.
+    const docTags = await tagRepository.findByDocument(doc.id)
 
     const creatorUser = userMap.get(doc.createdBy.clerkId)
     // CLI / agent consumers want a readable markdown body — derive it from
@@ -394,7 +396,18 @@ export const documentService = {
 
     const updateData: import('@/lib/repositories/document.repository').DocumentUpdateData =
       {}
-    if (data.title !== undefined) updateData.title = data.title
+    if (data.title !== undefined) {
+      updateData.title = data.title
+      // Regenerate the URL slug from the new title while keeping the
+      // workspace-allocated `number` stable. Documents created before this
+      // PR may still have `number == null` (waiting for the production
+      // backfill migration to run); skip slug recompute in that case
+      // rather than producing an `-undefined`-suffixed value.
+      const docNumber = (doc as { number: number | null }).number
+      if (docNumber !== null && docNumber !== undefined) {
+        updateData.slug = buildDocumentSlug(data.title, docNumber)
+      }
+    }
     if (data.content !== undefined) updateData.content = data.content
     if (data.emoji !== undefined) updateData.emoji = data.emoji
     if (data.visibility !== undefined) updateData.visibility = data.visibility
@@ -404,15 +417,19 @@ export const documentService = {
       updateData.publicToken = data.publicToken
     if (data.tags !== undefined) updateData.tags = data.tags
 
+    // Downstream calls must use the resolved cuid (`doc.id`), not the raw
+    // URL segment, because `findWithPermission` now also accepts a slug.
+    const docId = doc.id
+
     // Sync or incrementally modify tag associations
     if (data.tagIds !== undefined) {
-      await tagRepository.syncDocumentTags(id, data.tagIds)
+      await tagRepository.syncDocumentTags(docId, data.tagIds)
     } else {
       if (data.addTagIds && data.addTagIds.length > 0) {
-        await tagRepository.addDocumentTags(id, data.addTagIds)
+        await tagRepository.addDocumentTags(docId, data.addTagIds)
       }
       if (data.removeTagIds && data.removeTagIds.length > 0) {
-        await tagRepository.removeDocumentTags(id, data.removeTagIds)
+        await tagRepository.removeDocumentTags(docId, data.removeTagIds)
       }
     }
 
@@ -421,7 +438,7 @@ export const documentService = {
       : undefined
 
     const updated = await documentRepository.updateWithChildrenAndMentions(
-      id,
+      docId,
       updateData,
       data.childOrder,
       mentionTaskIds
@@ -429,7 +446,7 @@ export const documentService = {
 
     // Track editor if content was updated
     if (data.content !== undefined) {
-      await documentRepository.upsertEditor(id, memberId)
+      await documentRepository.upsertEditor(docId, memberId)
     }
 
     // Attach tags to response — only query when tags were actually touched
@@ -438,7 +455,7 @@ export const documentService = {
       (data.addTagIds && data.addTagIds.length > 0) ||
       (data.removeTagIds && data.removeTagIds.length > 0)
 
-    const docTags = tagsTouched ? await tagRepository.findByDocument(id) : []
+    const docTags = tagsTouched ? await tagRepository.findByDocument(docId) : []
 
     return { ...updated, docTags }
   },
@@ -455,7 +472,7 @@ export const documentService = {
       })
     }
 
-    await documentRepository.deleteWithDescendants(id, workspaceId)
+    await documentRepository.deleteWithDescendants(doc.id, workspaceId)
   },
 
   /** Determine user's role for a document. */
@@ -535,8 +552,8 @@ export const documentService = {
       })
     }
 
-    const existing = await documentRepository.findMention(documentId, task.id)
-    const row = await documentRepository.addExplicitMention(documentId, task.id)
+    const existing = await documentRepository.findMention(doc.id, task.id)
+    const row = await documentRepository.addExplicitMention(doc.id, task.id)
 
     return {
       taskId: task.id,
@@ -576,7 +593,7 @@ export const documentService = {
       })
     }
 
-    const existing = await documentRepository.findMention(documentId, task.id)
+    const existing = await documentRepository.findMention(doc.id, task.id)
     if (existing && existing.source === DocMentionSource.CONTENT) {
       return {
         removed: 0,
@@ -588,7 +605,7 @@ export const documentService = {
     }
 
     const removed = await documentRepository.removeExplicitMention(
-      documentId,
+      doc.id,
       task.id
     )
     return { removed, refused: false as const, taskIdentifier: task.identifier }
