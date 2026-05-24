@@ -273,4 +273,12 @@ export const githubRepository = {
       select: { slug: true },
     })
   },
+
+  /** Find integration by workspace + GitHub login (for inbound webhook actor lookup). */
+  async findIntegrationByLogin(workspaceId: string, githubLogin: string) {
+    return prisma.gitHubIntegration.findFirst({
+      where: { workspaceId, githubLogin },
+      include: { member: { include: { actor: { select: { id: true } } } } },
+    })
+  },
 }
