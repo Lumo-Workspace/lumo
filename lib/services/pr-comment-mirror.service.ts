@@ -167,12 +167,22 @@ async function runOutboundCreate(commentId: string) {
           userId: null,
         }
     const since = new Date(existingMirror.lastSyncedAt.getTime() - 5 * 60_000)
-    const recent = await prCommentClient.listIssueCommentsSince({
-      repo,
-      prNumber: pr.number,
-      since,
-      token: actorResultEarly.token,
-    })
+    // Branch on the original mirror's source so we hit the right GH endpoint —
+    // listIssueCommentsSince does NOT include review-line comments and vice versa.
+    const recent =
+      existingMirror.externalSource === 'REVIEW_LINE'
+        ? await prCommentClient.listReviewCommentsSince({
+            repo,
+            prNumber: pr.number,
+            since,
+            token: actorResultEarly.token,
+          })
+        : await prCommentClient.listIssueCommentsSince({
+            repo,
+            prNumber: pr.number,
+            since,
+            token: actorResultEarly.token,
+          })
     const { bodyHash: pendingHash } = await buildOutboundBody(
       comment,
       existingMirror.outboundActor,
@@ -180,11 +190,13 @@ async function runOutboundCreate(commentId: string) {
     )
     const matched = recent.find(c => computeBodyHash(c.body) === pendingHash)
     if (matched) {
-      // The POST already went through — resolve the placeholder and bail.
+      // The POST already went through — resolve the placeholder with the GH-provided
+      // fields (id / node_id / html_url / updated_at) rather than synthesized blanks.
       await prCommentMirrorRepository.resolvePlaceholder(existingMirror.id, {
         externalId: String(matched.id),
-        externalUrl: '',
-        externalUpdatedAt: new Date(),
+        externalNodeId: matched.node_id,
+        externalUrl: matched.html_url,
+        externalUpdatedAt: new Date(matched.updated_at),
       })
       return
     }

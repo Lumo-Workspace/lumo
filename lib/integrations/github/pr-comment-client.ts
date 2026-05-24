@@ -144,18 +144,31 @@ export const prCommentClient = {
   async listIssueCommentsSince(input: ListIssueCommentsInput) {
     const sinceParam = encodeURIComponent(input.since.toISOString())
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/issues/${input.prNumber}/comments?since=${sinceParam}`
-    return call<Array<{ id: number; body: string; user: { id: number } }>>(
-      url,
-      { method: 'GET', headers: headers(input.token) }
-    ) as Promise<Array<{ id: number; body: string; user: { id: number } }>>
+    return call<Array<ListedComment>>(url, {
+      method: 'GET',
+      headers: headers(input.token),
+    }) as Promise<Array<ListedComment>>
   },
 
   async listReviewCommentsSince(input: ListIssueCommentsInput) {
     const sinceParam = encodeURIComponent(input.since.toISOString())
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/comments?since=${sinceParam}`
-    return call<Array<{ id: number; body: string; user: { id: number } }>>(
-      url,
-      { method: 'GET', headers: headers(input.token) }
-    ) as Promise<Array<{ id: number; body: string; user: { id: number } }>>
+    return call<Array<ListedComment>>(url, {
+      method: 'GET',
+      headers: headers(input.token),
+    }) as Promise<Array<ListedComment>>
   },
+}
+
+/**
+ * Shape of a single comment returned by GitHub's list-comments endpoints.
+ * Both /issues/{n}/comments and /pulls/{n}/comments populate these fields.
+ */
+export interface ListedComment {
+  id: number
+  node_id: string
+  html_url: string
+  body: string
+  updated_at: string
+  user: { id: number }
 }

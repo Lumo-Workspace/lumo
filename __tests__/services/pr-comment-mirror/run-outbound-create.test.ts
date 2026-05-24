@@ -272,17 +272,61 @@ describe('runOutbound CREATE — retry idempotency', () => {
     expect(prCommentMirrorRepository.reserve).not.toHaveBeenCalled()
   })
 
-  it('pending mirror + GH list matches body hash → no re-POST, resolvePlaceholder called with matched id', async () => {
+  it('pending mirror + GH list matches body hash → no re-POST, resolvePlaceholder called with all matched fields', async () => {
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(pendingMirror)
     // <p>hello</p> → lumoHtmlToGithubMarkdown → 'hello' (USER_OAUTH, no prefix)
     ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([
-      { id: 777, body: 'hello', user: { id: 1 } },
+      {
+        id: 777,
+        node_id: 'IC_777',
+        html_url: 'https://github.com/foo/bar/pull/42#issuecomment-777',
+        body: 'hello',
+        updated_at: '2026-05-24T01:23:45Z',
+        user: { id: 1 },
+      },
     ])
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
     expect(prCommentClient.createIssueComment).not.toHaveBeenCalled()
+    // Critical: every GH-provided field is propagated, not synthesized blanks.
     expect(prCommentMirrorRepository.resolvePlaceholder).toHaveBeenCalledWith(
       'm-existing',
-      expect.objectContaining({ externalId: '777' })
+      {
+        externalId: '777',
+        externalNodeId: 'IC_777',
+        externalUrl: 'https://github.com/foo/bar/pull/42#issuecomment-777',
+        externalUpdatedAt: new Date('2026-05-24T01:23:45Z'),
+      }
+    )
+  })
+
+  it('REVIEW_LINE pending mirror routes through listReviewCommentsSince, not listIssueCommentsSince', async () => {
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue({
+      ...pendingMirror,
+      externalSource: 'REVIEW_LINE' as const,
+      inReplyToExternalId: '555',
+    })
+    ;(prCommentClient.listReviewCommentsSince as jest.Mock).mockResolvedValue([
+      {
+        id: 1010,
+        node_id: 'PRRC_1010',
+        html_url: 'https://github.com/foo/bar/pull/42#discussion_r1010',
+        body: 'hello',
+        updated_at: '2026-05-24T02:00:00Z',
+        user: { id: 1 },
+      },
+    ])
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    expect(prCommentClient.listReviewCommentsSince).toHaveBeenCalled()
+    expect(prCommentClient.listIssueCommentsSince).not.toHaveBeenCalled()
+    expect(prCommentClient.createReviewLineReply).not.toHaveBeenCalled()
+    expect(prCommentMirrorRepository.resolvePlaceholder).toHaveBeenCalledWith(
+      'm-existing',
+      {
+        externalId: '1010',
+        externalNodeId: 'PRRC_1010',
+        externalUrl: 'https://github.com/foo/bar/pull/42#discussion_r1010',
+        externalUpdatedAt: new Date('2026-05-24T02:00:00Z'),
+      }
     )
   })
 
