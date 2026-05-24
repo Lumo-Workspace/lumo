@@ -303,4 +303,35 @@ export const commentService = {
       mirrorOrigin: input.mirrorOrigin ?? 'user',
     })
   },
+
+  /**
+   * Notify @mentions inside a mirrored (inbound) comment.
+   * Uses findForComment — its TASK_COMMENT_SELECT shape returns exactly the
+   * fields notifyMentions needs (team.identifier + project.workspace.slug).
+   */
+  async notifyMentionsForMirror(params: {
+    commentId: string
+    taskId: string
+    body: string
+    authorActorId: string
+    workspaceId: string
+  }): Promise<void> {
+    const { taskRepository } = await import('@/lib/repositories')
+    const task = await taskRepository.findForComment(params.taskId)
+    if (!task) return
+    return commentService.notifyMentions({
+      taskId: params.taskId,
+      commentId: params.commentId,
+      body: params.body,
+      authorActorId: params.authorActorId,
+      authorClerkId: '', // pseudo-author has no clerkId; parseMentionedClerkIds still finds @mentions in body
+      workspaceId: params.workspaceId,
+      projectId: task.projectId ?? '',
+      taskTitle: task.title,
+      taskNumber: task.number,
+      teamIdentifier: task.team?.identifier ?? '',
+      workspaceSlug: task.project?.workspace?.slug ?? '',
+      waitUntil: (p) => { void p },
+    })
+  },
 }

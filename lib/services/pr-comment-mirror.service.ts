@@ -479,7 +479,14 @@ async function runInboundCreate(
         : null,
   })
 
-  // TODO(LUM-90 Task 18): commentService.notifyMentionsForMirror({...})
+  const { commentService } = await import('@/lib/services/comment.service')
+  await commentService.notifyMentionsForMirror({
+    commentId: comment.id,
+    taskId: payload.taskId,
+    body,
+    authorActorId: author.actorId,
+    workspaceId: payload.workspaceId,
+  })
 
   if (missing) {
     // Re-attempt the parent linkage after a short delay
