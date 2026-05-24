@@ -617,6 +617,18 @@ export const prCommentMirrorService = {
     const node = extractCommentNode(payload)
     const source = payloadSource(payload)
 
+    // DELETE always wins — no conflict matrix needed
+    if (payload.action === 'deleted') {
+      const existingForDelete = await prCommentMirrorRepository.findByExternal(
+        source,
+        String(node.id)
+      )
+      if (!existingForDelete) return // unknown comment, ignore
+      await commentRepository.delete(existingForDelete.commentId)
+      await prCommentMirrorRepository.markDeleted(existingForDelete.id)
+      return
+    }
+
     // Echo / dedupe via exact externalId match
     const existing = await prCommentMirrorRepository.findByExternal(
       source,
@@ -647,8 +659,6 @@ export const prCommentMirrorService = {
         return
       }
     }
-
-    if (payload.action === 'deleted') return // unknown comment, ignore delete
 
     if (
       payload.action === 'created' ||
