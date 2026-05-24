@@ -154,6 +154,22 @@ describe('runOutbound CREATE', () => {
     expect(body).not.toMatch(/在 Lumo 说/)
   })
 
+  it('mirrors unauthored comments (null authorActorId) via BOT_APP instead of silently no-opping', async () => {
+    ;(commentRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'c1',
+      taskId: 't1',
+      authorActorId: null,
+      body: '<p>unauthored</p>',
+      type: 'USER',
+      parentId: null,
+    })
+    // resolveOutboundActor should NOT be called — no memberForActor lookup path
+    resolveActorSpy.mockClear()
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    expect(resolveActorSpy).not.toHaveBeenCalled()
+    expect(prCommentClient.createIssueComment).toHaveBeenCalled()
+  })
+
   it('posts as review-line reply when parent is a mirrored REVIEW_LINE', async () => {
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       ...baseComment,

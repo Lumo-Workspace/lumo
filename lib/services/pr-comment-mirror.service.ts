@@ -156,11 +156,11 @@ async function runOutboundCreate(commentId: string) {
         authorUserId: memberForActor.id,
         repo,
       })
-    : { actor: 'BOT_APP' as const, token: '', userId: null }
-
-  if (actorResult.actor === 'BOT_APP' && !actorResult.token) {
-    return
-  }
+    : {
+        actor: 'BOT_APP' as const,
+        token: await getGithubInstallationToken(),
+        userId: null,
+      }
 
   const commentUrl = ''
   const { body, bodyHash } = await buildOutboundBody(
