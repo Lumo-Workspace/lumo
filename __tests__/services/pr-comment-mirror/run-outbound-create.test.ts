@@ -190,7 +190,10 @@ describe('runOutbound CREATE', () => {
       ...baseComment,
       parentId: 'parent1',
     })
+    // First call: own mirror check (null — no prior attempt)
+    // Second call: parent mirror check (REVIEW_LINE)
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ externalSource: 'REVIEW_LINE', externalId: '555' })
     ;(prCommentClient.createReviewLineReply as jest.Mock).mockResolvedValue({
       id: 1000,
@@ -210,5 +213,96 @@ describe('runOutbound CREATE', () => {
     const body = (prCommentClient.createIssueComment as jest.Mock).mock
       .calls[0][0].body as string
     expect(body).toMatch(/https:\/\/app\.lumo\.dev\/workspace\/my-workspace\/tasks\/LUM-10#comment-c1/)
+  })
+})
+
+describe('runOutbound CREATE — retry idempotency', () => {
+  let resolveActorSpy: jest.SpyInstance
+
+  // Use USER_OAUTH so there's no BOT_APP prefix — body on GitHub is just the
+  // plain rendered markdown ('hello'), making hash comparison deterministic.
+  const pendingMirror = {
+    id: 'm-existing',
+    externalId: 'pending-abc123',
+    externalSource: 'ISSUE' as const,
+    outboundActor: 'USER_OAUTH' as const,
+    outboundActorUserId: 'm1',
+    inReplyToExternalId: null,
+    lastSyncedAt: new Date('2026-05-24T00:00:00Z'),
+    bodyHash: '',
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
+    resolveActorSpy = jest
+      .spyOn(prCommentMirrorService, 'resolveOutboundActor')
+      .mockResolvedValue({ actor: 'USER_OAUTH', token: 'tok', userId: 'm1' })
+    ;(commentRepository.findById as jest.Mock).mockResolvedValue(baseComment)
+    ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(basePr)
+    ;(memberRepository.findByActorId as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      workspaceId: 'w1',
+    })
+    ;(prCommentClient.createIssueComment as jest.Mock).mockResolvedValue({
+      id: 999,
+      node_id: 'IC_x',
+      html_url: 'https://github.com/foo/bar/pull/42#issuecomment-999',
+      updated_at: '2026-05-24T00:00:00Z',
+      body: 'hello',
+    })
+    ;(prCommentMirrorRepository.reserve as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      externalId: 'pending-xxx',
+    })
+  })
+
+  afterEach(() => {
+    resolveActorSpy.mockRestore()
+  })
+
+  it('non-pending existing mirror → no-op (already created)', async () => {
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue({
+      ...pendingMirror,
+      externalId: '999', // real id, not pending
+    })
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    expect(prCommentClient.createIssueComment).not.toHaveBeenCalled()
+    expect(prCommentMirrorRepository.reserve).not.toHaveBeenCalled()
+  })
+
+  it('pending mirror + GH list matches body hash → no re-POST, resolvePlaceholder called with matched id', async () => {
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(pendingMirror)
+    // <p>hello</p> → lumoHtmlToGithubMarkdown → 'hello' (USER_OAUTH, no prefix)
+    ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([
+      { id: 777, body: 'hello', user: { id: 1 } },
+    ])
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    expect(prCommentClient.createIssueComment).not.toHaveBeenCalled()
+    expect(prCommentMirrorRepository.resolvePlaceholder).toHaveBeenCalledWith(
+      'm-existing',
+      expect.objectContaining({ externalId: '777' })
+    )
+  })
+
+  it('pending mirror + GH list returns no match → re-POST, resolvePlaceholder called', async () => {
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(pendingMirror)
+    // listIssueCommentsSince returns nothing matching
+    ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([])
+    ;(prCommentClient.createIssueComment as jest.Mock).mockResolvedValue({
+      id: 888,
+      node_id: 'IC_y',
+      html_url: 'https://github.com/foo/bar/pull/42#issuecomment-888',
+      updated_at: '2026-05-24T00:00:00Z',
+      body: 'hello',
+    })
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+    expect(prCommentClient.createIssueComment).toHaveBeenCalled()
+    expect(prCommentMirrorRepository.reserve).not.toHaveBeenCalled()
+    expect(prCommentMirrorRepository.resolvePlaceholder).toHaveBeenCalledWith(
+      'm-existing',
+      expect.objectContaining({ externalId: '888' })
+    )
   })
 })

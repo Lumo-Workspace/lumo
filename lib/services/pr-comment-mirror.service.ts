@@ -143,6 +143,102 @@ async function runOutboundCreate(commentId: string) {
 
   const repo = parseRepo(pr.repo)
 
+  // --- Retry idempotency: check for an existing mirror before calling reserve() ---
+  const existingMirror = await prCommentMirrorRepository.findByCommentId(commentId)
+  if (existingMirror) {
+    if (!existingMirror.externalId.startsWith('pending-')) {
+      // Already fully resolved — nothing to do.
+      return
+    }
+    // Previous attempt inserted a placeholder but failed before GitHub responded.
+    // Check whether the POST actually went through (list-and-match).
+    const memberForActorEarly = comment.authorActorId
+      ? await memberRepository.findByActorId(comment.authorActorId)
+      : null
+    const actorResultEarly = memberForActorEarly
+      ? await prCommentMirrorService.resolveOutboundActor({
+          workspaceId: pr.workspaceId,
+          authorUserId: memberForActorEarly.id,
+          repo,
+        })
+      : {
+          actor: 'BOT_APP' as const,
+          token: await getGithubInstallationToken(),
+          userId: null,
+        }
+    const since = new Date(existingMirror.lastSyncedAt.getTime() - 5 * 60_000)
+    const recent = await prCommentClient.listIssueCommentsSince({
+      repo,
+      prNumber: pr.number,
+      since,
+      token: actorResultEarly.token,
+    })
+    const { bodyHash: pendingHash } = await buildOutboundBody(
+      comment,
+      existingMirror.outboundActor,
+      ''
+    )
+    const matched = recent.find(c => computeBodyHash(c.body) === pendingHash)
+    if (matched) {
+      // The POST already went through — resolve the placeholder and bail.
+      await prCommentMirrorRepository.resolvePlaceholder(existingMirror.id, {
+        externalId: String(matched.id),
+        externalUrl: '',
+        externalUpdatedAt: new Date(),
+      })
+      return
+    }
+    // Safe to re-POST. Build body with real commentUrl.
+    // Re-use existingMirror — do NOT call reserve() again.
+    const retryTask = await taskRepository.findForComment(comment.taskId)
+    const retryCommentUrl = retryTask
+      ? `${buildTaskUrl(retryTask.project.workspace.slug, retryTask.team.identifier, retryTask.number)}#comment-${commentId}`
+      : ''
+    const { body: retryBody } = await buildOutboundBody(
+      comment,
+      existingMirror.outboundActor,
+      retryCommentUrl
+    )
+    const retryToken = actorResultEarly.token
+    try {
+      const isReviewLineReplyRetry =
+        existingMirror.externalSource === 'REVIEW_LINE' &&
+        existingMirror.inReplyToExternalId != null
+      const retryResponse = isReviewLineReplyRetry
+        ? await prCommentClient.createReviewLineReply({
+            repo,
+            prNumber: pr.number,
+            inReplyTo: Number(existingMirror.inReplyToExternalId),
+            body: retryBody,
+            token: retryToken,
+          })
+        : await prCommentClient.createIssueComment({
+            repo,
+            prNumber: pr.number,
+            body: retryBody,
+            token: retryToken,
+          })
+      await prCommentMirrorRepository.resolvePlaceholder(existingMirror.id, {
+        externalId: String(retryResponse.id),
+        externalNodeId: retryResponse.node_id,
+        externalUrl: retryResponse.html_url,
+        externalUpdatedAt: new Date(retryResponse.updated_at),
+      })
+    } catch (err) {
+      const resetAt =
+        err instanceof GithubApiError ? err.rateLimitResetAt : undefined
+      await prCommentSyncJobRepository.enqueue({
+        direction: 'OUTBOUND',
+        payload: { op: 'CREATE', mirrorId: existingMirror.id },
+        commentId,
+        workspaceId: pr.workspaceId,
+        ...(resetAt ? { scheduledFor: resetAt } : {}),
+      })
+      throw err
+    }
+    return
+  }
+
   // Determine if this is a review-line reply
   let parentMirror: { externalSource: string; externalId: string } | null = null
   if (comment.parentId) {
