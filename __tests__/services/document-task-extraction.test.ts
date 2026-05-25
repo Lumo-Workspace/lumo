@@ -45,3 +45,44 @@ describe('findExtractionCandidates', () => {
     expect(cs).toEqual([])
   })
 })
+
+// __tests__/services/document-task-extraction.test.ts (append)
+import { replaceWithTaskLink } from '@/lib/services/document-task-extraction.service'
+import { parse } from 'node-html-parser'
+
+describe('replaceWithTaskLink', () => {
+  it('wraps taskItem inner text with anchor and stamps li attrs', () => {
+    const root = parse(`
+      <ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p>first</p></div></li>
+      </ul>
+    `)
+    const li = root.querySelector('li')!
+    replaceWithTaskLink(li, {
+      taskId: 'cm_a',
+      identifier: 'LUM-1',
+      href: '/workspace/lumo/my-tasks/LUM-1',
+    })
+    const html = root.toString()
+    expect(html).toContain('data-task-id="cm_a"')
+    expect(html).toContain('data-task-identifier="LUM-1"')
+    expect(html).toMatch(/<a [^>]*data-task-link="cm_a"[^>]*>first<\/a>/)
+    // The <li> remains in place
+    expect(root.querySelectorAll('li').length).toBe(1)
+  })
+
+  it('replaces data-extract-pending span with anchor in place', () => {
+    const root = parse(
+      '<p>pre <span data-extract-pending="true">mid</span> post</p>'
+    )
+    const span = root.querySelector('span')!
+    replaceWithTaskLink(span, {
+      taskId: 'cm_b',
+      identifier: 'LUM-2',
+      href: '/workspace/lumo/my-tasks/LUM-2',
+    })
+    expect(root.toString()).toBe(
+      '<p>pre <a data-task-link="cm_b" data-task-identifier="LUM-2" href="/workspace/lumo/my-tasks/LUM-2">mid</a> post</p>'
+    )
+  })
+})

@@ -28,3 +28,45 @@ export function findExtractionCandidates(
     text: node.text.trim(),
   }))
 }
+
+export interface ReplacementMeta {
+  taskId: string
+  identifier: string
+  href: string
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function anchorHtml(text: string, meta: ReplacementMeta): string {
+  return (
+    `<a data-task-link="${meta.taskId}"` +
+    ` data-task-identifier="${meta.identifier}"` +
+    ` href="${meta.href}">${escapeHtml(text)}</a>`
+  )
+}
+
+/** Replace one candidate node in place. Mutates the DOM tree. */
+export function replaceWithTaskLink(
+  node: HTMLElement,
+  meta: ReplacementMeta
+): void {
+  if (node.tagName === 'LI' && node.getAttribute('data-type') === 'taskItem') {
+    node.setAttribute('data-task-id', meta.taskId)
+    node.setAttribute('data-task-identifier', meta.identifier)
+    const inner = node.querySelector('p') ?? node.querySelector('div')
+    if (inner) {
+      const text = inner.text.trim()
+      inner.set_content(anchorHtml(text, meta))
+    }
+    return
+  }
+  // <span data-extract-pending> path
+  const text = node.text.trim()
+  node.replaceWith(anchorHtml(text, meta))
+}
