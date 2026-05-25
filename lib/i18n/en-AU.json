@@ -1086,8 +1086,17 @@
   "task.webLinks.card.loading": "Loading preview…",
   "task.webLinks.card.delete": "Delete",
   "task.webLinks.confirmDelete": "Delete this link?",
+  "doc.extract.button.hover": "→ task",
+  "doc.extract.button.bubble": "Convert to task",
   "doc.extract.button.batch": "Extract {count} unchecked",
   "doc.extract.confirm.title": "Create {count, plural, one {1 task} other {# tasks}}?",
   "doc.extract.confirm.message": "Each task will be assigned to you with priority Low.",
-  "doc.extract.confirm.cta": "Create {count, plural, one {task} other {# tasks}}"
+  "doc.extract.confirm.cta": "Create {count, plural, one {task} other {# tasks}}",
+  "doc.extract.toast.success": "Created {count, plural, one {1 task} other {# tasks}}.",
+  "doc.extract.toast.skipped_empty": "Skipped {count, plural, one {1 empty item} other {# empty items}}.",
+  "doc.extract.toast.truncated": "{count, plural, one {1 task had its title truncated} other {# tasks had their titles truncated}} — see task descriptions.",
+  "doc.extract.toast.error_no_project": "This doc has no project. Tasks need a project — set one in doc settings.",
+  "doc.extract.toast.error_unknown": "Could not extract tasks. Try again or refresh.",
+  "doc.extract.linked_task_label": "Linked to {identifier}",
+  "doc.extract.undo_warning": "Tasks are kept even if you undo. Remove them in the task list."
 }

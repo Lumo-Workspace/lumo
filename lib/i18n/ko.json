@@ -1086,8 +1086,17 @@
   "task.webLinks.card.loading": "미리보기 로드 중…",
   "task.webLinks.card.delete": "삭제",
   "task.webLinks.confirmDelete": "이 링크를 삭제하시겠습니까?",
+  "doc.extract.button.hover": "→ 작업",
+  "doc.extract.button.bubble": "작업으로 변환",
   "doc.extract.button.batch": "체크 안 된 항목 {count}개 추출",
   "doc.extract.confirm.title": "작업 {count, plural, other {# 개}}를 만드시겠습니까?",
   "doc.extract.confirm.message": "각 작업은 우선순위 낮음으로 귀하에게 할당됩니다.",
-  "doc.extract.confirm.cta": "작업 {count, plural, other {# 개}} 만들기"
+  "doc.extract.confirm.cta": "작업 {count, plural, other {# 개}} 만들기",
+  "doc.extract.toast.success": "작업 {count, plural, other {# 개}}를 만들었습니다.",
+  "doc.extract.toast.skipped_empty": "빈 항목 {count, plural, other {# 개}}를 건너뛰었습니다.",
+  "doc.extract.toast.truncated": "작업 {count, plural, other {# 개}}의 제목이 잘렸습니다 — 작업 설명을 확인하세요.",
+  "doc.extract.toast.error_no_project": "이 문서에 프로젝트가 없습니다. 작업에는 프로젝트가 필요합니다 — 문서 설정에서 설정하세요.",
+  "doc.extract.toast.error_unknown": "작업을 추출할 수 없습니다. 다시 시도하거나 새로고침하세요.",
+  "doc.extract.linked_task_label": "{identifier}에 연결됨",
+  "doc.extract.undo_warning": "실행 취소해도 작업은 유지됩니다. 작업 목록에서 삭제하세요."
 }

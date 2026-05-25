@@ -1086,8 +1086,17 @@
   "task.webLinks.card.loading": "Memuat pratinjau…",
   "task.webLinks.card.delete": "Hapus",
   "task.webLinks.confirmDelete": "Hapus tautan ini?",
+  "doc.extract.button.hover": "→ tugas",
+  "doc.extract.button.bubble": "Ubah menjadi tugas",
   "doc.extract.button.batch": "Ekstrak {count} yang belum dicentang",
   "doc.extract.confirm.title": "Buat {count, plural, other {# tugas}}?",
   "doc.extract.confirm.message": "Setiap tugas akan ditetapkan kepada Anda dengan prioritas Rendah.",
-  "doc.extract.confirm.cta": "Buat {count, plural, other {# tugas}}"
+  "doc.extract.confirm.cta": "Buat {count, plural, other {# tugas}}",
+  "doc.extract.toast.success": "{count, plural, other {# tugas}} berhasil dibuat.",
+  "doc.extract.toast.skipped_empty": "{count, plural, other {# item kosong}} dilewati.",
+  "doc.extract.toast.truncated": "Judul {count, plural, other {# tugas}} telah dipotong — lihat deskripsi tugas.",
+  "doc.extract.toast.error_no_project": "Dokumen ini tidak memiliki proyek. Tugas memerlukan proyek — atur di pengaturan dokumen.",
+  "doc.extract.toast.error_unknown": "Tidak dapat mengekstrak tugas. Coba lagi atau muat ulang halaman.",
+  "doc.extract.linked_task_label": "Terhubung ke {identifier}",
+  "doc.extract.undo_warning": "Tugas tetap ada meskipun Anda membatalkan. Hapus dari daftar tugas."
 }

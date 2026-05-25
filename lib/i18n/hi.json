@@ -1086,8 +1086,17 @@
   "task.webLinks.card.loading": "प्रीव्यू लोड हो रहा है…",
   "task.webLinks.card.delete": "हटाएं",
   "task.webLinks.confirmDelete": "इस लिंक को हटाएं?",
+  "doc.extract.button.hover": "→ कार्य",
+  "doc.extract.button.bubble": "कार्य में बदलें",
   "doc.extract.button.batch": "{count} अनचेक को निकालें",
   "doc.extract.confirm.title": "{count, plural, one {1 कार्य} other {# कार्य}} बनाएं?",
   "doc.extract.confirm.message": "प्रत्येक कार्य आपको कम प्राथमिकता के साथ सौंपा जाएगा।",
-  "doc.extract.confirm.cta": "{count, plural, one {कार्य} other {# कार्य}} बनाएं"
+  "doc.extract.confirm.cta": "{count, plural, one {कार्य} other {# कार्य}} बनाएं",
+  "doc.extract.toast.success": "{count, plural, one {1 कार्य} other {# कार्य}} बनाए गए।",
+  "doc.extract.toast.skipped_empty": "{count, plural, one {1 खाली आइटम} other {# खाली आइटम}} छोड़े गए।",
+  "doc.extract.toast.truncated": "{count, plural, one {1 कार्य का शीर्षक} other {# कार्यों के शीर्षक}} काटे गए — कार्य विवरण देखें।",
+  "doc.extract.toast.error_no_project": "इस दस्तावेज़ में कोई प्रोजेक्ट नहीं है। कार्यों के लिए प्रोजेक्ट आवश्यक है — दस्तावेज़ सेटिंग में सेट करें।",
+  "doc.extract.toast.error_unknown": "कार्य निकाले नहीं जा सके। पुनः प्रयास करें या पृष्ठ रीफ्रेश करें।",
+  "doc.extract.linked_task_label": "{identifier} से लिंक किया गया",
+  "doc.extract.undo_warning": "पूर्ववत करने पर भी कार्य बने रहते हैं। उन्हें कार्य सूची में से हटाएं।"
 }
