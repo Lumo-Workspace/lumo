@@ -194,7 +194,10 @@ export async function extractTasksFromDoc(
 
   const updatedHtml = root.toString()
 
-  await prisma.$transaction(async tx => {
+  // Inline tx.document.update — the repository wrapper opens its own transaction
+  // which we can't nest with the mention insert. Grouping both in one $transaction
+  // ensures that if doc.update fails, the mention insert rolls back too.
+  const updated = await prisma.$transaction(async tx => {
     if (created.length > 0) {
       await tx.documentMention.createMany({
         data: created.map(t => ({
@@ -205,10 +208,10 @@ export async function extractTasksFromDoc(
         skipDuplicates: true,
       })
     }
-  })
-
-  const updated = await documentRepository.update(doc.id, {
-    content: updatedHtml,
+    return tx.document.update({
+      where: { id: doc.id },
+      data: { content: updatedHtml },
+    })
   })
 
   return {

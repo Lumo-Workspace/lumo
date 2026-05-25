@@ -2,9 +2,6 @@
 jest.mock('@/lib/repositories/document.repository', () => ({
   documentRepository: {
     findEditable: jest.fn(),
-    update: jest.fn(async () => ({
-      updatedAt: new Date('2026-05-24T10:00:00Z'),
-    })),
   },
 }))
 
@@ -39,10 +36,16 @@ jest.mock('@/lib/db/prisma', () => ({
       async (
         fn: (tx: {
           documentMention: { createMany: jest.Mock }
+          document: { update: jest.Mock }
         }) => Promise<unknown>
       ) =>
         fn({
           documentMention: { createMany: jest.fn(async () => ({ count: 0 })) },
+          document: {
+            update: jest.fn(async () => ({
+              updatedAt: new Date('2026-05-24T10:00:00Z'),
+            })),
+          },
         })
     ),
   },
