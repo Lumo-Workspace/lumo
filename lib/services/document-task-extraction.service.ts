@@ -45,9 +45,9 @@ function escapeHtml(s: string): string {
 
 function anchorHtml(text: string, meta: ReplacementMeta): string {
   return (
-    `<a data-task-link="${meta.taskId}"` +
-    ` data-task-identifier="${meta.identifier}"` +
-    ` href="${meta.href}">${escapeHtml(text)}</a>`
+    `<a data-task-link="${escapeHtml(meta.taskId)}"` +
+    ` data-task-identifier="${escapeHtml(meta.identifier)}"` +
+    ` href="${escapeHtml(meta.href)}">${escapeHtml(text)}</a>`
   )
 }
 
