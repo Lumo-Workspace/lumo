@@ -14,6 +14,7 @@ import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import type { Extensions } from '@tiptap/core'
+import { TaskLink } from './marks/task-link'
 
 export function getBaseExtensions(): Extensions {
   return [
@@ -38,5 +39,6 @@ export function getBaseExtensions(): Extensions {
     Color,
     Highlight.configure({ multicolor: true }),
     Typography,
+    TaskLink,
   ]
 }
