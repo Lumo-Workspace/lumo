@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -13,6 +13,10 @@ import {
   type TableOfContentData,
 } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
+import {
+  DocExtractProvider,
+  buildStampPending,
+} from '@/lib/editor/doc-extract-context'
 import { imagesClient } from '@/lib/api-client'
 import {
   SlashCommandExtension,
@@ -614,7 +618,32 @@ export function DescriptionEditor({
     [editor]
   )
 
-  return (
+  // Called by the hover extract button after the server returns updated content.
+  // Pushes the new HTML into the editor and triggers an immediate save.
+  const handleExtractApplied = useCallback(
+    (newContent: string) => {
+      if (!editor) return
+      editor.commands.setContent(newContent, { emitUpdate: false })
+      const html = editor.isEmpty ? null : editor.getHTML()
+      onCommit(html)
+    },
+    [editor, onCommit]
+  )
+
+  const handleExtractError = useCallback((err: Error) => {
+    // Task 14 will wire a real toast here. For now log to avoid silent failures.
+    // eslint-disable-next-line no-console
+    console.error('[extract]', err)
+  }, [])
+
+  // Stable function for stamping extractPending on a node and serializing HTML.
+  // Recomputed only when the editor instance changes.
+  const stampPendingOnThisNode = useMemo(
+    () => (editor ? buildStampPending(editor) : () => ''),
+    [editor]
+  )
+
+  const editorContent = (
     <>
       {/* Hidden file picker for toolbar image insertion */}
       <input
@@ -677,4 +706,27 @@ export function DescriptionEditor({
         )}
     </>
   )
+
+  // Wrap with DocExtractProvider when we're editing a document (documentId is
+  // provided) and the editor is ready. This provides context for per-row hover
+  // extract buttons rendered by TaskItemNodeView.
+  if (editor && documentId) {
+    return (
+      <DocExtractProvider
+        value={{
+          documentId,
+          editor,
+          onApplied: handleExtractApplied,
+          onError: handleExtractError,
+          // buildStampPending returns a stable function that closes over the
+          // editor instance. Re-compute only when editor identity changes.
+          stampPendingOnThisNode,
+        }}
+      >
+        {editorContent}
+      </DocExtractProvider>
+    )
+  }
+
+  return editorContent
 }
