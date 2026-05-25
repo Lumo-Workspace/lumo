@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import { useDocExtractContext } from '@/lib/editor/doc-extract-context'
+import { extractTasks } from '@/lib/api-client/documents-extract'
 
 /**
  * Inline extract button rendered inside each unlinked taskItem row.
@@ -77,8 +78,6 @@ export function TaskItemNodeView({ node, getPos, editor }: NodeViewProps) {
         <span contentEditable={false}>
           <InlineExtractButton
             onClick={async () => {
-              const { extractTasks } =
-                await import('@/lib/api-client/documents-extract')
               const content = ctx.stampPendingOnThisNode(getPos as () => number)
               const res = await extractTasks(ctx.documentId, {
                 content,
