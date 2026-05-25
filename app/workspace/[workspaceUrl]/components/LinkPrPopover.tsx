@@ -78,8 +78,12 @@ export function LinkPrPopover({
     setLoading(true)
     debounceRef.current = setTimeout(() => {
       tasksClient
-        .searchPrs<ApiPullRequestSearchResult[]>(workspaceId, trimmed, 10)
-        .then(data => setResults(data))
+        .searchPrs<{ pullRequests: ApiPullRequestSearchResult[] }>(
+          workspaceId,
+          trimmed,
+          10
+        )
+        .then(data => setResults(data.pullRequests))
         .catch(() => setResults([]))
         .finally(() => setLoading(false))
     }, 300)
