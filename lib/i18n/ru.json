@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Обновить предпросмотр",
   "task.webLinks.card.loading": "Загрузка предварительного просмотра…",
   "task.webLinks.card.delete": "Удалить",
-  "task.webLinks.confirmDelete": "Удалить эту ссылку?"
+  "task.webLinks.confirmDelete": "Удалить эту ссылку?",
+  "doc.extract.button.batch": "Извлечь {count} непомеченных",
+  "doc.extract.confirm.title": "Создать {count, plural, one {1 задачу} few {# задачи} other {# задач}}?",
+  "doc.extract.confirm.message": "Каждая задача будет назначена вам с приоритетом «Низкий».",
+  "doc.extract.confirm.cta": "Создать {count, plural, one {задачу} few {# задачи} other {# задач}}"
 }

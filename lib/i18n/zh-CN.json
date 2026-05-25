@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "刷新预览",
   "task.webLinks.card.loading": "正在加载预览…",
   "task.webLinks.card.delete": "删除",
-  "task.webLinks.confirmDelete": "确定删除此链接？"
+  "task.webLinks.confirmDelete": "确定删除此链接？",
+  "doc.extract.button.batch": "提取 {count} 个未勾选项",
+  "doc.extract.confirm.title": "创建 {count, plural, other {# 个任务}}？",
+  "doc.extract.confirm.message": "每个任务将以低优先级分配给您。",
+  "doc.extract.confirm.cta": "创建 {count, plural, other {# 个任务}}"
 }

@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Actualizar vista previa",
   "task.webLinks.card.loading": "Cargando vista previa…",
   "task.webLinks.card.delete": "Eliminar",
-  "task.webLinks.confirmDelete": "¿Eliminar este enlace?"
+  "task.webLinks.confirmDelete": "¿Eliminar este enlace?",
+  "doc.extract.button.batch": "Extraer {count} sin marcar",
+  "doc.extract.confirm.title": "¿Crear {count, plural, one {1 tarea} other {# tareas}}?",
+  "doc.extract.confirm.message": "Cada tarea se te asignará con prioridad Baja.",
+  "doc.extract.confirm.cta": "Crear {count, plural, one {tarea} other {# tareas}}"
 }

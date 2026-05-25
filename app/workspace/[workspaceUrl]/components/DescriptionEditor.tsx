@@ -33,6 +33,7 @@ import type { MentionPopupState } from './mention-suggestion'
 import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
 import { BubbleMenuBar } from './BubbleMenuBar'
+import { BatchExtractButton } from './extract/BatchExtractButton'
 
 /** Mention node extended with type / title / status attributes */
 const MentionWithType = Mention.extend({
@@ -723,6 +724,7 @@ export function DescriptionEditor({
           stampPendingOnThisNode,
         }}
       >
+        <BatchExtractButton editor={editor} />
         {editorContent}
       </DocExtractProvider>
     )

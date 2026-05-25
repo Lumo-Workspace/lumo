@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Segarkan pratinjau",
   "task.webLinks.card.loading": "Memuat pratinjau…",
   "task.webLinks.card.delete": "Hapus",
-  "task.webLinks.confirmDelete": "Hapus tautan ini?"
+  "task.webLinks.confirmDelete": "Hapus tautan ini?",
+  "doc.extract.button.batch": "Ekstrak {count} yang belum dicentang",
+  "doc.extract.confirm.title": "Buat {count, plural, other {# tugas}}?",
+  "doc.extract.confirm.message": "Setiap tugas akan ditetapkan kepada Anda dengan prioritas Rendah.",
+  "doc.extract.confirm.cta": "Buat {count, plural, other {# tugas}}"
 }

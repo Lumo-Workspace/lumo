@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Làm mới bản xem trước",
   "task.webLinks.card.loading": "Đang tải bản xem trước…",
   "task.webLinks.card.delete": "Xóa",
-  "task.webLinks.confirmDelete": "Xóa liên kết này?"
+  "task.webLinks.confirmDelete": "Xóa liên kết này?",
+  "doc.extract.button.batch": "Trích xuất {count} mục chưa đánh dấu",
+  "doc.extract.confirm.title": "Tạo {count, plural, other {# nhiệm vụ}}?",
+  "doc.extract.confirm.message": "Mỗi nhiệm vụ sẽ được giao cho bạn với mức độ ưu tiên Thấp.",
+  "doc.extract.confirm.cta": "Tạo {count, plural, other {# nhiệm vụ}}"
 }

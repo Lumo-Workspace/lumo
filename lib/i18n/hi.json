@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "पूर्वावलोकन रिफ्रेश करें",
   "task.webLinks.card.loading": "प्रीव्यू लोड हो रहा है…",
   "task.webLinks.card.delete": "हटाएं",
-  "task.webLinks.confirmDelete": "इस लिंक को हटाएं?"
+  "task.webLinks.confirmDelete": "इस लिंक को हटाएं?",
+  "doc.extract.button.batch": "{count} अनचेक को निकालें",
+  "doc.extract.confirm.title": "{count, plural, one {1 कार्य} other {# कार्य}} बनाएं?",
+  "doc.extract.confirm.message": "प्रत्येक कार्य आपको कम प्राथमिकता के साथ सौंपा जाएगा।",
+  "doc.extract.confirm.cta": "{count, plural, one {कार्य} other {# कार्य}} बनाएं"
 }

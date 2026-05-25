@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Vorschau aktualisieren",
   "task.webLinks.card.loading": "Vorschau wird geladen…",
   "task.webLinks.card.delete": "Löschen",
-  "task.webLinks.confirmDelete": "Diesen Link löschen?"
+  "task.webLinks.confirmDelete": "Diesen Link löschen?",
+  "doc.extract.button.batch": "{count} unmarkierte Aufgaben extrahieren",
+  "doc.extract.confirm.title": "{count, plural, one {1 Aufgabe} other {# Aufgaben}} erstellen?",
+  "doc.extract.confirm.message": "Jede Aufgabe wird Ihnen mit Priorität Niedrig zugewiesen.",
+  "doc.extract.confirm.cta": "{count, plural, one {Aufgabe} other {# Aufgaben}} erstellen"
 }

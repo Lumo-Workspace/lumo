@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "Refresh preview",
   "task.webLinks.card.loading": "Loading preview…",
   "task.webLinks.card.delete": "Delete",
-  "task.webLinks.confirmDelete": "Delete this link?"
+  "task.webLinks.confirmDelete": "Delete this link?",
+  "doc.extract.button.batch": "Extract {count} unchecked",
+  "doc.extract.confirm.title": "Create {count, plural, one {1 task} other {# tasks}}?",
+  "doc.extract.confirm.message": "Each task will be assigned to you with priority Low.",
+  "doc.extract.confirm.cta": "Create {count, plural, one {task} other {# tasks}}"
 }

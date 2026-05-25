@@ -1085,5 +1085,9 @@
   "task.webLinks.card.refresh": "プレビューを更新",
   "task.webLinks.card.loading": "プレビューを読み込み中…",
   "task.webLinks.card.delete": "削除",
-  "task.webLinks.confirmDelete": "このリンクを削除しますか？"
+  "task.webLinks.confirmDelete": "このリンクを削除しますか？",
+  "doc.extract.button.batch": "未チェック {count} 件を抽出",
+  "doc.extract.confirm.title": "{count, plural, other {# 件のタスク}}を作成しますか？",
+  "doc.extract.confirm.message": "各タスクは優先度「低」であなたに割り当てられます。",
+  "doc.extract.confirm.cta": "{count, plural, other {# 件のタスク}}を作成"
 }
