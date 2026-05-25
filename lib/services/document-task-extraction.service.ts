@@ -178,8 +178,7 @@ export async function extractTasksFromDoc(
     )
 
     const identifier = `${task.teamIdentifier}-${task.number}`
-    const workspaceSlug = (doc as unknown as { workspace: { slug: string } })
-      .workspace.slug
+    const workspaceSlug = doc.workspace.slug
     const href = `${publicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
     replaceWithTaskLink(c.node, { taskId: task.id, identifier, href })
 
