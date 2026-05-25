@@ -4,9 +4,8 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { updateCommentSchema } from '@/lib/validation/schemas'
 import { zodError } from '@/lib/api/helpers'
 import { getHumanActorId } from '@/lib/actor'
-import { commentRepository, taskRepository } from '@/lib/repositories'
-import { dispatchEvents } from '@/lib/events/dispatcher'
-import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
+import { commentRepository } from '@/lib/repositories'
+import { commentService } from '@/lib/services/comment.service'
 
 type Params = { params: Promise<{ id: string; commentId: string }> }
 
@@ -52,10 +51,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const parsed = updateCommentSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const updated = await commentRepository.update(commentId, {
+    const updated = await commentService.updateCommentWithSideEffects({
+      commentId,
       body: parsed.data.body,
+      waitUntil,
     })
-
     return NextResponse.json({ comment: updated })
   } catch (error) {
     console.error('PATCH /api/tasks/[id]/comments/[commentId] error:', error)
@@ -84,24 +84,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     )
     if (result instanceof NextResponse) return result
 
-    await commentRepository.delete(commentId)
-
-    // Fire-and-forget activity recording
-    const actorId = await getHumanActorId(result.member.id)
-    const task = await taskRepository.findWithProjectWorkspaceId(taskId)
-    if (task) {
-      waitUntil(
-        dispatchEvents([
-          {
-            type: 'task:comment_deleted',
-            taskId,
-            projectId: task.projectId ?? '',
-            actorId: actorId ?? '',
-            commentId,
-          } satisfies TaskActivityEvent,
-        ])
-      )
-    }
+    await commentService.deleteCommentWithSideEffects({ commentId, waitUntil })
 
     return NextResponse.json({ success: true })
   } catch (error) {

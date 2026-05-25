@@ -166,6 +166,7 @@
     "jest-environment-jsdom": "^30.3.0",
     "jest-mock-extended": "^4.0.0",
     "lint-staged": "^16.4.0",
+    "nock": "^14.0.15",
     "postcss": "^8.5",
     "prettier": "^3.8.1",
     "shadcn": "^4.1.2",

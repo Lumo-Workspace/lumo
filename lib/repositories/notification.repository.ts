@@ -155,10 +155,10 @@ export const notificationRepository = {
     })
   },
 
-  /** Batch-fetch comment previews by IDs. */
+  /** Batch-fetch comment previews by IDs (excludes soft-deleted comments). */
   async batchFetchCommentsByIds(ids: string[]) {
     return prisma.comment.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, deletedAt: null },
       select: { id: true, body: true },
     })
   },
