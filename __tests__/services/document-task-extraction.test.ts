@@ -1,4 +1,58 @@
+// Mocks must be declared before imports (Jest hoists jest.mock automatically)
+jest.mock('@/lib/repositories/document.repository', () => ({
+  documentRepository: {
+    findEditable: jest.fn(),
+    update: jest.fn(async () => ({
+      updatedAt: new Date('2026-05-24T10:00:00Z'),
+    })),
+  },
+}))
+
+jest.mock('@/lib/services/task-creation.service', () => ({
+  createTask: jest.fn(
+    async (
+      _pid: string,
+      input: { title: string },
+      _aid: string,
+      _cid: string
+    ) => ({
+      task: {
+        id: `cm_${input.title}`,
+        teamIdentifier: 'LUM',
+        number: 100,
+        title: input.title,
+      },
+      taskTags: [],
+    })
+  ),
+}))
+
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: jest.fn(async () => ({ id: 'actor_1' })),
+  },
+}))
+
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    $transaction: jest.fn(
+      async (
+        fn: (tx: {
+          documentMention: { createMany: jest.Mock }
+        }) => Promise<unknown>
+      ) =>
+        fn({
+          documentMention: { createMany: jest.fn(async () => ({ count: 0 })) },
+        })
+    ),
+  },
+}))
+
 import { findExtractionCandidates } from '@/lib/services/document-task-extraction.service'
+import { replaceWithTaskLink } from '@/lib/services/document-task-extraction.service'
+import { extractTasksFromDoc } from '@/lib/services/document-task-extraction.service'
+import { documentRepository } from '@/lib/repositories/document.repository'
+import { parse } from 'node-html-parser'
 
 describe('findExtractionCandidates', () => {
   const taskListHtml = `
@@ -46,10 +100,6 @@ describe('findExtractionCandidates', () => {
   })
 })
 
-// __tests__/services/document-task-extraction.test.ts (append)
-import { replaceWithTaskLink } from '@/lib/services/document-task-extraction.service'
-import { parse } from 'node-html-parser'
-
 describe('replaceWithTaskLink', () => {
   it('wraps taskItem inner text with anchor and stamps li attrs', () => {
     const root = parse(`
@@ -84,5 +134,145 @@ describe('replaceWithTaskLink', () => {
     expect(root.toString()).toBe(
       '<p>pre <a data-task-link="cm_b" data-task-identifier="LUM-2" href="/workspace/lumo/my-tasks/LUM-2">mid</a> post</p>'
     )
+  })
+})
+
+describe('extractTasksFromDoc', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  const baseDoc = {
+    id: 'doc_1',
+    projectId: 'proj_1',
+    workspaceId: 'ws_1',
+    workspace: { slug: 'lumo' },
+    content: '',
+  }
+
+  it('extracts all unchecked items and returns tasks + updatedContent', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+      content: `<ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p>first</p></div></li>
+        <li data-type="taskItem" data-checked="false"><div><p>second</p></div></li>
+      </ul>`,
+    })
+
+    const res = await extractTasksFromDoc({
+      documentId: 'doc_1',
+      memberId: 'mem_1',
+      callerClerkId: 'user_1',
+      workspaceId: 'ws_1',
+      content: `<ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p>first</p></div></li>
+        <li data-type="taskItem" data-checked="false"><div><p>second</p></div></li>
+      </ul>`,
+      selector: { type: 'all_unchecked' },
+    })
+
+    expect(res.tasks.map(t => t.title)).toEqual(['first', 'second'])
+    expect(res.tasks.map(t => t.identifier)).toEqual(['LUM-100', 'LUM-100'])
+    expect(res.updatedContent).toContain('data-task-id="cm_first"')
+    expect(res.skipped).toEqual([])
+  })
+
+  it('skips empty checkbox items', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+    })
+
+    const res = await extractTasksFromDoc({
+      documentId: 'doc_1',
+      memberId: 'mem_1',
+      callerClerkId: 'user_1',
+      workspaceId: 'ws_1',
+      content: `<ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p></p></div></li>
+        <li data-type="taskItem" data-checked="false"><div><p>real</p></div></li>
+      </ul>`,
+      selector: { type: 'all_unchecked' },
+    })
+
+    expect(res.tasks.map(t => t.title)).toEqual(['real'])
+    expect(res.skipped).toEqual([{ reason: 'empty' }])
+  })
+
+  it('truncates over-200-char titles and stores rest in description', async () => {
+    const long = 'a'.repeat(250)
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+    })
+
+    const { createTask } = require('@/lib/services/task-creation.service')
+
+    await extractTasksFromDoc({
+      documentId: 'doc_1',
+      memberId: 'mem_1',
+      callerClerkId: 'user_1',
+      workspaceId: 'ws_1',
+      content: `<ul data-type="taskList">
+        <li data-type="taskItem" data-checked="false"><div><p>${long}</p></div></li>
+      </ul>`,
+      selector: { type: 'all_unchecked' },
+    })
+
+    expect(createTask).toHaveBeenCalledWith(
+      'proj_1',
+      expect.objectContaining({
+        title: 'a'.repeat(200),
+        description: 'a'.repeat(50),
+      }),
+      'actor_1',
+      'user_1'
+    )
+  })
+
+  it('throws 400 MISSING_PROJECT when doc has no projectId', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+      projectId: null,
+    })
+
+    await expect(
+      extractTasksFromDoc({
+        documentId: 'doc_1',
+        memberId: 'mem_1',
+        callerClerkId: 'user_1',
+        workspaceId: 'ws_1',
+        content: '<p>any</p>',
+        selector: { type: 'all_unchecked' },
+      })
+    ).rejects.toMatchObject({ status: 400, code: 'MISSING_PROJECT' })
+  })
+
+  it('throws 403 when findEditable returns null', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce(null)
+
+    await expect(
+      extractTasksFromDoc({
+        documentId: 'doc_1',
+        memberId: 'mem_1',
+        callerClerkId: 'user_1',
+        workspaceId: 'ws_1',
+        content: '<p>any</p>',
+        selector: { type: 'all_unchecked' },
+      })
+    ).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('throws 409 NO_CANDIDATES when selector finds nothing', async () => {
+    ;(documentRepository.findEditable as jest.Mock).mockResolvedValueOnce({
+      ...baseDoc,
+    })
+
+    await expect(
+      extractTasksFromDoc({
+        documentId: 'doc_1',
+        memberId: 'mem_1',
+        callerClerkId: 'user_1',
+        workspaceId: 'ws_1',
+        content: '<p>just prose</p>',
+        selector: { type: 'marked' },
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'NO_CANDIDATES' })
   })
 })
