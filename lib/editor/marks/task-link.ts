@@ -12,9 +12,9 @@ export interface TaskLinkOptions {
 export const TaskLink = Mark.create<TaskLinkOptions>({
   name: 'taskLink',
 
-  // Must beat @tiptap/extension-link (priority 100) for the
+  // Must beat @tiptap/extension-link (priority 1000) for the
   // `a[data-task-link]` parse rule.
-  priority: 1000,
+  priority: 1001,
 
   addOptions() {
     return { HTMLAttributes: {} }
