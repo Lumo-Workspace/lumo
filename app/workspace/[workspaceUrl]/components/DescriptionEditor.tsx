@@ -264,6 +264,8 @@ export function DescriptionEditor({
   // Track in-flight uploads so we delay onCommit until all are settled.
   const pendingUploadsRef = useRef(0)
   const pendingCommitRef = useRef<(() => void) | null>(null)
+  // Fire undo-warning toast only once per session
+  const hasShownUndoWarning = useRef(false)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
     null
   )
@@ -630,6 +632,18 @@ export function DescriptionEditor({
       editor.commands.setContent(response.updatedContent, { emitUpdate: false })
       const html = editor.isEmpty ? null : editor.getHTML()
       onCommit(html)
+
+      if (!hasShownUndoWarning.current) {
+        toast.info(
+          intl.formatMessage({
+            id: 'doc.extract.undo_warning',
+            defaultMessage:
+              'Tasks are kept even if you undo. Remove them in the task list.',
+          }),
+          { duration: 6000 }
+        )
+        hasShownUndoWarning.current = true
+      }
 
       toast.success(
         intl.formatMessage(
