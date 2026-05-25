@@ -83,7 +83,7 @@ export function TaskItemNodeView({ node, getPos, editor }: NodeViewProps) {
                 content,
                 selector: { type: 'marked' },
               })
-              ctx.onApplied(res.updatedContent)
+              ctx.onApplied(res)
             }}
           />
         </span>

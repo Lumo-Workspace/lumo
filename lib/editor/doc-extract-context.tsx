@@ -1,11 +1,12 @@
 'use client'
 import { createContext, useContext, useMemo, ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
+import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 
 export interface DocExtractCtx {
   documentId: string
   editor: Editor
-  onApplied: (newContent: string) => void
+  onApplied: (response: ExtractResponse) => void
   onError: (err: Error) => void
   stampPendingOnThisNode: (getPos: () => number) => string
 }

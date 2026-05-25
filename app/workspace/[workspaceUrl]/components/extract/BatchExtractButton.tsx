@@ -41,7 +41,7 @@ export function BatchExtractButton({ editor }: { editor: Editor }) {
         content: editor.getHTML(),
         selector: { type: 'all_unchecked' },
       })
-      ctx!.onApplied(res.updatedContent)
+      ctx!.onApplied(res)
     } catch (err) {
       ctx!.onError(err as Error)
     } finally {

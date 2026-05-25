@@ -17,6 +17,8 @@ import {
   DocExtractProvider,
   buildStampPending,
 } from '@/lib/editor/doc-extract-context'
+import type { ExtractResponse } from '@/lib/api-client/documents-extract'
+import { ExtractTasksError } from '@/lib/api-client/documents-extract'
 import { imagesClient } from '@/lib/api-client'
 import {
   SlashCommandExtension,
@@ -619,23 +621,90 @@ export function DescriptionEditor({
     [editor]
   )
 
-  // Called by the hover extract button after the server returns updated content.
-  // Pushes the new HTML into the editor and triggers an immediate save.
+  // Called by extract buttons after the server returns updated content.
+  // Pushes the new HTML into the editor, triggers an immediate save,
+  // and shows user-facing toasts for created/skipped counts.
   const handleExtractApplied = useCallback(
-    (newContent: string) => {
+    (response: ExtractResponse) => {
       if (!editor) return
-      editor.commands.setContent(newContent, { emitUpdate: false })
+      editor.commands.setContent(response.updatedContent, { emitUpdate: false })
       const html = editor.isEmpty ? null : editor.getHTML()
       onCommit(html)
+
+      toast.success(
+        intl.formatMessage(
+          {
+            id: 'doc.extract.toast.success',
+            defaultMessage:
+              'Created {count, plural, one {1 task} other {# tasks}}.',
+          },
+          { count: response.tasks.length }
+        )
+      )
+
+      const emptySkips = response.skipped.filter(
+        s => s.reason === 'empty'
+      ).length
+      if (emptySkips > 0) {
+        toast.info(
+          intl.formatMessage(
+            {
+              id: 'doc.extract.toast.skipped_empty',
+              defaultMessage:
+                'Skipped {count, plural, one {1 empty item} other {# empty items}}.',
+            },
+            { count: emptySkips }
+          )
+        )
+      }
+
+      const truncated = response.skipped.filter(
+        s => s.reason === 'too_long'
+      ).length
+      if (truncated > 0) {
+        toast.info(
+          intl.formatMessage(
+            {
+              id: 'doc.extract.toast.truncated',
+              defaultMessage:
+                '{count, plural, one {1 task had its title truncated} other {# tasks had their titles truncated}} — see task descriptions.',
+            },
+            { count: truncated }
+          )
+        )
+      }
     },
-    [editor, onCommit]
+    [editor, onCommit, intl]
   )
 
-  const handleExtractError = useCallback((err: Error) => {
-    // Task 14 will wire a real toast here. For now log to avoid silent failures.
-    // eslint-disable-next-line no-console
-    console.error('[extract]', err)
-  }, [])
+  const handleExtractError = useCallback(
+    (err: Error) => {
+      if (err instanceof ExtractTasksError) {
+        if (err.code === 'MISSING_PROJECT') {
+          toast.error(
+            intl.formatMessage({
+              id: 'doc.extract.toast.error_no_project',
+              defaultMessage:
+                'This doc has no project. Tasks need a project — set one in doc settings.',
+            })
+          )
+          return
+        }
+        if (err.status === 409) {
+          // NO_CANDIDATES — happens when batch is clicked with nothing matching;
+          // silently ignore (the button shouldn't even be visible at 0 count)
+          return
+        }
+      }
+      toast.error(
+        intl.formatMessage({
+          id: 'doc.extract.toast.error_unknown',
+          defaultMessage: 'Could not extract tasks. Try again or refresh.',
+        })
+      )
+    },
+    [intl]
+  )
 
   // Stable function for stamping extractPending on a node and serializing HTML.
   // Recomputed only when the editor instance changes.

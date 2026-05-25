@@ -625,7 +625,7 @@ export function BubbleMenuBar({
                   content,
                   selector: { type: 'marked' },
                 })
-                extractCtx.onApplied(res.updatedContent)
+                extractCtx.onApplied(res)
               } catch (err) {
                 extractCtx.onError(err as Error)
               }
