@@ -11,6 +11,8 @@ import {
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
 import type { Task, Project } from '@prisma/client'
 import { githubService } from '@/lib/services/github.service'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,4 +273,81 @@ export async function handleCheckSuite(
     prNumbers,
     ciStatus
   )
+}
+
+// ── Comment mirror handlers ───────────────────────────────────────────────────
+
+type InboundAction =
+  | 'created'
+  | 'edited'
+  | 'deleted'
+  | 'submitted'
+  | 'dismissed'
+
+export async function handleIssueComment(
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  _integrationId: string
+): Promise<void> {
+  const issue = payload.issue as
+    | { number: number; pull_request?: unknown }
+    | undefined
+  if (!issue?.pull_request) return // real issue, not a PR
+  const repo = (payload.repository as { full_name?: string } | undefined)
+    ?.full_name
+  if (!repo) return
+  const pr = await pullRequestRepository.findByRepoAndNumber(repo, issue.number)
+  if (!pr?.taskId) return
+  await prCommentMirrorService.runInbound({
+    event: 'issue_comment',
+    action: (payload.action as InboundAction) ?? 'created',
+    workspaceId,
+    taskId: pr.taskId,
+    pullRequestId: pr.id,
+    raw: payload,
+  })
+}
+
+export async function handlePullRequestReview(
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  _integrationId: string
+): Promise<void> {
+  const prRef = payload.pull_request as { number: number } | undefined
+  if (!prRef) return
+  const repo = (payload.repository as { full_name?: string } | undefined)
+    ?.full_name
+  if (!repo) return
+  const pr = await pullRequestRepository.findByRepoAndNumber(repo, prRef.number)
+  if (!pr?.taskId) return
+  await prCommentMirrorService.runInbound({
+    event: 'pull_request_review',
+    action: (payload.action as InboundAction) ?? 'submitted',
+    workspaceId,
+    taskId: pr.taskId,
+    pullRequestId: pr.id,
+    raw: payload,
+  })
+}
+
+export async function handlePullRequestReviewComment(
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  _integrationId: string
+): Promise<void> {
+  const prRef = payload.pull_request as { number: number } | undefined
+  if (!prRef) return
+  const repo = (payload.repository as { full_name?: string } | undefined)
+    ?.full_name
+  if (!repo) return
+  const pr = await pullRequestRepository.findByRepoAndNumber(repo, prRef.number)
+  if (!pr?.taskId) return
+  await prCommentMirrorService.runInbound({
+    event: 'pull_request_review_comment',
+    action: (payload.action as InboundAction) ?? 'created',
+    workspaceId,
+    taskId: pr.taskId,
+    pullRequestId: pr.id,
+    raw: payload,
+  })
 }

@@ -1086,5 +1086,18 @@
   "task.webLinks.card.refresh": "刷新预览",
   "task.webLinks.card.loading": "正在加载预览…",
   "task.webLinks.card.delete": "删除",
-  "task.webLinks.confirmDelete": "确定删除此链接？"
+  "task.webLinks.confirmDelete": "确定删除此链接？",
+  "doc.extract.button.hover": "→ 任务",
+  "doc.extract.button.bubble": "转换为任务",
+  "doc.extract.button.batch": "提取 {count} 个未勾选项",
+  "doc.extract.confirm.title": "创建 {count, plural, other {# 个任务}}？",
+  "doc.extract.confirm.message": "每个任务将以低优先级分配给您。",
+  "doc.extract.confirm.cta": "创建 {count, plural, other {# 个任务}}",
+  "doc.extract.toast.success": "已创建 {count, plural, other {# 个任务}}。",
+  "doc.extract.toast.skipped_empty": "已跳过 {count, plural, other {# 个空项目}}。",
+  "doc.extract.toast.truncated": "{count, plural, other {# 个任务}}的标题已被截断 — 请查看任务描述。",
+  "doc.extract.toast.error_no_project": "此文档没有关联项目。任务需要一个项目 — 请在文档设置中设置。",
+  "doc.extract.toast.error_unknown": "无法提取任务，请重试或刷新页面。",
+  "doc.extract.linked_task_label": "已关联至 {identifier}",
+  "doc.extract.undo_warning": "即使撤销操作，任务仍会保留。请在任务列表中删除它们。"
 }

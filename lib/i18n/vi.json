@@ -1086,5 +1086,18 @@
   "task.webLinks.card.refresh": "Làm mới bản xem trước",
   "task.webLinks.card.loading": "Đang tải bản xem trước…",
   "task.webLinks.card.delete": "Xóa",
-  "task.webLinks.confirmDelete": "Xóa liên kết này?"
+  "task.webLinks.confirmDelete": "Xóa liên kết này?",
+  "doc.extract.button.hover": "→ nhiệm vụ",
+  "doc.extract.button.bubble": "Chuyển thành nhiệm vụ",
+  "doc.extract.button.batch": "Trích xuất {count} mục chưa đánh dấu",
+  "doc.extract.confirm.title": "Tạo {count, plural, other {# nhiệm vụ}}?",
+  "doc.extract.confirm.message": "Mỗi nhiệm vụ sẽ được giao cho bạn với mức độ ưu tiên Thấp.",
+  "doc.extract.confirm.cta": "Tạo {count, plural, other {# nhiệm vụ}}",
+  "doc.extract.toast.success": "Đã tạo {count, plural, other {# nhiệm vụ}}.",
+  "doc.extract.toast.skipped_empty": "Đã bỏ qua {count, plural, other {# mục trống}}.",
+  "doc.extract.toast.truncated": "{count, plural, other {# nhiệm vụ}} đã bị cắt bớt tiêu đề — xem mô tả nhiệm vụ.",
+  "doc.extract.toast.error_no_project": "Tài liệu này chưa có dự án. Nhiệm vụ cần có dự án — hãy đặt trong cài đặt tài liệu.",
+  "doc.extract.toast.error_unknown": "Không thể trích xuất nhiệm vụ. Thử lại hoặc làm mới trang.",
+  "doc.extract.linked_task_label": "Đã liên kết với {identifier}",
+  "doc.extract.undo_warning": "Nhiệm vụ vẫn được giữ ngay cả khi bạn hoàn tác. Hãy xóa chúng trong danh sách nhiệm vụ."
 }

@@ -1086,5 +1086,18 @@
   "task.webLinks.card.refresh": "Actualizar vista previa",
   "task.webLinks.card.loading": "Cargando vista previa…",
   "task.webLinks.card.delete": "Eliminar",
-  "task.webLinks.confirmDelete": "¿Eliminar este enlace?"
+  "task.webLinks.confirmDelete": "¿Eliminar este enlace?",
+  "doc.extract.button.hover": "→ tarea",
+  "doc.extract.button.bubble": "Convertir en tarea",
+  "doc.extract.button.batch": "Extraer {count} sin marcar",
+  "doc.extract.confirm.title": "¿Crear {count, plural, one {1 tarea} other {# tareas}}?",
+  "doc.extract.confirm.message": "Cada tarea se te asignará con prioridad Baja.",
+  "doc.extract.confirm.cta": "Crear {count, plural, one {tarea} other {# tareas}}",
+  "doc.extract.toast.success": "{count, plural, one {1 tarea creada} other {# tareas creadas}}.",
+  "doc.extract.toast.skipped_empty": "{count, plural, one {1 elemento vacío omitido} other {# elementos vacíos omitidos}}.",
+  "doc.extract.toast.truncated": "{count, plural, one {El título de 1 tarea fue truncado} other {Los títulos de # tareas fueron truncados}} — ver descripciones de tareas.",
+  "doc.extract.toast.error_no_project": "Este documento no tiene proyecto. Las tareas necesitan un proyecto — configúralo en los ajustes del documento.",
+  "doc.extract.toast.error_unknown": "No se pudieron extraer las tareas. Inténtalo de nuevo o recarga la página.",
+  "doc.extract.linked_task_label": "Vinculado a {identifier}",
+  "doc.extract.undo_warning": "Las tareas se mantienen aunque deshagas la acción. Elimínalas en la lista de tareas."
 }

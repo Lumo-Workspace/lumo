@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
-import { handlePullRequest, handleCheckSuite, handlePush } from './handlers'
+import {
+  handlePullRequest,
+  handleCheckSuite,
+  handlePush,
+  handleIssueComment,
+  handlePullRequestReview,
+  handlePullRequestReviewComment,
+} from './handlers'
 import { githubService } from '@/lib/services/github.service'
 
 /**
@@ -54,7 +61,19 @@ export async function POST(request: NextRequest) {
       case 'check_suite':
         await handleCheckSuite(payload, workspaceId)
         break
-      // pull_request_review — future
+      case 'issue_comment':
+        await handleIssueComment(payload, workspaceId, integrationId)
+        break
+      case 'pull_request_review':
+        await handlePullRequestReview(payload, workspaceId, integrationId)
+        break
+      case 'pull_request_review_comment':
+        await handlePullRequestReviewComment(
+          payload,
+          workspaceId,
+          integrationId
+        )
+        break
     }
   } catch (err) {
     console.error(`[webhook/github] error handling ${event}:`, err)

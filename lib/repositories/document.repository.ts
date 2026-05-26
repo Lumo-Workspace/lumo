@@ -504,6 +504,7 @@ export const documentRepository = {
           },
         ],
       },
+      include: { workspace: { select: { slug: true } } },
     })
   },
 

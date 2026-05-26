@@ -1086,5 +1086,18 @@
   "task.webLinks.card.refresh": "Muat semula pratonton",
   "task.webLinks.card.loading": "Memuatkan pratonton…",
   "task.webLinks.card.delete": "Padam",
-  "task.webLinks.confirmDelete": "Padam pautan ini?"
+  "task.webLinks.confirmDelete": "Padam pautan ini?",
+  "doc.extract.button.hover": "→ tugas",
+  "doc.extract.button.bubble": "Tukar kepada tugas",
+  "doc.extract.button.batch": "Ekstrak {count} yang tidak ditanda",
+  "doc.extract.confirm.title": "Cipta {count, plural, other {# tugas}}?",
+  "doc.extract.confirm.message": "Setiap tugas akan ditugaskan kepada anda dengan keutamaan Rendah.",
+  "doc.extract.confirm.cta": "Cipta {count, plural, other {# tugas}}",
+  "doc.extract.toast.success": "{count, plural, other {# tugas}} berjaya dicipta.",
+  "doc.extract.toast.skipped_empty": "{count, plural, other {# item kosong}} dilangkau.",
+  "doc.extract.toast.truncated": "Tajuk {count, plural, other {# tugas}} telah dipotong — lihat penerangan tugas.",
+  "doc.extract.toast.error_no_project": "Dokumen ini tiada projek. Tugas memerlukan projek — tetapkan dalam tetapan dokumen.",
+  "doc.extract.toast.error_unknown": "Tidak dapat mengekstrak tugas. Cuba lagi atau muat semula halaman.",
+  "doc.extract.linked_task_label": "Dikaitkan dengan {identifier}",
+  "doc.extract.undo_warning": "Tugas kekal walaupun anda membatalkan. Alih keluar dari senarai tugas."
 }
