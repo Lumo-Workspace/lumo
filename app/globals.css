@@ -162,7 +162,9 @@ html {
   color: #d4d4d8 !important;
 }
 
-/* Task chip — status dot via ::before using Unicode circle */
+/* Task chip — status dot via ::before using Unicode circle.
+   Colors come from semantic --status-* tokens (single source of truth, also
+   used by <StatusIcon> SVG). */
 .mention-task::before,
 .prose .mention-task::before,
 .ProseMirror .mention-task::before {
@@ -170,12 +172,12 @@ html {
   font-size: 0.65em;
   line-height: 1;
   margin-right: 3px;
-  color: #a1a1aa;
+  color: var(--status-todo);
 }
-.mention-task[data-mention-status='TODO']::before        { content: '○'; color: #a1a1aa; }
-.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: #3b82f6; }
-.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: #8b5cf6; }
-.mention-task[data-mention-status='DONE']::before        { content: '●'; color: #10b981; }
+.mention-task[data-mention-status='TODO']::before        { content: '○'; color: var(--status-todo); }
+.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: var(--status-in-progress); }
+.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: var(--status-in-review); }
+.mention-task[data-mention-status='DONE']::before        { content: '●'; color: var(--status-done); }
 
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .ProseMirror table {
@@ -268,6 +270,12 @@ html {
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #2563eb;
 
+  /* Semantic task-status colors (mention chips, StatusIcon, board columns). */
+  --status-todo: #a1a1aa;        /* zinc-400 */
+  --status-in-progress: #3b82f6; /* blue-500 */
+  --status-in-review: #8b5cf6;   /* violet-500 */
+  --status-done: #10b981;        /* emerald-500 */
+
   --font-inter: "Inter", sans-serif;
   --font-source-code-pro: "Source Code Pro", monospace;
 }
@@ -300,6 +308,14 @@ html {
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #2563eb;
+
+  /* Status colors: pure tokenization preserves current main behavior
+     (same hex in both modes). Adjusting dark-mode legibility is a
+     separate visual decision and tracked as a LUM-94 follow-up. */
+  --status-todo: #a1a1aa;
+  --status-in-progress: #3b82f6;
+  --status-in-review: #8b5cf6;
+  --status-done: #10b981;
 }
 
 @theme inline {
@@ -337,6 +353,12 @@ html {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Semantic status utilities: generates .text-status-todo / .bg-status-done / etc. */
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-done: var(--status-done);
 
   /* Landing page extensions */
   --color-brand: var(--brand);
