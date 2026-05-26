@@ -2,15 +2,41 @@ import { cn } from '@/lib/utils'
 
 // Typography components following shadcn/ui design system
 
+const H1_ALIGN_CLASS = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+} as const
+
+type TypographyH1Props = React.HTMLAttributes<HTMLHeadingElement> & {
+  /**
+   * Horizontal alignment. Defaults to `left` to match document/page
+   * heading convention. Pass `center` to restore the marketing-page
+   * shadcn default.
+   */
+  align?: keyof typeof H1_ALIGN_CLASS
+  /**
+   * Apply CSS `text-wrap: balance` (Tailwind `text-balance`) so the
+   * heading wraps with visually balanced line widths. Default off —
+   * balanced wrap reads well on landing heroes but is unnecessary
+   * (and slightly costly) on most app-level headings.
+   */
+  balance?: boolean
+}
+
 export function TypographyH1({
   className,
   children,
+  align = 'left',
+  balance = false,
   ...props
-}: React.HTMLAttributes<HTMLHeadingElement>) {
+}: TypographyH1Props) {
   return (
     <h1
       className={cn(
-        'scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance',
+        'scroll-m-20 text-4xl font-extrabold tracking-tight',
+        H1_ALIGN_CLASS[align],
+        balance && 'text-balance',
         className
       )}
       {...props}
