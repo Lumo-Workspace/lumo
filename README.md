@@ -48,6 +48,7 @@ A comprehensive, modern document and project management platform built with Next
 - **Dark/Light Themes**: Theme switching support
 - **Smooth Animations**: Polished user interactions
 - **Accessibility**: WCAG compliant interface
+- **Design System**: see [docs/design-system.md](docs/design-system.md) for tokens, typography scale, focus rings, motion, and z-index conventions — read before adding new components.
 
 ## 🛠️ Tech Stack
 
