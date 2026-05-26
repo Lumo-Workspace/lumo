@@ -3,7 +3,10 @@ import { requireIdentity } from '@/lib/auth'
 import { miscRepository, taskRepository } from '@/lib/repositories'
 import { documentService } from '@/lib/services'
 import { zodError } from '@/lib/api/helpers'
-import { attachTaskDocumentBodySchema } from '@/lib/validation/task-document'
+import {
+  attachTaskDocumentBodySchema,
+  resolveDocumentIdentifier,
+} from '@/lib/validation/task-document'
 
 /** Returns true when the segment looks like a Prisma cuid (c + 24 alphanum chars). */
 function isLikelyCuid(segment: string): boolean {
@@ -62,31 +65,6 @@ export async function GET(
 }
 
 /**
- * Resolve a user-supplied document identifier (URL, cuid, or `slug-N`) to the
- * form `documentService.addExplicitMention` expects. The service itself
- * handles cuid + slug lookups via `documentRepository.findWithPermission`
- * (which already accepts either shape), so we just need to extract the
- * meaningful segment from URLs and pass non-URL inputs through.
- */
-function resolveDocumentIdentifier(raw: string): string | null {
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-
-  // URL form — pull out the /documents/<slug-N> segment.
-  if (trimmed.includes('/documents/')) {
-    const m = trimmed.match(/\/documents\/([a-z0-9-]+-\d+)/i)
-    if (m) return m[1]!
-    return null
-  }
-  // Bare Prisma cuid (c + 24 alphanum) — passes straight to the service which
-  // resolves cuid OR slug via documentRepository.findWithPermission.
-  if (/^c[a-z0-9]{24}$/.test(trimmed)) return trimmed
-  // Bare workspace slug like "sprint-notes-3".
-  if (/^[a-z0-9-]+-\d+$/i.test(trimmed)) return trimmed
-  return null
-}
-
-/**
  * Task-side counterpart to `POST /api/documents/[id]/mentions`. The route
  * exists so the unified LinkContextPopover stays symmetric with the PR /
  * Slack / WebLink endpoints, all of which live under `/api/tasks/[id]/*`.
@@ -103,8 +81,9 @@ export async function POST(
   const { id: rawId } = await params
 
   // Validate the task exists and belongs to the caller's workspace before we
-  // touch the body. Mirrors the GET path.
-  let taskRef: string = rawId
+  // touch the body. Mirrors the GET path. We pass the human identifier
+  // through — `addExplicitMention` re-resolves it via the same workspace-
+  // scoped helper and uses the canonical form for logging / response payload.
   if (!isLikelyCuid(rawId)) {
     const parsed = parseIdentifier(rawId)
     if (!parsed) {
@@ -118,24 +97,20 @@ export async function POST(
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
-    // Pass the human identifier through — `addExplicitMention` re-resolves it
-    // via the same workspace-scoped helper and uses the canonical form for
-    // logging / response payload.
-    taskRef = rawId
   }
 
   const body = await request.json().catch(() => null)
-  const parsed = attachTaskDocumentBodySchema.safeParse(body)
-  if (!parsed.success) return zodError(parsed)
+  const bodyParsed = attachTaskDocumentBodySchema.safeParse(body)
+  if (!bodyParsed.success) return zodError(bodyParsed)
 
   let documentRef: string
-  if (parsed.data.documentId) {
-    documentRef = parsed.data.documentId
+  if (bodyParsed.data.documentId) {
+    documentRef = bodyParsed.data.documentId
   } else {
-    const resolved = resolveDocumentIdentifier(parsed.data.identifier!)
+    const resolved = resolveDocumentIdentifier(bodyParsed.data.identifier!)
     if (!resolved) {
       return NextResponse.json(
-        { error: `Cannot resolve document: ${parsed.data.identifier}` },
+        { error: `Cannot resolve document: ${bodyParsed.data.identifier}` },
         { status: 404 }
       )
     }
@@ -145,7 +120,7 @@ export async function POST(
   try {
     const result = await documentService.addExplicitMention(
       documentRef,
-      taskRef,
+      rawId,
       identity.workspaceId,
       identity.memberId
     )
