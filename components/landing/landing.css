@@ -73,3 +73,16 @@
   --shadow: #00000020;
   --shadow-strong: #00000088;
 }
+
+/* Tailwind v4 @theme registrations for landing-only utilities.
+   Generates classes like `bg-brand`, `text-brand-foreground`, `shadow-mockup`.
+   These utilities only render meaningful colors inside `.landing` DOM,
+   where the underlying --brand / --light / --shadow-strong are defined. */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-light: var(--light);
+  --color-light-foreground: var(--light-foreground);
+
+  --shadow-mockup: -12px 16px 48px var(--shadow-strong);
+}

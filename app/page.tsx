@@ -1,4 +1,6 @@
-import '@/components/landing/landing.css'
+// landing.css is now @imported by app/globals.css so Tailwind v4 picks up
+// its @theme registrations (bg-brand etc.). Runtime tokens are still scoped
+// to the `.landing` class on <main> below.
 import CTA from '@/components/landing/sections/cta/default'
 import FAQ from '@/components/landing/sections/faq/default'
 import Footer from '@/components/landing/sections/footer/default'
