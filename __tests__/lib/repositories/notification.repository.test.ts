@@ -306,7 +306,7 @@ describe('notificationRepository', () => {
       ])
 
       expect(mockCommentFindMany).toHaveBeenCalledWith({
-        where: { id: { in: ['com-1'] } },
+        where: { id: { in: ['com-1'] }, deletedAt: null },
         select: { id: true, body: true },
       })
       expect(result).toHaveLength(1)

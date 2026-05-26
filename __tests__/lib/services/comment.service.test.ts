@@ -23,6 +23,12 @@ jest.mock('@/lib/actor', () => ({
   getHumanActorId: jest.fn(),
 }))
 
+jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
+  prCommentMirrorService: {
+    scheduleOutbound: jest.fn().mockResolvedValue(undefined),
+  },
+}))
+
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { commentService } from '@/lib/services/comment.service'
 
@@ -79,11 +85,33 @@ describe('commentService.createComment', () => {
     })
   })
 
+  it('throws 404 when parent comment is soft-deleted', async () => {
+    mockFindById.mockResolvedValue({
+      id: 'c-deleted',
+      taskId: 'task-1',
+      parentId: null,
+      deletedAt: new Date(),
+    })
+    await expect(
+      commentService.createComment({
+        taskId: 'task-1',
+        authorActorId: 'actor-1',
+        body: 'Reply to deleted',
+        parentId: 'c-deleted',
+        quotedCommentId: null,
+      })
+    ).rejects.toMatchObject({
+      message: 'Parent comment not found',
+      status: 404,
+    })
+  })
+
   it('throws 400 when replying to a reply', async () => {
     mockFindById.mockResolvedValue({
       id: 'c1',
       taskId: 'task-1',
       parentId: 'c0',
+      deletedAt: null,
     })
     await expect(
       commentService.createComment({

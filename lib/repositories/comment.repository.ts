@@ -9,26 +9,27 @@ interface CreateCommentData {
 }
 
 export const commentRepository = {
-  /** Find top-level comments for a task with nested replies. */
   async findByTaskId(taskId: string) {
     return prisma.comment.findMany({
-      where: { taskId, parentId: null },
-      include: { replies: { orderBy: { createdAt: 'asc' as const } } },
+      where: { taskId, parentId: null, deletedAt: null },
+      include: {
+        replies: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'asc' as const },
+        },
+      },
       orderBy: { createdAt: 'asc' as const },
     })
   },
 
-  /** Find a single comment by ID. */
   async findById(id: string) {
     return prisma.comment.findUnique({ where: { id } })
   },
 
-  /** Create a new comment. */
   async create(data: CreateCommentData) {
     return prisma.comment.create({ data })
   },
 
-  /** Find a comment by ID with task and project workspace info (for ownership/auth checks). */
   async findByIdWithTask(id: string) {
     return prisma.comment.findUnique({
       where: { id },
@@ -38,16 +39,15 @@ export const commentRepository = {
     })
   },
 
-  /** Update a comment's body. */
   async update(id: string, data: { body: string }) {
-    return prisma.comment.update({
-      where: { id },
-      data,
-    })
+    return prisma.comment.update({ where: { id }, data })
   },
 
-  /** Delete a comment by ID. */
+  /** Soft-delete: sets deletedAt to now. */
   async delete(id: string) {
-    return prisma.comment.delete({ where: { id } })
+    return prisma.comment.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    })
   },
 }

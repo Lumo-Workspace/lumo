@@ -94,4 +94,12 @@ export const pullRequestRepository = {
   async updateTaskId(prId: string, taskId: string | null) {
     return prisma.pullRequest.update({ where: { id: prId }, data: { taskId } })
   },
+
+  /** Find the most recently updated PR linked to a task. */
+  async findByTaskId(taskId: string) {
+    return prisma.pullRequest.findFirst({
+      where: { taskId },
+      orderBy: { updatedAt: 'desc' },
+    })
+  },
 }
