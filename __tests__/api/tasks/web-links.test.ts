@@ -87,7 +87,7 @@ describe('GET /api/tasks/[id]/web-links', () => {
 
 describe('POST /api/tasks/[id]/web-links', () => {
   it('returns 400 on invalid body (missing url)', async () => {
-    const res = await POST(jsonReq({ note: 'x' }), paramsP({ id: 'tsk_1' }))
+    const res = await POST(jsonReq({}), paramsP({ id: 'tsk_1' }))
     expect(res.status).toBe(400)
   })
 
@@ -102,7 +102,7 @@ describe('POST /api/tasks/[id]/web-links', () => {
   it('returns 201 with webLink on success', async () => {
     addMock.mockResolvedValue({ id: 'wl_1', url: 'https://example.com/' })
     const res = await POST(
-      jsonReq({ url: 'https://example.com/', note: 'ctx' }),
+      jsonReq({ url: 'https://example.com/' }),
       paramsP({ id: 'tsk_1' })
     )
     expect(res.status).toBe(201)
@@ -113,9 +113,17 @@ describe('POST /api/tasks/[id]/web-links', () => {
       taskId: 'tsk_1',
       workspaceId: 'ws_1',
       url: 'https://example.com/',
-      note: 'ctx',
       actorMemberId: 'mem_1',
     })
+  })
+
+  it('rejects unknown note field with 400', async () => {
+    const res = await POST(
+      jsonReq({ url: 'https://example.com/', note: 'nope' }),
+      paramsP({ id: 'tsk_1' })
+    )
+    expect(res.status).toBe(400)
+    expect(addMock).not.toHaveBeenCalled()
   })
 })
 

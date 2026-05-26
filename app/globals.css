@@ -504,3 +504,19 @@ body {
   border-radius: 3px;
 }
 .board-col-scroll:hover::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* LUM-91: extracted taskItem rows — hide checkbox, show task link */
+li[data-type='taskItem'][data-task-id] > label {
+  display: none;
+}
+li[data-type='taskItem'][data-task-id] > div {
+  margin-left: 0;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--accent);
+}
+li[data-type='taskItem'][data-task-id] a.task-link::before {
+  content: attr(data-task-identifier) ' · ';
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.25rem;
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -13,6 +13,12 @@ import {
   type TableOfContentData,
 } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
+import {
+  DocExtractProvider,
+  buildStampPending,
+} from '@/lib/editor/doc-extract-context'
+import type { ExtractResponse } from '@/lib/api-client/documents-extract'
+import { ExtractTasksError } from '@/lib/api-client/documents-extract'
 import { imagesClient } from '@/lib/api-client'
 import {
   SlashCommandExtension,
@@ -29,6 +35,7 @@ import type { MentionPopupState } from './mention-suggestion'
 import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
 import { BubbleMenuBar } from './BubbleMenuBar'
+import { BatchExtractButton } from './extract/BatchExtractButton'
 
 /** Mention node extended with type / title / status attributes */
 const MentionWithType = Mention.extend({
@@ -257,6 +264,8 @@ export function DescriptionEditor({
   // Track in-flight uploads so we delay onCommit until all are settled.
   const pendingUploadsRef = useRef(0)
   const pendingCommitRef = useRef<(() => void) | null>(null)
+  // Fire undo-warning toast only once per session
+  const hasShownUndoWarning = useRef(false)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
     null
   )
@@ -614,7 +623,111 @@ export function DescriptionEditor({
     [editor]
   )
 
-  return (
+  // Called by extract buttons after the server returns updated content.
+  // Pushes the new HTML into the editor, triggers an immediate save,
+  // and shows user-facing toasts for created/skipped counts.
+  const handleExtractApplied = useCallback(
+    (response: ExtractResponse) => {
+      if (!editor) return
+      editor.commands.setContent(response.updatedContent, { emitUpdate: false })
+      const html = editor.isEmpty ? null : editor.getHTML()
+      onCommit(html)
+
+      if (!hasShownUndoWarning.current) {
+        toast.info(
+          intl.formatMessage({
+            id: 'doc.extract.undo_warning',
+            defaultMessage:
+              'Tasks are kept even if you undo. Remove them in the task list.',
+          }),
+          { duration: 6000 }
+        )
+        hasShownUndoWarning.current = true
+      }
+
+      toast.success(
+        intl.formatMessage(
+          {
+            id: 'doc.extract.toast.success',
+            defaultMessage:
+              'Created {count, plural, one {1 task} other {# tasks}}.',
+          },
+          { count: response.tasks.length }
+        )
+      )
+
+      const emptySkips = response.skipped.filter(
+        s => s.reason === 'empty'
+      ).length
+      if (emptySkips > 0) {
+        toast.info(
+          intl.formatMessage(
+            {
+              id: 'doc.extract.toast.skipped_empty',
+              defaultMessage:
+                'Skipped {count, plural, one {1 empty item} other {# empty items}}.',
+            },
+            { count: emptySkips }
+          )
+        )
+      }
+
+      const truncated = response.skipped.filter(
+        s => s.reason === 'too_long'
+      ).length
+      if (truncated > 0) {
+        toast.info(
+          intl.formatMessage(
+            {
+              id: 'doc.extract.toast.truncated',
+              defaultMessage:
+                '{count, plural, one {1 task had its title truncated} other {# tasks had their titles truncated}} — see task descriptions.',
+            },
+            { count: truncated }
+          )
+        )
+      }
+    },
+    [editor, onCommit, intl]
+  )
+
+  const handleExtractError = useCallback(
+    (err: Error) => {
+      if (err instanceof ExtractTasksError) {
+        if (err.code === 'MISSING_PROJECT') {
+          toast.error(
+            intl.formatMessage({
+              id: 'doc.extract.toast.error_no_project',
+              defaultMessage:
+                'This doc has no project. Tasks need a project — set one in doc settings.',
+            })
+          )
+          return
+        }
+        if (err.status === 409) {
+          // NO_CANDIDATES — happens when batch is clicked with nothing matching;
+          // silently ignore (the button shouldn't even be visible at 0 count)
+          return
+        }
+      }
+      toast.error(
+        intl.formatMessage({
+          id: 'doc.extract.toast.error_unknown',
+          defaultMessage: 'Could not extract tasks. Try again or refresh.',
+        })
+      )
+    },
+    [intl]
+  )
+
+  // Stable function for stamping extractPending on a node and serializing HTML.
+  // Recomputed only when the editor instance changes.
+  const stampPendingOnThisNode = useMemo(
+    () => (editor ? buildStampPending(editor) : () => ''),
+    [editor]
+  )
+
+  const editorContent = (
     <>
       {/* Hidden file picker for toolbar image insertion */}
       <input
@@ -677,4 +790,28 @@ export function DescriptionEditor({
         )}
     </>
   )
+
+  // Wrap with DocExtractProvider when we're editing a document (documentId is
+  // provided) and the editor is ready. This provides context for per-row hover
+  // extract buttons rendered by TaskItemNodeView.
+  if (editor && documentId) {
+    return (
+      <DocExtractProvider
+        value={{
+          documentId,
+          editor,
+          onApplied: handleExtractApplied,
+          onError: handleExtractError,
+          // buildStampPending returns a stable function that closes over the
+          // editor instance. Re-compute only when editor identity changes.
+          stampPendingOnThisNode,
+        }}
+      >
+        <BatchExtractButton editor={editor} />
+        {editorContent}
+      </DocExtractProvider>
+    )
+  }
+
+  return editorContent
 }

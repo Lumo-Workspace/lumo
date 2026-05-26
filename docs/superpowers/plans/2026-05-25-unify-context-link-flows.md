@@ -467,7 +467,7 @@ async function resolveDocumentIdentifier(
   }
 
   // Rule 2: cuid (cmd_…)
-  if (/^cmd_[a-z0-9]+$/i.test(trimmed)) {
+  if (/^c[a-z0-9]{24}$/i.test(trimmed)) {
     return trimmed
   }
 
@@ -1191,7 +1191,10 @@ export interface LinkDocPopoverProps {
 }
 
 const URL_PATTERN = /\/documents\//
-const CUID_PATTERN = /^cmd_[a-z0-9]+$/i
+// Prisma cuid: leading 'c' + 24 alphanum chars. Matches the existing `isLikelyCuid`
+// helper in app/api/tasks/[id]/documents/route.ts. Earlier draft used /^cmd_…/ which
+// was wrong (Lumo cuids don't have a `cmd_` prefix); corrected in Task 3.
+const CUID_PATTERN = /^c[a-z0-9]{24}$/i
 const SLUG_PATTERN = /^[a-z0-9-]+-\d+$/i
 
 function looksLikeIdentifier(input: string): boolean {

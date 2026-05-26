@@ -1,6 +1,7 @@
 // lib/services/comment.service.ts
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { memberRepository, notificationRepository } from '@/lib/repositories'
+import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { shouldNotifyBatch } from '@/lib/services/notification.service'
 import {
   sendDMNotification,
@@ -29,6 +30,7 @@ interface CreateCommentWithSideEffectsInput extends CreateCommentInput {
   teamIdentifier: string
   workspaceSlug: string
   waitUntil: (promise: Promise<unknown>) => void
+  mirrorOrigin?: 'inbound' | 'user'
 }
 
 interface NotifyMentionsParams {
@@ -56,7 +58,11 @@ export const commentService = {
   async createComment(input: CreateCommentInput) {
     if (input.parentId) {
       const parent = await commentRepository.findById(input.parentId)
-      if (!parent || parent.taskId !== input.taskId) {
+      if (
+        !parent ||
+        parent.taskId !== input.taskId ||
+        parent.deletedAt !== null
+      ) {
         throw Object.assign(new Error('Parent comment not found'), {
           status: 404,
         })
@@ -207,6 +213,7 @@ export const commentService = {
       teamIdentifier,
       workspaceSlug,
       waitUntil,
+      mirrorOrigin,
       ...createInput
     } = input
 
@@ -266,6 +273,71 @@ export const commentService = {
       })
       .catch(err => console.error('[notify] TASK_MENTIONED failed:', err))
 
+    if (mirrorOrigin !== 'inbound') {
+      await prCommentMirrorService.scheduleOutbound(comment.id, 'CREATE', {
+        mirrorOrigin: mirrorOrigin ?? 'user',
+      })
+    }
+
     return comment
+  },
+
+  async updateCommentWithSideEffects(input: {
+    commentId: string
+    body: string
+    waitUntil: (p: Promise<unknown>) => void
+    mirrorOrigin?: 'inbound' | 'user'
+  }) {
+    const updated = await commentRepository.update(input.commentId, {
+      body: input.body,
+    })
+    await prCommentMirrorService.scheduleOutbound(input.commentId, 'UPDATE', {
+      mirrorOrigin: input.mirrorOrigin ?? 'user',
+    })
+    return updated
+  },
+
+  async deleteCommentWithSideEffects(input: {
+    commentId: string
+    waitUntil: (p: Promise<unknown>) => void
+    mirrorOrigin?: 'inbound' | 'user'
+  }) {
+    await commentRepository.delete(input.commentId)
+    await prCommentMirrorService.scheduleOutbound(input.commentId, 'DELETE', {
+      mirrorOrigin: input.mirrorOrigin ?? 'user',
+    })
+  },
+
+  /**
+   * Notify @mentions inside a mirrored (inbound) comment.
+   * Uses findForComment — its TASK_COMMENT_SELECT shape returns exactly the
+   * fields notifyMentions needs (team.identifier + project.workspace.slug).
+   */
+  async notifyMentionsForMirror(params: {
+    commentId: string
+    taskId: string
+    body: string
+    authorActorId: string
+    workspaceId: string
+  }): Promise<void> {
+    const { taskRepository } = await import('@/lib/repositories')
+    const task = await taskRepository.findForComment(params.taskId)
+    if (!task) return
+    return commentService.notifyMentions({
+      taskId: params.taskId,
+      commentId: params.commentId,
+      body: params.body,
+      authorActorId: params.authorActorId,
+      authorClerkId: '', // pseudo-author has no clerkId; parseMentionedClerkIds still finds @mentions in body
+      workspaceId: params.workspaceId,
+      projectId: task.projectId ?? '',
+      taskTitle: task.title,
+      taskNumber: task.number,
+      teamIdentifier: task.team?.identifier ?? '',
+      workspaceSlug: task.project?.workspace?.slug ?? '',
+      waitUntil: p => {
+        void p
+      },
+    })
   },
 }

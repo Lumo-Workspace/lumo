@@ -24,6 +24,7 @@ import {
   AlignCenter,
   AlignRight,
   Trash2,
+  ListPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -33,6 +34,9 @@ import {
 } from '@/components/ui/tooltip'
 import { ToolbarButton, Divider } from './bubble-menu/ToolbarButton'
 import { ColorPicker } from './bubble-menu/ColorPicker'
+import { useDocExtractContext } from '@/lib/editor/doc-extract-context'
+import { wrapSelectionWithExtractPending } from './extract/wrapSelection'
+import { extractTasks } from '@/lib/api-client/documents-extract'
 
 const TEXT_STYLES = [
   {
@@ -95,6 +99,7 @@ export function BubbleMenuBar({
   onInsertImage: () => void
 }) {
   const intl = useIntl()
+  const extractCtx = useDocExtractContext()
   const [styleOpen, setStyleOpen] = useState(false)
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
@@ -135,6 +140,17 @@ export function BubbleMenuBar({
       isTaskList: ctx.editor.isActive('taskList'),
       isTable: ctx.editor.isActive('table'),
       selectionEmpty: ctx.editor.state.selection.empty,
+      selectionCrossParagraph:
+        ctx.editor.state.selection.$from.parent !==
+        ctx.editor.state.selection.$to.parent,
+      selectionHasTaskLink: (() => {
+        const { $from, $to } = ctx.editor.state.selection
+        let found = false
+        ctx.editor.state.doc.nodesBetween($from.pos, $to.pos, node => {
+          if (node.marks.some(m => m.type.name === 'taskLink')) found = true
+        })
+        return found
+      })(),
       alignLeft: ctx.editor.isActive({ textAlign: 'left' }),
       alignCenter: ctx.editor.isActive({ textAlign: 'center' }),
       alignRight: ctx.editor.isActive({ textAlign: 'right' }),
@@ -148,6 +164,17 @@ export function BubbleMenuBar({
       isH3: ctx.editor.isActive('heading', { level: 3 }),
       isH4: ctx.editor.isActive('heading', { level: 4 }),
     }),
+  })
+
+  const canConvert =
+    !!extractCtx &&
+    !state.selectionEmpty &&
+    !state.selectionCrossParagraph &&
+    !state.selectionHasTaskLink
+
+  const bubbleLabel = intl.formatMessage({
+    id: 'doc.extract.button.bubble',
+    defaultMessage: 'Convert to task',
   })
 
   function openLinkInput() {
@@ -583,6 +610,33 @@ export function BubbleMenuBar({
       >
         <ImageIcon size={14} />
       </ToolbarButton>
+
+      {extractCtx && (
+        <>
+          <Divider />
+
+          {/* Convert selected text to task */}
+          <ToolbarButton
+            onClick={async () => {
+              if (!extractCtx) return
+              try {
+                const content = wrapSelectionWithExtractPending(editor)
+                const res = await extractTasks(extractCtx.documentId, {
+                  content,
+                  selector: { type: 'marked' },
+                })
+                extractCtx.onApplied(res)
+              } catch (err) {
+                extractCtx.onError(err as Error)
+              }
+            }}
+            disabled={!canConvert}
+            title={bubbleLabel}
+          >
+            <ListPlus size={14} />
+          </ToolbarButton>
+        </>
+      )}
     </div>
   )
 }
