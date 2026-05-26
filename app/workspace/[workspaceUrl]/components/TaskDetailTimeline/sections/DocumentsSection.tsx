@@ -3,7 +3,9 @@
 import { useCallback } from 'react'
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
-import { FileText } from 'lucide-react'
+import { FileText, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { ApiClientError } from '@/lib/api-client/base'
 import {
   taskDocumentsClient,
   type TaskDocumentResource,
@@ -15,6 +17,9 @@ interface Props {
   documents: TaskDocumentResource[]
   workspaceUrl: string
   taskId: string
+  // Refresh callback fired after either an attach or a detach completes.
+  // Kept named `onAttached` to avoid churn in ContextTab; functionally it's
+  // a "documents changed, please refetch" signal regardless of direction.
   onAttached: () => void | Promise<void>
 }
 
@@ -37,6 +42,36 @@ export function DocumentsSection({
       await onAttached()
     },
     [taskId, onAttached]
+  )
+
+  const handleDetach = useCallback(
+    async (documentId: string) => {
+      try {
+        await taskDocumentsClient.detach(taskId, documentId)
+        await onAttached()
+      } catch (err) {
+        if (
+          err instanceof ApiClientError &&
+          err.code === 'CONTENT_MENTION_ONLY'
+        ) {
+          toast.error(
+            intl.formatMessage({
+              id: 'task.contextLink.doc.errors.contentMentionOnly',
+              defaultMessage:
+                'This document is mentioned in the task body. Edit the task description to remove it.',
+            })
+          )
+          return
+        }
+        toast.error(
+          intl.formatMessage({
+            id: 'task.contextLink.common.errors.network',
+            defaultMessage: 'Something went wrong. Please try again.',
+          })
+        )
+      }
+    },
+    [taskId, onAttached, intl]
   )
 
   const addSlot = (
@@ -64,7 +99,7 @@ export function DocumentsSection({
       ) : (
         <ul className='space-y-1.5'>
           {documents.map(doc => (
-            <li key={doc.id} className='flex items-center gap-2 text-xs'>
+            <li key={doc.id} className='group flex items-center gap-2 text-xs'>
               {doc.emoji ? (
                 <span>{doc.emoji}</span>
               ) : (
@@ -72,10 +107,27 @@ export function DocumentsSection({
               )}
               <Link
                 href={`/workspace/${workspaceUrl}/documents/${doc.slug}`}
-                className='text-zinc-700 dark:text-zinc-300 hover:underline truncate'
+                className='flex-1 text-zinc-700 dark:text-zinc-300 hover:underline truncate'
               >
                 {doc.title}
               </Link>
+              <button
+                type='button'
+                onClick={() => {
+                  void handleDetach(doc.id)
+                }}
+                aria-label={intl.formatMessage({
+                  id: 'task.contextLink.doc.detachAction',
+                  defaultMessage: 'Remove document',
+                })}
+                title={intl.formatMessage({
+                  id: 'task.contextLink.doc.detachAction',
+                  defaultMessage: 'Remove document',
+                })}
+                className='p-0.5 rounded text-zinc-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-opacity'
+              >
+                <X size={12} />
+              </button>
             </li>
           ))}
         </ul>
