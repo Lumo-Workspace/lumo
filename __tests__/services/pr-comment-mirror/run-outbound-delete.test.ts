@@ -27,7 +27,9 @@ jest.mock('@/lib/repositories/pr-comment-sync-job.repository')
 describe('runOutbound DELETE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock(
+      '@/lib/repositories/pr-comment-sync-job.repository'
+    ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       id: 'c1',

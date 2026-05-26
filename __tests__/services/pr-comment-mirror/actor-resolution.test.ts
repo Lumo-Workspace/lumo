@@ -89,7 +89,9 @@ describe('resolveOutboundActor', () => {
 
     // User m1 has push access
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ permissions: { push: true } }), { status: 200 })
+      new Response(JSON.stringify({ permissions: { push: true } }), {
+        status: 200,
+      })
     )
     const r1 = await prCommentMirrorService.resolveOutboundActor({
       workspaceId: 'w1',
@@ -100,7 +102,9 @@ describe('resolveOutboundActor', () => {
 
     // User m2 has NO push access (different fetch response)
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ permissions: { push: false } }), { status: 200 })
+      new Response(JSON.stringify({ permissions: { push: false } }), {
+        status: 200,
+      })
     )
     const r2 = await prCommentMirrorService.resolveOutboundActor({
       workspaceId: 'w1',

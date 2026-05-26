@@ -1085,5 +1085,18 @@
   "task.webLinks.card.refresh": "Actualiser l'aperçu",
   "task.webLinks.card.loading": "Chargement de l'aperçu…",
   "task.webLinks.card.delete": "Supprimer",
-  "task.webLinks.confirmDelete": "Supprimer ce lien ?"
+  "task.webLinks.confirmDelete": "Supprimer ce lien ?",
+  "doc.extract.button.hover": "→ tâche",
+  "doc.extract.button.bubble": "Convertir en tâche",
+  "doc.extract.button.batch": "Extraire {count} non cochés",
+  "doc.extract.confirm.title": "Créer {count, plural, one {1 tâche} other {# tâches}} ?",
+  "doc.extract.confirm.message": "Chaque tâche vous sera assignée avec la priorité Faible.",
+  "doc.extract.confirm.cta": "Créer {count, plural, one {une tâche} other {# tâches}}",
+  "doc.extract.toast.success": "{count, plural, one {1 tâche créée} other {# tâches créées}}.",
+  "doc.extract.toast.skipped_empty": "{count, plural, one {1 élément vide ignoré} other {# éléments vides ignorés}}.",
+  "doc.extract.toast.truncated": "{count, plural, one {Le titre de 1 tâche a été tronqué} other {Les titres de # tâches ont été tronqués}} — voir les descriptions des tâches.",
+  "doc.extract.toast.error_no_project": "Ce document n'a pas de projet. Les tâches nécessitent un projet — définissez-en un dans les paramètres du document.",
+  "doc.extract.toast.error_unknown": "Impossible d'extraire les tâches. Réessayez ou actualisez la page.",
+  "doc.extract.linked_task_label": "Lié à {identifier}",
+  "doc.extract.undo_warning": "Les tâches sont conservées même si vous annulez. Supprimez-les dans la liste des tâches."
 }

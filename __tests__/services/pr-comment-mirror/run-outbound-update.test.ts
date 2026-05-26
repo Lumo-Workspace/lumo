@@ -27,14 +27,22 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   },
 }))
 jest.mock('@/lib/utils/buildTaskUrl', () => ({
-  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'),
+  buildTaskUrl: jest
+    .fn()
+    .mockReturnValue(
+      'https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'
+    ),
 }))
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
     users: {
       getUser: jest
         .fn()
-        .mockResolvedValue({ firstName: 'Someone', lastName: null, emailAddresses: [] }),
+        .mockResolvedValue({
+          firstName: 'Someone',
+          lastName: null,
+          emailAddresses: [],
+        }),
     },
   }),
 }))
@@ -53,7 +61,9 @@ jest.mock('@/lib/integrations/github/pr-comment-client')
 describe('runOutbound UPDATE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock(
+      '@/lib/repositories/pr-comment-sync-job.repository'
+    ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       id: 'c1',
@@ -141,11 +151,19 @@ describe('runOutbound UPDATE', () => {
       }
     )
     // User has disconnected — integration lookup returns null
-    const { githubRepository } = jest.requireMock('@/lib/repositories/github.repository') as typeof import('@/lib/repositories/github.repository')
-    ;(githubRepository.findIntegrationByUserAndWorkspace as jest.Mock).mockResolvedValue(null)
+    const { githubRepository } = jest.requireMock(
+      '@/lib/repositories/github.repository'
+    ) as typeof import('@/lib/repositories/github.repository')
+    ;(
+      githubRepository.findIntegrationByUserAndWorkspace as jest.Mock
+    ).mockResolvedValue(null)
 
-    const { getGithubInstallationToken } = jest.requireMock('@/lib/integrations/github/auth') as typeof import('@/lib/integrations/github/auth')
-    ;(getGithubInstallationToken as jest.Mock).mockResolvedValue('app-token-fallback')
+    const { getGithubInstallationToken } = jest.requireMock(
+      '@/lib/integrations/github/auth'
+    ) as typeof import('@/lib/integrations/github/auth')
+    ;(getGithubInstallationToken as jest.Mock).mockResolvedValue(
+      'app-token-fallback'
+    )
 
     await prCommentMirrorService.runOutbound('c1', 'UPDATE')
 
@@ -155,7 +173,8 @@ describe('runOutbound UPDATE', () => {
       expect.objectContaining({ token: 'app-token-fallback' })
     )
     // Body should use BOT_APP prefix format (contains attribution text)
-    const callBody = (prCommentClient.updateIssueComment as jest.Mock).mock.calls[0][0].body as string
+    const callBody = (prCommentClient.updateIssueComment as jest.Mock).mock
+      .calls[0][0].body as string
     expect(callBody).toContain('在 Lumo 说')
   })
 })

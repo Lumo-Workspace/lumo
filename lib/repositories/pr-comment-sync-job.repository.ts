@@ -77,7 +77,10 @@ export const prCommentSyncJobRepository = {
     })
   },
 
-  async findDueByPullRequest(pullRequestId: string, { limit }: { limit: number }) {
+  async findDueByPullRequest(
+    pullRequestId: string,
+    { limit }: { limit: number }
+  ) {
     return prisma.prCommentSyncJob.findMany({
       where: {
         status: 'PENDING',

@@ -24,7 +24,11 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   },
 }))
 jest.mock('@/lib/utils/buildTaskUrl', () => ({
-  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'),
+  buildTaskUrl: jest
+    .fn()
+    .mockReturnValue(
+      'https://app.lumo.dev/workspace/my-workspace/tasks/LUM-10'
+    ),
 }))
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: {
@@ -35,7 +39,15 @@ jest.mock('@/lib/repositories/github.repository', () => ({
 // Mock Clerk to avoid server-side import issues
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
-    users: { getUser: jest.fn().mockResolvedValue({ firstName: 'Someone', lastName: null, emailAddresses: [] }) },
+    users: {
+      getUser: jest
+        .fn()
+        .mockResolvedValue({
+          firstName: 'Someone',
+          lastName: null,
+          emailAddresses: [],
+        }),
+    },
   }),
 }))
 
@@ -70,7 +82,9 @@ describe('runOutbound CREATE', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock(
+      '@/lib/repositories/pr-comment-sync-job.repository'
+    ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     resolveActorSpy = jest
       .spyOn(prCommentMirrorService, 'resolveOutboundActor')
@@ -194,7 +208,10 @@ describe('runOutbound CREATE', () => {
     // Second call: parent mirror check (REVIEW_LINE)
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock)
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ externalSource: 'REVIEW_LINE', externalId: '555' })
+      .mockResolvedValueOnce({
+        externalSource: 'REVIEW_LINE',
+        externalId: '555',
+      })
     ;(prCommentClient.createReviewLineReply as jest.Mock).mockResolvedValue({
       id: 1000,
       node_id: 'PRRC_x',
@@ -212,7 +229,9 @@ describe('runOutbound CREATE', () => {
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
     const body = (prCommentClient.createIssueComment as jest.Mock).mock
       .calls[0][0].body as string
-    expect(body).toMatch(/https:\/\/app\.lumo\.dev\/workspace\/my-workspace\/tasks\/LUM-10#comment-c1/)
+    expect(body).toMatch(
+      /https:\/\/app\.lumo\.dev\/workspace\/my-workspace\/tasks\/LUM-10#comment-c1/
+    )
   })
 })
 
@@ -234,7 +253,9 @@ describe('runOutbound CREATE — retry idempotency', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock('@/lib/repositories/pr-comment-sync-job.repository') as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    const { prCommentSyncJobRepository: sjRepo } = jest.requireMock(
+      '@/lib/repositories/pr-comment-sync-job.repository'
+    ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
     resolveActorSpy = jest
       .spyOn(prCommentMirrorService, 'resolveOutboundActor')
@@ -263,17 +284,21 @@ describe('runOutbound CREATE — retry idempotency', () => {
   })
 
   it('non-pending existing mirror → no-op (already created)', async () => {
-    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue({
-      ...pendingMirror,
-      externalId: '999', // real id, not pending
-    })
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
+      {
+        ...pendingMirror,
+        externalId: '999', // real id, not pending
+      }
+    )
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
     expect(prCommentClient.createIssueComment).not.toHaveBeenCalled()
     expect(prCommentMirrorRepository.reserve).not.toHaveBeenCalled()
   })
 
   it('pending mirror + GH list matches body hash → no re-POST, resolvePlaceholder called with all matched fields', async () => {
-    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(pendingMirror)
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
+      pendingMirror
+    )
     // <p>hello</p> → lumoHtmlToGithubMarkdown → 'hello' (USER_OAUTH, no prefix)
     ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([
       {
@@ -300,11 +325,13 @@ describe('runOutbound CREATE — retry idempotency', () => {
   })
 
   it('REVIEW_LINE pending mirror routes through listReviewCommentsSince, not listIssueCommentsSince', async () => {
-    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue({
-      ...pendingMirror,
-      externalSource: 'REVIEW_LINE' as const,
-      inReplyToExternalId: '555',
-    })
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
+      {
+        ...pendingMirror,
+        externalSource: 'REVIEW_LINE' as const,
+        inReplyToExternalId: '555',
+      }
+    )
     ;(prCommentClient.listReviewCommentsSince as jest.Mock).mockResolvedValue([
       {
         id: 1010,
@@ -331,7 +358,9 @@ describe('runOutbound CREATE — retry idempotency', () => {
   })
 
   it('pending mirror + GH list returns no match → re-POST, resolvePlaceholder called', async () => {
-    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(pendingMirror)
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
+      pendingMirror
+    )
     // listIssueCommentsSince returns nothing matching
     ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([])
     ;(prCommentClient.createIssueComment as jest.Mock).mockResolvedValue({

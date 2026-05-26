@@ -68,7 +68,11 @@ export async function POST(request: NextRequest) {
         await handlePullRequestReview(payload, workspaceId, integrationId)
         break
       case 'pull_request_review_comment':
-        await handlePullRequestReviewComment(payload, workspaceId, integrationId)
+        await handlePullRequestReviewComment(
+          payload,
+          workspaceId,
+          integrationId
+        )
         break
     }
   } catch (err) {

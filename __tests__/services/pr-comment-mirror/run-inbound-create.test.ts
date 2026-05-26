@@ -50,7 +50,9 @@ import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-j
 describe('runInbound CREATE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+    ;(
+      prCommentSyncJobRepository.findDueByPullRequest as jest.Mock
+    ).mockResolvedValue([])
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(
       null
     )

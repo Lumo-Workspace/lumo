@@ -32,7 +32,9 @@ jest.mock('@clerk/nextjs/server', () => ({
   }),
 }))
 jest.mock('@/lib/db/prisma', () => ({
-  prisma: { $transaction: jest.fn(async (cb: (tx: object) => unknown) => cb({})) },
+  prisma: {
+    $transaction: jest.fn(async (cb: (tx: object) => unknown) => cb({})),
+  },
 }))
 
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
@@ -69,7 +71,9 @@ const basePayload = (updatedAt: string, body = 'remote edit') => ({
 describe('runInbound UPDATE — conflict matrix', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+    ;(
+      prCommentSyncJobRepository.findDueByPullRequest as jest.Mock
+    ).mockResolvedValue([])
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(
       baseExisting
     )

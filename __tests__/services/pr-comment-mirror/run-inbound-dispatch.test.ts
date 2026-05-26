@@ -70,7 +70,9 @@ const issuePayload = {
 describe('runInbound dispatch', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+    ;(
+      prCommentSyncJobRepository.findDueByPullRequest as jest.Mock
+    ).mockResolvedValue([])
   })
 
   it('drops echo when matching mirror has externalUpdatedAt >= payload.updated_at', async () => {

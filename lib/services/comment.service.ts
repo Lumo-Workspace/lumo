@@ -58,7 +58,11 @@ export const commentService = {
   async createComment(input: CreateCommentInput) {
     if (input.parentId) {
       const parent = await commentRepository.findById(input.parentId)
-      if (!parent || parent.taskId !== input.taskId || parent.deletedAt !== null) {
+      if (
+        !parent ||
+        parent.taskId !== input.taskId ||
+        parent.deletedAt !== null
+      ) {
         throw Object.assign(new Error('Parent comment not found'), {
           status: 404,
         })
@@ -331,7 +335,9 @@ export const commentService = {
       taskNumber: task.number,
       teamIdentifier: task.team?.identifier ?? '',
       workspaceSlug: task.project?.workspace?.slug ?? '',
-      waitUntil: (p) => { void p },
+      waitUntil: p => {
+        void p
+      },
     })
   },
 }

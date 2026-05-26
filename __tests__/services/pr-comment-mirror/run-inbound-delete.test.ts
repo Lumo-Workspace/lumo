@@ -41,7 +41,9 @@ import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-j
 describe('runInbound DELETE', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(prCommentSyncJobRepository.findDueByPullRequest as jest.Mock).mockResolvedValue([])
+    ;(
+      prCommentSyncJobRepository.findDueByPullRequest as jest.Mock
+    ).mockResolvedValue([])
   })
 
   it('soft-deletes the local comment and marks mirror deletedAt', async () => {

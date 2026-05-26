@@ -48,13 +48,11 @@ describe('drain-on-event', () => {
       },
     ])
     // Skip the actual main-path work for this test by stubbing the lookups to return no PR
-    const { pullRequestRepository } = await import(
-      '@/lib/repositories/pull-request.repository'
-    )
+    const { pullRequestRepository } =
+      await import('@/lib/repositories/pull-request.repository')
     ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(null)
-    const { commentRepository } = await import(
-      '@/lib/repositories/comment.repository'
-    )
+    const { commentRepository } =
+      await import('@/lib/repositories/comment.repository')
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       id: 'c1',
       taskId: 't1',
@@ -81,16 +79,16 @@ describe('drain-on-event', () => {
     ])
     // Force the drained job's retry to throw
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    const { commentRepository } = await import(
-      '@/lib/repositories/comment.repository'
+    const { commentRepository } =
+      await import('@/lib/repositories/comment.repository')
+    ;(commentRepository.findById as jest.Mock).mockImplementation(
+      (id: string) => {
+        if (id === 'c-old') throw new Error('boom')
+        return { id: 'c1', taskId: 't1', type: 'USER' }
+      }
     )
-    ;(commentRepository.findById as jest.Mock).mockImplementation((id: string) => {
-      if (id === 'c-old') throw new Error('boom')
-      return { id: 'c1', taskId: 't1', type: 'USER' }
-    })
-    const { pullRequestRepository } = await import(
-      '@/lib/repositories/pull-request.repository'
-    )
+    const { pullRequestRepository } =
+      await import('@/lib/repositories/pull-request.repository')
     ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(null)
 
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
@@ -106,9 +104,8 @@ describe('drain-on-event', () => {
     ;(
       prCommentSyncJobRepository.findDueByPullRequest as jest.Mock
     ).mockResolvedValue([])
-    const { prCommentMirrorRepository } = await import(
-      '@/lib/repositories/pr-comment-mirror.repository'
-    )
+    const { prCommentMirrorRepository } =
+      await import('@/lib/repositories/pr-comment-mirror.repository')
     ;(prCommentMirrorRepository.findByExternal as jest.Mock).mockResolvedValue(
       null
     )
@@ -134,9 +131,8 @@ describe('drain-on-event', () => {
       },
     })
 
-    expect(prCommentSyncJobRepository.findDueByPullRequest).toHaveBeenCalledWith(
-      'pr1',
-      { limit: 10 }
-    )
+    expect(
+      prCommentSyncJobRepository.findDueByPullRequest
+    ).toHaveBeenCalledWith('pr1', { limit: 10 })
   })
 })

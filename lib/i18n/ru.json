@@ -1085,5 +1085,18 @@
   "task.webLinks.card.refresh": "Обновить предпросмотр",
   "task.webLinks.card.loading": "Загрузка предварительного просмотра…",
   "task.webLinks.card.delete": "Удалить",
-  "task.webLinks.confirmDelete": "Удалить эту ссылку?"
+  "task.webLinks.confirmDelete": "Удалить эту ссылку?",
+  "doc.extract.button.hover": "→ задача",
+  "doc.extract.button.bubble": "Преобразовать в задачу",
+  "doc.extract.button.batch": "Извлечь {count} непомеченных",
+  "doc.extract.confirm.title": "Создать {count, plural, one {1 задачу} few {# задачи} other {# задач}}?",
+  "doc.extract.confirm.message": "Каждая задача будет назначена вам с приоритетом «Низкий».",
+  "doc.extract.confirm.cta": "Создать {count, plural, one {задачу} few {# задачи} other {# задач}}",
+  "doc.extract.toast.success": "{count, plural, one {1 задача создана} few {# задачи созданы} other {# задач создано}}.",
+  "doc.extract.toast.skipped_empty": "{count, plural, one {1 пустой элемент пропущен} few {# пустых элемента пропущено} other {# пустых элементов пропущено}}.",
+  "doc.extract.toast.truncated": "{count, plural, one {Заголовок 1 задачи был обрезан} few {Заголовки # задач были обрезаны} other {Заголовки # задач были обрезаны}} — см. описания задач.",
+  "doc.extract.toast.error_no_project": "У этого документа нет проекта. Задачам необходим проект — задайте его в настройках документа.",
+  "doc.extract.toast.error_unknown": "Не удалось извлечь задачи. Попробуйте ещё раз или обновите страницу.",
+  "doc.extract.linked_task_label": "Связано с {identifier}",
+  "doc.extract.undo_warning": "Задачи сохраняются даже после отмены. Удалите их из списка задач."
 }

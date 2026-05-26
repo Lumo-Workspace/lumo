@@ -37,7 +37,11 @@ interface OutboundActorResult {
 const CACHE_TTL_MS = 10 * 60 * 1000
 const writeCache = new Map<string, { until: number; canWrite: boolean }>()
 
-async function canWriteRepo(token: string, repo: Repo, userId: string): Promise<boolean> {
+async function canWriteRepo(
+  token: string,
+  repo: Repo,
+  userId: string
+): Promise<boolean> {
   const key = `${userId}:${repo.owner}/${repo.name}`
   const cached = writeCache.get(key)
   if (cached && cached.until > Date.now()) return cached.canWrite
@@ -144,7 +148,8 @@ async function runOutboundCreate(commentId: string) {
   const repo = parseRepo(pr.repo)
 
   // --- Retry idempotency: check for an existing mirror before calling reserve() ---
-  const existingMirror = await prCommentMirrorRepository.findByCommentId(commentId)
+  const existingMirror =
+    await prCommentMirrorRepository.findByCommentId(commentId)
   if (existingMirror) {
     if (!existingMirror.externalId.startsWith('pending-')) {
       // Already fully resolved — nothing to do.
@@ -355,7 +360,14 @@ async function runOutboundUpdate(commentId: string) {
         pr.workspaceId,
         mirror.outboundActorUserId
       )
-    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo, mirror.outboundActorUserId))) {
+    if (
+      integration &&
+      (await canWriteRepo(
+        decrypt(integration.accessToken),
+        repo,
+        mirror.outboundActorUserId
+      ))
+    ) {
       token = decrypt(integration.accessToken)
     } else {
       // User disconnected or lost write access — fall back to BOT_APP but preserve BOT_APP body shape
@@ -435,7 +447,14 @@ async function runOutboundDelete(commentId: string) {
         pr.workspaceId,
         mirror.outboundActorUserId
       )
-    if (integration && (await canWriteRepo(decrypt(integration.accessToken), repo, mirror.outboundActorUserId))) {
+    if (
+      integration &&
+      (await canWriteRepo(
+        decrypt(integration.accessToken),
+        repo,
+        mirror.outboundActorUserId
+      ))
+    ) {
       token = decrypt(integration.accessToken)
     } else {
       token = await getGithubInstallationToken()
@@ -546,15 +565,12 @@ async function drainInboundForPr(pullRequestId: string) {
 const BOT_LOGIN = process.env.LUMO_GITHUB_BOT_LOGIN ?? 'lumo-app[bot]'
 
 interface InboundPayload {
-  event:
-    | 'issue_comment'
-    | 'pull_request_review'
-    | 'pull_request_review_comment'
+  event: 'issue_comment' | 'pull_request_review' | 'pull_request_review_comment'
   action: 'created' | 'edited' | 'deleted' | 'submitted' | 'dismissed'
   workspaceId: string
   taskId: string
   pullRequestId: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   raw: any
 }
 
@@ -600,7 +616,6 @@ function buildInboundBody(
 
   if (source === 'REVIEW') {
     const state = (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       payload.raw.review?.state as string | undefined
     )?.toLowerCase()
     let header = '💬 Commented'
@@ -695,7 +710,6 @@ async function runInboundCreate(
       scheduledFor: new Date(Date.now() + 30_000),
     })
   }
-
 }
 
 async function applyInboundUpdate(
@@ -882,9 +896,11 @@ export const prCommentMirrorService = {
   ) {
     if (opts.mirrorOrigin === 'inbound') return
     waitUntil(
-      prCommentMirrorService.runOutbound(commentId, op).catch(err =>
-        console.error('[pr-mirror] outbound failed', { commentId, op, err })
-      )
+      prCommentMirrorService
+        .runOutbound(commentId, op)
+        .catch(err =>
+          console.error('[pr-mirror] outbound failed', { commentId, op, err })
+        )
     )
   },
 }

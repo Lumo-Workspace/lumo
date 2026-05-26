@@ -1085,5 +1085,18 @@
   "task.webLinks.card.refresh": "Vorschau aktualisieren",
   "task.webLinks.card.loading": "Vorschau wird geladen…",
   "task.webLinks.card.delete": "Löschen",
-  "task.webLinks.confirmDelete": "Diesen Link löschen?"
+  "task.webLinks.confirmDelete": "Diesen Link löschen?",
+  "doc.extract.button.hover": "→ Aufgabe",
+  "doc.extract.button.bubble": "In Aufgabe umwandeln",
+  "doc.extract.button.batch": "{count} unmarkierte Aufgaben extrahieren",
+  "doc.extract.confirm.title": "{count, plural, one {1 Aufgabe} other {# Aufgaben}} erstellen?",
+  "doc.extract.confirm.message": "Jede Aufgabe wird Ihnen mit Priorität Niedrig zugewiesen.",
+  "doc.extract.confirm.cta": "{count, plural, one {Aufgabe} other {# Aufgaben}} erstellen",
+  "doc.extract.toast.success": "{count, plural, one {1 Aufgabe} other {# Aufgaben}} erstellt.",
+  "doc.extract.toast.skipped_empty": "{count, plural, one {1 leeres Element} other {# leere Elemente}} übersprungen.",
+  "doc.extract.toast.truncated": "{count, plural, one {Bei 1 Aufgabe wurde der Titel gekürzt} other {Bei # Aufgaben wurden die Titel gekürzt}} — siehe Aufgabenbeschreibungen.",
+  "doc.extract.toast.error_no_project": "Dieses Dokument hat kein Projekt. Aufgaben benötigen ein Projekt — legen Sie eines in den Dokumenteinstellungen fest.",
+  "doc.extract.toast.error_unknown": "Aufgaben konnten nicht extrahiert werden. Bitte erneut versuchen oder Seite neu laden.",
+  "doc.extract.linked_task_label": "Verknüpft mit {identifier}",
+  "doc.extract.undo_warning": "Aufgaben bleiben erhalten, auch wenn Sie die Aktion rückgängig machen. Entfernen Sie sie in der Aufgabenliste."
 }

@@ -10,6 +10,7 @@ import {
 export interface ToolbarButtonProps {
   onClick: () => void
   active?: boolean
+  disabled?: boolean
   title: string
   children: React.ReactNode
 }
@@ -17,6 +18,7 @@ export interface ToolbarButtonProps {
 export function ToolbarButton({
   onClick,
   active,
+  disabled,
   title,
   children,
 }: ToolbarButtonProps) {
@@ -25,15 +27,18 @@ export function ToolbarButton({
       <TooltipTrigger asChild>
         <button
           type='button'
+          disabled={disabled}
           onMouseDown={e => {
             e.preventDefault() // prevent editor blur
-            onClick()
+            if (!disabled) onClick()
           }}
           className={cn(
             'flex items-center justify-center size-7 rounded transition-colors',
-            active
-              ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+            disabled
+              ? 'opacity-40 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
+              : active
+                ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+                : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
           )}
         >
           {children}

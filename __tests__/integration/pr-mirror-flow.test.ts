@@ -25,7 +25,9 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   },
 }))
 jest.mock('@/lib/utils/buildTaskUrl', () => ({
-  buildTaskUrl: jest.fn().mockReturnValue('https://app.lumo.dev/workspace/test-ws/tasks/TST-1'),
+  buildTaskUrl: jest
+    .fn()
+    .mockReturnValue('https://app.lumo.dev/workspace/test-ws/tasks/TST-1'),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn().mockResolvedValue('app-token'),
@@ -76,9 +78,9 @@ describe('pr-mirror integration — outbound → webhook echo', () => {
     ;(
       githubRepository.findIntegrationByUserAndWorkspace as jest.Mock
     ).mockResolvedValue(null)
-    ;(prCommentMirrorRepository.resolvePlaceholder as jest.Mock).mockResolvedValue(
-      undefined
-    )
+    ;(
+      prCommentMirrorRepository.resolvePlaceholder as jest.Mock
+    ).mockResolvedValue(undefined)
 
     nock('https://api.github.com')
       .post('/repos/foo/bar/issues/1/comments')

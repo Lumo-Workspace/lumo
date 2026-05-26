@@ -1085,5 +1085,18 @@
   "task.webLinks.card.refresh": "重新整理預覽",
   "task.webLinks.card.loading": "正在載入預覽…",
   "task.webLinks.card.delete": "刪除",
-  "task.webLinks.confirmDelete": "確定刪除此連結？"
+  "task.webLinks.confirmDelete": "確定刪除此連結？",
+  "doc.extract.button.hover": "→ 任務",
+  "doc.extract.button.bubble": "轉換為任務",
+  "doc.extract.button.batch": "提取 {count} 個未勾選項",
+  "doc.extract.confirm.title": "建立 {count, plural, other {# 個任務}}？",
+  "doc.extract.confirm.message": "每個任務將以低優先級分配給您。",
+  "doc.extract.confirm.cta": "建立 {count, plural, other {# 個任務}}",
+  "doc.extract.toast.success": "已建立 {count, plural, other {# 個任務}}。",
+  "doc.extract.toast.skipped_empty": "已略過 {count, plural, other {# 個空項目}}。",
+  "doc.extract.toast.truncated": "{count, plural, other {# 個任務}}的標題已被截斷 — 請查看任務描述。",
+  "doc.extract.toast.error_no_project": "此文件未關聯專案。任務需要一個專案 — 請在文件設定中設定。",
+  "doc.extract.toast.error_unknown": "無法提取任務，請重試或重新整理頁面。",
+  "doc.extract.linked_task_label": "已關聯至 {identifier}",
+  "doc.extract.undo_warning": "即使復原操作，任務仍會保留。請在任務清單中刪除它們。"
 }
