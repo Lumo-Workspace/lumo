@@ -1,21 +1,47 @@
 'use client'
 
+import { useCallback } from 'react'
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import { FileText } from 'lucide-react'
-import type { TaskDocumentResource } from '@/lib/api-client/task-documents'
+import {
+  taskDocumentsClient,
+  type TaskDocumentResource,
+} from '@/lib/api-client/task-documents'
 import { ContextSection } from '../ContextSection'
+import { LinkDocPopover } from '../../LinkDocPopover'
 
 interface Props {
   documents: TaskDocumentResource[]
   workspaceUrl: string
+  taskId: string
+  onAttached: () => void | Promise<void>
 }
 
 export function DocumentsSection({
   documents,
   workspaceUrl,
+  taskId,
+  onAttached,
 }: Props): React.ReactElement {
   const intl = useIntl()
+
+  const handleSearch = useCallback(async (q: string) => {
+    const { documents: hits } = await taskDocumentsClient.search(q)
+    return hits
+  }, [])
+
+  const handleAttach = useCallback(
+    async (payload: { identifier: string } | { documentId: string }) => {
+      await taskDocumentsClient.attach(taskId, payload)
+      await onAttached()
+    },
+    [taskId, onAttached]
+  )
+
+  const addSlot = (
+    <LinkDocPopover onSearch={handleSearch} onAttach={handleAttach} />
+  )
 
   return (
     <ContextSection
@@ -26,6 +52,7 @@ export function DocumentsSection({
       })}
       icon={<FileText size={14} className='text-zinc-500 dark:text-zinc-400' />}
       count={documents.length}
+      addSlot={addSlot}
     >
       {documents.length === 0 ? (
         <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>

@@ -74,6 +74,8 @@ export function ContextTab({
       <DocumentsSection
         documents={docs.documents}
         workspaceUrl={workspaceUrl}
+        taskId={taskId}
+        onAttached={docs.refresh}
       />
     </Accordion>
   )

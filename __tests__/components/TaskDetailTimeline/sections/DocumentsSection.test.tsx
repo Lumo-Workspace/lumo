@@ -13,7 +13,12 @@ describe('DocumentsSection', () => {
   it('shows empty state when no documents', () => {
     render(
       <Accordion type='multiple' defaultValue={['documents']}>
-        <DocumentsSection documents={[]} workspaceUrl='lumo' />
+        <DocumentsSection
+          documents={[]}
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+        />
       </Accordion>
     )
     expect(screen.getByText('task.context.documents.empty')).toBeInTheDocument()
@@ -24,6 +29,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple' defaultValue={['documents']}>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             {
               id: 'd1',
@@ -53,6 +60,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple' defaultValue={['documents']}>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             {
               id: 'd1',
@@ -74,6 +83,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple'>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '' },
             { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '' },
