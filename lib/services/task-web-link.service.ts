@@ -31,7 +31,6 @@ export interface AddWebLinkInput {
   taskId: string
   workspaceId: string
   url: string
-  note?: string
   actorMemberId: string
 }
 
@@ -52,7 +51,7 @@ export const taskWebLinkService = {
           domain,
           title: og.data.title ?? null,
           description: og.data.description ?? null,
-          note: input.note ?? null,
+          note: null,
           imageUrl: og.data.imageUrl ?? null,
           faviconUrl: og.data.faviconUrl ?? null,
           fetchedAt: new Date(),
@@ -66,7 +65,7 @@ export const taskWebLinkService = {
           domain,
           title: null,
           description: null,
-          note: input.note ?? null,
+          note: null,
           imageUrl: null,
           faviconUrl: null,
           fetchedAt: null,

@@ -8,7 +8,7 @@ export const webLinksClient = {
 
   add(
     taskId: string,
-    payload: { url: string; note?: string }
+    payload: { url: string }
   ): Promise<{ webLink: TaskWebLink }> {
     return apiFetch(`/api/tasks/${taskId}/web-links`, {
       method: 'POST',

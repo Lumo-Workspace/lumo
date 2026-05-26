@@ -5,15 +5,46 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+jest.mock('sonner', () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
+}))
+
+jest.mock('@/lib/api-client/task-documents', () => ({
+  taskDocumentsClient: {
+    search: jest.fn(),
+    attach: jest.fn(),
+    detach: jest.fn(),
+  },
+}))
+
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { Accordion } from '@/components/landing/ui/accordion'
 import { DocumentsSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/sections/DocumentsSection'
+import { taskDocumentsClient } from '@/lib/api-client/task-documents'
+import { ApiClientError } from '@/lib/api-client/base'
+
+const mockDetach = taskDocumentsClient.detach as jest.Mock
+const mockToastError = toast.error as jest.Mock
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
 
 describe('DocumentsSection', () => {
   it('shows empty state when no documents', () => {
     render(
       <Accordion type='multiple' defaultValue={['documents']}>
-        <DocumentsSection documents={[]} workspaceUrl='lumo' />
+        <DocumentsSection
+          documents={[]}
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+        />
       </Accordion>
     )
     expect(screen.getByText('task.context.documents.empty')).toBeInTheDocument()
@@ -24,6 +55,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple' defaultValue={['documents']}>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             {
               id: 'd1',
@@ -53,6 +86,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple' defaultValue={['documents']}>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             {
               id: 'd1',
@@ -74,6 +109,8 @@ describe('DocumentsSection', () => {
       <Accordion type='multiple'>
         <DocumentsSection
           workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
           documents={[
             { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '' },
             { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '' },
@@ -83,5 +120,120 @@ describe('DocumentsSection', () => {
       </Accordion>
     )
     expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('calls detach and refreshes when the × button is clicked', async () => {
+    const user = userEvent.setup()
+    const onAttached = jest.fn()
+    mockDetach.mockResolvedValue({ removed: 1 })
+
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={onAttached}
+          documents={[
+            {
+              id: 'd1',
+              slug: 'spec-1',
+              title: 'Spec',
+              emoji: null,
+              updatedAt: '',
+            },
+          ]}
+        />
+      </Accordion>
+    )
+
+    const detachBtn = screen.getByRole('button', {
+      name: 'task.contextLink.doc.detachAction',
+    })
+    await user.click(detachBtn)
+
+    expect(mockDetach).toHaveBeenCalledWith('task-1', 'd1')
+    expect(onAttached).toHaveBeenCalledTimes(1)
+    expect(mockToastError).not.toHaveBeenCalled()
+  })
+
+  it('shows the content-mention-only toast on 409', async () => {
+    const user = userEvent.setup()
+    const onAttached = jest.fn()
+    mockDetach.mockRejectedValue(
+      new ApiClientError(
+        'Document is only mentioned via task body',
+        409,
+        'CONTENT_MENTION_ONLY'
+      )
+    )
+
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={onAttached}
+          documents={[
+            {
+              id: 'd1',
+              slug: 'spec-1',
+              title: 'Spec',
+              emoji: null,
+              updatedAt: '',
+            },
+          ]}
+        />
+      </Accordion>
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'task.contextLink.doc.detachAction',
+      })
+    )
+
+    expect(mockDetach).toHaveBeenCalledWith('task-1', 'd1')
+    expect(mockToastError).toHaveBeenCalledWith(
+      'task.contextLink.doc.errors.contentMentionOnly'
+    )
+    // The refresh callback is not fired when detach fails — the row is still
+    // bound, so we leave it visible until the user follows the toast guidance.
+    expect(onAttached).not.toHaveBeenCalled()
+  })
+
+  it('shows a generic network toast on non-409 errors', async () => {
+    const user = userEvent.setup()
+    mockDetach.mockRejectedValue(
+      new ApiClientError('boom', 500, 'INTERNAL_ERROR')
+    )
+
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+          documents={[
+            {
+              id: 'd1',
+              slug: 'spec-1',
+              title: 'Spec',
+              emoji: null,
+              updatedAt: '',
+            },
+          ]}
+        />
+      </Accordion>
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'task.contextLink.doc.detachAction',
+      })
+    )
+
+    expect(mockToastError).toHaveBeenCalledWith(
+      'task.contextLink.common.errors.network'
+    )
   })
 })

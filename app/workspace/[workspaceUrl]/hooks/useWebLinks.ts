@@ -16,13 +16,13 @@ interface UseWebLinksResult {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
-  add: (payload: { url: string; note?: string }) => void
+  add: (payload: { url: string }) => Promise<void>
   remove: (linkId: string) => Promise<void>
   refreshOne: (linkId: string) => Promise<void>
 }
 
 function makeOptimisticPlaceholder(
-  payload: { url: string; note?: string },
+  payload: { url: string },
   taskId: string
 ): OptimisticWebLink {
   let domain = ''
@@ -44,7 +44,7 @@ function makeOptimisticPlaceholder(
     domain,
     title: null,
     description: null,
-    note: payload.note ?? null,
+    note: null,
     imageUrl: null,
     faviconUrl: null,
     fetchedAt: null,
@@ -80,26 +80,25 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
   }, [enabled, refresh])
 
   const add = useCallback(
-    (payload: { url: string; note?: string }) => {
+    async (payload: { url: string }): Promise<void> => {
       const placeholder = makeOptimisticPlaceholder(payload, taskId)
       setWebLinks(prev => [placeholder, ...prev])
-      void (async () => {
-        try {
-          const { webLink } = await webLinksClient.add(taskId, payload)
-          setWebLinks(prev =>
-            prev.map(l => (l.tempId === placeholder.tempId ? webLink : l))
+      try {
+        const { webLink } = await webLinksClient.add(taskId, payload)
+        setWebLinks(prev =>
+          prev.map(l => (l.tempId === placeholder.tempId ? webLink : l))
+        )
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'add failed'
+        setWebLinks(prev =>
+          prev.map(l =>
+            l.tempId === placeholder.tempId
+              ? { ...l, loading: false, fetchError: msg }
+              : l
           )
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'add failed'
-          setWebLinks(prev =>
-            prev.map(l =>
-              l.tempId === placeholder.tempId
-                ? { ...l, loading: false, fetchError: msg }
-                : l
-            )
-          )
-        }
-      })()
+        )
+        throw e
+      }
     },
     [taskId]
   )

@@ -556,6 +556,7 @@ export const documentService = {
     const row = await documentRepository.addExplicitMention(doc.id, task.id)
 
     return {
+      documentId: doc.id,
       taskId: task.id,
       taskIdentifier: task.identifier,
       source: row.source,

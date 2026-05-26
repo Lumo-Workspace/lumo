@@ -36,13 +36,11 @@ jest.mock('@/lib/utils/buildTaskUrl', () => ({
 jest.mock('@clerk/nextjs/server', () => ({
   clerkClient: jest.fn().mockResolvedValue({
     users: {
-      getUser: jest
-        .fn()
-        .mockResolvedValue({
-          firstName: 'Someone',
-          lastName: null,
-          emailAddresses: [],
-        }),
+      getUser: jest.fn().mockResolvedValue({
+        firstName: 'Someone',
+        lastName: null,
+        emailAddresses: [],
+      }),
     },
   }),
 }))
