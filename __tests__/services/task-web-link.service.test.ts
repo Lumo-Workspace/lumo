@@ -93,20 +93,17 @@ describe('taskWebLinkService.addWebLink', () => {
     )
   })
 
-  it('stores user note in `note` column, independent of fetched description', async () => {
+  it('always writes note as null (note input dropped from API)', async () => {
     ogMock.mockResolvedValue({
       ok: true,
       data: { description: 'OG says this' },
       finalUrl: 'https://example.com/',
     })
     repoCreate.mockResolvedValue({ id: 'wl_1' })
-    await taskWebLinkService.addWebLink({
-      ...baseInput,
-      note: 'user typed this',
-    })
+    await taskWebLinkService.addWebLink(baseInput)
     expect(repoCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        note: 'user typed this',
+        note: null,
         description: 'OG says this',
       })
     )

@@ -67,7 +67,6 @@ export async function POST(request: NextRequest, { params }: Params) {
       taskId: id,
       workspaceId: task.project.workspaceId,
       url: parsed.data.url,
-      ...(parsed.data.note !== undefined && { note: parsed.data.note }),
       actorMemberId: memberResult.id,
     })
     return NextResponse.json({ webLink }, { status: 201 })
