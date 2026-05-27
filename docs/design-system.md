@@ -278,9 +278,41 @@ class string for headings makes the scale drift.
 4. Verify with: `npx @tailwindcss/cli -i app/globals.css -o /tmp/out.css`
    and grep the output for the expected utility class.
 
+## Token-discipline lint
+
+`scripts/lint-tokens.ts` enforces the no-hex / no-neutral-palette rules
+above. It runs:
+
+- on every staged commit via `lint-staged` (the husky pre-commit hook)
+- when you run `npm run lint`
+- on demand via `npm run lint:tokens`
+
+The repo carries ~2 000 pre-existing violations from before the lint
+existed, so a strict gate would block every PR. Instead the script
+runs in **baseline mode**:
+
+- `scripts/lint-tokens.baseline.json` snapshots the per-file violation
+  count at HEAD.
+- A PR fails only if a file's count **grows** vs. the baseline, or a
+  new file appears with any violations.
+- Cleanup PRs that shrink the count never fail; after the cleanup,
+  `npm run lint:tokens:update` re-snapshots the lower count, locking
+  it in so the file can't regress.
+
+| Command                      | What it does                                                              |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `npm run lint:tokens`        | Default. Scans, checks against the baseline. Non-zero exit on regression. |
+| `npm run lint:tokens:audit`  | `--full` mode. Prints every current violation (baseline ignored).         |
+| `npm run lint:tokens:update` | Rewrites the baseline to the current state. Commit the diff.              |
+
+When the lint flags a violation, the first move is **hoist into a
+token** (see [Adding a new token](#adding-a-new-token)). Adding a file
+to `ALLOWLIST` in the script is the escape hatch and weakens the rule
+permanently — only use it for files where raw color values are
+intentionally the file's payload (token-definition CSS, SVG icon
+sources). Every new allowlist entry should come with a justification
+comment.
+
 ## Known follow-ups (LUM-94 P2)
 
-- Tune `--status-*` for dark-mode legibility (currently identical to light).
-- Lint rule: CI greps `components/` and `app/` for hex/rgb literals
-  outside `globals.css` and fails the build.
 - Split `components/ui/sidebar.tsx` (23 KB single file) into SRP units.

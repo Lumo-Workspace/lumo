@@ -1,9 +1,9 @@
 {
   "*.{js,jsx,ts,tsx}": [
     "eslint --fix",
-    "prettier --write"
+    "prettier --write",
+    "bash -c 'npm run lint:tokens'"
   ],
-  "*.{json,md,yml,yaml}": [
-    "prettier --write"
-  ]
+  "*.css": ["prettier --write", "bash -c 'npm run lint:tokens'"],
+  "*.{json,md,yml,yaml}": ["prettier --write"]
 }
