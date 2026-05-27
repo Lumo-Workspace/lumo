@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { Copy, Trash2, Plus, Key, Loader2, Check } from 'lucide-react'
+import { Trash2, Plus, Key, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useApiKeys } from '../../hooks/useApiKeys'
+import { NewApiKeyDialog } from '../api-keys/NewApiKeyDialog'
 
 export function ApiKeysPage() {
   const intl = useIntl()
@@ -116,41 +117,13 @@ export function ApiKeysPage() {
           </ul>
         )}
 
-        {/* New key modal — show full key once */}
-        <AlertDialog
+        <NewApiKeyDialog
           open={!!newKey}
-          onOpenChange={open => !open && setNewKey(null)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {intl.formatMessage({ id: 'apiKeys.newKeyTitle' })}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {intl.formatMessage({ id: 'apiKeys.newKeyDesc' })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <div className='flex items-center gap-2 my-2'>
-              <code className='flex-1 text-xs bg-zinc-100 dark:bg-zinc-800 rounded px-3 py-2 break-all font-mono'>
-                {newKey?.key}
-              </code>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => void handleCopy()}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </Button>
-            </div>
-
-            <AlertDialogFooter>
-              <AlertDialogAction onClick={() => setNewKey(null)}>
-                {intl.formatMessage({ id: 'common.close' })}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          keyValue={newKey?.key ?? null}
+          copied={copied}
+          onCopy={() => void handleCopy()}
+          onClose={() => setNewKey(null)}
+        />
 
         {/* Revoke confirmation */}
         <AlertDialog
