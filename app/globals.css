@@ -309,13 +309,16 @@ html {
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #2563eb;
 
-  /* Status colors: pure tokenization preserves current main behavior
-     (same hex in both modes). Adjusting dark-mode legibility is a
-     separate visual decision and tracked as a LUM-94 follow-up. */
-  --status-todo: #a1a1aa;
-  --status-in-progress: #3b82f6;
-  --status-in-review: #8b5cf6;
-  --status-done: #10b981;
+  /* Status colors — dark-mode tuning.
+     TODO stays at zinc-400; "not started" is intentionally muted in
+     both themes, and lifting it would weaken the de-emphasis.
+     The three active states (IN_PROGRESS / IN_REVIEW / DONE) shift
+     one Tailwind shade lighter (500 → 400) so the dot/SVG fill reads
+     vibrant against the dark background instead of washed-out. */
+  --status-todo: #a1a1aa;        /* zinc-400 (same as light) */
+  --status-in-progress: #60a5fa; /* blue-400 */
+  --status-in-review: #a78bfa;   /* violet-400 */
+  --status-done: #34d399;        /* emerald-400 */
 }
 
 @theme inline {

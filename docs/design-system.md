@@ -51,18 +51,21 @@ in components — add or extend a token.
 Used by `<StatusIcon>` and the `.mention-task` chip dot. Adding a new
 status? Define a token here so both render paths stay in sync.
 
-| Token                  | Both modes | Status        |
-| ---------------------- | ---------- | ------------- |
-| `--status-todo`        | `#a1a1aa`  | `TODO`        |
-| `--status-in-progress` | `#3b82f6`  | `IN_PROGRESS` |
-| `--status-in-review`   | `#8b5cf6`  | `IN_REVIEW`   |
-| `--status-done`        | `#10b981`  | `DONE`        |
+| Token                  | Light                   | Dark                    | Status        |
+| ---------------------- | ----------------------- | ----------------------- | ------------- |
+| `--status-todo`        | `#a1a1aa` (zinc-400)    | `#a1a1aa` (zinc-400)    | `TODO`        |
+| `--status-in-progress` | `#3b82f6` (blue-500)    | `#60a5fa` (blue-400)    | `IN_PROGRESS` |
+| `--status-in-review`   | `#8b5cf6` (violet-500)  | `#a78bfa` (violet-400)  | `IN_REVIEW`   |
+| `--status-done`        | `#10b981` (emerald-500) | `#34d399` (emerald-400) | `DONE`        |
 
 Tailwind utilities: `text-status-{todo,in-progress,in-review,done}` and
 the `bg-` / `border-` equivalents.
 
-> Dark-mode hue tuning is a known follow-up — currently the same hex
-> renders in both themes for parity with pre-LUM-94 behavior.
+The three active statuses (IN_PROGRESS / IN_REVIEW / DONE) shift one
+Tailwind shade lighter under `.dark` so the colored dot/SVG fill reads
+vibrant against the near-black background. TODO holds at zinc-400 in
+both modes — the "not started" state is meant to read muted, and
+brightening it on dark mode would weaken that de-emphasis.
 
 ### Sidebar tokens
 
