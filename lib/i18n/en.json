@@ -1,5 +1,7 @@
 {
   "common.cancel": "Cancel",
+  "common.viewList": "List view",
+  "common.viewBoard": "Board view",
   "common.save": "Save",
   "drafts.delete": "Delete draft",
   "drafts.deleteConfirm": "Delete this draft?",
@@ -132,8 +134,7 @@
   "documents.sortUpdated": "Recently Updated",
   "documents.sortCreated": "Recently Created",
   "documents.sortTitle": "Title",
-  "documents.viewList": "List",
-  "documents.viewTable": "Table",
+  "documents.editedAt": "Edited · {time}",
   "documents.colName": "Document",
   "documents.colTags": "Tags",
   "documents.colCollaborators": "Collaborators",

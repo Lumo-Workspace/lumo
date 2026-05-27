@@ -1,5 +1,7 @@
 {
   "common.cancel": "Annuler",
+  "common.viewList": "Vue liste",
+  "common.viewBoard": "Vue tableau",
   "common.save": "Enregistrer",
   "drafts.delete": "Supprimer le brouillon",
   "drafts.deleteConfirm": "Supprimer ce brouillon ?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Récemment mis à jour",
   "documents.sortCreated": "Récemment créé",
   "documents.sortTitle": "Titre",
-  "documents.viewList": "Liste",
-  "documents.viewTable": "Tableau",
+  "documents.editedAt": "Modifié · {time}",
   "documents.colName": "Document",
   "documents.colTags": "Étiquettes",
   "documents.colCollaborators": "Collaborateurs",

@@ -1,5 +1,7 @@
 {
   "common.cancel": "キャンセル",
+  "common.viewList": "リスト表示",
+  "common.viewBoard": "ボード表示",
   "common.save": "保存",
   "drafts.delete": "下書きを削除",
   "drafts.deleteConfirm": "この下書きを削除しますか？",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "最近更新された",
   "documents.sortCreated": "最近作成された",
   "documents.sortTitle": "タイトル",
-  "documents.viewList": "リスト",
-  "documents.viewTable": "テーブル",
+  "documents.editedAt": "編集 · {time}",
   "documents.colName": "ドキュメント",
   "documents.colTags": "タグ",
   "documents.colCollaborators": "コラボレーター",

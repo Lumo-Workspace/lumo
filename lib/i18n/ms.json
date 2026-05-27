@@ -1,5 +1,7 @@
 {
   "common.cancel": "Batal",
+  "common.viewList": "Paparan senarai",
+  "common.viewBoard": "Paparan papan",
   "common.save": "Simpan",
   "drafts.delete": "Padam draf",
   "drafts.deleteConfirm": "Padam draf ini?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Dikemas Kini Terbaharu",
   "documents.sortCreated": "Dicipta Terbaharu",
   "documents.sortTitle": "Tajuk",
-  "documents.viewList": "Senarai",
-  "documents.viewTable": "Jadual",
+  "documents.editedAt": "Disunting · {time}",
   "documents.colName": "Dokumen",
   "documents.colTags": "Tag",
   "documents.colCollaborators": "Penggiat",

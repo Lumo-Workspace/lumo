@@ -1,5 +1,7 @@
 {
   "common.cancel": "取消",
+  "common.viewList": "列表视图",
+  "common.viewBoard": "看板视图",
   "common.save": "保存",
   "drafts.delete": "删除草稿",
   "drafts.deleteConfirm": "确定删除这个草稿？",
@@ -132,8 +134,7 @@
   "documents.sortUpdated": "最近更新",
   "documents.sortCreated": "最近创建",
   "documents.sortTitle": "标题",
-  "documents.viewList": "列表",
-  "documents.viewTable": "表格",
+  "documents.editedAt": "编辑于 {time}",
   "documents.colName": "文档名称",
   "documents.colTags": "标签",
   "documents.colCollaborators": "协作者",

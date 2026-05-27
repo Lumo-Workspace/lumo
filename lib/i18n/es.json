@@ -1,5 +1,7 @@
 {
   "common.cancel": "Cancelar",
+  "common.viewList": "Vista de lista",
+  "common.viewBoard": "Vista de tablero",
   "common.save": "Guardar",
   "drafts.delete": "Eliminar borrador",
   "drafts.deleteConfirm": "¿Eliminar este borrador?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Actualizado recientemente",
   "documents.sortCreated": "Creado recientemente",
   "documents.sortTitle": "Título",
-  "documents.viewList": "Lista",
-  "documents.viewTable": "Tabla",
+  "documents.editedAt": "Editado · {time}",
   "documents.colName": "Documento",
   "documents.colTags": "Etiquetas",
   "documents.colCollaborators": "Colaboradores",

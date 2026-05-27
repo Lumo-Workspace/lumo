@@ -11,6 +11,7 @@ import {
   type TiptapNode,
 } from '@/lib/utils/markdown-tiptap'
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
+import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { DocMentionSource } from '@prisma/client'
 
@@ -186,8 +187,13 @@ export const documentService = {
 
     return documents.map(doc => {
       const creatorUser = userMap.get(doc.createdBy.clerkId)
+      // Strip the full body from the list payload — the board view only
+      // needs a short plain-text preview, and content can be large.
+      const { content: _content, ...rest } = doc
+      const preview = extractDocumentPreview(doc.content)
       return {
-        ...doc,
+        ...rest,
+        preview,
         createdBy: {
           id: doc.createdBy.id,
           name: resolveClerkName(creatorUser, doc.createdBy.clerkId),
