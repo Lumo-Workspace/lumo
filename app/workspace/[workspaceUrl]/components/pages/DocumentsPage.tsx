@@ -3,17 +3,7 @@
 import { getInitials } from '@/lib/utils/getInitials'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
-import {
-  Plus,
-  Search,
-  MoreHorizontal,
-  Trash2,
-  Link,
-  List,
-  Table2,
-  ArrowDown,
-  ArrowUpDown,
-} from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Trash2, Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -44,6 +34,7 @@ import { ApiDocument, DocVisibility } from '../../types'
 import { TagList } from '../document/TagBadge'
 import { TagListNew } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
+import { ViewToggle } from '../ViewToggle'
 import { CACHE_KEY } from '../../constants'
 import { cn } from '@/lib/utils'
 
@@ -110,12 +101,13 @@ export function DocumentsPage({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<DocVisibility | 'ALL'>('ALL')
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'table'>(() => {
+  const [viewMode, setViewMode] = useState<'list' | 'board'>(() => {
     if (typeof window === 'undefined') return 'list'
-    return (
-      (localStorage.getItem(CACHE_KEY.docViewMode) as 'list' | 'table') ||
-      'list'
-    )
+    // Migrate the pre-board cache value: anyone with 'table' stored gets the
+    // board view that replaced it. Unknown values fall back to 'list'.
+    const stored = localStorage.getItem(CACHE_KEY.docViewMode)
+    if (stored === 'board' || stored === 'table') return 'board'
+    return 'list'
   })
   const [sortBy, setSortBy] = useState<SortKey>(() => {
     if (typeof window === 'undefined') return 'updatedAt'
@@ -139,7 +131,7 @@ export function DocumentsPage({
     [filtered, sortBy]
   )
 
-  function handleSetViewMode(mode: 'list' | 'table') {
+  function handleSetViewMode(mode: 'list' | 'board') {
     setViewMode(mode)
     localStorage.setItem(CACHE_KEY.docViewMode, mode)
   }
@@ -276,121 +268,54 @@ export function DocumentsPage({
     )
   }
 
-  function renderSortableHeader(label: string, key: SortKey) {
-    const isActive = sortBy === key
+  function renderBoardView() {
     return (
-      <button
-        type='button'
-        className={cn(
-          'inline-flex items-center gap-1 text-xs',
-          isActive
-            ? 'font-bold text-foreground'
-            : 'text-muted-foreground hover:text-foreground'
-        )}
-        onClick={() => handleSetSortBy(key)}
-      >
-        {label}
-        {isActive ? (
-          <ArrowDown className='size-3' />
-        ) : (
-          <ArrowUpDown className='size-3' />
-        )}
-      </button>
-    )
-  }
-
-  function renderTableView() {
-    return (
-      <div className='overflow-x-auto'>
-        <table className='w-full text-sm'>
-          <thead>
-            <tr className='border-b border-border'>
-              <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'documents.colName' })}
-              </th>
-              <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'documents.colCreator' })}
-              </th>
-              <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'documents.colTags' })}
-              </th>
-              <th className='text-left py-2 px-3 text-xs font-medium text-muted-foreground'>
-                {intl.formatMessage({ id: 'documents.colCollaborators' })}
-              </th>
-              <th className='text-left py-2 px-3'>
-                {renderSortableHeader(
-                  intl.formatMessage({ id: 'documents.colUpdatedAt' }),
-                  'updatedAt'
-                )}
-              </th>
-              <th className='w-8' />
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map(doc => (
-              <tr
-                key={doc.id}
-                className='border-b border-border hover:bg-muted/50 cursor-pointer transition-colors group'
-                onClick={() => onSelectDocument(doc)}
-              >
-                <td className='py-2 px-3'>
-                  <div className='flex items-center gap-2 min-w-0'>
-                    <span className='text-base shrink-0'>
-                      {doc.emoji ?? '📄'}
-                    </span>
-                    <span className='truncate font-medium'>
-                      {doc.title ||
-                        intl.formatMessage({
-                          id: 'documents.untitled',
-                          defaultMessage: 'Untitled',
-                        })}
-                    </span>
-                  </div>
-                </td>
-                <td className='py-2 px-3'>
-                  <span className='flex items-center gap-1.5'>
-                    <span className='size-[18px] rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                      {doc.createdBy.imageUrl ? (
-                        <img
-                          src={doc.createdBy.imageUrl}
-                          alt={doc.createdBy.name}
-                          className='w-full h-full object-cover'
-                        />
-                      ) : (
-                        <span className='text-[8px] font-medium text-muted-foreground'>
-                          {getInitials(doc.createdBy.name)}
-                        </span>
-                      )}
-                    </span>
-                    <span className='text-xs text-muted-foreground'>
-                      {doc.createdBy.name}
-                    </span>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4'>
+        {sorted.map(doc => (
+          <div
+            key={doc.id}
+            className='group flex h-64 cursor-pointer flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/50'
+            onClick={() => onSelectDocument(doc)}
+          >
+            <div className='flex items-start justify-between gap-2'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <span className='shrink-0 text-base'>{doc.emoji ?? '📄'}</span>
+                <span className='truncate text-sm font-medium'>
+                  {doc.title ||
+                    intl.formatMessage({
+                      id: 'documents.untitled',
+                      defaultMessage: 'Untitled',
+                    })}
+                </span>
+              </div>
+              {renderRowMenu(doc)}
+            </div>
+            <div className='mt-3 flex-1 overflow-hidden text-xs leading-relaxed text-muted-foreground whitespace-pre-line line-clamp-6'>
+              {doc.preview ?? ''}
+            </div>
+            <div className='mt-3 flex items-center gap-2'>
+              <span className='flex size-[20px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted'>
+                {doc.createdBy.imageUrl ? (
+                  <img
+                    src={doc.createdBy.imageUrl}
+                    alt={doc.createdBy.name}
+                    className='h-full w-full object-cover'
+                  />
+                ) : (
+                  <span className='text-[9px] font-medium text-muted-foreground'>
+                    {getInitials(doc.createdBy.name)}
                   </span>
-                </td>
-                <td className='py-2 px-3'>
-                  {doc.docTags && doc.docTags.length > 0 ? (
-                    <TagListNew tags={doc.docTags} max={3} />
-                  ) : doc.tags && doc.tags.length > 0 ? (
-                    <TagList tags={doc.tags} max={3} />
-                  ) : null}
-                </td>
-                <td className='py-2 px-3'>
-                  {doc.editors && doc.editors.length > 0 && (
-                    <CollaboratorAvatars
-                      editors={doc.editors}
-                      max={3}
-                      size={22}
-                    />
-                  )}
-                </td>
-                <td className='py-2 px-3 text-xs text-muted-foreground whitespace-nowrap'>
-                  {formatRelativeTime(doc.updatedAt, intl.locale)}
-                </td>
-                <td className='py-2 px-1'>{renderRowMenu(doc)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                )}
+              </span>
+              <span className='truncate text-xs text-muted-foreground'>
+                {intl.formatMessage(
+                  { id: 'documents.editedAt' },
+                  { time: formatRelativeTime(doc.updatedAt, intl.locale) }
+                )}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -451,30 +376,7 @@ export function DocumentsPage({
               </SelectContent>
             </Select>
 
-            <div className='flex items-center border rounded-md'>
-              <Button
-                variant='ghost'
-                size='icon'
-                className={cn(
-                  'size-8 rounded-r-none',
-                  viewMode === 'list' && 'bg-muted'
-                )}
-                onClick={() => handleSetViewMode('list')}
-              >
-                <List className='size-3.5' />
-              </Button>
-              <Button
-                variant='ghost'
-                size='icon'
-                className={cn(
-                  'size-8 rounded-l-none',
-                  viewMode === 'table' && 'bg-muted'
-                )}
-                onClick={() => handleSetViewMode('table')}
-              >
-                <Table2 className='size-3.5' />
-              </Button>
-            </div>
+            <ViewToggle value={viewMode} onChange={handleSetViewMode} />
 
             <div className='relative'>
               <Search className='absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground' />
@@ -506,7 +408,7 @@ export function DocumentsPage({
             </div>
           }
         >
-          {viewMode === 'list' ? renderListView() : renderTableView()}
+          {viewMode === 'list' ? renderListView() : renderBoardView()}
         </AsyncContent>
       </div>
 

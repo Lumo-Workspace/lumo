@@ -1,5 +1,7 @@
 {
   "common.cancel": "Abbrechen",
+  "common.viewList": "Listenansicht",
+  "common.viewBoard": "Kartenansicht",
   "common.save": "Speichern",
   "drafts.delete": "Entwurf löschen",
   "drafts.deleteConfirm": "Diesen Entwurf löschen?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Zuletzt aktualisiert",
   "documents.sortCreated": "Zuletzt erstellt",
   "documents.sortTitle": "Titel",
-  "documents.viewList": "Liste",
-  "documents.viewTable": "Tabelle",
+  "documents.editedAt": "Bearbeitet · {time}",
   "documents.colName": "Dokument",
   "documents.colTags": "Etiketten",
   "documents.colCollaborators": "Mitarbeiter",

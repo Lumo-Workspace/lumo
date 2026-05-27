@@ -1,5 +1,7 @@
 {
   "common.cancel": "Hủy",
+  "common.viewList": "Chế độ danh sách",
+  "common.viewBoard": "Chế độ bảng",
   "common.save": "Lưu",
   "drafts.delete": "Xóa bản nháp",
   "drafts.deleteConfirm": "Xóa bản nháp này?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Cập nhật gần đây",
   "documents.sortCreated": "Tạo gần đây",
   "documents.sortTitle": "Tiêu đề",
-  "documents.viewList": "Danh sách",
-  "documents.viewTable": "Bảng",
+  "documents.editedAt": "Đã sửa · {time}",
   "documents.colName": "Tài liệu",
   "documents.colTags": "Nhãn",
   "documents.colCollaborators": "Cộng tác viên",

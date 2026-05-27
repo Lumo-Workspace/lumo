@@ -1,5 +1,7 @@
 {
   "common.cancel": "रद्द करें",
+  "common.viewList": "सूची दृश्य",
+  "common.viewBoard": "बोर्ड दृश्य",
   "common.save": "सहेजें",
   "drafts.delete": "ड्राफ्ट हटाएं",
   "drafts.deleteConfirm": "यह ड्राफ्ट हटाएं?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "हाल ही में अपडेट किए गए",
   "documents.sortCreated": "हाल ही में बनाए गए",
   "documents.sortTitle": "शीर्षक",
-  "documents.viewList": "सूची",
-  "documents.viewTable": "तालिका",
+  "documents.editedAt": "संपादित · {time}",
   "documents.colName": "दस्तावेज़",
   "documents.colTags": "टैग",
   "documents.colCollaborators": "सहयोगी",

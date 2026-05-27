@@ -1,5 +1,7 @@
 {
   "common.cancel": "Batal",
+  "common.viewList": "Tampilan daftar",
+  "common.viewBoard": "Tampilan papan",
   "common.save": "Simpan",
   "drafts.delete": "Hapus draf",
   "drafts.deleteConfirm": "Hapus draf ini?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Baru Diperbarui",
   "documents.sortCreated": "Baru Dibuat",
   "documents.sortTitle": "Judul",
-  "documents.viewList": "Daftar",
-  "documents.viewTable": "Tabel",
+  "documents.editedAt": "Diedit · {time}",
   "documents.colName": "Dokumen",
   "documents.colTags": "Label",
   "documents.colCollaborators": "Kolaborator",

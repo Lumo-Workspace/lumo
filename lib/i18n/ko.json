@@ -1,5 +1,7 @@
 {
   "common.cancel": "취소",
+  "common.viewList": "리스트 보기",
+  "common.viewBoard": "보드 보기",
   "common.save": "저장",
   "drafts.delete": "임시저장 삭제",
   "drafts.deleteConfirm": "이 임시저장을 삭제하시겠습니까?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "최근 수정순",
   "documents.sortCreated": "최근 생성순",
   "documents.sortTitle": "제목순",
-  "documents.viewList": "목록",
-  "documents.viewTable": "테이블",
+  "documents.editedAt": "편집됨 · {time}",
   "documents.colName": "문서",
   "documents.colTags": "태그",
   "documents.colCollaborators": "협업자",

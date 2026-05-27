@@ -1,5 +1,7 @@
 {
   "common.cancel": "Отмена",
+  "common.viewList": "Список",
+  "common.viewBoard": "Доска",
   "common.save": "Сохранить",
   "drafts.delete": "Удалить черновик",
   "drafts.deleteConfirm": "Удалить этот черновик?",
@@ -129,8 +131,7 @@
   "documents.sortUpdated": "Недавно обновлённые",
   "documents.sortCreated": "Недавно созданные",
   "documents.sortTitle": "По названию",
-  "documents.viewList": "Список",
-  "documents.viewTable": "Таблица",
+  "documents.editedAt": "Изменено · {time}",
   "documents.colName": "Документ",
   "documents.colTags": "Метки",
   "documents.colCollaborators": "Соавторы",

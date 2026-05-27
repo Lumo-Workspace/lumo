@@ -385,6 +385,7 @@ export interface ApiDocument {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  preview?: string | null
   _count?: { children: number }
   tags?: string[]
   docTags?: ApiTag[]
