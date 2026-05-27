@@ -328,9 +328,6 @@ export function DocumentsPage({
             <h1 className='text-2xl font-bold'>
               {intl.formatMessage({ id: 'documents.title' })}
             </h1>
-            <p className='text-sm text-muted-foreground'>
-              {intl.formatMessage({ id: 'documents.subtitle' })}
-            </p>
           </div>
           <Button size='sm' onClick={onNewDocument}>
             <Plus className='size-4 mr-1' />
