@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Landing-scoped tokens (.landing). Imported here so Tailwind v4 picks up
+   the landing-only @theme registrations and generates utilities like
+   `bg-brand`. The `.landing { ... }` selectors keep the tokens isolated
+   to landing DOM at runtime. */
+@import "../components/landing/landing.css";
 
 html {
   scroll-behavior: smooth;
@@ -13,21 +18,14 @@ html {
   content: none !important;
 }
 
-/* Code block */
+/* Code block — tokenized; .dark inversion handled by --muted/--foreground/--border */
 .prose pre,
 .ProseMirror pre {
-  background-color: rgb(244 244 245) !important; /* zinc-100 */
-  color: rgb(24 24 27) !important; /* zinc-900 */
-  border: 1px solid rgb(228 228 231) !important; /* zinc-200 */
+  background-color: var(--muted) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 0.375rem !important;
   padding: 0.75rem 1rem !important;
-}
-
-.dark .prose pre,
-.dark .ProseMirror pre {
-  background-color: rgb(24 24 27) !important; /* zinc-900 */
-  color: rgb(212 212 216) !important; /* zinc-300 */
-  border-color: rgb(39 39 42) !important; /* zinc-800 */
 }
 
 /* Don't double-style inline code inside code blocks */
@@ -40,18 +38,13 @@ html {
   font-size: inherit !important;
 }
 
-/* Inline code background */
+/* Inline code — tokenized */
 .prose code {
-  background-color: rgb(244 244 245); /* zinc-100 */
-  color: rgb(39 39 42); /* zinc-800 */
+  background-color: var(--muted);
+  color: var(--foreground);
   border-radius: 0.25rem;
   padding: 0.125rem 0.3rem;
   font-size: 0.8em;
-}
-
-.dark .prose code {
-  background-color: rgb(39 39 42); /* zinc-800 */
-  color: rgb(212 212 216); /* zinc-300 */
 }
 
 /* ── TipTap / ProseMirror base ───────────────────────────────────────────── */
@@ -68,7 +61,7 @@ html {
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #9ca3af;
+  color: var(--muted-foreground);
   pointer-events: none;
   height: 0;
 }
@@ -114,7 +107,7 @@ html {
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: #3b82f6;
+  accent-color: var(--primary);
 }
 
 .ProseMirror ul[data-type="taskList"] li > div {
@@ -133,7 +126,7 @@ html {
   opacity: 0.5;
 }
 
-/* ── Mention chip ────────────────────────────────────────────────────────── */
+/* ── Mention chip — tokenized; .dark inversion via --accent / --accent-foreground ── */
 .mention,
 .prose .mention,
 .ProseMirror .mention,
@@ -147,19 +140,10 @@ html {
   border-radius: 4px;
   font-size: 0.875em;
   font-weight: 500;
-  background-color: #e4e4e7;
-  color: #3f3f46 !important;
+  background-color: var(--accent);
+  color: var(--accent-foreground) !important;
   cursor: default;
   white-space: nowrap;
-}
-.dark .mention,
-.dark .prose .mention,
-.dark .ProseMirror .mention,
-.dark .mention-task,
-.dark .prose .mention-task,
-.dark .ProseMirror .mention-task {
-  background-color: #3f3f46;
-  color: #d4d4d8 !important;
 }
 
 /* Task chip — status dot via ::before using Unicode circle.
@@ -190,34 +174,25 @@ html {
 
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   padding: 4px 8px;
   vertical-align: top;
   position: relative;
   min-width: 60px;
 }
 
-.dark .ProseMirror table td,
-.dark .ProseMirror table th {
-  border-color: #3f3f46;
-}
-
 .ProseMirror table th {
-  background: #f4f4f5;
+  background: var(--accent);
   font-weight: 600;
   text-align: left;
 }
 
-.dark .ProseMirror table th {
-  background: #27272a;
-}
-
-/* Highlight the selected cell */
+/* Highlight the selected cell — semantic selection color, kept as indigo */
 .ProseMirror table .selectedCell::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(99, 102, 241, 0.12);
+  background: color-mix(in srgb, var(--ring) 18%, transparent);
   pointer-events: none;
 }
 
@@ -270,11 +245,14 @@ html {
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #2563eb;
 
-  /* Semantic task-status colors (mention chips, StatusIcon, board columns). */
-  --status-todo: #a1a1aa;        /* zinc-400 */
-  --status-in-progress: #3b82f6; /* blue-500 */
-  --status-in-review: #8b5cf6;   /* violet-500 */
-  --status-done: #10b981;        /* emerald-500 */
+  /* Semantic task-status colors — Lumo brand palette.
+     Same hex in :root and .dark; chosen for legibility against both
+     backgrounds. Used by .mention-task chips, <StatusIcon>, and any
+     future status indicator (e.g. board column headers). */
+  --status-todo: #d1d5dc;        /* brand neutral */
+  --status-in-progress: #2b7fff; /* brand blue */
+  --status-in-review: #bf2bff;   /* brand magenta */
+  --status-done: #41b40f;        /* brand green */
 
   --font-inter: "Inter", sans-serif;
   --font-source-code-pro: "Source Code Pro", monospace;
@@ -309,16 +287,12 @@ html {
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #2563eb;
 
-  /* Status colors — dark-mode tuning.
-     TODO stays at zinc-400; "not started" is intentionally muted in
-     both themes, and lifting it would weaken the de-emphasis.
-     The three active states (IN_PROGRESS / IN_REVIEW / DONE) shift
-     one Tailwind shade lighter (500 → 400) so the dot/SVG fill reads
-     vibrant against the dark background instead of washed-out. */
-  --status-todo: #a1a1aa;        /* zinc-400 (same as light) */
-  --status-in-progress: #60a5fa; /* blue-400 */
-  --status-in-review: #a78bfa;   /* violet-400 */
-  --status-done: #34d399;        /* emerald-400 */
+  /* Status colors — brand palette (identical to :root). Keep these
+     in sync; if a value diverges, update both. */
+  --status-todo: #d1d5dc;
+  --status-in-progress: #2b7fff;
+  --status-in-review: #bf2bff;
+  --status-done: #41b40f;
 }
 
 @theme inline {
@@ -363,16 +337,12 @@ html {
   --color-status-in-review: var(--status-in-review);
   --color-status-done: var(--status-done);
 
-  /* Landing page extensions */
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
-  --color-light: var(--light);
-  --color-light-foreground: var(--light-foreground);
+  /* Landing-specific @theme registrations (--color-brand, --color-light,
+     --shadow-mockup) live in components/landing/landing.css, alongside the
+     landing-scoped --brand / --light / --shadow-strong values they depend on. */
 
   --spacing-container: 1280px;
   --spacing-container-lg: 1536px;
-
-  --shadow-mockup: -12px 16px 48px var(--shadow-strong);
 
   --animate-appear: appear 0.6s forwards ease-out;
   --animate-appear-zoom: appear-zoom 0.6s forwards ease-out;
@@ -401,7 +371,7 @@ body {
   color: var(--color-foreground);
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+/* ── Scrollbar — tokenized; .dark inversion via --border / --muted-foreground ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -412,20 +382,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--border);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--muted-foreground);
 }
 
 /* ── Landing page utilities (from launch-ui) ────────────────────────────── */
@@ -563,7 +525,7 @@ body {
   background: transparent;
   border-radius: 3px;
 }
-.board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(212 212 216); }
+.board-col-scroll:hover::-webkit-scrollbar-thumb { background: var(--border); }
 
 /* LUM-91: extracted taskItem rows — hide checkbox, show task link */
 li[data-type='taskItem'][data-task-id] > label {
@@ -572,12 +534,11 @@ li[data-type='taskItem'][data-task-id] > label {
 li[data-type='taskItem'][data-task-id] > div {
   margin-left: 0;
   padding-left: 0.5rem;
-  border-left: 2px solid var(--accent, #4f46e5);
+  border-left: 2px solid var(--accent);
 }
 li[data-type='taskItem'][data-task-id] a.task-link::before {
   content: attr(data-task-identifier) ' · ';
-  color: var(--muted-foreground, #888);
+  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
   margin-right: 0.25rem;
 }
-.dark .board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(82 82 91); }
