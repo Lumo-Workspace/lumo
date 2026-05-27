@@ -15,6 +15,7 @@ import {
   Bell,
   Tag,
   CalendarClock,
+  Terminal,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -93,6 +94,11 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.notifications' }),
       href: `/workspace/${workspaceUrl}/settings/notifications`,
       icon: Bell,
+    },
+    {
+      label: intl.formatMessage({ id: 'settings.cli' }),
+      href: `/workspace/${workspaceUrl}/settings/cli`,
+      icon: Terminal,
     },
     {
       label: intl.formatMessage({ id: 'settings.apiKeys' }),
