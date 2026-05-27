@@ -1,10 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Landing-scoped tokens (.landing). Imported here so Tailwind v4 picks up
-   the landing-only @theme registrations and generates utilities like
-   `bg-brand`. The `.landing { ... }` selectors keep the tokens isolated
-   to landing DOM at runtime. */
-@import "../components/landing/landing.css";
 
 html {
   scroll-behavior: smooth;
@@ -18,14 +13,21 @@ html {
   content: none !important;
 }
 
-/* Code block — tokenized; .dark inversion handled by --muted/--foreground/--border */
+/* Code block */
 .prose pre,
 .ProseMirror pre {
-  background-color: var(--muted) !important;
-  color: var(--foreground) !important;
-  border: 1px solid var(--border) !important;
+  background-color: rgb(244 244 245) !important; /* zinc-100 */
+  color: rgb(24 24 27) !important; /* zinc-900 */
+  border: 1px solid rgb(228 228 231) !important; /* zinc-200 */
   border-radius: 0.375rem !important;
   padding: 0.75rem 1rem !important;
+}
+
+.dark .prose pre,
+.dark .ProseMirror pre {
+  background-color: rgb(24 24 27) !important; /* zinc-900 */
+  color: rgb(212 212 216) !important; /* zinc-300 */
+  border-color: rgb(39 39 42) !important; /* zinc-800 */
 }
 
 /* Don't double-style inline code inside code blocks */
@@ -38,13 +40,18 @@ html {
   font-size: inherit !important;
 }
 
-/* Inline code — tokenized */
+/* Inline code background */
 .prose code {
-  background-color: var(--muted);
-  color: var(--foreground);
+  background-color: rgb(244 244 245); /* zinc-100 */
+  color: rgb(39 39 42); /* zinc-800 */
   border-radius: 0.25rem;
   padding: 0.125rem 0.3rem;
   font-size: 0.8em;
+}
+
+.dark .prose code {
+  background-color: rgb(39 39 42); /* zinc-800 */
+  color: rgb(212 212 216); /* zinc-300 */
 }
 
 /* ── TipTap / ProseMirror base ───────────────────────────────────────────── */
@@ -61,7 +68,7 @@ html {
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: var(--muted-foreground);
+  color: #9ca3af;
   pointer-events: none;
   height: 0;
 }
@@ -107,7 +114,7 @@ html {
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--primary);
+  accent-color: #3b82f6;
 }
 
 .ProseMirror ul[data-type="taskList"] li > div {
@@ -126,7 +133,7 @@ html {
   opacity: 0.5;
 }
 
-/* ── Mention chip — tokenized; .dark inversion via --accent / --accent-foreground ── */
+/* ── Mention chip ────────────────────────────────────────────────────────── */
 .mention,
 .prose .mention,
 .ProseMirror .mention,
@@ -140,15 +147,24 @@ html {
   border-radius: 4px;
   font-size: 0.875em;
   font-weight: 500;
-  background-color: var(--accent);
-  color: var(--accent-foreground) !important;
+  background-color: #e4e4e7;
+  color: #3f3f46 !important;
   cursor: default;
   white-space: nowrap;
 }
+.dark .mention,
+.dark .prose .mention,
+.dark .ProseMirror .mention,
+.dark .mention-task,
+.dark .prose .mention-task,
+.dark .ProseMirror .mention-task {
+  background-color: #3f3f46;
+  color: #d4d4d8 !important;
+}
 
 /* Task chip — status dot via ::before using Unicode circle.
-   Status colors are semantic and hard-coded for now; LUM-94 P1 will lift
-   these into --color-status-{todo,in-progress,in-review,done} tokens. */
+   Colors come from semantic --status-* tokens (single source of truth, also
+   used by <StatusIcon> SVG). */
 .mention-task::before,
 .prose .mention-task::before,
 .ProseMirror .mention-task::before {
@@ -156,12 +172,12 @@ html {
   font-size: 0.65em;
   line-height: 1;
   margin-right: 3px;
-  color: var(--muted-foreground);
+  color: var(--status-todo);
 }
-.mention-task[data-mention-status='TODO']::before        { content: '○'; color: var(--muted-foreground); }
-.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: #3b82f6; }
-.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: #8b5cf6; }
-.mention-task[data-mention-status='DONE']::before        { content: '●'; color: #10b981; }
+.mention-task[data-mention-status='TODO']::before        { content: '○'; color: var(--status-todo); }
+.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: var(--status-in-progress); }
+.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: var(--status-in-review); }
+.mention-task[data-mention-status='DONE']::before        { content: '●'; color: var(--status-done); }
 
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .ProseMirror table {
@@ -174,25 +190,34 @@ html {
 
 .ProseMirror table td,
 .ProseMirror table th {
-  border: 1px solid var(--border);
+  border: 1px solid #e4e4e7;
   padding: 4px 8px;
   vertical-align: top;
   position: relative;
   min-width: 60px;
 }
 
+.dark .ProseMirror table td,
+.dark .ProseMirror table th {
+  border-color: #3f3f46;
+}
+
 .ProseMirror table th {
-  background: var(--accent);
+  background: #f4f4f5;
   font-weight: 600;
   text-align: left;
 }
 
-/* Highlight the selected cell — semantic selection color, kept as indigo */
+.dark .ProseMirror table th {
+  background: #27272a;
+}
+
+/* Highlight the selected cell */
 .ProseMirror table .selectedCell::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--ring) 18%, transparent);
+  background: rgba(99, 102, 241, 0.12);
   pointer-events: none;
 }
 
@@ -245,6 +270,12 @@ html {
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #2563eb;
 
+  /* Semantic task-status colors (mention chips, StatusIcon, board columns). */
+  --status-todo: #a1a1aa;        /* zinc-400 */
+  --status-in-progress: #3b82f6; /* blue-500 */
+  --status-in-review: #8b5cf6;   /* violet-500 */
+  --status-done: #10b981;        /* emerald-500 */
+
   --font-inter: "Inter", sans-serif;
   --font-source-code-pro: "Source Code Pro", monospace;
 }
@@ -277,6 +308,14 @@ html {
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #2563eb;
+
+  /* Status colors: pure tokenization preserves current main behavior
+     (same hex in both modes). Adjusting dark-mode legibility is a
+     separate visual decision and tracked as a LUM-94 follow-up. */
+  --status-todo: #a1a1aa;
+  --status-in-progress: #3b82f6;
+  --status-in-review: #8b5cf6;
+  --status-done: #10b981;
 }
 
 @theme inline {
@@ -315,12 +354,22 @@ html {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Landing-specific @theme registrations (--color-brand, --color-light,
-     --shadow-mockup) live in components/landing/landing.css, alongside the
-     landing-scoped --brand / --light / --shadow-strong values they depend on. */
+  /* Semantic status utilities: generates .text-status-todo / .bg-status-done / etc. */
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-done: var(--status-done);
+
+  /* Landing page extensions */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-light: var(--light);
+  --color-light-foreground: var(--light-foreground);
 
   --spacing-container: 1280px;
   --spacing-container-lg: 1536px;
+
+  --shadow-mockup: -12px 16px 48px var(--shadow-strong);
 
   --animate-appear: appear 0.6s forwards ease-out;
   --animate-appear-zoom: appear-zoom 0.6s forwards ease-out;
@@ -349,7 +398,7 @@ body {
   color: var(--color-foreground);
 }
 
-/* ── Scrollbar — tokenized; .dark inversion via --border / --muted-foreground ── */
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -360,12 +409,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: #d1d5db;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: #9ca3af;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
 /* ── Landing page utilities (from launch-ui) ────────────────────────────── */
@@ -503,7 +560,7 @@ body {
   background: transparent;
   border-radius: 3px;
 }
-.board-col-scroll:hover::-webkit-scrollbar-thumb { background: var(--border); }
+.board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(212 212 216); }
 
 /* LUM-91: extracted taskItem rows — hide checkbox, show task link */
 li[data-type='taskItem'][data-task-id] > label {
@@ -512,11 +569,12 @@ li[data-type='taskItem'][data-task-id] > label {
 li[data-type='taskItem'][data-task-id] > div {
   margin-left: 0;
   padding-left: 0.5rem;
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--accent, #4f46e5);
 }
 li[data-type='taskItem'][data-task-id] a.task-link::before {
   content: attr(data-task-identifier) ' · ';
-  color: var(--muted-foreground);
+  color: var(--muted-foreground, #888);
   font-variant-numeric: tabular-nums;
   margin-right: 0.25rem;
 }
+.dark .board-col-scroll:hover::-webkit-scrollbar-thumb { background: rgb(82 82 91); }
