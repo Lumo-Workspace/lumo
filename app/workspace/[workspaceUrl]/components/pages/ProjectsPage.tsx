@@ -232,66 +232,66 @@ export function ProjectsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      {/* Breadcrumb */}
-      <PageBreadcrumb title={intl.formatMessage({ id: 'sidebar.projects' })} />
-
-      {/* Page header */}
-      <header className='pt-4 pb-4 px-4 md:px-8 flex items-center justify-end shrink-0'>
-        <div className='flex items-center gap-2'>
-          <div className='relative w-56' ref={searchRef}>
-            <Search
-              size={16}
-              className='absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400'
-            />
-            <input
-              className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
-              placeholder={intl.formatMessage({
-                id: 'projects.searchPlaceholder',
-              })}
-              type='text'
-              value={query}
-              onChange={e => {
-                setQuery(e.target.value)
-                setOpen(true)
-              }}
-              onFocus={() => setOpen(true)}
-            />
-            {open && query.trim() && (
-              <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>
-                {filtered.length === 0 ? (
-                  <p className='px-3 py-2.5 text-xs text-zinc-400'>
-                    {intl.formatMessage({ id: 'projects.searchNoMatch' })}
-                  </p>
-                ) : (
-                  filtered.map(p => (
-                    <Button
-                      key={p.id}
-                      variant='ghost'
-                      className='w-full justify-between h-auto px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 rounded-none font-normal gap-2'
-                      onMouseDown={() => {
-                        setQuery('')
-                        setOpen(false)
-                        onSelectProject(p)
-                      }}
-                    >
-                      <span className='font-medium truncate'>{p.name}</span>
-                      {p.isIdea && (
-                        <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
-                          {intl.formatMessage({ id: 'projects.draftBadge' })}
-                        </span>
-                      )}
-                    </Button>
-                  ))
-                )}
-              </div>
-            )}
+      {/* Breadcrumb with primary actions above the separator */}
+      <PageBreadcrumb
+        title={intl.formatMessage({ id: 'sidebar.projects' })}
+        actions={
+          <div className='flex items-center gap-2'>
+            <div className='relative w-56' ref={searchRef}>
+              <Search
+                size={16}
+                className='absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400'
+              />
+              <input
+                className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
+                placeholder={intl.formatMessage({
+                  id: 'projects.searchPlaceholder',
+                })}
+                type='text'
+                value={query}
+                onChange={e => {
+                  setQuery(e.target.value)
+                  setOpen(true)
+                }}
+                onFocus={() => setOpen(true)}
+              />
+              {open && query.trim() && (
+                <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>
+                  {filtered.length === 0 ? (
+                    <p className='px-3 py-2.5 text-xs text-zinc-400'>
+                      {intl.formatMessage({ id: 'projects.searchNoMatch' })}
+                    </p>
+                  ) : (
+                    filtered.map(p => (
+                      <Button
+                        key={p.id}
+                        variant='ghost'
+                        className='w-full justify-between h-auto px-3 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 rounded-none font-normal gap-2'
+                        onMouseDown={() => {
+                          setQuery('')
+                          setOpen(false)
+                          onSelectProject(p)
+                        }}
+                      >
+                        <span className='font-medium truncate'>{p.name}</span>
+                        {p.isIdea && (
+                          <span className={`shrink-0 ${IDEA_BADGE_CLS}`}>
+                            {intl.formatMessage({ id: 'projects.draftBadge' })}
+                          </span>
+                        )}
+                      </Button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            <Button onClick={onNewProject} size='sm' className='gap-1.5'>
+              <Plus size={14} />
+              {intl.formatMessage({ id: 'projects.create' })}
+            </Button>
           </div>
-          <Button onClick={onNewProject} size='sm' className='gap-1.5'>
-            <Plus size={14} />
-            {intl.formatMessage({ id: 'projects.create' })}
-          </Button>
-        </div>
-      </header>
+        }
+      />
 
       {/* Spacer — matches the h-12 toolbar in MyTasksPage so empty state aligns.
           Doubles as the host slot for the bulk-selection bar (absolute overlay
