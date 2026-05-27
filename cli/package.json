@@ -1,18 +1,43 @@
 {
-  "name": "@lumo/cli",
-  "version": "0.2.0",
-  "private": true,
+  "name": "@lumoai/cli",
+  "version": "1.2.0",
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
+  "license": "MIT",
+  "author": "cli@uselumo.ai",
+  "homepage": "https://github.com/Lumo-Workspace/lumo/tree/main/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lumo-Workspace/lumo.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/Lumo-Workspace/lumo/issues"
+  },
+  "keywords": [
+    "lumo",
+    "cli",
+    "task-management",
+    "project-management",
+    "claude-code"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
-    "lumo": "./dist/cli/src/index.js"
+    "lumo": "dist/cli/src/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/cli/src/index.js && node ./scripts/bundle-assets.js",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist assets",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
     "commander": "^13.1.0"

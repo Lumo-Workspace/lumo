@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化".'
 ---
 
 ## Prerequisites
@@ -11,9 +11,30 @@ Before running any `lumo` command, verify the CLI is available and authenticated
 which lumo && lumo whoami
 ```
 
-- If `lumo` is not found: tell the user to install it (`cd cli && npm install && npm link`)
+- If `lumo` is not found: tell the user to install it (`npm install -g @lumoai/cli`; for monorepo dev, `cd cli && npm install && npm link` also works)
 - If `lumo whoami` fails with an auth error: tell the user to run `lumo auth login`
 - Do NOT proceed with any lumo commands until both checks pass
+
+## Onboarding
+
+### `lumo setup [--user|--project] [--force]` — install skill + hooks
+
+Bootstraps Lumo into a Claude Code installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+
+```bash
+npx @lumoai/cli setup           # interactive: prompts user/project
+npx @lumoai/cli setup --user    # write to ~/.claude/
+npx @lumoai/cli setup --project # write to ./.claude/
+npx @lumoai/cli setup --force   # overwrite SKILL.md if it differs from bundled
+```
+
+Use when:
+
+- The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
+- A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
+- After `npm install -g @lumoai/cli`, before the first `lumo auth login`
+
+If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown.
 
 ## Authentication
 
@@ -60,6 +81,26 @@ Use when:
 - The user asks "who am I", "which workspace am I in", "what account is this"
 - You need to disambiguate whether `lumo task list` would hit the user's expected workspace
 - Before suggesting a destructive command on a shared machine — confirm the identity is right
+
+## Self-Update
+
+### `lumo update` — upgrade the CLI to the latest npm release
+
+Synchronously checks `registry.npmjs.org` for the latest published version of `@lumoai/cli`. When a newer version exists, runs `npm install -g @lumoai/cli@latest` and streams npm's output. When already on the latest, exits cleanly with a "Already on the latest version (X)" message.
+
+```bash
+lumo update
+```
+
+The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
+
+Use when:
+
+- The user asks "how do I update", "upgrade lumo", "is there a new version"
+- A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
+- The passive notice has appeared and the user wants to act on it
+
+If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not auto-retry; let the user resolve the environment issue first.
 
 ## Task Context Loading
 
@@ -146,7 +187,7 @@ Pure flag-driven update. Provide at least one of:
 | `-p, --priority <lvl>`   | enum                | `low \| medium \| high \| urgent`.                                                                                                                                                                                                                                    |
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
-| `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                          |
+| `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
 | `--tag-id <cuid>`        | string (repeatable) | **Bulk replace** the tag set by id. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                                                   |
 | `--add-tag <name>`       | string (repeatable) | Attach tag by name (find-or-create). Max 20.                                                                                                                                                                                                                          |
@@ -588,11 +629,11 @@ If user creates a doc with `--task LUM-N` and the current Claude Code session is
 
 Prints fixed-width rows: `<NUMBER>  <STATUS>  <start>  <end>  <name>`, sorted newest-first (server sort).
 
-| Flag                   | Type    | Notes                                              |
-| ---------------------- | ------- | -------------------------------------------------- |
+| Flag                   | Type    | Notes                                                 |
+| ---------------------- | ------- | ----------------------------------------------------- |
 | `--team <ref>`         | string  | Team name or slug. Required in multi-team workspaces. |
-| `-s, --status <value>` | enum    | `draft \| active \| closed`.                       |
-| `-n, --limit <count>`  | integer | Cap output to the first N rows.                    |
+| `-s, --status <value>` | enum    | `draft \| active \| closed`.                          |
+| `-n, --limit <count>`  | integer | Cap output to the first N rows.                       |
 
 ```bash
 lumo sprint list
@@ -604,12 +645,12 @@ When to suggest: user asks "what sprints do we have", "which sprint is active", 
 
 ### `lumo sprint create [flags]` — create a sprint
 
-| Flag              | Type   | Notes                                                   |
-| ----------------- | ------ | ------------------------------------------------------- |
-| `--team <ref>`    | string | Team name or slug. Required in multi-team workspaces.   |
-| `--start <date>`  | string | **Required.** YYYY-MM-DD.                               |
-| `--end <date>`    | string | **Required.** YYYY-MM-DD.                               |
-| `-n, --name <>`   | string | Optional. Server fills a default name when omitted.     |
+| Flag             | Type   | Notes                                                 |
+| ---------------- | ------ | ----------------------------------------------------- |
+| `--team <ref>`   | string | Team name or slug. Required in multi-team workspaces. |
+| `--start <date>` | string | **Required.** YYYY-MM-DD.                             |
+| `--end <date>`   | string | **Required.** YYYY-MM-DD.                             |
+| `-n, --name <>`  | string | Optional. Server fills a default name when omitted.   |
 
 ```bash
 lumo sprint create --start 2026-06-01 --end 2026-06-14
@@ -638,12 +679,12 @@ When to suggest: user asks "what's in sprint 3", "show me the current sprint", "
 
 Updates sprint metadata. At least one flag required. **No `--status` flag** — use `lumo sprint start` / `lumo sprint close` to transition status.
 
-| Flag              | Type   | Notes                                                         |
-| ----------------- | ------ | ------------------------------------------------------------- |
-| `--team <ref>`    | string | Required when identifier is a number in a multi-team workspace. |
-| `-n, --name <>`   | string | New name. Cannot be empty.                                    |
-| `--start <date>`  | string | YYYY-MM-DD. `--start ""` clears.                              |
-| `--end <date>`    | string | YYYY-MM-DD. `--end ""` clears.                                |
+| Flag             | Type   | Notes                                                           |
+| ---------------- | ------ | --------------------------------------------------------------- |
+| `--team <ref>`   | string | Required when identifier is a number in a multi-team workspace. |
+| `-n, --name <>`  | string | New name. Cannot be empty.                                      |
+| `--start <date>` | string | YYYY-MM-DD. `--start ""` clears.                                |
+| `--end <date>`   | string | YYYY-MM-DD. `--end ""` clears.                                  |
 
 ```bash
 lumo sprint update 3 --name "Sprint 4 (extended)"
@@ -676,11 +717,11 @@ When to suggest: user says "start the sprint", "开始冲刺", "kick off sprint 
 
 Handles unfinished tasks based on flags. Without flags: closes only if all tasks are done; otherwise prints a list of unfinished tasks and refuses.
 
-| Flag           | Type    | Notes                                                                     |
-| -------------- | ------- | ------------------------------------------------------------------------- |
-| `--move-all`   | boolean | Move all unfinished tasks to the next sprint. Requires `--yes`.           |
-| `--backlog-all`| boolean | Remove all unfinished tasks from the sprint (send to backlog). Requires `--yes`. |
-| `--yes`        | boolean | Required when `--move-all` or `--backlog-all` is given.                   |
+| Flag            | Type    | Notes                                                                            |
+| --------------- | ------- | -------------------------------------------------------------------------------- |
+| `--move-all`    | boolean | Move all unfinished tasks to the next sprint. Requires `--yes`.                  |
+| `--backlog-all` | boolean | Remove all unfinished tasks from the sprint (send to backlog). Requires `--yes`. |
+| `--yes`         | boolean | Required when `--move-all` or `--backlog-all` is given.                          |
 
 ```bash
 lumo sprint close 3                          # fails if unfinished tasks exist
@@ -694,9 +735,9 @@ When to suggest: user says "close the sprint", "关闭冲刺", "end sprint 3", "
 
 Prints the AI-generated retrospective summary for the sprint. A 404 response means no summary has been generated yet ("no summary yet").
 
-| Flag      | Type    | Notes                                                |
-| --------- | ------- | ---------------------------------------------------- |
-| `--retry` | boolean | Queue a regeneration (async, server returns 202).    |
+| Flag      | Type    | Notes                                             |
+| --------- | ------- | ------------------------------------------------- |
+| `--retry` | boolean | Queue a regeneration (async, server returns 202). |
 
 ```bash
 lumo sprint summary 3

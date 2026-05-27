@@ -1,0 +1,7 @@
+# Build output
+dist/
+
+# Generated at build time; source of truth lives in
+# ../.claude/skills/lumo/SKILL.md. Shipped in the npm tarball via the
+# `files` field but not tracked in git to avoid drift.
+assets/
