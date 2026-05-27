@@ -43,11 +43,34 @@ import { docShare } from './commands/doc-share'
 import { docUnshare } from './commands/doc-unshare'
 import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
+import { update } from './commands/update'
+import { setup } from './commands/setup'
+import {
+  maybeRefreshInBackground,
+  printUpdateNoticeIfAny,
+  runBackgroundRefresh,
+} from './lib/update-check'
 
 // Resolve package.json relative to __dirname so this works regardless of how
 // deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
 const pkg = require(path.resolve(__dirname, '../../..', 'package.json')) as {
+  name: string
   version: string
+}
+
+// Detached background-refresh worker: re-entry point for the spawn() in
+// maybeRefreshInBackground(). Fetches latest, writes cache, exits — skipping
+// commander.parseAsync() below.
+const isUpdateCheckWorker =
+  process.argv[2] === '__update-check' && !!process.argv[3]
+
+if (isUpdateCheckWorker) {
+  runBackgroundRefresh(process.argv[3] as string)
+    .catch(() => {})
+    .finally(() => process.exit(0))
+} else {
+  printUpdateNoticeIfAny(pkg.name, pkg.version)
+  maybeRefreshInBackground(pkg.name)
 }
 
 // One-shot cleanup of pre-LUM-46 local state. The session→task binding
@@ -102,6 +125,36 @@ program
   .command('whoami')
   .description('Show the currently logged-in identity')
   .action(wrap(whoami))
+
+program
+  .command('update')
+  .description(
+    `Check npm for a newer ${pkg.name} and install it globally if available.`
+  )
+  .action(wrap(update))
+
+program
+  .command('setup')
+  .description(
+    'Install the Lumo Claude Code skill and wire hook handlers into .claude/settings.json. Run via `npx @lumoai/cli setup` for first-time onboarding.'
+  )
+  .option(
+    '--user',
+    'Install into ~/.claude (applies across all projects for this user)'
+  )
+  .option(
+    '--project',
+    'Install into ./.claude (applies to the current project only)'
+  )
+  .option(
+    '--force',
+    'Overwrite an existing SKILL.md when its contents differ from the bundled version'
+  )
+  .action(
+    wrap(options =>
+      setup(options as { user?: boolean; project?: boolean; force?: boolean })
+    )
+  )
 
 const session = program
   .command('session')
@@ -189,7 +242,10 @@ task
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
-  .option('--sprint <ref>', 'Sprint number or UUID to add the task to after creation')
+  .option(
+    '--sprint <ref>',
+    'Sprint number or UUID to add the task to after creation'
+  )
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
@@ -317,7 +373,10 @@ sprintCmd
     'Create a draft sprint. --team required when workspace has >1 team. --start and --end (YYYY-MM-DD) required.'
   )
   .option('--team <ref>', 'Team name or UUID')
-  .option('-n, --name <text>', 'Sprint name (server fills default when omitted)')
+  .option(
+    '-n, --name <text>',
+    'Sprint name (server fills default when omitted)'
+  )
   .option('--start <date>', 'Start date (YYYY-MM-DD)')
   .option('--end <date>', 'End date (YYYY-MM-DD)')
   .action(wrap(options => sprintCreate(options as Record<string, string>)))
@@ -384,7 +443,10 @@ sprintCmd
   .option('--retry', 'Trigger summary regeneration before fetching')
   .action(
     wrap((identifier, options) =>
-      sprintSummary(identifier as string, options as { team?: string; retry?: boolean })
+      sprintSummary(
+        identifier as string,
+        options as { team?: string; retry?: boolean }
+      )
     )
   )
 
@@ -819,8 +881,10 @@ hook
   )
   .action(wrap(() => hookCommand('instructions-loaded')))
 
-program.parseAsync(process.argv).catch(err => {
-  const msg = err instanceof Error ? err.message : String(err)
-  console.error(`Error: ${msg}`)
-  process.exit(1)
-})
+if (!isUpdateCheckWorker) {
+  program.parseAsync(process.argv).catch(err => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: ${msg}`)
+    process.exit(1)
+  })
+}
