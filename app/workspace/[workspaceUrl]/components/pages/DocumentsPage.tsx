@@ -270,7 +270,7 @@ export function DocumentsPage({
 
   function renderBoardView() {
     return (
-      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-4'>
         {sorted.map(doc => (
           <div
             key={doc.id}
@@ -322,7 +322,7 @@ export function DocumentsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      <div className='px-2 pt-6 pb-4'>
+      <div className='px-4 md:px-8 pt-6 pb-4'>
         <div className='flex items-start justify-between mb-1'>
           <div>
             <h1 className='text-2xl font-bold'>
@@ -391,7 +391,7 @@ export function DocumentsPage({
         </div>
       </div>
 
-      <div className='flex-1 overflow-y-auto px-2'>
+      <div className='flex-1 overflow-y-auto px-4 md:px-8'>
         <AsyncContent
           loading={loading}
           error={error}
