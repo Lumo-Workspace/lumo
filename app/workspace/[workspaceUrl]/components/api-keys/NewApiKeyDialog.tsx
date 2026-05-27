@@ -50,7 +50,9 @@ export function NewApiKeyDialog({
             variant='outline'
             size='sm'
             onClick={onCopy}
-            aria-label='Copy'
+            aria-label={intl.formatMessage({
+              id: copied ? 'cli.copied' : 'cli.copy',
+            })}
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </Button>
