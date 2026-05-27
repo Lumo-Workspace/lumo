@@ -117,8 +117,6 @@
   "dueDate.due": "Fällig {date}",
   "taskColumns.dueDate": "Fälligkeitsdatum",
   "sidebar.documents": "Dokumente",
-  "documents.title": "Alle Dokumente",
-  "documents.subtitle": "Erstellen und teilen Sie Dokumente mit Ihrem Team",
   "documents.newDocument": "Neues Dokument",
   "documents.filterAll": "Alle",
   "documents.filterPersonal": "Persönlich",

@@ -117,8 +117,6 @@
   "dueDate.due": "Tenggat {date}",
   "taskColumns.dueDate": "Tenggat Waktu",
   "sidebar.documents": "Dokumen",
-  "documents.title": "Semua Dokumen",
-  "documents.subtitle": "Buat dan bagikan dokumen dengan tim Anda",
   "documents.newDocument": "Dokumen Baru",
   "documents.filterAll": "Semua",
   "documents.filterPersonal": "Pribadi",

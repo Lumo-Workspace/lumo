@@ -117,8 +117,6 @@
   "dueDate.due": "Đến hạn {date}",
   "taskColumns.dueDate": "Ngày đến hạn",
   "sidebar.documents": "Tài liệu",
-  "documents.title": "Tất cả tài liệu",
-  "documents.subtitle": "Tạo và chia sẻ tài liệu với nhóm của bạn",
   "documents.newDocument": "Tài liệu mới",
   "documents.filterAll": "Tất cả",
   "documents.filterPersonal": "Cá nhân",

@@ -117,8 +117,6 @@
   "dueDate.due": "Due {date}",
   "taskColumns.dueDate": "Due Date",
   "sidebar.documents": "Documents",
-  "documents.title": "All Documents",
-  "documents.subtitle": "Create and share docs with your team",
   "documents.newDocument": "New Document",
   "documents.filterAll": "All",
   "documents.filterPersonal": "Personal",

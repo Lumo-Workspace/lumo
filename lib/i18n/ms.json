@@ -117,8 +117,6 @@
   "dueDate.due": "Akhir {date}",
   "taskColumns.dueDate": "Tarikh Akhir",
   "sidebar.documents": "Dokumen",
-  "documents.title": "Semua Dokumen",
-  "documents.subtitle": "Cipta dan kongsi dokumen bersama pasukan anda",
   "documents.newDocument": "Dokumen Baharu",
   "documents.filterAll": "Semua",
   "documents.filterPersonal": "Peribadi",

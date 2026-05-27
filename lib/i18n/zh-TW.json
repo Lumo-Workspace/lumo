@@ -223,8 +223,6 @@
   "dueDate.due": "{date} 截止",
   "taskColumns.dueDate": "截止日期",
   "sidebar.documents": "文件",
-  "documents.title": "所有文件",
-  "documents.subtitle": "建立和分享團隊文件",
   "documents.newDocument": "新增文件",
   "documents.filterAll": "全部",
   "documents.filterPersonal": "個人",
