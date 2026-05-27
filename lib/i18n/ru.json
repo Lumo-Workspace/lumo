@@ -117,7 +117,6 @@
   "dueDate.due": "Срок {date}",
   "taskColumns.dueDate": "Срок выполнения",
   "sidebar.documents": "Документы",
-  "documents.title": "Все документы",
   "documents.newDocument": "Новый документ",
   "documents.filterAll": "Все",
   "documents.filterPersonal": "Личные",

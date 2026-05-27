@@ -117,7 +117,6 @@
   "dueDate.due": "Vence {date}",
   "taskColumns.dueDate": "Fecha de vencimiento",
   "sidebar.documents": "Documentos",
-  "documents.title": "Todos los documentos",
   "documents.newDocument": "Nuevo documento",
   "documents.filterAll": "Todos",
   "documents.filterPersonal": "Personal",

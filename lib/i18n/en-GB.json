@@ -117,7 +117,6 @@
   "dueDate.due": "Due {date}",
   "taskColumns.dueDate": "Due Date",
   "sidebar.documents": "Documents",
-  "documents.title": "All Documents",
   "documents.newDocument": "New Document",
   "documents.filterAll": "All",
   "documents.filterPersonal": "Personal",

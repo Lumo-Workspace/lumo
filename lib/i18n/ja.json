@@ -117,7 +117,6 @@
   "dueDate.due": "{date}が期限",
   "taskColumns.dueDate": "期限日",
   "sidebar.documents": "ドキュメント",
-  "documents.title": "すべてのドキュメント",
   "documents.newDocument": "新しいドキュメント",
   "documents.filterAll": "すべて",
   "documents.filterPersonal": "個人",

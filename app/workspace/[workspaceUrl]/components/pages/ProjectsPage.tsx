@@ -8,7 +8,7 @@ import {
   useRouter,
   useSearchParams,
 } from 'next/navigation'
-import { Search, Plus, Layers, Link as LinkIcon, Trash2 } from 'lucide-react'
+import { Plus, Layers, Link as LinkIcon, Trash2 } from 'lucide-react'
 import { ApiProject } from '../../types'
 import { SortableHeader } from '../SortableHeader'
 import { AsyncContent } from '../AsyncContent'
@@ -30,6 +30,7 @@ import {
 } from '../../hooks/useTableSort'
 import { IDEA_BADGE_CLS } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
+import { SearchInput } from '../SearchInput'
 import { copyLink } from '@/lib/utils/copyLink'
 import { slugify } from '@/lib/utils/slugify'
 import {
@@ -238,22 +239,16 @@ export function ProjectsPage({
         actions={
           <div className='flex items-center gap-2'>
             <div className='relative w-56' ref={searchRef}>
-              <Search
-                size={16}
-                className='absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400'
-              />
-              <input
-                className='w-full bg-zinc-100/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md py-1.5 pl-9 pr-4 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:ring-1 focus:ring-zinc-400 transition-all outline-none'
-                placeholder={intl.formatMessage({
-                  id: 'projects.searchPlaceholder',
-                })}
-                type='text'
+              <SearchInput
                 value={query}
-                onChange={e => {
-                  setQuery(e.target.value)
+                onChange={v => {
+                  setQuery(v)
                   setOpen(true)
                 }}
                 onFocus={() => setOpen(true)}
+                placeholder={intl.formatMessage({
+                  id: 'projects.searchPlaceholder',
+                })}
               />
               {open && query.trim() && (
                 <div className='absolute top-full mt-1 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg z-50 overflow-hidden'>

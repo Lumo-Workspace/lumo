@@ -117,7 +117,6 @@
   "dueDate.due": "{date} 마감",
   "taskColumns.dueDate": "마감일",
   "sidebar.documents": "문서",
-  "documents.title": "모든 문서",
   "documents.newDocument": "새 문서",
   "documents.filterAll": "전체",
   "documents.filterPersonal": "개인",

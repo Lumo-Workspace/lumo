@@ -3,9 +3,8 @@
 import { getInitials } from '@/lib/utils/getInitials'
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
-import { Plus, Search, MoreHorizontal, Trash2, Link } from 'lucide-react'
+import { Plus, MoreHorizontal, Trash2, Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -35,6 +34,8 @@ import { TagList } from '../document/TagBadge'
 import { TagListNew } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { ViewToggle } from '../ViewToggle'
+import { PageBreadcrumb } from '../PageBreadcrumb'
+import { SearchInput } from '../SearchInput'
 import { CACHE_KEY } from '../../constants'
 import { cn } from '@/lib/utils'
 
@@ -322,69 +323,62 @@ export function DocumentsPage({
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
-      <div className='px-4 md:px-8 pt-6 pb-4'>
-        <div className='flex items-start justify-between mb-1'>
-          <div>
-            <h1 className='text-2xl font-bold'>
-              {intl.formatMessage({ id: 'documents.title' })}
-            </h1>
-          </div>
-          <Button size='sm' onClick={onNewDocument}>
-            <Plus className='size-4 mr-1' />
-            {intl.formatMessage({ id: 'documents.newDocument' })}
-          </Button>
-        </div>
-
-        <div className='flex items-center gap-2 mt-4'>
-          {FILTERS.map(f => (
-            <button
-              key={f.key}
-              type='button'
-              className={cn(
-                'px-3 py-1 text-xs rounded-md transition-colors',
-                filter === f.key
-                  ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setFilter(f.key)}
-            >
-              {intl.formatMessage({ id: f.msgId })}
-            </button>
-          ))}
-
-          <div className='ml-auto flex items-center gap-2'>
-            <Select
-              value={sortBy}
-              onValueChange={(v: string) => handleSetSortBy(v as SortKey)}
-            >
-              <SelectTrigger className='h-8 w-36 text-xs'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='updatedAt'>
-                  {intl.formatMessage({ id: 'documents.sortUpdated' })}
-                </SelectItem>
-                <SelectItem value='createdAt'>
-                  {intl.formatMessage({ id: 'documents.sortCreated' })}
-                </SelectItem>
-                <SelectItem value='title'>
-                  {intl.formatMessage({ id: 'documents.sortTitle' })}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
+      <PageBreadcrumb
+        title={intl.formatMessage({ id: 'sidebar.documents' })}
+        actions={
+          <div className='flex items-center gap-2'>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder={intl.formatMessage({ id: 'documents.search' })}
+              className='w-48'
+            />
             <ViewToggle value={viewMode} onChange={handleSetViewMode} />
-
-            <div className='relative'>
-              <Search className='absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground' />
-              <Input
-                placeholder={intl.formatMessage({ id: 'documents.search' })}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className='pl-8 h-8 w-48 text-xs'
-              />
-            </div>
+            <Button size='sm' onClick={onNewDocument} className='gap-1.5'>
+              <Plus size={14} />
+              {intl.formatMessage({ id: 'documents.newDocument' })}
+            </Button>
           </div>
+        }
+      />
+
+      <div className='px-4 md:px-8 pt-4 pb-4 flex items-center gap-2 shrink-0'>
+        {FILTERS.map(f => (
+          <button
+            key={f.key}
+            type='button'
+            className={cn(
+              'px-3 py-1 text-xs rounded-md transition-colors',
+              filter === f.key
+                ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setFilter(f.key)}
+          >
+            {intl.formatMessage({ id: f.msgId })}
+          </button>
+        ))}
+
+        <div className='ml-auto'>
+          <Select
+            value={sortBy}
+            onValueChange={(v: string) => handleSetSortBy(v as SortKey)}
+          >
+            <SelectTrigger className='h-8 w-36 text-xs'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='updatedAt'>
+                {intl.formatMessage({ id: 'documents.sortUpdated' })}
+              </SelectItem>
+              <SelectItem value='createdAt'>
+                {intl.formatMessage({ id: 'documents.sortCreated' })}
+              </SelectItem>
+              <SelectItem value='title'>
+                {intl.formatMessage({ id: 'documents.sortTitle' })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

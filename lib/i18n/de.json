@@ -117,7 +117,6 @@
   "dueDate.due": "Fällig {date}",
   "taskColumns.dueDate": "Fälligkeitsdatum",
   "sidebar.documents": "Dokumente",
-  "documents.title": "Alle Dokumente",
   "documents.newDocument": "Neues Dokument",
   "documents.filterAll": "Alle",
   "documents.filterPersonal": "Persönlich",
