@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { GitPullRequest, GitBranch } from 'lucide-react'
+import { GitPullRequest } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { slugify } from '@/lib/utils/slugify'
 import { queryKeys } from '@/lib/query/keys'
@@ -21,7 +21,6 @@ import { TypographyH3 } from '@/components/ui/typography'
 import { Spinner } from '@/components/ui/spinner'
 // AgentPanel hidden — agent features disabled for now
 import { useCurrentUser } from '../hooks/useCurrentUser'
-import { CreateBranchDialog } from './CreateBranchDialog'
 import { PrStateBadge, CiIcon } from './pr-helpers'
 import { SubtasksSection } from './SubtasksSection'
 import { useTaskComments } from '../hooks/useTaskComments'
@@ -125,7 +124,6 @@ export function TaskDetailPanel({
   )
 
   const projectName = task.project?.name ?? ''
-  const projectRepositories = task.project?.repositories
 
   const { user } = useCurrentUser()
   const router = useRouter()
@@ -186,8 +184,6 @@ export function TaskDetailPanel({
     onTasksChanged,
     fetchComments: tc.fetchComments,
   })
-
-  const [createBranchOpen, setCreateBranchOpen] = useState(false)
 
   const commitDescription = useCallback(
     (html: string | null) => {
@@ -263,21 +259,12 @@ export function TaskDetailPanel({
           sprintsEnabled={task.sprintsEnabled ?? false}
         />
 
-        <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
-          <div className='flex items-center justify-between mb-2'>
-            <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5'>
+        {task.pullRequests && task.pullRequests.length > 0 && (
+          <div className='pt-3 border-t border-zinc-100 dark:border-zinc-800'>
+            <p className='text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-2'>
               <GitPullRequest size={12} />
               Pull Requests
             </p>
-            <button
-              onClick={() => setCreateBranchOpen(true)}
-              className='flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors'
-            >
-              <GitBranch size={11} />
-              Branch
-            </button>
-          </div>
-          {task.pullRequests && task.pullRequests.length > 0 && (
             <ul className='space-y-2'>
               {task.pullRequests.map(pr => (
                 <li key={pr.id} className='flex items-start gap-2'>
@@ -301,73 +288,10 @@ export function TaskDetailPanel({
                 </li>
               ))}
             </ul>
-          )}
-          {task.branches && task.branches.length > 0 && (
-            <ul className='space-y-2 mt-2'>
-              {task.branches.map(branch => (
-                <li key={branch.id} className='flex items-start gap-2'>
-                  <GitBranch
-                    size={12}
-                    className='text-zinc-400 shrink-0 mt-0.5'
-                  />
-                  <div className='min-w-0'>
-                    <a
-                      href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='text-xs font-mono text-zinc-600 dark:text-zinc-400 hover:underline block truncate'
-                    >
-                      {branch.branchName}
-                    </a>
-                    {branch.lastCommitMessage && (
-                      <a
-                        href={
-                          branch.lastCommitSha
-                            ? `https://github.com/${branch.repo}/commit/${branch.lastCommitSha}`
-                            : undefined
-                        }
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-[10px] text-zinc-400 dark:text-zinc-500 truncate block hover:underline mt-0.5'
-                        title={branch.lastCommitMessage}
-                      >
-                        {branch.lastCommitAuthor && (
-                          <span className='font-medium'>
-                            {branch.lastCommitAuthor}:{' '}
-                          </span>
-                        )}
-                        {branch.lastCommitMessage}
-                      </a>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Agent Panel hidden — agent features disabled for now */}
-
-        <CreateBranchDialog
-          isOpen={createBranchOpen}
-          onClose={() => setCreateBranchOpen(false)}
-          taskId={task.id}
-          identifier={`${task.teamIdentifier}-${task.number}`}
-          title={task.title}
-          projectId={task.projectId}
-          defaultRepo={
-            projectRepositories?.find(r => r.isDefault)?.fullName ??
-            projectRepositories?.[0]?.fullName ??
-            null
-          }
-          workspaceUrl={workspaceUrl}
-          onBranchCreated={branch =>
-            setTask(prev => ({
-              ...prev,
-              branches: [...(prev.branches ?? []), branch],
-            }))
-          }
-        />
 
         {/* Description */}
         <div className='pt-4'>

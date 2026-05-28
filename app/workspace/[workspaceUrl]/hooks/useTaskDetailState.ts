@@ -93,12 +93,6 @@ export function useTaskDetailState({
   // ── Delete dialog ──────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  // ── Create branch dialog ───────────────────────────────────────────────
-  const [createBranchOpen, setCreateBranchOpen] = useState(false)
-
-  // ── Branch copy feedback ───────────────────────────────────────────────
-  const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null)
-
   // ── Members + agents (hydrate from cache) ───────────────────
   // Projects are intentionally NOT held here — consumers should read from
   // `ProjectsProvider` via `useProjects()`. Keeping a local copy here used to
@@ -129,10 +123,6 @@ export function useTaskDetailState({
     taskFullUrl,
     deleteOpen,
     setDeleteOpen,
-    createBranchOpen,
-    setCreateBranchOpen,
-    copiedBranchId,
-    setCopiedBranchId,
     members,
     setMembers,
     agentActors,

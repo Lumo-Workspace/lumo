@@ -96,26 +96,6 @@ describe('githubRepository.findIntegrationWithWebhooks', () => {
   })
 })
 
-// ── findIntegrationsByWorkspace ─────────────────────────────────────────
-
-describe('githubRepository.findIntegrationsByWorkspace', () => {
-  it('returns repositories for all integrations in workspace', async () => {
-    const mock = prisma.gitHubIntegration.findMany as jest.Mock
-    mock.mockResolvedValue([
-      { repositories: ['a/b'] },
-      { repositories: ['c/d'] },
-    ])
-
-    const result = await githubRepository.findIntegrationsByWorkspace('ws-1')
-
-    expect(mock).toHaveBeenCalledWith({
-      where: { workspaceId: 'ws-1' },
-      select: { repositories: true },
-    })
-    expect(result).toHaveLength(2)
-  })
-})
-
 // ── upsertIntegration ───────────────────────────────────────────────────
 
 describe('githubRepository.upsertIntegration', () => {

@@ -4,9 +4,6 @@ export const API = {
   tasks: {
     me: '/api/tasks/me',
     byId: (id: string) => `/api/tasks/${id}`,
-    branch: (id: string) => `/api/tasks/${id}/branch`,
-    branchDelete: (id: string, branchId: string) =>
-      `/api/tasks/${id}/branch/${branchId}`,
     comments: (taskId: string) => `/api/tasks/${taskId}/comments`,
     comment: (taskId: string, commentId: string) =>
       `/api/tasks/${taskId}/comments/${commentId}`,
@@ -48,7 +45,6 @@ export const API = {
       `/api/github/oauth?workspaceUrl=${workspaceUrl}`,
     integration: '/api/github/integration',
     repos: '/api/github/repos',
-    authorizedRepos: '/api/github/authorized-repos',
   },
   agent: {
     run: (taskId: string) => `/api/agent/run/${taskId}`,

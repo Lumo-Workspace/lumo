@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { Check, Copy, ExternalLink, GitBranch, X } from 'lucide-react'
+import { GitBranch } from 'lucide-react'
 import type {
   TaskDetail,
   WorkspaceMemberInfo,
@@ -15,8 +15,6 @@ import {
   PrioritySelect,
   FIELD_TRIGGER_CLS,
 } from './fields'
-import { CreateBranchDialog } from './CreateBranchDialog'
-import { UnlinkBranchDialog } from './UnlinkBranchDialog'
 import {
   Select,
   SelectContent,
@@ -27,29 +25,20 @@ import {
 import { TagPicker } from './document/TagPicker'
 import { TaskSprintField } from '../sprints/components/TaskSprintField'
 import { TaskMilestoneField } from './milestones/TaskMilestoneField'
-import React, { useState } from 'react'
+import React from 'react'
 
 interface TaskDetailSidebarProps {
   task: TaskDetail
   members: WorkspaceMemberInfo[]
   agentActors: { actorId: string; name: string; avatarColor: string }[]
   projects: ApiProject[]
-  copiedBranchId: string | null
-  createBranchOpen: boolean
-  setCreateBranchOpen: (open: boolean) => void
-  workspaceUrl: string
   onPatch: (patch: Record<string, unknown>) => void
-  onCopyBranch: (id: string, name: string) => void
   /** All workspace tags for TagPicker. */
   allTags?: ApiTag[]
   /** Called when tags change (full objects). */
   onTagsChange?: (tags: ApiTag[]) => void
   /** Called to create a new tag inline. */
   onCreateTag?: (name: string) => Promise<ApiTag | null>
-  /** Called when a branch is created via the dialog. */
-  onBranchCreated?: (branch: import('../types').ApiTaskBranch) => void
-  /** Called when a branch is unlinked. */
-  onUnlinkBranch?: (branchId: string) => void
 }
 
 export function TaskDetailSidebar({
@@ -57,25 +46,13 @@ export function TaskDetailSidebar({
   members,
   agentActors: _agentActors,
   projects,
-  copiedBranchId,
-  createBranchOpen,
-  setCreateBranchOpen,
-  workspaceUrl,
   onPatch,
-  onCopyBranch,
   allTags,
   onTagsChange,
   onCreateTag,
-  onBranchCreated,
-  onUnlinkBranch,
 }: TaskDetailSidebarProps) {
   const intl = useIntl()
   const projectRepositories = task.project?.repositories
-
-  const [unlinkBranch, setUnlinkBranch] = useState<{
-    id: string
-    name: string
-  } | null>(null)
 
   return (
     <div className='w-72 shrink-0 border-l border-zinc-100 dark:border-zinc-800 overflow-y-auto px-5 py-6 bg-zinc-50/50 dark:bg-zinc-900/30'>
@@ -231,94 +208,6 @@ export function TaskDetailSidebar({
           </div>
         ))}
       </div>
-
-      {/* ── Branch ─────────────────────────────────────────────────── */}
-      <div className='pt-3'>
-        <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5'>
-          <GitBranch size={12} />
-          {intl.formatMessage({ id: 'task.branch' })}
-        </p>
-        {task.branches && task.branches.length > 0 ? (
-          <ul className='space-y-1.5'>
-            {task.branches.map(branch => (
-              <li key={branch.id} className='flex items-center gap-1.5 group'>
-                <span className='text-xs font-mono text-zinc-700 dark:text-zinc-300 truncate flex-1 min-w-0'>
-                  {branch.branchName}
-                </span>
-                <button
-                  onClick={() => onCopyBranch(branch.id, branch.branchName)}
-                  className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                  title={intl.formatMessage({ id: 'task.copyBranchName' })}
-                >
-                  {copiedBranchId === branch.id ? (
-                    <Check size={12} className='text-emerald-500' />
-                  ) : (
-                    <Copy size={12} />
-                  )}
-                </button>
-                <a
-                  href={`https://github.com/${branch.repo}/tree/${branch.branchName}`}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='shrink-0 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-colors'
-                  title={intl.formatMessage({ id: 'task.openOnGitHub' })}
-                >
-                  <ExternalLink size={12} />
-                </a>
-                <button
-                  onClick={() =>
-                    setUnlinkBranch({
-                      id: branch.id,
-                      name: branch.branchName,
-                    })
-                  }
-                  className='shrink-0 opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-zinc-600 dark:text-zinc-600 dark:hover:text-zinc-300 transition-all'
-                  title={intl.formatMessage({ id: 'task.unlinkBranch' })}
-                >
-                  <X size={12} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <button
-            onClick={() => setCreateBranchOpen(true)}
-            className='w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-500 transition-colors'
-          >
-            <GitBranch size={12} />
-            {intl.formatMessage({ id: 'task.createBranch' })}
-          </button>
-        )}
-      </div>
-
-      {unlinkBranch && (
-        <UnlinkBranchDialog
-          isOpen={!!unlinkBranch}
-          onClose={() => setUnlinkBranch(null)}
-          taskId={task.id}
-          branchId={unlinkBranch.id}
-          branchName={unlinkBranch.name}
-          onUnlinked={branchId => {
-            onUnlinkBranch?.(branchId)
-            setUnlinkBranch(null)
-          }}
-        />
-      )}
-      <CreateBranchDialog
-        isOpen={createBranchOpen}
-        onClose={() => setCreateBranchOpen(false)}
-        taskId={task.id}
-        identifier={`${task.teamIdentifier}-${task.number}`}
-        title={task.title}
-        projectId={task.projectId}
-        defaultRepo={
-          projectRepositories?.find(r => r.isDefault)?.fullName ??
-          projectRepositories?.[0]?.fullName ??
-          null
-        }
-        workspaceUrl={workspaceUrl}
-        {...(onBranchCreated ? { onBranchCreated } : {})}
-      />
     </div>
   )
 }

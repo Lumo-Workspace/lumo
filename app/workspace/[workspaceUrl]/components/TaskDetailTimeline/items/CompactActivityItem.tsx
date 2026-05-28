@@ -321,14 +321,6 @@ function formatActivityText(
         id: 'activity.specGenerated',
         defaultMessage: 'generated spec',
       })
-    case 'BRANCH_CREATED':
-      return intl.formatMessage(
-        {
-          id: 'activity.branchCreated',
-          defaultMessage: 'created branch {name}',
-        },
-        { name: String(p.branchName ?? '') }
-      )
     case 'SENTRY_ALERT': {
       const triggeredRule =
         typeof p.triggeredRule === 'string' ? p.triggeredRule : undefined

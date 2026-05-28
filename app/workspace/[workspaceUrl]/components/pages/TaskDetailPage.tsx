@@ -73,10 +73,6 @@ export function TaskDetailPage({
     taskFullUrl,
     deleteOpen,
     setDeleteOpen,
-    createBranchOpen,
-    setCreateBranchOpen,
-    copiedBranchId,
-    setCopiedBranchId,
     members,
     setMembers,
     agentActors,
@@ -131,7 +127,6 @@ export function TaskDetailPage({
   const actions = useTaskDetailActions({
     task,
     taskFullUrl,
-    setCopiedBranchId,
     handlePatch,
   })
 
@@ -365,30 +360,13 @@ export function TaskDetailPage({
             members={members}
             agentActors={agentActors}
             projects={projects}
-            copiedBranchId={copiedBranchId}
-            createBranchOpen={createBranchOpen}
-            setCreateBranchOpen={setCreateBranchOpen}
-            workspaceUrl={workspaceUrl}
             onPatch={handlePatch}
-            onCopyBranch={actions.handleCopyBranch}
             allTags={allTags}
             onTagsChange={tags => {
               setTask(prev => ({ ...prev, tags }))
               handlePatch({ tagIds: tags.map(t => t.id) })
             }}
             onCreateTag={createTag}
-            onBranchCreated={branch =>
-              setTask(prev => ({
-                ...prev,
-                branches: [...(prev.branches ?? []), branch],
-              }))
-            }
-            onUnlinkBranch={branchId =>
-              setTask(prev => ({
-                ...prev,
-                branches: (prev.branches ?? []).filter(b => b.id !== branchId),
-              }))
-            }
           />
         </div>
       </SidebarInset>

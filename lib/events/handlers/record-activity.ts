@@ -107,12 +107,6 @@ function toActivityRecord(event: TaskActivityEvent): ActivityRecord {
     case 'task:spec_generated':
       return { type: 'SPEC_GENERATED', payload: {} }
 
-    case 'task:branch_created':
-      return {
-        type: 'BRANCH_CREATED',
-        payload: { branchName: event.branchName },
-      }
-
     case 'task:pr_linked':
       return {
         type: 'PR_LINKED',
