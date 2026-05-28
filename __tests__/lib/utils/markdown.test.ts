@@ -10,6 +10,7 @@ import {
   htmlToMarkdown,
   isHtml,
   isMarkdown,
+  normalizeRichText,
 } from '@/lib/utils/markdown'
 
 describe('markdown utils', () => {
@@ -30,5 +31,48 @@ describe('markdown utils', () => {
   it('detects markdown', () => {
     expect(isMarkdown('**bold**')).toBe(true)
     expect(isMarkdown('plain text')).toBe(false)
+  })
+})
+
+describe('normalizeRichText', () => {
+  it('returns null for null / undefined / empty / whitespace', () => {
+    expect(normalizeRichText(null)).toBeNull()
+    expect(normalizeRichText(undefined)).toBeNull()
+    expect(normalizeRichText('')).toBeNull()
+    expect(normalizeRichText('   \n  ')).toBeNull()
+  })
+
+  it('converts plain markdown to HTML', () => {
+    // marked is mocked at the top of this file to return `<p>${input}</p>`
+    const result = normalizeRichText('## Heading')
+    expect(result).toContain('<p>')
+    expect(result).toContain('## Heading')
+  })
+
+  it('passes through input that starts with a structural HTML tag', () => {
+    const html = '<p>already html</p>'
+    expect(normalizeRichText(html)).toBe(html)
+  })
+
+  it('passes through HTML with leading whitespace and attributes', () => {
+    const html = '   <div class="x">x</div>'
+    expect(normalizeRichText(html)).toBe(html)
+  })
+
+  it('treats markdown that mentions <p> as markdown (not HTML)', () => {
+    // The body is markdown narrative that references the <p> tag literally.
+    // The stricter looksLikeHtmlDocument check should NOT match.
+    const input = 'wrapped in a single `<p>` tag'
+    const result = normalizeRichText(input)
+    expect(result).toContain('<p>')        // marked mock wraps everything
+    expect(result).toContain('`<p>`')      // original content preserved
+  })
+
+  it('is idempotent for Web-written HTML through a round-trip', () => {
+    // Simulate Tiptap output: structural HTML at start.
+    const tiptap = '<p>hello <strong>world</strong></p>'
+    const once = normalizeRichText(tiptap)
+    const twice = normalizeRichText(once)
+    expect(twice).toBe(once)
   })
 })

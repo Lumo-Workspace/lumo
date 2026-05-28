@@ -23,3 +23,35 @@ export function markdownToHtml(md: string): string {
   if (isHtml(md)) return md
   return marked.parse(md, { async: false }) as string
 }
+
+/**
+ * Stricter HTML detection used only for the rich-text-write path.
+ * Matches strings that *begin* with a block tag (Tiptap output, pasted
+ * HTML), so a markdown body that merely mentions a tag inline (e.g.
+ * "wrapped in `<p>`") is NOT mistaken for HTML.
+ *
+ * Kept private to this module — the existing `isHtml` is more permissive
+ * and is intentionally left untouched for the document path.
+ */
+function looksLikeHtmlDocument(text: string): boolean {
+  return /^\s*<(p|div|h[1-6]|ul|ol|pre|blockquote|table|img)\b[^>]*>/i.test(text)
+}
+
+/**
+ * Normalize a rich-text field for storage in a Tiptap-backed column.
+ *
+ * - null / undefined / blank input → null (unifies "clear" semantics).
+ * - Input that looks like a structural HTML document → returned as-is.
+ * - Anything else → markdown → HTML via `markdownToHtml`.
+ *
+ * Idempotent for Web-written HTML, so Web round-trips don't drift.
+ */
+export function normalizeRichText(
+  input: string | null | undefined
+): string | null {
+  if (input == null) return null
+  const trimmed = input.trim()
+  if (trimmed.length === 0) return null
+  if (looksLikeHtmlDocument(input)) return input
+  return markdownToHtml(trimmed)
+}

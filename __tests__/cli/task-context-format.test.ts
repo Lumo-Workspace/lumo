@@ -163,3 +163,56 @@ describe('formatTaskContextMarkdown', () => {
     ).toContain('· yesterday ·')
   })
 })
+
+describe('formatTaskContextMarkdown — descriptionMarkdown', () => {
+  it('prefers descriptionMarkdown over description', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: '<p>html</p>',
+          descriptionMarkdown: '## md',
+        },
+        sessions: [],
+      } as any,
+      new Date('2026-05-28T00:00:00Z')
+    )
+    expect(out).toContain('## md')
+    expect(out).not.toContain('<p>html</p>')
+  })
+
+  it('falls back to description when descriptionMarkdown missing', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: 'plain body',
+        },
+        sessions: [],
+      } as any,
+      new Date('2026-05-28T00:00:00Z')
+    )
+    expect(out).toContain('plain body')
+  })
+
+  it('falls back to description when descriptionMarkdown is explicitly null', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: 'fallback body',
+          descriptionMarkdown: null,
+        },
+        sessions: [],
+      } as any,
+      new Date('2026-05-28T00:00:00Z')
+    )
+    expect(out).toContain('fallback body')
+  })
+})

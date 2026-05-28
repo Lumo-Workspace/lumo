@@ -8,6 +8,7 @@ import {
   type TaskStatusValue,
 } from '@/lib/task/state-machine'
 import { dispatchUpdateTaskSideEffects } from '@/lib/services/task-notifications.service'
+import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
   UpdateTaskInput,
@@ -148,7 +149,8 @@ export async function updateTask(
   // Build update data
   const data: import('@/lib/repositories/task.repository').TaskUpdateData = {}
   if (rest.title !== undefined) data.title = rest.title
-  if (rest.description !== undefined) data.description = rest.description
+  if (rest.description !== undefined)
+    data.description = normalizeRichText(rest.description)
   if (rest.spec !== undefined) data.spec = rest.spec
   if (rest.status !== undefined) data.status = rest.status
   if (rest.priority !== undefined) data.priority = rest.priority

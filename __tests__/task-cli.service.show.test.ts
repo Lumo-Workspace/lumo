@@ -4,6 +4,16 @@
  * Tests for taskCliService.showFromCli — specifically verifying that the
  * response shape includes sprintId and teamId (added for LUM-88).
  */
+jest.mock('turndown', () => {
+  return jest.fn().mockImplementation(() => ({
+    turndown: (html: string) => html.replace(/<p>(.*?)<\/p>/g, '$1'),
+  }))
+})
+
+jest.mock('marked', () => ({
+  marked: { parse: jest.fn((md: string) => `<p>${md}</p>`) },
+}))
+
 jest.mock('@/lib/services/task.service', () => ({
   taskService: {
     resolveIdentifier: jest.fn(),
@@ -114,5 +124,50 @@ describe('taskCliService.showFromCli', () => {
       identifier: 'LUM-48',
     })
     expect(result.sprintId).toBeNull()
+  })
+})
+
+describe('taskCliService.showFromCli — descriptionMarkdown', () => {
+  it('includes descriptionMarkdown derived from stored HTML', async () => {
+    mockResolveIdentifier.mockResolvedValue({
+      id: 'task_1',
+      identifier: 'LUM-1',
+    })
+    mockGetDetail.mockResolvedValue({
+      id: 'task_1',
+      title: 'A task',
+      status: 'TODO',
+      priority: 'LOW',
+      description: '<p>hello world</p>',
+      sprintId: null,
+      teamId: 'team-xyz',
+      project: { id: 'proj-1', name: 'Lumo', workspaceId: 'ws_1' },
+      assignee: null,
+      pullRequests: [],
+      tags: [],
+      teamIdentifier: 'LUM',
+      sprintsEnabled: true,
+      parent: null,
+    })
+
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'lumo',
+      identifier: 'LUM-1',
+    })
+
+    expect(result.description).toBe('<p>hello world</p>')
+    expect(result.descriptionMarkdown).toBe('hello world')
+  })
+
+  it('emits null descriptionMarkdown when description is null', async () => {
+    // default beforeEach mockGetDetail has description: null
+    const result = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'lumo',
+      identifier: 'LUM-48',
+    })
+    expect(result.description).toBeNull()
+    expect(result.descriptionMarkdown).toBeNull()
   })
 })

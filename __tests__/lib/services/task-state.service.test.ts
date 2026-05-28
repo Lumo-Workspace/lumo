@@ -6,6 +6,10 @@
  * schema layer; we verify that contract here via updateTaskSchema.safeParse.
  */
 
+jest.mock('marked', () => ({
+  marked: { parse: jest.fn((md: string) => `<p>${md}</p>`) },
+}))
+
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findForUpdate: jest.fn(),
@@ -171,5 +175,32 @@ describe('updateTaskSchema — tagIds mutex', () => {
       removeTagIds: ['clid0000000000000000000002'],
     })
     expect(result.success).toBe(true)
+  })
+})
+
+describe('updateTask — description normalization', () => {
+  it('converts markdown description to HTML before update', async () => {
+    await updateTask('task-1', { description: '## H' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    expect(data.description).toBe('<p>## H</p>')
+  })
+
+  it('clears description when set to empty string', async () => {
+    await updateTask('task-1', { description: '' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    expect(data.description).toBeNull()
+  })
+
+  it('passes through HTML descriptions unchanged', async () => {
+    const html = '<p>already html</p>'
+    await updateTask('task-1', { description: html })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    expect(data.description).toBe(html)
+  })
+
+  it('does not touch description when undefined (no description in input)', async () => {
+    await updateTask('task-1', { title: 'new title' })
+    const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
+    expect(data.description).toBeUndefined()
   })
 })
