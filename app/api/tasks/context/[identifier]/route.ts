@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server'
-import { verifyBearer } from '@/lib/auth/bearer'
+import { requireIdentity } from '@/lib/auth/identity'
 import { taskContextService } from '@/lib/services/task-context.service'
-
-const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ identifier: string }> }
 ): Promise<Response> {
-  const identity = await verifyBearer(request)
-  if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
 
   const { identifier } = await context.params
   const result = await taskContextService.getContextForIdentifier(
-    identity.workspace.id,
+    identity.workspaceId,
+    identity.memberId,
     identifier
   )
   if (!result) {

@@ -28,6 +28,24 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
     listByTask: jest.fn().mockResolvedValue([]),
   },
 }))
+jest.mock('@/lib/repositories/task-figma-link.repository', () => ({
+  taskFigmaLinkRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/services/task-figma-link.service', () => ({
+  taskFigmaLinkService: {
+    refreshLinksForTask: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@vercel/functions', () => ({
+  waitUntil: jest.fn(),
+}))
+jest.mock('@/lib/repositories/milestone.repository', () => ({
+  milestoneRepository: {
+    findById: jest.fn().mockResolvedValue(null),
+  },
+}))
 // task.service.ts fans out imports; stub the unrelated ones so the module
 // loads without side effects.
 jest.mock('@/lib/repositories/project.repository', () => ({
@@ -82,7 +100,11 @@ describe('taskContextService.getContextForIdentifier', () => {
   it('returns null when the identifier does not resolve', async () => {
     mockResolve.mockResolvedValueOnce(null)
     expect(
-      await taskContextService.getContextForIdentifier('ws_1', 'LUM-99')
+      await taskContextService.getContextForIdentifier(
+        'ws_1',
+        'member_1',
+        'LUM-99'
+      )
     ).toBeNull()
     expect(mockSessions).not.toHaveBeenCalled()
   })
@@ -93,6 +115,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     mockSessions.mockResolvedValueOnce([])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out).not.toBeNull()
@@ -119,6 +142,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.sessions).toEqual([
@@ -160,6 +184,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.sessions.map(s => s.headline)).toEqual(['Big picture', 'Bug X'])
@@ -181,6 +206,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.sessions[0]?.headline).toBe('(no summary)')
@@ -193,6 +219,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     mockSessions.mockResolvedValueOnce([])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.memorySection).toBe('')
@@ -222,6 +249,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.memorySection).toContain('## Relevant Memory')
@@ -249,6 +277,7 @@ describe('taskContextService.getContextForIdentifier', () => {
     ])
     const out = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-30'
     )
     expect(out?.sessions[0]?.unresolved).toEqual(['ok', 'also ok'])
