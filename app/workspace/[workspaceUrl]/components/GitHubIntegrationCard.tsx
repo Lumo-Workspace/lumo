@@ -23,23 +23,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
-import type { GitHubStatus } from './pages/IntegrationsPage'
 
 interface GitHubIntegrationCardProps {
   workspaceUrl: string
-  status: GitHubStatus | null
-  onStatusChange: (status: GitHubStatus) => void
   isOwner: boolean
 }
 
 export function GitHubIntegrationCard({
   workspaceUrl,
-  status,
-  onStatusChange,
   isOwner,
 }: GitHubIntegrationCardProps) {
   const intl = useIntl()
   const {
+    status,
+    loading,
     disconnectOpen,
     setDisconnectOpen,
     disconnecting,
@@ -52,9 +49,11 @@ export function GitHubIntegrationCard({
     handleRemoveRepo,
     openAddRepo,
     handleAddRepo,
-  } = useGitHubIntegration(workspaceUrl, status, onStatusChange)
+  } = useGitHubIntegration(workspaceUrl)
 
-  const headerAction = status?.connected ? (
+  const headerAction = loading ? (
+    <Loader2 size={16} className='animate-spin text-zinc-400' />
+  ) : status?.connected ? (
     <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
       <Check size={12} />
       {intl.formatMessage({ id: 'github.connected' })}
