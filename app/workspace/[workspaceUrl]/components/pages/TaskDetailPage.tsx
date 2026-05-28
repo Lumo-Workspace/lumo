@@ -17,9 +17,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { TaskDetail, ApiTask, WorkspaceMemberInfo, Page } from '../../types'
+import { TaskDetail, WorkspaceMemberInfo, Page } from '../../types'
 import { CACHE_KEY } from '../../constants'
-import { readCache, writeCache } from '../../cache'
+import { writeCache } from '../../cache'
 import { pageToPath } from '../../utils'
 import { slugify } from '@/lib/utils/slugify'
 import { tasksClient, workspacesClient } from '@/lib/api-client'
@@ -179,9 +179,6 @@ export function TaskDetailPage({
           const t = taskData.task as TaskDetail
           setTask(prev => ({ ...prev, ...t }))
           desc.setDescriptionFromFetch(t.description ?? null)
-          const taskMap =
-            readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-          writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
         }
         const freshMembers: WorkspaceMemberInfo[] = membersData.members ?? []
         if (freshMembers.length > 0) {
@@ -221,9 +218,6 @@ export function TaskDetailPage({
             const t = data.task as TaskDetail
             setTask(prev => ({ ...prev, ...t }))
             desc.setDescriptionFromFetch(t.description ?? null)
-            const taskMap =
-              readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-            writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
           }
         })
         .catch(() => {})

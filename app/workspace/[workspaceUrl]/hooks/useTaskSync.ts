@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { TaskDetail, ApiTask } from '../types'
 import { tasksClient, apiFetch } from '@/lib/api-client'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { usePusherEvent } from './usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
 
@@ -92,10 +90,6 @@ export function useTaskSync({
             dueDate: t.dueDate ?? null,
           }))
           onDescriptionFetched(t.description ?? null)
-          // Sync task to cache
-          const taskMap =
-            readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-          writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
         }
       })
       .catch(() => {})
@@ -141,10 +135,6 @@ export function useTaskSync({
               branches: t.branches ?? [],
             }))
             onDescriptionFetched(t.description ?? null)
-            // Sync task to cache
-            const taskMap =
-              readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-            writeCache(CACHE_KEY.tasks, { ...taskMap, [t.id]: t })
           }
         })
         .catch(() => {})

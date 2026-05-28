@@ -3,13 +3,10 @@
 import { useCallback } from 'react'
 import type {
   TaskDetail,
-  ApiTask,
   ApiStatus,
   ApiPriority,
   ApiProject,
 } from '../types'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
 import { tasksClient } from '@/lib/api-client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -64,13 +61,9 @@ export function useTaskMutation({
         return updated
       }
 
-      // Optimistic local update
+      // Optimistic update flows through the TanStack cache (setTask is a
+      // setQueryData wrapper for tasks.detail(id)).
       setTask(applyPatch)
-
-      // Sync to cache
-      const localUpdate = applyPatch(task)
-      const taskMap = readCache<Record<string, ApiTask>>(CACHE_KEY.tasks) ?? {}
-      writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: localUpdate })
 
       try {
         if (onExternalUpdate) {
@@ -81,7 +74,6 @@ export function useTaskMutation({
       } catch {
         // Rollback on failure
         setTask(snapshot)
-        writeCache(CACHE_KEY.tasks, { ...taskMap, [task.id]: snapshot })
       }
     },
     [task, setTask, projects, onExternalUpdate]

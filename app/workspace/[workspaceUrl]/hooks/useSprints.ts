@@ -1,10 +1,30 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
+import {
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+  type Updater,
+} from '@tanstack/react-query'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import type { TaskDetail } from '../types'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
+
+// Mirror each fetched task into the per-task detail cache so detail pages
+// can read by id without a re-fetch. Sprint / backlog responses include
+// full enough fields to seed a partial TaskDetail.
+function seedTaskDetailCache(queryClient: QueryClient, tasks: unknown[]) {
+  for (const raw of tasks) {
+    const t = raw as { id?: string } & Record<string, unknown>
+    if (!t.id) continue
+    queryClient.setQueryData<TaskDetail>(
+      queryKeys.tasks.detail(t.id),
+      prev => ({ ...(prev ?? {}), ...t }) as TaskDetail
+    )
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared types inferred from the api-client return shapes
@@ -152,6 +172,7 @@ export function useSprintByNumber(
  * Returns { tasks, isLoading, error, refetch }.
  */
 export function useSprintTasks(sprintId: string | null) {
+  const queryClient = useQueryClient()
   const query = useQuery<unknown[]>({
     queryKey: sprintId
       ? queryKeys.tasks.bySprint(sprintId)
@@ -160,6 +181,7 @@ export function useSprintTasks(sprintId: string | null) {
       const res = await tasksClient.listBySprint<TaskListResult>(
         sprintId as string
       )
+      seedTaskDetailCache(queryClient, res.tasks)
       return res.tasks
     },
     enabled: !!sprintId,
@@ -182,6 +204,7 @@ export function useSprintTasks(sprintId: string | null) {
  * Returns { tasks, isLoading, error, refetch }.
  */
 export function useBacklogTasks(teamId: string | null) {
+  const queryClient = useQueryClient()
   const query = useQuery<unknown[]>({
     queryKey: teamId
       ? queryKeys.tasks.backlog(teamId)
@@ -191,6 +214,7 @@ export function useBacklogTasks(teamId: string | null) {
         teamId as string,
         { sprintId: null }
       )
+      seedTaskDetailCache(queryClient, res.tasks)
       return res.tasks
     },
     enabled: !!teamId,
