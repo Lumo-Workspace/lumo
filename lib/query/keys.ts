@@ -75,4 +75,13 @@ export const queryKeys = {
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
 
   taskFigmaLinks: (taskId: string) => ['task-figma-links', taskId] as const,
+
+  integrations: {
+    slack: (workspaceUrl: string) =>
+      ['integrations', 'slack', workspaceUrl] as const,
+    github: (workspaceUrl: string) =>
+      ['integrations', 'github', workspaceUrl] as const,
+    githubRepos: (workspaceUrl: string) =>
+      ['integrations', 'github-repos', workspaceUrl] as const,
+  },
 }

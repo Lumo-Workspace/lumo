@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { API } from '../constants'
 import { apiFetch } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 
 interface SlackStatus {
   connected: boolean
@@ -27,67 +29,62 @@ interface UseSlackIntegrationReturn {
 export function useSlackIntegration(): UseSlackIntegrationReturn {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
-  const [status, setStatus] = useState<SlackStatus | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.integrations.slack(workspaceUrl)
+
   const [disconnectOpen, setDisconnectOpen] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const data = await apiFetch<SlackStatus>(
-        API.slack.integration(workspaceUrl)
-      )
-      setStatus(data)
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false)
-    }
-  }, [workspaceUrl])
+  const query = useQuery<SlackStatus>({
+    queryKey,
+    queryFn: () => apiFetch<SlackStatus>(API.slack.integration(workspaceUrl)),
+  })
 
-  useEffect(() => {
-    fetchStatus()
-  }, [fetchStatus])
+  const disconnectMutation = useMutation<void, Error>({
+    mutationFn: () =>
+      apiFetch<void>(API.slack.integration(workspaceUrl), { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.setQueryData<SlackStatus>(queryKey, { connected: false })
+      toast.success(intl.formatMessage({ id: 'slack.disconnectSuccess' }))
+    },
+    onError: () => {
+      toast.error(intl.formatMessage({ id: 'slack.disconnectFailed' }))
+    },
+    onSettled: () => {
+      setDisconnectOpen(false)
+    },
+  })
 
+  // OAuth callback param handling — fires on mount when the OAuth round-trip
+  // returned to this page with ?slack_connected=1 or ?slack_error=1.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('slack_connected') === '1') {
       toast.success(intl.formatMessage({ id: 'slack.connectSuccess' }))
-      fetchStatus()
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.integrations.slack(workspaceUrl),
+      })
       window.history.replaceState({}, '', window.location.pathname)
     }
     if (params.get('slack_error') === '1') {
       toast.error(intl.formatMessage({ id: 'slack.connectFailed' }))
       window.history.replaceState({}, '', window.location.pathname)
     }
-  }, [fetchStatus, intl])
+  }, [workspaceUrl, intl, queryClient])
 
-  const handleConnect = useCallback(() => {
+  const handleConnect = () => {
     window.open(API.slack.oauth(workspaceUrl), '_blank')
-  }, [workspaceUrl])
+  }
 
   const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      await apiFetch<void>(API.slack.integration(workspaceUrl), {
-        method: 'DELETE',
-      })
-      setStatus({ connected: false })
-      toast.success(intl.formatMessage({ id: 'slack.disconnectSuccess' }))
-    } catch {
-      toast.error(intl.formatMessage({ id: 'slack.disconnectFailed' }))
-    } finally {
-      setDisconnecting(false)
-      setDisconnectOpen(false)
-    }
+    await disconnectMutation.mutateAsync()
   }
 
   return {
-    status,
-    loading,
+    status: query.data ?? null,
+    loading: query.isLoading,
     disconnectOpen,
     setDisconnectOpen,
-    disconnecting,
+    disconnecting: disconnectMutation.isPending,
     handleConnect,
     handleDisconnect,
   }
