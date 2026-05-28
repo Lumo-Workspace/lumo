@@ -52,9 +52,9 @@ export const figmaIntegrationRepository = {
   },
 
   delete(workspaceId: string, memberId: string): Promise<void> {
-    prisma.figmaIntegration
+    return prisma.figmaIntegration
       .delete({ where: { workspaceId_memberId: { workspaceId, memberId } } })
-      .catch(() => null) // idempotent
-    return Promise.resolve()
+      .then(() => undefined)
+      .catch(() => undefined) // idempotent
   },
 }

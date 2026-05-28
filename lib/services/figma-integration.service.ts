@@ -9,21 +9,36 @@ export interface OauthStatePayload {
   workspaceUrl: string
 }
 
+interface OauthStateEnvelope extends OauthStatePayload {
+  iat: number
+}
+
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+
 export function encodeOauthState(payload: OauthStatePayload): string {
-  return encrypt(JSON.stringify(payload))
+  const envelope: OauthStateEnvelope = { ...payload, iat: Date.now() }
+  return encrypt(JSON.stringify(envelope))
 }
 
 export function decodeOauthState(state: string): OauthStatePayload | null {
   try {
-    const parsed = JSON.parse(decrypt(state)) as OauthStatePayload
+    const parsed = JSON.parse(decrypt(state)) as OauthStateEnvelope
     if (
       typeof parsed.workspaceId !== 'string' ||
       typeof parsed.memberId !== 'string' ||
-      typeof parsed.workspaceUrl !== 'string'
+      typeof parsed.workspaceUrl !== 'string' ||
+      typeof parsed.iat !== 'number'
     ) {
       return null
     }
-    return parsed
+    if (Date.now() - parsed.iat > OAUTH_STATE_TTL_MS) {
+      return null
+    }
+    return {
+      workspaceId: parsed.workspaceId,
+      memberId: parsed.memberId,
+      workspaceUrl: parsed.workspaceUrl,
+    }
   } catch {
     return null
   }

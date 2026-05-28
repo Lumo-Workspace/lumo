@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import {
   decodeOauthState,
   completeOauthFlow,
@@ -20,6 +21,21 @@ export async function GET(request: NextRequest) {
   }
 
   const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/integrations/figma`
+
+  // Bind callback to the currently authenticated Clerk user: a leaked state
+  // blob must not let anyone else complete the OAuth on the encoded member's
+  // behalf.
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const ws = await getUserWorkspace(authResult.userId)
+  if (
+    !ws ||
+    ws.workspaceId !== decoded.workspaceId ||
+    ws.member.id !== decoded.memberId
+  ) {
+    return NextResponse.redirect(`${settingsUrl}?figma_error=identity_mismatch`)
+  }
+
   if (!code) {
     return NextResponse.redirect(`${settingsUrl}?figma_error=no_code`)
   }

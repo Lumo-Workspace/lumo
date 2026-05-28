@@ -1,14 +1,25 @@
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { taskFigmaLinkRepository } from '@/lib/repositories/task-figma-link.repository'
+import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
 import * as integrationSvc from '@/lib/services/figma-integration.service'
 import * as figmaClient from '@/lib/integrations/figma/client'
 
 jest.mock('@/lib/repositories/task-figma-link.repository')
+jest.mock('@/lib/repositories/figma-integration.repository')
 jest.mock('@/lib/services/figma-integration.service')
-jest.mock('@/lib/integrations/figma/client')
+jest.mock('@/lib/integrations/figma/client', () => {
+  const actual = jest.requireActual('@/lib/integrations/figma/client')
+  return {
+    ...actual,
+    createFigmaClient: jest.fn(),
+  }
+})
 
 const mockRepo = taskFigmaLinkRepository as jest.Mocked<
   typeof taskFigmaLinkRepository
+>
+const mockIntegrationRepo = figmaIntegrationRepository as jest.Mocked<
+  typeof figmaIntegrationRepository
 >
 
 function mockClient(overrides: Partial<figmaClient.FigmaClient> = {}) {
@@ -204,6 +215,49 @@ describe('addFigmaLink — failure modes', () => {
         lastSyncError: 'thumbnail_failed',
       })
     )
+  })
+
+  it('converts Figma 404 on getFile to a 422 service error, no DB write', async () => {
+    const notFound = Object.assign(new Error('Figma API 404'), { status: 404 })
+    mockClient({
+      getFile: jest.fn().mockRejectedValue(notFound),
+    })
+    mockRepo.findByTaskAndKey.mockResolvedValue(null)
+
+    await expect(
+      taskFigmaLinkService.addFigmaLink({
+        taskId: 't1',
+        workspaceId: 'w1',
+        actorMemberId: 'm1',
+        url: 'https://www.figma.com/file/abc/F?node-id=1-2',
+      })
+    ).rejects.toMatchObject({
+      status: 422,
+      code: 'figma_file_not_accessible',
+    })
+    expect(mockRepo.create).not.toHaveBeenCalled()
+    expect(mockRepo.update).not.toHaveBeenCalled()
+  })
+
+  it('marks integration needsReauth and throws figma_needs_reauth when refresh chain fails', async () => {
+    mockClient({
+      getFile: jest
+        .fn()
+        .mockRejectedValue(new figmaClient.FigmaNeedsReauthError()),
+    })
+    mockRepo.findByTaskAndKey.mockResolvedValue(null)
+    mockIntegrationRepo.markNeedsReauth.mockResolvedValue({} as any)
+
+    await expect(
+      taskFigmaLinkService.addFigmaLink({
+        taskId: 't1',
+        workspaceId: 'w1',
+        actorMemberId: 'm1',
+        url: 'https://www.figma.com/file/abc/F?node-id=1-2',
+      })
+    ).rejects.toMatchObject({ status: 403, code: 'figma_needs_reauth' })
+    expect(mockIntegrationRepo.markNeedsReauth).toHaveBeenCalledWith('int_1')
+    expect(mockRepo.create).not.toHaveBeenCalled()
   })
 })
 

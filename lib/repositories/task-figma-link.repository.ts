@@ -60,7 +60,9 @@ export const taskFigmaLinkRepository = {
   },
 
   delete(id: string): Promise<void> {
-    prisma.taskFigmaLink.delete({ where: { id } }).catch(() => null) // idempotent
-    return Promise.resolve()
+    return prisma.taskFigmaLink
+      .delete({ where: { id } })
+      .then(() => undefined)
+      .catch(() => undefined) // idempotent
   },
 }

@@ -11,6 +11,10 @@ import {
 } from '@/lib/services/figma-integration.service'
 
 describe('Figma OAuth state', () => {
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
   it('round-trips workspaceId, memberId, workspaceUrl', () => {
     const state = encodeOauthState({
       workspaceId: 'w1',
@@ -37,6 +41,32 @@ describe('Figma OAuth state', () => {
 
   it('returns null on garbage input', () => {
     expect(decodeOauthState('not-a-state')).toBeNull()
+  })
+
+  it('returns null when state is older than 10 minutes', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    const state = encodeOauthState({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
+    jest.setSystemTime(new Date('2026-01-01T00:11:00Z')) // 11 min later
+    expect(decodeOauthState(state)).toBeNull()
+  })
+
+  it('still valid within 10 minutes', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    const state = encodeOauthState({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
+    jest.setSystemTime(new Date('2026-01-01T00:09:00Z')) // 9 min later
+    expect(decodeOauthState(state)).toEqual({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
   })
 })
 
