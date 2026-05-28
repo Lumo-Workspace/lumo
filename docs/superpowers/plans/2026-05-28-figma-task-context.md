@@ -37,7 +37,7 @@
 - `cli/src/commands/task-figma-list.ts`
 - `cli/src/commands/task-figma-rm.ts`
 - `cli/src/commands/task-figma-refresh.ts`
-- `cli/src/api-client/figma.ts` — CLI helpers
+- `cli/src/lib/figma-api.ts` — CLI fetch helpers (mirrors patterns from `cli/src/commands/doc-create.ts`)
 - `__tests__/lib/integrations/figma/parse-url.test.ts`
 - `__tests__/lib/integrations/figma/oauth.test.ts`
 - `__tests__/lib/integrations/figma/client.test.ts`
@@ -62,7 +62,8 @@
 - `FIGMA_OAUTH_CLIENT_ID`
 - `FIGMA_OAUTH_CLIENT_SECRET`
 - `FIGMA_OAUTH_REDIRECT_URI` (e.g. `https://www.uselumo.ai/api/figma/callback`)
-- `FIGMA_OAUTH_STATE_SECRET` — for signing state JWT (32-byte random)
+
+State token uses `lib/crypto.ts` (`encrypt(JSON.stringify(...))`), the same scheme GitHub OAuth uses — no new secret needed. `NEXT_PUBLIC_APP_URL` already exists in Vercel and is referenced for the callback redirect.
 
 ---
 
@@ -798,7 +799,7 @@ git commit -m "feat: figma REST client with auto-refresh + reauth detection [LUM
 Create `lib/repositories/figma-integration.repository.ts`:
 
 ```ts
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/db/prisma'
 import type { FigmaIntegration } from '@prisma/client'
 
 export const figmaIntegrationRepository = {
@@ -862,83 +863,111 @@ export const figmaIntegrationRepository = {
 
 - [ ] **Step 2: Write failing repository test**
 
-Create `__tests__/lib/repositories/task-figma-link.repository.test.ts`:
+Create `__tests__/lib/repositories/task-figma-link.repository.test.ts` (follows the project's mocked-prisma pattern — see `__tests__/lib/repositories/activity.repository.test.ts` for reference):
 
 ```ts
-import { prisma } from '@/lib/db'
+/**
+ * @jest-environment node
+ */
+
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    taskFigmaLink: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  },
+}))
+
+import { prisma } from '@/lib/db/prisma'
 import { taskFigmaLinkRepository } from '@/lib/repositories/task-figma-link.repository'
 
-// Re-uses the integration-test setup pattern. See existing tests for fixtures.
-// This test depends on a real Postgres connection; skipped in unit-only runs.
+const mockCreate = prisma.taskFigmaLink.create as jest.Mock
+const mockFindMany = prisma.taskFigmaLink.findMany as jest.Mock
+const mockFindUnique = prisma.taskFigmaLink.findUnique as jest.Mock
+const mockUpdate = prisma.taskFigmaLink.update as jest.Mock
+const mockDelete = prisma.taskFigmaLink.delete as jest.Mock
 
-describe('taskFigmaLinkRepository', () => {
-  let workspaceId: string
-  let taskId: string
-  let memberId: string
+beforeEach(() => jest.clearAllMocks())
 
-  beforeAll(async () => {
-    // create a minimal workspace + task + member via existing test helpers
-    // (engineer: copy the pattern from __tests__/lib/repositories/task-web-link.repository.test.ts)
-  })
-
-  afterAll(async () => {
-    await prisma.taskFigmaLink.deleteMany({ where: { workspaceId } })
-    await prisma.$disconnect()
-  })
-
-  it('enforces (taskId, fileKey, nodeId) uniqueness — frame-level', async () => {
-    await taskFigmaLinkRepository.create({
-      taskId,
-      workspaceId,
-      createdById: memberId,
+describe('taskFigmaLinkRepository.create', () => {
+  it('forwards input as create data', async () => {
+    mockCreate.mockResolvedValue({ id: 'cfl_1' })
+    const input = {
+      taskId: 't1',
+      workspaceId: 'w1',
+      createdById: 'm1',
       url: 'https://www.figma.com/file/abc/F?node-id=1-2',
       fileKey: 'abc',
       nodeId: '1:2',
       fileName: 'F',
       frameName: 'Welcome',
+    }
+    await taskFigmaLinkRepository.create(input)
+    expect(mockCreate).toHaveBeenCalledWith({ data: input })
+  })
+})
+
+describe('taskFigmaLinkRepository.listByTask', () => {
+  it('queries by taskId ordered by createdAt asc', async () => {
+    mockFindMany.mockResolvedValue([])
+    await taskFigmaLinkRepository.listByTask('t1')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { taskId: 't1' },
+      orderBy: { createdAt: 'asc' },
     })
-    await expect(
-      taskFigmaLinkRepository.create({
-        taskId,
-        workspaceId,
-        createdById: memberId,
-        url: 'https://www.figma.com/file/abc/F?node-id=1-2',
-        fileKey: 'abc',
-        nodeId: '1:2',
-        fileName: 'F',
-        frameName: 'Welcome',
-      })
-    ).rejects.toThrow()
+  })
+})
+
+describe('taskFigmaLinkRepository.findByTaskAndKey', () => {
+  it('uses the compound unique key', async () => {
+    mockFindUnique.mockResolvedValue(null)
+    await taskFigmaLinkRepository.findByTaskAndKey('t1', 'abc', '1:2')
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: {
+        taskId_fileKey_nodeId: { taskId: 't1', fileKey: 'abc', nodeId: '1:2' },
+      },
+    })
   })
 
-  it('enforces uniqueness on file-level (nodeId = "")', async () => {
-    await taskFigmaLinkRepository.create({
-      taskId,
-      workspaceId,
-      createdById: memberId,
-      url: 'https://www.figma.com/file/xyz/F',
-      fileKey: 'xyz',
-      nodeId: '',
-      fileName: 'F',
-      frameName: null,
+  it('uses "" sentinel for file-level lookup', async () => {
+    mockFindUnique.mockResolvedValue(null)
+    await taskFigmaLinkRepository.findByTaskAndKey('t1', 'abc', '')
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: {
+        taskId_fileKey_nodeId: { taskId: 't1', fileKey: 'abc', nodeId: '' },
+      },
     })
-    await expect(
-      taskFigmaLinkRepository.create({
-        taskId,
-        workspaceId,
-        createdById: memberId,
-        url: 'https://www.figma.com/file/xyz/F',
-        fileKey: 'xyz',
-        nodeId: '',
-        fileName: 'F',
-        frameName: null,
-      })
-    ).rejects.toThrow()
+  })
+})
+
+describe('taskFigmaLinkRepository.update', () => {
+  it('updates by id with the supplied data', async () => {
+    mockUpdate.mockResolvedValue({ id: 'cfl_1' })
+    await taskFigmaLinkRepository.update('cfl_1', {
+      thumbnailUrl: 'https://x/y.png',
+      lastSyncedAt: new Date(0),
+    })
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'cfl_1' },
+      data: { thumbnailUrl: 'https://x/y.png', lastSyncedAt: new Date(0) },
+    })
+  })
+})
+
+describe('taskFigmaLinkRepository.delete', () => {
+  it('deletes by id', async () => {
+    mockDelete.mockResolvedValue(undefined)
+    await taskFigmaLinkRepository.delete('cfl_1')
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'cfl_1' } })
   })
 })
 ```
 
-> Engineer: copy the workspace/task/member fixture pattern from `__tests__/lib/repositories/task-web-link.repository.test.ts`. If that file does not exist, use the pattern in any existing repository test.
+The `(taskId, fileKey, nodeId)` uniqueness constraint is enforced at the DB layer; the Prisma-level test verifies the repository calls the right method with the right shape. A real-DB integration test for the unique constraint can be added later if needed — the project currently mocks prisma for repository tests.
 
 - [ ] **Step 3: Run, verify fail**
 
@@ -951,7 +980,7 @@ Expected: FAIL (module not found).
 Create `lib/repositories/task-figma-link.repository.ts`:
 
 ```ts
-import { prisma } from '@/lib/db'
+import { prisma } from '@/lib/db/prisma'
 import type { TaskFigmaLink } from '@prisma/client'
 
 export interface CreateFigmaLinkInput {
@@ -1043,40 +1072,49 @@ git commit -m "feat: figma + task-figma-link repositories [LUM-104]"
 
 This service handles: signed-state JWT for OAuth, exchanging code → tokens, fetching Figma user profile, encrypting + persisting via repository.
 
-- [ ] **Step 1: Write failing test — signing & verifying state**
+- [ ] **Step 1: Write failing test — round-trip OAuth state**
+
+The project uses `lib/crypto.ts`'s `encrypt(JSON.stringify(...))` for OAuth state (see GitHub OAuth at `app/api/github/oauth/route.ts`). We follow the same convention — no new secret env var needed, AES-256-GCM provides integrity already.
 
 Create `__tests__/lib/services/figma-integration.service.test.ts`:
 
 ```ts
+/**
+ * @jest-environment node
+ */
+
 import {
-  signOauthState,
-  verifyOauthState,
+  encodeOauthState,
+  decodeOauthState,
 } from '@/lib/services/figma-integration.service'
 
-describe('Figma OAuth state token', () => {
-  beforeAll(() => {
-    process.env.FIGMA_OAUTH_STATE_SECRET = 'a'.repeat(32)
+describe('Figma OAuth state', () => {
+  it('round-trips workspaceId, memberId, workspaceUrl', () => {
+    const state = encodeOauthState({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
+    expect(state).not.toContain('w1') // encrypted, not plaintext
+    expect(decodeOauthState(state)).toEqual({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
   })
 
-  it('round-trips workspace + member', () => {
-    const state = signOauthState({ workspaceId: 'w1', memberId: 'm1' })
-    const decoded = verifyOauthState(state)
-    expect(decoded).toEqual({ workspaceId: 'w1', memberId: 'm1' })
-  })
-
-  it('rejects tampered token', () => {
-    const state = signOauthState({ workspaceId: 'w1', memberId: 'm1' })
+  it('returns null on tampered ciphertext', () => {
+    const state = encodeOauthState({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      workspaceUrl: 'lumo',
+    })
     const tampered = state.slice(0, -2) + 'xx'
-    expect(verifyOauthState(tampered)).toBeNull()
+    expect(decodeOauthState(tampered)).toBeNull()
   })
 
-  it('rejects expired token (>10 min)', () => {
-    const real = Date.now
-    Date.now = () => 0
-    const state = signOauthState({ workspaceId: 'w1', memberId: 'm1' })
-    Date.now = () => 11 * 60 * 1000
-    expect(verifyOauthState(state)).toBeNull()
-    Date.now = real
+  it('returns null on garbage input', () => {
+    expect(decodeOauthState('not-a-state')).toBeNull()
   })
 })
 ```
@@ -1087,74 +1125,44 @@ Run: `npm test -- figma-integration.service`
 
 Expected: FAIL.
 
-- [ ] **Step 3: Implement state signing**
+- [ ] **Step 3: Implement state encoding (reuses `lib/crypto`)**
 
 Create `lib/services/figma-integration.service.ts`:
 
 ```ts
-import crypto from 'crypto'
 import { encrypt, decrypt } from '@/lib/crypto'
 import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
 import { exchangeCode } from '@/lib/integrations/figma/oauth'
 import type { FigmaUserInfo } from '@/lib/integrations/figma/types'
 
-const STATE_TTL_MS = 10 * 60 * 1000
-
-interface StatePayload {
+export interface OauthStatePayload {
   workspaceId: string
   memberId: string
-  iat: number
+  workspaceUrl: string
 }
 
-function statePayloadToString(payload: StatePayload): string {
-  return Buffer.from(JSON.stringify(payload)).toString('base64url')
+export function encodeOauthState(payload: OauthStatePayload): string {
+  return encrypt(JSON.stringify(payload))
 }
 
-function statePayloadFromString(input: string): StatePayload | null {
+export function decodeOauthState(state: string): OauthStatePayload | null {
   try {
-    return JSON.parse(Buffer.from(input, 'base64url').toString('utf8'))
+    const parsed = JSON.parse(decrypt(state)) as OauthStatePayload
+    if (
+      typeof parsed.workspaceId !== 'string' ||
+      typeof parsed.memberId !== 'string' ||
+      typeof parsed.workspaceUrl !== 'string'
+    ) {
+      return null
+    }
+    return parsed
   } catch {
     return null
   }
 }
-
-function sign(input: string, secret: string): string {
-  return crypto.createHmac('sha256', secret).update(input).digest('base64url')
-}
-
-export function signOauthState(input: {
-  workspaceId: string
-  memberId: string
-}): string {
-  const secret = process.env.FIGMA_OAUTH_STATE_SECRET
-  if (!secret) throw new Error('FIGMA_OAUTH_STATE_SECRET not set')
-  const payload: StatePayload = { ...input, iat: Date.now() }
-  const body = statePayloadToString(payload)
-  const sig = sign(body, secret)
-  return `${body}.${sig}`
-}
-
-export function verifyOauthState(
-  state: string
-): { workspaceId: string; memberId: string } | null {
-  const secret = process.env.FIGMA_OAUTH_STATE_SECRET
-  if (!secret) return null
-  const dot = state.lastIndexOf('.')
-  if (dot < 0) return null
-  const body = state.slice(0, dot)
-  const sig = state.slice(dot + 1)
-  const expected = sign(body, secret)
-  if (
-    sig.length !== expected.length ||
-    !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
-  )
-    return null
-  const payload = statePayloadFromString(body)
-  if (!payload) return null
-  if (Date.now() - payload.iat > STATE_TTL_MS) return null
-  return { workspaceId: payload.workspaceId, memberId: payload.memberId }
-}
 ```
+
+> Note: `lib/crypto.ts` `encrypt()` includes a per-call IV + auth tag, so AES-GCM provides both confidentiality and integrity. No HMAC needed.
 
 - [ ] **Step 4: Run tests, verify pass**
 
@@ -1172,7 +1180,11 @@ import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration
 import * as oauth from '@/lib/integrations/figma/oauth'
 
 jest.mock('@/lib/repositories/figma-integration.repository', () => ({
-  figmaIntegrationRepository: { upsert: jest.fn() },
+  figmaIntegrationRepository: {
+    upsert: jest.fn(),
+    findByMember: jest.fn(),
+    delete: jest.fn(),
+  },
 }))
 
 describe('completeOauthFlow', () => {
@@ -1916,112 +1928,130 @@ git commit -m "feat: list/remove/refresh figma links service methods [LUM-104]"
 - Create: `app/api/figma/integration/route.ts`
 - Test: `__tests__/app/api/figma/callback.test.ts`
 
-Reference: read `app/api/github/oauth/route.ts` and `app/api/github/callback/route.ts` for the redirect + session-cookie pattern Lumo uses.
+Pattern reference: `app/api/github/oauth/route.ts` and `app/api/github/callback/route.ts`. Lumo's OAuth convention is:
+
+- `requireAuth()` from `@/lib/auth` for Clerk auth (returns `{ userId } | NextResponse`)
+- `getUserWorkspace(userId)` from `@/lib/auth` to resolve the user's workspace + member row
+- Take `workspaceUrl` (the URL slug) as a query param, validate it matches the user's workspace
+- Encrypt state via `encrypt(JSON.stringify({ memberId, workspaceId, workspaceUrl }))` — no separate state secret
+- Build the callback redirect from `process.env.NEXT_PUBLIC_APP_URL`
 
 - [ ] **Step 1: Implement `/api/figma/oauth/route.ts`**
 
 ```ts
-import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { getAuthorizeUrl } from '@/lib/integrations/figma/oauth'
-import { signOauthState } from '@/lib/services/figma-integration.service'
-import { workspaceMemberRepository } from '@/lib/repositories/workspace-member.repository'
+import { encodeOauthState } from '@/lib/services/figma-integration.service'
 
-export async function GET(request: Request) {
-  const { userId } = await auth()
-  if (!userId)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const { userId } = authResult
 
-  const url = new URL(request.url)
-  const workspaceId = url.searchParams.get('workspaceId')
-  if (!workspaceId) {
-    return NextResponse.json({ error: 'workspaceId required' }, { status: 400 })
+  const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
+  if (!workspaceUrl) {
+    return NextResponse.json(
+      { error: 'workspaceUrl is required' },
+      { status: 400 }
+    )
   }
 
-  const member = await workspaceMemberRepository.findByClerkUser(
-    userId,
-    workspaceId
-  )
-  if (!member)
-    return NextResponse.json({ error: 'Not a member' }, { status: 403 })
+  const ws = await getUserWorkspace(userId)
+  if (!ws || ws.workspace.slug !== workspaceUrl) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
-  const state = signOauthState({ workspaceId, memberId: member.id })
+  const state = encodeOauthState({
+    memberId: ws.member.id,
+    workspaceId: ws.workspaceId,
+    workspaceUrl,
+  })
+
   return NextResponse.redirect(getAuthorizeUrl({ state }))
 }
 ```
 
-> Engineer: the exact `workspaceMemberRepository` method name may differ. Use whatever the existing Github OAuth route uses to resolve member-from-clerk-user.
-
 - [ ] **Step 2: Implement `/api/figma/callback/route.ts`**
 
 ```ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import {
-  verifyOauthState,
+  decodeOauthState,
   completeOauthFlow,
 } from '@/lib/services/figma-integration.service'
-import { getWorkspaceUrl } from '@/lib/workspace-url'
 
-export async function GET(request: Request) {
-  const url = new URL(request.url)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
-  const errorParam = url.searchParams.get('error')
-  if (errorParam) {
-    return NextResponse.redirect(
-      new URL('/settings/integrations/figma?error=denied', url.origin)
-    )
+export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get('code')
+  const state = request.nextUrl.searchParams.get('state')
+  const errorParam = request.nextUrl.searchParams.get('error')
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+
+  if (errorParam || !state) {
+    return NextResponse.redirect(`${appUrl}/?figma_error=1`)
   }
-  if (!code || !state) {
-    return NextResponse.json({ error: 'Missing code/state' }, { status: 400 })
-  }
-  const decoded = verifyOauthState(state)
+
+  const decoded = decodeOauthState(state)
   if (!decoded) {
-    return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
+    return NextResponse.redirect(`${appUrl}/?figma_error=invalid_state`)
   }
 
-  await completeOauthFlow({
-    workspaceId: decoded.workspaceId,
-    memberId: decoded.memberId,
-    code,
-  })
+  const settingsUrl = `${appUrl}/workspace/${decoded.workspaceUrl}/settings/integrations/figma`
+  if (!code) {
+    return NextResponse.redirect(`${settingsUrl}?figma_error=no_code`)
+  }
 
-  const workspaceUrl = await getWorkspaceUrl(decoded.workspaceId)
-  return NextResponse.redirect(
-    new URL(
-      `/workspace/${workspaceUrl}/settings/integrations/figma?connected=1`,
-      url.origin
+  try {
+    await completeOauthFlow({
+      workspaceId: decoded.workspaceId,
+      memberId: decoded.memberId,
+      code,
+    })
+  } catch (e) {
+    const msg = (e as Error).message
+    return NextResponse.redirect(
+      `${settingsUrl}?figma_error=${encodeURIComponent(msg.slice(0, 64))}`
     )
-  )
+  }
+
+  return NextResponse.redirect(`${settingsUrl}?connected=1`)
 }
 ```
-
-> Engineer: `getWorkspaceUrl` is a stand-in — use the existing helper that maps workspaceId → URL slug used elsewhere (look at how the github callback resolves the workspace).
 
 - [ ] **Step 3: Implement `/api/figma/integration/route.ts` (GET + DELETE)**
 
 ```ts
-import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
 import { disconnectIntegration } from '@/lib/services/figma-integration.service'
-import { workspaceMemberRepository } from '@/lib/repositories/workspace-member.repository'
 
-async function resolveMember(request: Request) {
-  const { userId } = await auth()
-  if (!userId) return null
-  const url = new URL(request.url)
-  const workspaceId = url.searchParams.get('workspaceId')
-  if (!workspaceId) return null
-  return workspaceMemberRepository.findByClerkUser(userId, workspaceId)
+async function resolveWorkspaceAndMember(request: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return { error: authResult }
+  const { userId } = authResult
+  const workspaceUrl = request.nextUrl.searchParams.get('workspaceUrl')
+  if (!workspaceUrl) {
+    return {
+      error: NextResponse.json(
+        { error: 'workspaceUrl is required' },
+        { status: 400 }
+      ),
+    }
+  }
+  const ws = await getUserWorkspace(userId)
+  if (!ws || ws.workspace.slug !== workspaceUrl) {
+    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  }
+  return { ws }
 }
 
-export async function GET(request: Request) {
-  const member = await resolveMember(request)
-  if (!member) return NextResponse.json({ connected: false }, { status: 200 })
+export async function GET(request: NextRequest) {
+  const r = await resolveWorkspaceAndMember(request)
+  if (r.error) return r.error
   const row = await figmaIntegrationRepository.findByMember(
-    member.workspaceId,
-    member.id
+    r.ws.workspaceId,
+    r.ws.member.id
   )
   if (!row) return NextResponse.json({ connected: false })
   return NextResponse.json({
@@ -2032,11 +2062,10 @@ export async function GET(request: Request) {
   })
 }
 
-export async function DELETE(request: Request) {
-  const member = await resolveMember(request)
-  if (!member)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  await disconnectIntegration(member.workspaceId, member.id)
+export async function DELETE(request: NextRequest) {
+  const r = await resolveWorkspaceAndMember(request)
+  if (r.error) return r.error
+  await disconnectIntegration(r.ws.workspaceId, r.ws.member.id)
   return NextResponse.json({ ok: true })
 }
 ```
@@ -2046,41 +2075,55 @@ export async function DELETE(request: Request) {
 Create `__tests__/app/api/figma/callback.test.ts`:
 
 ```ts
+/**
+ * @jest-environment node
+ */
+
+import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/figma/callback/route'
 import * as svc from '@/lib/services/figma-integration.service'
 
 jest.mock('@/lib/services/figma-integration.service')
 
-describe('GET /api/figma/callback', () => {
-  beforeEach(() => jest.resetAllMocks())
+beforeAll(() => {
+  process.env.NEXT_PUBLIC_APP_URL = 'https://lumo.test'
+})
+beforeEach(() => jest.resetAllMocks())
 
-  it('redirects on missing state', async () => {
-    const res = await GET(
-      new Request('https://lumo.test/api/figma/callback?code=c')
-    )
-    expect(res.status).toBe(400)
+function makeReq(query: Record<string, string>): NextRequest {
+  const url = new URL('https://lumo.test/api/figma/callback')
+  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v)
+  return new NextRequest(url)
+}
+
+describe('GET /api/figma/callback', () => {
+  it('redirects with generic error when state is missing', async () => {
+    const res = await GET(makeReq({ code: 'c' }))
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toContain('figma_error=1')
   })
 
-  it('400s on tampered state', async () => {
-    ;(svc.verifyOauthState as jest.Mock).mockReturnValue(null)
-    const res = await GET(
-      new Request('https://lumo.test/api/figma/callback?code=c&state=tampered')
-    )
-    expect(res.status).toBe(400)
+  it('redirects with invalid_state on tampered state', async () => {
+    ;(svc.decodeOauthState as jest.Mock).mockReturnValue(null)
+    const res = await GET(makeReq({ code: 'c', state: 'tampered' }))
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toContain('figma_error=invalid_state')
   })
 
   it('completes flow and redirects on success', async () => {
-    ;(svc.verifyOauthState as jest.Mock).mockReturnValue({
+    ;(svc.decodeOauthState as jest.Mock).mockReturnValue({
       workspaceId: 'w1',
       memberId: 'm1',
+      workspaceUrl: 'lumo',
     })
     ;(svc.completeOauthFlow as jest.Mock).mockResolvedValue(undefined)
-    // engineer: also mock getWorkspaceUrl helper if separate
 
-    const res = await GET(
-      new Request('https://lumo.test/api/figma/callback?code=c&state=good')
+    const res = await GET(makeReq({ code: 'c', state: 'good' }))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toContain(
+      '/workspace/lumo/settings/integrations/figma?connected=1'
     )
-    expect(res.status).toBe(307) // redirect
     expect(svc.completeOauthFlow).toHaveBeenCalledWith({
       workspaceId: 'w1',
       memberId: 'm1',
@@ -2138,12 +2181,19 @@ import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import { addFigmaLinkSchema } from '@/lib/validation/task-figma-link'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
-async function resolveTask(workspaceId: string, id: string) {
-  return taskRepository.findByWorkspaceAndId(workspaceId, id)
+// verifyBearer returns { user: { id }, workspace, apiKey } — no member.
+// Each route resolves the actor's WorkspaceMember row from (workspaceId, clerkUserId).
+async function resolveActor(workspaceId: string, clerkUserId: string) {
+  return memberRepository.findByWorkspaceAndClerkId(workspaceId, clerkUserId)
+}
+
+async function resolveTask(workspaceId: string, identifier: string) {
+  return taskRepository.findByWorkspaceIdentifier(workspaceId, identifier)
 }
 
 export async function GET(
@@ -2168,6 +2218,9 @@ export async function POST(
   const { id } = await ctx.params
   const task = await resolveTask(identity.workspace.id, id)
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const actor = await resolveActor(identity.workspace.id, identity.user.id)
+  if (!actor)
+    return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
   const body = await request.json().catch(() => null)
   const parsed = addFigmaLinkSchema.safeParse(body)
@@ -2182,7 +2235,7 @@ export async function POST(
     const link = await taskFigmaLinkService.addFigmaLink({
       taskId: task.id,
       workspaceId: identity.workspace.id,
-      actorMemberId: identity.member.id,
+      actorMemberId: actor.id,
       url: parsed.data.url,
     })
     return NextResponse.json({ link }, { status: 201 })
@@ -2195,8 +2248,6 @@ export async function POST(
   }
 }
 ```
-
-> Engineer: `taskRepository.findByWorkspaceAndId` may have a different actual name. Match what `app/api/tasks/[id]/web-links/route.ts` uses.
 
 - [ ] **Step 3: Implement DELETE route**
 
@@ -2217,7 +2268,7 @@ export async function DELETE(
   const identity = await verifyBearer(request)
   if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
   const { id, linkId } = await ctx.params
-  const task = await taskRepository.findByWorkspaceAndId(
+  const task = await taskRepository.findByWorkspaceIdentifier(
     identity.workspace.id,
     id
   )
@@ -2240,6 +2291,7 @@ import { NextResponse } from 'next/server'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -2250,17 +2302,23 @@ export async function POST(
   const identity = await verifyBearer(request)
   if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
   const { id } = await ctx.params
-  const task = await taskRepository.findByWorkspaceAndId(
+  const task = await taskRepository.findByWorkspaceIdentifier(
     identity.workspace.id,
     id
   )
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const actor = await memberRepository.findByWorkspaceAndClerkId(
+    identity.workspace.id,
+    identity.user.id
+  )
+  if (!actor)
+    return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
   try {
     const results = await taskFigmaLinkService.refreshLinksForTask({
       taskId: task.id,
       workspaceId: identity.workspace.id,
-      actorMemberId: identity.member.id,
+      actorMemberId: actor.id,
     })
     return NextResponse.json({ results })
   } catch (e) {
@@ -2288,18 +2346,21 @@ git commit -m "feat: task↔figma REST API routes (GET/POST/DELETE/refresh) [LUM
 
 ---
 
-## Task 12: CLI API helpers
+## Task 12: CLI fetch helpers
 
 **Files:**
 
-- Create: `cli/src/api-client/figma.ts`
+- Create: `cli/src/lib/figma-api.ts`
 
-- [ ] **Step 1: Implement client helpers**
+Lumo's CLI does not have an `api-client/` directory or generic `apiFetch` wrapper. Each command does its own `fetch()` against `${resolveApiUrl()}/api/...` using `readCredentials()` for the bearer token. Pattern reference: `cli/src/commands/doc-create.ts`. We add one small helper file that wraps the Figma-specific URLs and JSON shape so the four CLI commands (Tasks 13–16) stay short.
 
-Create `cli/src/api-client/figma.ts`:
+- [ ] **Step 1: Implement helper file**
+
+Create `cli/src/lib/figma-api.ts`:
 
 ```ts
-import { apiFetch } from './_base' // existing helper used by all CLI commands
+import { resolveApiUrl, trimTrailingSlash } from './api'
+import { readCredentials } from './config'
 
 export interface FigmaLinkJson {
   id: string
@@ -2315,11 +2376,56 @@ export interface FigmaLinkJson {
   createdAt: string
 }
 
+interface ErrorBody {
+  error?: string
+  code?: string
+}
+
+function buildErr(
+  status: number,
+  body: ErrorBody
+): Error & {
+  status: number
+  code?: string
+} {
+  return Object.assign(new Error(body.error ?? `HTTP ${status}`), {
+    status,
+    code: body.code,
+  })
+}
+
+async function call<T>(
+  path: string,
+  init: RequestInit & { method: string }
+): Promise<T> {
+  const creds = readCredentials()
+  if (!creds) throw new Error('Not logged in. Run: lumo auth login')
+  const apiUrl = resolveApiUrl()
+  const res = await fetch(`${trimTrailingSlash(apiUrl)}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${creds.token}`,
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  })
+  if (!res.ok) {
+    let parsed: ErrorBody = {}
+    try {
+      parsed = (await res.json()) as ErrorBody
+    } catch {
+      /* non-JSON body */
+    }
+    throw buildErr(res.status, parsed)
+  }
+  return (await res.json()) as T
+}
+
 export async function addFigmaLink(
   identifier: string,
   url: string
 ): Promise<{ link: FigmaLinkJson }> {
-  return apiFetch(`/api/tasks/${encodeURIComponent(identifier)}/figma`, {
+  return call(`/api/tasks/${encodeURIComponent(identifier)}/figma`, {
     method: 'POST',
     body: JSON.stringify({ url }),
   })
@@ -2328,17 +2434,17 @@ export async function addFigmaLink(
 export async function listFigmaLinks(
   identifier: string
 ): Promise<{ links: FigmaLinkJson[] }> {
-  return apiFetch(`/api/tasks/${encodeURIComponent(identifier)}/figma`, {
+  return call(`/api/tasks/${encodeURIComponent(identifier)}/figma`, {
     method: 'GET',
   })
 }
 
 export async function removeFigmaLink(
   identifier: string,
-  linkIdOrUrl: string
+  linkId: string
 ): Promise<{ ok: true }> {
-  return apiFetch(
-    `/api/tasks/${encodeURIComponent(identifier)}/figma/${encodeURIComponent(linkIdOrUrl)}`,
+  return call(
+    `/api/tasks/${encodeURIComponent(identifier)}/figma/${encodeURIComponent(linkId)}`,
     { method: 'DELETE' }
   )
 }
@@ -2346,14 +2452,13 @@ export async function removeFigmaLink(
 export async function refreshFigmaLinks(identifier: string): Promise<{
   results: Array<{ id: string; ok: boolean; error?: string }>
 }> {
-  return apiFetch(
-    `/api/tasks/${encodeURIComponent(identifier)}/figma/refresh`,
-    { method: 'POST' }
-  )
+  return call(`/api/tasks/${encodeURIComponent(identifier)}/figma/refresh`, {
+    method: 'POST',
+  })
 }
 ```
 
-> Engineer: `_base` is the conventional CLI fetch wrapper — check existing CLI `api-client/` files for the actual filename. Use whatever they use (e.g. `client.ts` or `fetch.ts`).
+> Engineer note: this helper throws an `Error & { status, code }` on non-2xx. CLI commands check `err.code === 'figma_not_connected' | 'figma_needs_reauth'` for friendly messages; everything else falls through to the `wrap()` catch in `cli/src/index.ts`.
 
 - [ ] **Step 2: Typecheck**
 
@@ -2364,8 +2469,8 @@ Expected: clean.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add cli/src/api-client/figma.ts
-git commit -m "feat: CLI api-client helpers for figma endpoints [LUM-104]"
+git add cli/src/lib/figma-api.ts
+git commit -m "feat: CLI figma-api fetch helpers [LUM-104]"
 ```
 
 ---
@@ -2379,15 +2484,14 @@ git commit -m "feat: CLI api-client helpers for figma endpoints [LUM-104]"
 - [ ] **Step 1: Implement command**
 
 ```ts
-import { addFigmaLink, type FigmaLinkJson } from '../api-client/figma'
-import { handleApiError } from '../lib/error-handling' // see existing patterns
+import { addFigmaLink } from '../lib/figma-api'
 
 interface Args {
   identifier: string
   url: string
 }
 
-export async function taskFigmaAdd(args: Args): Promise<void> {
+export async function taskFigmaAdd(args: Args): Promise<number> {
   try {
     const { link } = await addFigmaLink(args.identifier, args.url)
     const label = link.frameName
@@ -2395,6 +2499,7 @@ export async function taskFigmaAdd(args: Args): Promise<void> {
       : `${link.fileName}${link.nodeId === '' ? ' (file-level)' : ''}`
     console.log(`Linked ${args.identifier} ↔ Figma "${label}"`)
     console.log(`  ${link.url}`)
+    return 0
   } catch (e) {
     const err = e as { code?: string; message?: string }
     if (err.code === 'figma_not_connected') {
@@ -2402,31 +2507,28 @@ export async function taskFigmaAdd(args: Args): Promise<void> {
       console.error(
         `  Run: open https://www.uselumo.ai/settings/integrations/figma`
       )
-      process.exit(1)
+      return 1
     }
     if (err.code === 'figma_needs_reauth') {
       console.error(`✗ Your Figma token is no longer valid. Please reconnect.`)
       console.error(
         `  Run: open https://www.uselumo.ai/settings/integrations/figma`
       )
-      process.exit(1)
+      return 1
     }
-    handleApiError(e)
+    throw e // let wrap() in cli/src/index.ts log and exit 1
   }
 }
 ```
 
-> Engineer: `handleApiError` is whatever the other CLI commands use to render server errors. Mirror what `task-create.ts` does.
-
 - [ ] **Step 2: Register in `cli/src/index.ts`**
 
-Find the `task` Command instance in `cli/src/index.ts` (or create one alongside `session`). Add:
+The `task` command group is already declared as `const task = program.command('task')`. Add the `figma` subgroup once (Task 13), then attach `add` here. Tasks 14–16 add `list`/`rm`/`refresh` to the same `taskFigma` variable.
 
 ```ts
 import { taskFigmaAdd } from './commands/task-figma-add'
-// ... (later when task command is configured)
 
-const taskFigma = taskCommand
+const taskFigma = task
   .command('figma')
   .description('Attach Figma file/frame links to a task')
 
@@ -2436,11 +2538,11 @@ taskFigma
     'Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.'
   )
   .action(
-    wrap((task: string, url: string) => taskFigmaAdd({ identifier: task, url }))
+    wrap((taskId: string, url: string) =>
+      taskFigmaAdd({ identifier: taskId, url })
+    )
   )
 ```
-
-> Engineer: the variable name for the `task` Command may differ in `cli/src/index.ts`. Use whatever is already declared (likely `const task = program.command('task')`).
 
 - [ ] **Step 3: Smoke test**
 
@@ -2470,8 +2572,7 @@ git commit -m "feat: lumo task figma add command [LUM-104]"
 - [ ] **Step 1: Implement command**
 
 ```ts
-import { listFigmaLinks } from '../api-client/figma'
-import { handleApiError } from '../lib/error-handling'
+import { listFigmaLinks } from '../lib/figma-api'
 
 const STALE_MS = 25 * 24 * 3600 * 1000
 
@@ -2495,32 +2596,29 @@ function formatRow(
 
 export async function taskFigmaList(args: {
   identifier: string
-}): Promise<void> {
-  try {
-    const { links } = await listFigmaLinks(args.identifier)
-    if (links.length === 0) {
-      console.log('No Figma links attached.')
-      return
-    }
-    for (const link of links) {
-      const frame = link.frameName ?? '(file-level)'
-      const synced = link.lastSyncedAt.slice(0, 10)
-      const stale =
-        link.thumbnailFetchedAt === null ||
-        Date.now() - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
-      console.log(
-        formatRow(
-          link.id,
-          link.fileName,
-          frame,
-          synced,
-          stale && !!link.thumbnailUrl
-        )
-      )
-    }
-  } catch (e) {
-    handleApiError(e)
+}): Promise<number> {
+  const { links } = await listFigmaLinks(args.identifier)
+  if (links.length === 0) {
+    console.log('No Figma links attached.')
+    return 0
   }
+  for (const link of links) {
+    const frame = link.frameName ?? '(file-level)'
+    const synced = link.lastSyncedAt.slice(0, 10)
+    const stale =
+      link.thumbnailFetchedAt === null ||
+      Date.now() - new Date(link.thumbnailFetchedAt).getTime() > STALE_MS
+    console.log(
+      formatRow(
+        link.id,
+        link.fileName,
+        frame,
+        synced,
+        stale && !!link.thumbnailUrl
+      )
+    )
+  }
+  return 0
 }
 ```
 
@@ -2532,7 +2630,7 @@ import { taskFigmaList } from './commands/task-figma-list'
 taskFigma
   .command('list <task>')
   .description('List Figma links attached to a task')
-  .action(wrap((task: string) => taskFigmaList({ identifier: task })))
+  .action(wrap((taskId: string) => taskFigmaList({ identifier: taskId })))
 ```
 
 - [ ] **Step 3: Smoke test**
@@ -2563,31 +2661,26 @@ git commit -m "feat: lumo task figma list command [LUM-104]"
 - [ ] **Step 1: Implement command**
 
 ```ts
-import { removeFigmaLink, listFigmaLinks } from '../api-client/figma'
-import { handleApiError } from '../lib/error-handling'
+import { removeFigmaLink, listFigmaLinks } from '../lib/figma-api'
 
 export async function taskFigmaRm(args: {
   identifier: string
   linkIdOrUrl: string
-}): Promise<void> {
-  try {
-    // Verify existence before delete for nicer messaging
-    const { links } = await listFigmaLinks(args.identifier)
-    const match = links.find(
-      l => l.id === args.linkIdOrUrl || l.url === args.linkIdOrUrl
-    )
-    if (!match) {
-      console.log(`Not linked: ${args.linkIdOrUrl}`)
-      return
-    }
-    await removeFigmaLink(args.identifier, match.id)
-    const label = match.frameName
-      ? `${match.fileName} · ${match.frameName}`
-      : `${match.fileName} (file-level)`
-    console.log(`Removed Figma link from ${args.identifier}: "${label}"`)
-  } catch (e) {
-    handleApiError(e)
+}): Promise<number> {
+  const { links } = await listFigmaLinks(args.identifier)
+  const match = links.find(
+    l => l.id === args.linkIdOrUrl || l.url === args.linkIdOrUrl
+  )
+  if (!match) {
+    console.log(`Not linked: ${args.linkIdOrUrl}`)
+    return 0
   }
+  await removeFigmaLink(args.identifier, match.id)
+  const label = match.frameName
+    ? `${match.fileName} · ${match.frameName}`
+    : `${match.fileName} (file-level)`
+  console.log(`Removed Figma link from ${args.identifier}: "${label}"`)
+  return 0
 }
 ```
 
@@ -2600,8 +2693,8 @@ taskFigma
   .command('rm <task> <link-id-or-url>')
   .description('Remove a Figma link from a task (idempotent)')
   .action(
-    wrap((task: string, linkIdOrUrl: string) =>
-      taskFigmaRm({ identifier: task, linkIdOrUrl })
+    wrap((taskId: string, linkIdOrUrl: string) =>
+      taskFigmaRm({ identifier: taskId, linkIdOrUrl })
     )
   )
 ```
@@ -2632,12 +2725,11 @@ git commit -m "feat: lumo task figma rm command [LUM-104]"
 - [ ] **Step 1: Implement command**
 
 ```ts
-import { refreshFigmaLinks, listFigmaLinks } from '../api-client/figma'
-import { handleApiError } from '../lib/error-handling'
+import { refreshFigmaLinks, listFigmaLinks } from '../lib/figma-api'
 
 export async function taskFigmaRefresh(args: {
   identifier: string
-}): Promise<void> {
+}): Promise<number> {
   try {
     const { links } = await listFigmaLinks(args.identifier)
     const byId = new Map(links.map(l => [l.id, l]))
@@ -2645,7 +2737,7 @@ export async function taskFigmaRefresh(args: {
     const { results } = await refreshFigmaLinks(args.identifier)
     if (results.length === 0) {
       console.log(`No Figma links attached to ${args.identifier}.`)
-      return
+      return 0
     }
     console.log(`Refreshed ${results.length} Figma links on ${args.identifier}`)
     for (const r of results) {
@@ -2658,8 +2750,18 @@ export async function taskFigmaRefresh(args: {
       if (r.ok) console.log(`  ✓ ${label}`)
       else console.log(`  ✗ ${label} (${r.error})`)
     }
+    return 0
   } catch (e) {
-    handleApiError(e)
+    const err = e as { code?: string }
+    if (
+      err.code === 'figma_not_connected' ||
+      err.code === 'figma_needs_reauth'
+    ) {
+      console.error(`✗ Figma is not connected (or token expired). Reconnect:`)
+      console.error(`  open https://www.uselumo.ai/settings/integrations/figma`)
+      return 1
+    }
+    throw e
   }
 }
 ```
@@ -2674,7 +2776,7 @@ taskFigma
   .description(
     'Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.'
   )
-  .action(wrap((task: string) => taskFigmaRefresh({ identifier: task })))
+  .action(wrap((taskId: string) => taskFigmaRefresh({ identifier: taskId })))
 ```
 
 - [ ] **Step 3: Smoke test**
@@ -2768,7 +2870,7 @@ function scheduleLazyRefresh(
 
 - [ ] **Step 3: Plumb `actorMemberId` through `getContextForIdentifier`**
 
-`getContextForIdentifier` currently takes `(workspaceId, identifier)`. Change its signature to `(workspaceId, actorMemberId, identifier)`. Then update the only caller, `app/api/tasks/context/[identifier]/route.ts`:
+`getContextForIdentifier` currently takes `(workspaceId, identifier)`. Change its signature to `(workspaceId, actorMemberId, identifier)`. `verifyBearer` returns `{ user, workspace, apiKey }` (no `member`), so the caller must look up the WorkspaceMember row from the Clerk user id. Update the only caller, `app/api/tasks/context/[identifier]/route.ts`:
 
 ```ts
 // Before:
@@ -2778,14 +2880,20 @@ const result = await taskContextService.getContextForIdentifier(
 )
 
 // After:
+import { memberRepository } from '@/lib/repositories/member.repository'
+
+const actor = await memberRepository.findByWorkspaceAndClerkId(
+  identity.workspace.id,
+  identity.user.id
+)
+if (!actor) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
+
 const result = await taskContextService.getContextForIdentifier(
   identity.workspace.id,
-  identity.member.id,
+  actor.id,
   identifier
 )
 ```
-
-> Engineer: confirm `identity.member.id` is the field name returned by `verifyBearer`. If not, use whatever path returns the WorkspaceMember.id (look at how the existing route uses `identity` for slack / web-link sections — those already need member context).
 
 - [ ] **Step 4: Wire `renderFigmaSection` into `getContextForIdentifier`**
 
@@ -2852,19 +2960,15 @@ export default function FigmaIntegrationPage() {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const search = useSearchParams()
   const [status, setStatus] = useState<IntegrationStatus | null>(null)
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-
-  // Engineer: resolve workspaceId from workspaceUrl using existing helper
-  // (look at how other settings pages do this). Cache in state.
 
   useEffect(() => {
-    if (!workspaceId) return
-    fetch(`/api/figma/integration?workspaceId=${workspaceId}`)
+    if (!workspaceUrl) return
+    fetch(`/api/figma/integration?workspaceUrl=${workspaceUrl}`)
       .then(r => r.json())
       .then(setStatus)
-  }, [workspaceId, search])
+  }, [workspaceUrl, search])
 
-  if (!workspaceId || !status) return <div>Loading…</div>
+  if (!status) return <div>Loading…</div>
 
   return (
     <div className='space-y-4'>
@@ -2887,9 +2991,10 @@ export default function FigmaIntegrationPage() {
           <Button
             variant='outline'
             onClick={async () => {
-              await fetch(`/api/figma/integration?workspaceId=${workspaceId}`, {
-                method: 'DELETE',
-              })
+              await fetch(
+                `/api/figma/integration?workspaceUrl=${workspaceUrl}`,
+                { method: 'DELETE' }
+              )
               setStatus({ connected: false })
             }}
           >
@@ -2897,7 +3002,7 @@ export default function FigmaIntegrationPage() {
           </Button>
           {status.needsReauth && (
             <Button asChild>
-              <a href={`/api/figma/oauth?workspaceId=${workspaceId}`}>
+              <a href={`/api/figma/oauth?workspaceUrl=${workspaceUrl}`}>
                 Reconnect
               </a>
             </Button>
@@ -2905,7 +3010,7 @@ export default function FigmaIntegrationPage() {
         </div>
       ) : (
         <Button asChild>
-          <a href={`/api/figma/oauth?workspaceId=${workspaceId}`}>
+          <a href={`/api/figma/oauth?workspaceUrl=${workspaceUrl}`}>
             Connect Figma
           </a>
         </Button>
@@ -2915,7 +3020,7 @@ export default function FigmaIntegrationPage() {
 }
 ```
 
-> Engineer: the `useParams` / workspaceId resolution may differ — match how the GitHub settings page does it (search for `useParams` under `app/workspace/`). Also use the project's `react-intl` for any new visible strings.
+> Engineer: the GitHub integration page uses `useParams` the same way — search for it under `app/workspace/` to match exactly. Use `react-intl` (`intl.formatMessage`) for visible strings; locale keys go in **every** file under `lib/i18n/`.
 
 - [ ] **Step 3: Add tile to integrations index (if applicable)**
 
@@ -3060,8 +3165,9 @@ Set in `.env.local`:
 FIGMA_OAUTH_CLIENT_ID=...
 FIGMA_OAUTH_CLIENT_SECRET=...
 FIGMA_OAUTH_REDIRECT_URI=http://localhost:3000/api/figma/callback
-FIGMA_OAUTH_STATE_SECRET=<32-byte hex>
 ```
+
+(`ENCRYPTION_KEY` for `lib/crypto.ts` is already set in the project — Figma reuses it for OAuth state. `NEXT_PUBLIC_APP_URL` is also already set.)
 
 Register the OAuth app at https://www.figma.com/developers/apps with redirect URI = `http://localhost:3000/api/figma/callback`.
 
@@ -3151,7 +3257,8 @@ Adds two tables. Requires `prisma migrate deploy` on next deploy. No backfill, n
 - FIGMA_OAUTH_CLIENT_ID
 - FIGMA_OAUTH_CLIENT_SECRET
 - FIGMA_OAUTH_REDIRECT_URI
-- FIGMA_OAUTH_STATE_SECRET (32 bytes)
+
+OAuth state encryption reuses `ENCRYPTION_KEY` (already set, used by GitHub integration).
 
 ## New npm packages
 None.
