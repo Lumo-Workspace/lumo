@@ -19,6 +19,7 @@ import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
+import { taskFigmaRefresh } from './commands/task-figma-refresh'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -286,6 +287,17 @@ taskFigma
         identifier: taskId as string,
         linkIdOrUrl: linkIdOrUrl as string,
       })
+    )
+  )
+
+taskFigma
+  .command('refresh <task>')
+  .description(
+    'Re-fetch Figma metadata + thumbnail for every link on this task. Per-link failures isolated.'
+  )
+  .action(
+    wrap((taskId: unknown) =>
+      taskFigmaRefresh({ identifier: taskId as string })
     )
   )
 
