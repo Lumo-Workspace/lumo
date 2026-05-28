@@ -17,6 +17,7 @@ import { taskList } from './commands/task-list'
 import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
+import { taskFigmaList } from './commands/task-figma-list'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -266,6 +267,13 @@ taskFigma
     wrap((taskId: unknown, url: unknown) =>
       taskFigmaAdd({ identifier: taskId as string, url: url as string })
     )
+  )
+
+taskFigma
+  .command('list <task>')
+  .description('List Figma links attached to a task')
+  .action(
+    wrap((taskId: unknown) => taskFigmaList({ identifier: taskId as string }))
   )
 
 const projectCmd = program
