@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { summariesClient } from '@/lib/api-client/summaries'
 import { useGenerationPoller } from './useGenerationPoller'
 import { ApiClientError } from '@/lib/api-client/base'
@@ -51,20 +52,16 @@ export function useReportRefresh(
     return () => clearTimeout(timer)
   }, [cooldownSeconds, state])
 
-  const trigger = useCallback(async () => {
-    if (state !== 'idle') return
-
-    setState('generating')
-    try {
-      const result =
-        scopeType === 'project' && scopeProjectId
-          ? await summariesClient.generateProject(scopeProjectId)
-          : await summariesClient.generateWorkspace()
-
+  const generateMutation = useMutation<{ jobId: string }, Error>({
+    mutationFn: () =>
+      scopeType === 'project' && scopeProjectId
+        ? summariesClient.generateProject(scopeProjectId)
+        : summariesClient.generateWorkspace(),
+    onSuccess: result => {
       setJobId(result.jobId)
-    } catch (err) {
+    },
+    onError: err => {
       if (err instanceof ApiClientError && err.status === 429) {
-        // Parse retryAfter from response body
         try {
           const body = JSON.parse(err.message)
           const retryAfter = body.retryAfter ?? 300
@@ -77,8 +74,14 @@ export function useReportRefresh(
       } else {
         setState('idle')
       }
-    }
-  }, [state, scopeType, scopeProjectId])
+    },
+  })
+
+  const trigger = () => {
+    if (state !== 'idle') return
+    setState('generating')
+    generateMutation.mutate()
+  }
 
   return { state, cooldownSeconds, trigger }
 }

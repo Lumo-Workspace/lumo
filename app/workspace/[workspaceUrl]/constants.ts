@@ -180,7 +180,6 @@ export const CACHE_KEY = {
   formRecoveryNewTask: 'lumo:form-recovery:new-task',
   formRecoveryNewProject: 'lumo:form-recovery:new-project',
   formRecoveryQuickDispatch: 'lumo:form-recovery:quick-dispatch',
-  timeline: (taskId: string) => `lumo:timeline:${taskId}`,
   agentRuns: (taskId: string) => `lumo:agent-runs:${taskId}`,
 }
 

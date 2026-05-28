@@ -1,139 +1,91 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useMemo } from 'react'
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query'
 import type { TimelineEntry, TimelineResponse } from '../types'
 import { tasksClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { usePusherEvent } from './usePusher'
-import { readCache, writeCache } from '../cache'
-import { CACHE_KEY } from '../constants'
-
-interface CachedTimeline {
-  items: TimelineEntry[]
-  hasMore: boolean
-  nextCursor: string | null
-}
 
 interface UseTimelineOptions {
   taskId: string
   enabled?: boolean
 }
 
+/**
+ * Paginated task-activity timeline backed by useInfiniteQuery. Pages are
+ * fetched newest-first (initial = newest 30, loadMore = next 30 older).
+ * The returned `entries` array is flattened oldest→newest to match the
+ * pre-migration ordering, so callers can render top-to-bottom.
+ */
 export function useTimeline({ taskId, enabled = true }: UseTimelineOptions) {
-  const cacheKey = CACHE_KEY.timeline(taskId)
-  const cached = useRef(readCache<CachedTimeline>(cacheKey))
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.timeline(taskId)
 
-  const [entries, setEntries] = useState<TimelineEntry[]>(
-    () => cached.current?.items ?? []
-  )
-  const [loading, setLoading] = useState(!cached.current)
-  const [hasMore, setHasMore] = useState(cached.current?.hasMore ?? false)
-  const [nextCursor, setNextCursor] = useState<string | null>(
-    cached.current?.nextCursor ?? null
-  )
-  const [loadingMore, setLoadingMore] = useState(false)
-  const initialFetched = useRef(false)
+  const query = useInfiniteQuery<
+    TimelineResponse,
+    Error,
+    InfiniteData<TimelineResponse, string | null>,
+    typeof queryKey,
+    string | null
+  >({
+    queryKey,
+    initialPageParam: null,
+    queryFn: ({ pageParam }) =>
+      tasksClient.getTimeline<TimelineResponse>(taskId, pageParam, 30),
+    getNextPageParam: lastPage =>
+      lastPage.hasMore ? lastPage.nextCursor : null,
+    enabled,
+  })
 
-  const fetchTimeline = useCallback(
-    async (cursor?: string | null) => {
-      try {
-        const data = await tasksClient.getTimeline<TimelineResponse>(
-          taskId,
-          cursor,
-          30
-        )
-        return data
-      } catch {
-        return null
-      }
-    },
-    [taskId]
-  )
+  // pages[0] = initial fetch (newest 30); subsequent pages are 30 older each.
+  // Flatten oldest→newest by reversing the page order first.
+  const entries = useMemo<TimelineEntry[]>(() => {
+    if (!query.data) return []
+    return [...query.data.pages].reverse().flatMap(p => p.items)
+  }, [query.data])
 
-  // Initial load — always fetch to get fresh data, but don't show loading if cached
-  useEffect(() => {
-    if (!enabled || initialFetched.current) return
-    initialFetched.current = true
+  const lastPage = query.data?.pages[query.data.pages.length - 1]
+  const hasMore = lastPage?.hasMore ?? false
 
-    if (!cached.current) setLoading(true)
-    fetchTimeline().then(data => {
-      if (data) {
-        setEntries(data.items)
-        setHasMore(data.hasMore)
-        setNextCursor(data.nextCursor)
-        writeCache(cacheKey, {
-          items: data.items,
-          hasMore: data.hasMore,
-          nextCursor: data.nextCursor,
-        })
-      }
-      setLoading(false)
-    })
-  }, [enabled, fetchTimeline, cacheKey])
-
-  // Load more (earlier entries)
-  const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore || !nextCursor) return
-    setLoadingMore(true)
-
-    const data = await fetchTimeline(nextCursor)
-    if (data) {
-      setEntries(prev => {
-        const merged = [...data.items, ...prev]
-        writeCache(cacheKey, {
-          items: merged,
-          hasMore: data.hasMore,
-          nextCursor: data.nextCursor,
-        })
-        return merged
-      })
-      setHasMore(data.hasMore)
-      setNextCursor(data.nextCursor)
-    }
-    setLoadingMore(false)
-  }, [hasMore, loadingMore, nextCursor, fetchTimeline, cacheKey])
-
-  // Realtime: append new activities
+  // Realtime: prepend new activities to pages[0] (which renders at the end
+  // of the flattened entries — i.e. newest position).
   usePusherEvent<{ type: string; entry: TimelineEntry }>(
     `task-${taskId}`,
     'activity-created',
     event => {
-      if (event.entry) {
-        setEntries(prev => {
-          // Deduplicate by id
-          if (prev.some(e => e.id === event.entry.id)) return prev
-          const updated = [...prev, event.entry]
-          writeCache(cacheKey, {
-            items: updated,
-            hasMore,
-            nextCursor,
-          })
-          return updated
-        })
-      }
+      if (!event.entry) return
+      queryClient.setQueryData<InfiniteData<TimelineResponse, string | null>>(
+        queryKey,
+        prev => {
+          if (!prev || prev.pages.length === 0) return prev
+          const newest = prev.pages[0]
+          if (!newest || newest.items.some(e => e.id === event.entry.id)) {
+            return prev
+          }
+          const newestUpdated: TimelineResponse = {
+            ...newest,
+            items: [...newest.items, event.entry],
+          }
+          return {
+            ...prev,
+            pages: [newestUpdated, ...prev.pages.slice(1)],
+          }
+        }
+      )
     }
   )
 
-  // Refresh all entries (for comment updates via existing pusher events)
-  const refresh = useCallback(async () => {
-    const data = await fetchTimeline()
-    if (data) {
-      setEntries(data.items)
-      setHasMore(data.hasMore)
-      setNextCursor(data.nextCursor)
-      writeCache(cacheKey, {
-        items: data.items,
-        hasMore: data.hasMore,
-        nextCursor: data.nextCursor,
-      })
-    }
-  }, [fetchTimeline, cacheKey])
-
   return {
     entries,
-    loading,
+    loading: query.isLoading,
     hasMore,
-    loadingMore,
-    loadMore,
-    refresh,
+    loadingMore: query.isFetchingNextPage,
+    loadMore: () => query.fetchNextPage(),
+    refresh: () => query.refetch(),
   }
 }

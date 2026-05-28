@@ -70,6 +70,13 @@ export const queryKeys = {
     workspace: () => ['summary', 'workspace'] as const,
   },
 
+  summaries: {
+    generationJob: (jobId: string) =>
+      ['summaries', 'generation-job', jobId] as const,
+  },
+
+  timeline: (taskId: string) => ['timeline', taskId] as const,
+
   tags: () => ['tags'] as const,
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
