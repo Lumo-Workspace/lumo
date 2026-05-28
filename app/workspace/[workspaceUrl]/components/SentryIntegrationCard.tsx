@@ -1,11 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { toast } from 'sonner'
 import { Check, Loader2 } from 'lucide-react'
-import { sentryApi, type SentryStatus } from '@/lib/api-client/sentry'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -21,45 +17,23 @@ import { SentryConnectDialog } from './SentryConnectDialog'
 import { SentryMappingsDialog } from './SentryMappingsDialog'
 import { SentryIcon } from './SentryIcon'
 import { IntegrationCard } from './IntegrationCard'
+import { useSentryIntegration } from '../hooks/useSentryIntegration'
 
 export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
   const intl = useIntl()
-  const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-  const [status, setStatus] = useState<SentryStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [connectOpen, setConnectOpen] = useState(false)
-  const [mappingsOpen, setMappingsOpen] = useState(false)
-  const [disconnectOpen, setDisconnectOpen] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-
-  const loadStatus = async () => {
-    try {
-      setStatus(await sentryApi.getStatus(workspaceUrl))
-    } catch {
-      toast.error(intl.formatMessage({ id: 'sentry.loadFailed' }))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadStatus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceUrl])
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      await sentryApi.disconnect(workspaceUrl)
-      await loadStatus()
-      toast.success(intl.formatMessage({ id: 'sentry.disconnectSuccess' }))
-      setDisconnectOpen(false)
-    } catch {
-      toast.error(intl.formatMessage({ id: 'sentry.disconnectFailed' }))
-    } finally {
-      setDisconnecting(false)
-    }
-  }
+  const {
+    status,
+    loading,
+    connectOpen,
+    setConnectOpen,
+    mappingsOpen,
+    setMappingsOpen,
+    disconnectOpen,
+    setDisconnectOpen,
+    disconnecting,
+    handleDisconnect,
+    refreshStatus,
+  } = useSentryIntegration()
 
   const connected = status?.connected === true
 
@@ -138,7 +112,7 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
       <SentryConnectDialog
         open={connectOpen}
         onOpenChange={setConnectOpen}
-        onConnected={loadStatus}
+        onConnected={refreshStatus}
       />
       <SentryMappingsDialog
         open={mappingsOpen}
