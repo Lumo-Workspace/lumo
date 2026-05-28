@@ -3,6 +3,7 @@ import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
+import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
 import type { TaskPriority } from '@prisma/client'
 
@@ -201,7 +202,14 @@ async function createFromCli(args: {
   const identifier = `${task.teamIdentifier}-${task.number}`
   const url = `${resolvePublicUrl()}/workspace/${workspaceSlug}/my-tasks/${identifier}`
 
-  return { id: task.id, identifier, title: task.title, url, teamId: task.teamId, taskTags }
+  return {
+    id: task.id,
+    identifier,
+    title: task.title,
+    url,
+    teamId: task.teamId,
+    taskTags,
+  }
 }
 
 async function updateFromCli(args: {
@@ -354,6 +362,7 @@ export interface ShowTaskFromCliResult {
   status: string
   priority: string
   description: string | null
+  descriptionMarkdown: string | null
   url: string
   sprintId: string | null
   teamId: string
@@ -407,7 +416,7 @@ async function showFromCli(args: {
     }
   }
 
-  return {
+  return withMarkdown({
     id: detail.id,
     identifier: resolved.identifier,
     title: detail.title,
@@ -419,7 +428,7 @@ async function showFromCli(args: {
     teamId: detail.teamId,
     project: { id: detail.project.id, name: detail.project.name },
     assignee,
-  }
+  })
 }
 
 export const taskCliService = {
