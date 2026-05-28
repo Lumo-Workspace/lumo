@@ -7,16 +7,17 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from 'react'
 import { useParams } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ApiProject } from '../types'
 import { readCache, writeCache } from '../cache'
 import { CACHE_KEY } from '../constants'
 import { projectsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { usePusherEvent } from './usePusher'
 import type { WorkspaceEvent } from '@/lib/integrations/pusher/types'
 
@@ -25,15 +26,16 @@ import type { WorkspaceEvent } from '@/lib/integrations/pusher/types'
  *
  * Installed once at the workspace layout boundary so every shell that renders
  * underneath — `WorkspaceApp`, `TaskDetailPage`, `ProjectDetailStandalonePage`,
- * `SprintDetailClient` — reads the same state. Creating a project only has to
- * call `setProjects` once; the sidebar and the projects list update together
- * (no pusher round-trip to self just to sync two local copies).
+ * `SprintDetailClient` — reads the same state via TanStack Query's shared
+ * cache. The Provider exists for two reasons: (a) it centralizes the
+ * workspace-scoped pusher subscription, and (b) it preserves the
+ * `{projects, setProjects, loading, error, fetchProjects}` shape that
+ * existing callers rely on.
  *
- * Pusher is still subscribed to — but only for its legitimate use: updates
- * that originate *outside* this tab (another member in the workspace, or
- * another tab of the same user). `project-created` is short-circuited when the
- * project id is already present locally so the creator's tab doesn't refetch
- * unnecessarily.
+ * Pusher is still subscribed to for updates originating *outside* this tab
+ * (another member, or another tab of the same user). `project-created` is
+ * short-circuited when the project id is already present locally so the
+ * creator's tab doesn't refetch unnecessarily.
  */
 interface ProjectsContextValue {
   projects: ApiProject[]
@@ -48,58 +50,63 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null)
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const params = useParams<{ workspaceUrl: string }>()
   const workspaceSlug = params?.workspaceUrl ?? null
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.projects.all()
 
-  // Seed from localStorage in an effect (not a useState initializer) so the
-  // server-rendered HTML stays deterministic — avoids hydration mismatch when
-  // the cache is populated.
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const seeded = useRef(false)
+  const query = useQuery<ApiProject[]>({
+    queryKey,
+    queryFn: async () => {
+      const data = await projectsClient.list<{ projects: ApiProject[] }>()
+      writeCache(CACHE_KEY.projects, data.projects)
+      return data.projects
+    },
+    // Hydrate from localStorage so the list paints instantly on remount.
+    // initialData is also written through to the cache so subsequent reads
+    // (e.g. setQueryData) see a real prev value.
+    initialData: () => {
+      if (typeof window === 'undefined') return undefined
+      const cached = readCache<ApiProject[]>(CACHE_KEY.projects)
+      return cached && cached.length > 0 ? cached : undefined
+    },
+    // localStorage data may be stale — always refetch on mount.
+    staleTime: 0,
+  })
 
-  useEffect(() => {
-    const cached = readCache<ApiProject[]>(CACHE_KEY.projects)
-    if (cached && cached.length > 0) {
-      setProjects(cached)
-      seeded.current = true
-    }
-  }, [])
+  // Memoize so `[]` doesn't get a fresh identity each render — keeps
+  // downstream useEffect/useMemo deps stable when the list is empty.
+  const projects = useMemo<ApiProject[]>(() => query.data ?? [], [query.data])
 
   // Ref mirror so the pusher callback reads the latest projects without
-  // depending on them (keeps the subscription stable).
+  // depending on them (keeps the subscription handler stable).
   const projectsRef = useRef(projects)
   useEffect(() => {
     projectsRef.current = projects
   }, [projects])
 
-  // Persist any change to the list back to localStorage so optimistic updates
-  // (create / update / delete / reorder issued by any consumer) survive a
-  // reload. Guarded on first mount so we don't overwrite the cache with the
-  // empty initial state before the seed effect reads it.
-  const hasWriteMounted = useRef(false)
-  useEffect(() => {
-    if (!hasWriteMounted.current) {
-      hasWriteMounted.current = true
-      return
-    }
-    writeCache(CACHE_KEY.projects, projects)
-  }, [projects])
+  const setProjects = useCallback<Dispatch<SetStateAction<ApiProject[]>>>(
+    action => {
+      queryClient.setQueryData<ApiProject[]>(queryKey, prev => {
+        const prevList = prev ?? []
+        const next =
+          typeof action === 'function'
+            ? (action as (prev: ApiProject[]) => ApiProject[])(prevList)
+            : action
+        writeCache(CACHE_KEY.projects, next)
+        return next
+      })
+    },
+    // queryKey is a fresh tuple per render; we depend on queryClient instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient]
+  )
 
   const fetchProjects = useCallback(async () => {
-    if (!seeded.current) setLoading(true)
-    setError(null)
-    try {
-      const data = await projectsClient.list<{ projects: ApiProject[] }>()
-      setProjects(data.projects) // cache is persisted by the effect above
-      seeded.current = true
-    } catch {
-      if (!seeded.current) setError('Could not load projects.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    await queryClient.invalidateQueries({ queryKey })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient])
 
-  // Initial fetch on mount / when workspace changes.
+  // Refetch when the workspace changes. TanStack handles the initial fetch
+  // via the queryFn; this effect just keeps cross-workspace switches fresh.
   useEffect(() => {
     void fetchProjects()
   }, [workspaceSlug, fetchProjects])
@@ -107,22 +114,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const handleWorkspaceEvent = useCallback(
     (event: WorkspaceEvent) => {
       if (event.type === 'project-created') {
-        // Same-tab creator already inserted it via setProjects (optimistic);
-        // cross-user/cross-tab hasn't — refetch for them.
+        // Same-tab creator already inserted optimistically; cross-user/tab
+        // hasn't — refetch in that case.
         if (projectsRef.current.some(p => p.id === event.projectId)) return
         void fetchProjects()
         return
       }
       if (event.type === 'project-deleted') {
-        // Short-circuit if we've already dropped it locally (same-tab
-        // optimistic delete). Otherwise remove it from the list.
         if (!projectsRef.current.some(p => p.id === event.projectId)) return
         setProjects(prev => prev.filter(p => p.id !== event.projectId))
         return
       }
       if (event.type === 'project-updated') {
-        // Refetch to pick up the latest fields. Cheap and correct — we don't
-        // know which fields changed without a larger event payload.
+        // Refetch to pick up the latest fields. Cheap and correct.
         void fetchProjects()
         return
       }
@@ -143,10 +147,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         for (const p of prev) {
           if (!seen.has(p.id)) sorted.push(p)
         }
-        setProjects(sorted) // cache is persisted by the effect above
+        setProjects(sorted)
       }
     },
-    [fetchProjects]
+    [fetchProjects, setProjects]
   )
 
   usePusherEvent<WorkspaceEvent>(
@@ -155,9 +159,14 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     handleWorkspaceEvent
   )
 
+  const loading = query.isLoading
+  const error = query.error
+    ? ((query.error as Error).message ?? 'Could not load projects.')
+    : null
+
   const value = useMemo<ProjectsContextValue>(
     () => ({ projects, setProjects, loading, error, fetchProjects }),
-    [projects, loading, error, fetchProjects]
+    [projects, setProjects, loading, error, fetchProjects]
   )
 
   return (
