@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { GitPullRequest, GitBranch } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { slugify } from '@/lib/utils/slugify'
+import { queryKeys } from '@/lib/query/keys'
 import {
   TaskDetail,
   ApiTask,
@@ -72,7 +74,10 @@ export function TaskDetailPanel({
   onTasksChanged,
   tasks = [],
 }: TaskDetailPanelProps) {
-  const [task, setTask] = useState<TaskDetail>(() => ({
+  // Build a TaskDetail-shaped seed from the list-level initialTask. Memoized
+  // so the seed is stable across renders even though initialTask might be a
+  // fresh object each parent render.
+  const [seed] = useState<TaskDetail>(() => ({
     id: initialTask.id,
     title: initialTask.title,
     status: initialTask.status,
@@ -99,6 +104,28 @@ export function TaskDetailPanel({
     // sprintsEnabled is not present on ApiTask/MyTask — populated when the
     // task detail fetch in useTaskSync spreads the full TaskDetail response.
   }))
+
+  // Read live task from per-task detail cache. Mutations and realtime updates
+  // flow through setQueryData so list views and detail page stay in sync.
+  const queryClient = useQueryClient()
+  const taskQueryKey = queryKeys.tasks.detail(initialTask.id)
+  const taskQuery = useQuery<TaskDetail>({
+    queryKey: taskQueryKey,
+    initialData: seed,
+    enabled: false,
+  })
+  const task = taskQuery.data ?? seed
+  const setTask = useCallback(
+    (updater: TaskDetail | ((prev: TaskDetail) => TaskDetail)) => {
+      queryClient.setQueryData<TaskDetail>(taskQueryKey, prev => {
+        const base = prev ?? seed
+        return typeof updater === 'function'
+          ? (updater as (prev: TaskDetail) => TaskDetail)(base)
+          : updater
+      })
+    },
+    [queryClient, taskQueryKey, seed]
+  )
 
   const projectName = task.project?.name ?? ''
   const projectRepositories = task.project?.repositories

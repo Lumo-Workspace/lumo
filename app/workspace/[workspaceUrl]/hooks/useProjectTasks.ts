@@ -1,11 +1,27 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
-import { ApiTask } from '../types'
+import {
+  useQuery,
+  useQueryClient,
+  type Updater,
+  type QueryClient,
+} from '@tanstack/react-query'
+import { ApiTask, TaskDetail } from '../types'
 import { flattenTasks } from '../utils'
 import { projectsClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+
+// Mirror each fetched task into the per-task detail cache so detail pages
+// can read by id without a re-fetch.
+function seedTaskDetailCache(queryClient: QueryClient, tasks: ApiTask[]) {
+  for (const t of tasks) {
+    queryClient.setQueryData<TaskDetail>(
+      queryKeys.tasks.detail(t.id),
+      prev => ({ ...(prev ?? {}), ...t }) as TaskDetail
+    )
+  }
+}
 
 interface ProjectTasksData {
   taskIds: string[]
@@ -36,6 +52,7 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
       }>(currentProjectId as string)
       const flat = flattenTasks(data.tasks)
       upsertRef.current(flat)
+      seedTaskDetailCache(queryClient, flat)
       return {
         taskIds: flat.map(t => t.id),
         kanbanViewId: data.kanbanViewId,
@@ -67,6 +84,7 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
           }>(projectId)
           const flat = flattenTasks(data.tasks)
           upsertRef.current(flat)
+          seedTaskDetailCache(queryClient, flat)
           return {
             taskIds: flat.map(t => t.id),
             kanbanViewId: data.kanbanViewId,

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from 'react'
 import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
-import { ApiTask, MyTask } from '../types'
+import { ApiTask, MyTask, TaskDetail } from '../types'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
@@ -32,6 +32,15 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
         myTasksViewId: string
       }>()
       upsertRef.current(data.tasks)
+      // Populate per-task detail cache so detail-page reads + bulk-mutation
+      // optimistic updates can find each task by id. Merge with any existing
+      // (richer) cache entry so a previously-loaded TaskDetail isn't clobbered.
+      for (const t of data.tasks) {
+        queryClient.setQueryData<TaskDetail>(
+          queryKeys.tasks.detail(t.id),
+          prev => ({ ...(prev ?? {}), ...t }) as TaskDetail
+        )
+      }
       return {
         taskIds: data.tasks.map(t => t.id),
         myTasksViewId: data.myTasksViewId,
