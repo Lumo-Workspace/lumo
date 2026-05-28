@@ -63,7 +63,6 @@ const FILTER_CATEGORIES = [
     labelId: 'activity.filter.branch',
     defaultLabel: 'PR',
     types: new Set([
-      'BRANCH_CREATED',
       'PR_CREATED',
       'PR_MERGED',
       'PR_LINKED',

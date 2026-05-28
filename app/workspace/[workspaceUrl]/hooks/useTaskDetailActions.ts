@@ -10,27 +10,15 @@ import type { TaskDetail } from '../types'
 interface UseTaskDetailActionsParams {
   task: TaskDetail
   taskFullUrl: string
-  setCopiedBranchId: (id: string | null) => void
   handlePatch: (patch: Record<string, unknown>) => void
 }
 
 export function useTaskDetailActions({
   task,
   taskFullUrl,
-  setCopiedBranchId,
   handlePatch,
 }: UseTaskDetailActionsParams) {
   const router = useRouter()
-
-  // ── Copy branch name ───────────────────────────────────────────────────
-  const handleCopyBranch = useCallback(
-    async (id: string, name: string) => {
-      await navigator.clipboard.writeText(name)
-      setCopiedBranchId(id)
-      setTimeout(() => setCopiedBranchId(null), 1500)
-    },
-    [setCopiedBranchId]
-  )
 
   // ── Copy task link ─────────────────────────────────────────────────────
   const [taskLinkCopied, triggerTaskLinkCopy] = useCopyState()
@@ -66,7 +54,6 @@ export function useTaskDetailActions({
   )
 
   return {
-    handleCopyBranch,
     taskLinkCopied,
     handleCopyTaskLink,
     handleDeleteTask,

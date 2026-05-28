@@ -85,14 +85,6 @@ export type TaskSpecEvent = {
   actorId: string
 }
 
-export type TaskBranchEvent = {
-  type: 'task:branch_created'
-  taskId: string
-  projectId: string
-  actorId: string
-  branchName: string
-}
-
 export type TaskPrEvent = {
   type:
     | 'task:pr_linked'
@@ -133,6 +125,5 @@ export type TaskActivityEvent =
   | TaskCommentEvent
   | TaskSubtaskEvent
   | TaskSpecEvent
-  | TaskBranchEvent
   | TaskPrEvent
   | TaskAgentRunEvent

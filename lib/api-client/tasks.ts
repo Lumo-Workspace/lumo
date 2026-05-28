@@ -62,17 +62,6 @@ export const tasksClient = {
     return apiFetch<void>(API.tasks.byId(id), { method: 'DELETE' })
   },
 
-  createBranch<T>(id: string, data: unknown) {
-    return apiFetch<T>(API.tasks.branch(id), { method: 'POST', body: data })
-  },
-
-  unlinkBranch(taskId: string, branchId: string, deleteRemote = false) {
-    const url = deleteRemote
-      ? `${API.tasks.branchDelete(taskId, branchId)}?deleteRemote=true`
-      : API.tasks.branchDelete(taskId, branchId)
-    return apiFetch<void>(url, { method: 'DELETE' })
-  },
-
   listComments<T>(taskId: string) {
     return apiFetch<T>(API.tasks.comments(taskId))
   },

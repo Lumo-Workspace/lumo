@@ -52,7 +52,7 @@ export function GitHubIntegrationCard({
   } = useGitHubIntegration(workspaceUrl)
 
   const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-zinc-400' />
+    <Loader2 size={16} className='animate-spin text-muted-foreground' />
   ) : status?.connected ? (
     <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
       <Check size={12} />

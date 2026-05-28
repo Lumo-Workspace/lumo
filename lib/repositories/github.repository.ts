@@ -64,14 +64,6 @@ export const githubRepository = {
     })
   },
 
-  /** Find all integrations for a workspace (repos only). */
-  async findIntegrationsByWorkspace(workspaceId: string) {
-    return prisma.gitHubIntegration.findMany({
-      where: { workspaceId },
-      select: { repositories: true },
-    })
-  },
-
   /** Upsert integration (used during OAuth callback). */
   async upsertIntegration(data: UpsertIntegrationData) {
     return prisma.gitHubIntegration.upsert({
@@ -205,34 +197,13 @@ export const githubRepository = {
 
   // ── Task Branches ─────────────────────────────────────────────────────
 
-  /** Upsert a task branch record. */
+  /** Upsert a task branch record (used by webhook handlers to sync remote branch metadata). */
   async upsertTaskBranch(data: UpsertTaskBranchData) {
     const { taskId, repo, branchName, ...rest } = data
     return prisma.taskBranch.upsert({
       where: { taskId_repo_branchName: { taskId, repo, branchName } },
       create: { taskId, repo, branchName, ...rest },
       update: rest,
-    })
-  },
-
-  /** Create a task branch record. */
-  async createTaskBranch(taskId: string, repo: string, branchName: string) {
-    return prisma.taskBranch.create({
-      data: { taskId, repo, branchName },
-    })
-  },
-
-  /** Find a task branch by ID. */
-  async findTaskBranch(branchId: string) {
-    return prisma.taskBranch.findUnique({
-      where: { id: branchId },
-    })
-  },
-
-  /** Delete a task branch record by ID. */
-  async deleteTaskBranch(branchId: string) {
-    return prisma.taskBranch.delete({
-      where: { id: branchId },
     })
   },
 

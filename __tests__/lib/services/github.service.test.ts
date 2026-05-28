@@ -7,7 +7,6 @@ jest.mock('@/lib/repositories/github.repository', () => ({
     findIntegrationStatus: jest.fn(),
     findIntegration: jest.fn(),
     findIntegrationWithWebhooks: jest.fn(),
-    findIntegrationsByWorkspace: jest.fn(),
     upsertIntegration: jest.fn(),
     updateIntegration: jest.fn(),
     updateIntegrationRepositories: jest.fn(),
@@ -89,27 +88,6 @@ describe('requireIntegrationWithWebhooks', () => {
     await expect(
       githubService.requireIntegrationWithWebhooks('ws-1', 'mem-1')
     ).rejects.toMatchObject({ status: 404 })
-  })
-})
-
-// ── getAuthorizedRepos ──────────────────────────────────────────────────
-
-describe('getAuthorizedRepos', () => {
-  it('deduplicates repos across integrations', async () => {
-    mockRepo.findIntegrationsByWorkspace.mockResolvedValue([
-      { repositories: ['org/a', 'org/b'] },
-      { repositories: ['org/b', 'org/c'] },
-    ])
-
-    const result = await githubService.getAuthorizedRepos('ws-1')
-
-    expect(result).toHaveLength(3)
-    expect(result.map(r => r.fullName)).toEqual(['org/a', 'org/b', 'org/c'])
-    expect(result[0]).toEqual({
-      fullName: 'org/a',
-      name: 'a',
-      private: false,
-    })
   })
 })
 

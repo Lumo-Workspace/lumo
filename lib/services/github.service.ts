@@ -2,14 +2,6 @@ import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
 import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
 
-const GH_API = 'https://api.github.com'
-const GH_HEADERS = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  Accept: 'application/vnd.github+json',
-  'X-GitHub-Api-Version': '2022-11-28',
-  'Content-Type': 'application/json',
-})
-
 // ── GitHub Service ──────────────────────────────────────────────────────────
 
 export const githubService = {
@@ -82,19 +74,6 @@ export const githubService = {
   /** Delete integration by id. */
   async deleteIntegration(id: string) {
     return githubRepository.deleteIntegration(id)
-  },
-
-  /** Get all authorized repos across all integrations in a workspace. */
-  async getAuthorizedRepos(workspaceId: string) {
-    const integrations =
-      await githubRepository.findIntegrationsByWorkspace(workspaceId)
-    const allRepos = integrations.flatMap(i => i.repositories)
-    const unique = [...new Set(allRepos)]
-    return unique.map(fullName => ({
-      fullName,
-      name: fullName.split('/')[1] ?? fullName,
-      private: false,
-    }))
   },
 
   /**
@@ -174,87 +153,6 @@ export const githubService = {
       successfulRepos
     )
     return updated
-  },
-
-  /**
-   * Create a GitHub branch from main for a task.
-   * Validates the repo is connected, creates the branch via GitHub API,
-   * and records the branch in the database.
-   */
-  async createBranchForTask(
-    taskId: string,
-    repo: string,
-    branchName: string,
-    workspaceId: string
-  ) {
-    // Find a GitHub integration for this workspace that has the repo authorized
-    const integration = await githubRepository.findIntegrationByRepo(
-      workspaceId,
-      repo
-    )
-    if (!integration) {
-      throw Object.assign(
-        new Error('Repository not connected. Add it in Integrations settings.'),
-        { status: 422 }
-      )
-    }
-
-    const token = decrypt(integration.accessToken)
-    const slash = repo.indexOf('/')
-    const owner = repo.slice(0, slash)
-    const repoName = repo.slice(slash + 1)
-    const headers = GH_HEADERS(token)
-
-    // Get SHA of main branch
-    const refRes = await fetch(
-      `${GH_API}/repos/${owner}/${repoName}/git/refs/heads/main`,
-      { headers }
-    )
-    if (!refRes.ok) {
-      const err = await refRes.json().catch(() => ({}))
-      throw Object.assign(
-        new Error(
-          (err as { message?: string }).message ??
-            'Could not find main branch on GitHub'
-        ),
-        { status: 422 }
-      )
-    }
-    const refData = await refRes.json()
-    const sha: string | undefined = refData?.object?.sha
-    if (!sha) {
-      throw Object.assign(new Error('Could not find main branch on GitHub'), {
-        status: 422,
-      })
-    }
-
-    // Create the branch
-    const createRes = await fetch(
-      `${GH_API}/repos/${owner}/${repoName}/git/refs`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha }),
-      }
-    )
-    if (!createRes.ok) {
-      const err = await createRes.json().catch(() => ({}))
-      throw Object.assign(
-        new Error(
-          (err as { message?: string }).message ?? 'Failed to create branch'
-        ),
-        { status: 422 }
-      )
-    }
-
-    const createdBranch = await githubRepository.createTaskBranch(
-      taskId,
-      repo,
-      branchName
-    )
-
-    const url = `https://github.com/${repo}/tree/${branchName}`
-    return { branchName, url, branch: createdBranch }
   },
 
   // ── Webhooks ────────────────────────────────────────────────────────────

@@ -24,9 +24,6 @@ jest.mock(
       tasks: {
         me: '/api/tasks/me',
         byId: (id: string) => `/api/tasks/${id}`,
-        branch: (id: string) => `/api/tasks/${id}/branch`,
-        branchDelete: (id: string, bId: string) =>
-          `/api/tasks/${id}/branch/${bId}`,
         comments: (id: string) => `/api/tasks/${id}/comments`,
         comment: (id: string, cId: string) =>
           `/api/tasks/${id}/comments/${cId}`,
