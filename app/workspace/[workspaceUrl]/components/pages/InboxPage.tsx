@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -12,10 +13,12 @@ import {
   WorkspaceMemberInfo,
   ApiProject,
   ApiPriority,
+  TaskDetail,
 } from '../../types'
 import { API, CACHE_KEY } from '../../constants'
 import { apiFetch } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
+import { queryKeys } from '@/lib/query/keys'
 import { Button } from '@/components/ui/button'
 import { ItemGroup } from '@/components/ui/item'
 import {
@@ -49,8 +52,6 @@ interface InboxPageProps {
   onUpdateTaskStatus: (taskId: string, status: ApiStatus) => Promise<void>
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
-  taskMap?: Record<string, ApiTask>
-  upsertTasks?: (tasks: ApiTask[]) => void
   onUpdate: (
     taskId: string,
     data: Partial<{
@@ -79,11 +80,10 @@ export function InboxPage({
   onUpdateTaskStatus,
   members,
   projects,
-  taskMap,
-  upsertTasks,
   onUpdate,
 }: InboxPageProps) {
   const intl = useIntl()
+  const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [panelTask, setPanelTask] = useState<ApiTask | null>(null)
   const [panelLoading, setPanelLoading] = useState(false)
@@ -178,9 +178,11 @@ export function InboxPage({
       }
 
       // Show cached task immediately if available, otherwise clear + show spinner
-      const cached = taskMap?.[n.taskId]
+      const cached = queryClient.getQueryData<TaskDetail>(
+        queryKeys.tasks.detail(n.taskId)
+      )
       if (cached) {
-        setPanelTask(cached)
+        setPanelTask(cached as unknown as ApiTask)
         setPanelLoading(false)
       } else {
         setPanelTask(null)
@@ -197,7 +199,10 @@ export function InboxPage({
         // Ignore stale responses if the user has already moved on
         if (activeNotifIdRef.current !== n.id) return
         setPanelTask(task)
-        upsertTasks?.([task])
+        queryClient.setQueryData<TaskDetail>(
+          queryKeys.tasks.detail(task.id),
+          prev => ({ ...(prev ?? {}), ...task }) as TaskDetail
+        )
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
       } finally {
@@ -206,7 +211,7 @@ export function InboxPage({
         }
       }
     },
-    [taskMap, upsertTasks]
+    [queryClient]
   )
 
   const selectedNotification = notifications.find(n => n.id === selectedId)

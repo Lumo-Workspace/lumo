@@ -149,7 +149,6 @@ export const API = {
 
 export const CACHE_KEY = {
   preferences: 'lumo:preferences',
-  tasks: 'lumo:tasks',
   myTasks: 'lumo:myTasks',
   comments: (taskId: string) => `lumo:comments:${taskId}`,
   description: (taskId: string) => `lumo:desc:${taskId}`,

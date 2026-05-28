@@ -94,8 +94,6 @@ interface Props {
 
   // ─── Inbox / notifications ──────────────────────────────────────────────
   notifications: NotificationsBundle
-  taskMap: Record<string, ApiTask | MyTask>
-  upsertTasks: (tasks: (ApiTask | MyTask)[]) => void
 
   // ─── Handler bundles (extracted hooks) ──────────────────────────────────
   taskHandlers: ReturnType<typeof useWorkspaceTaskHandlers>
@@ -169,8 +167,6 @@ export function WorkspacePageRouter(props: Props) {
     handleRestoreProjectDraft,
     handleDeleteDraft,
     notifications,
-    taskMap,
-    upsertTasks,
     taskHandlers,
     projectHandlers,
     documentHandlers,
@@ -374,8 +370,6 @@ export function WorkspacePageRouter(props: Props) {
           }}
           members={members}
           projects={projects}
-          taskMap={taskMap}
-          upsertTasks={upsertTasks}
           onUpdate={taskHandlers.handleUpdateTask}
         />
       )

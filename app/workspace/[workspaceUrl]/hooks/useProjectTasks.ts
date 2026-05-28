@@ -1,16 +1,26 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import {
   useQuery,
   useQueryClient,
-  type Updater,
   type QueryClient,
 } from '@tanstack/react-query'
 import { ApiTask, TaskDetail } from '../types'
 import { flattenTasks } from '../utils'
 import { projectsClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+
+interface ProjectTasksData {
+  tasks: ApiTask[]
+  kanbanViewId: string | null
+}
 
 // Mirror each fetched task into the per-task detail cache so detail pages
 // can read by id without a re-fetch.
@@ -23,21 +33,14 @@ function seedTaskDetailCache(queryClient: QueryClient, tasks: ApiTask[]) {
   }
 }
 
-interface ProjectTasksData {
-  taskIds: string[]
-  kanbanViewId: string | null
-}
-
 /**
  * Per-project task list. The hook tracks the "current" projectId in local
  * state so the same hook instance can switch projects without remount —
  * `hydrateForProject(id)` snaps to that project's cache, `fetchProjectTasks(id)`
  * forces a refetch.
  */
-export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
+export function useProjectTasks() {
   const queryClient = useQueryClient()
-  const upsertRef = useRef(upsertTasks)
-  upsertRef.current = upsertTasks
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
 
@@ -51,10 +54,9 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
         kanbanViewId: string
       }>(currentProjectId as string)
       const flat = flattenTasks(data.tasks)
-      upsertRef.current(flat)
       seedTaskDetailCache(queryClient, flat)
       return {
-        taskIds: flat.map(t => t.id),
+        tasks: flat,
         kanbanViewId: data.kanbanViewId,
       }
     },
@@ -62,6 +64,9 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     // legacy fetchProjectTasks(projectId) imperative API).
     enabled: false,
   })
+
+  const queryRef = useRef(query)
+  queryRef.current = query
 
   const hydrateForProject = useCallback(
     (projectId: string) => {
@@ -83,10 +88,9 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
             kanbanViewId: string
           }>(projectId)
           const flat = flattenTasks(data.tasks)
-          upsertRef.current(flat)
           seedTaskDetailCache(queryClient, flat)
           return {
-            taskIds: flat.map(t => t.id),
+            tasks: flat,
             kanbanViewId: data.kanbanViewId,
           }
         },
@@ -95,19 +99,26 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     [queryClient]
   )
 
-  const setTaskIds = useCallback(
-    (updater: Updater<string[], string[]>) => {
+  const setTasks = useCallback<Dispatch<SetStateAction<ApiTask[]>>>(
+    action => {
       if (!currentProjectId) return
       queryClient.setQueryData<ProjectTasksData>(
         queryKeys.tasks.byProject(currentProjectId),
         prev => {
-          const prevIds = prev?.taskIds ?? []
-          const nextIds =
-            typeof updater === 'function'
-              ? (updater as (prev: string[]) => string[])(prevIds)
-              : updater
+          const prevTasks = prev?.tasks ?? []
+          const nextTasks =
+            typeof action === 'function'
+              ? (action as (prev: ApiTask[]) => ApiTask[])(prevTasks)
+              : action
+          // Mirror into per-task detail cache.
+          for (const t of nextTasks) {
+            queryClient.setQueryData<TaskDetail>(
+              queryKeys.tasks.detail(t.id),
+              existing => ({ ...(existing ?? {}), ...t }) as TaskDetail
+            )
+          }
           return {
-            taskIds: nextIds,
+            tasks: nextTasks,
             kanbanViewId: prev?.kanbanViewId ?? null,
           }
         }
@@ -117,8 +128,8 @@ export function useProjectTasks(upsertTasks: (tasks: ApiTask[]) => void) {
   )
 
   return {
-    taskIds: query.data?.taskIds ?? [],
-    setTaskIds,
+    tasks: query.data?.tasks ?? [],
+    setTasks,
     kanbanViewId: query.data?.kanbanViewId ?? null,
     loading: query.isFetching && !query.data,
     error: query.error

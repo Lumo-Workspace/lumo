@@ -1,25 +1,23 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
-import { useQuery, useQueryClient, type Updater } from '@tanstack/react-query'
-import { ApiTask, MyTask, TaskDetail } from '../types'
+import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { MyTask, TaskDetail } from '../types'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
 interface MyTasksData {
-  taskIds: string[]
+  tasks: MyTask[]
   myTasksViewId: string | null
 }
 
 /**
- * Fetches the current user's full task list. Returns only
- * `{ taskIds, myTasksViewId }`; full task records are forwarded into the
- * shared task store via `upsertTasks(...)`.
+ * Fetches the current user's full task list and caches it in TanStack Query.
+ * Each fetched task is also mirrored into `tasks.detail(id)` so detail-page
+ * reads and per-task optimistic updates share a single source of truth.
  */
-export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
+export function useMyTasks() {
   const queryClient = useQueryClient()
-  const upsertRef = useRef(upsertTasks)
-  upsertRef.current = upsertTasks
 
   // `enabled: false` preserves the legacy "manual fetch only" semantics —
   // consumers gate fetches via fetchMyTasks() on page change. TanStack still
@@ -31,10 +29,7 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
         tasks: MyTask[]
         myTasksViewId: string
       }>()
-      upsertRef.current(data.tasks)
-      // Populate per-task detail cache so detail-page reads + bulk-mutation
-      // optimistic updates can find each task by id. Merge with any existing
-      // (richer) cache entry so a previously-loaded TaskDetail isn't clobbered.
+      // Mirror each task into the per-task detail cache.
       for (const t of data.tasks) {
         queryClient.setQueryData<TaskDetail>(
           queryKeys.tasks.detail(t.id),
@@ -42,16 +37,14 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
         )
       }
       return {
-        taskIds: data.tasks.map(t => t.id),
+        tasks: data.tasks,
         myTasksViewId: data.myTasksViewId,
       }
     },
     enabled: false,
   })
 
-  // The TanStack `query` result object is a fresh reference every render;
-  // pin it so `fetchMyTasks` stays referentially stable for consumers that
-  // put it in useEffect dep arrays.
+  // Pin the query so `fetchMyTasks` is referentially stable.
   const queryRef = useRef(query)
   queryRef.current = query
 
@@ -59,16 +52,24 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
     await queryRef.current.refetch()
   }, [])
 
-  const setTaskIds = useCallback(
-    (updater: Updater<string[], string[]>) => {
+  const setTasks = useCallback<Dispatch<SetStateAction<MyTask[]>>>(
+    action => {
       queryClient.setQueryData<MyTasksData>(queryKeys.tasks.my(), prev => {
-        const prevIds = prev?.taskIds ?? []
-        const nextIds =
-          typeof updater === 'function'
-            ? (updater as (prev: string[]) => string[])(prevIds)
-            : updater
+        const prevTasks = prev?.tasks ?? []
+        const nextTasks =
+          typeof action === 'function'
+            ? (action as (prev: MyTask[]) => MyTask[])(prevTasks)
+            : action
+        // Mirror updated task data into the per-task detail cache so any open
+        // detail surface reflects the change.
+        for (const t of nextTasks) {
+          queryClient.setQueryData<TaskDetail>(
+            queryKeys.tasks.detail(t.id),
+            existing => ({ ...(existing ?? {}), ...t }) as TaskDetail
+          )
+        }
         return {
-          taskIds: nextIds,
+          tasks: nextTasks,
           myTasksViewId: prev?.myTasksViewId ?? null,
         }
       })
@@ -77,8 +78,8 @@ export function useMyTasks(upsertTasks: (tasks: ApiTask[]) => void) {
   )
 
   return {
-    taskIds: query.data?.taskIds ?? [],
-    setTaskIds,
+    tasks: query.data?.tasks ?? [],
+    setTasks,
     myTasksViewId: query.data?.myTasksViewId ?? null,
     loading: query.isFetching && !query.data,
     error: query.error

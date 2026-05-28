@@ -52,7 +52,8 @@ interface DocTreeActions {
 interface WorkspaceModalsProps {
   // Task drawer
   selectedTask: ApiTask | MyTask | null
-  taskMap: Record<string, ApiTask>
+  myTasks: MyTask[]
+  projectTasks: ApiTask[]
   descriptionCache: MutableRefObject<Map<string, string | null>>
   members: WorkspaceMemberInfo[]
   agentActors: AgentActor[]
@@ -83,7 +84,6 @@ interface WorkspaceModalsProps {
   // Quick dispatch
   isQuickDispatchOpen: boolean
   setIsQuickDispatchOpen: Dispatch<SetStateAction<boolean>>
-  myTasks: MyTask[]
 
   // New project modal
   isNewProjectModalOpen: boolean
@@ -129,7 +129,8 @@ interface WorkspaceModalsProps {
 
 export function WorkspaceModals({
   selectedTask,
-  taskMap,
+  myTasks,
+  projectTasks,
   descriptionCache,
   members,
   agentActors,
@@ -156,7 +157,6 @@ export function WorkspaceModals({
   setRestoringDraftId,
   isQuickDispatchOpen,
   setIsQuickDispatchOpen,
-  myTasks,
   isNewProjectModalOpen,
   setIsNewProjectModalOpen,
   onCreateProject,
@@ -182,6 +182,16 @@ export function WorkspaceModals({
 }: WorkspaceModalsProps) {
   const intl = useIntl()
 
+  // Union of currently-loaded list-query data — feeds @-task mentions in
+  // the drawer's description / comment editors and the new-task modal's
+  // parent-task selector. Dedupe by id since a task may be in both lists.
+  const knownTasks: ApiTask[] = (() => {
+    const seen = new Map<string, ApiTask>()
+    for (const t of myTasks) seen.set(t.id, t as ApiTask)
+    for (const t of projectTasks) seen.set(t.id, t)
+    return Array.from(seen.values())
+  })()
+
   return (
     <>
       <AnimatePresence>
@@ -198,9 +208,6 @@ export function WorkspaceModals({
                 <TaskDrawer
                   initialTask={selectedTask}
                   source={drawerSource}
-                  {...(taskMap[selectedTask.id]
-                    ? { liveTask: taskMap[selectedTask.id] }
-                    : {})}
                   cachedDescription={
                     descriptionCache.current.has(selectedTask.id)
                       ? descriptionCache.current.get(selectedTask.id)
@@ -212,7 +219,7 @@ export function WorkspaceModals({
                   members={members}
                   agentActors={agentActors}
                   projects={projects}
-                  tasks={Object.values(taskMap)}
+                  tasks={knownTasks}
                   onUpdate={onUpdateTask}
                   onDescriptionLoaded={(taskId, description) => {
                     descriptionCache.current.set(taskId, description)
@@ -250,7 +257,7 @@ export function WorkspaceModals({
             sprintTeamId={newTaskSprintTeamId}
             preFill={newTaskPreFill}
             onSubmit={onCreateTask}
-            tasks={Object.values(taskMap) as ApiTask[]}
+            tasks={knownTasks}
             draftId={restoringDraftId}
             onSaveDraft={onSaveDraft}
             onDeleteDraft={onDeleteDraft}
