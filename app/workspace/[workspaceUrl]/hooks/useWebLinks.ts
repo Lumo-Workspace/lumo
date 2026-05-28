@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { webLinksClient } from '@/lib/api-client/task-web-links'
+import { queryKeys } from '@/lib/query/keys'
 import type { TaskWebLink } from '@prisma/client'
 
-// Optimistic placeholders share TaskWebLink's shape (so WebLinkCard works
-// uniformly) but carry a tempId + loading flag. Server rows never have these.
 export type OptimisticWebLink = TaskWebLink & {
   tempId?: string
   loading?: boolean
@@ -32,9 +32,6 @@ function makeOptimisticPlaceholder(
     domain = payload.url
   }
   const tempId = `tmp_${Math.random().toString(36).slice(2, 10)}`
-  // Cast: the optimistic row has only the fields the card reads; the rest are
-  // never displayed during the loading state. We satisfy TaskWebLink's shape
-  // with safe defaults.
   return {
     id: tempId,
     tempId,
@@ -57,67 +54,106 @@ function makeOptimisticPlaceholder(
 }
 
 export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
-  const [webLinks, setWebLinks] = useState<OptimisticWebLink[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.taskWebLinks(taskId)
+
+  const query = useQuery<OptimisticWebLink[], Error>({
+    queryKey,
+    queryFn: async () => {
+      const { webLinks } = await webLinksClient.list(taskId)
+      return webLinks
+    },
+    enabled,
+  })
 
   const refresh = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { webLinks } = await webLinksClient.list(taskId)
-      setWebLinks(webLinks)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'unknown_error')
-    } finally {
-      setLoading(false)
-    }
-  }, [taskId])
+    await queryClient.invalidateQueries({ queryKey })
+  }, [queryClient, queryKey])
 
-  useEffect(() => {
-    if (!enabled) return
-    void refresh()
-  }, [enabled, refresh])
+  const addMutation = useMutation<
+    TaskWebLink,
+    Error,
+    { url: string },
+    { tempId: string }
+  >({
+    mutationFn: async payload => {
+      const { webLink } = await webLinksClient.add(taskId, payload)
+      return webLink
+    },
+    onMutate: async payload => {
+      await queryClient.cancelQueries({ queryKey })
+      const placeholder = makeOptimisticPlaceholder(payload, taskId)
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev => [
+        placeholder,
+        ...(prev ?? []),
+      ])
+      return { tempId: placeholder.tempId! }
+    },
+    onSuccess: (webLink, _payload, context) => {
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
+        (prev ?? []).map(l => (l.tempId === context?.tempId ? webLink : l))
+      )
+    },
+    onError: (err, _payload, context) => {
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
+        (prev ?? []).map(l =>
+          l.tempId === context?.tempId
+            ? { ...l, loading: false, fetchError: err.message }
+            : l
+        )
+      )
+    },
+  })
+
+  const removeMutation = useMutation<void, Error, string>({
+    mutationFn: linkId => webLinksClient.remove(taskId, linkId),
+    onSuccess: (_data, linkId) => {
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
+        (prev ?? []).filter(l => l.id !== linkId)
+      )
+    },
+  })
+
+  const refreshOneMutation = useMutation<TaskWebLink, Error, string>({
+    mutationFn: async linkId => {
+      const { webLink } = await webLinksClient.refresh(taskId, linkId)
+      return webLink
+    },
+    onSuccess: webLink => {
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
+        (prev ?? []).map(l => (l.id === webLink.id ? webLink : l))
+      )
+    },
+  })
 
   const add = useCallback(
-    async (payload: { url: string }): Promise<void> => {
-      const placeholder = makeOptimisticPlaceholder(payload, taskId)
-      setWebLinks(prev => [placeholder, ...prev])
-      try {
-        const { webLink } = await webLinksClient.add(taskId, payload)
-        setWebLinks(prev =>
-          prev.map(l => (l.tempId === placeholder.tempId ? webLink : l))
-        )
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'add failed'
-        setWebLinks(prev =>
-          prev.map(l =>
-            l.tempId === placeholder.tempId
-              ? { ...l, loading: false, fetchError: msg }
-              : l
-          )
-        )
-        throw e
-      }
+    async (payload: { url: string }) => {
+      await addMutation.mutateAsync(payload)
     },
-    [taskId]
+    [addMutation]
   )
 
   const remove = useCallback(
     async (linkId: string) => {
-      await webLinksClient.remove(taskId, linkId)
-      setWebLinks(prev => prev.filter(l => l.id !== linkId))
+      await removeMutation.mutateAsync(linkId)
     },
-    [taskId]
+    [removeMutation]
   )
 
   const refreshOne = useCallback(
     async (linkId: string) => {
-      const { webLink } = await webLinksClient.refresh(taskId, linkId)
-      setWebLinks(prev => prev.map(l => (l.id === linkId ? webLink : l)))
+      await refreshOneMutation.mutateAsync(linkId)
     },
-    [taskId]
+    [refreshOneMutation]
   )
 
-  return { webLinks, loading, error, refresh, add, remove, refreshOne }
+  return {
+    webLinks: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    refresh,
+    add,
+    remove,
+    refreshOne,
+  }
 }
