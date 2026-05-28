@@ -9,6 +9,7 @@ interface ShowResponse {
     status: string
     priority: string
     description: string | null
+    descriptionMarkdown?: string | null
     url: string
     project: { id: string; name: string }
     assignee: {
@@ -39,10 +40,11 @@ export function formatTaskShow(task: ShowResponse['task']): string {
     lines.push('Assignee:  (unassigned)')
   }
   lines.push(`URL:       ${task.url}`)
-  if (task.description && task.description.trim().length > 0) {
+  const body = task.descriptionMarkdown ?? task.description
+  if (body && body.trim().length > 0) {
     lines.push('')
     lines.push('Description:')
-    for (const line of task.description.split('\n')) {
+    for (const line of body.split('\n')) {
       lines.push(`  ${line}`)
     }
   }
