@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { tasksClient } from '@/lib/api-client'
 import type { QuickAction, Mention } from '@/lib/quick-dispatch/types'
@@ -30,6 +31,8 @@ export function useQuickDispatch() {
   const [phase, setPhase] = useState<DispatchPhase>('input')
   const [input, setInput] = useState('')
   const [mentions, setMentions] = useState<Mention[]>([])
+  // The parsed actions live in local state so removeAction() can edit the
+  // preview list freely between parse and execute.
   const [actions, setActions] = useState<QuickAction[]>([])
   const [results, setResults] = useState<ActionResult[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -41,51 +44,58 @@ export function useQuickDispatch() {
     }
   }, [])
 
+  const parseMutation = useMutation<
+    ParseResponse,
+    Error,
+    { input: string; mentions: Mention[] }
+  >({
+    mutationFn: async ({ input: rawInput, mentions: mentionList }) => {
+      // Cancel any in-flight parse so the latest call wins.
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      return tasksClient.parseQuickDispatch<ParseResponse>(
+        { input: rawInput.trim(), workspaceUrl, mentions: mentionList },
+        controller.signal
+      )
+    },
+    onMutate: () => {
+      setError(null)
+      setPhase('loading')
+    },
+    onSuccess: data => {
+      if (abortRef.current?.signal.aborted) return
+      if (data.actions.length === 0) {
+        setError('Could not parse any actions from the input')
+        setPhase('input')
+        return
+      }
+      setActions(data.actions)
+      setPhase('preview')
+    },
+    onError: err => {
+      if (abortRef.current?.signal.aborted) return
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setPhase('input')
+    },
+  })
+
   const parse = useCallback(
     async (rawInput: string) => {
       const trimmed = rawInput.trim()
       if (!trimmed) return
-
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      setError(null)
-      setPhase('loading')
-
-      try {
-        const data = await tasksClient.parseQuickDispatch<ParseResponse>(
-          { input: trimmed, workspaceUrl, mentions },
-          controller.signal
-        )
-
-        if (controller.signal.aborted) return
-
-        if (data.actions.length === 0) {
-          setError('Could not parse any actions from the input')
-          setPhase('input')
-          return
-        }
-
-        setActions(data.actions)
-        setPhase('preview')
-      } catch (err) {
-        if (controller.signal.aborted) return
-        setError(err instanceof Error ? err.message : 'Something went wrong')
-        setPhase('input')
-      }
+      parseMutation.mutate({ input: rawInput, mentions })
     },
-    [workspaceUrl, mentions]
+    [parseMutation, mentions]
   )
 
-  const execute = useCallback(async () => {
-    if (actions.length === 0) return
-
-    setPhase('executing')
-    setError(null)
-
-    try {
-      const executeActions = actions.map(a => {
+  const executeMutation = useMutation<
+    ExecuteResponse,
+    Error,
+    { actions: QuickAction[] }
+  >({
+    mutationFn: ({ actions: list }) => {
+      const executeActions = list.map(a => {
         if (a.type === 'update') {
           return { type: 'update' as const, taskId: a.taskId, fields: a.fields }
         }
@@ -100,20 +110,29 @@ export function useQuickDispatch() {
           dueDate: a.dueDate,
         }
       })
-
-      const data = await tasksClient.executeQuickDispatch<ExecuteResponse>({
+      return tasksClient.executeQuickDispatch<ExecuteResponse>({
         actions: executeActions,
         workspaceUrl,
       })
-
+    },
+    onMutate: () => {
+      setError(null)
+      setPhase('executing')
+    },
+    onSuccess: data => {
       setResults(data.results)
-      return data.results
-    } catch (err) {
+    },
+    onError: err => {
       setError(err instanceof Error ? err.message : 'Execution failed')
       setPhase('preview')
-      return undefined
-    }
-  }, [actions, workspaceUrl])
+    },
+  })
+
+  const execute = useCallback(async () => {
+    if (actions.length === 0) return
+    const data = await executeMutation.mutateAsync({ actions }).catch(() => null)
+    return data?.results
+  }, [actions, executeMutation])
 
   const removeAction = useCallback((index: number) => {
     setActions(prev => prev.filter((_, i) => i !== index))
@@ -127,7 +146,9 @@ export function useQuickDispatch() {
     setActions([])
     setResults([])
     setError(null)
-  }, [])
+    parseMutation.reset()
+    executeMutation.reset()
+  }, [parseMutation, executeMutation])
 
   const backToInput = useCallback(() => {
     setPhase('input')
