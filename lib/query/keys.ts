@@ -73,4 +73,6 @@ export const queryKeys = {
   tags: () => ['tags'] as const,
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
+
+  taskFigmaLinks: (taskId: string) => ['task-figma-links', taskId] as const,
 }
