@@ -206,3 +206,73 @@ describe('addFigmaLink — failure modes', () => {
     )
   })
 })
+
+describe('listForTask', () => {
+  it('returns rows in createdAt asc', async () => {
+    mockRepo.listByTask.mockResolvedValue([{ id: 'a' }, { id: 'b' }] as any)
+    const result = await taskFigmaLinkService.listForTask('t1')
+    expect(result.map(r => r.id)).toEqual(['a', 'b'])
+    expect(mockRepo.listByTask).toHaveBeenCalledWith('t1')
+  })
+})
+
+describe('removeFigmaLink', () => {
+  it('looks up by cuid and deletes', async () => {
+    mockRepo.findById.mockResolvedValue({ id: 'cfl_x', taskId: 't1' } as any)
+    await taskFigmaLinkService.removeFigmaLink({
+      input: 'cfl_x',
+      taskId: 't1',
+    })
+    expect(mockRepo.delete).toHaveBeenCalledWith('cfl_x')
+  })
+
+  it('resolves URL to (fileKey,nodeId) and deletes', async () => {
+    mockRepo.findByTaskAndKey.mockResolvedValue({ id: 'cfl_y' } as any)
+    await taskFigmaLinkService.removeFigmaLink({
+      input: 'https://www.figma.com/file/abc/F?node-id=1-2',
+      taskId: 't1',
+    })
+    expect(mockRepo.findByTaskAndKey).toHaveBeenCalledWith('t1', 'abc', '1:2')
+    expect(mockRepo.delete).toHaveBeenCalledWith('cfl_y')
+  })
+})
+
+describe('refreshLinksForTask', () => {
+  it('refreshes all links, isolating per-link failures', async () => {
+    mockRepo.listByTask.mockResolvedValue([
+      {
+        id: 'a',
+        fileKey: 'k1',
+        nodeId: '1:2',
+        taskId: 't1',
+        workspaceId: 'w1',
+      },
+      {
+        id: 'b',
+        fileKey: 'k2',
+        nodeId: '',
+        taskId: 't1',
+        workspaceId: 'w1',
+      },
+    ] as any)
+    const stub = mockClient()
+    ;(stub.getFile as jest.Mock)
+      .mockResolvedValueOnce({
+        name: 'F1',
+        document: { children: [] },
+      })
+      .mockRejectedValueOnce(new Error('404'))
+    mockRepo.update.mockResolvedValue({} as any)
+
+    const result = await taskFigmaLinkService.refreshLinksForTask({
+      taskId: 't1',
+      workspaceId: 'w1',
+      actorMemberId: 'm1',
+    })
+
+    expect(result).toEqual([
+      { id: 'a', ok: true },
+      { id: 'b', ok: false, error: expect.any(String) },
+    ])
+  })
+})
