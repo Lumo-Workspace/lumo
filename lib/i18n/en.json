@@ -390,8 +390,6 @@
   "figma.disconnectSuccess": "Figma disconnected",
   "figma.disconnectFailed": "Failed to disconnect Figma",
   "figma.loadFailed": "Failed to load Figma status",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Connect Figma to attach designs to tasks. Lumo reads file and frame metadata via your personal Figma OAuth token.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Members",
   "members.active": "Active",

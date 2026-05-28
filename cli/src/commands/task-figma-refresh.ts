@@ -31,7 +31,7 @@ export async function taskFigmaRefresh(args: {
       err.code === 'figma_needs_reauth'
     ) {
       console.error(`✗ Figma is not connected (or token expired). Reconnect:`)
-      console.error(`  open https://www.uselumo.ai/settings/integrations/figma`)
+      console.error(`  open https://www.uselumo.ai/settings/integrations`)
       return 1
     }
     throw e

@@ -317,7 +317,7 @@ without re-calling Figma.
 
 ```
 ✗ You haven't connected Figma yet.
-  Run: open https://www.uselumo.ai/settings/integrations/figma
+  Run: open https://www.uselumo.ai/settings/integrations
 ```
 
 #### `lumo task figma list <task>` — list attachments
@@ -358,7 +358,7 @@ Refreshed 3 Figma links on LUM-42
   if the user mentioned updating the Figma source.
 
 OAuth connection lives in the Web UI at
-`/settings/integrations/figma`. The CLI does **not** have a `figma auth`
+`/settings/integrations`. The CLI does **not** have a `figma auth`
 command; if the user tries `task figma add` without connecting, the error
 message directs them to the Web UI.
 

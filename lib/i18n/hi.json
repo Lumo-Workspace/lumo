@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma डिस्कनेक्ट हो गया",
   "figma.disconnectFailed": "Figma डिस्कनेक्ट करने में विफल",
   "figma.loadFailed": "Figma स्थिति लोड करने में विफल",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "कार्यों में डिज़ाइन जोड़ने के लिए Figma कनेक्ट करें। Lumo आपके Figma OAuth टोकन के ज़रिए फ़ाइल और फ़्रेम मेटाडेटा पढ़ता है।",
   "member.searchPlaceholder": "Search members…",
   "members.title": "सदस्य",
   "members.active": "सक्रिय",

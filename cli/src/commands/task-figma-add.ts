@@ -18,16 +18,12 @@ export async function taskFigmaAdd(args: Args): Promise<number> {
     const err = e as { code?: string; message?: string }
     if (err.code === 'figma_not_connected') {
       console.error(`✗ You haven't connected Figma yet.`)
-      console.error(
-        `  Run: open https://www.uselumo.ai/settings/integrations/figma`
-      )
+      console.error(`  Run: open https://www.uselumo.ai/settings/integrations`)
       return 1
     }
     if (err.code === 'figma_needs_reauth') {
       console.error(`✗ Your Figma token is no longer valid. Please reconnect.`)
-      console.error(
-        `  Run: open https://www.uselumo.ai/settings/integrations/figma`
-      )
+      console.error(`  Run: open https://www.uselumo.ai/settings/integrations`)
       return 1
     }
     throw e // let wrap() in cli/src/index.ts log and exit 1

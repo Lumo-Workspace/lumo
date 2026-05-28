@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma getrennt",
   "figma.disconnectFailed": "Figma konnte nicht getrennt werden",
   "figma.loadFailed": "Figma-Status konnte nicht geladen werden",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Verbinde Figma, um Designs zu Aufgaben hinzuzufügen. Lumo liest Datei- und Frame-Metadaten über deinen persönlichen Figma-OAuth-Token.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Mitglieder",
   "members.active": "Aktiv",

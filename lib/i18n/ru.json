@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma отключена",
   "figma.disconnectFailed": "Не удалось отключить Figma",
   "figma.loadFailed": "Не удалось загрузить статус Figma",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Подключите Figma, чтобы прикреплять дизайны к задачам. Lumo читает метаданные файлов и фреймов через ваш личный токен OAuth Figma.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Участники",
   "members.active": "Активные",

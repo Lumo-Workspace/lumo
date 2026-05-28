@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma déconnecté",
   "figma.disconnectFailed": "Échec de la déconnexion de Figma",
   "figma.loadFailed": "Échec du chargement du statut Figma",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Connectez Figma pour joindre des designs aux tâches. Lumo lit les métadonnées de fichiers et de cadres via votre jeton OAuth Figma personnel.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Membres",
   "members.active": "Actif",

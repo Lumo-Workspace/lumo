@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma diputuskan",
   "figma.disconnectFailed": "Gagal memutuskan Figma",
   "figma.loadFailed": "Gagal memuatkan status Figma",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Sambungkan Figma untuk melampirkan reka bentuk ke tugas. Lumo membaca metadata fail dan bingkai melalui token OAuth Figma peribadi anda.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Ahli",
   "members.active": "Aktif",

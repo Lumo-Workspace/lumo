@@ -476,8 +476,6 @@
   "figma.disconnectSuccess": "Figma 已中斷",
   "figma.disconnectFailed": "Figma 中斷失敗",
   "figma.loadFailed": "載入 Figma 狀態失敗",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "連線 Figma 以將設計關聯到任務。Lumo 透過您的個人 Figma OAuth 權杖讀取檔案和框架的中繼資料。",
   "member.searchPlaceholder": "搜尋成員…",
   "members.title": "成員",
   "members.active": "活躍",

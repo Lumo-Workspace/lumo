@@ -63,7 +63,6 @@
   "app/workspace/[workspaceUrl]/components/pages/ApiKeysPage.tsx": 13,
   "app/workspace/[workspaceUrl]/components/pages/DashboardPage.tsx": 2,
   "app/workspace/[workspaceUrl]/components/pages/DocumentsPage.tsx": 3,
-  "app/workspace/[workspaceUrl]/components/pages/FigmaSettingsPage.tsx": 4,
   "app/workspace/[workspaceUrl]/components/pages/InboxPage.tsx": 18,
   "app/workspace/[workspaceUrl]/components/pages/IntegrationsPage.tsx": 8,
   "app/workspace/[workspaceUrl]/components/pages/MembersPage.tsx": 70,

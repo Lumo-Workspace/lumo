@@ -72,7 +72,7 @@ describe('taskFigmaAdd', () => {
       expect.stringContaining("haven't connected Figma yet")
     )
     expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/settings/integrations/figma')
+      expect.stringContaining('/settings/integrations')
     )
   })
 

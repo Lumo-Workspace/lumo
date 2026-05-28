@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma を切断しました",
   "figma.disconnectFailed": "Figma の切断に失敗しました",
   "figma.loadFailed": "Figma のステータスを取得できませんでした",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "タスクにデザインを添付するために Figma を接続します。Lumo は個人の Figma OAuth トークンを使用してファイルとフレームのメタデータを読み取ります。",
   "member.searchPlaceholder": "Search members…",
   "members.title": "メンバー",
   "members.active": "アクティブ",

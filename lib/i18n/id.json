@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Figma diputus",
   "figma.disconnectFailed": "Gagal memutus Figma",
   "figma.loadFailed": "Gagal memuat status Figma",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Hubungkan Figma untuk melampirkan desain ke tugas. Lumo membaca metadata file dan frame melalui token OAuth Figma pribadi Anda.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Anggota",
   "members.active": "Aktif",

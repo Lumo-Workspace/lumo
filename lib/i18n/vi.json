@@ -333,8 +333,6 @@
   "figma.disconnectSuccess": "Đã ngắt kết nối Figma",
   "figma.disconnectFailed": "Không thể ngắt kết nối Figma",
   "figma.loadFailed": "Không tải được trạng thái Figma",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "Kết nối Figma để đính kèm thiết kế vào công việc. Lumo đọc siêu dữ liệu tệp và khung thông qua token OAuth Figma cá nhân của bạn.",
   "member.searchPlaceholder": "Search members…",
   "members.title": "Thành viên",
   "members.active": "Đang hoạt động",

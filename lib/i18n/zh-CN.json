@@ -373,8 +373,6 @@
   "figma.disconnectSuccess": "Figma 已断开",
   "figma.disconnectFailed": "Figma 断开失败",
   "figma.loadFailed": "加载 Figma 状态失败",
-  "figma.settingsTitle": "Figma",
-  "figma.settingsDescription": "连接 Figma 以将设计关联到任务。Lumo 通过你的 Figma OAuth 令牌读取文件和图层的元数据。",
   "member.searchPlaceholder": "搜索成员…",
   "members.title": "成员",
   "members.active": "活跃",
