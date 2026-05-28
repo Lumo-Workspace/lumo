@@ -5,7 +5,6 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
-import { taskFigmaLinkRepository } from '@/lib/repositories/task-figma-link.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
@@ -209,7 +208,6 @@ export function renderFigmaSection(links: TaskFigmaLink[]): string {
 function scheduleLazyRefresh(
   links: TaskFigmaLink[],
   workspaceId: string,
-  actorMemberId: string,
   taskId: string
 ): void {
   const stale = links.some(
@@ -218,9 +216,12 @@ function scheduleLazyRefresh(
       Date.now() - l.thumbnailFetchedAt.getTime() > FIGMA_STALE_MS
   )
   if (!stale) return
+  // Use the auto variant: lazy refresh shouldn't depend on the context
+  // viewer having a personal Figma integration. Any workspace member with a
+  // live integration can drive it.
   waitUntil(
     taskFigmaLinkService
-      .refreshLinksForTask({ taskId, workspaceId, actorMemberId })
+      .refreshLinksForTaskAuto({ taskId, workspaceId })
       .catch(() => {})
   )
 }
@@ -273,7 +274,10 @@ export const taskContextService = {
    */
   async getContextForIdentifier(
     workspaceId: string,
-    actorMemberId: string,
+    // Retained for API stability — lazy Figma refresh now uses the auto
+    // variant that picks any active workspace integration, so the caller's
+    // memberId is no longer needed here. Drop on next signature change.
+    _actorMemberId: string,
     identifier: string
   ): Promise<TaskContext | null> {
     const resolved = await taskService.resolveIdentifier(
@@ -297,10 +301,10 @@ export const taskContextService = {
 
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
-    const figmaLinks = await taskFigmaLinkRepository.listByTask(resolved.id)
+    const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
     const figmaSection = renderFigmaSection(figmaLinks)
     if (figmaLinks.length > 0) {
-      scheduleLazyRefresh(figmaLinks, workspaceId, actorMemberId, resolved.id)
+      scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
     }
 
     const memorySection = await taskContextService.buildMemorySectionForTask(

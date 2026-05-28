@@ -5,12 +5,11 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
-jest.mock('@/lib/repositories/task-figma-link.repository', () => ({
-  taskFigmaLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
-}))
 jest.mock('@/lib/services/task-figma-link.service', () => ({
   taskFigmaLinkService: {
+    listForTask: jest.fn().mockResolvedValue([]),
     refreshLinksForTask: jest.fn().mockResolvedValue([]),
+    refreshLinksForTaskAuto: jest.fn().mockResolvedValue([]),
   },
 }))
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))

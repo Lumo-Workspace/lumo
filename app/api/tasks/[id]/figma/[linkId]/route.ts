@@ -22,7 +22,7 @@ function parseIdentifier(
 
 async function resolveTask(rawId: string, workspaceId: string) {
   if (isLikelyCuid(rawId)) {
-    return { id: rawId }
+    return taskRepository.findByIdForMention(rawId, workspaceId)
   }
   const parsed = parseIdentifier(rawId)
   if (!parsed) return null

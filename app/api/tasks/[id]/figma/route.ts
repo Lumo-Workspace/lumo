@@ -29,11 +29,14 @@ function parseIdentifier(
 
 /**
  * Resolve the `[id]` route param to a canonical task cuid, scoped to the
- * caller's workspace. Accepts both cuids and "LUM-N" identifiers.
+ * caller's workspace. Accepts both cuids and "LUM-N" identifiers. Returns
+ * null if the segment does not resolve to a task inside `workspaceId` —
+ * critically, the cuid branch verifies workspace ownership so a malicious
+ * caller cannot reach a task in another workspace by passing its raw cuid.
  */
 async function resolveTask(rawId: string, workspaceId: string) {
   if (isLikelyCuid(rawId)) {
-    return { id: rawId }
+    return taskRepository.findByIdForMention(rawId, workspaceId)
   }
   const parsed = parseIdentifier(rawId)
   if (!parsed) return null

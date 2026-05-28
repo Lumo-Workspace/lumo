@@ -192,6 +192,28 @@ export const taskFigmaLinkService = {
     await taskFigmaLinkRepository.delete(row.id)
   },
 
+  /**
+   * Background variant of `refreshLinksForTask` used by lazy refresh on
+   * `task context`: picks any workspace member with a working Figma
+   * integration to drive the API calls, so the refresh succeeds even when
+   * the user loading the context hasn't personally connected Figma.
+   * Returns `[]` when no workspace member has a usable integration.
+   */
+  async refreshLinksForTaskAuto(input: {
+    taskId: string
+    workspaceId: string
+  }): Promise<Array<{ id: string; ok: boolean; error?: string }>> {
+    const integration = await figmaIntegrationRepository.findAnyForWorkspace(
+      input.workspaceId
+    )
+    if (!integration) return []
+    return this.refreshLinksForTask({
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+      actorMemberId: integration.memberId,
+    })
+  },
+
   async refreshLinksForTask(input: {
     taskId: string
     workspaceId: string
