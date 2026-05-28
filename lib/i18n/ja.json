@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "このドキュメントにプロジェクトが設定されていません。タスクにはプロジェクトが必要です — ドキュメント設定で設定してください。",
   "doc.extract.toast.error_unknown": "タスクを抽出できませんでした。再試行するかページを更新してください。",
   "doc.extract.linked_task_label": "{identifier} にリンク済み",
-  "doc.extract.undo_warning": "元に戻しても、タスクは保持されます。タスク一覧から削除してください。"
+  "doc.extract.undo_warning": "元に戻しても、タスクは保持されます。タスク一覧から削除してください。",
+  "task.figma.sectionTitle": "Figma デザイン",
+  "task.figma.empty": "Figma デザインなし",
+  "task.figma.addButton": "デザインを追加",
+  "task.figma.fileLevel": "（ファイルレベル）",
+  "task.figma.lastSynced": "{ago} に同期",
+  "task.figma.card.refresh": "デザインを更新",
+  "task.figma.card.loading": "読み込み中…",
+  "task.figma.card.delete": "削除",
+  "task.figma.confirmDelete": "この Figma デザインを削除しますか？",
+  "task.figma.notConnected": "Figma が接続されていません。設定 → インテグレーションで接続してください。",
+  "task.figma.needsReauth": "Figma トークンの有効期限が切れました。設定 → インテグレーションで Figma を再接続してください。",
+  "task.figma.urlPlaceholder": "Figma の URL を貼り付け…"
 }

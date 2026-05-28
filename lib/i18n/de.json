@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Dieses Dokument hat kein Projekt. Aufgaben benötigen ein Projekt — legen Sie eines in den Dokumenteinstellungen fest.",
   "doc.extract.toast.error_unknown": "Aufgaben konnten nicht extrahiert werden. Bitte erneut versuchen oder Seite neu laden.",
   "doc.extract.linked_task_label": "Verknüpft mit {identifier}",
-  "doc.extract.undo_warning": "Aufgaben bleiben erhalten, auch wenn Sie die Aktion rückgängig machen. Entfernen Sie sie in der Aufgabenliste."
+  "doc.extract.undo_warning": "Aufgaben bleiben erhalten, auch wenn Sie die Aktion rückgängig machen. Entfernen Sie sie in der Aufgabenliste.",
+  "task.figma.sectionTitle": "Figma-Designs",
+  "task.figma.empty": "Keine Figma-Designs",
+  "task.figma.addButton": "Design hinzufügen",
+  "task.figma.fileLevel": "(Dateiebene)",
+  "task.figma.lastSynced": "Synchronisiert {ago}",
+  "task.figma.card.refresh": "Designs aktualisieren",
+  "task.figma.card.loading": "Wird geladen…",
+  "task.figma.card.delete": "Entfernen",
+  "task.figma.confirmDelete": "Dieses Figma-Design entfernen?",
+  "task.figma.notConnected": "Figma ist nicht verbunden. Gehen Sie zu Einstellungen → Integrationen, um es zu verbinden.",
+  "task.figma.needsReauth": "Figma-Token abgelaufen. Verbinden Sie Figma erneut unter Einstellungen → Integrationen.",
+  "task.figma.urlPlaceholder": "Figma-URL einfügen…"
 }

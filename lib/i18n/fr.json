@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Ce document n'a pas de projet. Les tâches nécessitent un projet — définissez-en un dans les paramètres du document.",
   "doc.extract.toast.error_unknown": "Impossible d'extraire les tâches. Réessayez ou actualisez la page.",
   "doc.extract.linked_task_label": "Lié à {identifier}",
-  "doc.extract.undo_warning": "Les tâches sont conservées même si vous annulez. Supprimez-les dans la liste des tâches."
+  "doc.extract.undo_warning": "Les tâches sont conservées même si vous annulez. Supprimez-les dans la liste des tâches.",
+  "task.figma.sectionTitle": "Designs Figma",
+  "task.figma.empty": "Aucun design Figma",
+  "task.figma.addButton": "Ajouter un design",
+  "task.figma.fileLevel": "(niveau fichier)",
+  "task.figma.lastSynced": "Synchronisé {ago}",
+  "task.figma.card.refresh": "Actualiser les designs",
+  "task.figma.card.loading": "Chargement…",
+  "task.figma.card.delete": "Supprimer",
+  "task.figma.confirmDelete": "Supprimer ce design Figma ?",
+  "task.figma.notConnected": "Figma n'est pas connecté. Allez dans Paramètres → Intégrations pour le connecter.",
+  "task.figma.needsReauth": "Le token Figma a expiré. Reconnectez Figma dans Paramètres → Intégrations.",
+  "task.figma.urlPlaceholder": "Collez une URL Figma…"
 }

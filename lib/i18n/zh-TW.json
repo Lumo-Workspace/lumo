@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "此文件未關聯專案。任務需要一個專案 — 請在文件設定中設定。",
   "doc.extract.toast.error_unknown": "無法提取任務，請重試或重新整理頁面。",
   "doc.extract.linked_task_label": "已關聯至 {identifier}",
-  "doc.extract.undo_warning": "即使復原操作，任務仍會保留。請在任務清單中刪除它們。"
+  "doc.extract.undo_warning": "即使復原操作，任務仍會保留。請在任務清單中刪除它們。",
+  "task.figma.sectionTitle": "Figma 設計",
+  "task.figma.empty": "尚無 Figma 設計",
+  "task.figma.addButton": "新增設計",
+  "task.figma.fileLevel": "（檔案層級）",
+  "task.figma.lastSynced": "已同步 {ago}",
+  "task.figma.card.refresh": "重新整理設計",
+  "task.figma.card.loading": "載入中…",
+  "task.figma.card.delete": "移除",
+  "task.figma.confirmDelete": "移除此 Figma 設計？",
+  "task.figma.notConnected": "Figma 未連接，請前往設定 → 整合進行連接。",
+  "task.figma.needsReauth": "Figma 權杖已過期，請在設定 → 整合中重新連接。",
+  "task.figma.urlPlaceholder": "貼上 Figma 網址…"
 }

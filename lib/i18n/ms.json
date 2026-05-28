@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Dokumen ini tiada projek. Tugas memerlukan projek — tetapkan dalam tetapan dokumen.",
   "doc.extract.toast.error_unknown": "Tidak dapat mengekstrak tugas. Cuba lagi atau muat semula halaman.",
   "doc.extract.linked_task_label": "Dikaitkan dengan {identifier}",
-  "doc.extract.undo_warning": "Tugas kekal walaupun anda membatalkan. Alih keluar dari senarai tugas."
+  "doc.extract.undo_warning": "Tugas kekal walaupun anda membatalkan. Alih keluar dari senarai tugas.",
+  "task.figma.sectionTitle": "Reka Bentuk Figma",
+  "task.figma.empty": "Tiada reka bentuk Figma",
+  "task.figma.addButton": "Tambah reka bentuk",
+  "task.figma.fileLevel": "(peringkat fail)",
+  "task.figma.lastSynced": "Disegerakkan {ago}",
+  "task.figma.card.refresh": "Segarkan reka bentuk",
+  "task.figma.card.loading": "Memuatkan…",
+  "task.figma.card.delete": "Buang",
+  "task.figma.confirmDelete": "Buang reka bentuk Figma ini?",
+  "task.figma.notConnected": "Figma tidak disambungkan. Pergi ke Tetapan → Integrasi untuk menyambungkan.",
+  "task.figma.needsReauth": "Token Figma telah luput. Sambungkan semula Figma di Tetapan → Integrasi.",
+  "task.figma.urlPlaceholder": "Tampal URL Figma…"
 }

@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "इस दस्तावेज़ में कोई प्रोजेक्ट नहीं है। कार्यों के लिए प्रोजेक्ट आवश्यक है — दस्तावेज़ सेटिंग में सेट करें।",
   "doc.extract.toast.error_unknown": "कार्य निकाले नहीं जा सके। पुनः प्रयास करें या पृष्ठ रीफ्रेश करें।",
   "doc.extract.linked_task_label": "{identifier} से लिंक किया गया",
-  "doc.extract.undo_warning": "पूर्ववत करने पर भी कार्य बने रहते हैं। उन्हें कार्य सूची में से हटाएं।"
+  "doc.extract.undo_warning": "पूर्ववत करने पर भी कार्य बने रहते हैं। उन्हें कार्य सूची में से हटाएं।",
+  "task.figma.sectionTitle": "Figma डिज़ाइन",
+  "task.figma.empty": "कोई Figma डिज़ाइन नहीं",
+  "task.figma.addButton": "डिज़ाइन जोड़ें",
+  "task.figma.fileLevel": "(फ़ाइल स्तर)",
+  "task.figma.lastSynced": "{ago} में सिंक किया",
+  "task.figma.card.refresh": "डिज़ाइन रीफ्रेश करें",
+  "task.figma.card.loading": "लोड हो रहा है…",
+  "task.figma.card.delete": "हटाएं",
+  "task.figma.confirmDelete": "इस Figma डिज़ाइन को हटाएं?",
+  "task.figma.notConnected": "Figma कनेक्ट नहीं है। कनेक्ट करने के लिए सेटिंग → इंटीग्रेशन पर जाएं।",
+  "task.figma.needsReauth": "Figma टोकन समाप्त हो गया। सेटिंग → इंटीग्रेशन में Figma को फिर से कनेक्ट करें।",
+  "task.figma.urlPlaceholder": "Figma URL पेस्ट करें…"
 }

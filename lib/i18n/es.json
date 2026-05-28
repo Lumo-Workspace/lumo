@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Este documento no tiene proyecto. Las tareas necesitan un proyecto — configúralo en los ajustes del documento.",
   "doc.extract.toast.error_unknown": "No se pudieron extraer las tareas. Inténtalo de nuevo o recarga la página.",
   "doc.extract.linked_task_label": "Vinculado a {identifier}",
-  "doc.extract.undo_warning": "Las tareas se mantienen aunque deshagas la acción. Elimínalas en la lista de tareas."
+  "doc.extract.undo_warning": "Las tareas se mantienen aunque deshagas la acción. Elimínalas en la lista de tareas.",
+  "task.figma.sectionTitle": "Diseños de Figma",
+  "task.figma.empty": "Sin diseños de Figma",
+  "task.figma.addButton": "Añadir diseño",
+  "task.figma.fileLevel": "(nivel de archivo)",
+  "task.figma.lastSynced": "Sincronizado {ago}",
+  "task.figma.card.refresh": "Actualizar diseños",
+  "task.figma.card.loading": "Cargando…",
+  "task.figma.card.delete": "Eliminar",
+  "task.figma.confirmDelete": "¿Eliminar este diseño de Figma?",
+  "task.figma.notConnected": "Figma no está conectado. Ve a Configuración → Integraciones para conectarlo.",
+  "task.figma.needsReauth": "El token de Figma ha caducado. Reconecta Figma en Configuración → Integraciones.",
+  "task.figma.urlPlaceholder": "Pega una URL de Figma…"
 }

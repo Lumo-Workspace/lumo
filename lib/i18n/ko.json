@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "이 문서에 프로젝트가 없습니다. 작업에는 프로젝트가 필요합니다 — 문서 설정에서 설정하세요.",
   "doc.extract.toast.error_unknown": "작업을 추출할 수 없습니다. 다시 시도하거나 새로고침하세요.",
   "doc.extract.linked_task_label": "{identifier}에 연결됨",
-  "doc.extract.undo_warning": "실행 취소해도 작업은 유지됩니다. 작업 목록에서 삭제하세요."
+  "doc.extract.undo_warning": "실행 취소해도 작업은 유지됩니다. 작업 목록에서 삭제하세요.",
+  "task.figma.sectionTitle": "Figma 디자인",
+  "task.figma.empty": "Figma 디자인 없음",
+  "task.figma.addButton": "디자인 추가",
+  "task.figma.fileLevel": "(파일 수준)",
+  "task.figma.lastSynced": "{ago}에 동기화됨",
+  "task.figma.card.refresh": "디자인 새로고침",
+  "task.figma.card.loading": "불러오는 중…",
+  "task.figma.card.delete": "삭제",
+  "task.figma.confirmDelete": "이 Figma 디자인을 삭제하시겠습니까?",
+  "task.figma.notConnected": "Figma가 연결되지 않았습니다. 설정 → 통합에서 연결하세요.",
+  "task.figma.needsReauth": "Figma 토큰이 만료되었습니다. 설정 → 통합에서 Figma를 다시 연결하세요.",
+  "task.figma.urlPlaceholder": "Figma URL 붙여넣기…"
 }

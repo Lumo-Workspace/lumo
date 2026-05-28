@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Tài liệu này chưa có dự án. Nhiệm vụ cần có dự án — hãy đặt trong cài đặt tài liệu.",
   "doc.extract.toast.error_unknown": "Không thể trích xuất nhiệm vụ. Thử lại hoặc làm mới trang.",
   "doc.extract.linked_task_label": "Đã liên kết với {identifier}",
-  "doc.extract.undo_warning": "Nhiệm vụ vẫn được giữ ngay cả khi bạn hoàn tác. Hãy xóa chúng trong danh sách nhiệm vụ."
+  "doc.extract.undo_warning": "Nhiệm vụ vẫn được giữ ngay cả khi bạn hoàn tác. Hãy xóa chúng trong danh sách nhiệm vụ.",
+  "task.figma.sectionTitle": "Thiết kế Figma",
+  "task.figma.empty": "Không có thiết kế Figma",
+  "task.figma.addButton": "Thêm thiết kế",
+  "task.figma.fileLevel": "(cấp độ tệp)",
+  "task.figma.lastSynced": "Đã đồng bộ {ago}",
+  "task.figma.card.refresh": "Làm mới thiết kế",
+  "task.figma.card.loading": "Đang tải…",
+  "task.figma.card.delete": "Xóa",
+  "task.figma.confirmDelete": "Xóa thiết kế Figma này?",
+  "task.figma.notConnected": "Figma chưa được kết nối. Vào Cài đặt → Tích hợp để kết nối.",
+  "task.figma.needsReauth": "Token Figma đã hết hạn. Kết nối lại Figma trong Cài đặt → Tích hợp.",
+  "task.figma.urlPlaceholder": "Dán URL Figma…"
 }

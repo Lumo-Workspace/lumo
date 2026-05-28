@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "У этого документа нет проекта. Задачам необходим проект — задайте его в настройках документа.",
   "doc.extract.toast.error_unknown": "Не удалось извлечь задачи. Попробуйте ещё раз или обновите страницу.",
   "doc.extract.linked_task_label": "Связано с {identifier}",
-  "doc.extract.undo_warning": "Задачи сохраняются даже после отмены. Удалите их из списка задач."
+  "doc.extract.undo_warning": "Задачи сохраняются даже после отмены. Удалите их из списка задач.",
+  "task.figma.sectionTitle": "Дизайны Figma",
+  "task.figma.empty": "Нет дизайнов Figma",
+  "task.figma.addButton": "Добавить дизайн",
+  "task.figma.fileLevel": "(уровень файла)",
+  "task.figma.lastSynced": "Синхронизировано {ago}",
+  "task.figma.card.refresh": "Обновить дизайны",
+  "task.figma.card.loading": "Загрузка…",
+  "task.figma.card.delete": "Удалить",
+  "task.figma.confirmDelete": "Удалить этот дизайн Figma?",
+  "task.figma.notConnected": "Figma не подключена. Перейдите в Настройки → Интеграции для подключения.",
+  "task.figma.needsReauth": "Токен Figma истёк. Переподключите Figma в Настройках → Интеграции.",
+  "task.figma.urlPlaceholder": "Вставьте URL Figma…"
 }

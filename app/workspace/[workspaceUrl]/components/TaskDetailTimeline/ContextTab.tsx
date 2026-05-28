@@ -4,8 +4,10 @@ import { useMemo } from 'react'
 import { Accordion } from '@/components/landing/ui/accordion'
 import { useSlackContexts } from '../../hooks/useSlackContexts'
 import { useTaskDocuments } from '../../hooks/useTaskDocuments'
+import { useFigmaLinks } from '../../hooks/useFigmaLinks'
 import { SlackContextSection } from './sections/SlackContextSection'
 import { WebLinkSection } from './sections/WebLinkSection'
+import { FigmaSection } from './sections/FigmaSection'
 import { PullRequestsSection } from './sections/PullRequestsSection'
 import { DocumentsSection } from './sections/DocumentsSection'
 
@@ -41,14 +43,21 @@ export function ContextTab({
 }: Props): React.ReactElement {
   const slack = useSlackContexts(taskId, enabled)
   const docs = useTaskDocuments(taskId, enabled)
+  const figma = useFigmaLinks(taskId, enabled)
 
   const defaultOpen = useMemo(() => {
     const open: string[] = []
     if (slack.contexts.length > 0) open.push('slack')
     if (pullRequests.length > 0) open.push('pullRequests')
     if (docs.documents.length > 0) open.push('documents')
+    if (figma.figmaLinks.length > 0) open.push('figma')
     return open
-  }, [slack.contexts.length, pullRequests.length, docs.documents.length])
+  }, [
+    slack.contexts.length,
+    pullRequests.length,
+    docs.documents.length,
+    figma.figmaLinks.length,
+  ])
 
   return (
     <Accordion
@@ -64,6 +73,7 @@ export function ContextTab({
         onUnlink={slack.unlink}
       />
       <WebLinkSection taskId={taskId} />
+      <FigmaSection taskId={taskId} />
       <PullRequestsSection
         taskId={taskId}
         workspaceId={workspaceId}

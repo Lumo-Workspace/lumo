@@ -1126,5 +1126,17 @@
   "doc.extract.toast.error_no_project": "Dokumen ini tidak memiliki proyek. Tugas memerlukan proyek — atur di pengaturan dokumen.",
   "doc.extract.toast.error_unknown": "Tidak dapat mengekstrak tugas. Coba lagi atau muat ulang halaman.",
   "doc.extract.linked_task_label": "Terhubung ke {identifier}",
-  "doc.extract.undo_warning": "Tugas tetap ada meskipun Anda membatalkan. Hapus dari daftar tugas."
+  "doc.extract.undo_warning": "Tugas tetap ada meskipun Anda membatalkan. Hapus dari daftar tugas.",
+  "task.figma.sectionTitle": "Desain Figma",
+  "task.figma.empty": "Belum ada desain Figma",
+  "task.figma.addButton": "Tambah desain",
+  "task.figma.fileLevel": "(level file)",
+  "task.figma.lastSynced": "Disinkronkan {ago}",
+  "task.figma.card.refresh": "Perbarui desain",
+  "task.figma.card.loading": "Memuat…",
+  "task.figma.card.delete": "Hapus",
+  "task.figma.confirmDelete": "Hapus desain Figma ini?",
+  "task.figma.notConnected": "Figma belum terhubung. Buka Pengaturan → Integrasi untuk menghubungkan.",
+  "task.figma.needsReauth": "Token Figma sudah kedaluwarsa. Hubungkan kembali Figma di Pengaturan → Integrasi.",
+  "task.figma.urlPlaceholder": "Tempel URL Figma…"
 }
