@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ApiComment } from '../types'
 import { readCache, writeCache } from '../cache'
 import { CACHE_KEY } from '../constants'
 import { tasksClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { mapCommentTree } from '../components/comment-utils'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -21,21 +29,48 @@ export function useTaskComments({
   taskId,
   currentActorId,
 }: UseTaskCommentsOptions) {
-  // ── Comments list ───────────────────────────────────────────────────────
-  const [comments, setComments] = useState<ApiComment[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.comments(taskId)
 
-  // Hydrate from cache once on mount
-  const hydratedComments = useRef(false)
-  useEffect(() => {
-    if (hydratedComments.current) return
-    hydratedComments.current = true
-    const cached = readCache<ApiComment[]>(CACHE_KEY.comments(taskId))
-    if (cached) {
-      setComments(cached)
-      setCommentsLoading(false)
-    }
-  }, [taskId])
+  // ── Comments list ───────────────────────────────────────────────────────
+  const query = useQuery<ApiComment[]>({
+    queryKey,
+    queryFn: async () => {
+      const data = await tasksClient.listComments<{ comments: ApiComment[] }>(
+        taskId
+      )
+      const fresh = data.comments ?? []
+      writeCache(CACHE_KEY.comments(taskId), fresh)
+      return fresh
+    },
+    initialData: () =>
+      readCache<ApiComment[]>(CACHE_KEY.comments(taskId)) ?? undefined,
+    staleTime: 0,
+  })
+
+  const comments = query.data ?? []
+  const commentsLoading = query.isLoading
+
+  // setComments wrapper — writes through the TanStack cache + mirrors to
+  // localStorage. Preserves the Dispatch<SetStateAction<ApiComment[]>>
+  // contract so callers (including the in-hook mutations below) don't
+  // notice the migration.
+  const setComments = useCallback<Dispatch<SetStateAction<ApiComment[]>>>(
+    action => {
+      queryClient.setQueryData<ApiComment[]>(queryKey, prev => {
+        const prevList = prev ?? []
+        const next =
+          typeof action === 'function'
+            ? (action as (prev: ApiComment[]) => ApiComment[])(prevList)
+            : action
+        writeCache(CACHE_KEY.comments(taskId), next)
+        return next
+      })
+    },
+    // queryKey is a fresh tuple per render; queryClient is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, taskId]
+  )
 
   // ── New comment ─────────────────────────────────────────────────────────
   const [commentBody, setCommentBody] = useState<string | null>(null)
@@ -68,19 +103,8 @@ export function useTaskComments({
 
   // ── Fetch from server ───────────────────────────────────────────────────
   const fetchComments = useCallback(async () => {
-    try {
-      const data = await tasksClient.listComments<{ comments: ApiComment[] }>(
-        taskId
-      )
-      const fresh = data.comments ?? []
-      setComments(fresh)
-      writeCache(CACHE_KEY.comments(taskId), fresh)
-    } catch {
-      // keep existing comments on failure
-    } finally {
-      setCommentsLoading(false)
-    }
-  }, [taskId])
+    await query.refetch()
+  }, [query])
 
   // ── Submit new comment (optimistic) ─────────────────────────────────────
   const submitComment = useCallback(async () => {
@@ -109,17 +133,13 @@ export function useTaskComments({
       const { comment } = await tasksClient.createComment<{
         comment: ApiComment
       }>(taskId, { body })
-      setComments(prev => {
-        const next = prev.map(c => (c.id === tempId ? comment : c))
-        writeCache(CACHE_KEY.comments(taskId), next)
-        return next
-      })
+      setComments(prev => prev.map(c => (c.id === tempId ? comment : c)))
     } catch {
       setComments(prev => prev.filter(c => c.id !== tempId))
     } finally {
       setSubmitting(false)
     }
-  }, [commentBody, submitting, taskId, currentActorId])
+  }, [commentBody, submitting, taskId, currentActorId, setComments])
 
   // ── Submit reply (optimistic) ───────────────────────────────────────────
   const submitReply = useCallback(
@@ -141,15 +161,13 @@ export function useTaskComments({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      setComments(prev => {
-        const next = prev.map(c =>
+      setComments(prev =>
+        prev.map(c =>
           c.id === parentId
             ? { ...c, replies: [...(c.replies ?? []), optimistic] }
             : c
         )
-        writeCache(CACHE_KEY.comments(taskId), next)
-        return next
-      })
+      )
       setReplyBody(null)
       clearReplyRef.current?.()
       setReplyingToId(null)
@@ -159,22 +177,21 @@ export function useTaskComments({
         const { comment } = await tasksClient.createComment<{
           comment: ApiComment
         }>(taskId, { body, parentId, quotedCommentId })
-        setComments(prev => {
-          const next = mapCommentTree(prev, tempId, () => comment)
-          writeCache(CACHE_KEY.comments(taskId), next)
-          return next
-        })
+        setComments(prev => mapCommentTree(prev, tempId, () => comment))
       } catch {
-        setComments(prev => {
-          const next = mapCommentTree(prev, tempId, () => null)
-          writeCache(CACHE_KEY.comments(taskId), next)
-          return next
-        })
+        setComments(prev => mapCommentTree(prev, tempId, () => null))
       } finally {
         setSubmittingReply(false)
       }
     },
-    [replyBody, submittingReply, taskId, currentActorId, replyingToComment]
+    [
+      replyBody,
+      submittingReply,
+      taskId,
+      currentActorId,
+      replyingToComment,
+      setComments,
+    ]
   )
 
   // ── Save edit (optimistic) ──────────────────────────────────────────────
@@ -187,11 +204,7 @@ export function useTaskComments({
         const { comment } = await tasksClient.updateComment<{
           comment: ApiComment
         }>(taskId, commentId, { body })
-        setComments(prev => {
-          const next = mapCommentTree(prev, commentId, () => comment)
-          writeCache(CACHE_KEY.comments(taskId), next)
-          return next
-        })
+        setComments(prev => mapCommentTree(prev, commentId, () => comment))
         setEditingCommentId(null)
         setEditCommentBody(null)
       } catch {
@@ -200,7 +213,7 @@ export function useTaskComments({
         setSavingComment(false)
       }
     },
-    [editCommentBody, savingComment, taskId]
+    [editCommentBody, savingComment, taskId, setComments]
   )
 
   // ── Delete ──────────────────────────────────────────────────────────────
@@ -209,11 +222,7 @@ export function useTaskComments({
       setDeletingCommentId(commentId)
       try {
         await tasksClient.deleteComment(taskId, commentId)
-        setComments(prev => {
-          const next = mapCommentTree(prev, commentId, () => null)
-          writeCache(CACHE_KEY.comments(taskId), next)
-          return next
-        })
+        setComments(prev => mapCommentTree(prev, commentId, () => null))
       } catch {
         // silently keep the comment on failure
       } finally {
@@ -221,7 +230,7 @@ export function useTaskComments({
         setConfirmDeleteId(null)
       }
     },
-    [taskId]
+    [taskId, setComments]
   )
 
   // ── Scroll to comment ──────────────────────────────────────────────────
