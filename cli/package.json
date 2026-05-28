@@ -1,6 +1,6 @@
 {
   "name": "@lumoai/cli",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Lumo CLI — manage tasks and sessions from the terminal",
   "license": "MIT",
   "author": "cli@uselumo.ai",
@@ -40,9 +40,11 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "commander": "^13.1.0"
+    "commander": "^13.1.0",
+    "markdown-it": "^14.1.1"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^25",
     "typescript": "^5"
   }
