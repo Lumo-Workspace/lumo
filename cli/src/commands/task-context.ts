@@ -8,6 +8,7 @@ interface TaskContextResponse {
     title: string
     status: string
     description: string | null
+    descriptionMarkdown?: string | null
     milestone?: {
       id: string
       name: string
@@ -103,8 +104,9 @@ export function formatTaskContextMarkdown(
       `**Milestone**: ${data.task.milestone.name} (${data.task.milestone.status}${target})`
     )
   }
-  if (data.task.description && data.task.description.trim().length > 0) {
-    lines.push(`**Description**: ${data.task.description}`)
+  const body = data.task.descriptionMarkdown ?? data.task.description
+  if (body && body.trim().length > 0) {
+    lines.push(`**Description**: ${body}`)
   }
   lines.push('')
 
