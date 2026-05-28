@@ -18,7 +18,9 @@ describe('getAuthorizeUrl', () => {
     expect(url.searchParams.get('redirect_uri')).toBe(
       'https://lumo.test/api/figma/callback'
     )
-    expect(url.searchParams.get('scope')).toBe('files:read')
+    expect(url.searchParams.get('scope')).toBe(
+      'file_content:read file_metadata:read current_user:read'
+    )
     expect(url.searchParams.get('response_type')).toBe('code')
     expect(url.searchParams.get('state')).toBe('abc')
   })

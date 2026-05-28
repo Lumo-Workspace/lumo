@@ -83,6 +83,11 @@ jest.mock('@/lib/repositories/figma-integration.repository', () => ({
 
 jest.mock('@/lib/integrations/figma/oauth', () => ({
   exchangeCode: jest.fn(),
+  FIGMA_OAUTH_SCOPES: [
+    'file_content:read',
+    'file_metadata:read',
+    'current_user:read',
+  ],
 }))
 
 import { exchangeCode } from '@/lib/integrations/figma/oauth'

@@ -1,6 +1,9 @@
 import { encrypt, decrypt } from '@/lib/crypto'
 import { figmaIntegrationRepository } from '@/lib/repositories/figma-integration.repository'
-import { exchangeCode } from '@/lib/integrations/figma/oauth'
+import {
+  exchangeCode,
+  FIGMA_OAUTH_SCOPES,
+} from '@/lib/integrations/figma/oauth'
 import type { FigmaUserInfo } from '@/lib/integrations/figma/types'
 
 export interface OauthStatePayload {
@@ -68,7 +71,7 @@ export async function completeOauthFlow(input: {
     figmaUserId: user.id,
     figmaHandle: user.handle,
     figmaEmail: user.email,
-    scopes: ['files:read'],
+    scopes: [...FIGMA_OAUTH_SCOPES],
   })
 }
 
