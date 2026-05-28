@@ -18,6 +18,7 @@ import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
 import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
+import { taskFigmaRm } from './commands/task-figma-rm'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -274,6 +275,18 @@ taskFigma
   .description('List Figma links attached to a task')
   .action(
     wrap((taskId: unknown) => taskFigmaList({ identifier: taskId as string }))
+  )
+
+taskFigma
+  .command('rm <task> <link-id-or-url>')
+  .description('Remove a Figma link from a task (idempotent)')
+  .action(
+    wrap((taskId: unknown, linkIdOrUrl: unknown) =>
+      taskFigmaRm({
+        identifier: taskId as string,
+        linkIdOrUrl: linkIdOrUrl as string,
+      })
+    )
   )
 
 const projectCmd = program
