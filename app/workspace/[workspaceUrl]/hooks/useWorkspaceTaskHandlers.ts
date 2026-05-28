@@ -1,14 +1,17 @@
 'use client'
 
 import { useCallback, useRef, Dispatch, SetStateAction } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type {
   ApiTask,
   ApiProject,
   ApiStatus,
   ApiPriority,
   MyTask,
+  TaskDetail,
 } from '../types'
 import { apiFetchQuiet, tasksClient, projectsClient } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import type { NewTaskFormData } from '../components/modals/NewTaskModal'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
@@ -23,19 +26,11 @@ interface Member {
 }
 
 interface UseWorkspaceTaskHandlersOptions {
-  // Task store
-  taskMap: Record<string, ApiTask>
-  upsertTasks: (tasks: ApiTask[]) => void
-  updateTask: (id: string, patch: Record<string, unknown>) => void
-  removeTask: (id: string) => void
-  removeTasks: (ids: string[]) => void
-  replaceTempId: (tempId: string, task: ApiTask) => void
-
-  // ID lists
-  myTaskIds: string[]
-  setMyTaskIds: Dispatch<SetStateAction<string[]>>
-  projectTaskIds: string[]
-  setProjectTaskIds: Dispatch<SetStateAction<string[]>>
+  // List setters from useMyTasks / useProjectTasks (write into TanStack cache).
+  myTasks: MyTask[]
+  setMyTasks: Dispatch<SetStateAction<MyTask[]>>
+  projectTasks: ApiTask[]
+  setProjectTasks: Dispatch<SetStateAction<ApiTask[]>>
 
   // Members
   members: Member[]
@@ -52,16 +47,10 @@ interface UseWorkspaceTaskHandlersOptions {
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export function useWorkspaceTaskHandlers({
-  taskMap,
-  upsertTasks,
-  updateTask,
-  removeTask,
-  removeTasks,
-  replaceTempId,
-  myTaskIds,
-  setMyTaskIds,
-  projectTaskIds,
-  setProjectTaskIds,
+  myTasks,
+  setMyTasks,
+  projectTasks,
+  setProjectTasks,
   members,
   currentMemberId,
   fetchMembers,
@@ -71,12 +60,10 @@ export function useWorkspaceTaskHandlers({
   fetchProjects,
 }: UseWorkspaceTaskHandlersOptions) {
   const intl = useIntl()
+  const queryClient = useQueryClient()
 
   // description cache: taskId → description html (populated after first fetch)
   const descriptionCache = useRef<Map<string, string | null>>(new Map())
-
-  // ─── Selected task (drawer) ─────────────────────────────────────────────
-  // Note: selectedTask state is kept in WorkspaceApp since it's also used by modals
 
   const handleOpenTask = useCallback(
     (task: ApiTask | MyTask) => {
@@ -84,6 +71,18 @@ export function useWorkspaceTaskHandlers({
       return task // caller sets selectedTask
     },
     [fetchMembers]
+  )
+
+  const patchListItem = useCallback(
+    (taskId: string, patch: Record<string, unknown>): void => {
+      setMyTasks(prev =>
+        prev.map(t => (t.id === taskId ? ({ ...t, ...patch } as MyTask) : t))
+      )
+      setProjectTasks(prev =>
+        prev.map(t => (t.id === taskId ? ({ ...t, ...patch } as ApiTask) : t))
+      )
+    },
+    [setMyTasks, setProjectTasks]
   )
 
   const handleUpdateTask = useCallback(
@@ -99,10 +98,15 @@ export function useWorkspaceTaskHandlers({
         dueDate: string | null
       }>
     ) => {
-      updateTask(taskId, data)
+      // Optimistic list-cache + per-task detail-cache patches.
+      patchListItem(taskId, data as Record<string, unknown>)
+      queryClient.setQueryData<TaskDetail>(
+        queryKeys.tasks.detail(taskId),
+        prev => (prev ? ({ ...prev, ...data } as TaskDetail) : prev)
+      )
 
       if ('projectId' in data && data.projectId !== selectedProject?.id) {
-        setProjectTaskIds(prev => prev.filter(id => id !== taskId))
+        setProjectTasks(prev => prev.filter(t => t.id !== taskId))
       }
 
       const currentMemberActorId = members.find(
@@ -110,10 +114,12 @@ export function useWorkspaceTaskHandlers({
       )?.actorId
       if ('assigneeActorId' in data && currentMemberActorId) {
         const nowMine = data.assigneeActorId === currentMemberActorId
-        const wasMine = myTaskIds.includes(taskId)
+        const wasMine = myTasks.some(t => t.id === taskId)
         if (wasMine && !nowMine)
-          setMyTaskIds(prev => prev.filter(id => id !== taskId))
-        if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
+          setMyTasks(prev => prev.filter(t => t.id !== taskId))
+        // (!wasMine && nowMine): can't synthesize a full MyTask from a partial
+        // patch — fall through and let the post-fetch reconciliation handle
+        // adding the task once the server returns the full record.
       }
 
       try {
@@ -121,35 +127,44 @@ export function useWorkspaceTaskHandlers({
           taskId,
           data
         )
-        upsertTasks([updated])
+        // Patch list caches with the server's response.
+        patchListItem(taskId, updated as unknown as Record<string, unknown>)
+        queryClient.setQueryData<TaskDetail>(
+          queryKeys.tasks.detail(taskId),
+          prev => (prev ? ({ ...prev, ...updated } as TaskDetail) : prev)
+        )
         if (currentMemberActorId) {
           const nowMine = updated.assigneeActorId === currentMemberActorId
-          const wasMine = myTaskIds.includes(taskId)
+          const wasMine = myTasks.some(t => t.id === taskId)
           if (wasMine && !nowMine)
-            setMyTaskIds(prev => prev.filter(id => id !== taskId))
-          if (!wasMine && nowMine) setMyTaskIds(prev => [...prev, taskId])
+            setMyTasks(prev => prev.filter(t => t.id !== taskId))
+          if (!wasMine && nowMine)
+            setMyTasks(prev => [...prev, updated as MyTask])
         }
       } catch (err) {
         throw err
       }
     },
     [
-      updateTask,
-      upsertTasks,
+      patchListItem,
+      queryClient,
       selectedProject?.id,
       currentMemberId,
       members,
-      myTaskIds,
-      setProjectTaskIds,
-      setMyTaskIds,
+      myTasks,
+      setProjectTasks,
+      setMyTasks,
     ]
   )
 
   const handleDeleteTask = useCallback(
     async (taskId: string) => {
-      removeTask(taskId)
-      setMyTaskIds(prev => prev.filter(id => id !== taskId))
-      setProjectTaskIds(prev => prev.filter(id => id !== taskId))
+      setMyTasks(prev => prev.filter(t => t.id !== taskId))
+      setProjectTasks(prev => prev.filter(t => t.id !== taskId))
+      queryClient.removeQueries({
+        queryKey: queryKeys.tasks.detail(taskId),
+        exact: true,
+      })
 
       try {
         await tasksClient.delete(taskId)
@@ -157,7 +172,7 @@ export function useWorkspaceTaskHandlers({
         // silently ignore — optimistic removal already applied
       }
     },
-    [removeTask, setMyTaskIds, setProjectTaskIds]
+    [queryClient, setMyTasks, setProjectTasks]
   )
 
   const handleCreateTask = useCallback(
@@ -192,15 +207,16 @@ export function useWorkspaceTaskHandlers({
         ...(project ? { project: { id: projectId, name: project.name } } : {}),
       }
 
-      upsertTasks([optimistic])
-
       if (projectId === selectedProject?.id) {
-        setProjectTaskIds(prev => [...prev, tempId])
+        setProjectTasks(prev => [...prev, optimistic])
       }
-
       if (assigneeId && assigneeId === currentMemberId) {
-        setMyTaskIds(prev => [...prev, tempId])
+        setMyTasks(prev => [...prev, optimistic as MyTask])
       }
+      queryClient.setQueryData<TaskDetail>(
+        queryKeys.tasks.detail(tempId),
+        optimistic as unknown as TaskDetail
+      )
 
       let task: ApiTask
       try {
@@ -218,20 +234,35 @@ export function useWorkspaceTaskHandlers({
         )
         task = data.task
       } catch (err) {
-        removeTask(tempId)
-        setProjectTaskIds(prev => prev.filter(id => id !== tempId))
-        setMyTaskIds(prev => prev.filter(id => id !== tempId))
+        setProjectTasks(prev => prev.filter(t => t.id !== tempId))
+        setMyTasks(prev => prev.filter(t => t.id !== tempId))
+        queryClient.removeQueries({
+          queryKey: queryKeys.tasks.detail(tempId),
+          exact: true,
+        })
         const message =
           err instanceof Error ? err.message : 'Failed to create task'
         toast.error(message ?? intl.formatMessage({ id: 'task.createFailed' }))
         throw err
       }
-      replaceTempId(tempId, {
+
+      const settled: ApiTask = {
         ...task,
         ...(project ? { project: { id: projectId, name: project.name } } : {}),
+      }
+      setProjectTasks(prev => prev.map(t => (t.id === tempId ? settled : t)))
+      setMyTasks(prev =>
+        prev.map(t => (t.id === tempId ? (settled as MyTask) : t))
+      )
+      queryClient.removeQueries({
+        queryKey: queryKeys.tasks.detail(tempId),
+        exact: true,
       })
-      setProjectTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
-      setMyTaskIds(prev => prev.map(id => (id === tempId ? task.id : id)))
+      queryClient.setQueryData<TaskDetail>(
+        queryKeys.tasks.detail(settled.id),
+        settled as unknown as TaskDetail
+      )
+
       setProjects(prev =>
         prev.map(p =>
           p.id === projectId
@@ -259,11 +290,9 @@ export function useWorkspaceTaskHandlers({
     },
     [
       selectedProject?.id,
-      upsertTasks,
-      replaceTempId,
-      removeTask,
-      setProjectTaskIds,
-      setMyTaskIds,
+      queryClient,
+      setProjectTasks,
+      setMyTasks,
       setProjects,
       projects,
       currentMemberId,
@@ -272,31 +301,10 @@ export function useWorkspaceTaskHandlers({
   )
 
   // ─── DnD setTasks wrappers ──────────────────────────────────────────────
-  const setMyTasksForDnD = useCallback<Dispatch<SetStateAction<MyTask[]>>>(
-    action => {
-      const prev = myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[]
-      const next = typeof action === 'function' ? action(prev) : action
-      const changed = next.filter(t => taskMap[t.id] !== t)
-      if (changed.length > 0) upsertTasks(changed)
-      setMyTaskIds(next.map(t => t.id))
-    },
-    [myTaskIds, taskMap, upsertTasks, setMyTaskIds]
-  )
-
-  const setProjectTasksForDnD = useCallback<
-    Dispatch<SetStateAction<ApiTask[]>>
-  >(
-    action => {
-      const prev = projectTaskIds
-        .map(id => taskMap[id])
-        .filter(Boolean) as ApiTask[]
-      const next = typeof action === 'function' ? action(prev) : action
-      const changed = next.filter(t => taskMap[t.id] !== t)
-      if (changed.length > 0) upsertTasks(changed)
-      setProjectTaskIds(next.map(t => t.id))
-    },
-    [projectTaskIds, taskMap, upsertTasks, setProjectTaskIds]
-  )
+  // Both list caches already trigger per-task mirroring on every setTasks
+  // call, so DnD just routes through the same setters.
+  const setMyTasksForDnD = setMyTasks
+  const setProjectTasksForDnD = setProjectTasks
 
   // ─── Status change tracking for per-status counts ──────────────────────
   const handleProjectTaskStatusChanged = useCallback(
@@ -340,20 +348,23 @@ export function useWorkspaceTaskHandlers({
     [fetchMembers, fetchProjects]
   )
 
-  // ─── Delete project helper (needs descriptionCache + task cleanup) ──────
+  // ─── Delete project helper (cleans up task lists + per-task cache) ──────
   const handleDeleteProjectTasks = useCallback(
     (projectId: string) => {
-      const deletedIds = projectTaskIds.filter(
-        id => taskMap[id]?.projectId === projectId
-      )
-      deletedIds.forEach(id => descriptionCache.current.delete(id))
-      removeTasks(deletedIds)
-      setProjectTaskIds([])
-      setMyTaskIds(prev =>
-        prev.filter(id => taskMap[id]?.projectId !== projectId)
-      )
+      const deletedIds = projectTasks
+        .filter(t => t.projectId === projectId)
+        .map(t => t.id)
+      deletedIds.forEach(id => {
+        descriptionCache.current.delete(id)
+        queryClient.removeQueries({
+          queryKey: queryKeys.tasks.detail(id),
+          exact: true,
+        })
+      })
+      setProjectTasks([])
+      setMyTasks(prev => prev.filter(t => t.projectId !== projectId))
     },
-    [projectTaskIds, taskMap, removeTasks, setProjectTaskIds, setMyTaskIds]
+    [projectTasks, queryClient, setProjectTasks, setMyTasks]
   )
 
   return {

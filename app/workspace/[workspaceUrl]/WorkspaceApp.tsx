@@ -9,15 +9,16 @@ import {
   SetStateAction,
 } from 'react'
 import { useParams, usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { PageTransition } from '@/components/PageTransition'
 import { useCurrentUser } from './hooks/useCurrentUser'
-import { Page, ApiProject, ApiTask, MyTask } from './types'
+import { Page, ApiProject, TaskDetail } from './types'
 import { pageToPath, pathToPage } from './utils'
 import { clearCache } from './cache'
+import { queryKeys } from '@/lib/query/keys'
 
 // Hooks
-import { useTaskStore } from './hooks/useTaskStore'
 import { useMyTasks } from './hooks/useMyTasks'
 import { useMyActiveSprints } from './hooks/useMyActiveSprints'
 import { useWorkspaceTeams } from './hooks/useWorkspaceTeams'
@@ -80,25 +81,16 @@ export default function DashboardApp() {
   const { teams: myTeams } = useWorkspaceTeams()
   const anySprintEnabledTeam = myTeams.some(t => t.sprintsEnabled)
 
-  // ─── Normalized task store ─────────────────────────────────────────────────
-  const {
-    taskMap,
-    upsertTasks,
-    updateTask,
-    removeTask,
-    removeTasks,
-    replaceTempId,
-  } = useTaskStore()
-
   // ─── Data hooks ────────────────────────────────────────────────────────────
+  const queryClient = useQueryClient()
   const {
-    taskIds: myTaskIds,
-    setTaskIds: setMyTaskIds,
+    tasks: myTasks,
+    setTasks: setMyTasks,
     myTasksViewId,
     loading: myTasksLoading,
     error: myTasksError,
     fetchMyTasks,
-  } = useMyTasks(upsertTasks)
+  } = useMyTasks()
 
   const {
     projects,
@@ -109,14 +101,14 @@ export default function DashboardApp() {
   } = useProjects()
 
   const {
-    taskIds: projectTaskIds,
-    setTaskIds: setProjectTaskIds,
+    tasks: projectTasks,
+    setTasks: setProjectTasks,
     kanbanViewId,
     loading: projectTasksLoading,
     error: projectTasksError,
     hydrateForProject,
     fetchProjectTasks,
-  } = useProjectTasks(upsertTasks)
+  } = useProjectTasks()
 
   const { members, fetchMembers, agentActors } = useMembers()
   const {
@@ -161,16 +153,10 @@ export default function DashboardApp() {
 
   // ─── Extracted handler hooks ───────────────────────────────────────────────
   const taskHandlers = useWorkspaceTaskHandlers({
-    taskMap,
-    upsertTasks,
-    updateTask,
-    removeTask,
-    removeTasks,
-    replaceTempId,
-    myTaskIds,
-    setMyTaskIds,
-    projectTaskIds,
-    setProjectTaskIds,
+    myTasks,
+    setMyTasks,
+    projectTasks,
+    setProjectTasks,
     members,
     currentMemberId,
     fetchMembers,
@@ -232,18 +218,9 @@ export default function DashboardApp() {
     v: unknown
   ) => void
 
-  // ─── Derived task arrays ──────────────────────────────────────────────────
-  const myTasks = useMemo(
-    () => myTaskIds.map(id => taskMap[id]).filter(Boolean) as MyTask[],
-    [myTaskIds, taskMap]
-  )
-
-  const projectTasks = useMemo(
-    () => projectTaskIds.map(id => taskMap[id]).filter(Boolean) as ApiTask[],
-    [projectTaskIds, taskMap]
-  )
-
   // ─── Real-time board updates ──────────────────────────────────────────────
+  // Pusher patches flow directly into the TanStack per-task cache + list
+  // caches; list views derive from query data, no separate normalized store.
   usePusherEvent<{
     taskId: string
     fields: string[]
@@ -253,11 +230,28 @@ export default function DashboardApp() {
     'project-update',
     useCallback(
       event => {
-        if (event.patch) {
-          updateTask(event.taskId, event.patch)
-        }
+        if (!event.patch) return
+        const patch = event.patch as Record<string, unknown>
+        queryClient.setQueryData<TaskDetail>(
+          queryKeys.tasks.detail(event.taskId),
+          prev => (prev ? ({ ...prev, ...patch } as TaskDetail) : prev)
+        )
+        setMyTasks(prev =>
+          prev.map(t =>
+            t.id === event.taskId
+              ? ({ ...t, ...patch } as (typeof prev)[number])
+              : t
+          )
+        )
+        setProjectTasks(prev =>
+          prev.map(t =>
+            t.id === event.taskId
+              ? ({ ...t, ...patch } as (typeof prev)[number])
+              : t
+          )
+        )
       },
-      [updateTask]
+      [queryClient, setMyTasks, setProjectTasks]
     )
   )
 
@@ -409,8 +403,6 @@ export default function DashboardApp() {
                   markAllRead,
                   respondToNotification,
                 }}
-                taskMap={taskMap}
-                upsertTasks={upsertTasks}
                 taskHandlers={taskHandlers}
                 projectHandlers={projectHandlers}
                 documentHandlers={documentHandlers}
@@ -428,7 +420,8 @@ export default function DashboardApp() {
 
         <WorkspaceModals
           selectedTask={modalState.selectedTask}
-          taskMap={taskMap}
+          myTasks={myTasks}
+          projectTasks={projectTasks}
           descriptionCache={taskHandlers.descriptionCache}
           members={members}
           agentActors={agentActors}
@@ -461,7 +454,6 @@ export default function DashboardApp() {
           setRestoringDraftId={modalState.setRestoringDraftId}
           isQuickDispatchOpen={modalState.isQuickDispatchOpen}
           setIsQuickDispatchOpen={modalState.setIsQuickDispatchOpen}
-          myTasks={myTasks}
           isNewProjectModalOpen={modalState.isNewProjectModalOpen}
           setIsNewProjectModalOpen={modalState.setIsNewProjectModalOpen}
           onCreateProject={projectHandlers.handleCreateProject}

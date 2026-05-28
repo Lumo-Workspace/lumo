@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { TaskDetail, ApiTask } from '../types'
+import type { TaskDetail } from '../types'
 import { tasksClient, apiFetch } from '@/lib/api-client'
 import { usePusherEvent } from './usePusher'
 import type { TaskEvent } from '@/lib/integrations/pusher'
@@ -10,8 +10,6 @@ import type { TaskEvent } from '@/lib/integrations/pusher'
 
 interface UseTaskSyncOptions {
   initialTaskId: string
-  /** Live task from the normalized store — used to sync external updates (drag, etc.) */
-  liveTask?: ApiTask | undefined
   setTask: React.Dispatch<React.SetStateAction<TaskDetail>>
   /** Called when description is loaded/updated from API */
   onDescriptionFetched: (description: string | null) => void
@@ -35,7 +33,6 @@ interface RelatedDoc {
 
 export function useTaskSync({
   initialTaskId,
-  liveTask,
   setTask,
   onDescriptionFetched,
   onLoadingDone,
@@ -44,30 +41,10 @@ export function useTaskSync({
 }: UseTaskSyncOptions) {
   const [relatedDocs, setRelatedDocs] = useState<RelatedDoc[]>([])
 
-  // ── Sync external updates (e.g. drag-and-drop status change) ────────────
-  useEffect(() => {
-    if (!liveTask) return
-    setTask(prev => {
-      if (
-        prev.title === liveTask.title &&
-        prev.status === liveTask.status &&
-        prev.priority === liveTask.priority &&
-        prev.assigneeActorId === liveTask.assigneeActorId &&
-        prev.projectId === liveTask.projectId &&
-        prev.dueDate === (liveTask.dueDate ?? null)
-      )
-        return prev
-      return {
-        ...prev,
-        title: liveTask.title,
-        status: liveTask.status,
-        priority: liveTask.priority,
-        assigneeActorId: liveTask.assigneeActorId,
-        projectId: liveTask.projectId,
-        dueDate: liveTask.dueDate ?? null,
-      }
-    })
-  }, [liveTask]) // eslint-disable-line react-hooks/exhaustive-deps
+  // DnD / bulk / Pusher updates now flow directly into the per-task cache
+  // (tasks.detail(id)) via useWorkspaceTaskHandlers + the workspace Pusher
+  // handler. The detail page reads from that cache, so a separate liveTask
+  // bridge effect is no longer needed.
 
   // ── Fetch full task detail on mount ─────────────────────────────────────
   useEffect(() => {

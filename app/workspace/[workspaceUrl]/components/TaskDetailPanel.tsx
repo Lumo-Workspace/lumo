@@ -35,8 +35,6 @@ import { CommentSection } from './CommentSection'
 
 export interface TaskDetailPanelProps {
   initialTask: ApiTask | MyTask
-  /** Live task from the normalized store — used to sync external updates (drag, etc.) */
-  liveTask?: ApiTask
   cachedDescription?: string | null | undefined
   members: WorkspaceMemberInfo[]
   agentActors?:
@@ -64,7 +62,6 @@ export interface TaskDetailPanelProps {
 
 export function TaskDetailPanel({
   initialTask,
-  liveTask,
   cachedDescription,
   members,
   agentActors,
@@ -183,7 +180,6 @@ export function TaskDetailPanel({
 
   const { relatedDocs, refreshDetail } = useTaskSync({
     initialTaskId: initialTask.id,
-    liveTask,
     setTask,
     onDescriptionFetched: desc.setDescriptionFromFetch,
     onLoadingDone: desc.finishLoading,
