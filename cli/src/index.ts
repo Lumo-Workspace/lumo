@@ -16,6 +16,7 @@ import { taskUpdate } from './commands/task-update'
 import { taskList } from './commands/task-list'
 import { taskShow } from './commands/task-show'
 import { taskComment } from './commands/task-comment'
+import { taskFigmaAdd } from './commands/task-figma-add'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -249,6 +250,21 @@ task
   .action(
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
+    )
+  )
+
+const taskFigma = task
+  .command('figma')
+  .description('Attach Figma file/frame links to a task')
+
+taskFigma
+  .command('add <task> <url>')
+  .description(
+    'Attach a Figma file or frame URL to the given task. Fetches file/frame name + thumbnail via Figma OAuth.'
+  )
+  .action(
+    wrap((taskId: unknown, url: unknown) =>
+      taskFigmaAdd({ identifier: taskId as string, url: url as string })
     )
   )
 
