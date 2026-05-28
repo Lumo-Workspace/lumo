@@ -1,11 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { toast } from 'sonner'
 import { Check, Loader2 } from 'lucide-react'
-import { figmaApi, type FigmaIntegrationStatus } from '@/lib/api-client/figma'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -20,53 +17,19 @@ import {
 import { FigmaIcon } from './FigmaIcon'
 import { IntegrationCard } from './IntegrationCard'
 import { API } from '../constants'
+import { useFigmaIntegration } from '../hooks/useFigmaIntegration'
 
 export function FigmaIntegrationCard() {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-  const [status, setStatus] = useState<FigmaIntegrationStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [disconnectOpen, setDisconnectOpen] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-
-  const loadStatus = async () => {
-    try {
-      setStatus(await figmaApi.getStatus(workspaceUrl))
-    } catch {
-      toast.error(intl.formatMessage({ id: 'figma.loadFailed' }))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    // Handle success/error redirects from OAuth callback
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('connected') === '1') {
-      toast.success(intl.formatMessage({ id: 'figma.connectSuccess' }))
-      window.history.replaceState({}, '', window.location.pathname)
-    } else if (params.get('figma_error')) {
-      toast.error(intl.formatMessage({ id: 'figma.connectFailed' }))
-      window.history.replaceState({}, '', window.location.pathname)
-    }
-
-    loadStatus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceUrl])
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      await figmaApi.disconnect(workspaceUrl)
-      setStatus({ connected: false })
-      toast.success(intl.formatMessage({ id: 'figma.disconnectSuccess' }))
-      setDisconnectOpen(false)
-    } catch {
-      toast.error(intl.formatMessage({ id: 'figma.disconnectFailed' }))
-    } finally {
-      setDisconnecting(false)
-    }
-  }
+  const {
+    status,
+    loading,
+    disconnectOpen,
+    setDisconnectOpen,
+    disconnecting,
+    handleDisconnect,
+  } = useFigmaIntegration()
 
   const connected = status?.connected === true
 
