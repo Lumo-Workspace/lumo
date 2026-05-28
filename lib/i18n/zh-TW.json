@@ -452,7 +452,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "自動從 Sentry 警報建立任務。",
   "sentry.connected": "已連線",
-  "sentry.connectSentry": "連線",
+  "sentry.connectSentry": "連線 Sentry",
   "sentry.connectedTo": "已連線到 {orgSlug}",
   "sentry.lastWebhook": "最近一次驗證的 webhook：{time}",
   "sentry.waitingWebhook": "等待首次驗證的 webhook。",

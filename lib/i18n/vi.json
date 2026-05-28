@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Tự động tạo task từ cảnh báo của Sentry.",
   "sentry.connected": "Đã kết nối",
-  "sentry.connectSentry": "Kết nối",
+  "sentry.connectSentry": "Kết nối Sentry",
   "sentry.connectedTo": "Đã kết nối với {orgSlug}",
   "sentry.lastWebhook": "Webhook đã xác minh gần nhất: {time}",
   "sentry.waitingWebhook": "Đang chờ webhook đã xác minh đầu tiên.",
