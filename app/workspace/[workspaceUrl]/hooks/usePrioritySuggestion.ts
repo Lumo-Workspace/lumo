@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import type { ApiPriority } from '../types'
 
@@ -25,6 +26,11 @@ interface UsePrioritySuggestionOptions {
   projectId?: string
 }
 
+interface FetchParams {
+  title: string
+  description?: string
+}
+
 const TITLE_DEBOUNCE_MS = 500
 const DESCRIPTION_DEBOUNCE_MS = 800
 const MIN_TITLE_LENGTH = 4
@@ -33,13 +39,38 @@ const TIMEOUT_MS = 5000
 export function usePrioritySuggestion({
   projectId,
 }: UsePrioritySuggestionOptions) {
-  const [suggestion, setSuggestion] = useState<PrioritySuggestion | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Clean up on unmount
+  const suggestionMutation = useMutation<
+    PrioritySuggestion,
+    Error,
+    FetchParams
+  >({
+    mutationFn: async ({ title, description }) => {
+      // Cancel any in-flight request so the latest debounced call wins.
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+      try {
+        return await tasksClient.suggestPriority<PrioritySuggestion>(
+          {
+            title: title.trim(),
+            ...(projectId ? { projectId } : {}),
+            ...(description ? { description } : {}),
+          },
+          controller.signal
+        )
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    },
+  })
+
+  // Clean up timers + in-flight request on unmount.
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
@@ -49,40 +80,14 @@ export function usePrioritySuggestion({
   }, [])
 
   const fetchSuggestion = useCallback(
-    async (title: string, description?: string) => {
+    (title: string, description?: string) => {
       if (title.trim().length < MIN_TITLE_LENGTH) return
-
-      // Abort previous request
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      setIsLoading(true)
-
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
-      try {
-        const data = await tasksClient.suggestPriority<PrioritySuggestion>(
-          {
-            title: title.trim(),
-            ...(projectId ? { projectId } : {}),
-            ...(description ? { description } : {}),
-          },
-          controller.signal
-        )
-
-        clearTimeout(timeoutId)
-
-        setSuggestion(data)
-      } catch {
-        // Silent failure — AbortError or network error
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
-      }
+      // mutate() handles cleanup + state internally; we just kick it off.
+      suggestionMutation.mutate(
+        description !== undefined ? { title, description } : { title }
+      )
     },
-    [projectId]
+    [suggestionMutation]
   )
 
   /** Call after title input blur or debounce */
@@ -91,7 +96,7 @@ export function usePrioritySuggestion({
       if (titleTimerRef.current) clearTimeout(titleTimerRef.current)
 
       if (title.trim().length < MIN_TITLE_LENGTH) {
-        setSuggestion(null)
+        suggestionMutation.reset()
         return
       }
 
@@ -99,7 +104,7 @@ export function usePrioritySuggestion({
         fetchSuggestion(title)
       }, TITLE_DEBOUNCE_MS)
     },
-    [fetchSuggestion]
+    [fetchSuggestion, suggestionMutation]
   )
 
   /** Call after description input blur or debounce */
@@ -121,9 +126,13 @@ export function usePrioritySuggestion({
     abortRef.current?.abort()
     if (titleTimerRef.current) clearTimeout(titleTimerRef.current)
     if (descTimerRef.current) clearTimeout(descTimerRef.current)
-    setSuggestion(null)
-    setIsLoading(false)
-  }, [])
+    suggestionMutation.reset()
+  }, [suggestionMutation])
+
+  // Treat AbortError as silent — match prior behavior where the catch
+  // swallowed aborts. Surface the result only when the mutation has data.
+  const suggestion = suggestionMutation.data ?? null
+  const isLoading = suggestionMutation.isPending
 
   return {
     suggestion,
