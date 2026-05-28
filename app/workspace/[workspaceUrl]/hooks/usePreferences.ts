@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+'use client'
+
+import { useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { CACHE_KEY } from '../constants'
-import { toast } from 'sonner'
+import { queryKeys } from '@/lib/query/keys'
 
 export interface Preferences {
   theme: 'light' | 'dark' | 'system'
@@ -52,7 +56,7 @@ const DEFAULTS: Preferences = {
   notifySlackMention: true,
 }
 
-function loadCache(): Preferences {
+function loadFromStorage(): Preferences {
   if (typeof window === 'undefined') return DEFAULTS
   try {
     const raw = localStorage.getItem(CACHE_KEY.preferences)
@@ -63,125 +67,113 @@ function loadCache(): Preferences {
   }
 }
 
-const PREFS_CHANGED_EVENT = 'lumo:preferences-changed'
-
-function saveCache(prefs: Preferences): void {
+function writeToStorage(prefs: Preferences): void {
   try {
     localStorage.setItem(CACHE_KEY.preferences, JSON.stringify(prefs))
-    // Notify other hook instances in the same tab
-    window.dispatchEvent(
-      new CustomEvent(PREFS_CHANGED_EVENT, { detail: prefs })
-    )
   } catch {
-    // localStorage may be full — non-critical
+    // quota exceeded — non-critical
   }
 }
 
 export function usePreferences() {
-  const [prefs, setPrefs] = useState<Preferences>(loadCache)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const queryKey = queryKeys.preferences()
   const { setTheme } = useTheme()
-  const mountedRef = useRef(true)
 
-  // Fetch from API on mount, update cache if different
+  const query = useQuery<Preferences>({
+    queryKey,
+    queryFn: async () => {
+      const data = await apiFetch<Preferences>('/api/users/preferences')
+      writeToStorage(data)
+      return data
+    },
+    initialData: loadFromStorage,
+    // initialData is from localStorage and may be stale — always refetch on mount.
+    staleTime: 0,
+  })
+
+  // Cross-tab sync — when another tab writes to localStorage, broadcast that
+  // payload into the query cache so all useQuery subscribers re-render.
   useEffect(() => {
-    mountedRef.current = true
-    let cancelled = false
-
-    // One-time migration from old darkMode localStorage key
-    const oldDarkMode = localStorage.getItem('lumo:darkMode')
-    if (oldDarkMode !== null) {
-      localStorage.removeItem('lumo:darkMode')
-      const migrated = oldDarkMode === 'true' ? 'dark' : 'light'
-      setPrefs(prev => {
-        const next = { ...prev, theme: migrated as Preferences['theme'] }
-        saveCache(next)
-        return next
-      })
-      setTheme(migrated)
-      // Fire-and-forget API update
-      apiFetch('/api/users/preferences', {
-        method: 'PATCH',
-        body: { theme: migrated },
-      }).catch(() => {})
-    }
-
-    async function fetchPrefs() {
-      try {
-        const data = await apiFetch<Preferences>('/api/users/preferences')
-        if (cancelled) return
-        setPrefs(data)
-        saveCache(data)
-        setTheme(data.theme)
-      } catch {
-        // Failed to load preferences — keep defaults
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    fetchPrefs()
-    return () => {
-      cancelled = true
-      mountedRef.current = false
-    }
-  }, [setTheme])
-
-  // Sync across hook instances (same tab via custom event, cross tab via storage)
-  useEffect(() => {
-    function apply(updated: Preferences) {
-      setPrefs(updated)
-      setTheme(updated.theme)
-    }
-    function onCustom(e: Event) {
-      const prefs = (e as CustomEvent<Preferences>).detail
-      if (prefs) apply(prefs)
-    }
     function onStorage(e: StorageEvent) {
       if (e.key !== CACHE_KEY.preferences || !e.newValue) return
       try {
-        apply({ ...DEFAULTS, ...JSON.parse(e.newValue) } as Preferences)
+        const next = { ...DEFAULTS, ...JSON.parse(e.newValue) } as Preferences
+        queryClient.setQueryData<Preferences>(queryKey, next)
       } catch {
         // malformed JSON — ignore
       }
     }
-    window.addEventListener(PREFS_CHANGED_EVENT, onCustom)
     window.addEventListener('storage', onStorage)
-    return () => {
-      window.removeEventListener(PREFS_CHANGED_EVENT, onCustom)
-      window.removeEventListener('storage', onStorage)
-    }
-  }, [setTheme])
+    return () => window.removeEventListener('storage', onStorage)
+    // queryKey is a tuple constructed fresh each render; we depend on
+    // queryClient instead, which is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient])
 
-  // Apply theme whenever prefs.theme changes
+  // One-time migration from the legacy `lumo:darkMode` localStorage key.
+  // Mounted as an effect so it only runs once per app session.
   useEffect(() => {
-    setTheme(prefs.theme)
-  }, [prefs.theme, setTheme])
+    const oldDarkMode = localStorage.getItem('lumo:darkMode')
+    if (oldDarkMode === null) return
+    localStorage.removeItem('lumo:darkMode')
+    const migrated: Preferences['theme'] = oldDarkMode === 'true' ? 'dark' : 'light'
+    queryClient.setQueryData<Preferences>(queryKey, prev =>
+      prev ? { ...prev, theme: migrated } : { ...DEFAULTS, theme: migrated }
+    )
+    writeToStorage({ ...(query.data ?? DEFAULTS), theme: migrated })
+    apiFetch('/api/users/preferences', {
+      method: 'PATCH',
+      body: { theme: migrated },
+    }).catch(() => {})
+    // Run on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Optimistic update: change local state + cache immediately, PATCH in background
-  const updatePreferences = useCallback(
-    async (patch: Partial<Preferences>) => {
-      const prev = prefs
-      const next = { ...prev, ...patch }
-      setPrefs(next)
-      saveCache(next)
+  // Apply theme whenever prefs.theme changes.
+  useEffect(() => {
+    if (query.data?.theme) setTheme(query.data.theme)
+  }, [query.data?.theme, setTheme])
 
-      try {
-        await apiFetch<void>('/api/users/preferences', {
-          method: 'PATCH',
-          body: patch,
-        })
-      } catch (err) {
-        // Revert on failure
-        setPrefs(prev)
-        saveCache(prev)
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to save preference'
-        )
+  const updateMutation = useMutation<
+    void,
+    Error,
+    Partial<Preferences>,
+    { prev: Preferences | undefined }
+  >({
+    mutationFn: patch =>
+      apiFetch<void>('/api/users/preferences', {
+        method: 'PATCH',
+        body: patch,
+      }),
+    onMutate: async patch => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<Preferences>(queryKey)
+      if (prev) {
+        const next = { ...prev, ...patch }
+        queryClient.setQueryData<Preferences>(queryKey, next)
+        writeToStorage(next)
       }
+      return { prev }
     },
-    [prefs]
-  )
+    onError: (err, _patch, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData<Preferences>(queryKey, context.prev)
+        writeToStorage(context.prev)
+      }
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save preference'
+      )
+    },
+  })
 
-  return { prefs, loading, updatePreferences }
+  const updatePreferences = async (patch: Partial<Preferences>) => {
+    await updateMutation.mutateAsync(patch)
+  }
+
+  return {
+    prefs: query.data ?? DEFAULTS,
+    loading: query.isLoading,
+    updatePreferences,
+  }
 }
