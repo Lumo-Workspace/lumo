@@ -349,7 +349,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "自动从 Sentry 告警创建任务。",
   "sentry.connected": "已连接",
-  "sentry.connectSentry": "连接",
+  "sentry.connectSentry": "连接 Sentry",
   "sentry.connectedTo": "已连接到 {orgSlug}",
   "sentry.lastWebhook": "最近一次验证的 webhook：{time}",
   "sentry.waitingWebhook": "等待首次验证的 webhook。",
