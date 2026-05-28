@@ -27,10 +27,11 @@ function buildErr(
   status: number
   code?: string
 } {
-  return Object.assign(new Error(body.error ?? `HTTP ${status}`), {
+  const err = Object.assign(new Error(body.error ?? `HTTP ${status}`), {
     status,
-    code: body.code,
-  })
+  }) as Error & { status: number; code?: string }
+  if (body.code !== undefined) err.code = body.code
+  return err
 }
 
 async function call<T>(
