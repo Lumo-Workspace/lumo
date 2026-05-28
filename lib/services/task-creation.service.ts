@@ -4,6 +4,7 @@ import { tagRepository } from '@/lib/repositories/tag.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import type { TaskPriority, TaskStatus } from '@prisma/client'
 import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications.service'
+import { normalizeRichText } from '@/lib/utils/markdown'
 
 /**
  * Create a human-authored task. Validates parent membership + sprint
@@ -104,7 +105,7 @@ export async function createTask(
     projectId,
     teamId: project.teamId,
     title,
-    description: description ?? null,
+    description: normalizeRichText(description),
     status,
     priority,
     assigneeActorId: assigneeActorId ?? null,
