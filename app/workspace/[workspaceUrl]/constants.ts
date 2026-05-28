@@ -114,6 +114,12 @@ export const API = {
     mappingById: (workspaceUrl: string, id: string) =>
       `/api/sentry/mappings/${id}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
+  figma: {
+    oauth: (workspaceUrl: string) =>
+      `/api/figma/oauth?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    integration: (workspaceUrl: string) =>
+      `/api/figma/integration?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+  },
   sprints: {
     listByTeam: (teamId: string) => `/api/teams/${teamId}/sprints`,
     byId: (sprintId: string) => `/api/sprints/${sprintId}`,

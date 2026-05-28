@@ -5,6 +5,9 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
+import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { waitUntil } from '@vercel/functions'
+import type { TaskFigmaLink } from '@prisma/client'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -47,6 +50,8 @@ export interface TaskContext {
   slackContextSection: string
   /** Pre-rendered "## Web Links" markdown; empty when no links attached. */
   webLinkSection: string
+  /** Pre-rendered "## Figma Designs" markdown; empty when no links attached. */
+  figmaSection: string
   sessions: SessionContext[]
 }
 
@@ -173,6 +178,54 @@ export function renderWebLinkSection(
   return lines.join('\n')
 }
 
+const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
+
+export function renderFigmaSection(links: TaskFigmaLink[]): string {
+  if (links.length === 0) return ''
+  const lines: string[] = ['## Figma Designs', '']
+  for (const link of links) {
+    const title = link.frameName
+      ? `${link.fileName} · ${link.frameName}`
+      : `${link.fileName} _(file-level)_`
+    lines.push(`- **${title}**`)
+    lines.push(`  - URL: ${link.url}`)
+    if (link.thumbnailUrl) {
+      lines.push(`  - Thumbnail: ![](${link.thumbnailUrl})`)
+    } else {
+      const reason = link.lastSyncError
+        ? `_(sync failed: ${link.lastSyncError})_`
+        : '_(thumbnail not yet fetched)_'
+      lines.push(`  - Thumbnail unavailable ${reason}`)
+    }
+    lines.push(
+      `  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`
+    )
+    lines.push('')
+  }
+  return lines.join('\n').trimEnd()
+}
+
+function scheduleLazyRefresh(
+  links: TaskFigmaLink[],
+  workspaceId: string,
+  taskId: string
+): void {
+  const stale = links.some(
+    l =>
+      l.thumbnailFetchedAt === null ||
+      Date.now() - l.thumbnailFetchedAt.getTime() > FIGMA_STALE_MS
+  )
+  if (!stale) return
+  // Use the auto variant: lazy refresh shouldn't depend on the context
+  // viewer having a personal Figma integration. Any workspace member with a
+  // live integration can drive it.
+  waitUntil(
+    taskFigmaLinkService
+      .refreshLinksForTaskAuto({ taskId, workspaceId })
+      .catch(() => {})
+  )
+}
+
 export const taskContextService = {
   /**
    * Build the "## Relevant Memory" markdown block for a given task.
@@ -221,6 +274,10 @@ export const taskContextService = {
    */
   async getContextForIdentifier(
     workspaceId: string,
+    // Retained for API stability — lazy Figma refresh now uses the auto
+    // variant that picks any active workspace integration, so the caller's
+    // memberId is no longer needed here. Drop on next signature change.
+    _actorMemberId: string,
     identifier: string
   ): Promise<TaskContext | null> {
     const resolved = await taskService.resolveIdentifier(
@@ -244,8 +301,15 @@ export const taskContextService = {
 
     const webLinks = await taskWebLinkRepository.listByTask(resolved.id)
 
-    const memorySection =
-      await taskContextService.buildMemorySectionForTask(full.id)
+    const figmaLinks = await taskFigmaLinkService.listForTask(resolved.id)
+    const figmaSection = renderFigmaSection(figmaLinks)
+    if (figmaLinks.length > 0) {
+      scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
+    }
+
+    const memorySection = await taskContextService.buildMemorySectionForTask(
+      full.id
+    )
 
     const milestone = full.milestoneId
       ? await milestoneRepository.findById(full.milestoneId)
@@ -276,6 +340,7 @@ export const taskContextService = {
         >[0]
       ),
       webLinkSection: renderWebLinkSection(webLinks),
+      figmaSection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

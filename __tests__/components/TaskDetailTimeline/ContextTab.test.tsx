@@ -16,6 +16,12 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSlackContexts', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskDocuments', () => ({
   useTaskDocuments: jest.fn(),
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFigmaLinks', () => ({
+  useFigmaLinks: jest.fn(),
+}))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWebLinks', () => ({
+  useWebLinks: jest.fn(),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/components/LinkPrPopover', () => ({
   LinkPrPopover: () => <div />,
 }))
@@ -28,9 +34,13 @@ import { render, screen } from '@testing-library/react'
 import { ContextTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/ContextTab'
 import { useSlackContexts } from '@/app/workspace/[workspaceUrl]/hooks/useSlackContexts'
 import { useTaskDocuments } from '@/app/workspace/[workspaceUrl]/hooks/useTaskDocuments'
+import { useFigmaLinks } from '@/app/workspace/[workspaceUrl]/hooks/useFigmaLinks'
+import { useWebLinks } from '@/app/workspace/[workspaceUrl]/hooks/useWebLinks'
 
 const mockSlack = useSlackContexts as jest.Mock
 const mockDocs = useTaskDocuments as jest.Mock
+const mockFigma = useFigmaLinks as jest.Mock
+const mockWebLinks = useWebLinks as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -48,6 +58,24 @@ beforeEach(() => {
     loading: false,
     error: null,
     refresh: jest.fn(),
+  })
+  mockFigma.mockReturnValue({
+    figmaLinks: [],
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+    add: jest.fn(),
+    remove: jest.fn(),
+    refreshAll: jest.fn(),
+  })
+  mockWebLinks.mockReturnValue({
+    webLinks: [],
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+    add: jest.fn(),
+    remove: jest.fn(),
+    refreshOne: jest.fn(),
   })
 })
 

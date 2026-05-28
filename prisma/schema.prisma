@@ -190,6 +190,8 @@ model Workspace {
   taskSlackContexts  TaskSlackContext[]
   taskWebLinks       TaskWebLink[]
   prCommentSyncJobs  PrCommentSyncJob[]
+  figmaIntegrations  FigmaIntegration[]
+  taskFigmaLinks     TaskFigmaLink[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -283,6 +285,8 @@ model WorkspaceMember {
   documentEdits        DocumentEditor[]
   createdSlackContexts TaskSlackContext[]  @relation("TaskSlackContextCreator")
   createdWebLinks      TaskWebLink[]       @relation("TaskWebLinkCreator")
+  figmaIntegrations    FigmaIntegration[]
+  taskFigmaLinks       TaskFigmaLink[]     @relation("TaskFigmaLinkCreator")
 
   @@unique([workspaceId, clerkId])
   @@index([clerkId])
@@ -442,6 +446,7 @@ model Task {
   memories          Memory[]
   slackContexts     TaskSlackContext[]
   webLinks          TaskWebLink[]
+  figmaLinks        TaskFigmaLink[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1459,4 +1464,61 @@ model PrCommentSyncJob {
   @@index([workspaceId])
   @@index([commentId])
   @@map("pr_comment_sync_jobs")
+}
+
+// ─── Figma Integration ───────────────────────────────────────────────────────
+
+model FigmaIntegration {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  memberId      String
+  accessToken   String   // AES-256-GCM encrypted via lib/crypto.ts
+  refreshToken  String   // same encryption
+  expiresAt     DateTime
+  figmaUserId   String
+  figmaHandle   String
+  figmaEmail    String?
+  scopes        String[]
+  needsReauth   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member     WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  figmaLinks TaskFigmaLink[]
+
+  @@unique([workspaceId, memberId])
+  @@index([workspaceId])
+  @@map("figma_integrations")
+}
+
+model TaskFigmaLink {
+  id            String  @id @default(cuid())
+  taskId        String
+  workspaceId   String
+  createdById   String
+  integrationId String?
+
+  url                String
+  fileKey            String
+  nodeId             String   // "" = file-level (sentinel, see spec §2)
+  fileName           String
+  frameName          String?
+  thumbnailUrl       String?
+  thumbnailFetchedAt DateTime?
+  lastSyncedAt       DateTime @default(now())
+  lastSyncError      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task        Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   WorkspaceMember   @relation("TaskFigmaLinkCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  integration FigmaIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, fileKey, nodeId])
+  @@index([taskId])
+  @@index([workspaceId])
+  @@map("task_figma_links")
 }

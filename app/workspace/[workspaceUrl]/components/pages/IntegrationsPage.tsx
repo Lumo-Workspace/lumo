@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { SentryIntegrationCard } from '../SentryIntegrationCard'
+import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { API } from '../../constants'
 import { apiFetch } from '@/lib/api-client'
 
@@ -68,6 +69,7 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
             />
             <SlackIntegrationCard isOwner={isOwner} />
             <SentryIntegrationCard isOwner={isOwner} />
+            <FigmaIntegrationCard />
           </div>
         )}
       </div>

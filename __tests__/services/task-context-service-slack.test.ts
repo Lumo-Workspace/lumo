@@ -5,6 +5,17 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
+jest.mock('@/lib/services/task-figma-link.service', () => ({
+  taskFigmaLinkService: {
+    listForTask: jest.fn().mockResolvedValue([]),
+    refreshLinksForTask: jest.fn().mockResolvedValue([]),
+    refreshLinksForTaskAuto: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/repositories/milestone.repository', () => ({
+  milestoneRepository: { findById: jest.fn().mockResolvedValue(null) },
+}))
 jest.mock('@/lib/services/task.service', () => ({
   taskService: {
     resolveIdentifier: jest.fn(async () => ({
@@ -50,6 +61,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     listByTask.mockResolvedValue([])
     const ctx = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toBe('')
@@ -81,6 +93,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     ])
     const ctx = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toContain('## Slack Context')
@@ -124,6 +137,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     ])
     const ctx = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toContain('Thread (2 messages')
@@ -157,6 +171,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     ])
     const ctx = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toContain('refresh failed: not_in_channel')
@@ -188,6 +203,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     ])
     const ctx = await taskContextService.getContextForIdentifier(
       'ws_1',
+      'member_1',
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toContain('hey @U999 look at this #design')
