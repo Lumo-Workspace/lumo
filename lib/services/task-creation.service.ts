@@ -177,7 +177,7 @@ export async function createFromAutomation(
     projectId,
     teamId: project.teamId,
     title: input.title,
-    description: input.description,
+    description: normalizeRichText(input.description),
     status: 'TODO',
     priority: input.priority,
     assigneeActorId: input.assigneeActorId,

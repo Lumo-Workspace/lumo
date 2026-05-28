@@ -32,7 +32,10 @@ jest.mock('@/lib/services/task-notifications.service', () => ({
 
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { createTask } from '@/lib/services/task-creation.service'
+import {
+  createTask,
+  createFromAutomation,
+} from '@/lib/services/task-creation.service'
 
 const projectMock = projectRepository.findByIdWithDefaults as jest.Mock
 const createMock = taskRepository.createWithSequence as jest.Mock
@@ -70,8 +73,7 @@ describe('createTask — description normalization', () => {
     )
 
     const passed = createMock.mock.calls[0][0]
-    expect(passed.description).toMatch(/<p>/)
-    expect(passed.description).not.toBe('## Heading\n- item')
+    expect(passed.description).toBe('<p>## Heading\n- item</p>')
   })
 
   it('clears description when input is empty string', async () => {
@@ -114,6 +116,33 @@ describe('createTask — description normalization', () => {
       'actor-1',
       'clerk-1'
     )
+
+    expect(createMock.mock.calls[0][0].description).toBeNull()
+  })
+})
+
+describe('createFromAutomation — description normalization', () => {
+  it('normalizes markdown description for automation-created tasks', async () => {
+    await createFromAutomation('proj-1', {
+      title: 'Sentry alert',
+      description: '## Error\n- stack frame',
+      priority: 'HIGH',
+      assigneeActorId: null,
+      tagIds: [],
+    })
+
+    const passed = createMock.mock.calls[0][0]
+    expect(passed.description).toBe('<p>## Error\n- stack frame</p>')
+  })
+
+  it('handles null description on automation path', async () => {
+    await createFromAutomation('proj-1', {
+      title: 'Sentry alert',
+      description: null,
+      priority: 'HIGH',
+      assigneeActorId: null,
+      tagIds: [],
+    })
 
     expect(createMock.mock.calls[0][0].description).toBeNull()
   })
