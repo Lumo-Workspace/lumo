@@ -16,7 +16,7 @@ export function parseFigmaUrl(input: string): ParsedFigmaUrl | null {
   if (!FIGMA_HOSTS.includes(url.hostname.toLowerCase())) return null
 
   const match = url.pathname.match(PATH_PATTERN)
-  if (!match) return null
+  if (!match || !match[2]) return null
   const fileKey = match[2]
 
   const raw = url.searchParams.get('node-id')
