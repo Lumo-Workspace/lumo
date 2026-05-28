@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Автоматически создавать задачи из оповещений Sentry.",
   "sentry.connected": "Подключено",
-  "sentry.connectSentry": "Подключить",
+  "sentry.connectSentry": "Подключить Sentry",
   "sentry.connectedTo": "Подключено к {orgSlug}",
   "sentry.lastWebhook": "Последний проверенный webhook: {time}",
   "sentry.waitingWebhook": "Ожидание первого проверенного webhook.",

@@ -366,7 +366,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Automatically create tasks from Sentry alerts.",
   "sentry.connected": "Connected",
-  "sentry.connectSentry": "Connect",
+  "sentry.connectSentry": "Connect Sentry",
   "sentry.connectedTo": "Connected to {orgSlug}",
   "sentry.lastWebhook": "Last verified webhook: {time}",
   "sentry.waitingWebhook": "Waiting for first verified webhook.",

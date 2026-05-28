@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Cipta tugas secara automatik daripada amaran Sentry.",
   "sentry.connected": "Disambungkan",
-  "sentry.connectSentry": "Sambung",
+  "sentry.connectSentry": "Sambung Sentry",
   "sentry.connectedTo": "Disambung ke {orgSlug}",
   "sentry.lastWebhook": "Webhook disahkan terakhir: {time}",
   "sentry.waitingWebhook": "Menunggu webhook disahkan pertama.",

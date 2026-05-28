@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Sentry のアラートから自動でタスクを作成します。",
   "sentry.connected": "接続済み",
-  "sentry.connectSentry": "接続",
+  "sentry.connectSentry": "Sentryを接続",
   "sentry.connectedTo": "{orgSlug} に接続中",
   "sentry.lastWebhook": "最後に検証された Webhook: {time}",
   "sentry.waitingWebhook": "最初の検証済み Webhook を待機中。",

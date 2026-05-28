@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Sentry 알림으로 자동으로 작업을 만듭니다.",
   "sentry.connected": "연결됨",
-  "sentry.connectSentry": "연결",
+  "sentry.connectSentry": "Sentry 연결",
   "sentry.connectedTo": "{orgSlug}에 연결됨",
   "sentry.lastWebhook": "최근 확인된 웹훅: {time}",
   "sentry.waitingWebhook": "첫 번째 확인된 웹훅을 기다리는 중.",

@@ -309,7 +309,7 @@
   "sentry.title": "Sentry",
   "sentry.description": "Créer automatiquement des tâches à partir des alertes Sentry.",
   "sentry.connected": "Connecté",
-  "sentry.connectSentry": "Connecter",
+  "sentry.connectSentry": "Connecter Sentry",
   "sentry.connectedTo": "Connecté à {orgSlug}",
   "sentry.lastWebhook": "Dernier webhook vérifié : {time}",
   "sentry.waitingWebhook": "En attente du premier webhook vérifié.",
