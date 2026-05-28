@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Home,
-  FileText,
+  File,
   Inbox,
   LogOut,
   ChevronsUpDown,
@@ -344,7 +344,7 @@ export function AppSidebar({
                       onNavigate('documents')
                     }}
                   >
-                    <FileText />
+                    <File />
                     <span>
                       {intl.formatMessage({ id: 'sidebar.documents' })}
                     </span>
