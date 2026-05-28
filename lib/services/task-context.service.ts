@@ -13,6 +13,7 @@ import {
   renderMemorySection,
   type RenderableMemory,
 } from '@/lib/memory/render'
+import { htmlToMarkdown } from '@/lib/utils/markdown'
 
 export interface SessionContext {
   id: string
@@ -32,6 +33,7 @@ export interface TaskContext {
     title: string
     status: string
     description: string | null
+    descriptionMarkdown: string | null
     milestone: {
       id: string
       name: string
@@ -322,6 +324,9 @@ export const taskContextService = {
         title: full.title,
         status: full.status,
         description: full.description,
+        descriptionMarkdown: full.description
+          ? htmlToMarkdown(full.description)
+          : null,
         milestone: milestone
           ? {
               id: milestone.id,
