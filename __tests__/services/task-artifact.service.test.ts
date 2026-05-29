@@ -35,6 +35,7 @@ describe('taskArtifactService.addArtifact', () => {
       title: 'Plan',
       content: '1. step',
       source: 'superpowers',
+      agent: 'CURSOR',
       actorMemberId: 'm1',
     })
     expect(repo.create).toHaveBeenCalledWith(
@@ -43,6 +44,24 @@ describe('taskArtifactService.addArtifact', () => {
         createdById: 'm1',
         source: 'superpowers',
       })
+    )
+  })
+
+  it('forwards agent to the repo', async () => {
+    repo.countByTask.mockResolvedValue(0)
+    repo.create.mockResolvedValue({ id: 'a1' })
+    await taskArtifactService.addArtifact({
+      taskId: 't1',
+      workspaceId: 'w1',
+      kind: 'spec',
+      title: 'Spec',
+      content: 'x',
+      source: 'superpowers',
+      agent: 'CURSOR',
+      actorMemberId: 'm1',
+    })
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CURSOR' })
     )
   })
 
@@ -56,6 +75,7 @@ describe('taskArtifactService.addArtifact', () => {
       title: 'Spec',
       content: 'x',
       source: 'gsd',
+      agent: 'CLAUDE_CODE',
       actorMemberId: null,
     })
     expect(repo.create).toHaveBeenCalledWith(
