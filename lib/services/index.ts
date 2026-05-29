@@ -83,3 +83,4 @@ export {
 export { quickDispatchService } from './quick-dispatch.service'
 export type { ActionResult } from './quick-dispatch.service'
 export { preferenceService } from './preference.service'
+export { memoryManagementService } from './memory-management.service'
