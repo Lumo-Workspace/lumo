@@ -12,6 +12,7 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
     formatMessage: ({ id }: { id: string }) => id,
+    formatDate: () => 'Jan 1',
   }),
 }))
 
