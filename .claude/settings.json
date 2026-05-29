@@ -2,140 +2,251 @@
   "hooks": {
     "PreToolUse": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook pre-tool-use" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook pre-tool-use"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook post-tool-use" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook post-tool-use"
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook post-tool-use-failure" }
+          {
+            "type": "command",
+            "command": "lumo hook post-tool-use-failure"
+          }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook user-prompt-submit" }
+          {
+            "type": "command",
+            "command": "lumo hook user-prompt-submit"
+          }
         ]
       }
     ],
     "Stop": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook stop" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook stop"
+          }
+        ]
       }
     ],
     "StopFailure": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook stop-failure" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook stop-failure"
+          }
+        ]
       }
     ],
     "PermissionRequest": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook permission-request" }
+          {
+            "type": "command",
+            "command": "lumo hook permission-request"
+          }
         ]
       }
     ],
     "PermissionDenied": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook permission-denied" }
+          {
+            "type": "command",
+            "command": "lumo hook permission-denied"
+          }
         ]
       }
     ],
     "SessionStart": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook session-start" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook session-start"
+          }
+        ]
       }
     ],
     "SessionEnd": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook session-end" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook session-end"
+          }
+        ]
       }
     ],
     "SubagentStart": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook subagent-start" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook subagent-start"
+          }
+        ]
       }
     ],
     "SubagentStop": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook subagent-stop" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook subagent-stop"
+          }
+        ]
       }
     ],
     "WorktreeCreate": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook worktree-create" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook worktree-create"
+          }
+        ]
       }
     ],
     "WorktreeRemove": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook worktree-remove" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook worktree-remove"
+          }
+        ]
       }
     ],
     "FileChanged": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook file-changed" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook file-changed"
+          }
+        ]
       }
     ],
     "ConfigChange": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook config-change" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook config-change"
+          }
+        ]
       }
     ],
     "TaskCreated": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook task-created" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook task-created"
+          }
+        ]
       }
     ],
     "TaskCompleted": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook task-completed" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook task-completed"
+          }
+        ]
       }
     ],
     "PostToolBatch": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook post-tool-batch" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook post-tool-batch"
+          }
+        ]
       }
     ],
     "UserPromptExpansion": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook user-prompt-expansion" }
+          {
+            "type": "command",
+            "command": "lumo hook user-prompt-expansion"
+          }
         ]
       }
     ],
     "Notification": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook notification" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook notification"
+          }
+        ]
       }
     ],
     "Elicitation": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook elicitation" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook elicitation"
+          }
+        ]
       }
     ],
     "ElicitationResult": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook elicitation-result" }
+          {
+            "type": "command",
+            "command": "lumo hook elicitation-result"
+          }
         ]
       }
     ],
     "CwdChanged": [
       {
-        "hooks": [{ "type": "command", "command": "lumo hook cwd-changed" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lumo hook cwd-changed"
+          }
+        ]
       }
     ],
     "InstructionsLoaded": [
       {
         "hooks": [
-          { "type": "command", "command": "lumo hook instructions-loaded" }
+          {
+            "type": "command",
+            "command": "lumo hook instructions-loaded"
+          }
         ]
       }
     ]
