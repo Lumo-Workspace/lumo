@@ -193,6 +193,7 @@ export function TaskDetailSidebar({
                         allTags={allTags}
                         onChange={onTagsChange}
                         onCreateTag={onCreateTag}
+                        triggerClassName='min-h-7 px-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800'
                       />
                     ),
                   },
