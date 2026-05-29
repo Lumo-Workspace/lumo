@@ -21,6 +21,7 @@ import { ProjectHeader } from './project-detail/ProjectHeader'
 import { ProjectOverviewTab } from './project-detail/ProjectOverviewTab'
 import { ProjectTasksTab } from './project-detail/ProjectTasksTab'
 import { ProjectMilestonesTab } from '../milestones/ProjectMilestonesTab'
+import { MemoryTab } from '../memory/MemoryTab'
 
 interface ProjectDetailPageProps {
   project: ApiProject
@@ -81,7 +82,7 @@ export function ProjectDetailPage({
   workspaceUrl,
 }: ProjectDetailPageProps) {
   const [tab, setTab] = useState<
-    'overview' | 'milestones' | 'tasks' | 'summary'
+    'overview' | 'milestones' | 'tasks' | 'summary' | 'memory'
   >('overview')
   const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
   const intl = useIntl()
@@ -182,7 +183,7 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(['overview', 'milestones', 'tasks', 'summary'] as const).map(t => (
+        {(['overview', 'milestones', 'tasks', 'summary', 'memory'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -223,6 +224,13 @@ export function ProjectDetailPage({
       {tab === 'summary' && (
         <div className='flex-1 overflow-y-auto'>
           <ProjectSummaryTab projectId={project.id} />
+        </div>
+      )}
+
+      {/* ── Memory tab ── */}
+      {tab === 'memory' && (
+        <div className='flex-1 overflow-y-auto'>
+          <MemoryTab scope='project' parentId={project.id} enabled />
         </div>
       )}
 
