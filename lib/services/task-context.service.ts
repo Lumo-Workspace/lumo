@@ -207,6 +207,20 @@ export function renderFigmaSection(links: TaskFigmaLink[]): string {
   return lines.join('\n').trimEnd()
 }
 
+export function renderArtifactSection(
+  artifacts: Array<{ kind: string; title: string; content: string }>
+): string {
+  if (artifacts.length === 0) return ''
+  const blocks: string[] = []
+  for (const a of artifacts) {
+    blocks.push(`## [${a.kind}] ${a.title}`)
+    blocks.push('')
+    blocks.push(a.content.trimEnd())
+    blocks.push('')
+  }
+  return blocks.join('\n').trimEnd()
+}
+
 function scheduleLazyRefresh(
   links: TaskFigmaLink[],
   workspaceId: string,
