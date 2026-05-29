@@ -20,6 +20,24 @@ import { memoryManagementService } from '@/lib/services/memory-management.servic
 
 beforeEach(() => jest.clearAllMocks())
 
+describe('listProjectMemories', () => {
+  it('delegates to repository.listForProject', async () => {
+    mockListForProject.mockResolvedValue([{ id: 'm1' }])
+    const rows = await memoryManagementService.listProjectMemories('p1')
+    expect(mockListForProject).toHaveBeenCalledWith('p1')
+    expect(rows).toEqual([{ id: 'm1' }])
+  })
+})
+
+describe('listTaskMemories', () => {
+  it('delegates to repository.listForTask', async () => {
+    mockListForTask.mockResolvedValue([{ id: 'm2' }])
+    const rows = await memoryManagementService.listTaskMemories('t1')
+    expect(mockListForTask).toHaveBeenCalledWith('t1')
+    expect(rows).toEqual([{ id: 'm2' }])
+  })
+})
+
 describe('createForProject', () => {
   it('creates a PROJECT-scope row with taskId null + actor', async () => {
     mockCreate.mockResolvedValue({ id: 'm1' })
