@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "Xóa thiết kế Figma này?",
   "task.figma.notConnected": "Figma chưa được kết nối. Vào Cài đặt → Tích hợp để kết nối.",
   "task.figma.needsReauth": "Token Figma đã hết hạn. Kết nối lại Figma trong Cài đặt → Tích hợp.",
-  "task.figma.urlPlaceholder": "Dán URL Figma…"
+  "task.figma.urlPlaceholder": "Dán URL Figma…",
+  "memory.section.outcome": "Kết quả",
+  "memory.section.workaround": "Cách khắc phục",
+  "memory.section.why": "Lý do",
+  "memory.section.alternatives": "Các phương án đã cân nhắc",
+  "memory.section.implications": "Hệ quả",
+  "memory.section.scope": "Phạm vi",
+  "memory.section.trigger": "Điều kiện",
+  "memory.section.steps": "Các bước"
 }

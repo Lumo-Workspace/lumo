@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "इस Figma डिज़ाइन को हटाएं?",
   "task.figma.notConnected": "Figma कनेक्ट नहीं है। कनेक्ट करने के लिए सेटिंग → इंटीग्रेशन पर जाएं।",
   "task.figma.needsReauth": "Figma टोकन समाप्त हो गया। सेटिंग → इंटीग्रेशन में Figma को फिर से कनेक्ट करें।",
-  "task.figma.urlPlaceholder": "Figma URL पेस्ट करें…"
+  "task.figma.urlPlaceholder": "Figma URL पेस्ट करें…",
+  "memory.section.outcome": "परिणाम",
+  "memory.section.workaround": "समाधान",
+  "memory.section.why": "कारण",
+  "memory.section.alternatives": "विचार किए गए विकल्प",
+  "memory.section.implications": "प्रभाव",
+  "memory.section.scope": "दायरा",
+  "memory.section.trigger": "स्थिति",
+  "memory.section.steps": "चरण"
 }

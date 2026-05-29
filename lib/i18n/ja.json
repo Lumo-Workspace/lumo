@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "この Figma デザインを削除しますか？",
   "task.figma.notConnected": "Figma が接続されていません。設定 → インテグレーションで接続してください。",
   "task.figma.needsReauth": "Figma トークンの有効期限が切れました。設定 → インテグレーションで Figma を再接続してください。",
-  "task.figma.urlPlaceholder": "Figma の URL を貼り付け…"
+  "task.figma.urlPlaceholder": "Figma の URL を貼り付け…",
+  "memory.section.outcome": "結果",
+  "memory.section.workaround": "回避策",
+  "memory.section.why": "理由",
+  "memory.section.alternatives": "検討した代替案",
+  "memory.section.implications": "影響",
+  "memory.section.scope": "適用範囲",
+  "memory.section.trigger": "発生条件",
+  "memory.section.steps": "ステップ"
 }

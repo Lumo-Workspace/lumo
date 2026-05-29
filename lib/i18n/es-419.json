@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "¿Eliminar este diseño de Figma?",
   "task.figma.notConnected": "Figma no está conectado. Andá a Configuración → Integraciones para conectarlo.",
   "task.figma.needsReauth": "El token de Figma venció. Reconectá Figma en Configuración → Integraciones.",
-  "task.figma.urlPlaceholder": "Pegá una URL de Figma…"
+  "task.figma.urlPlaceholder": "Pegá una URL de Figma…",
+  "memory.section.outcome": "Resultado",
+  "memory.section.workaround": "Solución alternativa",
+  "memory.section.why": "Razón",
+  "memory.section.alternatives": "Alternativas consideradas",
+  "memory.section.implications": "Consecuencias",
+  "memory.section.scope": "Ámbito",
+  "memory.section.trigger": "Detonante",
+  "memory.section.steps": "Pasos"
 }
