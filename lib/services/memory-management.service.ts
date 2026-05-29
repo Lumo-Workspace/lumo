@@ -65,6 +65,8 @@ export const memoryManagementService = {
   },
 
   editContent(memoryId: string, content: MemoryContent) {
+    // Uses update() (not updateContent()) so the full row is returned for the
+    // HTTP response; updateContent() returns only { id }.
     return memoryRepository.update(memoryId, {
       content: content as Prisma.InputJsonValue,
     })

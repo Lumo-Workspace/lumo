@@ -114,22 +114,24 @@ describe('promoteToProject', () => {
   it('promotes TASK→PROJECT and clears taskId', async () => {
     mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK' })
     mockUpdate.mockResolvedValue({ id: 'm1', scope: 'PROJECT' })
-    await memoryManagementService.promoteToProject('m1')
+    const result = await memoryManagementService.promoteToProject('m1')
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
       scope: 'PROJECT',
       taskId: null,
     })
+    expect(result).toEqual({ id: 'm1', scope: 'PROJECT' })
   })
 
   it('promotes and edits content in one update when content given', async () => {
     mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK' })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    await memoryManagementService.promoteToProject('m1', { rule: 'r', scope: 's' })
+    const result = await memoryManagementService.promoteToProject('m1', { rule: 'r', scope: 's' })
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
       scope: 'PROJECT',
       taskId: null,
       content: { rule: 'r', scope: 's' },
     })
+    expect(result).toEqual({ id: 'm1' })
   })
 })
 
