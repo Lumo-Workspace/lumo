@@ -5,6 +5,7 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
+import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
@@ -54,6 +55,8 @@ export interface TaskContext {
   webLinkSection: string
   /** Pre-rendered "## Figma Designs" markdown; empty when no links attached. */
   figmaSection: string
+  /** Pre-rendered artifact section (## [kind] title + content); empty when none. */
+  artifactSection: string
   sessions: SessionContext[]
 }
 
@@ -207,6 +210,20 @@ export function renderFigmaSection(links: TaskFigmaLink[]): string {
   return lines.join('\n').trimEnd()
 }
 
+export function renderArtifactSection(
+  artifacts: Array<{ kind: string; title: string; content: string }>
+): string {
+  if (artifacts.length === 0) return ''
+  const blocks: string[] = []
+  for (const a of artifacts) {
+    blocks.push(`## [${a.kind}] ${a.title}`)
+    blocks.push('')
+    blocks.push(a.content.trimEnd())
+    blocks.push('')
+  }
+  return blocks.join('\n').trimEnd()
+}
+
 function scheduleLazyRefresh(
   links: TaskFigmaLink[],
   workspaceId: string,
@@ -309,6 +326,9 @@ export const taskContextService = {
       scheduleLazyRefresh(figmaLinks, workspaceId, resolved.id)
     }
 
+    const artifacts = await taskArtifactRepository.listByTask(resolved.id)
+    const artifactSection = renderArtifactSection(artifacts)
+
     const memorySection = await taskContextService.buildMemorySectionForTask(
       full.id
     )
@@ -346,6 +366,7 @@ export const taskContextService = {
       ),
       webLinkSection: renderWebLinkSection(webLinks),
       figmaSection,
+      artifactSection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

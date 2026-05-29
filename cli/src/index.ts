@@ -26,6 +26,11 @@ import { memoryProjectList } from './commands/memory-project-list'
 import { memoryProjectAdd } from './commands/memory-project-add'
 import { memoryPromote } from './commands/memory-promote'
 import { memoryRm } from './commands/memory-rm'
+import { taskArtifactAdd } from './commands/task-artifact-add'
+import { taskArtifactList } from './commands/task-artifact-list'
+import { taskArtifactShow } from './commands/task-artifact-show'
+import { taskArtifactRm } from './commands/task-artifact-rm'
+import { taskArtifactUpdate } from './commands/task-artifact-update'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -338,6 +343,86 @@ taskMemory
   .option('--workflow <text>', 'procedural: the workflow name')
   .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
   .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskAdd(taskArg as string | undefined, opts as Record<string, unknown>)))
+const taskArtifact = task
+  .command('artifact')
+  .description(
+    'Record spec-engineering artifacts (spec / plan / design …) on a task'
+  )
+
+taskArtifact
+  .command('add <task>')
+  .description(
+    'Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content.'
+  )
+  .requiredOption(
+    '--kind <kind>',
+    'Artifact kind, e.g. spec | plan | design (opaque)'
+  )
+  .requiredOption('--title <title>', 'Artifact title')
+  .requiredOption(
+    '--file <path>',
+    'File whose contents become the artifact body'
+  )
+  .requiredOption(
+    '--source <source>',
+    'Spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (opaque; quote names with spaces)'
+  )
+  .action(
+    wrap((taskId: unknown, options: unknown) =>
+      taskArtifactAdd(taskId as string, options as Record<string, string>)
+    )
+  )
+
+taskArtifact
+  .command('update <task> <artifact-id>')
+  .description(
+    'Update an artifact’s kind / title / source (not content). Provide at least one flag.'
+  )
+  .option('--kind <kind>', 'New artifact kind (opaque)')
+  .option('--title <title>', 'New artifact title')
+  .option(
+    '--source <source>',
+    'New spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (quote names with spaces)'
+  )
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
+      taskArtifactUpdate(
+        taskId as string,
+        artifactId as string,
+        options as Record<string, string>
+      )
+    )
+  )
+
+taskArtifact
+  .command('list <task>')
+  .description('List artifacts attached to a task, in order')
+  .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
+
+taskArtifact
+  .command('show <task> <artifact-id>')
+  .description(
+    'Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1.'
+  )
+  .action(
+    wrap((taskId: unknown, artifactId: unknown) =>
+      taskArtifactShow(taskId as string, artifactId as string)
+    )
+  )
+
+taskArtifact
+  .command('rm <task> <artifact-id>')
+  .description('Delete an artifact from a task. Irreversible — requires --yes.')
+  .option('--yes', 'Confirm deletion (required, no interactive prompt)')
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
+      taskArtifactRm(
+        taskId as string,
+        artifactId as string,
+        options as { yes?: boolean }
+      )
+    )
+  )
 
 const projectCmd = program
   .command('project')

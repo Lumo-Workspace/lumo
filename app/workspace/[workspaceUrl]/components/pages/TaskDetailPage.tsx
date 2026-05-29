@@ -38,6 +38,8 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
+import { SpecArtifactGroup } from '../SpecArtifactGroup'
+import { useArtifacts } from '../../hooks/useArtifacts'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -122,6 +124,8 @@ export function TaskDetailPage({
     taskId: initialTask.id,
     initialDescription: initialTask.description,
   })
+
+  const { artifacts, refresh: refreshArtifacts } = useArtifacts(initialTask.id)
 
   // ── Actions (extracted) ────────────────────────────────────────────────────
   const actions = useTaskDetailActions({
@@ -274,7 +278,16 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
-            {/* Description */}
+            {/* Definition layer: spec artifacts (renders nothing when there are none) */}
+            <SpecArtifactGroup
+              taskId={task.id}
+              artifacts={artifacts}
+              onChanged={refreshArtifacts}
+            />
+
+            {/* Description — always rendered as the normal editor, below the
+                spec layer when artifacts exist (no "background discussion"
+                relabeling). */}
             {desc.descriptionLoading ? (
               <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
             ) : (

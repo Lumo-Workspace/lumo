@@ -192,6 +192,7 @@ model Workspace {
   prCommentSyncJobs  PrCommentSyncJob[]
   figmaIntegrations  FigmaIntegration[]
   taskFigmaLinks     TaskFigmaLink[]
+  taskArtifacts      TaskArtifact[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -448,6 +449,7 @@ model Task {
   slackContexts     TaskSlackContext[]
   webLinks          TaskWebLink[]
   figmaLinks        TaskFigmaLink[]
+  artifacts         TaskArtifact[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1384,6 +1386,29 @@ model TaskWebLink {
   @@index([taskId, createdAt])
   @@index([workspaceId])
   @@map("task_web_links")
+}
+
+model TaskArtifact {
+  id          String @id @default(cuid())
+  taskId      String
+  workspaceId String
+
+  kind    String // "spec" | "plan" | "design" … opaque, declared by writer
+  title   String
+  content String  @db.Text
+  source  String // "superpowers" | "claude-code" | "manual"
+  order   Int     @default(0)
+
+  createdById String? // WorkspaceMember.id; nullable, intentionally no FK relation
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, order])
+  @@index([workspaceId])
+  @@map("task_artifacts")
 }
 
 // ─── PR Comment Mirror ───────────────────────────────────────────────────────
