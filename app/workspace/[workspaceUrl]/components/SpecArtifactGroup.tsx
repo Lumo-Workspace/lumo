@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl'
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react'
 import type { TaskArtifact } from '@prisma/client'
 import { artifactsClient } from '@/lib/api-client/task-artifacts'
+import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
+import { RichTextViewer } from './RichTextViewer'
 
 interface Props {
   taskId: string
@@ -81,9 +83,7 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
               </button>
               {open && (
                 <div className='px-4 pb-3.5 pl-10'>
-                  <pre className='whitespace-pre-wrap break-words text-sm text-foreground font-sans'>
-                    {a.content}
-                  </pre>
+                  <RichTextViewer value={markdownToHtml(a.content)} />
                   <div className='mt-3 pt-2.5 border-t border-border text-xs text-muted-foreground'>
                     {a.source}
                   </div>

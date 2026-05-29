@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "Inhalt (Markdown)",
   "taskArtifact.save": "Speichern",
   "taskArtifact.cancel": "Abbrechen",
-  "taskArtifact.backgroundDiscussion": "Hintergrunddiskussion",
-  "taskArtifact.originalDescription": "(ursprüngliche Beschreibung)",
   "taskArtifact.docsRefOnly": "Nur als Referenz · die Spezifikation befindet sich in der Definitionsebene oben",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

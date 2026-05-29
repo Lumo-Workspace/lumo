@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "Content (markdown)",
   "taskArtifact.save": "Save",
   "taskArtifact.cancel": "Cancel",
-  "taskArtifact.backgroundDiscussion": "Background discussion",
-  "taskArtifact.originalDescription": "(original description)",
   "taskArtifact.docsRefOnly": "Reference only · spec is in the definition layer above",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

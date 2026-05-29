@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -292,24 +285,18 @@ export function TaskDetailPage({
               onChanged={refreshArtifacts}
             />
 
-            {/* Description — demoted to a collapsed "background discussion" when artifacts exist */}
-            {desc.descriptionLoading ? (
-              <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
-            ) : artifacts.length > 0 ? (
-              <BackgroundDiscussion>
+            {/* Description — hidden entirely once spec artifacts exist; the
+                spec layer above is the source of truth in that case. */}
+            {artifacts.length === 0 &&
+              (desc.descriptionLoading ? (
+                <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
+              ) : (
                 <DescriptionEditor
                   value={desc.descriptionValue}
                   onCommit={actions.commitDescription}
                   members={mentionableMembers}
                 />
-              </BackgroundDiscussion>
-            ) : (
-              <DescriptionEditor
-                value={desc.descriptionValue}
-                onCommit={actions.commitDescription}
-                members={mentionableMembers}
-              />
-            )}
+              ))}
 
             {/* Spec — hidden: agent features disabled for now */}
 
@@ -440,26 +427,5 @@ export function TaskDetailPage({
         </AlertDialogContent>
       </AlertDialog>
     </SidebarProvider>
-  )
-}
-
-function BackgroundDiscussion({ children }: { children: ReactNode }) {
-  const intl = useIntl()
-  const [open, setOpen] = useState(false) // collapsed by default when artifacts exist
-  return (
-    <div className='mb-2'>
-      <button
-        type='button'
-        onClick={() => setOpen(o => !o)}
-        className='flex items-center gap-1.5 text-sm text-muted-foreground py-2'
-      >
-        <span>{open ? '⌄' : '›'}</span>
-        {intl.formatMessage({ id: 'taskArtifact.backgroundDiscussion' })}
-        <span className='text-muted-foreground/70'>
-          {intl.formatMessage({ id: 'taskArtifact.originalDescription' })}
-        </span>
-      </button>
-      {open && <div>{children}</div>}
-    </div>
   )
 }

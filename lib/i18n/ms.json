@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "Kandungan (markdown)",
   "taskArtifact.save": "Simpan",
   "taskArtifact.cancel": "Batal",
-  "taskArtifact.backgroundDiscussion": "Perbincangan latar belakang",
-  "taskArtifact.originalDescription": "(penerangan asal)",
   "taskArtifact.docsRefOnly": "Rujukan sahaja · spesifikasi berada di lapisan definisi di atas",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
