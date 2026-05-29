@@ -50,3 +50,21 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+
+export async function GET(request: NextRequest, { params }: Params) {
+  try {
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
+    const { id } = await params
+    const task = await taskRepository.findWithProjectWorkspaceId(id)
+    if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (task.project.workspaceId !== identity.workspaceId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const memories = await memoryManagementService.listTaskMemories(id)
+    return NextResponse.json({ memories })
+  } catch (error) {
+    console.error('GET /api/tasks/[id]/memories error:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}

@@ -49,3 +49,21 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+
+export async function GET(request: NextRequest, { params }: Params) {
+  try {
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
+    const { id } = await params
+    const project = await projectRepository.findWorkspaceId(id)
+    if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (project.workspaceId !== identity.workspaceId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    const memories = await memoryManagementService.listProjectMemories(id)
+    return NextResponse.json({ memories })
+  } catch (error) {
+    console.error('GET /api/projects/[id]/memories error:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}

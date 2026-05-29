@@ -4,14 +4,14 @@ jest.mock('@/lib/repositories', () => ({
   projectRepository: { findWorkspaceId: jest.fn() },
 }))
 jest.mock('@/lib/services', () => ({
-  memoryManagementService: { createForProject: jest.fn() },
+  memoryManagementService: { createForProject: jest.fn(), listProjectMemories: jest.fn() },
 }))
 
 import { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { projectRepository } from '@/lib/repositories'
 import { memoryManagementService } from '@/lib/services'
-import { POST } from '@/app/api/projects/[id]/memories/route'
+import { POST, GET } from '@/app/api/projects/[id]/memories/route'
 
 const ID = { workspaceId: 'w1', memberId: 'm1', source: 'bearer' }
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -60,4 +60,13 @@ it('401 when unauthenticated', async () => {
   ;(requireIdentity as jest.Mock).mockResolvedValue(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
   const res = await POST(body({ category: 'TRAP', content: {} }), params('p1'))
   expect(res.status).toBe(401)
+})
+
+it('GET 200 returns project memories', async () => {
+  ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
+  ;(projectRepository.findWorkspaceId as jest.Mock).mockResolvedValue({ workspaceId: 'w1' })
+  ;(memoryManagementService.listProjectMemories as jest.Mock).mockResolvedValue([{ id: 'm1' }])
+  const res = await GET(new NextRequest('http://x/api/projects/p1/memories'), params('p1'))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ memories: [{ id: 'm1' }] })
 })

@@ -4,14 +4,14 @@ jest.mock('@/lib/repositories', () => ({
   taskRepository: { findWithProjectWorkspaceId: jest.fn() },
 }))
 jest.mock('@/lib/services', () => ({
-  memoryManagementService: { createForTask: jest.fn() },
+  memoryManagementService: { createForTask: jest.fn(), listTaskMemories: jest.fn() },
 }))
 
 import { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { memoryManagementService } from '@/lib/services'
-import { POST } from '@/app/api/tasks/[id]/memories/route'
+import { POST, GET } from '@/app/api/tasks/[id]/memories/route'
 
 const ID = { workspaceId: 'w1', memberId: 'm1', source: 'bearer' }
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -50,4 +50,13 @@ it('400 when content does not match the category schema', async () => {
   ;(taskRepository.findWithProjectWorkspaceId as jest.Mock).mockResolvedValue({ id: 't1', projectId: 'p1', project: { workspaceId: 'w1' } })
   const res = await POST(body({ category: 'CONVENTION', content: { rule: 'r' } }), params('t1'))
   expect(res.status).toBe(400)
+})
+
+it('GET 200 returns task memories', async () => {
+  ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
+  ;(taskRepository.findWithProjectWorkspaceId as jest.Mock).mockResolvedValue({ id: 't1', projectId: 'p1', project: { workspaceId: 'w1' } })
+  ;(memoryManagementService.listTaskMemories as jest.Mock).mockResolvedValue([{ id: 'm2' }])
+  const res = await GET(new NextRequest('http://x/api/tasks/t1/memories'), params('t1'))
+  expect(res.status).toBe(200)
+  expect(await res.json()).toEqual({ memories: [{ id: 'm2' }] })
 })
