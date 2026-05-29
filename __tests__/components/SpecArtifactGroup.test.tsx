@@ -29,6 +29,7 @@ const artifacts = [
     title: 'Spec',
     content: 'body one',
     source: 'superpowers',
+    agent: 'CLAUDE_CODE',
     order: 0,
   },
   {
@@ -37,6 +38,7 @@ const artifacts = [
     title: 'Plan',
     content: 'body two',
     source: 'superpowers',
+    agent: 'CODEX',
     order: 1,
   },
 ]
