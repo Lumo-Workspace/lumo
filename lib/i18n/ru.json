@@ -901,7 +901,7 @@
   "memory.delete.confirm.title": "Удалить это воспоминание?",
   "memory.delete.confirm.body": "Это действие нельзя отменить.",
   "memory.source.byMember": "Добавлено участником {name}",
-  "memory.source.auto": "Осадило Claude",
+  "memory.source.auto": "Сохранено Claude",
   "memory.mutation.error": "Не удалось сохранить воспоминание. Пожалуйста, попробуйте снова.",
   "task.agentRun": "Agent Run",
   "agentRun.runNumber": "Run #{n}",
