@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "Nội dung (markdown)",
   "taskArtifact.save": "Lưu",
   "taskArtifact.cancel": "Hủy",
-  "taskArtifact.backgroundDiscussion": "Thảo luận bối cảnh",
-  "taskArtifact.originalDescription": "(mô tả gốc)",
   "taskArtifact.docsRefOnly": "Chỉ để tham khảo · đặc tả nằm ở lớp định nghĩa phía trên",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "内容（markdown）",
   "taskArtifact.save": "保存",
   "taskArtifact.cancel": "キャンセル",
-  "taskArtifact.backgroundDiscussion": "背景の議論",
-  "taskArtifact.originalDescription": "（元の description）",
   "taskArtifact.docsRefOnly": "参照用のみ · 仕様は上の定義レイヤーにあります",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "내용 (markdown)",
   "taskArtifact.save": "저장",
   "taskArtifact.cancel": "취소",
-  "taskArtifact.backgroundDiscussion": "배경 논의",
-  "taskArtifact.originalDescription": "(원래 description)",
   "taskArtifact.docsRefOnly": "참고용 · 명세는 위의 정의 레이어에 있습니다",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

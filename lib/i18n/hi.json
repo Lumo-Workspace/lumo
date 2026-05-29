@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "सामग्री (markdown)",
   "taskArtifact.save": "सहेजें",
   "taskArtifact.cancel": "रद्द करें",
-  "taskArtifact.backgroundDiscussion": "पृष्ठभूमि चर्चा",
-  "taskArtifact.originalDescription": "(मूल विवरण)",
   "taskArtifact.docsRefOnly": "केवल संदर्भ · विनिर्देश ऊपर परिभाषा परत में है",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",

@@ -490,8 +490,6 @@
   "taskArtifact.addContent": "内容（markdown）",
   "taskArtifact.save": "保存",
   "taskArtifact.cancel": "取消",
-  "taskArtifact.backgroundDiscussion": "背景讨论",
-  "taskArtifact.originalDescription": "（原 description）",
   "taskArtifact.docsRefOnly": "仅参考资料 · spec 在上方定义层",
   "task.bulkUpdateFailure": "{failed}/{total} 个任务更新失败",
   "task.bulkUpdateSuccess": "已更新 {count} 个任务",

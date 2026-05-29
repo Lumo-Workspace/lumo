@@ -448,8 +448,6 @@
   "taskArtifact.addContent": "Содержимое (markdown)",
   "taskArtifact.save": "Сохранить",
   "taskArtifact.cancel": "Отмена",
-  "taskArtifact.backgroundDiscussion": "Обсуждение контекста",
-  "taskArtifact.originalDescription": "(исходное описание)",
   "taskArtifact.docsRefOnly": "Только для справки · спецификация находится на уровне определения выше",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
