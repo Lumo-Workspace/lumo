@@ -34,7 +34,9 @@ export function markdownToHtml(md: string): string {
  * and is intentionally left untouched for the document path.
  */
 function looksLikeHtmlDocument(text: string): boolean {
-  return /^\s*<(p|div|h[1-6]|ul|ol|pre|blockquote|table|img)\b[^>]*>/i.test(text)
+  return /^\s*<(p|div|h[1-6]|ul|ol|pre|blockquote|table|img)\b[^>]*>/i.test(
+    text
+  )
 }
 
 /**
@@ -42,7 +44,12 @@ function looksLikeHtmlDocument(text: string): boolean {
  *
  * - null / undefined / blank input → null (unifies "clear" semantics).
  * - Input that looks like a structural HTML document → returned as-is.
- * - Anything else → markdown → HTML via `markdownToHtml`.
+ * - Anything else → markdown → HTML via `marked.parse`, **bypassing**
+ *   `markdownToHtml`'s `isHtml` short-circuit. `looksLikeHtmlDocument` above
+ *   already decided this isn't HTML; `markdownToHtml` re-checks with the
+ *   permissive `isHtml` regex and would short-circuit on bodies that merely
+ *   mention `<p>`/`<h2>` inline (e.g. LUM-107's own description), leaving the
+ *   raw markdown unconverted. Calling `marked.parse` directly avoids that trap.
  *
  * Idempotent for Web-written HTML, so Web round-trips don't drift.
  */
@@ -53,5 +60,5 @@ export function normalizeRichText(
   const trimmed = input.trim()
   if (trimmed.length === 0) return null
   if (looksLikeHtmlDocument(input)) return input
-  return markdownToHtml(trimmed)
+  return marked.parse(trimmed, { async: false }) as string
 }
