@@ -285,6 +285,7 @@ model WorkspaceMember {
   documentEdits        DocumentEditor[]
   createdSlackContexts TaskSlackContext[]  @relation("TaskSlackContextCreator")
   createdWebLinks      TaskWebLink[]       @relation("TaskWebLinkCreator")
+  createdMemories      Memory[]            @relation("MemoryCreator")
   figmaIntegrations    FigmaIntegration[]
   taskFigmaLinks       TaskFigmaLink[]     @relation("TaskFigmaLinkCreator")
 
@@ -1302,20 +1303,23 @@ enum MemoryScope {
 }
 
 model Memory {
-  id              String         @id @default(cuid())
-  workspaceId     String
-  projectId       String
-  taskId          String?
-  scope           MemoryScope
-  category        MemoryCategory
-  content         Json
-  sourceSessionId String?
-  createdAt       DateTime       @default(now())
+  id                String         @id @default(cuid())
+  workspaceId       String
+  projectId         String
+  taskId            String?
+  scope             MemoryScope
+  category          MemoryCategory
+  content           Json
+  sourceSessionId   String?
+  createdByMemberId String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  session   Session?  @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task            Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  session         Session?         @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+  createdByMember WorkspaceMember? @relation("MemoryCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
 
   @@index([projectId, scope])
   @@index([taskId])

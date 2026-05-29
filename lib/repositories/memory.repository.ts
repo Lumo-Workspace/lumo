@@ -9,6 +9,7 @@ interface CreateMemoryInput {
   category: MemoryCategory
   content: Prisma.InputJsonValue
   sourceSessionId: string | null
+  createdByMemberId: string | null
 }
 
 export const memoryRepository = {
@@ -103,6 +104,7 @@ export const memoryRepository = {
         category: input.category,
         content: input.content,
         sourceSessionId: input.sourceSessionId,
+        createdByMemberId: input.createdByMemberId,
       },
       select: { id: true },
     })
