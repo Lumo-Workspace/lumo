@@ -38,6 +38,7 @@ describe('taskArtifactRepository', () => {
       title: 'Spec',
       content: '## Requirements',
       source: 'claude-code',
+      agent: 'CLAUDE_CODE' as const,
       order: 0,
       createdById: 'm1',
     }
@@ -113,5 +114,14 @@ describe('taskArtifactRepository', () => {
       title: 'x',
     })
     expect(n).toBe(0)
+  })
+
+  it('updateById includes agent in the patch when provided', async () => {
+    mockPrisma.taskArtifact.updateMany.mockResolvedValue({ count: 1 })
+    await taskArtifactRepository.updateById('a1', 't1', { agent: 'CODEX' })
+    expect(mockPrisma.taskArtifact.updateMany).toHaveBeenCalledWith({
+      where: { id: 'a1', taskId: 't1' },
+      data: { agent: 'CODEX' },
+    })
   })
 })
