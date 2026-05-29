@@ -12,6 +12,11 @@ export async function memoryTaskList(
   identifierArg: string | undefined,
   options: ListOptions
 ): Promise<number | void> {
+  const limit = options.limit !== undefined ? parseInt(options.limit, 10) : undefined
+  if (limit !== undefined && (Number.isNaN(limit) || limit < 1)) {
+    console.error(`Error: invalid --limit "${options.limit}" (expected a positive integer)`)
+    return 1
+  }
   const creds = readCredentials()
   if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
   const envUrl = process.env.LUMO_API_URL?.trim()
@@ -46,7 +51,6 @@ export async function memoryTaskList(
 
   let rows = ((await res.json()) as { memories: MemoryRowLike[] }).memories
   if (options.category) rows = rows.filter(m => m.category.toLowerCase() === options.category!.toLowerCase())
-  const limit = options.limit ? parseInt(options.limit, 10) : undefined
-  if (limit && limit > 0) rows = rows.slice(0, limit)
+  if (limit !== undefined) rows = rows.slice(0, limit)
   process.stdout.write(formatMemoryList(rows) + '\n')
 }
