@@ -1,0 +1,56 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
+import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
+import { resolveProjectIdByRef, resolveBoundProjectId } from '../lib/resolve-project'
+
+interface AddOptions extends MemoryFlags { category?: string }
+
+export async function memoryProjectAdd(
+  refArg: string | undefined,
+  options: AddOptions
+): Promise<number | void> {
+  if (!options.category) { console.error('Error: --category <trap|decision|convention|procedural> is required.'); return 1 }
+  const built = buildMemoryContent(options.category, options)
+  if (!built.ok) { console.error(`Error: ${built.error}`); return 1 }
+
+  const creds = readCredentials()
+  if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const base = trimTrailingSlash(apiUrl)
+
+  let projectId: string
+  let echoSuffix = ''
+  if (refArg) {
+    const r = await resolveProjectIdByRef(apiUrl, creds.token, refArg)
+    if (!r.ok) { console.error(`Error: ${r.error}`); return 1 }
+    projectId = r.id
+  } else {
+    const bound = await resolveBoundTaskIdentifier(apiUrl, creds.token)
+    if (!bound) { console.error('Error: no <project-ref> given and no task bound to this session.\nPass a project, or run `lumo session attach <LUM-N>`.'); return 1 }
+    const r = await resolveBoundProjectId(apiUrl, creds.token, bound)
+    if (!r.ok) { console.error(`Error: ${r.error}`); return 1 }
+    projectId = r.id
+    echoSuffix = ` (project of bound task ${bound})`
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/projects/${encodeURIComponent(projectId)}/memories`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: built.category, content: built.content }),
+    })
+  } catch (err) {
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
+    return 1
+  }
+  if (res.status !== 201) {
+    let m: string | null = null
+    try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
+    console.error(m ? `Error: ${m}` : `Error: memory add failed (HTTP ${res.status})`)
+    return 1
+  }
+  process.stdout.write(`Added ${built.category} PROJECT memory${echoSuffix}\n`)
+}

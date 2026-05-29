@@ -22,6 +22,8 @@ import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
 import { memoryTaskList } from './commands/memory-task-list'
 import { memoryTaskAdd } from './commands/memory-task-add'
+import { memoryProjectList } from './commands/memory-project-list'
+import { memoryProjectAdd } from './commands/memory-project-add'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -345,6 +347,34 @@ projectCmd
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
   .action(wrap(() => projectList()))
+
+const projectMemory = projectCmd
+  .command('memory')
+  .description('View and record PROJECT-scope memories')
+
+projectMemory
+  .command('list [project]')
+  .description("List a project's PROJECT-scope memories. <project> defaults to the bound task's project.")
+  .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
+  .option('-n, --limit <count>', 'Cap output to the first N rows')
+  .action(wrap((p: unknown, opts: unknown) => memoryProjectList(p as string | undefined, opts as Record<string, string>)))
+
+projectMemory
+  .command('add [project]')
+  .description("Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project.")
+  .requiredOption('--category <cat>', 'trap | decision | convention | procedural')
+  .option('--trigger <text>', 'trap/procedural trigger')
+  .option('--outcome <text>', 'trap outcome')
+  .option('--workaround <text>', 'trap optional workaround')
+  .option('--what <text>', 'decision')
+  .option('--why <text>', 'decision rationale')
+  .option('--alternatives <text>', 'decision optional alternatives')
+  .option('--implications <text>', 'decision optional implications')
+  .option('--rule <text>', 'convention rule')
+  .option('--applies <text>', 'convention: where it applies')
+  .option('--workflow <text>', 'procedural workflow')
+  .option('--step <text>', 'procedural step (repeatable)', collect, [])
+  .action(wrap((p: unknown, opts: unknown) => memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)))
 
 const milestoneCmd = program
   .command('milestone')
