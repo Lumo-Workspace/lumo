@@ -48,6 +48,7 @@ describe('taskArtifactAdd', () => {
       title: 'Spec',
       file: 'f.md',
       source: 'superpowers',
+      agent: 'claude-code',
     })
     expect(code).toBeUndefined()
     const [url, init] = fetchSpy.mock.calls[0]!
@@ -59,6 +60,31 @@ describe('taskArtifactAdd', () => {
       title: 'Spec',
       content: '## Requirements\n- a',
       source: 'superpowers',
+      agent: 'CLAUDE_CODE',
     })
+  })
+
+  it('errors when --agent is missing', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: 'f.md',
+      source: 'superpowers',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+  it('errors on an invalid --agent without calling the API', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: 'f.md',
+      source: 'superpowers',
+      agent: 'devin',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

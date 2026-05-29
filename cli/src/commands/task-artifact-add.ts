@@ -1,12 +1,14 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { readFileUtf8 } from '../lib/doc-input'
+import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 
 export interface ArtifactAddOptions {
   kind?: string
   title?: string
   file?: string
   source?: string
+  agent?: string
 }
 
 interface ArtifactResponse {
@@ -40,6 +42,20 @@ export async function taskArtifactAdd(
     )
     return 1
   }
+  const agentRaw = options.agent?.trim()
+  if (!agentRaw) {
+    console.error(
+      `Error: --agent is required. Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
+    )
+    return 1
+  }
+  const agent = normalizeAgent(agentRaw)
+  if (!agent) {
+    console.error(
+      `Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
+    )
+    return 1
+  }
   if (!options.file) {
     console.error('Error: --file <path> is required.')
     return 1
@@ -66,7 +82,13 @@ export async function taskArtifactAdd(
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
   const base = trimTrailingSlash(apiUrl)
 
-  const payload: Record<string, string> = { kind, title, content, source }
+  const payload: Record<string, string> = {
+    kind,
+    title,
+    content,
+    source,
+    agent,
+  }
 
   let res: Response
   try {

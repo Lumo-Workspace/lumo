@@ -318,10 +318,19 @@ const taskMemory = task
 
 taskMemory
   .command('list [task]')
-  .description("List a task's memories. <task> defaults to the session-bound task.")
+  .description(
+    "List a task's memories. <task> defaults to the session-bound task."
+  )
   .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
   .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskList(taskArg as string | undefined, opts as Record<string, string>)))
+  .action(
+    wrap((taskArg: unknown, opts: unknown) =>
+      memoryTaskList(
+        taskArg as string | undefined,
+        opts as Record<string, string>
+      )
+    )
+  )
 
 taskMemory
   .command('add [task]')
@@ -330,7 +339,10 @@ taskMemory
       'Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. ' +
       'Pick --category then its fields.'
   )
-  .requiredOption('--category <cat>', 'trap | decision | convention | procedural')
+  .requiredOption(
+    '--category <cat>',
+    'trap | decision | convention | procedural'
+  )
   .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
   .option('--outcome <text>', 'trap: what goes wrong')
   .option('--workaround <text>', 'trap: optional fix')
@@ -342,7 +354,14 @@ taskMemory
   .option('--applies <text>', 'convention: where the rule applies')
   .option('--workflow <text>', 'procedural: the workflow name')
   .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
-  .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskAdd(taskArg as string | undefined, opts as Record<string, unknown>)))
+  .action(
+    wrap((taskArg: unknown, opts: unknown) =>
+      memoryTaskAdd(
+        taskArg as string | undefined,
+        opts as Record<string, unknown>
+      )
+    )
+  )
 const taskArtifact = task
   .command('artifact')
   .description(
@@ -366,6 +385,10 @@ taskArtifact
   .requiredOption(
     '--source <source>',
     'Spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (opaque; quote names with spaces)'
+  )
+  .requiredOption(
+    '--agent <agent>',
+    'Coding tool that produced the artifact: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf'
   )
   .action(
     wrap((taskId: unknown, options: unknown) =>
@@ -441,15 +464,26 @@ const projectMemory = projectCmd
 
 projectMemory
   .command('list [project]')
-  .description("List a project's PROJECT-scope memories. <project> defaults to the bound task's project.")
+  .description(
+    "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+  )
   .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
   .option('-n, --limit <count>', 'Cap output to the first N rows')
-  .action(wrap((p: unknown, opts: unknown) => memoryProjectList(p as string | undefined, opts as Record<string, string>)))
+  .action(
+    wrap((p: unknown, opts: unknown) =>
+      memoryProjectList(p as string | undefined, opts as Record<string, string>)
+    )
+  )
 
 projectMemory
   .command('add [project]')
-  .description("Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project.")
-  .requiredOption('--category <cat>', 'trap | decision | convention | procedural')
+  .description(
+    "Record a PROJECT-scope memory. Use PROJECT scope only when the lesson helps any task in the project. <project> defaults to the bound task's project."
+  )
+  .requiredOption(
+    '--category <cat>',
+    'trap | decision | convention | procedural'
+  )
   .option('--trigger <text>', 'trap/procedural trigger')
   .option('--outcome <text>', 'trap outcome')
   .option('--workaround <text>', 'trap optional workaround')
@@ -461,22 +495,34 @@ projectMemory
   .option('--applies <text>', 'convention: where it applies')
   .option('--workflow <text>', 'procedural workflow')
   .option('--step <text>', 'procedural step (repeatable)', collect, [])
-  .action(wrap((p: unknown, opts: unknown) => memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)))
+  .action(
+    wrap((p: unknown, opts: unknown) =>
+      memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)
+    )
+  )
 
 const memoryCmd = program
   .command('memory')
-  .description('Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)')
+  .description(
+    'Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)'
+  )
 
 memoryCmd
   .command('promote <memoryId>')
-  .description('Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks.')
+  .description(
+    'Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks.'
+  )
   .action(wrap((id: unknown) => memoryPromote(id as string)))
 
 memoryCmd
   .command('rm <memoryId>')
   .description('Delete a memory (hard delete). Requires --yes.')
   .option('--yes', 'Confirm deletion')
-  .action(wrap((id: unknown, opts: unknown) => memoryRm(id as string, opts as { yes?: boolean })))
+  .action(
+    wrap((id: unknown, opts: unknown) =>
+      memoryRm(id as string, opts as { yes?: boolean })
+    )
+  )
 
 const milestoneCmd = program
   .command('milestone')
