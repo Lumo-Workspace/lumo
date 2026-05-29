@@ -5,6 +5,8 @@ jest.mock('@/lib/db/prisma', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      findFirst: jest.fn(),
+      deleteMany: jest.fn(),
     },
   },
 }))
@@ -17,6 +19,8 @@ const mockPrisma = prisma as unknown as {
     create: jest.Mock
     findMany: jest.Mock
     count: jest.Mock
+    findFirst: jest.Mock
+    deleteMany: jest.Mock
   }
 }
 
@@ -56,5 +60,35 @@ describe('taskArtifactRepository', () => {
       where: { taskId: 't1' },
     })
     expect(n).toBe(2)
+  })
+
+  it('findById scopes the lookup to (id, taskId)', async () => {
+    mockPrisma.taskArtifact.findFirst.mockResolvedValue({ id: 'a1' })
+    const out = await taskArtifactRepository.findById('a1', 't1')
+    expect(mockPrisma.taskArtifact.findFirst).toHaveBeenCalledWith({
+      where: { id: 'a1', taskId: 't1' },
+    })
+    expect(out).toEqual({ id: 'a1' })
+  })
+
+  it('findById returns null when nothing matches', async () => {
+    mockPrisma.taskArtifact.findFirst.mockResolvedValue(null)
+    const out = await taskArtifactRepository.findById('a1', 't1')
+    expect(out).toBeNull()
+  })
+
+  it('deleteById returns deleted count', async () => {
+    mockPrisma.taskArtifact.deleteMany.mockResolvedValue({ count: 1 })
+    const n = await taskArtifactRepository.deleteById('a1', 't1')
+    expect(mockPrisma.taskArtifact.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'a1', taskId: 't1' },
+    })
+    expect(n).toBe(1)
+  })
+
+  it('deleteById returns 0 when no row matches', async () => {
+    mockPrisma.taskArtifact.deleteMany.mockResolvedValue({ count: 0 })
+    const n = await taskArtifactRepository.deleteById('a1', 't1')
+    expect(n).toBe(0)
   })
 })
