@@ -55,10 +55,15 @@ export function MemoryListItem({
         showSedimentedLabel={false}
       />
 
-      <div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity'>
+      <div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity'>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='ghost' size='icon' className='size-7'>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='size-7'
+              aria-label={intl.formatMessage({ id: 'memory.action.menu' })}
+            >
               <MoreHorizontal className='size-4' />
             </Button>
           </DropdownMenuTrigger>

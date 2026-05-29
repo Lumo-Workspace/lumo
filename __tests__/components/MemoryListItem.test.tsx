@@ -3,6 +3,7 @@ const en: Record<string, string> = {
   'memory.action.edit': 'Edit',
   'memory.action.promote': 'Promote to project',
   'memory.action.delete': 'Delete',
+  'memory.action.menu': 'Memory actions',
   'memory.source.auto': 'Sedimented by Claude',
   'memory.source.byMember': 'Added by {name}',
   'memory.delete.confirm.title': 'Delete this memory?',
@@ -56,7 +57,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof MemoryListItem>> =
  *  mousedown, pointerup, mouseup, click) that Radix listens for. */
 async function openMenu() {
   const user = userEvent.setup()
-  const trigger = screen.getByRole('button')
+  const trigger = screen.getByRole('button', { name: 'Memory actions' })
   await user.click(trigger)
 }
 
