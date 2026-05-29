@@ -38,6 +38,7 @@ it('POST resolves LUM-N and returns 201 with the created artifact', async () => 
       title: 'Spec',
       content: '## R',
       source: 'superpowers',
+      agent: 'CODEX',
     }),
   })
   const res = await POST(req, params('LUM-9'))
@@ -52,8 +53,27 @@ it('POST resolves LUM-N and returns 201 with the created artifact', async () => 
       taskId: 't1',
       workspaceId: 'w1',
       actorMemberId: 'm1',
+      agent: 'CODEX',
     })
   )
+})
+
+it('POST returns 400 when agent is missing', async () => {
+  ;(requireIdentity as jest.Mock).mockResolvedValue(ID)
+  ;(taskRepository.findByWorkspaceIdentifier as jest.Mock).mockResolvedValue({
+    id: 't1',
+  })
+  const req = new NextRequest('http://x/api/tasks/LUM-9/artifacts', {
+    method: 'POST',
+    body: JSON.stringify({
+      kind: 'spec',
+      title: 'Spec',
+      content: '## R',
+      source: 'superpowers',
+    }),
+  })
+  const res = await POST(req, params('LUM-9'))
+  expect(res.status).toBe(400)
 })
 
 it('POST returns 400 on invalid body', async () => {

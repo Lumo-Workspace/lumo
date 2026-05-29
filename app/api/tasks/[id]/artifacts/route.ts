@@ -80,6 +80,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     title: parsed.data.title,
     content: parsed.data.content,
     source: parsed.data.source,
+    agent: parsed.data.agent,
     actorMemberId: identity.memberId,
   })
   return NextResponse.json({ artifact }, { status: 201 })
