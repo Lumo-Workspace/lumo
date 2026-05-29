@@ -332,7 +332,7 @@ taskMemory
   .option('--rule <text>', 'convention: the rule')
   .option('--applies <text>', 'convention: where the rule applies')
   .option('--workflow <text>', 'procedural: the workflow name')
-  .option('--step <text>', 'procedural: a step (repeatable)', (v: string, acc: string[]) => { acc.push(v); return acc }, [] as string[])
+  .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
   .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskAdd(taskArg as string | undefined, opts as Record<string, unknown>)))
 
 const projectCmd = program
