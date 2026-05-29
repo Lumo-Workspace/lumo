@@ -61,6 +61,7 @@ it('rm DELETEs with --yes (204)', async () => {
   }) as any)
   const code = await memoryRm('m1', { yes: true })
   expect(code).toBeUndefined()
+  expect(captured.url).toContain('/api/memories/m1')
   expect(captured.init.method).toBe('DELETE')
   expect(out).toHaveBeenCalledWith(expect.stringMatching(/Deleted memory m1/))
 })
