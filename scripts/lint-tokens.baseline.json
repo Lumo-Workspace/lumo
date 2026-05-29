@@ -132,6 +132,7 @@
   "app/workspace/[workspaceUrl]/components/ViewToggle.tsx": 10,
   "app/workspace/[workspaceUrl]/settings/SettingsShell.tsx": 23,
   "app/workspace/[workspaceUrl]/sprints/components/SprintTasksView.tsx": 1,
+  "components/icons/agents/GeminiIcon.tsx": 1,
   "components/icons/SlackIcon.tsx": 4,
   "components/landing/logos/claude.tsx": 1,
   "components/landing/logos/figma.tsx": 5,
