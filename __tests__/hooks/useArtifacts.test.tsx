@@ -22,6 +22,7 @@ function makeArtifact(over: Partial<TaskArtifact> = {}): TaskArtifact {
     title: over.title ?? 'Spec',
     content: over.content ?? '# Spec',
     source: over.source ?? 'manual',
+    agent: over.agent ?? 'CLAUDE_CODE',
     order: over.order ?? 0,
     createdById: over.createdById ?? null,
     createdAt: over.createdAt ?? new Date('2026-05-20T00:00:00.000Z'),
