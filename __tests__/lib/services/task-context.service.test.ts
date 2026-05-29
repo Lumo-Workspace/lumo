@@ -28,6 +28,11 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
     listByTask: jest.fn().mockResolvedValue([]),
   },
 }))
+jest.mock('@/lib/repositories/task-artifact.repository', () => ({
+  taskArtifactRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@/lib/services/task-figma-link.service', () => ({
   taskFigmaLinkService: {
     listForTask: jest.fn().mockResolvedValue([]),
