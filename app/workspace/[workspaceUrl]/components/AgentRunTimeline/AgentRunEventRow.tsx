@@ -16,7 +16,7 @@ interface AgentRunEventRowProps {
 export function AgentRunEventRow({ event }: AgentRunEventRowProps) {
   const intl = useIntl()
   const category = categorizeHookEvent(event)
-  const style = CATEGORY_STYLE[category]
+  const style = CATEGORY_STYLE[category] ?? CATEGORY_STYLE.tool_other
   const summary = summarizeEvent(event, intl)
   const label = pillLabel(event)
 

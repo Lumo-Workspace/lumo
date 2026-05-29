@@ -26,6 +26,8 @@ export type EventCategory =
   | 'worktree'
   | 'file_changed'
   | 'config_change'
+  | 'task_event'
+  | 'notification'
 
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob'])
 const WRITE_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
@@ -60,9 +62,23 @@ export function categorizeHookEvent(
     case 'FILE_CHANGED':
       return 'file_changed'
     case 'CONFIG_CHANGE':
+    case 'CWD_CHANGED':
       return 'config_change'
+    case 'INSTRUCTIONS_LOADED':
+      return 'session_boundary'
+    case 'TASK_CREATED':
+    case 'TASK_COMPLETED':
+      return 'task_event'
+    case 'NOTIFICATION':
+      return 'notification'
+    case 'ELICITATION':
+    case 'ELICITATION_RESULT':
+      return 'permission_pause'
+    case 'USER_PROMPT_EXPANSION':
+      return 'human_input'
     case 'PRE_TOOL_USE':
-    case 'POST_TOOL_USE': {
+    case 'POST_TOOL_USE':
+    case 'POST_TOOL_BATCH': {
       // PRE/POST split by toolName. POST is folded into the PRE row by the
       // Run-card view today; this categorizer covers the standalone PRE.
       const tool = event.toolName ?? ''
@@ -72,6 +88,11 @@ export function categorizeHookEvent(
       if (PLAN_TOOLS.has(tool)) return 'tool_plan'
       return 'tool_other'
     }
+    // Defense in depth: a HookEventType added to the Prisma enum before this
+    // union/switch is updated must degrade to a neutral category, never crash
+    // the timeline row (see __tests__/components/agentRunCategorize.test.ts).
+    default:
+      return 'tool_other'
   }
 }
 
@@ -147,6 +168,14 @@ export const CATEGORY_STYLE: Record<EventCategory, CategoryStyle> = {
     dot: 'bg-fuchsia-500',
     pill: 'text-fuchsia-700 dark:text-fuchsia-400 bg-fuchsia-50 dark:bg-fuchsia-950/40',
   },
+  task_event: {
+    dot: 'bg-green-600',
+    pill: 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40',
+  },
+  notification: {
+    dot: 'bg-violet-500',
+    pill: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40',
+  },
 }
 
 const PILL_LABEL: Record<AgentRunHookEventType, string> = {
@@ -166,13 +195,27 @@ const PILL_LABEL: Record<AgentRunHookEventType, string> = {
   WORKTREE_REMOVE: 'Worktree −',
   FILE_CHANGED: 'File',
   CONFIG_CHANGE: 'Config',
+  TASK_CREATED: 'Task +',
+  TASK_COMPLETED: 'Task ✓',
+  POST_TOOL_BATCH: 'Batch',
+  USER_PROMPT_EXPANSION: 'Expand',
+  NOTIFICATION: 'Notify',
+  ELICITATION: 'Elicit',
+  ELICITATION_RESULT: 'Elicit ✓',
+  CWD_CHANGED: 'CWD',
+  INSTRUCTIONS_LOADED: 'Instructions',
 }
 
 export function pillLabel(event: AgentRunHookEventItem): string {
-  if (event.type === 'PRE_TOOL_USE' || event.type === 'POST_TOOL_USE') {
-    return event.toolName ?? PILL_LABEL[event.type]
+  if (
+    event.type === 'PRE_TOOL_USE' ||
+    event.type === 'POST_TOOL_USE' ||
+    event.type === 'POST_TOOL_BATCH'
+  ) {
+    return event.toolName ?? PILL_LABEL[event.type] ?? event.type
   }
-  return PILL_LABEL[event.type]
+  // Fallback to the raw type for any value not yet in PILL_LABEL (enum drift).
+  return PILL_LABEL[event.type] ?? event.type
 }
 
 /**
@@ -289,11 +332,49 @@ export function summarizeEvent(
     }
     case 'POST_TOOL_USE_FAILURE':
     case 'PRE_TOOL_USE':
-    case 'POST_TOOL_USE': {
+    case 'POST_TOOL_USE':
+    case 'POST_TOOL_BATCH': {
       const input = getRecord(payload, 'tool_input')
       const tool = event.toolName ?? ''
       return summarizeToolInput(tool, input)
     }
+    case 'TASK_CREATED':
+    case 'TASK_COMPLETED': {
+      const id = getString(payload, 'identifier') ?? getString(payload, 'id')
+      const title = getString(payload, 'title')
+      return [id, title].filter(Boolean).join(' ')
+    }
+    case 'USER_PROMPT_EXPANSION': {
+      const prompt = getString(payload, 'prompt')
+      return prompt ? truncate(prompt, 160) : ''
+    }
+    case 'NOTIFICATION': {
+      const message =
+        getString(payload, 'message') ?? getString(payload, 'notification')
+      return message ? truncate(message, 160) : ''
+    }
+    case 'ELICITATION': {
+      const message =
+        getString(payload, 'message') ?? getString(payload, 'prompt')
+      return message ? truncate(message, 160) : ''
+    }
+    case 'ELICITATION_RESULT': {
+      const result =
+        getString(payload, 'response') ?? getString(payload, 'result')
+      return result ? truncate(result, 160) : ''
+    }
+    case 'CWD_CHANGED': {
+      const cwd = getString(payload, 'cwd') ?? getString(payload, 'path')
+      return cwd ? `cwd: ${cwd}` : ''
+    }
+    case 'INSTRUCTIONS_LOADED': {
+      const path =
+        getString(payload, 'path') ?? getString(payload, 'source') ?? ''
+      return path
+    }
+    // Unknown / future event types: no summary rather than a crash.
+    default:
+      return ''
   }
 }
 
