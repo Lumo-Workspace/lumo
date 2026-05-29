@@ -929,7 +929,7 @@
   "agentRun.noEvents": "Tiada events ditangkap untuk run ini",
   "agentRun.loading": "Memuatkan…",
   "agentRun.empty": "Tiada agent runs direkodkan untuk task ini",
-  "agentRun.emptyHint": "Jalankan lumo task start di terminal anda — pelaksanaan agent akan disinkkan di sini secara automatik",
+  "agentRun.emptyHint": "Jalankan /lumo {identifier} untuk mengikat tugas ini — pelaksanaan agent akan disinkronkan di sini secara automatik",
   "agentRun.event.stopFallback": "Agent selesai",
   "agentRun.event.stopFailureFallback": "Turn dibatalkan pada ralat API",
   "agentRun.event.userPromptFallback": "Input pengguna",

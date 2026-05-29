@@ -929,7 +929,7 @@
   "agentRun.noEvents": "이 Run에 캡처된 이벤트가 없습니다",
   "agentRun.loading": "로딩 중…",
   "agentRun.empty": "이 작업에 기록된 Agent Run이 없습니다",
-  "agentRun.emptyHint": "터미널에서 lumo task start를 실행하면 Agent 실행이 자동으로 동기화됩니다",
+  "agentRun.emptyHint": "/lumo {identifier}를 실행해 이 작업에 연결하면 Agent 실행이 자동으로 동기화됩니다",
   "agentRun.event.stopFallback": "Agent 완료",
   "agentRun.event.stopFailureFallback": "API 오류로 인해 Turn 중단됨",
   "agentRun.event.userPromptFallback": "사용자 입력",

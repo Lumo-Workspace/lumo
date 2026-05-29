@@ -929,7 +929,7 @@
   "agentRun.noEvents": "События не записаны для этого run",
   "agentRun.loading": "Загрузка…",
   "agentRun.empty": "Нет записанных agent runs для этой задачи",
-  "agentRun.emptyHint": "Запустите lumo task start в терминале — выполнение agent синхронизируется сюда автоматически",
+  "agentRun.emptyHint": "Запустите /lumo {identifier}, чтобы привязать эту задачу — запуски agent будут синхронизироваться сюда автоматически",
   "agentRun.event.stopFallback": "Agent завершил работу",
   "agentRun.event.stopFailureFallback": "Turn прерван из-за ошибки API",
   "agentRun.event.userPromptFallback": "Ввод пользователя",

@@ -250,7 +250,7 @@ export function TaskDetailPage({
         {/* Two-column body */}
         <div className='flex flex-1 overflow-hidden'>
           {/* Left column */}
-          <div className='flex-1 overflow-y-auto px-8 py-6'>
+          <div className='flex-1 overflow-y-auto px-8 pt-6 pb-24'>
             {/* Editable title */}
             <h1
               contentEditable
@@ -335,6 +335,7 @@ export function TaskDetailPage({
             {/* Activity / Comments Timeline */}
             <TimelineTabs
               taskId={task.id}
+              taskIdentifier={`${task.teamIdentifier}-${task.number}`}
               workspaceId={task.project.workspaceId ?? ''}
               workspaceUrl={workspaceUrl}
               commentsProps={{

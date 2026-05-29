@@ -7,11 +7,13 @@ import { AgentRunCard } from './AgentRunCard'
 
 interface AgentRunTabProps {
   taskId: string
+  taskIdentifier: string
   enabled: boolean
 }
 
 export function AgentRunTab({
   taskId,
+  taskIdentifier,
   enabled,
 }: AgentRunTabProps) {
   const intl = useIntl()
@@ -45,11 +47,14 @@ export function AgentRunTab({
           })}
         </p>
         <p className='text-[11px] text-zinc-300 dark:text-zinc-600 max-w-xs text-center'>
-          {intl.formatMessage({
-            id: 'agentRun.emptyHint',
-            defaultMessage:
-              '在终端运行 lumo task start，Agent 执行过程会自动同步到这里',
-          })}
+          {intl.formatMessage(
+            {
+              id: 'agentRun.emptyHint',
+              defaultMessage:
+                '运行 /lumo {identifier} 绑定此任务，Agent 运行过程会自动同步到这里',
+            },
+            { identifier: taskIdentifier }
+          )}
         </p>
       </div>
     )

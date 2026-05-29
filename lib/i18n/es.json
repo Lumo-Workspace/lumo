@@ -929,7 +929,7 @@
   "agentRun.noEvents": "No hay eventos capturados para esta ejecución",
   "agentRun.loading": "Cargando…",
   "agentRun.empty": "No hay ejecuciones de Agent registradas para esta tarea",
-  "agentRun.emptyHint": "Ejecuta lumo task start en tu terminal — la ejecución del Agent se sincronizará aquí automáticamente",
+  "agentRun.emptyHint": "Ejecuta /lumo {identifier} para vincular esta tarea — las ejecuciones del Agent se sincronizarán aquí automáticamente",
   "agentRun.event.stopFallback": "Agent terminado",
   "agentRun.event.stopFailureFallback": "Turno abortado por error de API",
   "agentRun.event.userPromptFallback": "Entrada del usuario",

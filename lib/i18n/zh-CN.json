@@ -615,7 +615,7 @@
   "agentRun.noEvents": "本次运行没有捕获到事件",
   "agentRun.loading": "加载中…",
   "agentRun.empty": "此任务还没有 Agent 运行记录",
-  "agentRun.emptyHint": "在终端运行 lumo task start，Agent 执行过程会自动同步到这里",
+  "agentRun.emptyHint": "运行 /lumo {identifier} 绑定此任务，Agent 运行过程会自动同步到这里",
   "agentRun.event.stopFallback": "Agent 执行完成",
   "agentRun.event.stopFailureFallback": "回合因 API 错误中止",
   "agentRun.event.userPromptFallback": "用户输入",

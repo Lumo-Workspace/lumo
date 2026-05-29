@@ -972,7 +972,7 @@
   "agentRun.noEvents": "此 Run 未記錄任何事件",
   "agentRun.loading": "載入中…",
   "agentRun.empty": "此任務沒有記錄的 Agent Run",
-  "agentRun.emptyHint": "在終端執行 lumo task start — Agent 執行將自動同步到此",
+  "agentRun.emptyHint": "執行 /lumo {identifier} 綁定此任務，Agent 執行過程會自動同步到此",
   "agentRun.event.stopFallback": "Agent 已完成",
   "agentRun.event.stopFailureFallback": "Turn 因 API 錯誤而中止",
   "agentRun.event.userPromptFallback": "使用者輸入",

@@ -929,7 +929,7 @@
   "agentRun.noEvents": "इस run के लिए कोई events capture नहीं हुए",
   "agentRun.loading": "लोड हो रहा है…",
   "agentRun.empty": "इस task के लिए कोई agent runs record नहीं हैं",
-  "agentRun.emptyHint": "अपने terminal में lumo task start चलाएं — agent execution यहां स्वचालित रूप से sync होगा",
+  "agentRun.emptyHint": "इस task को बाँधने के लिए /lumo {identifier} चलाएं — agent runs यहां स्वचालित रूप से sync होंगे",
   "agentRun.event.stopFallback": "Agent पूरा हुआ",
   "agentRun.event.stopFailureFallback": "API error पर Turn abort हुआ",
   "agentRun.event.userPromptFallback": "User input",
