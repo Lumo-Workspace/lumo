@@ -500,6 +500,10 @@ export interface TimelineResponse {
 
 // ── Agent Run timeline (Claude Code hook events grouped by Session) ──────────
 
+// Mirror of the Prisma `HookEventType` enum. The backend
+// (agent-run-timeline.service) forwards the raw enum value verbatim, so this
+// union MUST stay in sync with prisma/schema.prisma — any value missing here
+// falls through the categorizer and crashes the timeline row on `style.dot`.
 export type AgentRunHookEventType =
   | 'PRE_TOOL_USE'
   | 'POST_TOOL_USE'
@@ -517,6 +521,15 @@ export type AgentRunHookEventType =
   | 'WORKTREE_REMOVE'
   | 'FILE_CHANGED'
   | 'CONFIG_CHANGE'
+  | 'TASK_CREATED'
+  | 'TASK_COMPLETED'
+  | 'POST_TOOL_BATCH'
+  | 'USER_PROMPT_EXPANSION'
+  | 'NOTIFICATION'
+  | 'ELICITATION'
+  | 'ELICITATION_RESULT'
+  | 'CWD_CHANGED'
+  | 'INSTRUCTIONS_LOADED'
 
 export interface AgentRunHookEventItem {
   id: string
