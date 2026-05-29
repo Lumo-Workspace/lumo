@@ -15,19 +15,21 @@ import {
 /**
  * One sedimented memory rendered as a neutral, white-bodied card.
  *
- * Color is an INDEX, not a fill: `item.category` drives only a 3px
- * left accent stripe and a small category pill (TRAP red, DECISION
- * blue, CONVENTION amber, PROCEDURAL emerald). The card body stays
- * neutral so a list of memories reads as a quiet column of knowledge
- * entries with a colored "spine" for at-a-glance categorization —
- * not a wall of alert-colored blocks.
+ * Order comes from TYPOGRAPHY, not colored decoration. The whole card's
+ * color budget is a single 7px category dot (TRAP red, DECISION blue,
+ * CONVENTION amber, PROCEDURAL emerald) next to a gray category label;
+ * everything else is grayscale. Hierarchy is carried by weight, size,
+ * gray level, and spacing — a quiet column of knowledge entries, not a
+ * templated stack of colored-accent cards. category is secondary
+ * metadata (you read memories by content, not by category), so it gets
+ * a minimal hint, not a full-height accent.
  *
  * Layout is a three-tier scan: title → field section-labels → content.
  *
- * `source` (e.g. "由 Claude 沉淀") renders as a chip in the top-right,
- * opposite the category pill — left says "what kind", right says "who
- * sedimented it". The "沉淀记忆" branding (sparkles) is shown by
- * default in the top-right when no explicit `source` is given; set
+ * `source` (e.g. "由 Claude 沉淀") renders in the top-right, opposite
+ * the category dot — left says "what kind", right says "who sedimented
+ * it". The "沉淀记忆" branding (sparkles) is shown by default in the
+ * top-right when no explicit `source` is given; set
  * `showSedimentedLabel={false}` when the surrounding context already
  * labels the section as memories.
  */
@@ -52,35 +54,18 @@ interface MemoryCardProps {
 }
 
 interface CategoryStyle {
-  /** Tailwind bg class for the 3px left accent stripe (the "spine"). */
-  accent: string
-  /** Pill background + text used for the category label. */
-  pill: string
+  /** Tailwind bg class for the 7px category dot — the card's single
+   *  spot of color. */
+  dot: string
   /** Translation key for the category display name. */
   labelId: string
 }
 
 const CATEGORY_STYLES: Record<MemoryCategory, CategoryStyle> = {
-  TRAP: {
-    accent: 'bg-red-500',
-    pill: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-    labelId: 'memory.category.trap',
-  },
-  DECISION: {
-    accent: 'bg-blue-500',
-    pill: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-    labelId: 'memory.category.decision',
-  },
-  CONVENTION: {
-    accent: 'bg-amber-500',
-    pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-    labelId: 'memory.category.convention',
-  },
-  PROCEDURAL: {
-    accent: 'bg-emerald-500',
-    pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-    labelId: 'memory.category.procedural',
-  },
+  TRAP: { dot: 'bg-red-500', labelId: 'memory.category.trap' },
+  DECISION: { dot: 'bg-blue-500', labelId: 'memory.category.decision' },
+  CONVENTION: { dot: 'bg-amber-500', labelId: 'memory.category.convention' },
+  PROCEDURAL: { dot: 'bg-emerald-500', labelId: 'memory.category.procedural' },
 }
 
 export function MemoryCard({
@@ -99,34 +84,32 @@ export function MemoryCard({
   }
 
   return (
-    <div className='relative overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'>
-      <span
-        aria-hidden
-        className={`absolute inset-y-0 left-0 w-[3px] ${style.accent}`}
-      />
-      <div className='py-3 pl-4 pr-3'>
-        <div className='mb-1.5 flex items-start justify-between gap-2'>
+    <div className='rounded-md border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900'>
+      <div className='mb-1.5 flex items-start justify-between gap-2'>
+        <span className='flex shrink-0 items-center gap-1.5'>
           <span
-            className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium uppercase tracking-wide ${style.pill}`}
-          >
+            aria-hidden
+            className={`size-[7px] shrink-0 rounded-full ${style.dot}`}
+          />
+          <span className='text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
             {intl.formatMessage({ id: style.labelId })}
           </span>
-          {source ? (
-            <span className='shrink-0 text-[10px] text-zinc-400 transition-opacity group-hover:opacity-0 dark:text-zinc-500'>
-              {source}
-            </span>
-          ) : showSedimentedLabel ? (
-            <span className='inline-flex shrink-0 items-center gap-1 text-[10px] text-violet-500 dark:text-violet-400'>
-              <Sparkles className='size-3' />
-              {intl.formatMessage({
-                id: 'agentRun.memorySedimented',
-                defaultMessage: '沉淀记忆',
-              })}
-            </span>
-          ) : null}
-        </div>
-        <MemoryBody category={item.category} parsed={parsed} />
+        </span>
+        {source ? (
+          <span className='shrink-0 text-[10px] text-zinc-400 transition-opacity group-hover:opacity-0 dark:text-zinc-500'>
+            {source}
+          </span>
+        ) : showSedimentedLabel ? (
+          <span className='inline-flex shrink-0 items-center gap-1 text-[10px] text-violet-500 dark:text-violet-400'>
+            <Sparkles className='size-3' />
+            {intl.formatMessage({
+              id: 'agentRun.memorySedimented',
+              defaultMessage: '沉淀记忆',
+            })}
+          </span>
+        ) : null}
       </div>
+      <MemoryBody category={item.category} parsed={parsed} />
     </div>
   )
 }
