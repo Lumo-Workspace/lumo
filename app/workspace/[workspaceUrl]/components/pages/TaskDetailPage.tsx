@@ -285,18 +285,18 @@ export function TaskDetailPage({
               onChanged={refreshArtifacts}
             />
 
-            {/* Description — hidden entirely once spec artifacts exist; the
-                spec layer above is the source of truth in that case. */}
-            {artifacts.length === 0 &&
-              (desc.descriptionLoading ? (
-                <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
-              ) : (
-                <DescriptionEditor
-                  value={desc.descriptionValue}
-                  onCommit={actions.commitDescription}
-                  members={mentionableMembers}
-                />
-              ))}
+            {/* Description — always rendered as the normal editor, below the
+                spec layer when artifacts exist (no "background discussion"
+                relabeling). */}
+            {desc.descriptionLoading ? (
+              <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
+            ) : (
+              <DescriptionEditor
+                value={desc.descriptionValue}
+                onCommit={actions.commitDescription}
+                members={mentionableMembers}
+              />
+            )}
 
             {/* Spec — hidden: agent features disabled for now */}
 
