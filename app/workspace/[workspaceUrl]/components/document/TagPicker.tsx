@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useIntl } from 'react-intl'
 import { X, Plus } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ApiTag } from '../../types'
 
 // ── Tag color helpers ─────────────────────────────────────────────────────
@@ -78,6 +79,8 @@ interface TagPickerProps {
   onChange: (tags: ApiTag[]) => void
   /** Called to create a new tag. Should return the created tag. */
   onCreateTag?: ((name: string) => Promise<ApiTag | null>) | undefined
+  /** Extra classes merged into the inner trigger row — used to align with sibling field triggers. */
+  triggerClassName?: string
 }
 
 export function TagPicker({
@@ -85,6 +88,7 @@ export function TagPicker({
   allTags,
   onChange,
   onCreateTag,
+  triggerClassName,
 }: TagPickerProps) {
   const intl = useIntl()
   const [input, setInput] = useState('')
@@ -163,7 +167,9 @@ export function TagPicker({
 
   return (
     <div className='relative'>
-      <div className='flex flex-wrap items-center gap-1.5'>
+      <div
+        className={cn('flex flex-wrap items-center gap-1.5', triggerClassName)}
+      >
         {selectedTags.map(tag => (
           <span key={tag.id} className='inline-flex items-center gap-0.5'>
             <TagBadgeNew tag={tag} />
