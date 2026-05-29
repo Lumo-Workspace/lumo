@@ -449,6 +449,7 @@
   "taskArtifact.save": "Lưu",
   "taskArtifact.cancel": "Hủy",
   "taskArtifact.docsRefOnly": "Chỉ để tham khảo · đặc tả nằm ở lớp định nghĩa phía trên",
+  "taskArtifact.generatedMeta": "Được tạo bởi {source} · {time}",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
   "task.create": "Create Task",

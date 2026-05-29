@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronRight, ChevronDown, Plus } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, Sparkle } from 'lucide-react'
 import type { TaskArtifact } from '@prisma/client'
 import { artifactsClient } from '@/lib/api-client/task-artifacts'
 import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
@@ -12,7 +12,7 @@ interface Props {
   taskId: string
   artifacts: Pick<
     TaskArtifact,
-    'id' | 'kind' | 'title' | 'content' | 'source' | 'order'
+    'id' | 'kind' | 'title' | 'content' | 'source' | 'order' | 'createdAt'
   >[]
   onChanged: () => void | Promise<void>
 }
@@ -44,7 +44,8 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
           <span className='text-xs font-semibold tracking-wide text-muted-foreground'>
             {intl.formatMessage({ id: 'taskArtifact.groupLabel' })}
           </span>
-          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded'>
+          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded inline-flex items-center gap-1'>
+            <Sparkle className='size-3 fill-current' />
             {intl.formatMessage(
               { id: 'taskArtifact.sourceCount' },
               { source: sourceLabel, count: artifacts.length }
@@ -84,8 +85,20 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
               {open && (
                 <div className='px-4 pb-3.5 pl-10'>
                   <RichTextViewer value={markdownToHtml(a.content)} />
-                  <div className='mt-3 pt-2.5 border-t border-border text-xs text-muted-foreground'>
-                    {a.source}
+                  <div className='mt-3 pt-2.5 border-t border-border text-xs text-muted-foreground inline-flex items-center gap-1'>
+                    <Sparkle className='size-3 fill-current' />
+                    {intl.formatMessage(
+                      { id: 'taskArtifact.generatedMeta' },
+                      {
+                        source: a.source,
+                        time: intl.formatDate(a.createdAt, {
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      }
+                    )}
                   </div>
                 </div>
               )}
