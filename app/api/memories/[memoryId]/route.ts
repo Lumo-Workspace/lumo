@@ -40,7 +40,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (parsed.data.scope === 'PROJECT') {
       memory = await memoryManagementService.promoteToProject(memoryId, content)
     } else {
-      memory = await memoryManagementService.editContent(memoryId, content as MemoryContent)
+      // scope absent ⇒ the Zod refine guarantees content is present, but the
+      // compiler can't see that. Guard explicitly instead of casting, so a
+      // future refine change can't silently leak undefined into editContent.
+      if (content === undefined) {
+        return NextResponse.json(
+          { error: 'content is required when scope is not PROJECT' },
+          { status: 400 }
+        )
+      }
+      memory = await memoryManagementService.editContent(memoryId, content)
     }
     return NextResponse.json({ memory }, { status: 200 })
   } catch (error) {
