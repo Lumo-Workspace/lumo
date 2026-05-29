@@ -301,11 +301,11 @@ Record Claude Code spec-engineering products (spec / plan / design …) on a tas
 
 #### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source>`
 
-Attaches an artifact to a task. `--kind`, `--title`, `--source` are stored verbatim — **`kind` is opaque** (no enumeration; `spec` / `plan` / `requirements` / anything is accepted). `--source` is **required** and names the spec-generation framework that produced the artifact (`superpowers` / `spec-kit` / `openspec` / `gsd` / …) — it is also opaque (no enumeration), but there is **no default**, so you must pass it. `--file` supplies the body (file contents). Each call appends to the end of the task's artifact list — call once per artifact (e.g. Superpowers: one `spec`, one `plan`). The `<task>` (e.g. `LUM-42`) is resolved server-side.
+Attaches an artifact to a task. `--kind`, `--title`, `--source` are stored verbatim — **`kind` is opaque** (no enumeration; `spec` / `plan` / `requirements` / anything is accepted). `--source` is **required** and names the spec-generation framework that produced the artifact, written as its **formal name** (`Superpowers` / `Spec Kit` / `BMad` / `OpenSpec` / `GSD` / …) — it is also opaque (no enumeration), but there is **no default**, so you must pass it. Quote names that contain spaces (`--source "Spec Kit"`). `--file` supplies the body (file contents). Each call appends to the end of the task's artifact list — call once per artifact (e.g. Superpowers: one `spec`, one `plan`). The `<task>` (e.g. `LUM-42`) is resolved server-side.
 
 ```bash
-lumo task artifact add LUM-42 --kind spec --title "Spec" --file docs/spec.md --source superpowers
-lumo task artifact add LUM-42 --kind plan --title "Implementation plan" --file docs/plan.md --source superpowers
+lumo task artifact add LUM-42 --kind spec --title "Spec" --file docs/spec.md --source Superpowers
+lumo task artifact add LUM-42 --kind plan --title "Implementation plan" --file docs/plan.md --source "Spec Kit"
 ```
 
 Output: `Added [spec] "Spec" to LUM-42`
@@ -315,12 +315,12 @@ Output: `Added [spec] "Spec" to LUM-42`
 Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, and `source`** only — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. The `<artifact-id>` is the cuid in column 1 of `artifact list`.
 
 ```bash
-lumo task artifact edit LUM-42 cma_xxx --kind plan          # re-classify spec → plan
-lumo task artifact edit LUM-42 cma_xxx --source spec-kit    # fix the framework label
-lumo task artifact edit LUM-42 cma_xxx --title "Final spec" --source openspec
+lumo task artifact edit LUM-42 cma_xxx --kind plan              # re-classify spec → plan
+lumo task artifact edit LUM-42 cma_xxx --source "Spec Kit"      # fix the framework label
+lumo task artifact edit LUM-42 cma_xxx --title "Final spec" --source OpenSpec
 ```
 
-Output: `Updated [plan] "Final spec" (openspec) on LUM-42`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
+Output: `Updated [plan] "Final spec" (OpenSpec) on LUM-42`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 #### `lumo task artifact list <task>`
 

@@ -328,7 +328,7 @@ taskArtifact
   )
   .requiredOption(
     '--source <source>',
-    'Spec-gen framework, e.g. superpowers | spec-kit | openspec | gsd (opaque)'
+    'Spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (opaque; quote names with spaces)'
   )
   .action(
     wrap((taskId: unknown, options: unknown) =>
@@ -345,7 +345,7 @@ taskArtifact
   .option('--title <title>', 'New artifact title')
   .option(
     '--source <source>',
-    'New spec-gen framework label, e.g. superpowers | spec-kit | openspec | gsd'
+    'New spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (quote names with spaces)'
   )
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>

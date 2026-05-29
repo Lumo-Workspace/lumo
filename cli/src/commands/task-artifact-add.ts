@@ -19,7 +19,7 @@ export async function taskArtifactAdd(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact add <LUM-42> --kind spec --title "Spec" --file spec.md --source superpowers'
+      'Error: missing <task>. Usage: lumo task artifact add <LUM-42> --kind spec --title "Spec" --file spec.md --source Superpowers'
     )
     return 1
   }
@@ -36,7 +36,7 @@ export async function taskArtifactAdd(
   }
   if (!source) {
     console.error(
-      'Error: --source is required (the spec-gen framework, e.g. superpowers, spec-kit, openspec, gsd).'
+      'Error: --source is required (the spec-gen framework, formal name e.g. Superpowers, "Spec Kit", BMad, OpenSpec, GSD).'
     )
     return 1
   }
