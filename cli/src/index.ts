@@ -24,6 +24,8 @@ import { memoryTaskList } from './commands/memory-task-list'
 import { memoryTaskAdd } from './commands/memory-task-add'
 import { memoryProjectList } from './commands/memory-project-list'
 import { memoryProjectAdd } from './commands/memory-project-add'
+import { memoryPromote } from './commands/memory-promote'
+import { memoryRm } from './commands/memory-rm'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -375,6 +377,21 @@ projectMemory
   .option('--workflow <text>', 'procedural workflow')
   .option('--step <text>', 'procedural step (repeatable)', collect, [])
   .action(wrap((p: unknown, opts: unknown) => memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)))
+
+const memoryCmd = program
+  .command('memory')
+  .description('Operate on a single memory by id (see `lumo task memory` / `lumo project memory` to list/add)')
+
+memoryCmd
+  .command('promote <memoryId>')
+  .description('Promote a TASK memory to PROJECT scope. Only when the lesson recurs across 2+ tasks.')
+  .action(wrap((id: unknown) => memoryPromote(id as string)))
+
+memoryCmd
+  .command('rm <memoryId>')
+  .description('Delete a memory (hard delete). Requires --yes.')
+  .option('--yes', 'Confirm deletion')
+  .action(wrap((id: unknown, opts: unknown) => memoryRm(id as string, opts as { yes?: boolean })))
 
 const milestoneCmd = program
   .command('milestone')
