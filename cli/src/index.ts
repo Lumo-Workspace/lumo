@@ -407,6 +407,10 @@ taskArtifact
     '--source <source>',
     'New spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (quote names with spaces)'
   )
+  .option(
+    '--agent <agent>',
+    'New coding tool: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf'
+  )
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
       taskArtifactUpdate(

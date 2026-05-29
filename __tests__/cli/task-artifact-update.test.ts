@@ -43,7 +43,9 @@ describe('taskArtifactUpdate', () => {
     expect(code).toBe(1)
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('at least one of --kind, --title, or --source')
+      expect.stringContaining(
+        'at least one of --kind, --title, --source, or --agent'
+      )
     )
   })
 
@@ -81,5 +83,20 @@ describe('taskArtifactUpdate', () => {
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining('Artifact not found')
     )
+  })
+
+  it('sends normalized agent in the PATCH body', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
+    const code = await taskArtifactUpdate('LUM-9', 'cma_x', { agent: 'Codex' })
+    expect(code).toBeUndefined()
+    const [, init] = fetchSpy.mock.calls[0]!
+    const sent = JSON.parse((init as RequestInit).body as string)
+    expect(sent).toEqual({ agent: 'CODEX' })
+  })
+  it('errors on invalid --agent without calling the API', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
+    const code = await taskArtifactUpdate('LUM-9', 'cma_x', { agent: 'devin' })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
