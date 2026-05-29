@@ -26,4 +26,15 @@ export const taskArtifactRepository = {
   async countByTask(taskId: string) {
     return prisma.taskArtifact.count({ where: { taskId } })
   },
+
+  async findById(id: string, taskId: string) {
+    return prisma.taskArtifact.findFirst({ where: { id, taskId } })
+  },
+
+  async deleteById(id: string, taskId: string) {
+    const { count } = await prisma.taskArtifact.deleteMany({
+      where: { id, taskId },
+    })
+    return count
+  },
 }

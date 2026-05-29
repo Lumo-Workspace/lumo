@@ -28,4 +28,19 @@ export const taskArtifactService = {
       createdById: input.actorMemberId,
     })
   },
+
+  async getById(taskId: string, artifactId: string) {
+    const artifact = await taskArtifactRepository.findById(artifactId, taskId)
+    if (!artifact) {
+      throw Object.assign(new Error('Artifact not found'), { status: 404 })
+    }
+    return artifact
+  },
+
+  async removeArtifact(taskId: string, artifactId: string) {
+    const count = await taskArtifactRepository.deleteById(artifactId, taskId)
+    if (count === 0) {
+      throw Object.assign(new Error('Artifact not found'), { status: 404 })
+    }
+  },
 }

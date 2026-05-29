@@ -22,6 +22,8 @@ import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskArtifactList } from './commands/task-artifact-list'
+import { taskArtifactShow } from './commands/task-artifact-show'
+import { taskArtifactRm } from './commands/task-artifact-rm'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -334,6 +336,33 @@ taskArtifact
   .command('list <task>')
   .description('List artifacts attached to a task, in order')
   .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
+
+taskArtifact
+  .command('show <task> <artifact-id>')
+  .description(
+    'Show one artifact (key:value header + content body). Find <artifact-id> in `artifact list` column 1.'
+  )
+  .action(
+    wrap((taskId: unknown, artifactId: unknown) =>
+      taskArtifactShow(taskId as string, artifactId as string)
+    )
+  )
+
+taskArtifact
+  .command('rm <task> <artifact-id>')
+  .description(
+    'Delete an artifact from a task. Irreversible — requires --yes.'
+  )
+  .option('--yes', 'Confirm deletion (required, no interactive prompt)')
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
+      taskArtifactRm(
+        taskId as string,
+        artifactId as string,
+        options as { yes?: boolean }
+      )
+    )
+  )
 
 const projectCmd = program
   .command('project')

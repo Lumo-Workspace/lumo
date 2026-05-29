@@ -4,6 +4,8 @@ jest.mock('@/lib/repositories/task-artifact.repository', () => ({
     create: jest.fn(),
     listByTask: jest.fn(),
     countByTask: jest.fn(),
+    findById: jest.fn(),
+    deleteById: jest.fn(),
   },
 }))
 
@@ -14,6 +16,8 @@ const repo = taskArtifactRepository as unknown as {
   create: jest.Mock
   listByTask: jest.Mock
   countByTask: jest.Mock
+  findById: jest.Mock
+  deleteById: jest.Mock
 }
 
 describe('taskArtifactService.addArtifact', () => {
@@ -59,5 +63,46 @@ describe('taskArtifactService.addArtifact', () => {
         createdById: null,
       })
     )
+  })
+})
+
+describe('taskArtifactService.getById', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('returns the artifact when it exists', async () => {
+    repo.findById.mockResolvedValue({ id: 'a1', title: 'Spec' })
+    const out = await taskArtifactService.getById('t1', 'a1')
+    expect(repo.findById).toHaveBeenCalledWith('a1', 't1')
+    expect(out).toEqual({ id: 'a1', title: 'Spec' })
+  })
+
+  it('throws 404 when the artifact is missing', async () => {
+    repo.findById.mockResolvedValue(null)
+    await expect(taskArtifactService.getById('t1', 'a1')).rejects.toMatchObject({
+      status: 404,
+      message: 'Artifact not found',
+    })
+  })
+})
+
+describe('taskArtifactService.removeArtifact', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('resolves when a row was deleted', async () => {
+    repo.deleteById.mockResolvedValue(1)
+    await expect(
+      taskArtifactService.removeArtifact('t1', 'a1')
+    ).resolves.toBeUndefined()
+    expect(repo.deleteById).toHaveBeenCalledWith('a1', 't1')
+  })
+
+  it('throws 404 when no row matched', async () => {
+    repo.deleteById.mockResolvedValue(0)
+    await expect(
+      taskArtifactService.removeArtifact('t1', 'a1')
+    ).rejects.toMatchObject({
+      status: 404,
+      message: 'Artifact not found',
+    })
   })
 })
