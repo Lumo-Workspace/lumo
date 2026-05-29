@@ -1,4 +1,5 @@
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
+import type { TaskArtifactAgent } from '@prisma/client'
 
 export interface AddArtifactInput {
   taskId: string
@@ -7,6 +8,7 @@ export interface AddArtifactInput {
   title: string
   content: string
   source: string
+  agent: TaskArtifactAgent
   actorMemberId: string | null
 }
 
@@ -14,6 +16,7 @@ export interface UpdateArtifactInput {
   kind?: string | undefined
   title?: string | undefined
   source?: string | undefined
+  agent?: TaskArtifactAgent | undefined
 }
 
 export const taskArtifactService = {
@@ -30,6 +33,7 @@ export const taskArtifactService = {
       title: input.title,
       content: input.content,
       source: input.source,
+      agent: input.agent,
       order,
       createdById: input.actorMemberId,
     })

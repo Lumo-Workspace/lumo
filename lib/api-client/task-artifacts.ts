@@ -1,11 +1,12 @@
 import { apiFetch } from './base'
-import type { TaskArtifact } from '@prisma/client'
+import type { TaskArtifact, TaskArtifactAgent } from '@prisma/client'
 
 export interface CreateArtifactPayload {
   kind: string
   title: string
   content: string
   source: string
+  agent: TaskArtifactAgent
 }
 
 export const artifactsClient = {

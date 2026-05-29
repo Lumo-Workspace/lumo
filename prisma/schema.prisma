@@ -1388,6 +1388,15 @@ model TaskWebLink {
   @@map("task_web_links")
 }
 
+enum TaskArtifactAgent {
+  CLAUDE_CODE
+  CODEX
+  CURSOR
+  GEMINI_CLI
+  GITHUB_COPILOT
+  WINDSURF
+}
+
 model TaskArtifact {
   id          String @id @default(cuid())
   taskId      String
@@ -1397,6 +1406,7 @@ model TaskArtifact {
   title   String
   content String  @db.Text
   source  String // "superpowers" | "claude-code" | "manual"
+  agent   TaskArtifactAgent @default(CLAUDE_CODE)
   order   Int     @default(0)
 
   createdById String? // WorkspaceMember.id; nullable, intentionally no FK relation

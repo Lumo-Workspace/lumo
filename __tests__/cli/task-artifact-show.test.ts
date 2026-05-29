@@ -53,7 +53,7 @@ describe('taskArtifactShow', () => {
     const [url, init] = fetchSpy.mock.calls[0]!
     expect(String(url)).toBe('https://api.test/api/tasks/LUM-9/artifacts/a1')
     expect((init as RequestInit | undefined)?.method).toBeUndefined()
-    const output = writeSpy.mock.calls.map((c) => c[0]).join('')
+    const output = writeSpy.mock.calls.map(c => c[0]).join('')
     expect(output).toContain('id:     a1')
     expect(output).toContain('kind:   spec')
     expect(output).toContain('title:  Spec')
@@ -68,5 +68,27 @@ describe('taskArtifactShow', () => {
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining('Artifact not found')
     )
+  })
+
+  it('prints the agent label in the header', async () => {
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockReturnValue(true)
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        artifact: {
+          id: 'cma_x',
+          kind: 'spec',
+          title: 'Spec',
+          source: 'superpowers',
+          agent: 'CODEX',
+          order: 0,
+          content: 'body',
+        },
+      }),
+    } as unknown as Response)
+    await taskArtifactShow('LUM-9', 'cma_x')
+    const out = writeSpy.mock.calls.map(c => String(c[0])).join('')
+    expect(out).toContain('agent:  Codex')
   })
 })

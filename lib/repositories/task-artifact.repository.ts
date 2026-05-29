@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { TaskArtifactAgent } from '@prisma/client'
 
 export interface CreateTaskArtifactInput {
   taskId: string
@@ -7,6 +8,7 @@ export interface CreateTaskArtifactInput {
   title: string
   content: string
   source: string
+  agent: TaskArtifactAgent
   order: number
   createdById: string | null
 }
@@ -15,6 +17,7 @@ export interface UpdateTaskArtifactInput {
   kind?: string | undefined
   title?: string | undefined
   source?: string | undefined
+  agent?: TaskArtifactAgent | undefined
 }
 
 export const taskArtifactRepository = {
@@ -56,6 +59,7 @@ export const taskArtifactRepository = {
         ...(data.kind !== undefined ? { kind: data.kind } : {}),
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.source !== undefined ? { source: data.source } : {}),
+        ...(data.agent !== undefined ? { agent: data.agent } : {}),
       },
     })
     return count

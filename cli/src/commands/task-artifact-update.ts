@@ -1,10 +1,12 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 
 export interface ArtifactUpdateOptions {
   kind?: string
   title?: string
   source?: string
+  agent?: string
 }
 
 interface ArtifactResponse {
@@ -54,9 +56,19 @@ export async function taskArtifactUpdate(
     }
     payload.source = source
   }
+  if (options.agent !== undefined) {
+    const agent = normalizeAgent(options.agent)
+    if (!agent) {
+      console.error(
+        `Error: invalid --agent "${options.agent}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`
+      )
+      return 1
+    }
+    payload.agent = agent
+  }
   if (Object.keys(payload).length === 0) {
     console.error(
-      'Error: provide at least one of --kind, --title, or --source to update.'
+      'Error: provide at least one of --kind, --title, --source, or --agent to update.'
     )
     return 1
   }

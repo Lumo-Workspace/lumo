@@ -4,15 +4,24 @@ import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight, ChevronDown, Plus, Sparkle } from 'lucide-react'
 import type { TaskArtifact } from '@prisma/client'
+import { TaskArtifactAgent } from '@prisma/client'
 import { artifactsClient } from '@/lib/api-client/task-artifacts'
 import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
 import { RichTextViewer } from './RichTextViewer'
+import { AgentBadge, AgentAvatar } from './AgentBadge'
 
 interface Props {
   taskId: string
   artifacts: Pick<
     TaskArtifact,
-    'id' | 'kind' | 'title' | 'content' | 'source' | 'order' | 'createdAt'
+    | 'id'
+    | 'kind'
+    | 'title'
+    | 'content'
+    | 'source'
+    | 'agent'
+    | 'order'
+    | 'createdAt'
   >[]
   onChanged: () => void | Promise<void>
 }
@@ -26,6 +35,11 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
     const sources = Array.from(new Set(artifacts.map(a => a.source)))
     return sources.length === 1 ? sources[0]! : sources.join(', ')
   }, [artifacts])
+
+  const distinctAgents = useMemo(
+    () => Array.from(new Set(artifacts.map(a => a.agent))),
+    [artifacts]
+  )
 
   if (artifacts.length === 0) return null
 
@@ -44,6 +58,16 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
           <span className='text-xs font-semibold tracking-wide text-muted-foreground'>
             {intl.formatMessage({ id: 'taskArtifact.groupLabel' })}
           </span>
+          <span className='flex -space-x-1.5'>
+            {distinctAgents.map(agent => (
+              <AgentAvatar key={agent} agent={agent} />
+            ))}
+          </span>
+          {distinctAgents.length > 1 && (
+            <span className='text-xs text-muted-foreground'>
+              {intl.formatMessage({ id: 'taskArtifact.crossAgent' })}
+            </span>
+          )}
           <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded inline-flex items-center gap-1'>
             <Sparkle className='size-3 fill-current' />
             {intl.formatMessage(
@@ -81,6 +105,9 @@ export function SpecArtifactGroup({ taskId, artifacts, onChanged }: Props) {
                   {a.kind}
                 </span>
                 <span className='text-sm text-foreground'>{a.title}</span>
+                <span className='ml-auto'>
+                  <AgentBadge agent={a.agent} />
+                </span>
               </button>
               {open && (
                 <div className='px-4 pb-3.5 pl-10'>
@@ -134,6 +161,9 @@ function ManualAddForm({
   const [kind, setKind] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [agent, setAgent] = useState<TaskArtifactAgent>(
+    TaskArtifactAgent.CLAUDE_CODE
+  )
   const [saving, setSaving] = useState(false)
 
   const canSave = !!kind.trim() && !!title.trim() && !!content.trim() && !saving
@@ -159,6 +189,18 @@ function ManualAddForm({
         rows={5}
         className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none font-mono'
       />
+      <select
+        value={agent}
+        onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
+        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+        aria-label={intl.formatMessage({ id: 'taskArtifact.selectAgent' })}
+      >
+        {Object.values(TaskArtifactAgent).map(value => (
+          <option key={value} value={value}>
+            {intl.formatMessage({ id: `taskArtifact.agent.${value}` })}
+          </option>
+        ))}
+      </select>
       <div className='flex justify-end gap-2'>
         <button
           type='button'
@@ -178,6 +220,7 @@ function ManualAddForm({
                 title: title.trim(),
                 content,
                 source: 'manual',
+                agent,
               })
               await onSaved()
             } finally {

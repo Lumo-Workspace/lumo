@@ -47,4 +47,12 @@ describe('renderArtifactSection', () => {
       md.indexOf('[plan] Implementation plan')
     )
   })
+
+  it('appends the agent label to each heading', () => {
+    const out = renderArtifactSection([
+      { kind: 'spec', title: 'My Spec', content: 'body', agent: 'CODEX' },
+    ])
+    expect(out).toContain('## [spec] My Spec · Codex')
+    expect(out).toContain('body')
+  })
 })
