@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskArtifactService } from '@/lib/services/task-artifact.service'
+import { updateArtifactBodySchema } from '@/lib/validation/task-artifact'
+import { zodError } from '@/lib/api/helpers'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -58,6 +60,31 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ artifact })
   } catch (err) {
     return errorResponse(err, 'GET /api/tasks/[id]/artifacts/[artifactId]')
+  }
+}
+
+export async function PATCH(request: NextRequest, { params }: Params) {
+  try {
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
+
+    const { id: rawId, artifactId } = await params
+    const task = await resolveTask(rawId, identity.workspaceId)
+    if (!task)
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
+    const body = await request.json().catch(() => null)
+    const parsed = updateArtifactBodySchema.safeParse(body)
+    if (!parsed.success) return zodError(parsed)
+
+    const artifact = await taskArtifactService.updateArtifact(
+      task.id,
+      artifactId,
+      parsed.data
+    )
+    return NextResponse.json({ artifact })
+  } catch (err) {
+    return errorResponse(err, 'PATCH /api/tasks/[id]/artifacts/[artifactId]')
   }
 }
 

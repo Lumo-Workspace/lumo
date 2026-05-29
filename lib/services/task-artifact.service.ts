@@ -6,8 +6,14 @@ export interface AddArtifactInput {
   kind: string
   title: string
   content: string
-  source: string | undefined
+  source: string
   actorMemberId: string | null
+}
+
+export interface UpdateArtifactInput {
+  kind?: string | undefined
+  title?: string | undefined
+  source?: string | undefined
 }
 
 export const taskArtifactService = {
@@ -23,7 +29,7 @@ export const taskArtifactService = {
       kind: input.kind,
       title: input.title,
       content: input.content,
-      source: input.source ?? 'claude-code',
+      source: input.source,
       order,
       createdById: input.actorMemberId,
     })
@@ -42,5 +48,21 @@ export const taskArtifactService = {
     if (count === 0) {
       throw Object.assign(new Error('Artifact not found'), { status: 404 })
     }
+  },
+
+  async updateArtifact(
+    taskId: string,
+    artifactId: string,
+    patch: UpdateArtifactInput
+  ) {
+    const count = await taskArtifactRepository.updateById(
+      artifactId,
+      taskId,
+      patch
+    )
+    if (count === 0) {
+      throw Object.assign(new Error('Artifact not found'), { status: 404 })
+    }
+    return taskArtifactRepository.findById(artifactId, taskId)
   },
 }

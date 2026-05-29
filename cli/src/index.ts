@@ -24,6 +24,7 @@ import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
+import { taskArtifactEdit } from './commands/task-artifact-edit'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -325,10 +326,34 @@ taskArtifact
     '--file <path>',
     'File whose contents become the artifact body'
   )
-  .option('--source <source>', 'Producer label (default: claude-code)')
+  .requiredOption(
+    '--source <source>',
+    'Spec-gen framework, e.g. superpowers | spec-kit | openspec | gsd (opaque)'
+  )
   .action(
     wrap((taskId: unknown, options: unknown) =>
       taskArtifactAdd(taskId as string, options as Record<string, string>)
+    )
+  )
+
+taskArtifact
+  .command('edit <task> <artifact-id>')
+  .description(
+    'Edit an artifact’s kind / title / source (not content). Provide at least one flag.'
+  )
+  .option('--kind <kind>', 'New artifact kind (opaque)')
+  .option('--title <title>', 'New artifact title')
+  .option(
+    '--source <source>',
+    'New spec-gen framework label, e.g. superpowers | spec-kit | openspec | gsd'
+  )
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
+      taskArtifactEdit(
+        taskId as string,
+        artifactId as string,
+        options as Record<string, string>
+      )
     )
   )
 
@@ -350,9 +375,7 @@ taskArtifact
 
 taskArtifact
   .command('rm <task> <artifact-id>')
-  .description(
-    'Delete an artifact from a task. Irreversible — requires --yes.'
-  )
+  .description('Delete an artifact from a task. Irreversible — requires --yes.')
   .option('--yes', 'Confirm deletion (required, no interactive prompt)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>

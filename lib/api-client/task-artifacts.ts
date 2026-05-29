@@ -5,7 +5,7 @@ export interface CreateArtifactPayload {
   kind: string
   title: string
   content: string
-  source?: string
+  source: string
 }
 
 export const artifactsClient = {

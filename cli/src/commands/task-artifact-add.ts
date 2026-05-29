@@ -19,18 +19,25 @@ export async function taskArtifactAdd(
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact add <LUM-42> --kind spec --title "Spec" --file spec.md'
+      'Error: missing <task>. Usage: lumo task artifact add <LUM-42> --kind spec --title "Spec" --file spec.md --source superpowers'
     )
     return 1
   }
   const kind = options.kind?.trim()
   const title = options.title?.trim()
+  const source = options.source?.trim()
   if (!kind) {
     console.error('Error: --kind is required and cannot be empty.')
     return 1
   }
   if (!title) {
     console.error('Error: --title is required and cannot be empty.')
+    return 1
+  }
+  if (!source) {
+    console.error(
+      'Error: --source is required (the spec-gen framework, e.g. superpowers, spec-kit, openspec, gsd).'
+    )
     return 1
   }
   if (!options.file) {
@@ -59,8 +66,7 @@ export async function taskArtifactAdd(
   const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
   const base = trimTrailingSlash(apiUrl)
 
-  const payload: Record<string, string> = { kind, title, content }
-  if (options.source?.trim()) payload.source = options.source.trim()
+  const payload: Record<string, string> = { kind, title, content, source }
 
   let res: Response
   try {
