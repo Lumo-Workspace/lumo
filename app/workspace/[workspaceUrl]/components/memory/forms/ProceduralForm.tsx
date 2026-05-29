@@ -41,9 +41,16 @@ export function ProceduralForm({ value, onChange }: { value: ProceduralValue; on
         {value.steps.map((step, i) => (
           <div key={i} className='flex items-center gap-2'>
             <Input value={step} onChange={e => setStep(i, e.target.value)} aria-label={`step-${i}`} />
-            <button type='button' onClick={() => removeStep(i)} className='text-zinc-400 hover:text-red-500' aria-label={`remove-step-${i}`}>
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='shrink-0 text-zinc-400 hover:text-red-500'
+              onClick={() => removeStep(i)}
+              aria-label={`remove-step-${i}`}
+            >
               <X className='size-4' />
-            </button>
+            </Button>
           </div>
         ))}
         <Button type='button' variant='ghost' size='sm' onClick={addStep}>
