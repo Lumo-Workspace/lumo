@@ -41,6 +41,7 @@
     "@e2b/code-interpreter": "^2.4.0",
     "@google-cloud/storage": "^7.19.0",
     "@hookform/resolvers": "^5.2.2",
+    "@lobehub/icons": "^5.10.0",
     "@octokit/auth-app": "^8.2.0",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",

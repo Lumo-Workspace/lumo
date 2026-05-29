@@ -39,6 +39,7 @@ describe('AgentBadge', () => {
 
   it('renders the localized label', () => {
     const { getByText } = render(<AgentBadge agent={TaskArtifactAgent.CODEX} />)
-    expect(getByText('Codex')).toBeInTheDocument()
+    // ignore the <title> inside the lobehub SVG glyph, which also reads "Codex"
+    expect(getByText('Codex', { ignore: 'title' })).toBeInTheDocument()
   })
 })
