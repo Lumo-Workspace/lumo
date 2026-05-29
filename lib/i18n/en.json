@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "Remove this Figma design?",
   "task.figma.notConnected": "Figma is not connected. Go to Settings → Integrations to connect.",
   "task.figma.needsReauth": "Figma token expired. Reconnect Figma in Settings → Integrations.",
-  "task.figma.urlPlaceholder": "Paste a Figma URL…"
+  "task.figma.urlPlaceholder": "Paste a Figma URL…",
+  "memory.section.outcome": "Outcome",
+  "memory.section.workaround": "Workaround",
+  "memory.section.why": "Why",
+  "memory.section.alternatives": "Alternatives considered",
+  "memory.section.implications": "Implications",
+  "memory.section.scope": "Scope",
+  "memory.section.trigger": "Trigger",
+  "memory.section.steps": "Steps"
 }

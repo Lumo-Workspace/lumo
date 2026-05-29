@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "移除此 Figma 设计？",
   "task.figma.notConnected": "Figma 未连接，请前往设置 → 集成进行连接。",
   "task.figma.needsReauth": "Figma 令牌已过期，请在设置 → 集成中重新连接。",
-  "task.figma.urlPlaceholder": "粘贴 Figma 链接…"
+  "task.figma.urlPlaceholder": "粘贴 Figma 链接…",
+  "memory.section.outcome": "结果",
+  "memory.section.workaround": "解决办法",
+  "memory.section.why": "原因",
+  "memory.section.alternatives": "考虑过的替代方案",
+  "memory.section.implications": "后续影响",
+  "memory.section.scope": "适用范围",
+  "memory.section.trigger": "触发场景",
+  "memory.section.steps": "步骤"
 }

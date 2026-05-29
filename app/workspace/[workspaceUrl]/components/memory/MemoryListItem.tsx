@@ -45,13 +45,21 @@ export function MemoryListItem({
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const source = memory.createdByMemberId
-    ? intl.formatMessage({ id: 'memory.source.byMember' }, { name: memberName ?? '—' })
+    ? intl.formatMessage(
+        { id: 'memory.source.byMember' },
+        { name: memberName ?? '—' }
+      )
     : intl.formatMessage({ id: 'memory.source.auto' })
 
   return (
     <div className='relative group'>
       <MemoryCard
-        item={{ id: memory.id, category: memory.category, content: memory.content }}
+        item={{
+          id: memory.id,
+          category: memory.category,
+          content: memory.content,
+        }}
+        source={source}
         showSedimentedLabel={false}
       />
 
@@ -76,23 +84,30 @@ export function MemoryListItem({
                 {intl.formatMessage({ id: 'memory.action.promote' })}
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem className='text-red-600' onClick={() => setConfirmOpen(true)}>
+            <DropdownMenuItem
+              className='text-red-600'
+              onClick={() => setConfirmOpen(true)}
+            >
               {intl.formatMessage({ id: 'memory.action.delete' })}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <p className='text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 px-1'>{source}</p>
-
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{intl.formatMessage({ id: 'memory.delete.confirm.title' })}</AlertDialogTitle>
-            <AlertDialogDescription>{intl.formatMessage({ id: 'memory.delete.confirm.body' })}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'memory.delete.confirm.title' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage({ id: 'memory.delete.confirm.body' })}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{intl.formatMessage({ id: 'memory.dialog.cancel' })}</AlertDialogCancel>
+            <AlertDialogCancel>
+              {intl.formatMessage({ id: 'memory.dialog.cancel' })}
+            </AlertDialogCancel>
             <AlertDialogAction
               className='bg-red-600 hover:bg-red-700'
               onClick={() => {

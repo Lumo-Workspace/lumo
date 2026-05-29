@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import { Sparkles } from 'lucide-react'
 import type { MemoryCategory } from '@prisma/client'
@@ -12,14 +13,23 @@ import {
 } from '@/lib/memory/schemas'
 
 /**
- * One sedimented memory rendered as a category-colored card. Color is
- * driven entirely by `item.category` (TRAP red, DECISION blue,
- * CONVENTION amber, PROCEDURAL emerald) so a glance reads category
- * before content.
+ * One sedimented memory rendered as a neutral, white-bodied card.
  *
- * The "this is a memory" branding (sparkles icon + 沉淀记忆 label) is
- * shown by default — set `showSedimentedLabel={false}` when the
- * surrounding context already labels the section as memories.
+ * Color is an INDEX, not a fill: `item.category` drives only a 3px
+ * left accent stripe and a small category pill (TRAP red, DECISION
+ * blue, CONVENTION amber, PROCEDURAL emerald). The card body stays
+ * neutral so a list of memories reads as a quiet column of knowledge
+ * entries with a colored "spine" for at-a-glance categorization —
+ * not a wall of alert-colored blocks.
+ *
+ * Layout is a three-tier scan: title → field section-labels → content.
+ *
+ * `source` (e.g. "由 Claude 沉淀") renders as a chip in the top-right,
+ * opposite the category pill — left says "what kind", right says "who
+ * sedimented it". The "沉淀记忆" branding (sparkles) is shown by
+ * default in the top-right when no explicit `source` is given; set
+ * `showSedimentedLabel={false}` when the surrounding context already
+ * labels the section as memories.
  */
 interface MemoryCardItem {
   id: string
@@ -29,19 +39,22 @@ interface MemoryCardItem {
 
 interface MemoryCardProps {
   item: MemoryCardItem
-  /** Show the "沉淀记忆" header pill. Defaults to true; set false when
-   *  the surrounding context (e.g. a TurnCard) already has its own
-   *  "memory sedimented this turn" header and the per-card header
+  /** Top-right attribution chip (e.g. "由 Claude 沉淀"). Takes
+   *  precedence over the default sparkles branding. In a hover-group
+   *  context it fades out so an action menu can take the corner. */
+  source?: ReactNode
+  /** Show the default "沉淀记忆" sparkles chip in the top-right when no
+   *  `source` is given. Defaults to true; set false when the
+   *  surrounding context (e.g. a TurnCard) already has its own
+   *  "memory sedimented this turn" header and the per-card chip
    *  becomes redundant. */
   showSedimentedLabel?: boolean
 }
 
 interface CategoryStyle {
-  /** Tailwind classes for the card's border-l accent + outer border. */
-  border: string
-  /** Background tint that signals category at a glance. */
-  bg: string
-  /** Pill background + text used for the category label inside the card. */
+  /** Tailwind bg class for the 3px left accent stripe (the "spine"). */
+  accent: string
+  /** Pill background + text used for the category label. */
   pill: string
   /** Translation key for the category display name. */
   labelId: string
@@ -49,37 +62,30 @@ interface CategoryStyle {
 
 const CATEGORY_STYLES: Record<MemoryCategory, CategoryStyle> = {
   TRAP: {
-    border:
-      'border-l-4 border-l-red-500 border border-red-200 dark:border-red-900/60',
-    bg: 'bg-red-50 dark:bg-red-950/30',
-    pill: 'text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50',
+    accent: 'bg-red-500',
+    pill: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
     labelId: 'memory.category.trap',
   },
   DECISION: {
-    border:
-      'border-l-4 border-l-blue-500 border border-blue-200 dark:border-blue-900/60',
-    bg: 'bg-blue-50 dark:bg-blue-950/30',
-    pill: 'text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/50',
+    accent: 'bg-blue-500',
+    pill: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
     labelId: 'memory.category.decision',
   },
   CONVENTION: {
-    border:
-      'border-l-4 border-l-amber-500 border border-amber-200 dark:border-amber-900/60',
-    bg: 'bg-amber-50 dark:bg-amber-950/30',
-    pill: 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50',
+    accent: 'bg-amber-500',
+    pill: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
     labelId: 'memory.category.convention',
   },
   PROCEDURAL: {
-    border:
-      'border-l-4 border-l-emerald-500 border border-emerald-200 dark:border-emerald-900/60',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-    pill: 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50',
+    accent: 'bg-emerald-500',
+    pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
     labelId: 'memory.category.procedural',
   },
 }
 
 export function MemoryCard({
   item,
+  source,
   showSedimentedLabel = true,
 }: MemoryCardProps) {
   const intl = useIntl()
@@ -93,27 +99,59 @@ export function MemoryCard({
   }
 
   return (
-    <div className={`rounded-md ${style.border} ${style.bg} px-4 py-3`}>
-      <div className='flex items-center gap-2 mb-1.5'>
-        {showSedimentedLabel && (
-          <>
-            <Sparkles className='size-3.5 text-violet-500' />
-            <span className='text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300'>
+    <div className='relative overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'>
+      <span
+        aria-hidden
+        className={`absolute inset-y-0 left-0 w-[3px] ${style.accent}`}
+      />
+      <div className='py-3 pl-4 pr-3'>
+        <div className='mb-1.5 flex items-start justify-between gap-2'>
+          <span
+            className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium uppercase tracking-wide ${style.pill}`}
+          >
+            {intl.formatMessage({ id: style.labelId })}
+          </span>
+          {source ? (
+            <span className='shrink-0 text-[10px] text-zinc-400 transition-opacity group-hover:opacity-0 dark:text-zinc-500'>
+              {source}
+            </span>
+          ) : showSedimentedLabel ? (
+            <span className='inline-flex shrink-0 items-center gap-1 text-[10px] text-violet-500 dark:text-violet-400'>
+              <Sparkles className='size-3' />
               {intl.formatMessage({
                 id: 'agentRun.memorySedimented',
                 defaultMessage: '沉淀记忆',
               })}
             </span>
-          </>
-        )}
-        <span
-          className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded ${style.pill}`}
-        >
-          {intl.formatMessage({ id: style.labelId })}
-        </span>
+          ) : null}
+        </div>
+        <MemoryBody category={item.category} parsed={parsed} />
       </div>
-      <MemoryBody category={item.category} parsed={parsed} />
     </div>
+  )
+}
+
+/** Small uppercase gray section label sitting above its content, giving
+ *  each card a "title → field label → content" scan structure. */
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className='mt-2.5'>
+      <p className='text-[10px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+        {label}
+      </p>
+      <div className='mt-0.5 text-sm text-zinc-700 dark:text-zinc-300'>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** The card title: medium weight (not bold), capped at two lines. */
+function Title({ children }: { children: ReactNode }) {
+  return (
+    <p className='line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100'>
+      {children}
+    </p>
   )
 }
 
@@ -125,87 +163,67 @@ function MemoryBody({
   parsed: unknown
 }) {
   const intl = useIntl()
+  const label = (id: string) => intl.formatMessage({ id })
 
   switch (category) {
     case 'TRAP': {
       const c = parsed as TrapContent
       return (
-        <div className='text-sm text-zinc-800 dark:text-zinc-200'>
-          <p className='font-semibold'>{c.trigger}</p>
-          <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-            {c.outcome}
-          </p>
+        <>
+          <Title>{c.trigger}</Title>
+          <Section label={label('memory.section.outcome')}>{c.outcome}</Section>
           {c.workaround && (
-            <p className='text-xs text-emerald-700 dark:text-emerald-400 mt-1'>
-              {intl.formatMessage(
-                { id: 'memory.field.workaround' },
-                { value: c.workaround }
-              )}
-            </p>
+            <Section label={label('memory.section.workaround')}>
+              {c.workaround}
+            </Section>
           )}
-        </div>
+        </>
       )
     }
     case 'DECISION': {
       const c = parsed as DecisionContent
       return (
-        <div className='text-sm text-zinc-800 dark:text-zinc-200'>
-          <p className='font-semibold'>{c.what}</p>
-          <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-            {intl.formatMessage({ id: 'memory.field.why' }, { value: c.why })}
-          </p>
+        <>
+          <Title>{c.what}</Title>
+          <Section label={label('memory.section.why')}>{c.why}</Section>
           {c.alternatives && (
-            <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-              {intl.formatMessage(
-                { id: 'memory.field.alternatives' },
-                { value: c.alternatives }
-              )}
-            </p>
+            <Section label={label('memory.section.alternatives')}>
+              {c.alternatives}
+            </Section>
           )}
           {c.implications && (
-            <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-              {intl.formatMessage(
-                { id: 'memory.field.implications' },
-                { value: c.implications }
-              )}
-            </p>
+            <Section label={label('memory.section.implications')}>
+              {c.implications}
+            </Section>
           )}
-        </div>
+        </>
       )
     }
     case 'CONVENTION': {
       const c = parsed as ConventionContent
       return (
-        <div className='text-sm text-zinc-800 dark:text-zinc-200'>
-          <p className='font-semibold'>{c.rule}</p>
-          <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-            {intl.formatMessage(
-              { id: 'memory.field.scope' },
-              { value: c.scope }
-            )}
-          </p>
-        </div>
+        <>
+          <Title>{c.rule}</Title>
+          <Section label={label('memory.section.scope')}>{c.scope}</Section>
+        </>
       )
     }
     case 'PROCEDURAL': {
       const c = parsed as ProceduralContent
       return (
-        <div className='text-sm text-zinc-800 dark:text-zinc-200'>
-          <p className='font-semibold'>{c.workflow}</p>
-          <p className='text-xs text-zinc-600 dark:text-zinc-400 mt-1'>
-            {intl.formatMessage(
-              { id: 'memory.field.trigger' },
-              { value: c.trigger }
-            )}
-          </p>
+        <>
+          <Title>{c.workflow}</Title>
+          <Section label={label('memory.section.trigger')}>{c.trigger}</Section>
           {c.steps && c.steps.length > 0 && (
-            <ol className='text-xs mt-1.5 ml-4 list-decimal space-y-0.5 text-zinc-600 dark:text-zinc-400 marker:text-zinc-400 dark:marker:text-zinc-600'>
-              {c.steps.map((step, i) => (
-                <li key={i}>{step}</li>
-              ))}
-            </ol>
+            <Section label={label('memory.section.steps')}>
+              <ol className='ml-4 list-decimal space-y-0.5 marker:text-zinc-400 dark:marker:text-zinc-600'>
+                {c.steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+            </Section>
           )}
-        </div>
+        </>
       )
     }
   }

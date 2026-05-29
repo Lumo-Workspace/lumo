@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "移除此 Figma 設計？",
   "task.figma.notConnected": "Figma 未連接，請前往設定 → 整合進行連接。",
   "task.figma.needsReauth": "Figma 權杖已過期，請在設定 → 整合中重新連接。",
-  "task.figma.urlPlaceholder": "貼上 Figma 網址…"
+  "task.figma.urlPlaceholder": "貼上 Figma 網址…",
+  "memory.section.outcome": "結果",
+  "memory.section.workaround": "解決辦法",
+  "memory.section.why": "原因",
+  "memory.section.alternatives": "考慮過的替代方案",
+  "memory.section.implications": "後續影響",
+  "memory.section.scope": "適用範圍",
+  "memory.section.trigger": "觸發場景",
+  "memory.section.steps": "步驟"
 }

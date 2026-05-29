@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "Удалить этот дизайн Figma?",
   "task.figma.notConnected": "Figma не подключена. Перейдите в Настройки → Интеграции для подключения.",
   "task.figma.needsReauth": "Токен Figma истёк. Переподключите Figma в Настройках → Интеграции.",
-  "task.figma.urlPlaceholder": "Вставьте URL Figma…"
+  "task.figma.urlPlaceholder": "Вставьте URL Figma…",
+  "memory.section.outcome": "Последствие",
+  "memory.section.workaround": "Обходной путь",
+  "memory.section.why": "Причина",
+  "memory.section.alternatives": "Рассмотренные альтернативы",
+  "memory.section.implications": "Последствия",
+  "memory.section.scope": "Область применения",
+  "memory.section.trigger": "Условие",
+  "memory.section.steps": "Шаги"
 }

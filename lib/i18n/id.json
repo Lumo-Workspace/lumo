@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "Hapus desain Figma ini?",
   "task.figma.notConnected": "Figma belum terhubung. Buka Pengaturan → Integrasi untuk menghubungkan.",
   "task.figma.needsReauth": "Token Figma sudah kedaluwarsa. Hubungkan kembali Figma di Pengaturan → Integrasi.",
-  "task.figma.urlPlaceholder": "Tempel URL Figma…"
+  "task.figma.urlPlaceholder": "Tempel URL Figma…",
+  "memory.section.outcome": "Akibat",
+  "memory.section.workaround": "Solusi",
+  "memory.section.why": "Alasan",
+  "memory.section.alternatives": "Alternatif yang dipertimbangkan",
+  "memory.section.implications": "Implikasi",
+  "memory.section.scope": "Cakupan",
+  "memory.section.trigger": "Pemicu",
+  "memory.section.steps": "Langkah-langkah"
 }

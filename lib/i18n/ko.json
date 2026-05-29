@@ -1177,5 +1177,13 @@
   "task.figma.confirmDelete": "이 Figma 디자인을 삭제하시겠습니까?",
   "task.figma.notConnected": "Figma가 연결되지 않았습니다. 설정 → 통합에서 연결하세요.",
   "task.figma.needsReauth": "Figma 토큰이 만료되었습니다. 설정 → 통합에서 Figma를 다시 연결하세요.",
-  "task.figma.urlPlaceholder": "Figma URL 붙여넣기…"
+  "task.figma.urlPlaceholder": "Figma URL 붙여넣기…",
+  "memory.section.outcome": "결과",
+  "memory.section.workaround": "해결 방법",
+  "memory.section.why": "이유",
+  "memory.section.alternatives": "검토한 대안",
+  "memory.section.implications": "영향",
+  "memory.section.scope": "적용 범위",
+  "memory.section.trigger": "발생 조건",
+  "memory.section.steps": "단계"
 }
