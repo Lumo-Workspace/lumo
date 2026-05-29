@@ -19,6 +19,10 @@ describe('buildMemoryContent', () => {
     const r = buildMemoryContent('decision', { what: 'a', why: 'b', alternatives: '', implications: '' })
     expect(r).toEqual({ ok: true, category: 'DECISION', content: { what: 'a', why: 'b' } })
   })
+  it('builds a DECISION dropping whitespace-only optionals and trimming kept ones', () => {
+    const r = buildMemoryContent('decision', { what: ' a ', why: ' b ', alternatives: '   ', implications: ' x ' })
+    expect(r).toEqual({ ok: true, category: 'DECISION', content: { what: 'a', why: 'b', implications: 'x' } })
+  })
   it('maps --applies to convention content.scope', () => {
     const r = buildMemoryContent('convention', { rule: 'r', applies: 'everywhere' })
     expect(r).toEqual({ ok: true, category: 'CONVENTION', content: { rule: 'r', scope: 'everywhere' } })

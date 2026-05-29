@@ -1,7 +1,6 @@
 // Category/field metadata + builders for the `lumo memory` commands.
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
 
-export type CategoryInput = 'trap' | 'decision' | 'convention' | 'procedural'
 type Built =
   | { ok: true; category: 'TRAP' | 'DECISION' | 'CONVENTION' | 'PROCEDURAL'; content: Record<string, unknown> }
   | { ok: false; error: string }
