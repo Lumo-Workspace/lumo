@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design.'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory".'
 ---
 
 ## Prerequisites
@@ -885,6 +885,70 @@ lumo sprint remove 3 LUM-48
 ```
 
 When to suggest: user says "remove LUM-48 from the sprint", "take this task out of sprint 3", "move task to backlog".
+
+## Memory management
+
+Record and curate the long-term Memory that Claude reads on future sessions.
+Memories are scoped **TASK** (useful only for one task) or **PROJECT** (useful
+across the whole project). Automated extraction (layer1) and promotion (layer2,
+on task→done) already run; these commands are the manual override.
+
+### Commands
+
+```bash
+# List
+lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [-n N]
+lumo project memory list [<project>] [--category ...] [-n N]
+
+# Add (per-category fields; <task>/<project> default to the session-bound task)
+lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."]
+lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."]
+lumo task memory add [LUM-N] --category convention --rule "..." --applies "..."
+lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."]
+lumo project memory add [<project>] --category ...   # same flags; records at PROJECT scope
+
+# Single-memory ops (memoryId from `... memory list` column 1)
+lumo memory promote <memoryId>     # TASK → PROJECT
+lumo memory rm <memoryId> --yes    # hard delete
+```
+
+When the session is bound (`lumo session attach <LUM-N>`), omit the identifier:
+`lumo task memory add --category trap --trigger ... --outcome ...` records onto
+the bound task; `lumo project memory add ...` records onto its project.
+
+### When to record a memory (worthiness)
+
+Record only knowledge that is **invisible in the codebase** — the *why* behind a
+choice, a gotcha that only surfaces at runtime, a rule that lives in people's
+heads, a non-obvious failure cause, a non-trivial workflow. **Skip** routine work
+(reading files, plain edits, normal git, successful builds) and anything a
+developer could learn from the source, git log, or docs. When unsure, don't.
+
+### Which category
+
+- `trap` — a pitfall. Describe the PROBLEM ONLY (`--trigger`, `--outcome`); put any fix in a separate `procedural`.
+- `decision` — an engineering decision (`--what` + `--why`, optional `--alternatives`/`--implications`).
+- `convention` — a team rule (`--rule` + `--applies` = where it applies).
+- `procedural` — a reusable workflow (`--workflow` + `--trigger` + `--step`…).
+
+### TASK vs PROJECT (at add time)
+
+Default to **TASK** (`lumo task memory add`). Record directly to **PROJECT**
+(`lumo project memory add`) only when it helps *any* task in the project: a
+toolchain/environment trap, a team-wide convention, a cross-task decision. When
+unsure → TASK.
+
+### When to promote (TASK → PROJECT)
+
+`lumo memory promote <id>` only when the lesson **recurs across 2+ different
+tasks**, would help a *different* task, and no equivalent PROJECT memory exists.
+A wrong promotion is costly (every agent sees it forever) — prefer leaving it at TASK.
+
+### When to reach for this
+
+After a non-trivial debugging session, a pitfall you hit, or establishing a
+convention → consider `lumo task memory add`. When you notice a lesson recurring
+across multiple tasks → consider `lumo memory promote`.
 
 ## Session Management
 

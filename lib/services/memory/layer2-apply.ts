@@ -81,6 +81,7 @@ export async function applyLayer2Operations(
             category,
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: null,
+            createdByMemberId: null,
           },
           tx
         )

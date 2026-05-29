@@ -22,3 +22,5 @@ export type {
 } from './milestones'
 export { waitlistClient } from './waitlist'
 export type { WaitlistSignupInput, WaitlistSignupResult } from './waitlist'
+export { memoriesClient } from './memories'
+export type { MemoryRow } from './memories'

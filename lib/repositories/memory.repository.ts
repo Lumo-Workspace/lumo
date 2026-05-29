@@ -1,6 +1,17 @@
 import { prisma } from '@/lib/db/prisma'
 import type { MemoryCategory, MemoryScope, Prisma } from '@prisma/client'
 
+const MEMORY_ROW_SELECT = {
+  id: true,
+  scope: true,
+  category: true,
+  content: true,
+  taskId: true,
+  createdByMemberId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
 interface CreateMemoryInput {
   workspaceId: string
   projectId: string
@@ -9,6 +20,7 @@ interface CreateMemoryInput {
   category: MemoryCategory
   content: Prisma.InputJsonValue
   sourceSessionId: string | null
+  createdByMemberId: string | null
 }
 
 export const memoryRepository = {
@@ -92,6 +104,70 @@ export const memoryRepository = {
     })
   },
 
+  /** All PROJECT-scope memories for a project, newest first. Management UI. */
+  async listForProject(projectId: string) {
+    return prisma.memory.findMany({
+      where: { projectId, scope: 'PROJECT' },
+      orderBy: { createdAt: 'desc' },
+      select: MEMORY_ROW_SELECT,
+    })
+  },
+
+  /** All memories for a task, newest first. Management UI. */
+  async listForTask(taskId: string) {
+    return prisma.memory.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      select: MEMORY_ROW_SELECT,
+    })
+  },
+
+  /**
+   * Patch content and/or scope and/or taskId in one write. Undefined fields
+   * are omitted so a content-only edit never touches scope. Returns the full
+   * row for the HTTP response.
+   */
+  async update(
+    id: string,
+    patch: {
+      content?: Prisma.InputJsonValue
+      scope?: MemoryScope
+      taskId?: string | null
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    const data: Prisma.MemoryUpdateInput = {}
+    if (patch.content !== undefined) data.content = patch.content
+    if (patch.scope !== undefined) data.scope = patch.scope
+    if (patch.taskId !== undefined) {
+      data.task =
+        patch.taskId === null
+          ? { disconnect: true }
+          : { connect: { id: patch.taskId } }
+    }
+    return client.memory.update({
+      where: { id },
+      data,
+      select: MEMORY_ROW_SELECT,
+    })
+  },
+
+  /** Auth-relevant fields for PATCH/DELETE routes. */
+  async findByIdWithWorkspace(id: string) {
+    return prisma.memory.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        workspaceId: true,
+        projectId: true,
+        taskId: true,
+        scope: true,
+        category: true,
+      },
+    })
+  },
+
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.memory.create({
@@ -103,6 +179,7 @@ export const memoryRepository = {
         category: input.category,
         content: input.content,
         sourceSessionId: input.sourceSessionId,
+        createdByMemberId: input.createdByMemberId,
       },
       select: { id: true },
     })

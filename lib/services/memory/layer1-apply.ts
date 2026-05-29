@@ -99,6 +99,7 @@ export async function applyLayer1Operations(
             category,
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: input.sessionId,
+            createdByMemberId: null,
           },
           tx
         )

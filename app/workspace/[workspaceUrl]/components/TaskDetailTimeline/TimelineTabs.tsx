@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { AgentRunTab } from '../AgentRunTimeline/AgentRunTab'
 import { ContextTab } from './ContextTab'
+import { MemoryTab } from '../memory/MemoryTab'
 
-type TabValue = 'comments' | 'activity' | 'context' | 'agent'
+type TabValue = 'comments' | 'activity' | 'context' | 'agent' | 'memory'
 
 interface PullRequestSummary {
   id: string
@@ -47,6 +48,13 @@ export function TimelineTabs({
     taskId,
     enabled: activeTab === 'activity',
   })
+
+  // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
+  // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
+  const memoryMemberNames = useMemo(
+    () => new Map(commentsProps.members.map(m => [m.id, m.name])),
+    [commentsProps.members]
+  )
 
   const tabClass = (active: boolean) =>
     `pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -94,6 +102,15 @@ export function TimelineTabs({
             defaultMessage: 'Agent 运行',
           })}
         </button>
+        <button
+          className={tabClass(activeTab === 'memory')}
+          onClick={() => setActiveTab('memory')}
+        >
+          {intl.formatMessage({
+            id: 'memory.tab.title',
+            defaultMessage: 'Memory',
+          })}
+        </button>
       </div>
 
       {activeTab === 'activity' && (
@@ -124,6 +141,14 @@ export function TimelineTabs({
         <AgentRunTab
           taskId={taskId}
           enabled={activeTab === 'agent'}
+        />
+      )}
+      {activeTab === 'memory' && (
+        <MemoryTab
+          scope='task'
+          parentId={taskId}
+          enabled={activeTab === 'memory'}
+          memberNames={memoryMemberNames}
         />
       )}
     </div>
