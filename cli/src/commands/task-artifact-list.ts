@@ -1,11 +1,13 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { AGENT_LABELS } from '../lib/agent'
 
 interface ArtifactRow {
   id: string
   kind: string
   title: string
   source: string
+  agent: string
   order: number
 }
 
@@ -59,8 +61,9 @@ export async function taskArtifactList(
     return
   }
   for (const a of artifacts) {
+    const agentLabel = AGENT_LABELS[a.agent] ?? a.agent
     process.stdout.write(
-      `${a.id}  ${a.kind.padEnd(10)}  ${a.source.padEnd(12)}  ${a.title}\n`
+      `${a.id}  ${a.kind.padEnd(10)}  ${agentLabel.padEnd(15)}  ${a.source.padEnd(12)}  ${a.title}\n`
     )
   }
 }

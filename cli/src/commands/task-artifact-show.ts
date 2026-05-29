@@ -1,11 +1,13 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { AGENT_LABELS } from '../lib/agent'
 
 interface Artifact {
   id: string
   kind: string
   title: string
   source: string
+  agent: string
   order: number
   content: string
   createdAt?: string
@@ -75,6 +77,9 @@ export async function taskArtifactShow(
   process.stdout.write(`kind:   ${artifact.kind}\n`)
   process.stdout.write(`title:  ${artifact.title}\n`)
   process.stdout.write(`source: ${artifact.source}\n`)
+  process.stdout.write(
+    `agent:  ${AGENT_LABELS[artifact.agent] ?? artifact.agent}\n`
+  )
   process.stdout.write(`order:  ${artifact.order}\n`)
   process.stdout.write(`task:   ${identifier}\n`)
   process.stdout.write(`\n${artifact.content}\n`)
