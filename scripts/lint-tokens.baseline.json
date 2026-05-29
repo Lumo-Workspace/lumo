@@ -5,6 +5,7 @@
   "app/sessions/[id]/SummaryCard.tsx": 1,
   "app/signin/[[...signin]]/page.tsx": 2,
   "app/signup/[[...signup]]/page.tsx": 17,
+  "app/workspace/[workspaceUrl]/components/AgentBadge.tsx": 6,
   "app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard.tsx": 14,
   "app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunEventRow.tsx": 4,
   "app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunTab.tsx": 5,
