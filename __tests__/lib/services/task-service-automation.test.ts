@@ -79,7 +79,8 @@ describe('taskService.createFromAutomation', () => {
       .calls[0][0]
     expect(args.status).toBe('TODO')
     expect(args.title).toBe('Boom')
-    expect(args.description).toBe('desc')
+    // createFromAutomation normalizes markdown → HTML rich text (normalizeRichText)
+    expect(args.description).toBe('<p>desc</p>\n')
     expect(args.priority).toBe('HIGH')
     expect(args.assigneeActorId).toBe('actor1')
     expect(args.projectId).toBe('proj1')
