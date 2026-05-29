@@ -7,6 +7,7 @@ jest.mock('@/lib/db/prisma', () => ({
       count: jest.fn(),
       findFirst: jest.fn(),
       deleteMany: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }))
@@ -21,6 +22,7 @@ const mockPrisma = prisma as unknown as {
     count: jest.Mock
     findFirst: jest.Mock
     deleteMany: jest.Mock
+    updateMany: jest.Mock
   }
 }
 
@@ -89,6 +91,27 @@ describe('taskArtifactRepository', () => {
   it('deleteById returns 0 when no row matches', async () => {
     mockPrisma.taskArtifact.deleteMany.mockResolvedValue({ count: 0 })
     const n = await taskArtifactRepository.deleteById('a1', 't1')
+    expect(n).toBe(0)
+  })
+
+  it('updateById patches scoped to (id, taskId) and returns count', async () => {
+    mockPrisma.taskArtifact.updateMany.mockResolvedValue({ count: 1 })
+    const n = await taskArtifactRepository.updateById('a1', 't1', {
+      kind: 'plan',
+      source: 'spec-kit',
+    })
+    expect(mockPrisma.taskArtifact.updateMany).toHaveBeenCalledWith({
+      where: { id: 'a1', taskId: 't1' },
+      data: { kind: 'plan', source: 'spec-kit' },
+    })
+    expect(n).toBe(1)
+  })
+
+  it('updateById returns 0 when no row matches', async () => {
+    mockPrisma.taskArtifact.updateMany.mockResolvedValue({ count: 0 })
+    const n = await taskArtifactRepository.updateById('a1', 't1', {
+      title: 'x',
+    })
     expect(n).toBe(0)
   })
 })

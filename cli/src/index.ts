@@ -24,6 +24,7 @@ import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
+import { taskArtifactUpdate } from './commands/task-artifact-update'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -325,10 +326,34 @@ taskArtifact
     '--file <path>',
     'File whose contents become the artifact body'
   )
-  .option('--source <source>', 'Producer label (default: claude-code)')
+  .requiredOption(
+    '--source <source>',
+    'Spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (opaque; quote names with spaces)'
+  )
   .action(
     wrap((taskId: unknown, options: unknown) =>
       taskArtifactAdd(taskId as string, options as Record<string, string>)
+    )
+  )
+
+taskArtifact
+  .command('update <task> <artifact-id>')
+  .description(
+    'Update an artifact’s kind / title / source (not content). Provide at least one flag.'
+  )
+  .option('--kind <kind>', 'New artifact kind (opaque)')
+  .option('--title <title>', 'New artifact title')
+  .option(
+    '--source <source>',
+    'New spec-gen framework, formal name e.g. Superpowers | "Spec Kit" | BMad | OpenSpec | GSD (quote names with spaces)'
+  )
+  .action(
+    wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
+      taskArtifactUpdate(
+        taskId as string,
+        artifactId as string,
+        options as Record<string, string>
+      )
     )
   )
 
@@ -350,9 +375,7 @@ taskArtifact
 
 taskArtifact
   .command('rm <task> <artifact-id>')
-  .description(
-    'Delete an artifact from a task. Irreversible — requires --yes.'
-  )
+  .description('Delete an artifact from a task. Irreversible — requires --yes.')
   .option('--yes', 'Confirm deletion (required, no interactive prompt)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>

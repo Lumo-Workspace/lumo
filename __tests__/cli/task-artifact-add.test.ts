@@ -22,16 +22,32 @@ describe('taskArtifactAdd', () => {
   beforeEach(() => jest.restoreAllMocks())
 
   it('errors when --kind is missing', async () => {
-    const code = await taskArtifactAdd('LUM-9', { title: 'Spec', file: 'f.md' })
+    const code = await taskArtifactAdd('LUM-9', {
+      title: 'Spec',
+      file: 'f.md',
+      source: 'superpowers',
+    })
     expect(code).toBe(1)
   })
 
-  it('POSTs to the artifacts route with kind/title/content', async () => {
+  it('errors when --source is missing', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
     const code = await taskArtifactAdd('LUM-9', {
       kind: 'spec',
       title: 'Spec',
       file: 'f.md',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('POSTs to the artifacts route with kind/title/content/source', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: 'f.md',
+      source: 'superpowers',
     })
     expect(code).toBeUndefined()
     const [url, init] = fetchSpy.mock.calls[0]!
@@ -42,6 +58,7 @@ describe('taskArtifactAdd', () => {
       kind: 'spec',
       title: 'Spec',
       content: '## Requirements\n- a',
+      source: 'superpowers',
     })
   })
 })

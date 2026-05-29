@@ -6,6 +6,7 @@ jest.mock('@/lib/repositories/task-artifact.repository', () => ({
     countByTask: jest.fn(),
     findById: jest.fn(),
     deleteById: jest.fn(),
+    updateById: jest.fn(),
   },
 }))
 
@@ -18,6 +19,7 @@ const repo = taskArtifactRepository as unknown as {
   countByTask: jest.Mock
   findById: jest.Mock
   deleteById: jest.Mock
+  updateById: jest.Mock
 }
 
 describe('taskArtifactService.addArtifact', () => {
@@ -44,7 +46,7 @@ describe('taskArtifactService.addArtifact', () => {
     )
   })
 
-  it("defaults source to 'claude-code' when omitted", async () => {
+  it('passes source through verbatim (no default)', async () => {
     repo.countByTask.mockResolvedValue(0)
     repo.create.mockResolvedValue({ id: 'a1' })
     await taskArtifactService.addArtifact({
@@ -53,16 +55,42 @@ describe('taskArtifactService.addArtifact', () => {
       kind: 'spec',
       title: 'Spec',
       content: 'x',
-      source: undefined,
+      source: 'gsd',
       actorMemberId: null,
     })
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        source: 'claude-code',
+        source: 'gsd',
         order: 0,
         createdById: null,
       })
     )
+  })
+})
+
+describe('taskArtifactService.updateArtifact', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('patches and returns the refreshed artifact', async () => {
+    repo.updateById.mockResolvedValue(1)
+    repo.findById.mockResolvedValue({ id: 'a1', kind: 'plan', source: 'gsd' })
+    const out = await taskArtifactService.updateArtifact('t1', 'a1', {
+      kind: 'plan',
+      source: 'gsd',
+    })
+    expect(repo.updateById).toHaveBeenCalledWith('a1', 't1', {
+      kind: 'plan',
+      source: 'gsd',
+    })
+    expect(out).toEqual({ id: 'a1', kind: 'plan', source: 'gsd' })
+  })
+
+  it('throws 404 when no row matched', async () => {
+    repo.updateById.mockResolvedValue(0)
+    await expect(
+      taskArtifactService.updateArtifact('t1', 'a1', { kind: 'plan' })
+    ).rejects.toMatchObject({ status: 404, message: 'Artifact not found' })
+    expect(repo.findById).not.toHaveBeenCalled()
   })
 })
 
@@ -78,10 +106,12 @@ describe('taskArtifactService.getById', () => {
 
   it('throws 404 when the artifact is missing', async () => {
     repo.findById.mockResolvedValue(null)
-    await expect(taskArtifactService.getById('t1', 'a1')).rejects.toMatchObject({
-      status: 404,
-      message: 'Artifact not found',
-    })
+    await expect(taskArtifactService.getById('t1', 'a1')).rejects.toMatchObject(
+      {
+        status: 404,
+        message: 'Artifact not found',
+      }
+    )
   })
 })
 

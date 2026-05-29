@@ -491,6 +491,7 @@
   "taskArtifact.save": "保存",
   "taskArtifact.cancel": "取消",
   "taskArtifact.docsRefOnly": "仅参考资料 · spec 在上方定义层",
+  "taskArtifact.generatedMeta": "{source} 生成 · {time}",
   "task.bulkUpdateFailure": "{failed}/{total} 个任务更新失败",
   "task.bulkUpdateSuccess": "已更新 {count} 个任务",
   "task.create": "新建任务",

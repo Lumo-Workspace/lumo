@@ -33,7 +33,12 @@ it('POST resolves LUM-N and returns 201 with the created artifact', async () => 
 
   const req = new NextRequest('http://x/api/tasks/LUM-9/artifacts', {
     method: 'POST',
-    body: JSON.stringify({ kind: 'spec', title: 'Spec', content: '## R' }),
+    body: JSON.stringify({
+      kind: 'spec',
+      title: 'Spec',
+      content: '## R',
+      source: 'superpowers',
+    }),
   })
   const res = await POST(req, params('LUM-9'))
   expect(res.status).toBe(201)

@@ -449,6 +449,7 @@
   "taskArtifact.save": "保存",
   "taskArtifact.cancel": "キャンセル",
   "taskArtifact.docsRefOnly": "参照用のみ · 仕様は上の定義レイヤーにあります",
+  "taskArtifact.generatedMeta": "{source} が生成 · {time}",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
   "task.create": "Create Task",

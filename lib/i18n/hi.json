@@ -449,6 +449,7 @@
   "taskArtifact.save": "सहेजें",
   "taskArtifact.cancel": "रद्द करें",
   "taskArtifact.docsRefOnly": "केवल संदर्भ · विनिर्देश ऊपर परिभाषा परत में है",
+  "taskArtifact.generatedMeta": "{source} द्वारा जनरेट किया गया · {time}",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
   "task.create": "Create Task",

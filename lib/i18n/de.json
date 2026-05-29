@@ -449,6 +449,7 @@
   "taskArtifact.save": "Speichern",
   "taskArtifact.cancel": "Abbrechen",
   "taskArtifact.docsRefOnly": "Nur als Referenz · die Spezifikation befindet sich in der Definitionsebene oben",
+  "taskArtifact.generatedMeta": "Erstellt von {source} · {time}",
   "task.bulkUpdateFailure": "Failed to update {failed} of {total} tasks",
   "task.bulkUpdateSuccess": "Updated {count, plural, one {# task} other {# tasks}}",
   "task.create": "Create Task",
