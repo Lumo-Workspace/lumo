@@ -84,11 +84,11 @@ A shared helper `cli/src/lib/resolve-bound-task.ts` (env + `/api/sessions/<id>` 
 Fixed-width rows, memoryId first (so `promote`/`rm` can reference it), like `task artifact list`:
 
 ```
-cmd_xxx  TASK     TRAP        Postgres enums can't be altered mid-migration   Sedimented by Claude
-cmd_yyy  PROJECT  CONVENTION  All new schemas must use Zod                     Added by Chao Li
+cmd_xxx  TASK     TRAP        Postgres enums can't be altered mid-migration   auto
+cmd_yyy  PROJECT  CONVENTION  All new schemas must use Zod                     manual
 ```
 
-Source column: `Added by <name>` when `createdByMemberId` resolves to a member name, else `Sedimented by Claude` (auto-extracted). `--category <cat>` filters client-side; `-n <limit>` caps rows.
+Source column: `manual` when `createdByMemberId` is set (human/agent-created), `auto` when null (sedimented by layer1/layer2). The CLI deliberately shows a short token rather than the creator's display name — the memory API returns only `createdByMemberId`, and resolving it to a name needs the workspace-members endpoint (the same plumbing tracked as the web "Added by X" follow-up). Surfacing the actual name is a deferred enhancement that can ride the same fix. `--category <cat>` filters client-side; `-n <limit>` caps rows.
 
 ## The guidance prompt (Decision 2 + 3)
 
