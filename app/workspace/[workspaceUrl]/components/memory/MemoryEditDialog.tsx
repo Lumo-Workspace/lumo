@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { MemoryCategory } from '@prisma/client'
 import type { MemoryRow } from '@/lib/api-client'
@@ -139,6 +139,15 @@ export function MemoryEditDialog({
   const [state, setState] = useState<FormState | null>(() =>
     mode === 'edit' ? initialState(editing) : null
   )
+
+  // Reset the form whenever the dialog (re)opens, so a reused instance never
+  // shows the previous row's data. Depends on `open` only — re-running on
+  // mode/editing changes mid-open would clobber in-progress input. Consumers
+  // may still remount via React key; this is the defensive belt-and-suspenders.
+  useEffect(() => {
+    if (open) setState(mode === 'edit' ? initialState(editing) : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const titleId = mode === 'create' ? 'memory.dialog.create.title' : 'memory.dialog.edit.title'
   const ctaId = mode === 'create' ? 'memory.dialog.create.cta' : 'memory.dialog.edit.cta'
