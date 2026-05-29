@@ -1,0 +1,112 @@
+'use client'
+
+import { useState } from 'react'
+import { useIntl } from 'react-intl'
+import { Brain, Plus } from 'lucide-react'
+import type { MemoryRow } from '@/lib/api-client'
+import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
+import { Button } from '@/components/ui/button'
+import { MemoryListItem } from './MemoryListItem'
+import { MemoryEditDialog, type MemorySubmitPayload } from './MemoryEditDialog'
+
+interface MemoryTabProps {
+  scope: MemoryScopeKind
+  parentId: string
+  enabled: boolean
+  /** memberId → display name, for "Added by X". Optional. */
+  memberNames?: Map<string, string>
+}
+
+type DialogState =
+  | { open: false }
+  | { open: true; mode: 'create' }
+  | { open: true; mode: 'edit'; editing: MemoryRow }
+
+export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabProps) {
+  const intl = useIntl()
+  const { memories, loading, error, create, edit, promote, remove, mutating } = useMemories({
+    scope,
+    parentId,
+    enabled,
+  })
+  const [dialog, setDialog] = useState<DialogState>({ open: false })
+
+  const handleSubmit = async (payload: MemorySubmitPayload) => {
+    if (dialog.open && dialog.mode === 'edit') {
+      await edit(dialog.editing.id, payload.content)
+    } else {
+      await create(payload)
+    }
+    setDialog({ open: false })
+  }
+
+  if (loading) {
+    return (
+      <div className='py-8 text-center text-xs text-zinc-400'>
+        {intl.formatMessage({ id: 'agentRun.loading', defaultMessage: '加载中…' })}
+      </div>
+    )
+  }
+
+  if (error) {
+    return <div className='py-8 text-center text-xs text-red-500'>{error}</div>
+  }
+
+  return (
+    <div className='space-y-3'>
+      <div className='flex items-center justify-between'>
+        <span className='text-xs text-zinc-400'>
+          {intl.formatMessage(
+            { id: 'memory.tab.count', defaultMessage: '{count} memories' },
+            { count: memories.length }
+          )}
+        </span>
+        <Button size='sm' variant='outline' onClick={() => setDialog({ open: true, mode: 'create' })}>
+          <Plus className='size-3.5 mr-1' />
+          {intl.formatMessage({ id: 'memory.action.add' })}
+        </Button>
+      </div>
+
+      {memories.length === 0 ? (
+        <div className='py-12 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500'>
+          <Brain className='size-6' />
+          <p className='text-sm font-medium'>{intl.formatMessage({ id: 'memory.tab.empty.title' })}</p>
+          <p className='text-[11px] max-w-xs text-center'>
+            {intl.formatMessage({ id: 'memory.tab.empty.description' })}
+          </p>
+          <Button size='sm' variant='ghost' onClick={() => setDialog({ open: true, mode: 'create' })}>
+            {intl.formatMessage({ id: 'memory.tab.empty.cta' })}
+          </Button>
+        </div>
+      ) : (
+        <div className='space-y-2'>
+          {memories.map(m => (
+            <MemoryListItem
+              key={m.id}
+              memory={m}
+              canPromote={scope === 'task' && m.scope === 'TASK'}
+              memberName={m.createdByMemberId ? memberNames?.get(m.createdByMemberId) : undefined}
+              onEdit={editing => setDialog({ open: true, mode: 'edit', editing })}
+              onPromote={mem => promote(mem.id)}
+              onDelete={mem => remove(mem.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {dialog.open && (
+        <MemoryEditDialog
+          key={dialog.mode === 'edit' ? dialog.editing.id : 'create'}
+          open
+          mode={dialog.mode}
+          {...(dialog.mode === 'edit' ? { editing: dialog.editing } : {})}
+          onOpenChange={open => {
+            if (!open) setDialog({ open: false })
+          }}
+          onSubmit={handleSubmit}
+          submitting={mutating}
+        />
+      )}
+    </div>
+  )
+}
