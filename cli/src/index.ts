@@ -20,6 +20,8 @@ import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
+import { memoryTaskList } from './commands/memory-task-list'
+import { memoryTaskAdd } from './commands/memory-task-add'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -300,6 +302,38 @@ taskFigma
       taskFigmaRefresh({ identifier: taskId as string })
     )
   )
+
+const taskMemory = task
+  .command('memory')
+  .description('View and record memories scoped to a task')
+
+taskMemory
+  .command('list [task]')
+  .description("List a task's memories. <task> defaults to the session-bound task.")
+  .option('--category <cat>', 'Filter by trap|decision|convention|procedural')
+  .option('-n, --limit <count>', 'Cap output to the first N rows')
+  .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskList(taskArg as string | undefined, opts as Record<string, string>)))
+
+taskMemory
+  .command('add [task]')
+  .description(
+    'Record a memory on a task (<task> defaults to the bound session). ' +
+      'Record only knowledge invisible in the codebase (the why, a runtime gotcha, a non-obvious failure, a non-trivial workflow); skip routine work. ' +
+      'Pick --category then its fields.'
+  )
+  .requiredOption('--category <cat>', 'trap | decision | convention | procedural')
+  .option('--trigger <text>', 'trap/procedural: the situation that triggers it')
+  .option('--outcome <text>', 'trap: what goes wrong')
+  .option('--workaround <text>', 'trap: optional fix')
+  .option('--what <text>', 'decision: the decision')
+  .option('--why <text>', 'decision: rationale')
+  .option('--alternatives <text>', 'decision: optional alternatives considered')
+  .option('--implications <text>', 'decision: optional implications')
+  .option('--rule <text>', 'convention: the rule')
+  .option('--applies <text>', 'convention: where the rule applies')
+  .option('--workflow <text>', 'procedural: the workflow name')
+  .option('--step <text>', 'procedural: a step (repeatable)', (v: string, acc: string[]) => { acc.push(v); return acc }, [] as string[])
+  .action(wrap((taskArg: unknown, opts: unknown) => memoryTaskAdd(taskArg as string | undefined, opts as Record<string, unknown>)))
 
 const projectCmd = program
   .command('project')
