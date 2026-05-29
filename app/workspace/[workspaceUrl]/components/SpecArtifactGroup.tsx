@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight, ChevronDown, Plus, Sparkle } from 'lucide-react'
-import type { TaskArtifact } from '@prisma/client'
+import type { TaskArtifact, TaskArtifactAgent } from '@prisma/client'
 import { artifactsClient } from '@/lib/api-client/task-artifacts'
 import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
 import { RichTextViewer } from './RichTextViewer'
@@ -134,9 +134,19 @@ function ManualAddForm({
   const [kind, setKind] = useState('')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [agent, setAgent] = useState<TaskArtifactAgent>('CLAUDE_CODE')
   const [saving, setSaving] = useState(false)
 
   const canSave = !!kind.trim() && !!title.trim() && !!content.trim() && !saving
+
+  const agentOptions: { value: TaskArtifactAgent; label: string }[] = [
+    { value: 'CLAUDE_CODE', label: 'Claude Code' },
+    { value: 'CODEX', label: 'Codex' },
+    { value: 'CURSOR', label: 'Cursor' },
+    { value: 'GEMINI_CLI', label: 'Gemini CLI' },
+    { value: 'GITHUB_COPILOT', label: 'GitHub Copilot' },
+    { value: 'WINDSURF', label: 'Windsurf' },
+  ]
 
   return (
     <div className='mt-2 border border-border rounded-lg p-3 space-y-2'>
@@ -159,6 +169,17 @@ function ManualAddForm({
         rows={5}
         className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none font-mono'
       />
+      <select
+        value={agent}
+        onChange={e => setAgent(e.target.value as TaskArtifactAgent)}
+        className='w-full text-sm bg-transparent border border-input rounded px-2 py-1 outline-none'
+      >
+        {agentOptions.map(opt => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
       <div className='flex justify-end gap-2'>
         <button
           type='button'
@@ -178,6 +199,7 @@ function ManualAddForm({
                 title: title.trim(),
                 content,
                 source: 'manual',
+                agent,
               })
               await onSaved()
             } finally {
