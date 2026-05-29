@@ -11,6 +11,21 @@ const en: Record<string, string> = {
   'memory.action.menu': 'Memory actions',
   'memory.source.auto': 'Sedimented by Claude',
   'agentRun.loading': '加载中…',
+  // dialog keys needed for submit-error test
+  'memory.dialog.create.title': 'Add memory',
+  'memory.dialog.create.cta': 'Create',
+  'memory.dialog.edit.title': 'Edit memory',
+  'memory.dialog.edit.cta': 'Save changes',
+  'memory.dialog.cancel': 'Cancel',
+  'memory.dialog.categoryStep': 'Choose a category',
+  'memory.category.trap': 'Trap',
+  'memory.category.decision': 'Decision',
+  'memory.category.convention': 'Convention',
+  'memory.category.procedural': 'Procedure',
+  'memory.form.trap.trigger.label': 'Trigger',
+  'memory.form.trap.outcome.label': 'Outcome',
+  'memory.form.trap.workaround.label': 'Workaround',
+  'memory.mutation.error': 'Failed to save memory. Please try again.',
 }
 
 jest.mock('react-intl', () => ({
@@ -21,12 +36,15 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
+jest.mock('sonner', () => ({ toast: { error: jest.fn() } }))
+
 const mockUseMemories = jest.fn()
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMemories', () => ({
   useMemories: (...a: any[]) => mockUseMemories(...a),
 }))
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { toast } from 'sonner'
 import { MemoryTab } from '@/app/workspace/[workspaceUrl]/components/memory/MemoryTab'
 
 const hookBase = {
@@ -71,5 +89,36 @@ describe('MemoryTab', () => {
     mockUseMemories.mockReturnValue({ ...hookBase, error: 'boom' })
     render(<MemoryTab scope='project' parentId='p1' enabled />)
     expect(screen.getByText('boom')).toBeInTheDocument()
+  })
+
+  it('keeps the dialog open and shows a toast when create rejects', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const rejectedCreate = jest.fn().mockRejectedValue(new Error('boom'))
+    mockUseMemories.mockReturnValue({ ...hookBase, create: rejectedCreate, memories: [] })
+
+    render(<MemoryTab scope='task' parentId='t1' enabled />)
+
+    // Open create dialog via "Add memory" button
+    fireEvent.click(screen.getByRole('button', { name: 'Add memory' }))
+
+    // Category step: pick TRAP
+    fireEvent.click(screen.getByRole('button', { name: 'Trap' }))
+
+    // Fill in the required fields (trigger + outcome)
+    fireEvent.change(screen.getByLabelText(/Trigger/), { target: { value: 'do something' } })
+    fireEvent.change(screen.getByLabelText(/Outcome/), { target: { value: 'it breaks' } })
+
+    // Submit — this calls handleSubmit which calls create (which rejects)
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    // After rejection, the dialog should still be present (title still visible)
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('Memory mutation failed:', expect.any(Error))
+    })
+    // Dialog title should still be in the document (dialog stayed open for retry)
+    expect(screen.getByRole('heading', { name: 'Add memory' })).toBeInTheDocument()
+    expect((toast.error as jest.Mock)).toHaveBeenCalled()
+
+    consoleError.mockRestore()
   })
 })

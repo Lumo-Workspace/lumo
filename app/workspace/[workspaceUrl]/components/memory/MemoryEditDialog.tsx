@@ -55,7 +55,7 @@ interface MemoryEditDialogProps {
   mode: 'create' | 'edit'
   editing?: MemoryRow
   onOpenChange: (open: boolean) => void
-  onSubmit: (payload: MemorySubmitPayload) => void
+  onSubmit: (payload: MemorySubmitPayload) => void | Promise<void>
   submitting: boolean
 }
 
@@ -152,9 +152,9 @@ export function MemoryEditDialog({
   const titleId = mode === 'create' ? 'memory.dialog.create.title' : 'memory.dialog.edit.title'
   const ctaId = mode === 'create' ? 'memory.dialog.create.cta' : 'memory.dialog.edit.cta'
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!state || !isValid(state)) return
-    onSubmit({ category: state.category, content: toContent(state) })
+    await onSubmit({ category: state.category, content: toContent(state) })
   }
 
   return (

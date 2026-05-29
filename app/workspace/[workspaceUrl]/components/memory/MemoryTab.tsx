@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
+import { toast } from 'sonner'
 import { Brain, Plus } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
@@ -32,12 +33,18 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
   const [dialog, setDialog] = useState<DialogState>({ open: false })
 
   const handleSubmit = async (payload: MemorySubmitPayload) => {
-    if (dialog.open && dialog.mode === 'edit') {
-      await edit(dialog.editing.id, payload.content)
-    } else {
-      await create(payload)
+    try {
+      if (dialog.open && dialog.mode === 'edit') {
+        await edit(dialog.editing.id, payload.content)
+      } else {
+        await create(payload)
+      }
+      setDialog({ open: false })
+    } catch (e) {
+      // Keep the dialog open so the user can retry; the mutation failed.
+      console.error('Memory mutation failed:', e)
+      toast.error(intl.formatMessage({ id: 'memory.mutation.error', defaultMessage: 'Failed to save memory. Please try again.' }))
     }
-    setDialog({ open: false })
   }
 
   if (loading) {
