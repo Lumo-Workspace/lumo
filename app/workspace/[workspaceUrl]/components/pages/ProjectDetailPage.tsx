@@ -145,6 +145,13 @@ export function ProjectDetailPage({
     [memberNameMap]
   )
 
+  // WorkspaceMember.id → display name for the Memory tab's "Added by X"
+  // (memory.createdByMemberId is a WorkspaceMember.id, not a clerkId).
+  const memoryMemberNames = useMemo(
+    () => new Map(members.map(m => [m.id, m.name])),
+    [members]
+  )
+
   const filteredTasks = useMemo(() => {
     let result = filterCompletedTasks(tasks, displayOptions.completedFilter)
     if (!displayOptions.showSubtasks) {
@@ -230,7 +237,12 @@ export function ProjectDetailPage({
       {/* ── Memory tab ── */}
       {tab === 'memory' && (
         <div className='flex-1 overflow-y-auto'>
-          <MemoryTab scope='project' parentId={project.id} enabled />
+          <MemoryTab
+            scope='project'
+            parentId={project.id}
+            enabled
+            memberNames={memoryMemberNames}
+          />
         </div>
       )}
 

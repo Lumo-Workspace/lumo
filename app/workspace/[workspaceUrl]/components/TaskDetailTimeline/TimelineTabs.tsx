@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTimeline } from '../../hooks/useTimeline'
 import { ActivityTimeline } from './ActivityTimeline'
@@ -48,6 +48,13 @@ export function TimelineTabs({
     taskId,
     enabled: activeTab === 'activity',
   })
+
+  // WorkspaceMember.id → display name, so the Memory tab can show "Added by X"
+  // for manually-created memories (createdByMemberId is a WorkspaceMember.id).
+  const memoryMemberNames = useMemo(
+    () => new Map(commentsProps.members.map(m => [m.id, m.name])),
+    [commentsProps.members]
+  )
 
   const tabClass = (active: boolean) =>
     `pb-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -137,7 +144,12 @@ export function TimelineTabs({
         />
       )}
       {activeTab === 'memory' && (
-        <MemoryTab scope='task' parentId={taskId} enabled={activeTab === 'memory'} />
+        <MemoryTab
+          scope='task'
+          parentId={taskId}
+          enabled={activeTab === 'memory'}
+          memberNames={memoryMemberNames}
+        />
       )}
     </div>
   )

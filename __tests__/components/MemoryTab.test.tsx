@@ -10,6 +10,7 @@ const en: Record<string, string> = {
   'memory.action.promote': 'Promote to project',
   'memory.action.menu': 'Memory actions',
   'memory.source.auto': 'Sedimented by Claude',
+  'memory.source.byMember': 'Added by {name}',
   'agentRun.loading': '加载中…',
   // dialog keys needed for submit-error test
   'memory.dialog.create.title': 'Add memory',
@@ -77,6 +78,35 @@ describe('MemoryTab', () => {
     })
     render(<MemoryTab scope='task' parentId='t1' enabled />)
     expect(screen.getByText('do X')).toBeInTheDocument()
+  })
+
+  it('filters out rows whose content fails to parse (orphan-row guard)', () => {
+    mockUseMemories.mockReturnValue({
+      ...hookBase,
+      memories: [
+        { id: 'good', scope: 'TASK', category: 'TRAP', content: { trigger: 'valid X', outcome: 'breaks' }, taskId: 't1', createdByMemberId: null, createdAt: 'a', updatedAt: 'a' },
+        // missing required `outcome` → parseMemoryContent throws → must be dropped
+        { id: 'bad', scope: 'TASK', category: 'TRAP', content: { trigger: 'orphan' }, taskId: 't1', createdByMemberId: null, createdAt: 'a', updatedAt: 'a' },
+      ],
+    })
+    render(<MemoryTab scope='task' parentId='t1' enabled />)
+    expect(screen.getByText('valid X')).toBeInTheDocument()
+    expect(screen.queryByText('orphan')).not.toBeInTheDocument()
+    // count reflects only the parseable row
+    expect(screen.getByText('1 memories')).toBeInTheDocument()
+  })
+
+  it('resolves "Added by <name>" from the memberNames map', () => {
+    mockUseMemories.mockReturnValue({
+      ...hookBase,
+      memories: [
+        { id: 'm1', scope: 'TASK', category: 'TRAP', content: { trigger: 'do X', outcome: 'breaks' }, taskId: 't1', createdByMemberId: 'mem1', createdAt: 'a', updatedAt: 'a' },
+      ],
+    })
+    render(
+      <MemoryTab scope='task' parentId='t1' enabled memberNames={new Map([['mem1', 'Alice']])} />
+    )
+    expect(screen.getByText('Added by Alice')).toBeInTheDocument()
   })
 
   it('shows a loading state', () => {

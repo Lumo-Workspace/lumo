@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { Brain, Plus } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
+import { parseMemoryContent } from '@/lib/memory/schemas'
 import { useMemories, type MemoryScopeKind } from '../../hooks/useMemories'
 import { Button } from '@/components/ui/button'
 import { MemoryListItem } from './MemoryListItem'
@@ -31,6 +32,24 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
     enabled,
   })
   const [dialog, setDialog] = useState<DialogState>({ open: false })
+
+  // Drop rows whose content can't be parsed (e.g. stored before a schema
+  // change). MemoryCard renders null for those, which would otherwise leave an
+  // orphaned action menu + source label floating over an empty card. Filtering
+  // here keeps the count and the list consistent. Near-impossible in practice
+  // since content is validated on every write, but a cheap robustness guard.
+  const visibleMemories = useMemo(
+    () =>
+      memories.filter(m => {
+        try {
+          parseMemoryContent(m.category, m.content)
+          return true
+        } catch {
+          return false
+        }
+      }),
+    [memories]
+  )
 
   const handleSubmit = async (payload: MemorySubmitPayload) => {
     try {
@@ -65,7 +84,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
         <span className='text-xs text-zinc-400'>
           {intl.formatMessage(
             { id: 'memory.tab.count', defaultMessage: '{count} memories' },
-            { count: memories.length }
+            { count: visibleMemories.length }
           )}
         </span>
         <Button size='sm' variant='outline' onClick={() => setDialog({ open: true, mode: 'create' })}>
@@ -74,7 +93,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
         </Button>
       </div>
 
-      {memories.length === 0 ? (
+      {visibleMemories.length === 0 ? (
         <div className='py-12 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500'>
           <Brain className='size-6' />
           <p className='text-sm font-medium'>{intl.formatMessage({ id: 'memory.tab.empty.title' })}</p>
@@ -87,7 +106,7 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
         </div>
       ) : (
         <div className='space-y-2'>
-          {memories.map(m => (
+          {visibleMemories.map(m => (
             <MemoryListItem
               key={m.id}
               memory={m}
