@@ -7,7 +7,7 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
-import { taskArtifactEdit } from '@/cli/src/commands/task-artifact-edit'
+import { taskArtifactUpdate } from '@/cli/src/commands/task-artifact-update'
 
 const okUpdated = {
   ok: true,
@@ -23,23 +23,23 @@ const notFound = {
   json: async () => ({ error: 'Artifact not found' }),
 } as unknown as Response
 
-describe('taskArtifactEdit', () => {
+describe('taskArtifactUpdate', () => {
   beforeEach(() => jest.restoreAllMocks())
 
   it('errors when <task> is missing', async () => {
-    const code = await taskArtifactEdit(undefined, 'a1', { kind: 'plan' })
+    const code = await taskArtifactUpdate(undefined, 'a1', { kind: 'plan' })
     expect(code).toBe(1)
   })
 
   it('errors when <artifact-id> is missing', async () => {
-    const code = await taskArtifactEdit('LUM-9', undefined, { kind: 'plan' })
+    const code = await taskArtifactUpdate('LUM-9', undefined, { kind: 'plan' })
     expect(code).toBe(1)
   })
 
   it('errors when no editable flag is provided', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await taskArtifactEdit('LUM-9', 'a1', {})
+    const code = await taskArtifactUpdate('LUM-9', 'a1', {})
     expect(code).toBe(1)
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(errSpy).toHaveBeenCalledWith(
@@ -49,7 +49,7 @@ describe('taskArtifactEdit', () => {
 
   it('errors on an empty-string flag value', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
-    const code = await taskArtifactEdit('LUM-9', 'a1', { source: '' })
+    const code = await taskArtifactUpdate('LUM-9', 'a1', { source: '' })
     expect(code).toBe(1)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
@@ -59,7 +59,7 @@ describe('taskArtifactEdit', () => {
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true)
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okUpdated)
-    const code = await taskArtifactEdit('LUM-9', 'a1', {
+    const code = await taskArtifactUpdate('LUM-9', 'a1', {
       kind: 'plan',
       source: 'spec-kit',
     })
@@ -76,7 +76,7 @@ describe('taskArtifactEdit', () => {
   it('returns 1 and prints the server message on 404', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(notFound)
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await taskArtifactEdit('LUM-9', 'a-x', { kind: 'plan' })
+    const code = await taskArtifactUpdate('LUM-9', 'a-x', { kind: 'plan' })
     expect(code).toBe(1)
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining('Artifact not found')

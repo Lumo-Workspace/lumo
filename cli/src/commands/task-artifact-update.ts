@@ -1,7 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 
-export interface ArtifactEditOptions {
+export interface ArtifactUpdateOptions {
   kind?: string
   title?: string
   source?: string
@@ -11,20 +11,20 @@ interface ArtifactResponse {
   artifact: { id: string; kind: string; title: string; source: string }
 }
 
-export async function taskArtifactEdit(
+export async function taskArtifactUpdate(
   identifier: string | undefined,
   artifactId: string | undefined,
-  options: ArtifactEditOptions
+  options: ArtifactUpdateOptions
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
-      'Error: missing <task>. Usage: lumo task artifact edit <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <task>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
     )
     return 1
   }
   if (!artifactId) {
     console.error(
-      'Error: missing <artifact-id>. Usage: lumo task artifact edit <LUM-42> <artifact-id> --kind plan'
+      'Error: missing <artifact-id>. Usage: lumo task artifact update <LUM-42> <artifact-id> --kind plan'
     )
     return 1
   }
@@ -56,7 +56,7 @@ export async function taskArtifactEdit(
   }
   if (Object.keys(payload).length === 0) {
     console.error(
-      'Error: provide at least one of --kind, --title, or --source to edit.'
+      'Error: provide at least one of --kind, --title, or --source to update.'
     )
     return 1
   }
@@ -115,7 +115,7 @@ export async function taskArtifactEdit(
     console.error(
       serverMsg
         ? `Error: ${serverMsg}`
-        : `Error: artifact edit failed (HTTP ${res.status})`
+        : `Error: artifact update failed (HTTP ${res.status})`
     )
     return 1
   }

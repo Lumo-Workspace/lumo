@@ -24,7 +24,7 @@ import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
-import { taskArtifactEdit } from './commands/task-artifact-edit'
+import { taskArtifactUpdate } from './commands/task-artifact-update'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -337,9 +337,9 @@ taskArtifact
   )
 
 taskArtifact
-  .command('edit <task> <artifact-id>')
+  .command('update <task> <artifact-id>')
   .description(
-    'Edit an artifact’s kind / title / source (not content). Provide at least one flag.'
+    'Update an artifact’s kind / title / source (not content). Provide at least one flag.'
   )
   .option('--kind <kind>', 'New artifact kind (opaque)')
   .option('--title <title>', 'New artifact title')
@@ -349,7 +349,7 @@ taskArtifact
   )
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
-      taskArtifactEdit(
+      taskArtifactUpdate(
         taskId as string,
         artifactId as string,
         options as Record<string, string>
