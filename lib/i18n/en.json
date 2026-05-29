@@ -632,7 +632,7 @@
   "agentRun.noEvents": "No events captured for this run",
   "agentRun.loading": "Loading…",
   "agentRun.empty": "No agent runs recorded for this task",
-  "agentRun.emptyHint": "Run lumo task start in your terminal — agent execution will sync here automatically",
+  "agentRun.emptyHint": "Run /lumo {identifier} to bind this task — agent runs will sync here automatically",
   "agentRun.event.stopFallback": "Agent finished",
   "agentRun.event.stopFailureFallback": "Turn aborted on API error",
   "agentRun.event.userPromptFallback": "User input",

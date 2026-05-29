@@ -894,7 +894,7 @@
   "agentRun.noEvents": "Tidak ada events yang tertangkap untuk run ini",
   "agentRun.loading": "Loading…",
   "agentRun.empty": "Tidak ada agent runs yang tercatat untuk task ini",
-  "agentRun.emptyHint": "Jalankan lumo task start di terminal Anda — eksekusi agent akan sinkronisasi di sini secara otomatis",
+  "agentRun.emptyHint": "Jalankan /lumo {identifier} untuk mengikat tugas ini — eksekusi agent akan tersinkronisasi di sini secara otomatis",
   "agentRun.event.stopFallback": "Agent selesai",
   "agentRun.event.stopFailureFallback": "Turn dibatalkan karena API error",
   "agentRun.event.userPromptFallback": "Input pengguna",

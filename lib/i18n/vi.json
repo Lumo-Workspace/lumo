@@ -894,7 +894,7 @@
   "agentRun.noEvents": "Không có event nào được ghi lại cho run này",
   "agentRun.loading": "Đang tải…",
   "agentRun.empty": "Không có agent run nào được ghi lại cho task này",
-  "agentRun.emptyHint": "Chạy lumo task start trong terminal — agent execution sẽ tự động đồng bộ hóa ở đây",
+  "agentRun.emptyHint": "Chạy /lumo {identifier} để liên kết nhiệm vụ này — các lần chạy agent sẽ tự động đồng bộ tại đây",
   "agentRun.event.stopFallback": "Agent đã hoàn tất",
   "agentRun.event.stopFailureFallback": "Turn bị hủy do lỗi API",
   "agentRun.event.userPromptFallback": "Dữ liệu đầu vào của người dùng",

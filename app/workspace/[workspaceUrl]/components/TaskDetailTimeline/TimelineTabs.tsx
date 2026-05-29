@@ -21,6 +21,7 @@ interface PullRequestSummary {
 
 interface TimelineTabsProps {
   taskId: string
+  taskIdentifier: string
   workspaceId: string
   workspaceUrl: string
   commentsProps: React.ComponentProps<typeof TaskDetailComments>
@@ -32,6 +33,7 @@ interface TimelineTabsProps {
 
 export function TimelineTabs({
   taskId,
+  taskIdentifier,
   workspaceId,
   workspaceUrl,
   commentsProps,
@@ -123,6 +125,7 @@ export function TimelineTabs({
       {activeTab === 'agent' && (
         <AgentRunTab
           taskId={taskId}
+          taskIdentifier={taskIdentifier}
           enabled={activeTab === 'agent'}
         />
       )}

@@ -894,7 +894,7 @@
   "agentRun.noEvents": "このランのイベントは記録されていません",
   "agentRun.loading": "読み込み中…",
   "agentRun.empty": "このタスクの Agent Run は記録されていません",
-  "agentRun.emptyHint": "ターミナルで lumo task start を実行してください — agent の実行はここに自動的に同期されます",
+  "agentRun.emptyHint": "/lumo {identifier} を実行してこのタスクに紐付けると、Agent の実行がここに自動的に同期されます",
   "agentRun.event.stopFallback": "Agent が完了しました",
   "agentRun.event.stopFailureFallback": "API エラーでターンが中止されました",
   "agentRun.event.userPromptFallback": "ユーザー入力",
