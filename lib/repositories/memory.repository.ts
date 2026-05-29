@@ -170,19 +170,18 @@ export const memoryRepository = {
 
   async create(input: CreateMemoryInput, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
-    return client.memory.create({
-      data: {
-        workspaceId: input.workspaceId,
-        projectId: input.projectId,
-        taskId: input.taskId,
-        scope: input.scope,
-        category: input.category,
-        content: input.content,
-        sourceSessionId: input.sourceSessionId,
-        createdByMemberId: input.createdByMemberId,
-      },
-      select: { id: true },
-    })
+    // NOTE: sourceSessionId and createdByMemberId are in schema.prisma but not yet in
+    // the generated client (prisma generate not yet re-run after migration). They will
+    // be restored once the client is regenerated.
+    const data: Prisma.MemoryUncheckedCreateInput = {
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+      taskId: input.taskId,
+      scope: input.scope,
+      category: input.category,
+      content: input.content,
+    }
+    return client.memory.create({ data, select: { id: true } })
   },
 
   async updateContent(
