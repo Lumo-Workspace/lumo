@@ -299,32 +299,35 @@ The CLI does not support @-mention chip syntax. If the user wants to ping someon
 
 Record Claude Code spec-engineering products (spec / plan / design …) on a task. The artifacts show up in the task detail "规格" (definition) layer and are injected into `lumo task context`.
 
-#### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source>`
+#### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source> --agent <agent>`
 
 Attaches an artifact to a task. `--kind`, `--title`, `--source` are stored verbatim — **`kind` is opaque** (no enumeration; `spec` / `plan` / `requirements` / anything is accepted). `--source` is **required** and names the spec-generation framework that produced the artifact, written as its **formal name** (`Superpowers` / `Spec Kit` / `BMad` / `OpenSpec` / `GSD` / …) — it is also opaque (no enumeration), but there is **no default**, so you must pass it. Quote names that contain spaces (`--source "Spec Kit"`). `--file` supplies the body (file contents). Each call appends to the end of the task's artifact list — call once per artifact (e.g. Superpowers: one `spec`, one `plan`). The `<task>` (e.g. `LUM-42`) is resolved server-side.
 
+`--agent` is **required** and names the coding tool that produced the artifact (enum). Valid values: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
+
 ```bash
-lumo task artifact add LUM-42 --kind spec --title "Spec" --file docs/spec.md --source Superpowers
-lumo task artifact add LUM-42 --kind plan --title "Implementation plan" --file docs/plan.md --source "Spec Kit"
+lumo task artifact add LUM-42 --kind spec --title "Spec" --file docs/spec.md --source Superpowers --agent claude-code
+lumo task artifact add LUM-42 --kind plan --title "Implementation plan" --file docs/plan.md --source "Spec Kit" --agent claude-code
 ```
 
 Output: `Added [spec] "Spec" to LUM-42`
 
-#### `lumo task artifact update <task> <artifact-id> [--kind <kind>] [--title <title>] [--source <source>]`
+#### `lumo task artifact update <task> <artifact-id> [--kind <kind>] [--title <title>] [--source <source>] [--agent <agent>]`
 
-Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, and `source`** only — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. The `<artifact-id>` is the cuid in column 1 of `artifact list`.
+Patches an existing artifact's metadata in place. Editable fields are **`kind`, `title`, `source`, and `agent`** — **content is immutable** (to change the body, `rm` the artifact and `add` it again). At least one flag is required; passing none errors before any network call. Empty values (`--kind ""`) are rejected. The `<artifact-id>` is the cuid in column 1 of `artifact list`. `--agent` accepts the same valid values and aliases as `artifact add`: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
 
 ```bash
 lumo task artifact update LUM-42 cma_xxx --kind plan              # re-classify spec → plan
 lumo task artifact update LUM-42 cma_xxx --source "Spec Kit"      # fix the framework label
 lumo task artifact update LUM-42 cma_xxx --title "Final spec" --source OpenSpec
+lumo task artifact update LUM-42 cma_xxx --agent cursor           # fix the agent label
 ```
 
 Output: `Updated [plan] "Final spec" (OpenSpec) on LUM-42`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 #### `lumo task artifact list <task>`
 
-Lists artifacts on the task in order: `<id>  <kind>  <source>  <title>`. Prints `No artifacts on <task>` when there are none.
+Lists artifacts on the task in order: `<id>  <kind>  <agent>  <source>  <title>`. Prints `No artifacts on <task>` when there are none.
 
 ```bash
 lumo task artifact list LUM-42
@@ -332,7 +335,7 @@ lumo task artifact list LUM-42
 
 #### `lumo task artifact show <task> <artifact-id>`
 
-Prints one artifact's key:value header (id, kind, title, source, order, task) followed by the full content body. The `<artifact-id>` is the cuid in column 1 of `artifact list`.
+Prints one artifact's key:value header (id, kind, title, agent, source, order, task) followed by the full content body. The `<artifact-id>` is the cuid in column 1 of `artifact list`.
 
 ```bash
 lumo task artifact show LUM-42 cma_xxx
@@ -918,7 +921,7 @@ the bound task; `lumo project memory add ...` records onto its project.
 
 ### When to record a memory (worthiness)
 
-Record only knowledge that is **invisible in the codebase** — the *why* behind a
+Record only knowledge that is **invisible in the codebase** — the _why_ behind a
 choice, a gotcha that only surfaces at runtime, a rule that lives in people's
 heads, a non-obvious failure cause, a non-trivial workflow. **Skip** routine work
 (reading files, plain edits, normal git, successful builds) and anything a
@@ -934,14 +937,14 @@ developer could learn from the source, git log, or docs. When unsure, don't.
 ### TASK vs PROJECT (at add time)
 
 Default to **TASK** (`lumo task memory add`). Record directly to **PROJECT**
-(`lumo project memory add`) only when it helps *any* task in the project: a
+(`lumo project memory add`) only when it helps _any_ task in the project: a
 toolchain/environment trap, a team-wide convention, a cross-task decision. When
 unsure → TASK.
 
 ### When to promote (TASK → PROJECT)
 
 `lumo memory promote <id>` only when the lesson **recurs across 2+ different
-tasks**, would help a *different* task, and no equivalent PROJECT memory exists.
+tasks**, would help a _different_ task, and no equivalent PROJECT memory exists.
 A wrong promotion is costly (every agent sees it forever) — prefer leaving it at TASK.
 
 ### When to reach for this
