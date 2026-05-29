@@ -61,11 +61,18 @@ describe('normalizeRichText', () => {
 
   it('treats markdown that mentions <p> as markdown (not HTML)', () => {
     // The body is markdown narrative that references the <p> tag literally.
-    // The stricter looksLikeHtmlDocument check should NOT match.
+    // The stricter looksLikeHtmlDocument check should NOT match — and the
+    // function must NOT short-circuit via the permissive isHtml in
+    // markdownToHtml. Verify by checking marked.parse was actually invoked.
+    // This is what catches the LUM-107 regression: previously the bug let
+    // the raw markdown pass through unconverted because isHtml matched
+    // `<p>` anywhere in the text.
+    const mockedMarked = jest.requireMock('marked').marked.parse as jest.Mock
+    mockedMarked.mockClear()
     const input = 'wrapped in a single `<p>` tag'
-    const result = normalizeRichText(input)
-    expect(result).toContain('<p>')        // marked mock wraps everything
-    expect(result).toContain('`<p>`')      // original content preserved
+    normalizeRichText(input)
+    expect(mockedMarked).toHaveBeenCalledTimes(1)
+    expect(mockedMarked).toHaveBeenCalledWith(input, { async: false })
   })
 
   it('is idempotent for Web-written HTML through a round-trip', () => {
