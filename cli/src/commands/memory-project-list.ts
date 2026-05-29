@@ -1,8 +1,9 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { formatMemoryList, type MemoryRowLike } from '../lib/memory-content'
+import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
-import { resolveProjectIdByRef, resolveBoundProjectId } from '../lib/resolve-project'
+import { resolveBoundProjectId } from '../lib/resolve-project'
 
 interface ListOptions { category?: string; limit?: string }
 
@@ -18,9 +19,7 @@ export async function memoryProjectList(
 
   let projectId: string
   if (refArg) {
-    const r = await resolveProjectIdByRef(apiUrl, creds.token, refArg)
-    if (!r.ok) { console.error(`Error: ${r.error}`); return 1 }
-    projectId = r.id
+    projectId = await resolveProjectId(base, creds.token, refArg)
   } else {
     const bound = await resolveBoundTaskIdentifier(apiUrl, creds.token)
     if (!bound) { console.error('Error: no <project-ref> given and no task bound to this session.\nPass a project, or run `lumo session attach <LUM-N>`.'); return 1 }
