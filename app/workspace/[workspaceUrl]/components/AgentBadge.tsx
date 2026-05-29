@@ -1,35 +1,37 @@
 'use client'
 
+import type { ComponentType } from 'react'
 import { useIntl } from 'react-intl'
 import { TaskArtifactAgent } from '@prisma/client'
-import { ClaudeCodeIcon } from '@/components/icons/agents/ClaudeCodeIcon'
-import { CodexIcon } from '@/components/icons/agents/CodexIcon'
-import { CursorIcon } from '@/components/icons/agents/CursorIcon'
-import { GeminiIcon } from '@/components/icons/agents/GeminiIcon'
-import { GitHubCopilotIcon } from '@/components/icons/agents/GitHubCopilotIcon'
-import { WindsurfIcon } from '@/components/icons/agents/WindsurfIcon'
+// Official monochrome brand glyphs from @lobehub/icons. We deep-import the Mono
+// component directly (not the `{ Claude }` namespace or its `.Avatar`) because
+// the namespace's `.Avatar` pulls in @lobehub/ui + antd; Mono is self-contained
+// (react only) and renders with fill=currentColor, so the chip drives the color.
+import ClaudeMono from '@lobehub/icons/es/Claude/components/Mono'
+import CodexMono from '@lobehub/icons/es/Codex/components/Mono'
+import CursorMono from '@lobehub/icons/es/Cursor/components/Mono'
+import GeminiMono from '@lobehub/icons/es/Gemini/components/Mono'
+import GithubCopilotMono from '@lobehub/icons/es/GithubCopilot/components/Mono'
+import WindsurfMono from '@lobehub/icons/es/Windsurf/components/Mono'
 
-type IconComponent = (props: {
-  size?: number
-  className?: string
-}) => React.ReactElement
+type IconComponent = ComponentType<{ size?: number; className?: string }>
 
 interface AgentMeta {
   Icon: IconComponent
-  /** brand color applied to the icon (and the chip tint) */
+  /** brand color applied to the monochrome glyph + chip tint */
   color: string
 }
 
 export const AGENT_META: Record<TaskArtifactAgent, AgentMeta> = {
-  [TaskArtifactAgent.CLAUDE_CODE]: { Icon: ClaudeCodeIcon, color: '#D97757' },
-  [TaskArtifactAgent.CODEX]: { Icon: CodexIcon, color: '#111827' },
-  [TaskArtifactAgent.CURSOR]: { Icon: CursorIcon, color: '#475569' },
-  [TaskArtifactAgent.GEMINI_CLI]: { Icon: GeminiIcon, color: '#3186FF' },
+  [TaskArtifactAgent.CLAUDE_CODE]: { Icon: ClaudeMono, color: '#D97757' },
+  [TaskArtifactAgent.CODEX]: { Icon: CodexMono, color: '#111827' },
+  [TaskArtifactAgent.CURSOR]: { Icon: CursorMono, color: '#475569' },
+  [TaskArtifactAgent.GEMINI_CLI]: { Icon: GeminiMono, color: '#3186FF' },
   [TaskArtifactAgent.GITHUB_COPILOT]: {
-    Icon: GitHubCopilotIcon,
+    Icon: GithubCopilotMono,
     color: '#1F2937',
   },
-  [TaskArtifactAgent.WINDSURF]: { Icon: WindsurfIcon, color: '#0D9488' },
+  [TaskArtifactAgent.WINDSURF]: { Icon: WindsurfMono, color: '#0D9488' },
 }
 
 /** Localized label for an agent (taskArtifact.agent.<ENUM>). */
