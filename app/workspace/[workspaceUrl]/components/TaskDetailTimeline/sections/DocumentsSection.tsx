@@ -89,6 +89,9 @@ export function DocumentsSection({
       count={documents.length}
       addSlot={addSlot}
     >
+      <p className='mb-2 text-[11px] text-muted-foreground'>
+        {intl.formatMessage({ id: 'taskArtifact.docsRefOnly' })}
+      </p>
       {documents.length === 0 ? (
         <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({

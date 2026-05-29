@@ -20,6 +20,7 @@ interface TaskContextResponse {
   slackContextSection?: string
   webLinkSection?: string
   figmaSection?: string
+  artifactSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -129,6 +130,11 @@ export function formatTaskContextMarkdown(
 
   if (data.figmaSection && data.figmaSection.trim().length > 0) {
     lines.push(data.figmaSection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.artifactSection && data.artifactSection.trim().length > 0) {
+    lines.push(data.artifactSection.trimEnd())
     lines.push('')
   }
 

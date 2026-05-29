@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useMemo } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useIntl } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
@@ -38,6 +45,8 @@ import { useProjects } from '../../hooks/useProjects'
 import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
+import { SpecArtifactGroup } from '../SpecArtifactGroup'
+import { useArtifacts } from '../../hooks/useArtifacts'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -122,6 +131,8 @@ export function TaskDetailPage({
     taskId: initialTask.id,
     initialDescription: initialTask.description,
   })
+
+  const { artifacts, refresh: refreshArtifacts } = useArtifacts(initialTask.id)
 
   // ── Actions (extracted) ────────────────────────────────────────────────────
   const actions = useTaskDetailActions({
@@ -274,9 +285,24 @@ export function TaskDetailPage({
               {task.title}
             </h1>
 
-            {/* Description */}
+            {/* Definition layer: spec artifacts (renders nothing when there are none) */}
+            <SpecArtifactGroup
+              taskId={task.id}
+              artifacts={artifacts}
+              onChanged={refreshArtifacts}
+            />
+
+            {/* Description — demoted to a collapsed "background discussion" when artifacts exist */}
             {desc.descriptionLoading ? (
               <Spinner className='size-4 text-zinc-300 dark:text-zinc-600' />
+            ) : artifacts.length > 0 ? (
+              <BackgroundDiscussion>
+                <DescriptionEditor
+                  value={desc.descriptionValue}
+                  onCommit={actions.commitDescription}
+                  members={mentionableMembers}
+                />
+              </BackgroundDiscussion>
             ) : (
               <DescriptionEditor
                 value={desc.descriptionValue}
@@ -414,5 +440,26 @@ export function TaskDetailPage({
         </AlertDialogContent>
       </AlertDialog>
     </SidebarProvider>
+  )
+}
+
+function BackgroundDiscussion({ children }: { children: ReactNode }) {
+  const intl = useIntl()
+  const [open, setOpen] = useState(false) // collapsed by default when artifacts exist
+  return (
+    <div className='mb-2'>
+      <button
+        type='button'
+        onClick={() => setOpen(o => !o)}
+        className='flex items-center gap-1.5 text-sm text-muted-foreground py-2'
+      >
+        <span>{open ? '⌄' : '›'}</span>
+        {intl.formatMessage({ id: 'taskArtifact.backgroundDiscussion' })}
+        <span className='text-muted-foreground/70'>
+          {intl.formatMessage({ id: 'taskArtifact.originalDescription' })}
+        </span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
   )
 }

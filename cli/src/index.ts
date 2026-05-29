@@ -20,6 +20,8 @@ import { taskFigmaAdd } from './commands/task-figma-add'
 import { taskFigmaList } from './commands/task-figma-list'
 import { taskFigmaRm } from './commands/task-figma-rm'
 import { taskFigmaRefresh } from './commands/task-figma-refresh'
+import { taskArtifactAdd } from './commands/task-artifact-add'
+import { taskArtifactList } from './commands/task-artifact-list'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -300,6 +302,38 @@ taskFigma
       taskFigmaRefresh({ identifier: taskId as string })
     )
   )
+
+const taskArtifact = task
+  .command('artifact')
+  .description(
+    'Record spec-engineering artifacts (spec / plan / design …) on a task'
+  )
+
+taskArtifact
+  .command('add <task>')
+  .description(
+    'Attach an artifact to a task. --kind/--title/--source are stored verbatim; --file supplies the content.'
+  )
+  .requiredOption(
+    '--kind <kind>',
+    'Artifact kind, e.g. spec | plan | design (opaque)'
+  )
+  .requiredOption('--title <title>', 'Artifact title')
+  .requiredOption(
+    '--file <path>',
+    'File whose contents become the artifact body'
+  )
+  .option('--source <source>', 'Producer label (default: claude-code)')
+  .action(
+    wrap((taskId: unknown, options: unknown) =>
+      taskArtifactAdd(taskId as string, options as Record<string, string>)
+    )
+  )
+
+taskArtifact
+  .command('list <task>')
+  .description('List artifacts attached to a task, in order')
+  .action(wrap((taskId: unknown) => taskArtifactList(taskId as string)))
 
 const projectCmd = program
   .command('project')
