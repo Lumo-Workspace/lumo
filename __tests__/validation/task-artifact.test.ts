@@ -11,6 +11,37 @@ describe('createArtifactBodySchema', () => {
       title: 'Spec',
       content: '## Requirements',
       source: 'superpowers',
+      agent: 'CLAUDE_CODE',
+    })
+    expect(r.success).toBe(true)
+  })
+
+  it('rejects a body without agent (now required)', () => {
+    const r = createArtifactBodySchema.safeParse({
+      kind: 'spec',
+      title: 'Spec',
+      content: 'x',
+      source: 'superpowers',
+    })
+    expect(r.success).toBe(false)
+  })
+  it('rejects an invalid agent value', () => {
+    const r = createArtifactBodySchema.safeParse({
+      kind: 'spec',
+      title: 'Spec',
+      content: 'x',
+      source: 'superpowers',
+      agent: 'COPILOT_X',
+    })
+    expect(r.success).toBe(false)
+  })
+  it('accepts a valid agent value', () => {
+    const r = createArtifactBodySchema.safeParse({
+      kind: 'spec',
+      title: 'Spec',
+      content: 'x',
+      source: 'superpowers',
+      agent: 'CODEX',
     })
     expect(r.success).toBe(true)
   })
@@ -101,5 +132,16 @@ describe('updateArtifactBodySchema', () => {
       updateArtifactBodySchema.safeParse({ kind: 'plan', status: 'APPROVED' })
         .success
     ).toBe(false)
+  })
+
+  it('accepts agent as a sole editable field', () => {
+    expect(
+      updateArtifactBodySchema.safeParse({ agent: 'CURSOR' }).success
+    ).toBe(true)
+  })
+  it('rejects an invalid agent on update', () => {
+    expect(updateArtifactBodySchema.safeParse({ agent: 'nope' }).success).toBe(
+      false
+    )
   })
 })

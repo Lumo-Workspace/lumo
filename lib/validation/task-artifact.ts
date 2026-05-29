@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TaskArtifactAgent } from '@prisma/client'
 
 export const createArtifactBodySchema = z
   .object({
@@ -6,6 +7,7 @@ export const createArtifactBodySchema = z
     title: z.string().trim().min(1).max(256),
     content: z.string().min(1).max(1_000_000),
     source: z.string().trim().min(1).max(64),
+    agent: z.nativeEnum(TaskArtifactAgent),
   })
   .strict()
 
@@ -21,11 +23,13 @@ export const updateArtifactBodySchema = z
     kind: z.string().trim().min(1).max(64),
     title: z.string().trim().min(1).max(256),
     source: z.string().trim().min(1).max(64),
+    agent: z.nativeEnum(TaskArtifactAgent),
   })
   .partial()
   .strict()
   .refine(obj => Object.keys(obj).length > 0, {
-    message: 'At least one field (kind, title, or source) must be provided',
+    message:
+      'At least one field (kind, title, source, or agent) must be provided',
   })
 
 export type UpdateArtifactBody = z.infer<typeof updateArtifactBodySchema>
