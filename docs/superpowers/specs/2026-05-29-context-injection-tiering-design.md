@@ -40,17 +40,17 @@ Markdown,拼成 `TaskContext` 返回,CLI verbatim inline 进 Claude Code 会话�
 - **管线**:仅 Web/CLI 管线(`task-context.service.ts` → `lumo task context`)。
 - **来源**(7 个走两层 + 2 个不变):
 
-| 源       | inline 卡片来源                | retrieval 命令                   | 命令状态 |
-| -------- | ------------------------------ | -------------------------------- | -------- |
-| Slack    | **LLM 总结**(缓存)             | `lumo task slack show <id>`      | 新增     |
-| 文档     | **LLM 总结**(缓存)             | `lumo doc show <id>`             | 已存     |
-| Artifact | **LLM 总结**(缓存)             | `lumo task artifact show <id>`   | 已存     |
-| 评论     | **LLM 总结**(>3 条时)/否则全文 | `lumo task comment list <LUM-N>` | 新增     |
-| WebLink  | OG title/desc(免费)            | `lumo task web show <id>`        | 新增     |
-| Figma    | 文件名/帧名/缩略图(免费)       | `lumo task figma context <id>`   | 新增     |
-| PR       | #N/title/state/CI(免费)        | `lumo task pr show <#>`          | 新增     |
-| Memory   | 不变(已是精简卡片)             | —                                | —        |
-| Sessions | 不变                           | —                                | —        |
+| 源       | inline 卡片来源                | retrieval 命令                    | 命令状态 |
+| -------- | ------------------------------ | --------------------------------- | -------- |
+| Slack    | **LLM 总结**(缓存)             | `lumo task slack show <id>`       | 新增     |
+| 文档     | **LLM 总结**(缓存)             | `lumo doc show <id>`              | 已存     |
+| Artifact | **LLM 总结**(缓存)             | `lumo task artifact show <id>`    | 已存     |
+| 评论     | **LLM 总结**(>3 条时)/否则全文 | `lumo task comments list <LUM-N>` | 新增     |
+| WebLink  | OG title/desc(免费)            | `lumo task web show <id>`         | 新增     |
+| Figma    | 文件名/帧名/缩略图(免费)       | `lumo task figma context <id>`    | 新增     |
+| PR       | #N/title/state/CI(免费)        | `lumo task pr show <#>`           | 新增     |
+| Memory   | 不变(已是精简卡片)             | —                                 | —        |
+| Sessions | 不变                           | —                                 | —        |
 
 ### 3.2 非目标(本期不做)
 

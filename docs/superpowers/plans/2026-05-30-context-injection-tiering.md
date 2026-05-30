@@ -466,42 +466,42 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Modify: `lib/services/task-web-link.service.ts`(加 `fetchBody`)
-- Modify: `lib/repositories/task-web-link.repository.ts`(加 `updateBody`、`findById`)
-- Test: `__tests__/lib/services/task-web-link.service.test.ts`
+- Modify: `lib/repositories/task-web-link.repository.ts`(加 `updateBody`;`getById` 已存在)
+- Test: `__tests__/services/task-web-link.service.test.ts`
 
 - [ ] **Step 1: 写失败测试(fetchBody 复用 SSRF 守卫)**
 
 ```typescript
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
-import { assertPublicUrl } from '@/lib/integrations/og-metadata/ssrf'
+import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
 
 jest.mock('@/lib/integrations/og-metadata/ssrf', () => ({
-  assertPublicUrl: jest.fn(),
+  assertExternalHost: jest.fn(),
 }))
 
-it('fetchBody calls assertPublicUrl before fetching', async () => {
-  // mock fetch + repo; assert assertPublicUrl called with the link url
-  expect(assertPublicUrl).toHaveBeenCalled()
+it('fetchBody calls assertExternalHost before fetching', async () => {
+  // mock fetch + repo; assert assertExternalHost called with the link url
+  expect(assertExternalHost).toHaveBeenCalled()
 })
 ```
 
 - [ ] **Step 2: 运行,确认失败**
 
-Run: `npx jest __tests__/lib/services/task-web-link.service.test.ts -t 'fetchBody'`
+Run: `npx jest __tests__/services/task-web-link.service.test.ts -t 'fetchBody'`
 Expected: FAIL — `fetchBody` 不存在。
 
 - [ ] **Step 3: 实现 `fetchBody`(SSRF + 抓取 + 回填)**
 
 ```typescript
-import { assertPublicUrl } from '@/lib/integrations/og-metadata/ssrf'
-// in taskWebLinkService:
+import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
+// in taskWebLinkService (service 顶部已有 err(message, status) 工厂):
   async fetchBody(workspaceId: string, taskId: string, linkId: string) {
     const link = await taskWebLinkRepository.findById(linkId)
     if (!link || link.taskId !== taskId || link.workspaceId !== workspaceId) {
       throw Object.assign(new Error('Web link not found'), { status: 404 })
     }
     if (link.body) return link.body
-    await assertPublicUrl(link.url) // throws on private/SSRF target
+    await assertExternalHost(link.url) // throws on private/SSRF target
     const res = await fetch(link.url)
     const html = await res.text()
     const body = htmlToPlainText(html).slice(0, 50_000)
@@ -514,13 +514,13 @@ import { assertPublicUrl } from '@/lib/integrations/og-metadata/ssrf'
 
 - [ ] **Step 4: 运行测试,确认通过**
 
-Run: `npx jest __tests__/lib/services/task-web-link.service.test.ts`
+Run: `npx jest __tests__/services/task-web-link.service.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/services/task-web-link.service.ts lib/repositories/task-web-link.repository.ts __tests__/lib/services/task-web-link.service.test.ts
+git add lib/services/task-web-link.service.ts lib/repositories/task-web-link.repository.ts __tests__/services/task-web-link.service.test.ts
 git commit -m "feat: add web-link body fetch with SSRF guard for retrieval [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -605,7 +605,7 @@ Expected: FAIL — 模块不存在。
 - [ ] **Step 4: 新增 3 个 render**
 
 - `document.ts`:`renderDocumentSection(docs)` → `## Documents` + 每条 `### title` + summary + `  ↳ 全文: lumo doc show <id>`。
-- `comments.ts`:`renderCommentsSection({comments, identifier, commentsSummary})` → `## Comments`;`<= 3` inline 全文,`> 3` 用 `commentsSummary` + `  ↳ 全文: lumo task comment list <identifier>`。
+- `comments.ts`:`renderCommentsSection({comments, identifier, commentsSummary})` → `## Comments`;`<= 3` inline 全文,`> 3` 用 `commentsSummary` + `  ↳ 全文: lumo task comments list <identifier>`。
 - `pr.ts`:`renderPRSection(prs)` → `## Pull Requests` + 每条 `- #N title — state · CI` + `  ↳ diff: lumo task pr show <N>`。
 - `index.ts`:re-export 全部 7 个。
 
@@ -703,15 +703,21 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - (评论列表已有 `app/api/tasks/[id]/comments/route.ts` GET — 确认其返回全文,否则补)
 - Test: `__tests__/app/api/tasks/retrieval.test.ts`
 
-> 每个 route 走 thin pattern:`getAuthContext()` → 校验 → service → `NextResponse.json`。401/404/SSRF 拒绝都返回明确状态。
+> 每个 route 走 thin pattern,照 `app/api/tasks/[id]/artifacts/[artifactId]/route.ts`:`requireIdentity(request)` → `resolveTask(rawId, workspaceId)` → service → `NextResponse.json`。每个 route 文件复制该文件已有的 isLikelyCuid / parseIdentifier / resolveTask / errorResponse 辅助(现有 route 也各自复制,沿用约定)。401/404/SSRF 拒绝都返回明确状态。
 
 - [ ] **Step 1: 写失败测试(鉴权 + 404)**
 
 ```typescript
+import { requireIdentity } from '@/lib/auth'
+
+jest.mock('@/lib/auth')
+
 it('web body route returns 401 without auth', async () => {
-  jest.spyOn(authCtx, 'getAuthContext').mockResolvedValue(null)
+  ;(requireIdentity as jest.Mock).mockResolvedValue(
+    NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  )
   const res = await GET(req, {
-    params: Promise.resolve({ id: 't', linkId: 'l' }),
+    params: Promise.resolve({ id: 'LUM-1', linkId: 'l' }),
   })
   expect(res.status).toBe(401)
 })
@@ -728,26 +734,33 @@ Expected: FAIL — route 不存在。
 
 ```typescript
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthContext } from '@/lib/auth/context'
+import { requireIdentity } from '@/lib/auth'
+import { taskRepository } from '@/lib/repositories'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string; linkId: string }> }
-) {
-  const { id, linkId } = await params
-  const auth = await getAuthContext()
-  if (!auth)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const runtime = 'nodejs'
+
+type Params = { params: Promise<{ id: string; linkId: string }> }
+
+// 复制 artifacts route 的 isLikelyCuid / parseIdentifier / resolveTask / errorResponse 辅助
+
+export async function GET(request: NextRequest, { params }: Params) {
   try {
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
+
+    const { id: rawId, linkId } = await params
+    const task = await resolveTask(rawId, identity.workspaceId)
+    if (!task)
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
     const body = await taskWebLinkService.fetchBody(
-      auth.workspaceId,
-      id,
+      identity.workspaceId,
       linkId
     )
     return NextResponse.json({ body })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: e.status ?? 500 })
+  } catch (err) {
+    return errorResponse(err, 'GET /api/tasks/[id]/web-links/[linkId]/body')
   }
 }
 ```
@@ -780,70 +793,131 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Modify: `cli/src/register.ts`(注册 5 个)
 - Test: 若 CLI 有测试约定则加;否则手动验证
 
-> 每个命令照 `task-artifact-show.ts` 模式:`resolveTaskByIdentifier` → `apiFetch` → 打印。
+> 每个命令文件导出**普通 async 函数**,照 `task-artifact-show.ts`:`readCredentials()` → 拼 `base/api/...` → `fetch` 带 `Authorization: Bearer` → 按 401/404/!ok 处理 → 打印。**不要**用 `registerX(program)` 工厂(项目里没有这个模式)。
 
 - [ ] **Step 1: 实现 `task-slack-show.ts`**
 
 ```typescript
-import { Command } from 'commander'
-import { resolveTaskByIdentifier } from '../lib/resolve-task.js'
-import { apiFetch } from '../lib/api.js'
-import { printError } from '../lib/output.js'
+// cli/src/commands/task-slack-show.ts — 照 task-artifact-show.ts 的结构
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
 
-export function registerTaskSlackShow(program: Command) {
-  program
-    .command('task-slack-show <identifier> <contextId>')
-    .description('Show the full stored Slack thread snapshot')
-    .action(async (identifier: string, contextId: string) => {
-      const task = await resolveTaskByIdentifier(identifier)
-      const res = await apiFetch(
-        `/api/tasks/${task.id}/slack-contexts/${contextId}/snapshot`
-      )
-      if (!res.ok) {
-        await printError(res)
-        process.exit(1)
-      }
-      const { snapshot } = (await res.json()) as {
-        snapshot: {
-          messages: Array<{
-            userName: string | null
-            userId: string
-            text: string
-          }>
-        }
-      }
-      for (const m of snapshot.messages) {
-        console.log(`${m.userName ?? '@' + m.userId}: ${m.text}`)
-      }
-    })
+interface SlackSnapshot {
+  messages: Array<{ userName: string | null; userId: string; text: string }>
+}
+
+export async function taskSlackShow(
+  identifier: string | undefined,
+  contextId: string | undefined
+): Promise<number | void> {
+  if (!identifier || !contextId) {
+    console.error('Error: usage: lumo task slack show <LUM-42> <context-id>')
+    return 1
+  }
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const base = trimTrailingSlash(apiUrl)
+  let res: Response
+  try {
+    res = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(identifier)}/slack-contexts/${encodeURIComponent(contextId)}/snapshot`,
+      { headers: { Authorization: `Bearer ${creds.token}` } }
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (res.status === 404) {
+    console.error(
+      `Error: task ${identifier} or slack context ${contextId} not found`
+    )
+    return 1
+  }
+  if (!res.ok) {
+    console.error(`Error: slack show failed (HTTP ${res.status})`)
+    return 1
+  }
+  const { snapshot } = (await res.json()) as { snapshot: SlackSnapshot }
+  for (const m of snapshot.messages) {
+    console.log(`${m.userName ?? '@' + m.userId}: ${m.text}`)
+  }
 }
 ```
 
-- [ ] **Step 2: 实现其余 4 个(同模式)**
+- [ ] **Step 2: 实现其余 4 个(同结构,改 URL + 打印)**
 
-- `task-web-show <identifier> <linkId>` → GET `.../web-links/<linkId>/body`,打印 `body`。
-- `task-figma-context <identifier> <linkId>` → GET `.../figma-links/<linkId>/context`,打印 design context。
-- `task-comment-list <identifier>` → GET `.../comments`,逐条打印 `作者 · 时间\n全文`。
-- `task-pr-show <identifier> <number>` → GET `.../pull-requests/<number>`,打印 diff + review comments。
+每个文件导出一个 `taskXxx(...)` async 函数(`number | void`),结构与 Step 1 完全一致,只改 URL 与打印逻辑:
 
-> 注意:命令名虽用连字符(`task-slack-show`),但面向用户的描述/SKILL.md 写作 `task slack show`(commander 子命令显示风格)。与现有 `task-artifact-show` 一致。
+- `taskWebShow(identifier, linkId)` → GET `.../web-links/<linkId>/body`,打印 `body`。
+- `taskFigmaContext(identifier, linkId)` → GET `.../figma-links/<linkId>/context`,打印 design context。
+- `taskCommentList(identifier)` → GET `.../comments`,逐条打印 `作者 · 时间\n全文`。
+- `taskPrShow(identifier, number)` → GET `.../pull-requests/<number>`,打印 diff + review comments。
 
-- [ ] **Step 3: 在 register.ts 注册 5 个**
+> 注意:命令文件名用连字符(`task-slack-show.ts`),但 commander 上挂成嵌套子命令 `task slack show`(对外显示风格),与现有 `task artifact show` 一致。
+
+- [ ] **Step 3: 在 `cli/src/index.ts` 连线**
+
+顶部 import(与现有 `taskArtifactShow` 等 import 并列):
 
 ```typescript
-import { registerTaskSlackShow } from './commands/task-slack-show.js'
-// ... + 4 more imports
-// inside registerCommands():
-registerTaskSlackShow(program)
-registerTaskWebShow(program)
-registerTaskFigmaContext(program)
-registerTaskCommentList(program)
-registerTaskPrShow(program)
+import { taskSlackShow } from './commands/task-slack-show'
+import { taskWebShow } from './commands/task-web-show'
+import { taskFigmaContext } from './commands/task-figma-context'
+import { taskCommentList } from './commands/task-comment-list'
+import { taskPrShow } from './commands/task-pr-show'
 ```
+
+在已有的 commander 树上挂叶子(用既有 `wrap()` 包装,与所有现有命令一致;`task` 与 `taskFigma` 子命令对象已存在于该文件):
+
+```typescript
+const taskSlack = task.command('slack').description('Inspect Slack context')
+taskSlack
+  .command('show <identifier> <contextId>')
+  .description('Show the full stored Slack thread snapshot')
+  .action(wrap((id, ctx) => taskSlackShow(id as string, ctx as string)))
+
+const taskWeb = task.command('web').description('Inspect web link content')
+taskWeb
+  .command('show <identifier> <linkId>')
+  .description('Show fetched web link body')
+  .action(wrap((id, link) => taskWebShow(id as string, link as string)))
+
+// taskFigma 子命令对象已存在 → 直接加 context 叶子
+taskFigma
+  .command('context <identifier> <linkId>')
+  .description('Show Figma design context')
+  .action(wrap((id, link) => taskFigmaContext(id as string, link as string)))
+
+const taskComments = task
+  .command('comments')
+  .description('Inspect the full task comment thread')
+taskComments
+  .command('list <identifier>')
+  .description('List full task comment thread')
+  .action(wrap(id => taskCommentList(id as string)))
+
+const taskPr = task.command('pr').description('Inspect linked PRs')
+taskPr
+  .command('show <identifier> <number>')
+  .description('Show PR diff and review comments')
+  .action(wrap((id, num) => taskPrShow(id as string, num as string)))
+```
+
+> 注意:`task` 上已有一个叶子命令 `comment <identifier> <body>`(添加评论)。commander 不允许同名,所以检索命令的父对象用 `comment-thread`(对外 `lumo task comment-thread list <LUM-N>`)。SKILL.md 触发词需与此一致。
 
 - [ ] **Step 4: 构建并冒烟验证**
 
-Run: `cd cli && npm run build && node dist/index.js task-slack-show --help`
+Run: `cd cli && npm run build && node dist/index.js task slack show --help`
 Expected: 显示命令 help,无报错。
 
 - [ ] **Step 5: Commit**
@@ -865,7 +939,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 1: 更新 SKILL.md**
 
-- frontmatter `description` 触发词加:`task slack show`、`task web show`、`task figma context`、`task comment list`、`task pr show`、`retrieval`、`取全文`、`看 thread`。
+- frontmatter `description` 触发词加:`task slack show`、`task web show`、`task figma context`、`task comments list`、`task pr show`、`retrieval`、`取全文`、`看 thread`。
 - 新增章节描述 5 个 retrieval 命令(用途、参数、输出形态),并说明:`task context` 输出的卡片末尾会打印对应 retrieval 命令,agent 需要全文时照抄执行。
 
 - [ ] **Step 2: 全量测试 + 类型 + lint**
