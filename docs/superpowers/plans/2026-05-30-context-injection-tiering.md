@@ -21,7 +21,7 @@
 
 **已核实的代码事实(执行时照此,勿凭空假设):**
 
-- **测试目录是根级 `__tests__/`**(如 `__tests__/services/`、`__tests__/repositories/`、`__tests__/cli/`),**不是** `__tests__/services/`。已存在 `__tests__/summary.test.ts`(与本任务无关的 sprint-summary),所以本任务总结服务测试命名为 `__tests__/services/summary.service.test.ts` 避免混淆。
+- **测试目录是根级 `__tests__/`**(如 `__tests__/services/`、`__tests__/repositories/`、`__tests__/cli/`),**不是** `lib/services/__tests__/`。已存在 `__tests__/summary.test.ts`(与本任务无关的 sprint-summary),所以本任务总结服务测试命名为 `__tests__/services/summary.service.test.ts` 避免混淆。
 - **API route 鉴权用 `requireIdentity(request)`**(来自 `@/lib/auth`),返回 `identity`(含 `workspaceId`)或 `NextResponse`(直接 return)。**不是** `getAuthContext`。task 解析照 `app/api/tasks/[id]/artifacts/[artifactId]/route.ts` 里的 `resolveTask(rawId, workspaceId)`(`isLikelyCuid` / `parseIdentifier` + `taskRepository.findByWorkspaceIdentifier`)模式。
 - **SSRF 守卫函数是 `assertExternalHost(rawUrl)`**(来自 `@/lib/integrations/og-metadata/ssrf`),**不是** `assertPublicUrl`。
 - **CLI 无 `register.ts`**;命令在 `cli/src/index.ts` 里用 commander 嵌套连线:`const task = program.command('task')` → `const taskArtifact = task.command('artifact')` → 叶子 `.command('show <...>').action(taskArtifactShow)`。命令文件导出**普通 async 函数**(如 `taskArtifactShow(identifier, artifactId)`,返回 `number | void`,错误时 `return 1`),**不是** `register*(program)` 工厂。
@@ -581,7 +581,7 @@ it('comments: inlines full text when <= 3, summary when > 3', () => {
     commentsSummary: 'Summary here',
   })
   expect(many).toContain('Summary here')
-  expect(many).toContain('lumo task comment list LUM-1')
+  expect(many).toContain('lumo task comments list LUM-1')
 })
 
 it('empty sets render empty string', () => {

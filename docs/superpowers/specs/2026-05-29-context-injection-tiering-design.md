@@ -127,13 +127,13 @@ Markdown,拼成 `TaskContext` 返回,CLI verbatim inline 进 Claude Code 会话�
 
 新增 CLI 命令(扁平 `cli/src/commands/task-<noun>-<verb>.ts`,沿用现有约定):
 
-| 命令                        | 行为                                              | API route                                    |
-| --------------------------- | ------------------------------------------------- | -------------------------------------------- |
-| `task slack show <id>`      | 返回存储的完整 thread snapshot(Markdown)          | `GET /api/tasks/<id>/slack/<ctxId>`          |
-| `task web show <id>`        | 返回 `body`;缺失则现抓并回填,复用写入时 SSRF 守卫 | `GET /api/tasks/<id>/web/<linkId>`           |
-| `task figma context <id>`   | 实时调 Figma API 出 design context                | `GET /api/tasks/<id>/figma/<linkId>/context` |
-| `task comment list <LUM-N>` | 返回完整评论流(作者 + 时间 + 全文)                | `GET /api/tasks/<id>/comments`               |
-| `task pr show <#>`          | 实时取 PR diff + review comments                  | `GET /api/tasks/<id>/pr/<number>`            |
+| 命令                         | 行为                                              | API route                                    |
+| ---------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| `task slack show <id>`       | 返回存储的完整 thread snapshot(Markdown)          | `GET /api/tasks/<id>/slack/<ctxId>`          |
+| `task web show <id>`         | 返回 `body`;缺失则现抓并回填,复用写入时 SSRF 守卫 | `GET /api/tasks/<id>/web/<linkId>`           |
+| `task figma context <id>`    | 实时调 Figma API 出 design context                | `GET /api/tasks/<id>/figma/<linkId>/context` |
+| `task comments list <LUM-N>` | 返回完整评论流(作者 + 时间 + 全文)                | `GET /api/tasks/<id>/comments`               |
+| `task pr show <#>`           | 实时取 PR diff + review comments                  | `GET /api/tasks/<id>/pr/<number>`            |
 
 - `doc show`、`task artifact show` 已存在,不动。
 - 每个 route 走 §Layered Architecture:auth → Zod 校验 → service → response,
