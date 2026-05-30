@@ -11,6 +11,22 @@ import { pushTaskEvent, pushUserEvent } from '@/lib/integrations/pusher'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
 import { dispatchEvents } from '@/lib/events/dispatcher'
 import type { TaskActivityEvent } from '@/lib/events/types/task-activity'
+import { taskRepository } from '@/lib/repositories'
+import { contentSummaryService } from '@/lib/services/content-summary.service'
+import { waitUntil } from '@vercel/functions'
+
+/** Threads with at most this many comments are rendered inline (full text),
+ *  so they never need an LLM summary. Beyond it, we cache a short summary. */
+const COMMENTS_SUMMARY_THRESHOLD = 3
+
+/** Flatten comments into "author: body" lines for summarization. */
+export function buildCommentsSummaryInput(
+  comments: Array<{ authorActorId: string | null; body: string }>
+): string {
+  return comments
+    .map(c => `${c.authorActorId ?? 'unknown'}: ${c.body}`)
+    .join('\n')
+}
 
 interface CreateCommentInput {
   taskId: string
@@ -95,9 +111,31 @@ export const commentService = {
     return ids
   },
 
+  /** Re-export for tests / callers. */
+  buildCommentsSummaryInput,
+
   /** Check if comment body contains an @agent mention. */
   hasAgentMention(body: string): boolean {
     return body.includes('data-id="__agent__"')
+  },
+
+  /**
+   * Fire-and-forget: if the task's thread now exceeds the inline threshold,
+   * recompute and cache its comments summary. Short threads (<= 3) are
+   * rendered inline at retrieval time, so we never call the LLM for them.
+   * Runs via waitUntil and swallows errors so it never affects the caller.
+   */
+  async scheduleCommentsSummary(taskId: string): Promise<void> {
+    const comments = await commentRepository.listAllForTask(taskId)
+    if (comments.length <= COMMENTS_SUMMARY_THRESHOLD) return
+    waitUntil(
+      contentSummaryService
+        .summarize(buildCommentsSummaryInput(comments), 'comments')
+        .then(s =>
+          s ? taskRepository.updateCommentsSummary(taskId, s) : undefined
+        )
+        .catch(() => {})
+    )
   },
 
   /**
@@ -278,6 +316,10 @@ export const commentService = {
         mirrorOrigin: mirrorOrigin ?? 'user',
       })
     }
+
+    // Tiered context: recompute the cached comments summary when the thread
+    // grows past the inline threshold. Never blocks; swallows its own errors.
+    commentService.scheduleCommentsSummary(createInput.taskId).catch(() => {})
 
     return comment
   },

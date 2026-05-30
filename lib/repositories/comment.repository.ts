@@ -26,6 +26,19 @@ export const commentRepository = {
     return prisma.comment.findUnique({ where: { id } })
   },
 
+  /**
+   * All non-deleted comments for a task (top-level + replies), flattened in
+   * chronological order. Used by the context-tiering pipeline to count the
+   * thread and build the LLM summary input.
+   */
+  async listAllForTask(taskId: string) {
+    return prisma.comment.findMany({
+      where: { taskId, deletedAt: null },
+      select: { authorActorId: true, body: true },
+      orderBy: { createdAt: 'asc' as const },
+    })
+  },
+
   async create(data: CreateCommentData) {
     return prisma.comment.create({ data })
   },
