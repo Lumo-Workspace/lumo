@@ -495,10 +495,10 @@ Expected: FAIL — `fetchBody` 不存在。
 ```typescript
 import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
 // in taskWebLinkService (service 顶部已有 err(message, status) 工厂):
-  async fetchBody(workspaceId: string, taskId: string, linkId: string) {
-    const link = await taskWebLinkRepository.findById(linkId)
-    if (!link || link.taskId !== taskId || link.workspaceId !== workspaceId) {
-      throw Object.assign(new Error('Web link not found'), { status: 404 })
+  async fetchBody(workspaceId: string, linkId: string) {
+    const link = await taskWebLinkRepository.getById(linkId)
+    if (!link || link.task.project.workspaceId !== workspaceId) {
+      throw err('not_found', 404)
     }
     if (link.body) return link.body
     await assertExternalHost(link.url) // throws on private/SSRF target
@@ -510,7 +510,7 @@ import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
   },
 ```
 
-`htmlToPlainText` 复用现有 markdown/html 工具(`@/lib/utils/markdown`)。repo 加 `findById` 与 `updateBody(id, body)`(写 `body` + `bodyFetchedAt: new Date()`)。
+`htmlToPlainText` 复用现有 markdown/html 工具(`@/lib/utils/markdown`)。repo 加 `updateBody(id, body)`(写 `body` + `bodyFetchedAt: new Date()`);`getById` 已存在(`refreshWebLink`/`unlinkWebLink` 在用,返回带 `task.project.workspaceId` 的关联)。
 
 - [ ] **Step 4: 运行测试,确认通过**
 
