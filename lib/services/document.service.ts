@@ -13,6 +13,8 @@ import {
 import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
+import { contentSummaryService } from '@/lib/services/content-summary.service'
+import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -146,6 +148,25 @@ async function findAncestors(parentId: string | null) {
   }
 
   return ancestors
+}
+
+/**
+ * Fire-and-forget background generation of a document body summary (LUM-122).
+ *
+ * Callers pass the body as plain text / markdown (use `renderContentToMarkdown`
+ * to convert the stored HTML first). Runs via `waitUntil` so it never blocks the
+ * response, and swallows errors so a summarization failure never surfaces. The
+ * empty-summary short-circuit (blank body → '' from the summary service) means
+ * we skip the write entirely. Exported so the load-time staleness refresh
+ * (Task 9) can reuse the exact same scheduling path.
+ */
+export function scheduleDocumentSummary(docId: string, bodyText: string): void {
+  waitUntil(
+    contentSummaryService
+      .summarize(bodyText, 'document')
+      .then(s => (s ? documentRepository.updateSummary(docId, s) : undefined))
+      .catch(() => {})
+  )
 }
 
 // ── Document Service ────────────────────────────────────────────────────────
@@ -328,6 +349,10 @@ export const documentService = {
 
     if (content) {
       await this.syncDocumentMentions(document.id, content)
+      // Body is immutable for this create — summarize once in the background
+      // and cache it. Convert the stored HTML to markdown for the LLM.
+      const bodyText = renderContentToMarkdown(content)
+      if (bodyText) scheduleDocumentSummary(document.id, bodyText)
     }
 
     if (data.tagIds && data.tagIds.length > 0) {
@@ -453,6 +478,11 @@ export const documentService = {
     // Track editor if content was updated
     if (data.content !== undefined) {
       await documentRepository.upsertEditor(docId, memberId)
+      // Body changed — regenerate the cached summary in the background. Convert
+      // the new HTML body to markdown for the LLM (handles legacy Tiptap JSON
+      // too). A null/empty body short-circuits inside the schedule helper.
+      const bodyText = renderContentToMarkdown(data.content)
+      if (bodyText) scheduleDocumentSummary(docId, bodyText)
     }
 
     // Attach tags to response — only query when tags were actually touched
