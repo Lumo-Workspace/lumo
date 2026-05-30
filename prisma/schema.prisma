@@ -420,6 +420,8 @@ model Task {
   agentStatus     AgentStatus?
   agentError      String?
   inputReason     String? // Why INPUT_REQUIRED: "spec_review" | "clarify" | etc.
+  commentsSummary   String?   @db.Text
+  commentsSummaryAt DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   dueDate         DateTime?
@@ -917,6 +919,9 @@ model Document {
   content String? @db.Text
   emoji   String?
 
+  summary            String?   @db.Text
+  summaryGeneratedAt DateTime?
+
   // Per-workspace incrementing identifier. Combined with slugified title to
   // form the user-facing slug below.
   number Int
@@ -1347,6 +1352,9 @@ model TaskSlackContext {
   snapshotAt   DateTime
   refreshError String?
 
+  summary            String?
+  summaryGeneratedAt DateTime?
+
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1374,6 +1382,9 @@ model TaskWebLink {
   faviconUrl  String?
   fetchedAt   DateTime?
   fetchError  String?
+
+  body          String?   @db.Text
+  bodyFetchedAt DateTime?
 
   createdById String
   createdAt   DateTime @default(now())
@@ -1408,6 +1419,8 @@ model TaskArtifact {
   source  String // "superpowers" | "claude-code" | "manual"
   agent   TaskArtifactAgent @default(CLAUDE_CODE)
   order   Int     @default(0)
+
+  summary String? @db.Text
 
   createdById String? // WorkspaceMember.id; nullable, intentionally no FK relation
   createdAt   DateTime @default(now())
