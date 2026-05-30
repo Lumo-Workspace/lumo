@@ -6,7 +6,11 @@ import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
+import { miscRepository } from '@/lib/repositories/misc.repository'
+import { commentRepository } from '@/lib/repositories/comment.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
 import {
@@ -14,6 +18,9 @@ import {
   renderWebLinkSection,
   renderFigmaSection,
   renderArtifactSection,
+  renderDocumentSection,
+  renderCommentsSection,
+  renderPRSection,
   type SlackContextCard,
 } from '@/lib/context/render'
 import {
@@ -64,6 +71,12 @@ export interface TaskContext {
   figmaSection: string
   /** Pre-rendered artifact section (## [kind] title + content); empty when none. */
   artifactSection: string
+  /** Pre-rendered "## Documents" markdown; empty when none mentioned. */
+  docSection: string
+  /** Pre-rendered "## Comments" markdown; empty when none. */
+  commentsSection: string
+  /** Pre-rendered "## Pull Requests" markdown; empty when none. */
+  prSection: string
   sessions: SessionContext[]
 }
 
@@ -128,6 +141,42 @@ function scheduleLazyRefresh(
       .refreshLinksForTaskAuto({ taskId, workspaceId })
       .catch(() => {})
   )
+}
+
+/** A mentioned document as shaped by miscRepository.findDocumentsForContext. */
+interface ContextDocument {
+  id: string
+  title: string
+  updatedAt: Date
+  summary: string | null
+  summaryGeneratedAt: Date | null
+  content: string | null
+}
+
+/**
+ * A document's cached summary is stale when it was never generated, or when
+ * the body was edited after the summary was produced. Mirrors the Figma
+ * `scheduleLazyRefresh` pattern: we still serve the old summary this call and
+ * regenerate in the background.
+ */
+function isDocumentSummaryStale(doc: ContextDocument): boolean {
+  if (doc.summaryGeneratedAt === null) return true
+  return doc.updatedAt.getTime() > doc.summaryGeneratedAt.getTime()
+}
+
+/**
+ * Schedule a background summary refresh for every stale mentioned document,
+ * reusing the document service's exact scheduling path (which runs under
+ * `waitUntil` and swallows errors). We convert the stored HTML body to
+ * markdown for the LLM, matching how the document service feeds create/update.
+ */
+function scheduleStaleDocumentSummaries(docs: ContextDocument[]): void {
+  for (const doc of docs) {
+    if (!isDocumentSummaryStale(doc)) continue
+    if (!doc.content) continue
+    const bodyText = htmlToMarkdown(doc.content)
+    if (bodyText.trim().length > 0) scheduleDocumentSummary(doc.id, bodyText)
+  }
 }
 
 export const taskContextService = {
@@ -214,6 +263,35 @@ export const taskContextService = {
     const artifacts = await taskArtifactRepository.listByTask(resolved.id)
     const artifactSection = renderArtifactSection(artifacts)
 
+    // Mentioned documents (EXPLICIT + CONTENT, workspace-visibility filtered).
+    const docs = (await miscRepository.findDocumentsForContext(
+      resolved.id,
+      workspaceId,
+      _actorMemberId
+    )) as ContextDocument[]
+    const docSection = renderDocumentSection(
+      docs.map(d => ({ id: d.id, title: d.title, summary: d.summary }))
+    )
+    // Serve the cached summaries now; refresh stale ones in the background.
+    scheduleStaleDocumentSummaries(docs)
+
+    // Comments: short threads inline verbatim, longer ones fall back to the
+    // cached commentsSummary (computed at write time, Task 6). The renderer
+    // maps actor ids to authors — we only have the actor id here.
+    const comments = await commentRepository.listAllForTask(resolved.id)
+    const commentsSection = renderCommentsSection({
+      comments: comments.map(c => ({
+        author: c.authorActorId ?? 'unknown',
+        createdAt: c.createdAt,
+        body: c.body,
+      })),
+      identifier: resolved.identifier,
+      commentsSummary: full.commentsSummary ?? null,
+    })
+
+    const prs = await pullRequestRepository.listByTask(resolved.id)
+    const prSection = renderPRSection(prs)
+
     const memorySection = await taskContextService.buildMemorySectionForTask(
       full.id
     )
@@ -250,6 +328,9 @@ export const taskContextService = {
       webLinkSection: renderWebLinkSection(webLinks),
       figmaSection,
       artifactSection,
+      docSection,
+      commentsSection,
+      prSection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

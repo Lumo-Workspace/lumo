@@ -43,6 +43,21 @@ jest.mock('@/lib/services/task.service', () => ({
     }),
   },
 }))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: {
+    findDocumentsForContext: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/comment.repository', () => ({
+  commentRepository: { listAllForTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/services/document.service', () => ({
+  scheduleDocumentSummary: jest.fn(),
+}))
 
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { taskContextService } from '@/lib/services/task-context.service'

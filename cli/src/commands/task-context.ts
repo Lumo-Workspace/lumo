@@ -21,6 +21,9 @@ interface TaskContextResponse {
   webLinkSection?: string
   figmaSection?: string
   artifactSection?: string
+  docSection?: string
+  commentsSection?: string
+  prSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -135,6 +138,21 @@ export function formatTaskContextMarkdown(
 
   if (data.artifactSection && data.artifactSection.trim().length > 0) {
     lines.push(data.artifactSection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.docSection && data.docSection.trim().length > 0) {
+    lines.push(data.docSection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.commentsSection && data.commentsSection.trim().length > 0) {
+    lines.push(data.commentsSection.trimEnd())
+    lines.push('')
+  }
+
+  if (data.prSection && data.prSection.trim().length > 0) {
+    lines.push(data.prSection.trimEnd())
     lines.push('')
   }
 
