@@ -70,7 +70,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     expect(ctx?.slackContextSection).toBe('')
   })
 
-  it('renders a single-message context', async () => {
+  it('renders a tiered card with cached summary + retrieval command', async () => {
     listByTask.mockResolvedValue([
       {
         id: 'ctx_1',
@@ -80,6 +80,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
         permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
         snapshotAt: new Date('2026-05-19T10:00:00Z'),
         refreshError: null,
+        summary: 'Decided to ship after review.',
         snapshot: {
           messages: [
             {
@@ -102,11 +103,13 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     expect(ctx?.slackContextSection).toContain('## Slack Context')
     expect(ctx?.slackContextSection).toContain('#design')
     expect(ctx?.slackContextSection).toContain('Single message')
-    expect(ctx?.slackContextSection).toContain('**alice**')
-    expect(ctx?.slackContextSection).toContain('hello')
+    expect(ctx?.slackContextSection).toContain('Decided to ship after review.')
+    expect(ctx?.slackContextSection).toContain('lumo task slack show ctx_1')
+    // Full thread is no longer inlined when a summary exists.
+    expect(ctx?.slackContextSection).not.toContain('alice: hello')
   })
 
-  it('renders a thread context with all replies', async () => {
+  it('falls back to first messages when no summary cached yet', async () => {
     listByTask.mockResolvedValue([
       {
         id: 'ctx_2',
@@ -116,6 +119,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
         permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
         snapshotAt: new Date('2026-05-19T10:00:00Z'),
         refreshError: null,
+        summary: null,
         snapshot: {
           messages: [
             {
@@ -144,8 +148,8 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
       'LUM-1'
     )
     expect(ctx?.slackContextSection).toContain('Thread (2 messages')
-    expect(ctx?.slackContextSection).toContain('**a**')
-    expect(ctx?.slackContextSection).toContain('**b**')
+    expect(ctx?.slackContextSection).toContain('a: one')
+    expect(ctx?.slackContextSection).toContain('b: two')
   })
 
   it('flags refreshError when present', async () => {
@@ -158,6 +162,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
         permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
         snapshotAt: new Date('2026-05-19T10:00:00Z'),
         refreshError: 'not_in_channel',
+        summary: 'A summary.',
         snapshot: {
           messages: [
             {
@@ -180,7 +185,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
     expect(ctx?.slackContextSection).toContain('refresh failed: not_in_channel')
   })
 
-  it('converts <@U…> mentions to @U… plain tokens', async () => {
+  it('converts <@U…> mentions to @U… plain tokens in the fallback', async () => {
     listByTask.mockResolvedValue([
       {
         id: 'ctx_4',
@@ -190,6 +195,7 @@ describe('taskContextService.getContextForIdentifier — slackContextSection', (
         permalink: 'https://lumo.slack.com/archives/C9/p1700000000000100',
         snapshotAt: new Date('2026-05-19T10:00:00Z'),
         refreshError: null,
+        summary: null,
         snapshot: {
           messages: [
             {

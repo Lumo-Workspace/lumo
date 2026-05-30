@@ -10,6 +10,13 @@ import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
 import {
+  renderSlackContextSection,
+  renderWebLinkSection,
+  renderFigmaSection,
+  renderArtifactSection,
+  type SlackContextCard,
+} from '@/lib/context/render'
+import {
   applyTokenBudget,
   renderMemorySection,
   type RenderableMemory,
@@ -100,147 +107,7 @@ function summaryUnresolved(summary: unknown): string[] {
   return u.filter((x): x is string => typeof x === 'string' && x.length > 0)
 }
 
-/** Strip Slack mrkdwn tokens that would confuse the agent. */
-function plainText(text: string): string {
-  return text
-    .replace(/<@([UW][A-Z0-9]+)>/g, '@$1')
-    .replace(/<#[CG][A-Z0-9]+\|([^>]+)>/g, '#$1')
-    .replace(/<#[CG][A-Z0-9]+>/g, '#channel')
-}
-
-function renderSlackContextSection(
-  contexts: Array<{
-    isThread: boolean
-    slackChannelName: string | null
-    permalink: string
-    snapshotAt: Date
-    refreshError: string | null
-    snapshot: {
-      messages: Array<{
-        ts: string
-        userName: string | null
-        userId: string
-        text: string
-      }>
-    }
-  }>
-): string {
-  if (contexts.length === 0) return ''
-
-  const lines: string[] = ['## Slack Context', '']
-
-  for (const c of contexts) {
-    const channelLabel = c.slackChannelName
-      ? `#${c.slackChannelName}`
-      : '#channel'
-    const fetchedAt =
-      c.snapshotAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
-    const meta = c.isThread
-      ? `Thread (${c.snapshot.messages.length} messages, fetched ${fetchedAt})`
-      : `Single message (fetched ${fetchedAt})`
-    const errSuffix = c.refreshError
-      ? ` (refresh failed: ${c.refreshError})`
-      : ''
-    lines.push(`### ${channelLabel} · ${meta}${errSuffix}`)
-    lines.push(`permalink: ${c.permalink}`)
-    lines.push('')
-
-    for (const m of c.snapshot.messages) {
-      const author = m.userName ?? `@${m.userId}`
-      lines.push(`- **${author}**: ${plainText(m.text)}`)
-    }
-    lines.push('')
-  }
-
-  return lines.join('\n')
-}
-
-export function renderWebLinkSection(
-  links: Array<{
-    url: string
-    domain: string
-    title: string | null
-    description: string | null
-    note: string | null
-    fetchedAt: Date | null
-    fetchError: string | null
-  }>
-): string {
-  if (links.length === 0) return ''
-
-  const lines: string[] = ['## Web Links', '']
-
-  for (const l of links) {
-    const titleLine = l.title
-      ? `- [${l.title}](${l.url}) — ${l.domain}`
-      : `- ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
-    lines.push(titleLine)
-    const body = l.note ?? l.description
-    if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
-  }
-  lines.push('')
-
-  return lines.join('\n')
-}
-
 const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
-
-export function renderFigmaSection(links: TaskFigmaLink[]): string {
-  if (links.length === 0) return ''
-  const lines: string[] = ['## Figma Designs', '']
-  for (const link of links) {
-    const title = link.frameName
-      ? `${link.fileName} · ${link.frameName}`
-      : `${link.fileName} _(file-level)_`
-    lines.push(`- **${title}**`)
-    lines.push(`  - URL: ${link.url}`)
-    if (link.thumbnailUrl) {
-      lines.push(`  - Thumbnail: ![](${link.thumbnailUrl})`)
-    } else {
-      const reason = link.lastSyncError
-        ? `_(sync failed: ${link.lastSyncError})_`
-        : '_(thumbnail not yet fetched)_'
-      lines.push(`  - Thumbnail unavailable ${reason}`)
-    }
-    lines.push(
-      `  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`
-    )
-    lines.push('')
-  }
-  return lines.join('\n').trimEnd()
-}
-
-const ARTIFACT_AGENT_LABELS: Record<string, string> = {
-  CLAUDE_CODE: 'Claude Code',
-  CODEX: 'Codex',
-  CURSOR: 'Cursor',
-  GEMINI_CLI: 'Gemini CLI',
-  GITHUB_COPILOT: 'GitHub Copilot',
-  WINDSURF: 'Windsurf',
-}
-
-export function renderArtifactSection(
-  artifacts: Array<{
-    kind: string
-    title: string
-    content: string
-    agent?: string
-  }>
-): string {
-  if (artifacts.length === 0) return ''
-  const blocks: string[] = []
-  for (const a of artifacts) {
-    const label = a.agent ? (ARTIFACT_AGENT_LABELS[a.agent] ?? a.agent) : null
-    const heading = label
-      ? `## [${a.kind}] ${a.title} · ${label}`
-      : `## [${a.kind}] ${a.title}`
-    blocks.push(heading)
-    blocks.push('')
-    blocks.push(a.content.trimEnd())
-    blocks.push('')
-  }
-  return blocks.join('\n').trimEnd()
-}
 
 function scheduleLazyRefresh(
   links: TaskFigmaLink[],
@@ -378,9 +245,7 @@ export const taskContextService = {
       },
       memorySection,
       slackContextSection: renderSlackContextSection(
-        slackContexts as unknown as Parameters<
-          typeof renderSlackContextSection
-        >[0]
+        slackContexts as unknown as SlackContextCard[]
       ),
       webLinkSection: renderWebLinkSection(webLinks),
       figmaSection,
