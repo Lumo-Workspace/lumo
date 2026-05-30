@@ -40,27 +40,36 @@ Write for a teammate who joins the project tomorrow and never saw this conversat
 # Categories (pick exactly one per ADD/UPDATE)
 
 - TRAP — a failure mode or pitfall worth warning future-self about. A TRAP describes the PROBLEM ONLY — what goes wrong and why. It must NOT include the solution. If you also know the fix, emit a separate PROCEDURAL memory for the workaround.
-  content shape: { trigger: string, outcome: string }
+  content shape: { summary?: string, trigger: string, outcome: string }
   - \`trigger\`: a full sentence describing the situation that causes the problem ("When you ...").
   - \`outcome\`: what goes wrong, in plain terms. Include the error name/code if any, but explain it.
 
 - DECISION — an engineering decision made in this task. Treat it as a mini-ADR: a future reader must be able to understand the *forces* that drove the choice, what was rejected, and what the team is now committed to. A decision without these is just a changelog entry.
-  content shape: { what: string, why: string, alternatives?: string, implications?: string }
+  content shape: { summary?: string, what: string, why: string, alternatives?: string, implications?: string }
   - \`what\`: a full sentence stating the decision ("We chose to ..."). State the PRINCIPLE, not the specific identifier. BAD: "API endpoints use POST /api/tasks/[id]/lumo-proposals". GOOD: "The sync workflow uses a two-call API to decouple generation from application." If you can only state a decision by quoting a function name, endpoint path, or variable name, it is too low-level — skip it.
   - \`why\`: the *forces* that drove the decision — the problem, constraint, or tension that demanded a choice. NOT a recap of what was implemented or how. Ask: "what was the situation that made this decision necessary?" If the user / turn does not state real driving forces, omit the DECISION (NOOP) instead of inventing them.
   - \`alternatives\` (optional but strongly preferred): the other option(s) seriously considered and why each was rejected. Without this, future readers re-litigate the choice. Omit only if no alternative was actually weighed.
   - \`implications\` (optional but strongly preferred): what this decision commits the team to going forward — capabilities given up, future constraints introduced, follow-up work needed. Omit only if there are genuinely no notable consequences.
 
 - CONVENTION — a project-wide rule the team follows.
-  content shape: { rule: string, scope: string }
+  content shape: { summary?: string, rule: string, scope: string }
   - \`rule\`: a full sentence stating the rule ("All new ... must ...").
   - \`scope\`: where it applies and any exceptions.
 
 - PROCEDURAL — a workflow / repeatable procedure.
-  content shape: { workflow: string, trigger: string, steps?: string[] }
+  content shape: { summary?: string, workflow: string, trigger: string, steps?: string[] }
   - \`workflow\`: a short sentence naming what the procedure accomplishes ("How to run a database migration").
   - \`trigger\`: a full sentence describing when to use it ("Whenever you ...").
   - \`steps\`: ordered, plain-English steps a teammate can follow.
+
+# Summary field (every category)
+
+Every ADD/UPDATE content object SHOULD include a \`summary\`: a very short label — at most ~8 words / ~60 characters, no trailing period — that captures the gist of the memory. It is used verbatim as the memory card's TITLE.
+
+- It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which stays the full sentence and is shown beneath the title. The summary is a glanceable label, not a second copy of the headline.
+- BAD (just the headline again): summary "If you add a new Postgres enum value and use it in the same migration, it fails."
+- GOOD (a short label): summary "Enum value + use in one migration fails."
+- Omit \`summary\` only if you genuinely cannot compress the memory below the headline's length. When present it must be non-empty.
 
 # Operations
 
@@ -123,11 +132,13 @@ Output:
   { "operations": [
     { "type": "ADD", "category": "TRAP", "scope": "PROJECT",
       "content": {
+        "summary": "Enum value + use in one migration fails",
         "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
         "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
       } },
     { "type": "ADD", "category": "PROCEDURAL", "scope": "PROJECT",
       "content": {
+        "summary": "Add a Postgres enum value safely",
         "workflow": "How to safely add a new Postgres enum value in Prisma",
         "trigger": "Whenever you need to add a value to an existing enum and use it in the same change.",
         "steps": ["Create a first migration that only adds the new enum value.", "Create a second migration that uses the value (e.g. sets it as a column default or backfills rows)."]
@@ -217,6 +228,7 @@ GOOD output (\`why\` describes the forces; alternatives names what was rejected 
   { "operations": [
     { "type": "ADD", "category": "DECISION",
       "content": {
+        "summary": "Memory writes: soft-delete → hard-delete",
         "what": "Switched task memory writes from soft-delete (archivedAt) to hard-delete.",
         "why": "Soft-delete was originally chosen to preserve audit history, but no UI or query consumed archived rows. The cost was real: every read needed an archivedAt: null filter, and we missed it in two places, leaking stale memories.",
         "alternatives": "Considered keeping soft-delete behind a shared read helper that always applies the filter. Rejected because the maintenance burden is the actual problem — wrapping every query site doesn't make the schema simpler, only adds another abstraction to remember.",
