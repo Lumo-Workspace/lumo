@@ -54,7 +54,18 @@ jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {},
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: {},
+  pullRequestRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: {
+    findDocumentsForContext: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/comment.repository', () => ({
+  commentRepository: { listAllForTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/services/document.service', () => ({
+  scheduleDocumentSummary: jest.fn(),
 }))
 jest.mock('@/lib/repositories/tag.repository', () => ({ tagRepository: {} }))
 jest.mock('@/lib/repositories/github.repository', () => ({
