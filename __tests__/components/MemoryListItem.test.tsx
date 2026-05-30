@@ -36,8 +36,12 @@ const baseRow: MemoryRow = {
   updatedAt: '2026-05-01T00:00:00Z',
 }
 
-function setup(overrides: Partial<React.ComponentProps<typeof MemoryListItem>> = {}) {
-  const onEdit = jest.fn(), onPromote = jest.fn(), onDelete = jest.fn()
+function setup(
+  overrides: Partial<React.ComponentProps<typeof MemoryListItem>> = {}
+) {
+  const onEdit = jest.fn(),
+    onPromote = jest.fn(),
+    onDelete = jest.fn()
   render(
     <MemoryListItem
       memory={baseRow}
@@ -67,13 +71,33 @@ describe('MemoryListItem', () => {
     expect(screen.getByText('do X')).toBeInTheDocument()
   })
 
+  it('uses summary as the title and demotes the headline field to a section', () => {
+    setup({
+      memory: {
+        ...baseRow,
+        content: {
+          summary: 'Hook fires on failure',
+          trigger: 'do X',
+          outcome: 'Y breaks',
+        },
+      },
+    })
+    // summary becomes the card title…
+    expect(screen.getByText('Hook fires on failure')).toBeInTheDocument()
+    // …and the full trigger sentence is still rendered, now as a body section.
+    expect(screen.getByText('do X')).toBeInTheDocument()
+  })
+
   it('shows "Sedimented by Claude" for auto memories', () => {
     setup()
     expect(screen.getByText('Sedimented by Claude')).toBeInTheDocument()
   })
 
   it('shows "Added by <name>" when there is a creator', () => {
-    setup({ memory: { ...baseRow, createdByMemberId: 'mem1' }, memberName: 'Alice' })
+    setup({
+      memory: { ...baseRow, createdByMemberId: 'mem1' },
+      memberName: 'Alice',
+    })
     expect(screen.getByText('Added by Alice')).toBeInTheDocument()
   })
 

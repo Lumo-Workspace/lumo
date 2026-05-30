@@ -216,6 +216,19 @@ describe('buildLayer1Prompt', () => {
     expect(out.user).toMatch(/"type":\s*"NOOP"/)
   })
 
+  it('documents the optional summary title field and demonstrates it in an example', () => {
+    // summary is the card title (LUM-121); without prompt guidance the LLM
+    // never emits it and every card falls back to the long headline field.
+    const out = buildLayer1Prompt({
+      task: baseTask,
+      turnEvents: [],
+      existingMemories: [],
+    })
+    expect(out.system).toMatch(/summary/i)
+    expect(out.system).toMatch(/title/i)
+    expect(out.user).toMatch(/"summary":/)
+  })
+
   it('instructs the model how to signal a no-op turn', () => {
     const out = buildLayer1Prompt({
       task: baseTask,

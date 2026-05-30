@@ -153,7 +153,12 @@ function MemoryBody({
       const c = parsed as TrapContent
       return (
         <>
-          <Title>{c.trigger}</Title>
+          <Title>{c.summary ?? c.trigger}</Title>
+          {c.summary && (
+            <Section label={label('memory.section.trigger')}>
+              {c.trigger}
+            </Section>
+          )}
           <Section label={label('memory.section.outcome')}>{c.outcome}</Section>
           {c.workaround && (
             <Section label={label('memory.section.workaround')}>
@@ -167,7 +172,10 @@ function MemoryBody({
       const c = parsed as DecisionContent
       return (
         <>
-          <Title>{c.what}</Title>
+          <Title>{c.summary ?? c.what}</Title>
+          {c.summary && (
+            <Section label={label('memory.section.what')}>{c.what}</Section>
+          )}
           <Section label={label('memory.section.why')}>{c.why}</Section>
           {c.alternatives && (
             <Section label={label('memory.section.alternatives')}>
@@ -186,7 +194,10 @@ function MemoryBody({
       const c = parsed as ConventionContent
       return (
         <>
-          <Title>{c.rule}</Title>
+          <Title>{c.summary ?? c.rule}</Title>
+          {c.summary && (
+            <Section label={label('memory.section.rule')}>{c.rule}</Section>
+          )}
           <Section label={label('memory.section.scope')}>{c.scope}</Section>
         </>
       )
@@ -195,7 +206,12 @@ function MemoryBody({
       const c = parsed as ProceduralContent
       return (
         <>
-          <Title>{c.workflow}</Title>
+          <Title>{c.summary ?? c.workflow}</Title>
+          {c.summary && (
+            <Section label={label('memory.section.workflow')}>
+              {c.workflow}
+            </Section>
+          )}
           <Section label={label('memory.section.trigger')}>{c.trigger}</Section>
           {c.steps && c.steps.length > 0 && (
             <Section label={label('memory.section.steps')}>

@@ -33,6 +33,27 @@ describe('trapContentSchema', () => {
     const result = trapContentSchema.safeParse({ trigger: '', outcome: 'y' })
     expect(result.success).toBe(false)
   })
+
+  it('accepts and retains optional summary', () => {
+    const result = trapContentSchema.safeParse({
+      trigger: 'x',
+      outcome: 'y',
+      summary: 'PostToolUse fires on failures too',
+    })
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.summary).toBe(
+      'PostToolUse fires on failures too'
+    )
+  })
+
+  it('rejects empty summary', () => {
+    const result = trapContentSchema.safeParse({
+      trigger: 'x',
+      outcome: 'y',
+      summary: '',
+    })
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('decisionContentSchema', () => {
@@ -48,6 +69,18 @@ describe('decisionContentSchema', () => {
     const result = decisionContentSchema.safeParse({ what: 'x' })
     expect(result.success).toBe(false)
   })
+
+  it('accepts and retains optional summary', () => {
+    const result = decisionContentSchema.safeParse({
+      what: 'x',
+      why: 'y',
+      summary: 'PROJECT scope for cross-task rules',
+    })
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.summary).toBe(
+      'PROJECT scope for cross-task rules'
+    )
+  })
 })
 
 describe('conventionContentSchema', () => {
@@ -62,6 +95,18 @@ describe('conventionContentSchema', () => {
   it('rejects empty rule', () => {
     const result = conventionContentSchema.safeParse({ rule: '', scope: 's' })
     expect(result.success).toBe(false)
+  })
+
+  it('accepts and retains optional summary', () => {
+    const result = conventionContentSchema.safeParse({
+      rule: 'r',
+      scope: 's',
+      summary: 'Branch naming convention',
+    })
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.summary).toBe(
+      'Branch naming convention'
+    )
   })
 })
 
@@ -90,6 +135,18 @@ describe('proceduralContentSchema', () => {
       steps: ['ok', ''],
     })
     expect(result.success).toBe(false)
+  })
+
+  it('accepts and retains optional summary', () => {
+    const result = proceduralContentSchema.safeParse({
+      workflow: 'w',
+      trigger: 't',
+      summary: 'Add a Postgres enum value safely',
+    })
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.summary).toBe(
+      'Add a Postgres enum value safely'
+    )
   })
 })
 

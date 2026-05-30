@@ -30,12 +30,14 @@ Bad PROJECT memories (leave at TASK scope):
 
 Same four categories as Layer 1: TRAP, DECISION, CONVENTION, PROCEDURAL. Use the same content shapes:
 
-- TRAP: { trigger: string, outcome: string, workaround?: string }
-- DECISION: { what: string, why: string, alternatives?: string, implications?: string }
-- CONVENTION: { rule: string, scope: string }
-- PROCEDURAL: { workflow: string, trigger: string, steps?: string[] }
+- TRAP: { summary?: string, trigger: string, outcome: string, workaround?: string }
+- DECISION: { summary?: string, what: string, why: string, alternatives?: string, implications?: string }
+- CONVENTION: { summary?: string, rule: string, scope: string }
+- PROCEDURAL: { summary?: string, workflow: string, trigger: string, steps?: string[] }
 
-All string fields must be non-empty, full sentences, readable cold by a teammate who never saw the source tasks.
+All headline/detail string fields must be non-empty, full sentences, readable cold by a teammate who never saw the source tasks.
+
+\`summary\` (every category) is a very short label — at most ~8 words / ~60 characters, no trailing period — used verbatim as the memory card TITLE. It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which stays the full sentence shown beneath the title. Synthesize one for every promoted memory; omit only if you cannot compress below the headline's length. When present it must be non-empty.
 
 # Operations
 
@@ -93,6 +95,7 @@ Output:
   { "operations": [
     { "type": "ADD", "category": "TRAP",
       "content": {
+        "summary": "Enum value + use in one migration fails",
         "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
         "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
       } } ] }

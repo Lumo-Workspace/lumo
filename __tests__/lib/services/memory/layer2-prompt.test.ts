@@ -85,6 +85,19 @@ describe('buildLayer2Prompt', () => {
     expect(user).toMatch(/MyCoolProject/)
   })
 
+  it('documents the optional summary title field and demonstrates it in an example', () => {
+    // summary is the card title (LUM-121); the consolidation prompt must
+    // teach the LLM to synthesize one when promoting a memory.
+    const { system, user } = buildLayer2Prompt({
+      project: baseProject,
+      taskMemories: [],
+      existingProjectMemories: [],
+    })
+    expect(system).toMatch(/summary/i)
+    expect(system).toMatch(/title/i)
+    expect(user).toMatch(/"summary":/)
+  })
+
   it('keeps the recurrence-required rule in the system prompt', () => {
     // This is the most important constraint Layer 2 enforces; if it leaks
     // out of the prompt, the LLM will promote single-task patterns and

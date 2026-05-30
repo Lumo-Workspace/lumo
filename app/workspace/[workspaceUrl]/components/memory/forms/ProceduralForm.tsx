@@ -14,9 +14,20 @@ import {
 } from './procedural.helpers'
 
 export type { ProceduralValue }
-export { proceduralDefault, proceduralIsValid, proceduralToContent, proceduralFromContent }
+export {
+  proceduralDefault,
+  proceduralIsValid,
+  proceduralToContent,
+  proceduralFromContent,
+}
 
-export function ProceduralForm({ value, onChange }: { value: ProceduralValue; onChange: (v: ProceduralValue) => void }) {
+export function ProceduralForm({
+  value,
+  onChange,
+}: {
+  value: ProceduralValue
+  onChange: (v: ProceduralValue) => void
+}) {
   const intl = useIntl()
   const setStep = (i: number, s: string) => {
     const steps = [...value.steps]
@@ -24,23 +35,53 @@ export function ProceduralForm({ value, onChange }: { value: ProceduralValue; on
     onChange({ ...value, steps })
   }
   const addStep = () => onChange({ ...value, steps: [...value.steps, ''] })
-  const removeStep = (i: number) => onChange({ ...value, steps: value.steps.filter((_, j) => j !== i) })
+  const removeStep = (i: number) =>
+    onChange({ ...value, steps: value.steps.filter((_, j) => j !== i) })
 
   return (
     <div className='space-y-3'>
       <div className='space-y-1'>
-        <Label htmlFor='proc-workflow'>{intl.formatMessage({ id: 'memory.form.procedural.workflow.label' })} *</Label>
-        <Input id='proc-workflow' value={value.workflow} onChange={e => onChange({ ...value, workflow: e.target.value })} />
+        <Label htmlFor='proc-summary'>
+          {intl.formatMessage({ id: 'memory.form.procedural.summary.label' })}
+        </Label>
+        <Input
+          id='proc-summary'
+          value={value.summary}
+          onChange={e => onChange({ ...value, summary: e.target.value })}
+        />
       </div>
       <div className='space-y-1'>
-        <Label htmlFor='proc-trigger'>{intl.formatMessage({ id: 'memory.form.procedural.trigger.label' })} *</Label>
-        <Input id='proc-trigger' value={value.trigger} onChange={e => onChange({ ...value, trigger: e.target.value })} />
+        <Label htmlFor='proc-workflow'>
+          {intl.formatMessage({ id: 'memory.form.procedural.workflow.label' })}{' '}
+          *
+        </Label>
+        <Input
+          id='proc-workflow'
+          value={value.workflow}
+          onChange={e => onChange({ ...value, workflow: e.target.value })}
+        />
+      </div>
+      <div className='space-y-1'>
+        <Label htmlFor='proc-trigger'>
+          {intl.formatMessage({ id: 'memory.form.procedural.trigger.label' })} *
+        </Label>
+        <Input
+          id='proc-trigger'
+          value={value.trigger}
+          onChange={e => onChange({ ...value, trigger: e.target.value })}
+        />
       </div>
       <div className='space-y-2'>
-        <Label>{intl.formatMessage({ id: 'memory.form.procedural.steps.label' })}</Label>
+        <Label>
+          {intl.formatMessage({ id: 'memory.form.procedural.steps.label' })}
+        </Label>
         {value.steps.map((step, i) => (
           <div key={i} className='flex items-center gap-2'>
-            <Input value={step} onChange={e => setStep(i, e.target.value)} aria-label={`step-${i}`} />
+            <Input
+              value={step}
+              onChange={e => setStep(i, e.target.value)}
+              aria-label={`step-${i}`}
+            />
             <Button
               type='button'
               variant='ghost'
