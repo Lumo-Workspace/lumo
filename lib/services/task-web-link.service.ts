@@ -2,7 +2,12 @@ import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.reposito
 import { fetchOpenGraph } from '@/lib/integrations/og-metadata/fetch'
 import { fetchOpenGraphChromium } from '@/lib/integrations/og-metadata/fetch-chromium'
 import { shouldEscalateToChromium } from '@/lib/integrations/og-metadata/should-escalate'
+import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
+import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import type { FetchResult } from '@/lib/integrations/og-metadata/fetch'
+
+// Cap stored body so a giant page can't bloat the row / agent context window.
+const MAX_BODY_CHARS = 50_000
 
 function err(message: string, status: number): Error & { status: number } {
   return Object.assign(new Error(message), { status })
@@ -95,6 +100,23 @@ export const taskWebLinkService = {
       ok: false,
       error: og.error,
     })
+  },
+
+  // On-demand body fetch for retrieval. Returns the already-stored body when
+  // present; otherwise runs the SSRF guard, fetches, converts HTML→text, and
+  // backfills the row. WebLink cards keep using OG title/desc untouched.
+  async fetchBody(workspaceId: string, linkId: string) {
+    const link = await taskWebLinkRepository.getById(linkId)
+    if (!link || link.task.project.workspaceId !== workspaceId) {
+      throw err('not_found', 404)
+    }
+    if (link.body) return link.body
+    await assertExternalHost(link.url) // private/SSRF targets throw here
+    const res = await fetch(link.url)
+    const html = await res.text()
+    const body = htmlToMarkdown(html).slice(0, MAX_BODY_CHARS)
+    await taskWebLinkRepository.updateBody(linkId, body)
+    return body
   },
 
   async unlinkWebLink(linkId: string, expectedWorkspaceId: string) {
