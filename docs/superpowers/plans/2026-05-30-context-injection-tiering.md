@@ -19,6 +19,14 @@
 - 所有面向用户字符串若新增,要更新 `lib/i18n/` 每个 locale 文件。
 - 无 `console.log`(CLI 命令输出用 `console.log` 是既有约定,属例外)。
 
+**已核实的代码事实(执行时照此,勿凭空假设):**
+
+- **测试目录是根级 `__tests__/`**(如 `__tests__/services/`、`__tests__/repositories/`、`__tests__/cli/`),**不是** `__tests__/services/`。已存在 `__tests__/summary.test.ts`(与本任务无关的 sprint-summary),所以本任务总结服务测试命名为 `__tests__/services/summary.service.test.ts` 避免混淆。
+- **API route 鉴权用 `requireIdentity(request)`**(来自 `@/lib/auth`),返回 `identity`(含 `workspaceId`)或 `NextResponse`(直接 return)。**不是** `getAuthContext`。task 解析照 `app/api/tasks/[id]/artifacts/[artifactId]/route.ts` 里的 `resolveTask(rawId, workspaceId)`(`isLikelyCuid` / `parseIdentifier` + `taskRepository.findByWorkspaceIdentifier`)模式。
+- **SSRF 守卫函数是 `assertExternalHost(rawUrl)`**(来自 `@/lib/integrations/og-metadata/ssrf`),**不是** `assertPublicUrl`。
+- **CLI 无 `register.ts`**;命令在 `cli/src/index.ts` 里用 commander 嵌套连线:`const task = program.command('task')` → `const taskArtifact = task.command('artifact')` → 叶子 `.command('show <...>').action(taskArtifactShow)`。命令文件导出**普通 async 函数**(如 `taskArtifactShow(identifier, artifactId)`,返回 `number | void`,错误时 `return 1`),**不是** `register*(program)` 工厂。
+- **web-link repo 用 `getById(linkId)`**(返回带 `task.project.workspaceId` 的关联),workspace 校验写 `link.task.project.workspaceId !== workspaceId`。service 内已有 `err(message, status)` 工厂。
+
 ---
 
 ## Task 1: Schema — 给 5 个模型加缓存列
@@ -90,13 +98,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `lib/services/summary.service.ts`
-- Test: `lib/services/__tests__/summary.service.test.ts`
+- Test: `__tests__/services/summary.service.test.ts`
 
 - [ ] **Step 1: 写失败测试**
 
 ```typescript
-// lib/services/__tests__/summary.service.test.ts
-import { summaryService, SUMMARY_PROMPTS } from '../summary.service'
+// __tests__/services/summary.service.test.ts
+import { summaryService, SUMMARY_PROMPTS } from '@/lib/services/summary.service'
 
 describe('summaryService', () => {
   it('exposes a prompt template per kind', () => {
@@ -116,7 +124,7 @@ describe('summaryService', () => {
   it('does NOT statically import @ai-sdk/gateway (jest TransformStream trap)', () => {
     // Guards regression: a static import would crash this very test file on load.
     const src = require('fs').readFileSync(
-      require('path').join(__dirname, '../summary.service.ts'),
+      require('path').join(process.cwd(), 'lib/services/summary.service.ts'),
       'utf8'
     )
     expect(src).not.toMatch(/^import .*@ai-sdk\/gateway/m)
@@ -127,8 +135,8 @@ describe('summaryService', () => {
 
 - [ ] **Step 2: 运行,确认失败**
 
-Run: `npx jest lib/services/__tests__/summary.service.test.ts`
-Expected: FAIL — `Cannot find module '../summary.service'`.
+Run: `npx jest __tests__/services/summary.service.test.ts`
+Expected: FAIL — `Cannot find module '@/lib/services/summary.service'`.
 
 - [ ] **Step 3: 实现服务(gateway 动态 import)**
 
@@ -175,13 +183,13 @@ export const summaryService = {
 
 - [ ] **Step 4: 运行测试,确认通过**
 
-Run: `npx jest lib/services/__tests__/summary.service.test.ts`
+Run: `npx jest __tests__/services/summary.service.test.ts`
 Expected: PASS(3 个用例)。注意:`summarize` 的真实调用在测试里不触发(blank-input 用例提前返回),不会真打模型。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/services/summary.service.ts lib/services/__tests__/summary.service.test.ts
+git add lib/services/summary.service.ts __tests__/services/summary.service.test.ts
 git commit -m "feat: add summary.service with per-kind prompts (dynamic gateway import) [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -194,7 +202,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Modify: `lib/services/task-slack-context.service.ts`
-- Test: `lib/services/__tests__/task-slack-context.service.test.ts`(若不存在则 Create)
+- Test: `__tests__/services/task-slack-context.service.test.ts`(若不存在则 Create)
 - Repo helper: `lib/repositories/task-slack-context.repository.ts`(加 `updateSummary`)
 
 - [ ] **Step 1: repo 加 `updateSummary`**
@@ -213,7 +221,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ```typescript
 // renderSlack summary helper — test the pure helper, not waitUntil timing
-import { buildSlackSummaryInput } from '../task-slack-context.service'
+import { buildSlackSummaryInput } from '@/lib/services/task-slack-context.service'
 
 it('flattens a thread snapshot into summarizable text', () => {
   const input = buildSlackSummaryInput({
@@ -229,7 +237,7 @@ it('flattens a thread snapshot into summarizable text', () => {
 
 - [ ] **Step 3: 运行,确认失败**
 
-Run: `npx jest lib/services/__tests__/task-slack-context.service.test.ts`
+Run: `npx jest __tests__/services/task-slack-context.service.test.ts`
 Expected: FAIL — `buildSlackSummaryInput` 未导出。
 
 - [ ] **Step 4: 实现 helper + 在 link/refresh 路径接 `waitUntil`**
@@ -269,13 +277,13 @@ function scheduleSlackSummary(
 
 - [ ] **Step 5: 运行测试,确认通过**
 
-Run: `npx jest lib/services/__tests__/task-slack-context.service.test.ts`
+Run: `npx jest __tests__/services/task-slack-context.service.test.ts`
 Expected: PASS。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/services/task-slack-context.service.ts lib/repositories/task-slack-context.repository.ts lib/services/__tests__/task-slack-context.service.test.ts
+git add lib/services/task-slack-context.service.ts lib/repositories/task-slack-context.repository.ts __tests__/services/task-slack-context.service.test.ts
 git commit -m "feat: generate Slack thread summary on link/refresh [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -288,7 +296,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Modify: `lib/services/task-artifact.service.ts`(add 路径)
-- Test: `lib/services/__tests__/task-artifact.service.test.ts`
+- Test: `__tests__/services/task-artifact.service.test.ts`
 
 - [ ] **Step 1: 写失败测试**
 
@@ -303,7 +311,7 @@ it('schedules a one-time summary after creating an artifact', async () => {
 
 - [ ] **Step 2: 运行,确认失败**
 
-Run: `npx jest lib/services/__tests__/task-artifact.service.test.ts -t 'schedules a one-time summary'`
+Run: `npx jest __tests__/services/task-artifact.service.test.ts -t 'schedules a one-time summary'`
 Expected: FAIL — 未调用 summarize。
 
 - [ ] **Step 3: 实现:add 后 `waitUntil` 生成总结**
@@ -328,13 +336,13 @@ waitUntil(
 
 - [ ] **Step 4: 运行测试,确认通过**
 
-Run: `npx jest lib/services/__tests__/task-artifact.service.test.ts`
+Run: `npx jest __tests__/services/task-artifact.service.test.ts`
 Expected: PASS。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/services/task-artifact.service.ts lib/repositories/task-artifact.repository.ts lib/services/__tests__/task-artifact.service.test.ts
+git add lib/services/task-artifact.service.ts lib/repositories/task-artifact.repository.ts __tests__/services/task-artifact.service.test.ts
 git commit -m "feat: generate artifact summary once on add [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -348,7 +356,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - Modify: `lib/services/document.service.ts`(create/update 路径)
 - Modify: `lib/repositories/document.repository.ts`(加 `updateSummary`)
-- Test: `lib/services/__tests__/document.service.test.ts`
+- Test: `__tests__/services/document.service.test.ts`
 
 - [ ] **Step 1: repo 加 `updateSummary`**
 
@@ -374,7 +382,7 @@ it('schedules a document summary after create', async () => {
 
 - [ ] **Step 3: 运行,确认失败**
 
-Run: `npx jest lib/services/__tests__/document.service.test.ts -t 'schedules a document summary'`
+Run: `npx jest __tests__/services/document.service.test.ts -t 'schedules a document summary'`
 Expected: FAIL。
 
 - [ ] **Step 4: 实现 create/update 后 `waitUntil` 生成总结**
@@ -383,13 +391,13 @@ Expected: FAIL。
 
 - [ ] **Step 5: 运行测试,确认通过**
 
-Run: `npx jest lib/services/__tests__/document.service.test.ts`
+Run: `npx jest __tests__/services/document.service.test.ts`
 Expected: PASS。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/services/document.service.ts lib/repositories/document.repository.ts lib/services/__tests__/document.service.test.ts
+git add lib/services/document.service.ts lib/repositories/document.repository.ts __tests__/services/document.service.test.ts
 git commit -m "feat: generate document summary on create/update [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -526,16 +534,16 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - Create: `lib/context/render/slack.ts`, `web-link.ts`, `figma.ts`, `artifact.ts`, `document.ts`, `comments.ts`, `pr.ts`, `index.ts`
 - Modify: `lib/services/task-context.service.ts`(移除内联 render,改 import)
-- Test: `lib/context/render/__tests__/render.test.ts`
+- Test: `__tests__/context/render.test.ts`(根级约定;import 用 `@/lib/context/render/*` 别名)
 
 > 每个 render 函数纯函数:输入数据 → markdown 字符串,空集返回 `''`,卡片末尾打印 retrieval 命令原文。
 
 - [ ] **Step 1: 写失败测试(覆盖卡片形态 + 命令原文 + 空集)**
 
 ```typescript
-import { renderSlackContextSection } from '../slack'
-import { renderCommentsSection } from '../comments'
-import { renderPRSection } from '../pr'
+import { renderSlackContextSection } from '@/lib/context/render/slack'
+import { renderCommentsSection } from '@/lib/context/render/comments'
+import { renderPRSection } from '@/lib/context/render/pr'
 
 it('slack card shows summary + retrieval command', () => {
   const out = renderSlackContextSection([
@@ -584,7 +592,7 @@ it('empty sets render empty string', () => {
 
 - [ ] **Step 2: 运行,确认失败**
 
-Run: `npx jest lib/context/render/__tests__/render.test.ts`
+Run: `npx jest __tests__/context/render.test.ts`
 Expected: FAIL — 模块不存在。
 
 - [ ] **Step 3: 把现有 4 个 render 从 task-context.service.ts 搬到模块并改造**
@@ -603,13 +611,13 @@ Expected: FAIL — 模块不存在。
 
 - [ ] **Step 5: 运行测试,确认通过**
 
-Run: `npx jest lib/context/render/__tests__/render.test.ts`
+Run: `npx jest __tests__/context/render.test.ts`
 Expected: PASS。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/context/render __tests__ # plus removed inline renders
+git add lib/context/render __tests__/context lib/services/task-context.service.ts
 git commit -m "feat: shared context render module (tiered cards + retrieval commands) [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -622,7 +630,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Modify: `lib/services/task-context.service.ts`(`TaskContext` 接口 + `getContextForIdentifier`)
-- Test: `lib/services/__tests__/task-context.service.test.ts`
+- Test: `__tests__/services/task-context.service.test.ts`
 
 - [ ] **Step 1: 扩 `TaskContext` 接口**
 
@@ -655,7 +663,7 @@ it('includes doc/comments/pr sections in the assembled context', async () => {
 
 - [ ] **Step 3: 运行,确认失败**
 
-Run: `npx jest lib/services/__tests__/task-context.service.test.ts -t 'doc/comments/pr'`
+Run: `npx jest __tests__/services/task-context.service.test.ts -t 'doc/comments/pr'`
 Expected: FAIL。
 
 - [ ] **Step 4: 实现装配**
@@ -670,13 +678,13 @@ Expected: FAIL。
 
 - [ ] **Step 5: 运行全量测试**
 
-Run: `npx jest lib/services/__tests__/task-context.service.test.ts && npx tsc --noEmit`
+Run: `npx jest __tests__/services/task-context.service.test.ts && npx tsc --noEmit`
 Expected: PASS,无类型错误。
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/services/task-context.service.ts lib/services/__tests__/task-context.service.test.ts
+git add lib/services/task-context.service.ts __tests__/services/task-context.service.test.ts
 git commit -m "feat: assemble doc/comments/pr sections + lazy doc summary refresh [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -841,7 +849,7 @@ Expected: 显示命令 help,无报错。
 - [ ] **Step 5: Commit**
 
 ```bash
-git add cli/src/commands cli/src/register.ts
+git add cli/src/commands cli/src/index.ts
 git commit -m "feat: CLI retrieval commands (slack/web/figma/comment/pr) [LUM-122]
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
