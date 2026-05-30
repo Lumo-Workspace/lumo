@@ -66,6 +66,13 @@ export const taskWebLinkRepository = {
     })
   },
 
+  async updateBody(id: string, body: string) {
+    return prisma.taskWebLink.update({
+      where: { id },
+      data: { body, bodyFetchedAt: new Date() },
+    })
+  },
+
   async delete(id: string) {
     return prisma.taskWebLink.delete({ where: { id } })
   },

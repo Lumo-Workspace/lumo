@@ -9,9 +9,41 @@ import {
   SlackApiError,
 } from '@/lib/integrations/slack/context-fetcher'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
+import { waitUntil } from '@vercel/functions'
+import { contentSummaryService } from '@/lib/services/content-summary.service'
 
 function err(message: string, status: number): Error & { status: number } {
   return Object.assign(new Error(message), { status })
+}
+
+/** Flatten a thread snapshot into "name: text" lines for summarization. */
+export function buildSlackSummaryInput(snapshot: {
+  messages: Array<{ userId: string; userName: string | null; text: string }>
+}): string {
+  return snapshot.messages
+    .map(m => `${m.userName ?? m.userId}: ${m.text}`)
+    .join('\n')
+}
+
+/**
+ * Fire-and-forget: generate a thread summary and cache it on the row.
+ * Runs via waitUntil so it never blocks the API response, and swallows
+ * errors so a summarization failure never surfaces to the caller.
+ */
+function scheduleSlackSummary(
+  contextId: string,
+  snapshot: {
+    messages: Array<{ userId: string; userName: string | null; text: string }>
+  }
+): void {
+  waitUntil(
+    contentSummaryService
+      .summarize(buildSlackSummaryInput(snapshot), 'slack')
+      .then(s =>
+        s ? taskSlackContextRepository.updateSummary(contextId, s) : undefined
+      )
+      .catch(() => {})
+  )
 }
 
 function mapSlackError(e: unknown): Error & { status: number } {
@@ -82,7 +114,7 @@ export const taskSlackContextService = {
     )
     const snapshot = toSnapshot(raw, users)
 
-    return taskSlackContextRepository.create({
+    const created = await taskSlackContextRepository.create({
       taskId: input.taskId,
       workspaceId: input.workspaceId,
       permalink: input.permalink,
@@ -96,6 +128,9 @@ export const taskSlackContextService = {
       snapshotAt: new Date(),
       createdById: input.actorMemberId,
     })
+
+    scheduleSlackSummary(created.id, snapshot)
+    return created
   },
 
   async refreshContext(contextId: string, expectedWorkspaceId: string) {
@@ -132,7 +167,14 @@ export const taskSlackContextService = {
       raw.map(m => m.user)
     )
     const snapshot = toSnapshot(raw, users)
-    return taskSlackContextRepository.updateSnapshot(contextId, snapshot, null)
+    const updated = await taskSlackContextRepository.updateSnapshot(
+      contextId,
+      snapshot,
+      null
+    )
+
+    scheduleSlackSummary(contextId, snapshot)
+    return updated
   },
 
   async unlinkContext(contextId: string, expectedWorkspaceId: string) {

@@ -872,4 +872,16 @@ export const taskRepository = {
       },
     })
   },
+
+  /**
+   * Cache the LLM-generated comment-thread summary on the task row.
+   * Part of the context-injection tiering pipeline (LUM-122): comment threads
+   * have no standalone entity, so the cached summary lives on Task.
+   */
+  async updateCommentsSummary(taskId: string, summary: string) {
+    return prisma.task.update({
+      where: { id: taskId },
+      data: { commentsSummary: summary, commentsSummaryAt: new Date() },
+    })
+  },
 }

@@ -46,6 +46,8 @@ function makeOptimisticPlaceholder(
     faviconUrl: null,
     fetchedAt: null,
     fetchError: null,
+    body: null,
+    bodyFetchedAt: null,
     createdById: '',
     createdAt: new Date(),
     updatedAt: new Date(),

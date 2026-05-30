@@ -1,4 +1,6 @@
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
+import { contentSummaryService } from '@/lib/services/content-summary.service'
+import { waitUntil } from '@vercel/functions'
 import type { TaskArtifactAgent } from '@prisma/client'
 
 export interface AddArtifactInput {
@@ -26,7 +28,7 @@ export const taskArtifactService = {
 
   async addArtifact(input: AddArtifactInput) {
     const order = await taskArtifactRepository.countByTask(input.taskId)
-    return taskArtifactRepository.create({
+    const created = await taskArtifactRepository.create({
       taskId: input.taskId,
       workspaceId: input.workspaceId,
       kind: input.kind,
@@ -37,6 +39,20 @@ export const taskArtifactService = {
       order,
       createdById: input.actorMemberId,
     })
+
+    // Artifact content is immutable, so summarize once at creation and cache it.
+    // Fire-and-forget via waitUntil so it never blocks the response; swallow
+    // errors so a summarization failure never surfaces to the caller.
+    waitUntil(
+      contentSummaryService
+        .summarize(created.content, 'artifact')
+        .then(s =>
+          s ? taskArtifactRepository.updateSummary(created.id, s) : undefined
+        )
+        .catch(() => {})
+    )
+
+    return created
   },
 
   async getById(taskId: string, artifactId: string) {

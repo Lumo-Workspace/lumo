@@ -31,6 +31,11 @@ import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
 import { taskArtifactUpdate } from './commands/task-artifact-update'
+import { taskSlackShow } from './commands/task-slack-show'
+import { taskWebShow } from './commands/task-web-show'
+import { taskFigmaContext } from './commands/task-figma-context'
+import { taskCommentList } from './commands/task-comment-list'
+import { taskPrShow } from './commands/task-pr-show'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
 import { milestoneCreate } from './commands/milestone-create'
@@ -311,6 +316,45 @@ taskFigma
       taskFigmaRefresh({ identifier: taskId as string })
     )
   )
+
+// Tier-2 retrieval commands (LUM-122). `task context` prints the matching
+// command at the end of each cheap inline card; the agent runs it to pull the
+// full content on demand.
+const taskSlack = task.command('slack').description('Inspect Slack context')
+taskSlack
+  .command('show <identifier> <contextId>')
+  .description('Show the full stored Slack thread snapshot')
+  .action(wrap((id, ctx) => taskSlackShow(id as string, ctx as string)))
+
+const taskWeb = task.command('web').description('Inspect web link content')
+taskWeb
+  .command('show <identifier> <linkId>')
+  .description('Show the fetched web link body as plain text')
+  .action(wrap((id, link) => taskWebShow(id as string, link as string)))
+
+// taskFigma already exists above → attach the context leaf to it.
+taskFigma
+  .command('context <identifier> <linkId>')
+  .description('Show the cached Figma design context (metadata)')
+  .action(wrap((id, link) => taskFigmaContext(id as string, link as string)))
+
+// Plural `comments` parent: `task comment <id> <body>` already exists for
+// adding a comment, and commander disallows a duplicate name.
+const taskComments = task
+  .command('comments')
+  .description('Inspect the full task comment thread')
+taskComments
+  .command('list <identifier>')
+  .description('List the full task comment thread')
+  .action(wrap(id => taskCommentList(id as string)))
+
+const taskPr = task.command('pr').description('Inspect linked PRs')
+taskPr
+  .command('show <identifier> <number>')
+  .description(
+    'Show the synced PR record (diff/review comments when available)'
+  )
+  .action(wrap((id, num) => taskPrShow(id as string, num as string)))
 
 const taskMemory = task
   .command('memory')

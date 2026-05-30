@@ -1,0 +1,199 @@
+/** @jest-environment node */
+// Assembly test for the doc/comments/PR sections added in LUM-122 Task 9.
+// Mirrors the mock style of task-context-service-slack.test.ts: every
+// repository the service touches is mocked so getContextForIdentifier runs
+// against in-memory fixtures.
+
+jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
+  taskSlackContextRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/task-web-link.repository', () => ({
+  taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/repositories/task-artifact.repository', () => ({
+  taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+}))
+jest.mock('@/lib/services/task-figma-link.service', () => ({
+  taskFigmaLinkService: {
+    listForTask: jest.fn().mockResolvedValue([]),
+    refreshLinksForTask: jest.fn().mockResolvedValue([]),
+    refreshLinksForTaskAuto: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/repositories/milestone.repository', () => ({
+  milestoneRepository: { findById: jest.fn().mockResolvedValue(null) },
+}))
+jest.mock('@/lib/services/task.service', () => ({
+  taskService: {
+    resolveIdentifier: jest.fn(async () => ({
+      id: 'tsk_1',
+      identifier: 'LUM-1',
+    })),
+  },
+}))
+jest.mock('@/lib/repositories/task.repository', () => ({
+  taskRepository: {
+    findById: jest.fn(async () => ({
+      id: 'tsk_1',
+      title: 't',
+      status: 'TODO',
+      description: 'd',
+      projectId: 'proj_1',
+      commentsSummary: 'A four-comment summary.',
+    })),
+  },
+}))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: { listForTask: jest.fn(async () => []) },
+}))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: {
+    findActiveTaskMemories: jest.fn(async () => []),
+    findActiveProjectMemories: jest.fn(async () => []),
+  },
+}))
+jest.mock('@/lib/memory/render', () => ({
+  renderMemorySection: jest.fn(() => ''),
+  applyTokenBudget: jest.fn((x: unknown[]) => x),
+}))
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: { findDocumentsForContext: jest.fn() },
+}))
+jest.mock('@/lib/repositories/comment.repository', () => ({
+  commentRepository: { listAllForTask: jest.fn() },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listByTask: jest.fn() },
+}))
+jest.mock('@/lib/services/document.service', () => ({
+  scheduleDocumentSummary: jest.fn(),
+}))
+
+import { miscRepository } from '@/lib/repositories/misc.repository'
+import { commentRepository } from '@/lib/repositories/comment.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { scheduleDocumentSummary } from '@/lib/services/document.service'
+import { taskContextService } from '@/lib/services/task-context.service'
+
+const findDocs = miscRepository.findDocumentsForContext as jest.Mock
+const listComments = commentRepository.listAllForTask as jest.Mock
+const listPRs = pullRequestRepository.listByTask as jest.Mock
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('taskContextService.getContextForIdentifier — doc/comments/pr sections', () => {
+  it('includes doc/comments/pr sections in the assembled context', async () => {
+    findDocs.mockResolvedValue([
+      {
+        id: 'doc_1',
+        title: 'Design Doc',
+        updatedAt: new Date('2026-05-20T10:00:00Z'),
+        summary: 'How the thing works.',
+        summaryGeneratedAt: new Date('2026-05-21T10:00:00Z'),
+        content: '<p>full body</p>',
+      },
+    ])
+    listComments.mockResolvedValue([
+      { authorActorId: 'a1', body: 'c0', createdAt: new Date() },
+      { authorActorId: 'a2', body: 'c1', createdAt: new Date() },
+      { authorActorId: 'a3', body: 'c2', createdAt: new Date() },
+      { authorActorId: 'a4', body: 'c3', createdAt: new Date() },
+    ])
+    listPRs.mockResolvedValue([
+      {
+        number: 42,
+        title: 'Add the thing',
+        state: 'open',
+        ciStatus: 'passing',
+      },
+    ])
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+
+    expect(ctx?.docSection).toContain('## Documents')
+    expect(ctx?.docSection).toContain('Design Doc')
+    expect(ctx?.docSection).toContain('lumo doc show doc_1')
+
+    // 4 comments (> inline threshold) → summary + retrieval command.
+    expect(ctx?.commentsSection).toContain('## Comments')
+    expect(ctx?.commentsSection).toContain('A four-comment summary.')
+    expect(ctx?.commentsSection).toContain('lumo task comments list LUM-1')
+
+    expect(ctx?.prSection).toContain('## Pull Requests')
+    expect(ctx?.prSection).toContain('#42 Add the thing')
+    expect(ctx?.prSection).toContain('lumo task pr show 42')
+  })
+
+  it('returns empty section strings when there are no docs/comments/prs', async () => {
+    findDocs.mockResolvedValue([])
+    listComments.mockResolvedValue([])
+    listPRs.mockResolvedValue([])
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+
+    expect(ctx?.docSection).toBe('')
+    expect(ctx?.commentsSection).toBe('')
+    expect(ctx?.prSection).toBe('')
+  })
+
+  it('schedules a lazy summary refresh for a stale document', async () => {
+    findDocs.mockResolvedValue([
+      {
+        id: 'doc_stale',
+        title: 'Stale Doc',
+        // Edited after the cached summary was generated → stale.
+        updatedAt: new Date('2026-05-25T10:00:00Z'),
+        summary: 'Old summary.',
+        summaryGeneratedAt: new Date('2026-05-21T10:00:00Z'),
+        content: '<p>new body</p>',
+      },
+      {
+        id: 'doc_never',
+        title: 'Never Summarized',
+        updatedAt: new Date('2026-05-25T10:00:00Z'),
+        summary: null,
+        summaryGeneratedAt: null,
+        content: '<p>body</p>',
+      },
+      {
+        id: 'doc_fresh',
+        title: 'Fresh Doc',
+        updatedAt: new Date('2026-05-20T10:00:00Z'),
+        summary: 'Fresh summary.',
+        summaryGeneratedAt: new Date('2026-05-21T10:00:00Z'),
+        content: '<p>body</p>',
+      },
+    ])
+    listComments.mockResolvedValue([])
+    listPRs.mockResolvedValue([])
+
+    await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+
+    // Stale + never-summarized are refreshed; the fresh one is not.
+    expect(scheduleDocumentSummary).toHaveBeenCalledWith(
+      'doc_stale',
+      expect.any(String)
+    )
+    expect(scheduleDocumentSummary).toHaveBeenCalledWith(
+      'doc_never',
+      expect.any(String)
+    )
+    expect(scheduleDocumentSummary).not.toHaveBeenCalledWith(
+      'doc_fresh',
+      expect.anything()
+    )
+  })
+})

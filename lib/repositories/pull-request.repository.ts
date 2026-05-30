@@ -102,4 +102,33 @@ export const pullRequestRepository = {
       orderBy: { updatedAt: 'desc' },
     })
   },
+
+  /**
+   * Find a PR by task + number for the context-tiering retrieval route
+   * (LUM-122). Scoped to the task so the API route's workspace check on the
+   * task transitively secures the PR. Returns full structured PR fields.
+   */
+  async findByTaskAndNumber(taskId: string, number: number) {
+    return prisma.pullRequest.findFirst({
+      where: { taskId, number },
+      orderBy: { updatedAt: 'desc' },
+    })
+  },
+
+  /**
+   * All PRs linked to a task, newest first, shaped for the context-tiering
+   * renderer (LUM-122): only the fields the inline card needs.
+   */
+  async listByTask(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      select: {
+        number: true,
+        title: true,
+        state: true,
+        ciStatus: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+  },
 }

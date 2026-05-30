@@ -1,0 +1,56 @@
+const ARTIFACT_AGENT_LABELS: Record<string, string> = {
+  CLAUDE_CODE: 'Claude Code',
+  CODEX: 'Codex',
+  CURSOR: 'Cursor',
+  GEMINI_CLI: 'Gemini CLI',
+  GITHUB_COPILOT: 'GitHub Copilot',
+  WINDSURF: 'Windsurf',
+}
+
+export interface ArtifactCard {
+  id: string
+  kind: string
+  title: string
+  content: string
+  agent?: string | null
+  summary?: string | null
+}
+
+const FALLBACK_CONTENT_LINES = 5
+
+/**
+ * Render the artifact section. Each artifact becomes a cheap card: a
+ * `## [kind] title · agent` heading, the cached one-line `summary` (or the
+ * first few content lines as a fallback when no summary exists yet), and the
+ * retrieval command for the full content. Content is no longer inlined.
+ */
+export function renderArtifactSection(artifacts: ArtifactCard[]): string {
+  if (artifacts.length === 0) return ''
+  const blocks: string[] = []
+  for (const a of artifacts) {
+    const label = a.agent ? (ARTIFACT_AGENT_LABELS[a.agent] ?? a.agent) : null
+    const heading = label
+      ? `## [${a.kind}] ${a.title} · ${label}`
+      : `## [${a.kind}] ${a.title}`
+    blocks.push(heading)
+    blocks.push('')
+
+    const summary = a.summary?.trim()
+    if (summary) {
+      blocks.push(summary)
+    } else {
+      // Fallback: no summary cached yet → show the first few content lines so
+      // the card still carries signal.
+      const preview = a.content
+        .split('\n')
+        .slice(0, FALLBACK_CONTENT_LINES)
+        .join('\n')
+        .trimEnd()
+      if (preview) blocks.push(preview)
+    }
+
+    blocks.push(`  ↳ 全文: lumo task artifact show ${a.id}`)
+    blocks.push('')
+  }
+  return blocks.join('\n').trimEnd()
+}

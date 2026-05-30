@@ -40,6 +40,13 @@ export const taskArtifactRepository = {
     return prisma.taskArtifact.findFirst({ where: { id, taskId } })
   },
 
+  async updateSummary(id: string, summary: string) {
+    return prisma.taskArtifact.update({
+      where: { id },
+      data: { summary },
+    })
+  },
+
   async deleteById(id: string, taskId: string) {
     const { count } = await prisma.taskArtifact.deleteMany({
       where: { id, taskId },

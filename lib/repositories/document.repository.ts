@@ -268,6 +268,14 @@ export const documentRepository = {
     })
   },
 
+  /** Cache the LLM-generated body summary (LUM-122). */
+  async updateSummary(id: string, summary: string) {
+    return prisma.document.update({
+      where: { id },
+      data: { summary, summaryGeneratedAt: new Date() },
+    })
+  },
+
   /**
    * Add or upgrade a doc↔task mention as EXPLICIT.
    * If an EXPLICIT row exists, no-op. If a CONTENT row exists, upgrade to EXPLICIT.

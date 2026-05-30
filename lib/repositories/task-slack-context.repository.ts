@@ -59,6 +59,13 @@ export const taskSlackContextRepository = {
     return prisma.taskSlackContext.update({ where: { id }, data })
   },
 
+  async updateSummary(id: string, summary: string) {
+    return prisma.taskSlackContext.update({
+      where: { id },
+      data: { summary, summaryGeneratedAt: new Date() },
+    })
+  },
+
   async delete(id: string) {
     return prisma.taskSlackContext.delete({ where: { id } })
   },

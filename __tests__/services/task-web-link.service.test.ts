@@ -5,6 +5,7 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
     listByTask: jest.fn(),
     getById: jest.fn(),
     updateFetch: jest.fn(),
+    updateBody: jest.fn(),
     delete: jest.fn(),
   },
 }))
@@ -14,19 +15,25 @@ jest.mock('@/lib/integrations/og-metadata/fetch', () => ({
 jest.mock('@/lib/integrations/og-metadata/fetch-chromium', () => ({
   fetchOpenGraphChromium: jest.fn(),
 }))
+jest.mock('@/lib/integrations/og-metadata/ssrf', () => ({
+  assertExternalHost: jest.fn(),
+}))
 
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { fetchOpenGraph } from '@/lib/integrations/og-metadata/fetch'
 import { fetchOpenGraphChromium } from '@/lib/integrations/og-metadata/fetch-chromium'
+import { assertExternalHost } from '@/lib/integrations/og-metadata/ssrf'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
 
 const repoCreate = taskWebLinkRepository.create as jest.Mock
 const repoListByTask = taskWebLinkRepository.listByTask as jest.Mock
 const repoGetById = taskWebLinkRepository.getById as jest.Mock
 const repoUpdateFetch = taskWebLinkRepository.updateFetch as jest.Mock
+const repoUpdateBody = taskWebLinkRepository.updateBody as jest.Mock
 const repoDelete = taskWebLinkRepository.delete as jest.Mock
 const ogMock = fetchOpenGraph as jest.Mock
 const chromiumMock = fetchOpenGraphChromium as jest.Mock
+const assertExternalHostMock = assertExternalHost as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -350,5 +357,82 @@ describe('taskWebLinkService.listForTask', () => {
     const result = await taskWebLinkService.listForTask('tsk_1')
     expect(result).toEqual([{ id: 'wl_1' }])
     expect(repoListByTask).toHaveBeenCalledWith('tsk_1')
+  })
+})
+
+describe('taskWebLinkService.fetchBody', () => {
+  const globalFetch = jest.fn()
+
+  beforeEach(() => {
+    globalFetch.mockReset()
+
+    global.fetch = globalFetch as any
+  })
+
+  it('calls assertExternalHost before fetching when body is missing', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'wl_1',
+      url: 'https://example.com/article',
+      body: null,
+      task: { project: { workspaceId: 'ws_1' } },
+    })
+    globalFetch.mockResolvedValue({
+      text: async () => '<html><body><p>Hello world</p></body></html>',
+    })
+    repoUpdateBody.mockResolvedValue({ id: 'wl_1' })
+
+    await taskWebLinkService.fetchBody('ws_1', 'wl_1')
+
+    expect(assertExternalHostMock).toHaveBeenCalledWith(
+      'https://example.com/article'
+    )
+    // SSRF guard must run before the outbound fetch.
+    const assertOrder = assertExternalHostMock.mock.invocationCallOrder[0]!
+    const fetchOrder = globalFetch.mock.invocationCallOrder[0]!
+    expect(assertOrder).toBeLessThan(fetchOrder)
+    expect(repoUpdateBody).toHaveBeenCalledWith(
+      'wl_1',
+      expect.stringContaining('Hello world')
+    )
+  })
+
+  it('returns stored body without fetching or running SSRF guard', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'wl_1',
+      url: 'https://example.com/article',
+      body: 'already cached body',
+      task: { project: { workspaceId: 'ws_1' } },
+    })
+
+    const result = await taskWebLinkService.fetchBody('ws_1', 'wl_1')
+
+    expect(result).toBe('already cached body')
+    expect(assertExternalHostMock).not.toHaveBeenCalled()
+    expect(globalFetch).not.toHaveBeenCalled()
+    expect(repoUpdateBody).not.toHaveBeenCalled()
+  })
+
+  it('throws 404 when the link belongs to a different workspace', async () => {
+    repoGetById.mockResolvedValue({
+      id: 'wl_1',
+      url: 'https://example.com/article',
+      body: null,
+      task: { project: { workspaceId: 'ws_OTHER' } },
+    })
+
+    await expect(
+      taskWebLinkService.fetchBody('ws_1', 'wl_1')
+    ).rejects.toMatchObject({ message: 'not_found', status: 404 })
+    expect(assertExternalHostMock).not.toHaveBeenCalled()
+    expect(globalFetch).not.toHaveBeenCalled()
+  })
+
+  it('throws 404 when the link is not found', async () => {
+    repoGetById.mockResolvedValue(null)
+
+    await expect(
+      taskWebLinkService.fetchBody('ws_1', 'wl_X')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(assertExternalHostMock).not.toHaveBeenCalled()
   })
 })

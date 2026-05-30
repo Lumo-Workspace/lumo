@@ -213,4 +213,47 @@ export const miscRepository = {
       },
     })
   },
+
+  /**
+   * Documents mentioned by a task, shaped for the context-tiering renderer
+   * (LUM-122). Kept separate from `findDocumentMentionsByTask` so the
+   * documents-list API isn't burdened with the (potentially large) `content`
+   * body: here we additionally pull `summary` + `summaryGeneratedAt` (the
+   * inline card + staleness check) and `content` (converted to markdown when
+   * scheduling the load-time lazy summary refresh).
+   *
+   * Same workspace + visibility access filter as `findDocumentMentionsByTask`.
+   */
+  async findDocumentsForContext(
+    taskId: string,
+    workspaceId: string,
+    memberId: string
+  ) {
+    const mentions = await prisma.documentMention.findMany({
+      where: {
+        taskId,
+        document: {
+          workspaceId,
+          OR: [
+            { createdById: memberId },
+            { visibility: 'WORKSPACE' },
+            { shares: { some: { memberId } } },
+          ],
+        },
+      },
+      include: {
+        document: {
+          select: {
+            id: true,
+            title: true,
+            updatedAt: true,
+            summary: true,
+            summaryGeneratedAt: true,
+            content: true,
+          },
+        },
+      },
+    })
+    return mentions.map(m => m.document)
+  },
 }

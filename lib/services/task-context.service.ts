@@ -6,9 +6,23 @@ import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
+import { miscRepository } from '@/lib/repositories/misc.repository'
+import { commentRepository } from '@/lib/repositories/comment.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
+import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskFigmaLink } from '@prisma/client'
+import {
+  renderSlackContextSection,
+  renderWebLinkSection,
+  renderFigmaSection,
+  renderArtifactSection,
+  renderDocumentSection,
+  renderCommentsSection,
+  renderPRSection,
+  type SlackContextCard,
+} from '@/lib/context/render'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -57,6 +71,12 @@ export interface TaskContext {
   figmaSection: string
   /** Pre-rendered artifact section (## [kind] title + content); empty when none. */
   artifactSection: string
+  /** Pre-rendered "## Documents" markdown; empty when none mentioned. */
+  docSection: string
+  /** Pre-rendered "## Comments" markdown; empty when none. */
+  commentsSection: string
+  /** Pre-rendered "## Pull Requests" markdown; empty when none. */
+  prSection: string
   sessions: SessionContext[]
 }
 
@@ -100,147 +120,7 @@ function summaryUnresolved(summary: unknown): string[] {
   return u.filter((x): x is string => typeof x === 'string' && x.length > 0)
 }
 
-/** Strip Slack mrkdwn tokens that would confuse the agent. */
-function plainText(text: string): string {
-  return text
-    .replace(/<@([UW][A-Z0-9]+)>/g, '@$1')
-    .replace(/<#[CG][A-Z0-9]+\|([^>]+)>/g, '#$1')
-    .replace(/<#[CG][A-Z0-9]+>/g, '#channel')
-}
-
-function renderSlackContextSection(
-  contexts: Array<{
-    isThread: boolean
-    slackChannelName: string | null
-    permalink: string
-    snapshotAt: Date
-    refreshError: string | null
-    snapshot: {
-      messages: Array<{
-        ts: string
-        userName: string | null
-        userId: string
-        text: string
-      }>
-    }
-  }>
-): string {
-  if (contexts.length === 0) return ''
-
-  const lines: string[] = ['## Slack Context', '']
-
-  for (const c of contexts) {
-    const channelLabel = c.slackChannelName
-      ? `#${c.slackChannelName}`
-      : '#channel'
-    const fetchedAt =
-      c.snapshotAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
-    const meta = c.isThread
-      ? `Thread (${c.snapshot.messages.length} messages, fetched ${fetchedAt})`
-      : `Single message (fetched ${fetchedAt})`
-    const errSuffix = c.refreshError
-      ? ` (refresh failed: ${c.refreshError})`
-      : ''
-    lines.push(`### ${channelLabel} · ${meta}${errSuffix}`)
-    lines.push(`permalink: ${c.permalink}`)
-    lines.push('')
-
-    for (const m of c.snapshot.messages) {
-      const author = m.userName ?? `@${m.userId}`
-      lines.push(`- **${author}**: ${plainText(m.text)}`)
-    }
-    lines.push('')
-  }
-
-  return lines.join('\n')
-}
-
-export function renderWebLinkSection(
-  links: Array<{
-    url: string
-    domain: string
-    title: string | null
-    description: string | null
-    note: string | null
-    fetchedAt: Date | null
-    fetchError: string | null
-  }>
-): string {
-  if (links.length === 0) return ''
-
-  const lines: string[] = ['## Web Links', '']
-
-  for (const l of links) {
-    const titleLine = l.title
-      ? `- [${l.title}](${l.url}) — ${l.domain}`
-      : `- ${l.url} — ${l.domain}${l.fetchedAt ? '' : '   _(no preview available)_'}`
-    lines.push(titleLine)
-    const body = l.note ?? l.description
-    if (body) lines.push(`  > ${body.replace(/\n+/g, ' ')}`)
-  }
-  lines.push('')
-
-  return lines.join('\n')
-}
-
 const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
-
-export function renderFigmaSection(links: TaskFigmaLink[]): string {
-  if (links.length === 0) return ''
-  const lines: string[] = ['## Figma Designs', '']
-  for (const link of links) {
-    const title = link.frameName
-      ? `${link.fileName} · ${link.frameName}`
-      : `${link.fileName} _(file-level)_`
-    lines.push(`- **${title}**`)
-    lines.push(`  - URL: ${link.url}`)
-    if (link.thumbnailUrl) {
-      lines.push(`  - Thumbnail: ![](${link.thumbnailUrl})`)
-    } else {
-      const reason = link.lastSyncError
-        ? `_(sync failed: ${link.lastSyncError})_`
-        : '_(thumbnail not yet fetched)_'
-      lines.push(`  - Thumbnail unavailable ${reason}`)
-    }
-    lines.push(
-      `  - Last synced: ${link.lastSyncedAt.toISOString().slice(0, 10)}`
-    )
-    lines.push('')
-  }
-  return lines.join('\n').trimEnd()
-}
-
-const ARTIFACT_AGENT_LABELS: Record<string, string> = {
-  CLAUDE_CODE: 'Claude Code',
-  CODEX: 'Codex',
-  CURSOR: 'Cursor',
-  GEMINI_CLI: 'Gemini CLI',
-  GITHUB_COPILOT: 'GitHub Copilot',
-  WINDSURF: 'Windsurf',
-}
-
-export function renderArtifactSection(
-  artifacts: Array<{
-    kind: string
-    title: string
-    content: string
-    agent?: string
-  }>
-): string {
-  if (artifacts.length === 0) return ''
-  const blocks: string[] = []
-  for (const a of artifacts) {
-    const label = a.agent ? (ARTIFACT_AGENT_LABELS[a.agent] ?? a.agent) : null
-    const heading = label
-      ? `## [${a.kind}] ${a.title} · ${label}`
-      : `## [${a.kind}] ${a.title}`
-    blocks.push(heading)
-    blocks.push('')
-    blocks.push(a.content.trimEnd())
-    blocks.push('')
-  }
-  return blocks.join('\n').trimEnd()
-}
 
 function scheduleLazyRefresh(
   links: TaskFigmaLink[],
@@ -261,6 +141,42 @@ function scheduleLazyRefresh(
       .refreshLinksForTaskAuto({ taskId, workspaceId })
       .catch(() => {})
   )
+}
+
+/** A mentioned document as shaped by miscRepository.findDocumentsForContext. */
+interface ContextDocument {
+  id: string
+  title: string
+  updatedAt: Date
+  summary: string | null
+  summaryGeneratedAt: Date | null
+  content: string | null
+}
+
+/**
+ * A document's cached summary is stale when it was never generated, or when
+ * the body was edited after the summary was produced. Mirrors the Figma
+ * `scheduleLazyRefresh` pattern: we still serve the old summary this call and
+ * regenerate in the background.
+ */
+function isDocumentSummaryStale(doc: ContextDocument): boolean {
+  if (doc.summaryGeneratedAt === null) return true
+  return doc.updatedAt.getTime() > doc.summaryGeneratedAt.getTime()
+}
+
+/**
+ * Schedule a background summary refresh for every stale mentioned document,
+ * reusing the document service's exact scheduling path (which runs under
+ * `waitUntil` and swallows errors). We convert the stored HTML body to
+ * markdown for the LLM, matching how the document service feeds create/update.
+ */
+function scheduleStaleDocumentSummaries(docs: ContextDocument[]): void {
+  for (const doc of docs) {
+    if (!isDocumentSummaryStale(doc)) continue
+    if (!doc.content) continue
+    const bodyText = htmlToMarkdown(doc.content)
+    if (bodyText.trim().length > 0) scheduleDocumentSummary(doc.id, bodyText)
+  }
 }
 
 export const taskContextService = {
@@ -347,6 +263,35 @@ export const taskContextService = {
     const artifacts = await taskArtifactRepository.listByTask(resolved.id)
     const artifactSection = renderArtifactSection(artifacts)
 
+    // Mentioned documents (EXPLICIT + CONTENT, workspace-visibility filtered).
+    const docs = (await miscRepository.findDocumentsForContext(
+      resolved.id,
+      workspaceId,
+      _actorMemberId
+    )) as ContextDocument[]
+    const docSection = renderDocumentSection(
+      docs.map(d => ({ id: d.id, title: d.title, summary: d.summary }))
+    )
+    // Serve the cached summaries now; refresh stale ones in the background.
+    scheduleStaleDocumentSummaries(docs)
+
+    // Comments: short threads inline verbatim, longer ones fall back to the
+    // cached commentsSummary (computed at write time, Task 6). The renderer
+    // maps actor ids to authors — we only have the actor id here.
+    const comments = await commentRepository.listAllForTask(resolved.id)
+    const commentsSection = renderCommentsSection({
+      comments: comments.map(c => ({
+        author: c.authorActorId ?? 'unknown',
+        createdAt: c.createdAt,
+        body: c.body,
+      })),
+      identifier: resolved.identifier,
+      commentsSummary: full.commentsSummary ?? null,
+    })
+
+    const prs = await pullRequestRepository.listByTask(resolved.id)
+    const prSection = renderPRSection(prs)
+
     const memorySection = await taskContextService.buildMemorySectionForTask(
       full.id
     )
@@ -378,13 +323,14 @@ export const taskContextService = {
       },
       memorySection,
       slackContextSection: renderSlackContextSection(
-        slackContexts as unknown as Parameters<
-          typeof renderSlackContextSection
-        >[0]
+        slackContexts as unknown as SlackContextCard[]
       ),
       webLinkSection: renderWebLinkSection(webLinks),
       figmaSection,
       artifactSection,
+      docSection,
+      commentsSection,
+      prSection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata".'
 ---
 
 ## Prerequisites
@@ -128,6 +128,83 @@ The command prints a markdown document to stdout containing:
 - **Memory section** provides validated context that persists across sessions — use it to avoid re-learning decisions or constraints
 - Focus on the **most recent 1–2 sessions** for relevant state; older sessions are for historical reference only
 - If there are **no prior sessions**, this is a fresh start — read the task description carefully and ask clarifying questions if needed
+
+## Context Retrieval (按需取全文)
+
+LUM-122 split task context injection into tiers. `lumo task context <LUM-N>`
+now emits a **cheap inline card** for each source — a short summary or just
+metadata — instead of dumping full bodies. Slack, docs, artifacts, and comments
+get an **LLM summary**; web links, Figma, and PRs get **metadata only**. Each
+card ends with the **retrieval command** you run to pull the heavy content on
+demand.
+
+**How to use it:** when the inline card is not enough and you need the full
+Slack thread, the web page body, the Figma metadata, the entire comment thread,
+or the PR detail — run the matching command below. Pass the same identifier
+(`LUM-N`) plus the id the card shows for that source (a Slack `contextId`, a web
+`linkId`, a Figma `linkId`, or a PR `number`).
+
+All five are **read-only** (no live Slack/GitHub/Figma calls except the web body
+fetch). Web/Figma/PR are v1 metadata-degraded: they print a `note:` explaining
+that live content needs an external integration.
+
+### `lumo task slack show <identifier> <contextId>` — full Slack thread snapshot
+
+Prints the **stored** thread snapshot (no live Slack call), one line per message
+as `author: text`. Author falls back to `@<userId>` when the display name is
+missing. Empty snapshot prints `(no messages in stored snapshot)`.
+
+```bash
+lumo task slack show LUM-42 ctx_abc123
+```
+
+### `lumo task web show <identifier> <linkId>` — fetched web link body
+
+Fetches the page body on demand behind the SSRF guard (cached after first read)
+and prints it as plain text. Empty body prints `(empty body)`. Fetch failures
+(blocked host, timeout) print the server's error message.
+
+```bash
+lumo task web show LUM-42 wl_abc123
+```
+
+### `lumo task figma context <identifier> <linkId>` — Figma link metadata
+
+**v1 metadata fallback.** Prints the cached design metadata as `file:` /
+`frame:` / `url:` / `synced:` (and `syncError:` if the last sync failed) lines.
+Live design context (layers, variables, code connect) requires the Figma MCP
+server, so the command ends with a `note:` saying so.
+
+```bash
+lumo task figma context LUM-42 cfl_abc123
+```
+
+### `lumo task comments list <identifier>` — full comment thread
+
+Prints the **entire** comment thread: each comment as `author · createdAt`
+followed by its plain-text body (comment bodies are stored as HTML and stripped
+to text). Replies are indented two spaces under their parent. Author falls back
+to `unknown`. No comments prints `(no comments)`.
+
+```bash
+lumo task comments list LUM-42
+```
+
+**Plural, and distinct from `task comment`.** `task comments list` _reads_ the
+whole thread (this retrieval command). `task comment <identifier> <body>`
+_writes_ a single new comment (see Task Management). Don't confuse the two —
+the plural `comments` is read-only.
+
+### `lumo task pr show <identifier> <number>` — synced PR metadata
+
+**v1 metadata fallback.** Prints the synced PR record: a `#<number> (repo)
+title` header, then `state:` (with ` · draft` when draft), `ci:`, `author:`,
+`branch: <head> → <base>`, and `url:` lines. The live diff + review comments
+require the GitHub integration, so the command ends with a `note:` saying so.
+
+```bash
+lumo task pr show LUM-42 128
+```
 
 ## Task Management
 
