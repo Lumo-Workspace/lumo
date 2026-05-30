@@ -7,11 +7,17 @@ jest.mock('@/lib/repositories/task-artifact.repository', () => ({
     findById: jest.fn(),
     deleteById: jest.fn(),
     updateById: jest.fn(),
+    updateSummary: jest.fn(),
   },
+}))
+jest.mock('@/lib/services/content-summary.service')
+jest.mock('@vercel/functions', () => ({
+  waitUntil: (p: Promise<unknown>) => p,
 }))
 
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { taskArtifactService } from '@/lib/services/task-artifact.service'
+import { contentSummaryService } from '@/lib/services/content-summary.service'
 
 const repo = taskArtifactRepository as unknown as {
   create: jest.Mock
@@ -20,11 +26,19 @@ const repo = taskArtifactRepository as unknown as {
   findById: jest.Mock
   deleteById: jest.Mock
   updateById: jest.Mock
+  updateSummary: jest.Mock
 }
 
-describe('taskArtifactService.addArtifact', () => {
-  beforeEach(() => jest.clearAllMocks())
+// Clear here (outer hook runs before each describe's inner hooks) and seed a
+// resolving default for the fire-and-forget summary, so the unrelated
+// addArtifact assertions don't trip over an undefined return value. Tests that
+// care about the summary override this default.
+beforeEach(() => {
+  jest.clearAllMocks()
+  ;(contentSummaryService.summarize as jest.Mock).mockResolvedValue('')
+})
 
+describe('taskArtifactService.addArtifact', () => {
   it('appends at order = current count', async () => {
     repo.countByTask.mockResolvedValue(2)
     repo.create.mockResolvedValue({ id: 'a3' })
@@ -85,6 +99,56 @@ describe('taskArtifactService.addArtifact', () => {
         createdById: null,
       })
     )
+  })
+})
+
+describe('taskArtifactService.addArtifact summary', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('schedules a one-time content summary after creating an artifact', async () => {
+    repo.countByTask.mockResolvedValue(0)
+    repo.create.mockResolvedValue({ id: 'a1', content: '1. do the thing' })
+    ;(contentSummaryService.summarize as jest.Mock).mockResolvedValue('sum')
+    repo.updateSummary.mockResolvedValue({})
+
+    await taskArtifactService.addArtifact({
+      taskId: 't1',
+      workspaceId: 'w1',
+      kind: 'plan',
+      title: 'Plan',
+      content: '1. do the thing',
+      source: 'superpowers',
+      agent: 'CLAUDE_CODE',
+      actorMemberId: 'm1',
+    })
+    await new Promise(r => setImmediate(r))
+
+    expect(contentSummaryService.summarize).toHaveBeenCalledWith(
+      expect.any(String),
+      'artifact'
+    )
+    expect(repo.updateSummary).toHaveBeenCalledWith('a1', 'sum')
+  })
+
+  it('skips caching when the summary is empty', async () => {
+    repo.countByTask.mockResolvedValue(0)
+    repo.create.mockResolvedValue({ id: 'a1', content: 'x' })
+    ;(contentSummaryService.summarize as jest.Mock).mockResolvedValue('')
+    repo.updateSummary.mockResolvedValue({})
+
+    await taskArtifactService.addArtifact({
+      taskId: 't1',
+      workspaceId: 'w1',
+      kind: 'plan',
+      title: 'Plan',
+      content: 'x',
+      source: 'superpowers',
+      agent: 'CLAUDE_CODE',
+      actorMemberId: 'm1',
+    })
+    await new Promise(r => setImmediate(r))
+
+    expect(repo.updateSummary).not.toHaveBeenCalled()
   })
 })
 
