@@ -790,7 +790,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:**
 
 - Create: `cli/src/commands/task-slack-show.ts`, `task-web-show.ts`, `task-figma-context.ts`, `task-comment-list.ts`, `task-pr-show.ts`
-- Modify: `cli/src/register.ts`(注册 5 个)
+- Modify: `cli/src/index.ts`(import 5 个函数 + 在 commander 树挂叶子)
 - Test: 若 CLI 有测试约定则加;否则手动验证
 
 > 每个命令文件导出**普通 async 函数**,照 `task-artifact-show.ts`:`readCredentials()` → 拼 `base/api/...` → `fetch` 带 `Authorization: Bearer` → 按 401/404/!ok 处理 → 打印。**不要**用 `registerX(program)` 工厂(项目里没有这个模式)。
@@ -913,7 +913,7 @@ taskPr
   .action(wrap((id, num) => taskPrShow(id as string, num as string)))
 ```
 
-> 注意:`task` 上已有一个叶子命令 `comment <identifier> <body>`(添加评论)。commander 不允许同名,所以检索命令的父对象用 `comment-thread`(对外 `lumo task comment-thread list <LUM-N>`)。SKILL.md 触发词需与此一致。
+> 注意:`task` 上已有一个叶子命令 `comment <identifier> <body>`(添加评论)。commander 不允许同名,所以检索命令的父对象用复数 `comments`(对外 `lumo task comments list <LUM-N>`)。SKILL.md 触发词需与此一致。
 
 - [ ] **Step 4: 构建并冒烟验证**
 
