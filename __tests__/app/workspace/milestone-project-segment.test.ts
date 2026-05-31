@@ -7,18 +7,20 @@ const projects = [
 ]
 
 describe('findProjectForMilestoneSegment', () => {
-  it('resolves the project when the segment is the project cuid (the link MilestoneCard builds)', () => {
-    // Regression: MilestoneCard builds `/projects/<cuid>/milestones/<slug>`, so
-    // the detail page must match the project by id — a slugified-name-only match
-    // never equals the cuid, which left the page stuck blank.
-    expect(findProjectForMilestoneSegment(projects, PROJECT_CUID)).toBe(
-      projects[0]
+  it('resolves the project when the segment is the slugified name (the link MilestoneCard now builds)', () => {
+    // MilestoneCard builds `/projects/<slug>/milestones/<slug>`, so the detail
+    // page resolves the project by its slugified name.
+    expect(findProjectForMilestoneSegment(projects, 'lumo')).toBe(projects[0])
+    expect(findProjectForMilestoneSegment(projects, 'backend-service')).toBe(
+      projects[1]
     )
   })
 
-  it('falls back to a slugified-name match for hand-built slug URLs', () => {
-    expect(findProjectForMilestoneSegment(projects, 'backend-service')).toBe(
-      projects[1]
+  it('still resolves legacy cuid segments by id (bookmarks, CLI-built ids, stale bundles)', () => {
+    // Pre-LUM-126 links and hand-built CLI urls use the project cuid; matching
+    // by id keeps those URLs working (they then canonicalize to the slug form).
+    expect(findProjectForMilestoneSegment(projects, PROJECT_CUID)).toBe(
+      projects[0]
     )
   })
 

@@ -13,13 +13,11 @@ interface ProjectRef {
 
 /**
  * Resolve the project addressed by a milestone-detail URL's project segment.
- * `MilestoneCard` builds that segment from the project **cuid** (project slug
- * routing is out of scope — LUM-71), so we match by id first; a slugified-name
- * match is kept as a fallback for any hand-built slug URLs. Returns null when
- * no project matches, or the segment / project list is missing.
- *
- * Matching by id is what makes the detail page load: a slugified-name-only
- * match never equals the cuid segment, which left the page stuck blank.
+ * `MilestoneCard` builds that segment from the project **slug**
+ * (`slugify(name)`), so we match by slugified name first; matching by **cuid**
+ * is kept as a fallback for legacy URLs (pre-LUM-126 links, CLI-built ids,
+ * bookmarks, stale bundles). Returns null when no project matches, or the
+ * segment / project list is missing.
  */
 export function findProjectForMilestoneSegment<T extends ProjectRef>(
   projects: T[],
@@ -27,8 +25,8 @@ export function findProjectForMilestoneSegment<T extends ProjectRef>(
 ): T | null {
   if (!segment) return null
   return (
-    projects.find(p => p.id === segment) ??
     projects.find(p => slugify(p.name) === segment) ??
+    projects.find(p => p.id === segment) ??
     null
   )
 }
@@ -44,22 +42,39 @@ interface MilestoneRef {
 }
 
 /**
- * Returns the canonical slug-based milestone detail URL when the current URL
- * segment is a cuid, or null when no redirect is needed (segment already a
- * slug, milestone not loaded, missing params, or milestone has no slug).
+ * Returns the canonical slug-based milestone detail URL when either URL segment
+ * differs from its canonical slug form, or null when no redirect is needed
+ * (both segments already canonical, milestone not loaded, missing params, or
+ * milestone has no slug).
  *
- * The project segment is passed through as-is — project slug routing is
- * intentionally out of scope (LUM-71).
+ * Both segments are canonicalized to the human-readable slug:
+ *  - project segment   → `slugify(projectName)`
+ *  - milestone segment → `milestone.slug`
+ *
+ * Legacy cuid URLs (pre-LUM-126 links, CLI-built ids, bookmarks, stale bundles)
+ * thus settle on the slug URL. `projectName` comes from the resolved project;
+ * when it isn't loaded yet the project segment is left as-is and only the
+ * milestone segment is canonicalized — a later pass fixes the project segment
+ * once the projects list resolves.
  */
 export function getCanonicalMilestonePath(
   params: MilestonePathParams,
-  milestone: MilestoneRef | null
+  milestone: MilestoneRef | null,
+  projectName: string | undefined
 ): string | null {
   if (!milestone || !milestone.slug) return null
   if (!params.workspaceUrl || !params.projectSlug || !params.milestoneId) {
     return null
   }
-  if (!MILESTONE_CUID_RE.test(params.milestoneId)) return null
-  if (params.milestoneId === milestone.slug) return null
-  return `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}/milestones/${milestone.slug}`
+  const canonicalProject = projectName
+    ? slugify(projectName)
+    : params.projectSlug
+  const canonicalMilestone = milestone.slug
+  if (
+    params.projectSlug === canonicalProject &&
+    params.milestoneId === canonicalMilestone
+  ) {
+    return null
+  }
+  return `/workspace/${params.workspaceUrl}/projects/${canonicalProject}/milestones/${canonicalMilestone}`
 }

@@ -62,9 +62,13 @@ export function MilestoneDetailPage() {
   // legacy cuid URLs (bookmarks, pasted, hand-built from CLI ids, or surfaced
   // by stale frontend bundles) settle on the human-readable URL.
   useEffect(() => {
-    const canonical = getCanonicalMilestonePath(params, milestone)
+    const canonical = getCanonicalMilestonePath(
+      params,
+      milestone,
+      project?.name
+    )
     if (canonical) router.replace(canonical)
-  }, [params, milestone, router])
+  }, [params, milestone, project?.name, router])
 
   const deleteMutation = useMutation({
     mutationFn: () => milestonesClient.delete(milestone!.id),

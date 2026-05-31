@@ -13,6 +13,8 @@ import { MilestoneFormDialog } from './MilestoneFormDialog'
 
 interface Props {
   projectId: string
+  /** Slugified project name — used to build human-readable milestone URLs. */
+  projectSlug: string
 }
 
 type DialogState =
@@ -20,7 +22,7 @@ type DialogState =
   | { mode: 'edit'; milestone: ApiMilestone }
   | null
 
-export function ProjectMilestonesTab({ projectId }: Props) {
+export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const intl = useIntl()
   const params = useParams<{ workspaceUrl: string }>()
   const qc = useQueryClient()
@@ -74,7 +76,7 @@ export function ProjectMilestonesTab({ projectId }: Props) {
                 milestone={m}
                 progress={{ done, total }}
                 workspaceUrl={params.workspaceUrl as string}
-                projectId={projectId}
+                projectSlug={projectSlug}
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
                 onDelete={mm => {
                   const ok = window.confirm(

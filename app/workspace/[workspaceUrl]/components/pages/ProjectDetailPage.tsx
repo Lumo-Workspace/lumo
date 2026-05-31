@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
+import { slugify } from '@/lib/utils/slugify'
 import { workspacesClient } from '@/lib/api-client/workspaces'
 import {
   ApiProject,
@@ -190,7 +191,9 @@ export function ProjectDetailPage({
 
       {/* Tab nav */}
       <div className='flex items-center gap-1 px-4 md:px-8 mt-4 shrink-0'>
-        {(['overview', 'milestones', 'tasks', 'summary', 'memory'] as const).map(t => (
+        {(
+          ['overview', 'milestones', 'tasks', 'summary', 'memory'] as const
+        ).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -223,7 +226,10 @@ export function ProjectDetailPage({
       {/* ── Milestones tab ── */}
       {tab === 'milestones' && (
         <div className='flex-1 overflow-y-auto'>
-          <ProjectMilestonesTab projectId={project.id} />
+          <ProjectMilestonesTab
+            projectId={project.id}
+            projectSlug={slugify(project.name)}
+          />
         </div>
       )}
 

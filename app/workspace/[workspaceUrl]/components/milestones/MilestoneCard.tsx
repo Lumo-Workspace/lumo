@@ -16,7 +16,7 @@ interface Props {
   milestone: ApiMilestone
   progress: { done: number; total: number }
   workspaceUrl: string
-  projectId: string
+  projectSlug: string
   onEdit: (m: ApiMilestone) => void
   onDelete: (m: ApiMilestone) => void
 }
@@ -33,12 +33,12 @@ export function MilestoneCard({
   milestone,
   progress,
   workspaceUrl,
-  projectId,
+  projectSlug,
   onEdit,
   onDelete,
 }: Props) {
   const intl = useIntl()
-  const href = `/workspace/${workspaceUrl}/projects/${projectId}/milestones/${milestone.slug}`
+  const href = `/workspace/${workspaceUrl}/projects/${projectSlug}/milestones/${milestone.slug}`
 
   return (
     <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors'>
