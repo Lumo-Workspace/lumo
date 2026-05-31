@@ -6,8 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
-import { slugify } from '@/lib/utils/slugify'
 import {
+  findProjectForMilestoneSegment,
   getCanonicalMilestonePath,
   MILESTONE_CUID_RE,
 } from '../../utils/milestonePath'
@@ -46,7 +46,7 @@ export function MilestoneDetailPage() {
   const isCuid = MILESTONE_CUID_RE.test(segment ?? '')
   const { projects } = useProjects()
   const project = useMemo(
-    () => projects.find(p => slugify(p.name) === params.projectSlug) ?? null,
+    () => findProjectForMilestoneSegment(projects, params.projectSlug),
     [projects, params.projectSlug]
   )
   const byIdQuery = useMilestone(isCuid ? segment : null)

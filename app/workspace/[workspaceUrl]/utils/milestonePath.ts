@@ -1,8 +1,37 @@
+import { slugify } from '@/lib/utils/slugify'
+
 // CUIDs are `c` + 24 lowercase alphanumerics. Any URL segment that doesn't
 // match this is treated as a slug. A slug that happens to look like a cuid is
 // extremely unlikely in practice; if it ever happens the user can rename the
 // milestone to disambiguate.
 export const MILESTONE_CUID_RE = /^c[a-z0-9]{24}$/
+
+interface ProjectRef {
+  id: string
+  name: string
+}
+
+/**
+ * Resolve the project addressed by a milestone-detail URL's project segment.
+ * `MilestoneCard` builds that segment from the project **cuid** (project slug
+ * routing is out of scope — LUM-71), so we match by id first; a slugified-name
+ * match is kept as a fallback for any hand-built slug URLs. Returns null when
+ * no project matches, or the segment / project list is missing.
+ *
+ * Matching by id is what makes the detail page load: a slugified-name-only
+ * match never equals the cuid segment, which left the page stuck blank.
+ */
+export function findProjectForMilestoneSegment<T extends ProjectRef>(
+  projects: T[],
+  segment: string | undefined
+): T | null {
+  if (!segment) return null
+  return (
+    projects.find(p => p.id === segment) ??
+    projects.find(p => slugify(p.name) === segment) ??
+    null
+  )
+}
 
 interface MilestonePathParams {
   workspaceUrl: string | undefined
