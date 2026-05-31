@@ -54,7 +54,7 @@ export function SubtasksSection({
     const identifier = `${task.teamIdentifier}-${childNumber}`
     const projectSlug = slugify(task.project.name)
     router.push(
-      `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${identifier}`
+      `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${identifier}`
     )
   }
 

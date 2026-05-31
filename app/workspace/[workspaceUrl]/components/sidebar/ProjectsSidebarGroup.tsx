@@ -37,8 +37,8 @@ import { projectsClient } from '@/lib/api-client'
 
 const STORAGE_KEY = 'lumo:sidebarProjectsExpanded'
 
-/** Extract the project slug when the URL is /workspace/:ws/project/:slug[/...]
- *  or /workspace/:ws/projects/:slug. Returns null otherwise. */
+/** Extract the project slug when the URL is /workspace/:ws/projects/:slug[/...].
+ *  Returns null otherwise. */
 function extractProjectSlug(
   pathname: string,
   workspaceUrl: string
@@ -46,8 +46,6 @@ function extractProjectSlug(
   const base = `/workspace/${workspaceUrl}`
   if (!pathname.startsWith(base)) return null
   const rest = pathname.slice(base.length)
-  const singular = rest.match(/^\/project\/([^/]+)/)
-  if (singular) return singular[1]!
   const plural = rest.match(/^\/projects\/([^/]+)/)
   if (plural) return plural[1]!
   return null
@@ -319,7 +317,7 @@ function SortableProjectItem({
       className='group/project relative'
     >
       <SidebarMenuSubButton asChild isActive={isActive} className='w-full pr-6'>
-        <Link href={`/workspace/${workspaceUrl}/project/${slug}`}>
+        <Link href={`/workspace/${workspaceUrl}/projects/${slug}`}>
           <span>{project.name}</span>
         </Link>
       </SidebarMenuSubButton>

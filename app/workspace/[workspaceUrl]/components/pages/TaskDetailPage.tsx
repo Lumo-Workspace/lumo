@@ -310,7 +310,7 @@ export function TaskDetailPage({
                         type='button'
                         onClick={() =>
                           router.push(
-                            `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${childIdentifier}`
+                            `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${childIdentifier}`
                           )
                         }
                         className={`w-full text-left text-sm py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors ${isDone ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-600 dark:text-zinc-400'}`}

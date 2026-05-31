@@ -75,7 +75,7 @@ export function TaskDrawer({
     (forSource: string) =>
       forSource === 'my-tasks'
         ? `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}`
-        : `/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${taskIdentifier}`,
+        : `/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${taskIdentifier}`,
     [workspaceUrl, taskIdentifier, projectName]
   )
 

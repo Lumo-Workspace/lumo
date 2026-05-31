@@ -87,7 +87,7 @@ export default async function MyTaskDetailPage({
   const isMyTask = rawTask.assignee?.member?.clerkId === userId
   if (!isMyTask) {
     redirect(
-      `/workspace/${workspaceUrl}/project/${slugify(rawTask.project.name)}/tasks/${identifier}`
+      `/workspace/${workspaceUrl}/projects/${slugify(rawTask.project.name)}/tasks/${identifier}`
     )
   }
 

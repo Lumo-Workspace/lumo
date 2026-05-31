@@ -197,7 +197,7 @@ export function TaskDetailComments({
                             className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                             onClick={() =>
                               copyLink(
-                                `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
+                                `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
                               )
                             }
                           >
@@ -433,7 +433,7 @@ export function TaskDetailComments({
                                     className='size-6 flex items-center justify-center rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors'
                                     onClick={() =>
                                       copyLink(
-                                        `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${reply.id}`
+                                        `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${reply.id}`
                                       )
                                     }
                                   >

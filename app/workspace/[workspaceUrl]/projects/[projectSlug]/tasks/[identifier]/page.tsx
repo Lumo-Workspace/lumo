@@ -6,7 +6,11 @@ import { TaskDetailPage } from '../../../../components/pages/TaskDetailPage'
 export default async function ProjectTaskIdentifierPage({
   params,
 }: {
-  params: Promise<{ workspaceUrl: string; slug: string; identifier: string }>
+  params: Promise<{
+    workspaceUrl: string
+    projectSlug: string
+    identifier: string
+  }>
 }) {
   const { workspaceUrl, identifier } = await params
   const { userId } = await auth()

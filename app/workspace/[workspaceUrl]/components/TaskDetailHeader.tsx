@@ -68,7 +68,7 @@ export function TaskDetailHeader({
                 router.push(`/workspace/${workspaceUrl}/my-tasks`)
               } else {
                 router.push(
-                  `/workspace/${workspaceUrl}/project/${slugify(projectName)}`
+                  `/workspace/${workspaceUrl}/projects/${slugify(projectName)}`
                 )
               }
             }}

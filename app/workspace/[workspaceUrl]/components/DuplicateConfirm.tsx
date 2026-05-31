@@ -71,7 +71,7 @@ export function DuplicateConfirm({
       <div className='space-y-2'>
         {matches.map(match => {
           const identifier = `${match.teamIdentifier}-${match.number}`
-          const url = `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${identifier}`
+          const url = `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${identifier}`
 
           return (
             <div
