@@ -109,7 +109,7 @@ export function CommentItem({
             isDeleting={isDeleting}
             onCopyLink={() =>
               copyLink(
-                `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
+                `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(projectName)}/tasks/${teamIdentifier}-${taskNumber}#comment-${comment.id}`
               )
             }
             onReply={() => {

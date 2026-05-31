@@ -135,7 +135,7 @@ export function TaskDetailPanel({
     const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
     const projectSlug = slugify(projectName)
     router.push(
-      `/workspace/${workspaceUrl}/project/${projectSlug}/tasks/${parentIdentifier}`
+      `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${parentIdentifier}`
     )
   }, [task.parent, projectName, workspaceUrl, router])
 

@@ -87,7 +87,7 @@ export function useTaskDetailState({
     const base = `${origin}/workspace/${workspaceUrl}`
     return from === 'my-tasks'
       ? `${base}/my-tasks/${taskIdentifier}`
-      : `${base}/project/${slugify(task.project.name)}/tasks/${taskIdentifier}`
+      : `${base}/projects/${slugify(task.project.name)}/tasks/${taskIdentifier}`
   }, [origin, workspaceUrl, from, taskIdentifier, task.project.name])
 
   // ── Delete dialog ──────────────────────────────────────────────────────

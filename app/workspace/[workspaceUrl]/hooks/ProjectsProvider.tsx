@@ -25,8 +25,8 @@ import type { WorkspaceEvent } from '@/lib/integrations/pusher/types'
  * Workspace-wide single source of truth for the projects list.
  *
  * Installed once at the workspace layout boundary so every shell that renders
- * underneath — `WorkspaceApp`, `TaskDetailPage`, `ProjectDetailStandalonePage`,
- * `SprintDetailClient` — reads the same state via TanStack Query's shared
+ * underneath — `WorkspaceApp`, `TaskDetailPage`, `SprintDetailClient` —
+ * reads the same state via TanStack Query's shared
  * cache. The Provider exists for two reasons: (a) it centralizes the
  * workspace-scoped pusher subscription, and (b) it preserves the
  * `{projects, setProjects, loading, error, fetchProjects}` shape that

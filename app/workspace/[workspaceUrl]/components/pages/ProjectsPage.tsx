@@ -525,7 +525,7 @@ export function ProjectsPage({
                             onClick={e => {
                               e.stopPropagation()
                               copyLink(
-                                `${window.location.origin}/workspace/${workspaceUrl}/project/${slugify(project.name)}`
+                                `${window.location.origin}/workspace/${workspaceUrl}/projects/${slugify(project.name)}`
                               )
                             }}
                           >

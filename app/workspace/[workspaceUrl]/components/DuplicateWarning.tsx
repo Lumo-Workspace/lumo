@@ -57,7 +57,7 @@ export function DuplicateWarning({
               ''
             const slug = slugify(projectName)
             const identifier = `${task.teamIdentifier}-${task.number}`
-            const url = `/workspace/${workspaceUrl}/project/${slug}/tasks/${identifier}`
+            const url = `/workspace/${workspaceUrl}/projects/${slug}/tasks/${identifier}`
 
             return (
               <button

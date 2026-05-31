@@ -8,8 +8,8 @@ import { ProjectsProvider } from './hooks/ProjectsProvider'
 /**
  * Client-side boundary for the workspace route tree. Composes the shared
  * client providers every shell needs — i18n and the projects store — so
- * consumers (WorkspaceApp, TaskDetailPage, ProjectDetailStandalonePage,
- * SprintDetailClient, AppSidebar) all read the same projects state.
+ * consumers (WorkspaceApp, TaskDetailPage, SprintDetailClient, AppSidebar)
+ * all read the same projects state.
  */
 export function IntlWrapper({ children }: { children: React.ReactNode }) {
   const { prefs } = usePreferences()

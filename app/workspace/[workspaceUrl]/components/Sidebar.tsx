@@ -54,8 +54,8 @@ interface AppSidebarProps {
   draftCount: number
   /**
    * Open the global Ask Lumo (command palette / AI) modal. Optional because
-   * deep-link standalone pages (TaskDetailPage, ProjectDetailStandalonePage)
-   * don't currently host the modal state — when omitted the search button
+   * deep-link standalone pages (TaskDetailPage) don't currently host the
+   * modal state — when omitted the search button
    * is hidden.
    */
   onOpenAskLumo?: () => void
