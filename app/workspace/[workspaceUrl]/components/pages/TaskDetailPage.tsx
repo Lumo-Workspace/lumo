@@ -39,7 +39,6 @@ import { TaskDetailHeader } from '../TaskDetailHeader'
 import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 import { SpecArtifactGroup } from '../SpecArtifactGroup'
-import { useArtifacts } from '../../hooks/useArtifacts'
 
 interface TaskDetailPageProps {
   initialTask: TaskDetail & {
@@ -124,8 +123,6 @@ export function TaskDetailPage({
     taskId: initialTask.id,
     initialDescription: initialTask.description,
   })
-
-  const { artifacts, refresh: refreshArtifacts } = useArtifacts(initialTask.id)
 
   // ── Actions (extracted) ────────────────────────────────────────────────────
   const actions = useTaskDetailActions({
@@ -279,11 +276,7 @@ export function TaskDetailPage({
             </h1>
 
             {/* Definition layer: spec artifacts (renders nothing when there are none) */}
-            <SpecArtifactGroup
-              taskId={task.id}
-              artifacts={artifacts}
-              onChanged={refreshArtifacts}
-            />
+            <SpecArtifactGroup taskId={task.id} />
 
             {/* Description — always rendered as the normal editor, below the
                 spec layer when artifacts exist (no "background discussion"
