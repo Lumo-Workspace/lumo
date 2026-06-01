@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Check, HardDrive, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { GoogleDriveIcon } from './GoogleDriveIcon'
 import { IntegrationCard } from './IntegrationCard'
 import { API } from '../constants'
 import { useGoogleDriveIntegration } from '../hooks/useGoogleDriveIntegration'
@@ -50,7 +51,7 @@ export function GoogleDriveIntegrationCard() {
   return (
     <>
       <IntegrationCard
-        icon={<HardDrive className='h-[18px] w-[18px]' />}
+        icon={<GoogleDriveIcon className='h-[18px] w-[18px]' />}
         title={intl.formatMessage({ id: 'googleDrive.title' })}
         description={intl.formatMessage({ id: 'googleDrive.description' })}
         headerAction={headerAction}

@@ -24,7 +24,7 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   }, [intl])
 
   return (
-    <div className='flex-1 overflow-y-auto'>
+    <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
         <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
           {intl.formatMessage({ id: 'integrations.title' })}
