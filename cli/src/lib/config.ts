@@ -15,8 +15,8 @@ export interface Credentials {
   apiKeyPrefix: string
 }
 
-function configDir(): string {
-  return path.join(os.homedir(), '.lumo')
+export function configDir(): string {
+  return process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo')
 }
 
 export function credentialsPath(): string {
