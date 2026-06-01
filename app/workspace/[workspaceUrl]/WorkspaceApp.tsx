@@ -284,6 +284,19 @@ export default function DashboardApp() {
     localStorage.setItem('lumo:context', context)
   }, [user?.id, workspaceUrl])
 
+  // ─── Members: workspace-global, fetch once on mount ────────────────────────
+  // Members are shared workspace data (cached under a single react-query key)
+  // consumed by nearly every page: the my-tasks list assignee column, project
+  // task tables, task detail panels, modals. The useMembers query is
+  // caller-driven (enabled: false), so a page that forgets to fetch renders an
+  // empty members list — which makes AssigneeSelect show "No assignee" for every
+  // row and an empty assignee picker. Fetching once on workspace mount populates
+  // the shared cache regardless of which page the user lands on first (my-tasks
+  // is the default route), instead of relying on each page to remember.
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
+
   // ─── Page-change side effects ──────────────────────────────────────────────
   useEffect(() => {
     if (currentPage === 'my-tasks') {
