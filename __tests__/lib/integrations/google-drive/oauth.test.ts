@@ -8,8 +8,8 @@ describe('google-drive oauth', () => {
   beforeEach(() => {
     process.env = {
       ...ENV,
-      GOOGLE_DRIVE_OAUTH_CLIENT_ID: 'cid',
-      GOOGLE_DRIVE_OAUTH_CLIENT_SECRET: 'secret',
+      GOOGLE_CLIENT_ID: 'cid',
+      GOOGLE_CLIENT_SECRET: 'secret',
       GOOGLE_DRIVE_OAUTH_REDIRECT_URI:
         'https://app.test/api/google-drive/callback',
     }
@@ -38,9 +38,7 @@ describe('google-drive oauth', () => {
   })
 
   it('throws a clear error when an env var is missing', () => {
-    delete process.env.GOOGLE_DRIVE_OAUTH_CLIENT_ID
-    expect(() => getAuthorizeUrl({ state: 'abc' })).toThrow(
-      'GOOGLE_DRIVE_OAUTH_CLIENT_ID'
-    )
+    delete process.env.GOOGLE_CLIENT_ID
+    expect(() => getAuthorizeUrl({ state: 'abc' })).toThrow('GOOGLE_CLIENT_ID')
   })
 })

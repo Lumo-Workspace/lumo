@@ -19,7 +19,7 @@ function requireEnv(name: string): string {
 
 export function getAuthorizeUrl(opts: { state: string }): string {
   const url = new URL(GOOGLE_AUTH_BASE)
-  url.searchParams.set('client_id', requireEnv('GOOGLE_DRIVE_OAUTH_CLIENT_ID'))
+  url.searchParams.set('client_id', requireEnv('GOOGLE_CLIENT_ID'))
   url.searchParams.set(
     'redirect_uri',
     requireEnv('GOOGLE_DRIVE_OAUTH_REDIRECT_URI')
@@ -37,8 +37,8 @@ export function getAuthorizeUrl(opts: { state: string }): string {
 
 export async function exchangeCode(code: string): Promise<GoogleTokenResponse> {
   const body = new URLSearchParams({
-    client_id: requireEnv('GOOGLE_DRIVE_OAUTH_CLIENT_ID'),
-    client_secret: requireEnv('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET'),
+    client_id: requireEnv('GOOGLE_CLIENT_ID'),
+    client_secret: requireEnv('GOOGLE_CLIENT_SECRET'),
     redirect_uri: requireEnv('GOOGLE_DRIVE_OAUTH_REDIRECT_URI'),
     code,
     grant_type: 'authorization_code',
@@ -56,8 +56,8 @@ export async function refreshAccessToken(
   refreshToken: string
 ): Promise<GoogleTokenResponse> {
   const body = new URLSearchParams({
-    client_id: requireEnv('GOOGLE_DRIVE_OAUTH_CLIENT_ID'),
-    client_secret: requireEnv('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET'),
+    client_id: requireEnv('GOOGLE_CLIENT_ID'),
+    client_secret: requireEnv('GOOGLE_CLIENT_SECRET'),
     refresh_token: refreshToken,
     grant_type: 'refresh_token',
   })
