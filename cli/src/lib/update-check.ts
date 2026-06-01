@@ -1,13 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import * as os from 'os'
 import * as https from 'https'
 import { spawn } from 'child_process'
+import { configDir } from './config'
 
-const CACHE_FILE = path.join(
-  process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo'),
-  'update-check.json'
-)
+const CACHE_FILE = path.join(configDir(), 'update-check.json')
 const CHECK_INTERVAL_MS = 1000 * 60 * 60 * 24
 
 type Cache = { lastChecked: number; latest: string }

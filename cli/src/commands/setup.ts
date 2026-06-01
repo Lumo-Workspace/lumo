@@ -5,6 +5,7 @@ import { execSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
 import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
+import { configDir } from '../lib/config'
 
 type SetupOptions = {
   user?: boolean
@@ -159,10 +160,7 @@ function mergeSettings(claudeDir: string, agentToken: string): void {
 
 function printPostInstall(): void {
   const onPath = isLumoOnPath()
-  const credsPath = path.join(
-    process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo'),
-    'credentials.json'
-  )
+  const credsPath = path.join(configDir(), 'credentials.json')
   const authed = fs.existsSync(credsPath)
 
   process.stdout.write('\nNext steps:\n')
