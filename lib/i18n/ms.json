@@ -252,6 +252,8 @@
   "common.invite": "Jemput",
   "common.disconnect": "Putuskan sambungan",
   "common.connect": "Sambung",
+  "common.reauthorize": "Sahkan semula",
+  "common.moreOptions": "Pilihan lain",
   "common.loading": "Memuatkan...",
   "common.search": "Cari",
   "common.copy": "Salin",

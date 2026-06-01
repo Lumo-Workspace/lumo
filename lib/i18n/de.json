@@ -252,6 +252,8 @@
   "common.invite": "Einladen",
   "common.disconnect": "Trennen",
   "common.connect": "Verbinden",
+  "common.reauthorize": "Neu autorisieren",
+  "common.moreOptions": "Weitere Optionen",
   "common.loading": "Wird geladen...",
   "common.search": "Suchen",
   "common.copy": "Kopieren",

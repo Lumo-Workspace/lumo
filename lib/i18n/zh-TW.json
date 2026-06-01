@@ -395,6 +395,8 @@
   "common.invite": "邀請",
   "common.disconnect": "中斷連線",
   "common.connect": "連線",
+  "common.reauthorize": "重新授權",
+  "common.moreOptions": "更多選項",
   "common.loading": "載入中...",
   "common.search": "搜尋",
   "common.copy": "複製",

@@ -252,6 +252,8 @@
   "common.invite": "Пригласить",
   "common.disconnect": "Отключить",
   "common.connect": "Подключить",
+  "common.reauthorize": "Повторная авторизация",
+  "common.moreOptions": "Ещё",
   "common.loading": "Загрузка...",
   "common.search": "Поиск",
   "common.copy": "Копировать",

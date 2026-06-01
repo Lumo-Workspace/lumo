@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { GoogleDriveIcon } from './GoogleDriveIcon'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { API } from '../constants'
 import { useGoogleDriveIntegration } from '../hooks/useGoogleDriveIntegration'
 
@@ -45,10 +45,7 @@ export function GoogleDriveIntegrationCard({
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
   ) : connected ? (
-    <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-      <Check size={12} />
-      {intl.formatMessage({ id: 'googleDrive.connected' })}
-    </span>
+    <ConnectedDot label={intl.formatMessage({ id: 'googleDrive.connected' })} />
   ) : (
     <Button size='sm' asChild>
       <a href={API.googleDrive.oauth(workspaceUrl)}>
@@ -65,8 +62,17 @@ export function GoogleDriveIntegrationCard({
         description={intl.formatMessage({ id: 'googleDrive.description' })}
         headerAction={headerAction}
         collapsible={connected}
+        onReconnect={
+          connected
+            ? () => {
+                window.location.href = API.googleDrive.oauth(workspaceUrl)
+              }
+            : undefined
+        }
+        reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={connected ? () => setDisconnectOpen(true) : undefined}
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
+        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {connected ? (
           <>

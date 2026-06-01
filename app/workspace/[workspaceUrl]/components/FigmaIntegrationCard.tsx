@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { FigmaIcon } from './FigmaIcon'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { API } from '../constants'
 import { useFigmaIntegration } from '../hooks/useFigmaIntegration'
 
@@ -45,10 +45,7 @@ export function FigmaIntegrationCard({
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
   ) : connected ? (
-    <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-      <Check size={12} />
-      {intl.formatMessage({ id: 'figma.connected' })}
-    </span>
+    <ConnectedDot label={intl.formatMessage({ id: 'figma.connected' })} />
   ) : (
     <Button size='sm' asChild>
       <a href={API.figma.oauth(workspaceUrl)}>
@@ -65,8 +62,17 @@ export function FigmaIntegrationCard({
         description={intl.formatMessage({ id: 'figma.description' })}
         headerAction={headerAction}
         collapsible={connected}
+        onReconnect={
+          connected
+            ? () => {
+                window.location.href = API.figma.oauth(workspaceUrl)
+              }
+            : undefined
+        }
+        reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={connected ? () => setDisconnectOpen(true) : undefined}
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
+        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {connected ? (
           <>

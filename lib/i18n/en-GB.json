@@ -252,6 +252,8 @@
   "common.invite": "Invite",
   "common.disconnect": "Disconnect",
   "common.connect": "Connect",
+  "common.reauthorize": "Reauthorise",
+  "common.moreOptions": "More options",
   "common.loading": "Loading...",
   "common.search": "Search",
   "common.copy": "Copy",
