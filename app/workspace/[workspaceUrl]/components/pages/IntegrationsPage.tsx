@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
 import {
   INTEGRATIONS,
+  getIntegrationKind,
   type IntegrationId,
   type IntegrationKind,
 } from '@/lib/integrations/registry'
@@ -100,18 +101,11 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     return groups
   }, [])
 
-  // Flat id → kind lookup (registry is the single source of truth).
-  const kindById = useMemo(() => {
-    const m = {} as Record<IntegrationId, IntegrationKind>
-    for (const { id, kind } of Object.values(INTEGRATIONS)) m[id] = kind
-    return m
-  }, [])
-
   // TEAM cards are view-only and hidden from non-owners until they report
   // connected; owners and PERSONAL cards are always visible. Recomputed each
   // render because it reads the live connectedMap.
   const isCardVisible = (id: IntegrationId) =>
-    isOwner || kindById[id] !== 'TEAM' || connectedMap[id] === true
+    isOwner || getIntegrationKind(id) !== 'TEAM' || connectedMap[id] === true
 
   return (
     <div className='h-full overflow-y-auto'>
