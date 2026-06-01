@@ -40,7 +40,7 @@ import { taskRepository } from '@/lib/repositories'
 import { GET as slackSnapshotGet } from '@/app/api/tasks/[id]/slack-contexts/[contextId]/snapshot/route'
 import { GET as webBodyGet } from '@/app/api/tasks/[id]/web-links/[linkId]/body/route'
 import { GET as figmaContextGet } from '@/app/api/tasks/[id]/figma-links/[linkId]/context/route'
-import { GET as prGet } from '@/app/api/tasks/[id]/pull-requests/[number]/route'
+import { GET as prGet } from '@/app/api/tasks/[id]/pull-requests/[prId]/route'
 
 const mockedRequireIdentity = requireIdentity as jest.Mock
 const mockedFindByWorkspaceIdentifier =
@@ -90,7 +90,7 @@ describe('retrieval routes — 401 without auth', () => {
 
   it('pull request route returns 401', async () => {
     const res = await prGet(req(), {
-      params: Promise.resolve({ id: 'LUM-1', number: '5' }),
+      params: Promise.resolve({ id: 'LUM-1', prId: '5' }),
     })
     expect(res.status).toBe(401)
   })
@@ -125,7 +125,7 @@ describe('retrieval routes — 404 when task not found', () => {
 
   it('pull request route returns 404', async () => {
     const res = await prGet(req(), {
-      params: Promise.resolve({ id: 'LUM-1', number: '5' }),
+      params: Promise.resolve({ id: 'LUM-1', prId: '5' }),
     })
     expect(res.status).toBe(404)
   })
