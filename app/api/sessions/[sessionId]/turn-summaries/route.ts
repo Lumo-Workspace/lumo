@@ -20,9 +20,17 @@ export async function GET(
   if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
 
   const { sessionId } = await context.params
-  const result = await sessionService.getSessionProgressDraft({
-    identity,
-    sessionId,
-  })
-  return NextResponse.json(result)
+  try {
+    const result = await sessionService.getSessionProgressDraft({
+      identity,
+      sessionId,
+    })
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('GET /api/sessions/[sessionId]/turn-summaries error:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
 }
