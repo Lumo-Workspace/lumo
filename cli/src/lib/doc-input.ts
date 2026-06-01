@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import { checkArtifactFilePath, type PathGuardResult } from './path-guard'
 
 export interface ResolveDocContentArgs {
   content: string | undefined
@@ -6,6 +7,12 @@ export interface ResolveDocContentArgs {
   stdinIsTTY: boolean
   readStdin: () => Promise<string>
   readFile: (path: string) => Promise<string>
+  /**
+   * Path-safety guard for the --file branch. Defaults to checkArtifactFilePath,
+   * which confines the path to the project directory and rejects sensitive
+   * files. Injectable so tests don't touch the real filesystem.
+   */
+  checkFilePath?: (p: string) => PathGuardResult
 }
 
 export type ResolveDocContentResult =
@@ -35,7 +42,20 @@ export async function resolveDocContent(
 
   if (hasContent) return { kind: 'ok', markdown: args.content as string }
   if (hasFile) {
-    const text = await args.readFile(args.file as string)
+    const check = (args.checkFilePath ?? checkArtifactFilePath)(
+      args.file as string
+    )
+    if (!check.ok) {
+      return {
+        kind: 'error',
+        message:
+          check.reason === 'unreadable'
+            ? `could not read file ${args.file}`
+            : `refusing to read ${args.file} — ${check.detail}. ` +
+              `--file must be a non-sensitive path inside the project directory.`,
+      }
+    }
+    const text = await args.readFile(check.resolved)
     return { kind: 'ok', markdown: text }
   }
   if (!args.stdinIsTTY) {
