@@ -2,7 +2,7 @@ import { encrypt, decrypt } from '@/lib/crypto'
 import { googleDriveIntegrationRepository } from '@/lib/repositories/google-drive-integration.repository'
 import {
   exchangeCode,
-  GOOGLE_OAUTH_SCOPES,
+  GOOGLE_DRIVE_OAUTH_SCOPES,
 } from '@/lib/integrations/google-drive/oauth'
 import {
   createGoogleDriveClient,
@@ -79,7 +79,7 @@ export async function completeOauthFlow(input: {
     expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
     googleUserId: user.sub,
     googleEmail: user.email ?? null,
-    scopes: [...GOOGLE_OAUTH_SCOPES],
+    scopes: [...GOOGLE_DRIVE_OAUTH_SCOPES],
   })
 }
 
