@@ -28,45 +28,53 @@ You output a JSON list of operations against the existing task-scoped memory sto
 
 # Writing style — read this first
 
-Write for a teammate who joins the project tomorrow and never saw this conversation. They should understand each memory in 5 seconds without opening the codebase.
+Write like a senior engineer jotting a note to future-self, NOT like documentation. The reader is another agent that loads this into its context later — every wasted word is wasted tokens on every future retrieval. Terse and clear beats complete and polished. Still readable cold (someone who never saw this turn gets it), just without the padding.
 
-- Use plain, complete sentences. No jargon-headlines, no log-style noun phrases.
-- BAD: "Session.taskId vs payload.task_id divergence mid-session"
-- GOOD: "If you read the task ID from the Session row, you'll get the wrong task when the user switched tasks mid-session."
-- Always answer "what would actually happen to me?" — describe the situation, not just the symptom name.
-- Spell out acronyms and identifiers on first use. \`Session.taskId\` is fine; \`P3009\` should appear with a one-line explanation of what it means.
-- Detail fields should narrate: *what happens → why it's a problem → what to do instead*. Don't just restate the headline with more words.
+Two failure modes to avoid:
+1. Over-writing — inflating a one-line lesson into a three-sentence paragraph. If a point fits on one line, never spend two.
+2. Abstract-noun jargon — saying the same thing in fancy, nominalized terms. Short is not enough; it must also be PLAIN. "Ambiguous identifier resolution in API endpoints" is short but still jargon. Say it the way you'd say it out loud to a teammate: "two records have the same name, the code just grabs the first one."
+
+- Plain words, real verbs. Prefer everyday words and verbs over nominalized abstractions. "resolve an identifier" → "look up a name"; "attribution to the wrong resource" → "saved to the wrong record"; "disambiguation logic" → "ask which one". If a word wouldn't come up when you explain the bug to a coworker at the desk, don't use it.
+- Compress, but never by stacking abstract nouns. A clear fragment beats a grammatically complete sentence. Arrows (\`→\`), shorthand, dropped articles, incomplete sentences are all fine — that's what real notes look like.
+- BAD (jargon log-line, unreadable cold): "Session.taskId vs payload.task_id divergence mid-session"
+- BAD (over-written, AI-flavored): "If you read the task ID from the Session row, you will get the wrong task in the case where the user has switched tasks mid-session, which can lead to work being attributed to the wrong task."
+- BAD (short but abstract-noun jargon): "Stale task identifier propagation after mid-session reassignment."
+- GOOD (tight AND plain): "Read the task ID from \`Session.taskId\`, not the payload — the payload is stale after the user switches tasks mid-session."
+- Cut the connective padding: "this means…", "this is because…", "it's worth noting…", "which can lead to…". Explain WHY only when it's counter-intuitive; if the consequence is obvious, let it stand unsaid.
+- Don't enumerate exhaustively. Representative case + "etc." ("Claude Code, Codex, etc.") beats listing all six. The reader doesn't need the full set to get the point.
+- Spell out a non-obvious acronym/error-code once (\`P3009\` → one clause on what it is), then move on. No glossary-style "where X represents…" definitions.
+- Never pad a field just to fill it. \`outcome\` / \`why\` can be a single clause. Length must be earned by real content, never by narration.
 
 # Categories (pick exactly one per ADD/UPDATE)
 
 - TRAP — a failure mode or pitfall worth warning future-self about. A TRAP describes the PROBLEM ONLY — what goes wrong and why. It must NOT include the solution. If you also know the fix, emit a separate PROCEDURAL memory for the workaround.
   content shape: { summary?: string, trigger: string, outcome: string }
-  - \`trigger\`: a full sentence describing the situation that causes the problem ("When you ...").
-  - \`outcome\`: what goes wrong, in plain terms. Include the error name/code if any, but explain it.
+  - \`trigger\`: the situation that causes the problem, tight ("When you ..."). One clause is plenty.
+  - \`outcome\`: what goes wrong, in plain terms. Name the error/code if any. A single clause is fine — don't narrate the fallout.
 
 - DECISION — an engineering decision made in this task. Treat it as a mini-ADR: a future reader must be able to understand the *forces* that drove the choice, what was rejected, and what the team is now committed to. A decision without these is just a changelog entry.
   content shape: { summary?: string, what: string, why: string, alternatives?: string, implications?: string }
-  - \`what\`: a full sentence stating the decision ("We chose to ..."). State the PRINCIPLE, not the specific identifier. BAD: "API endpoints use POST /api/tasks/[id]/lumo-proposals". GOOD: "The sync workflow uses a two-call API to decouple generation from application." If you can only state a decision by quoting a function name, endpoint path, or variable name, it is too low-level — skip it.
+  - \`what\`: the decision, stated tight ("Chose X over Y"). State the PRINCIPLE, not the specific identifier. BAD: "API endpoints use POST /api/tasks/[id]/lumo-proposals". GOOD: "Sync uses a two-call API to decouple generation from application." If you can only state a decision by quoting a function name, endpoint path, or variable name, it is too low-level — skip it.
   - \`why\`: the *forces* that drove the decision — the problem, constraint, or tension that demanded a choice. NOT a recap of what was implemented or how. Ask: "what was the situation that made this decision necessary?" If the user / turn does not state real driving forces, omit the DECISION (NOOP) instead of inventing them.
   - \`alternatives\` (optional but strongly preferred): the other option(s) seriously considered and why each was rejected. Without this, future readers re-litigate the choice. Omit only if no alternative was actually weighed.
   - \`implications\` (optional but strongly preferred): what this decision commits the team to going forward — capabilities given up, future constraints introduced, follow-up work needed. Omit only if there are genuinely no notable consequences.
 
 - CONVENTION — a project-wide rule the team follows.
   content shape: { summary?: string, rule: string, scope: string }
-  - \`rule\`: a full sentence stating the rule ("All new ... must ...").
-  - \`scope\`: where it applies and any exceptions.
+  - \`rule\`: the rule, stated tight ("All new ... must ...").
+  - \`scope\`: where it applies + any exceptions. A few words is enough.
 
-- PROCEDURAL — a workflow / repeatable procedure.
+- PROCEDURAL — a workflow / repeatable procedure. This is the ONE category allowed a step list — and the only place a longer body is justified.
   content shape: { summary?: string, workflow: string, trigger: string, steps?: string[] }
-  - \`workflow\`: a short sentence naming what the procedure accomplishes ("How to run a database migration").
-  - \`trigger\`: a full sentence describing when to use it ("Whenever you ...").
-  - \`steps\`: ordered, plain-English steps a teammate can follow.
+  - \`workflow\`: what the procedure accomplishes ("How to run a database migration").
+  - \`trigger\`: when to use it ("Whenever you ...").
+  - \`steps\`: ordered steps, each one tight. A teammate can follow them — they don't need prose.
 
 # Summary field (every category)
 
 Every ADD/UPDATE content object SHOULD include a \`summary\`: a very short label — at most ~8 words / ~60 characters, no trailing period — that captures the gist of the memory. It is used verbatim as the memory card's TITLE.
 
-- It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which stays the full sentence and is shown beneath the title. The summary is a glanceable label, not a second copy of the headline.
+- It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which holds the full lesson and is shown beneath the title. The summary is a glanceable label, not a second copy of the headline.
 - BAD (just the headline again): summary "If you add a new Postgres enum value and use it in the same migration, it fails."
 - GOOD (a short label): summary "Enum value + use in one migration fails."
 - Omit \`summary\` only if you genuinely cannot compress the memory below the headline's length. When present it must be non-empty.
@@ -104,11 +112,13 @@ Rules of thumb (not laws — judge per memory):
 
 # Length guidance
 
-Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`) are one full sentence, roughly 12–25 words. They should be readable on their own.
+Tight by default. A whole memory is usually 1–2 lines. Only PROCEDURAL earns a step list.
 
-Detail fields (\`outcome\`, \`why\`, \`scope\`, \`steps\`, \`workaround\`) are 1–3 sentences of narration. File paths, line numbers, error codes belong here.
+- Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`): one line, ideally under ~15 words. Readable on their own. A clear fragment is fine; it does NOT have to be a grammatically complete sentence.
+- Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence — not a paragraph. Add a second sentence ONLY when the point is genuinely counter-intuitive and needs the "why". File paths, line numbers, error codes go here when they matter.
+- Don't write to a length. If the lesson is one clause, ship one clause. Don't manufacture "alternatives"/"implications"/narration to look thorough.
 
-Avoid: noun-phrase fragments, "X vs Y" headlines, semicolon-chains, "(parenthetical)" cramming. If your headline reads like a log line or a slide title, rewrite it as a sentence.`
+The OLD failure mode was cryptic log-lines ("Session.taskId vs payload divergence"). The fix for that over-corrected into AI-flavored over-writing. Aim for the middle: a real engineer's note — clear, specific, and short. Not a slide title, not a paragraph.`
 
 export function buildLayer1Prompt(input: BuildPromptInput): BuiltPrompt {
   const compact = compactEvents(input.turnEvents, { maxToolCalls: 80 })
@@ -124,7 +134,7 @@ export function buildLayer1Prompt(input: BuildPromptInput): BuiltPrompt {
 
   const examples = `# Examples
 
-Example 1 — TRAP + PROCEDURAL from a tool failure (PROJECT scope — toolchain lesson applies to every migration task)
+Example 1 — TRAP + PROCEDURAL from a tool failure (PROJECT scope — toolchain lesson applies to every migration task). Note how tight the bodies are.
 Turn (excerpt):
   [12:00:01] Bash "npx prisma migrate dev --name add_status" ERR — stderr: P3009: enum can't add value mid-migration
 Existing memories: (none)
@@ -133,15 +143,15 @@ Output:
     { "type": "ADD", "category": "TRAP", "scope": "PROJECT",
       "content": {
         "summary": "Enum value + use in one migration fails",
-        "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
+        "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
+        "outcome": "Fails with P3009 — Postgres won't alter an enum and read the new value in one transaction."
       } },
     { "type": "ADD", "category": "PROCEDURAL", "scope": "PROJECT",
       "content": {
         "summary": "Add a Postgres enum value safely",
-        "workflow": "How to safely add a new Postgres enum value in Prisma",
-        "trigger": "Whenever you need to add a value to an existing enum and use it in the same change.",
-        "steps": ["Create a first migration that only adds the new enum value.", "Create a second migration that uses the value (e.g. sets it as a column default or backfills rows)."]
+        "workflow": "Add a new Postgres enum value in Prisma",
+        "trigger": "Adding an enum value you need to use in the same change.",
+        "steps": ["Migration 1: add the enum value only.", "Migration 2: use it (column default, backfill, etc.)."]
       } } ] }
 
 Example 2 — CONVENTION from a user instruction (PROJECT scope — applies to every future task)
@@ -152,8 +162,8 @@ Output:
   { "operations": [
     { "type": "ADD", "category": "CONVENTION", "scope": "PROJECT",
       "content": {
-        "rule": "All new request and response schemas must be defined with Zod, not handwritten TypeScript types or other validators.",
-        "scope": "Applies to every new schema added to this project from now on. Existing schemas can be migrated opportunistically but are not required to change immediately."
+        "rule": "New request/response schemas use Zod, not handwritten types or other validators.",
+        "scope": "All new schemas. Existing ones migrate opportunistically — not required."
       } } ] }
 
 Example 3 — NOOP on routine work
@@ -170,33 +180,38 @@ Turn (excerpt):
   [10:15:00] Bash "npx prisma migrate dev" ERR — stderr: P3009: ...
   [turn end] "Same enum-mid-migration trap. Tried 'prisma migrate resolve' — also fails."
 Existing memories:
-  - id=mem_abc category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with error P3009..."}
+  - id=mem_abc category=TRAP content={"trigger":"Add a Postgres enum value and use it in the same Prisma migration.","outcome":"Fails with P3009..."}
 Output:
   { "operations": [
     { "type": "UPDATE", "id": "mem_abc",
       "content": {
-        "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Running \`prisma migrate resolve\` does NOT unstick the migration — it only marks it applied without actually running it, so the schema ends up half-migrated. Do not try to recover with \`migrate resolve\`."
+        "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
+        "outcome": "Fails with P3009. \`prisma migrate resolve\` doesn't unstick it — marks it applied without running it, leaving the schema half-migrated."
       } } ] }
 
-Example 5 — Plain-language headline (contrastive)
+Example 5 — Headline that's clear without over-writing (contrastive — the two failure modes)
 Turn (excerpt):
   [turn end] "Hit it again: SubagentStop hook handler blocked because the memory-extraction call to the server had no timeout, and the parent agent team deadlocked waiting on the sub-agent to exit."
 Existing memories: (none)
 
-BAD output (headline is a noun-phrase log line; detail is too terse to be useful):
+BAD output A (cryptic log-line; unreadable cold):
+  { "type": "ADD", "category": "TRAP",
+    "content": { "trigger": "SubagentStop hook deadlock", "outcome": "Sub-agent fails to complete" } }
+
+BAD output B (over-written, AI-flavored — narrates the fallout and prescribes the fix inside a TRAP):
   { "type": "ADD", "category": "TRAP",
     "content": {
-      "trigger": "SubagentStop hook deadlock",
-      "outcome": "Sub-agent fails to complete"
+      "trigger": "If a SubagentStop hook handler blocks or throws, Claude Code waits on it before allowing the sub-agent to exit, and the parent agent team deadlocks.",
+      "outcome": "Slow synchronous work in the handler (e.g., an HTTP call without a timeout) stalls the parent agent indefinitely; uncaught exceptions have the same effect. Memory-extraction handlers must return quickly and swallow failures so a broken extraction never blocks completion."
     } }
 
-GOOD output (headline is a full sentence; detail explains what happens and why):
+GOOD output (clear AND tight — names the cause, states the effect, stops):
   { "operations": [
     { "type": "ADD", "category": "TRAP",
       "content": {
-        "trigger": "If a SubagentStop hook handler blocks or throws, Claude Code waits on it before allowing the sub-agent to exit, and the parent agent team deadlocks.",
-        "outcome": "Slow synchronous work in the handler (e.g., an HTTP call without a timeout) stalls the parent agent indefinitely; uncaught exceptions have the same effect. Memory-extraction handlers must return quickly and swallow failures so a broken extraction never blocks completion."
+        "summary": "Blocking SubagentStop hook deadlocks the parent",
+        "trigger": "A SubagentStop hook handler blocks or throws (e.g. an HTTP call with no timeout).",
+        "outcome": "Claude Code waits on it before the sub-agent exits → parent agent team deadlocks."
       } } ] }
 
 Example 6 — DELETE + ADD when a memory is contradicted
@@ -209,30 +224,62 @@ Output:
     { "type": "DELETE", "id": "mem_xyz" },
     { "type": "ADD", "category": "CONVENTION",
       "content": {
-        "rule": "New endpoints may be implemented as REST routes. The earlier rule requiring Server Actions has been dropped.",
-        "scope": "Applies to all new endpoints in this project. Existing Server Action endpoints can stay; there is no requirement to migrate them."
+        "rule": "New endpoints may use REST routes — the Server-Actions-only rule is dropped.",
+        "scope": "All new endpoints. Existing Server Action endpoints can stay."
       } } ] }
 
-Example 7 — DECISION done right (contrastive)
+Example 7 — DECISION done right (contrastive). Keep \`alternatives\`/\`implications\` ONLY when they carry real signal — and still tight. One clause each, not a paragraph.
 Turn (excerpt):
   [turn end] "Decided: switch task memory writes from soft-delete (archivedAt column) to hard-delete. Originally we picked soft-delete to preserve audit history, but in practice no UI or query ever consumed archived rows — they only forced every read to filter \`archivedAt: null\`, which we forgot in two places and leaked stale rows. Considered keeping soft-delete behind a read helper, but the maintenance cost was the actual problem, not the filter syntax. Going forward L1 DELETE is irreversible, and if audit becomes important we'll need a separate event log."
 
-BAD output (\`why\` recaps the implementation; no alternatives, no implications):
+BAD output A (\`why\` recaps the implementation instead of the forces):
   { "type": "ADD", "category": "DECISION",
     "content": {
       "what": "Removed the archivedAt column and converted archive operations to hard deletes",
       "why": "Schema, repository, and service layers were all updated. archive() was renamed to delete() and archivedAt: null filters were removed everywhere."
     } }
 
-GOOD output (\`why\` describes the forces; alternatives names what was rejected and why; implications spells out the new constraint):
+BAD output B (right content, but every field over-written into a paragraph — this is the AI-flavored trap):
+  { "type": "ADD", "category": "DECISION",
+    "content": {
+      "what": "Switched task memory writes from soft-delete (archivedAt) to hard-delete.",
+      "why": "Soft-delete was originally chosen to preserve audit history, but no UI or query consumed archived rows. The cost was real: every read needed an archivedAt: null filter, and we missed it in two places, leaking stale memories.",
+      "alternatives": "Considered keeping soft-delete behind a shared read helper that always applies the filter. Rejected because the maintenance burden is the actual problem — wrapping every query site doesn't make the schema simpler, only adds another abstraction to remember.",
+      "implications": "Layer 1 DELETE is now irreversible — we lose the ability to inspect what was retracted and when. If audit visibility becomes important, the team will need to add a separate event log table; the soft-delete column is no longer available as a fallback."
+    } }
+
+GOOD output (same forces, same alternative, same constraint — one clause each):
   { "operations": [
     { "type": "ADD", "category": "DECISION",
       "content": {
         "summary": "Memory writes: soft-delete → hard-delete",
-        "what": "Switched task memory writes from soft-delete (archivedAt) to hard-delete.",
-        "why": "Soft-delete was originally chosen to preserve audit history, but no UI or query consumed archived rows. The cost was real: every read needed an archivedAt: null filter, and we missed it in two places, leaking stale memories.",
-        "alternatives": "Considered keeping soft-delete behind a shared read helper that always applies the filter. Rejected because the maintenance burden is the actual problem — wrapping every query site doesn't make the schema simpler, only adds another abstraction to remember.",
-        "implications": "Layer 1 DELETE is now irreversible — we lose the ability to inspect what was retracted and when. If audit visibility becomes important, the team will need to add a separate event log table; the soft-delete column is no longer available as a fallback."
+        "what": "Memory writes: soft-delete (archivedAt) → hard-delete.",
+        "why": "Nothing read archived rows; the archivedAt:null filter just got forgotten and leaked stale rows.",
+        "alternatives": "A shared read-helper to enforce the filter — rejected, the maintenance cost was the real problem, not the syntax.",
+        "implications": "DELETE is now irreversible. Audit later = separate event log."
+      } } ] }
+
+Example 8 — plain words, not abstract-noun jargon (contrastive). Both say the SAME thing; only the wording differs. THIS is the most common AI-flavor tell — short but nominalized.
+Turn (excerpt):
+  [14:00:00] Bash "curl /api/tasks?assignee=alice" → 200, but returned tasks for the wrong Alice
+  [turn end] "Two members named Alice; the lookup matched on display name and silently took the first row."
+Existing memories: (none)
+
+BAD output (short, but reads like a paper title — stacked abstract nouns, no verbs):
+  { "type": "ADD", "category": "TRAP",
+    "content": {
+      "summary": "Non-deterministic identifier resolution under name collision",
+      "trigger": "Resolution of a user-supplied display name without uniqueness enforcement when duplicate entities exist.",
+      "outcome": "Arbitrary first-match selection causing misattribution to an unintended entity."
+    } }
+
+GOOD output (say it like you would to a coworker — plain words, real verbs):
+  { "operations": [
+    { "type": "ADD", "category": "TRAP",
+      "content": {
+        "summary": "Two people share a name, lookup grabs the first",
+        "trigger": "Look someone up by the name the user typed, and two people have that name.",
+        "outcome": "The code quietly picks the first one → you act on the wrong person and don't notice."
       } } ] }`
 
   const description = input.task.description?.trim() || '(no description)'

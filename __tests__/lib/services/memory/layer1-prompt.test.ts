@@ -162,18 +162,20 @@ describe('buildLayer1Prompt', () => {
     }
   })
 
-  it('carries the plain-language writing-style guidance', () => {
+  it('carries the note-style writing guidance', () => {
     const out = buildLayer1Prompt({
       task: baseTask,
       turnEvents: [],
       existingMemories: [],
     })
-    // The new style section is the load-bearing change — guard it.
+    // The style section is the load-bearing change — guard it.
     expect(out.system).toContain('Writing style')
-    expect(out.system).toMatch(/plain.+sentence/i)
+    // Note-style, anti-over-writing direction (the de-AI-flavor change).
+    expect(out.system).toMatch(/note to future-self/i)
+    expect(out.system).toMatch(/over-writing/i)
     // BAD/GOOD contrast must remain so the model can learn the style.
-    expect(out.system).toContain('BAD:')
-    expect(out.system).toContain('GOOD:')
+    expect(out.system).toContain('BAD ')
+    expect(out.system).toContain('GOOD ')
   })
 
   it('explains the TASK vs PROJECT scope distinction in the system prompt', () => {
