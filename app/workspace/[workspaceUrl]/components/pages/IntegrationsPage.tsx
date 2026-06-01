@@ -16,9 +16,9 @@ import { SentryIntegrationCard } from '../SentryIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
 
-// Sections render top-to-bottom in this fixed order. Integrations within a
-// section follow the registry's declaration order, then connected cards float
-// to the top via CSS `order` (see the per-card wrapper below).
+// Sections render top-to-bottom in this fixed order. Within a section, cards
+// are ordered by connection status first (connected on top) then alphabetically
+// by display name — both expressed via CSS `order` (see the per-card wrapper).
 const KIND_ORDER: readonly IntegrationKind[] = ['TEAM', 'PERSONAL']
 
 // Maps a kind to the i18n key prefix for its section header copy.
@@ -101,6 +101,24 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     return groups
   }, [])
 
+  // Alphabetical rank of each card within its section, keyed by localized
+  // display name (`<id>.title`). This is the within-section tiebreaker; the
+  // connected-first float is layered on top via the `order` offset below.
+  const alphaRank = useMemo(() => {
+    const rank: Partial<Record<IntegrationId, number>> = {}
+    for (const kind of KIND_ORDER) {
+      const sorted = [...idsByKind[kind]].sort((a, b) =>
+        intl
+          .formatMessage({ id: `${a}.title` })
+          .localeCompare(intl.formatMessage({ id: `${b}.title` }), intl.locale)
+      )
+      sorted.forEach((id, i) => {
+        rank[id] = i
+      })
+    }
+    return rank
+  }, [idsByKind, intl])
+
   // TEAM cards are view-only and hidden from non-owners until they report
   // connected; owners and PERSONAL cards are always visible. Recomputed each
   // render because it reads the live connectedMap.
@@ -134,11 +152,14 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
                   })}
                 </p>
                 <div className='flex flex-col gap-4'>
-                  {ids.map((id, index) => (
+                  {ids.map(id => (
                     <div
                       key={id}
                       hidden={!isCardVisible(id)}
-                      style={{ order: (connectedMap[id] ? 0 : 100) + index }}
+                      style={{
+                        order:
+                          (connectedMap[id] ? 0 : 100) + (alphaRank[id] ?? 0),
+                      }}
                     >
                       {cards[id]}
                     </div>

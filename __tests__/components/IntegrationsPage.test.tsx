@@ -14,6 +14,14 @@ const messages: Record<string, string> = {
   'integrations.personal.title': 'Personal integrations',
   'integrations.personal.description':
     'Each member connects their own account.',
+  // Card display names — drive the alphabetical within-section ordering.
+  // Registry order is slack/sentry/github, so alphabetical (GitHub < Sentry <
+  // Slack) is a genuine reordering, not a coincidence of declaration order.
+  'github.title': 'GitHub',
+  'slack.title': 'Slack',
+  'sentry.title': 'Sentry',
+  'figma.title': 'Figma',
+  'googleDrive.title': 'Google Drive',
 }
 
 jest.mock('react-intl', () => ({
@@ -131,6 +139,33 @@ describe('IntegrationsPage', () => {
     expect(orderOf('card-github')).toBeLessThan(100)
     expect(orderOf('card-slack')).toBeGreaterThanOrEqual(100)
     expect(orderOf('card-sentry')).toBeGreaterThanOrEqual(100)
+    expect(orderOf('card-github')).toBeLessThan(orderOf('card-slack'))
+  })
+
+  it('orders disconnected cards alphabetically by display name within a section', () => {
+    render(<IntegrationsPage isOwner />)
+    // TEAM: GitHub < Sentry < Slack (registry order is slack/sentry/github)
+    expect(orderOf('card-github')).toBeLessThan(orderOf('card-sentry'))
+    expect(orderOf('card-sentry')).toBeLessThan(orderOf('card-slack'))
+    // PERSONAL: Figma < Google Drive
+    expect(orderOf('card-figma')).toBeLessThan(orderOf('card-googleDrive'))
+  })
+
+  it('keeps connected cards ahead of disconnected ones regardless of alphabety', () => {
+    CONNECTED.slack = true // Slack sorts last alphabetically but is connected
+    render(<IntegrationsPage isOwner />)
+    expect(orderOf('card-slack')).toBeLessThan(100)
+    expect(orderOf('card-github')).toBeGreaterThanOrEqual(100)
+    expect(orderOf('card-sentry')).toBeGreaterThanOrEqual(100)
+    expect(orderOf('card-slack')).toBeLessThan(orderOf('card-github'))
+  })
+
+  it('orders connected cards alphabetically among themselves', () => {
+    CONNECTED.github = true
+    CONNECTED.slack = true // both connected → GitHub before Slack
+    render(<IntegrationsPage isOwner />)
+    expect(orderOf('card-github')).toBeLessThan(100)
+    expect(orderOf('card-slack')).toBeLessThan(100)
     expect(orderOf('card-github')).toBeLessThan(orderOf('card-slack'))
   })
 })
