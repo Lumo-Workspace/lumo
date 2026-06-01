@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 
 /**
  * `lumo task web show <LUM-N> <link-id>`
@@ -23,8 +23,7 @@ export async function taskWebShow(
     return 1
   }
 
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
   let res: Response

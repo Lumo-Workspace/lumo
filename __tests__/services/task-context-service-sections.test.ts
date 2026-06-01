@@ -56,6 +56,7 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
+  wrapUntrustedMemory: jest.fn((s: string) => s),
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findDocumentsForContext: jest.fn() },

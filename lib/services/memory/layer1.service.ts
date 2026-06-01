@@ -55,6 +55,9 @@ export const layer1Service = {
         projectId: layer1Input.task.projectId,
         workspaceId: layer1Input.task.workspaceId,
         sessionId: input.sessionId,
+        ...(layer1Input.agent !== undefined
+          ? { agent: layer1Input.agent }
+          : {}),
         existingMemories: layer1Input.existingMemories.map(m => ({
           id: m.id,
           category: m.category,

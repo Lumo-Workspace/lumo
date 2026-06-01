@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
@@ -218,8 +218,7 @@ export async function taskUpdate(
     return 1
   }
 
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
 
   // Resolve tag refs into ids
   let tagIds: string[] | undefined

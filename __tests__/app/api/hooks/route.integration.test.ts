@@ -89,6 +89,43 @@ describe('POST /api/hooks/pre-tool-use', () => {
     })
   })
 
+  it('parses the X-Lumo-Agent header and forwards agent to the service', async () => {
+    const payload = { session_id: 'sess_1', tool_name: 'Read' }
+    await postPre(
+      post('http://x/api/hooks/pre-tool-use', payload, {
+        Authorization: 'Bearer lum_ok',
+        'X-Lumo-Agent': 'CODEX',
+      })
+    )
+    expect(mockRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CODEX' })
+    )
+  })
+
+  it('ignores an unknown X-Lumo-Agent value (no agent forwarded)', async () => {
+    await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        { tool_name: 'Read' },
+        { Authorization: 'Bearer lum_ok', 'X-Lumo-Agent': 'bogus-agent' }
+      )
+    )
+    const arg = mockRecord.mock.calls[0][0]
+    expect(arg).not.toHaveProperty('agent')
+  })
+
+  it('forwards no agent key when the X-Lumo-Agent header is absent', async () => {
+    await postPre(
+      post(
+        'http://x/api/hooks/pre-tool-use',
+        { tool_name: 'Read' },
+        { Authorization: 'Bearer lum_ok' }
+      )
+    )
+    const arg = mockRecord.mock.calls[0][0]
+    expect(arg).not.toHaveProperty('agent')
+  })
+
   it('propagates 403 when service rejects due to missing workspace membership', async () => {
     mockRecord.mockRejectedValue(
       Object.assign(

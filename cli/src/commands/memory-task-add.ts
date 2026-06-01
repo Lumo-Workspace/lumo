@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
@@ -36,8 +36,7 @@ export async function memoryTaskAdd(
 
   const creds = readCredentials()
   if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
   // Resolve the target: explicit arg > session-bound task.

@@ -122,6 +122,45 @@ describe('layer1Service.triggerLayer1Extraction', () => {
     )
   })
 
+  it('passes the session agent through to applyLayer1Operations', async () => {
+    getInput.mockResolvedValue({
+      task: {
+        id: 'task_1',
+        title: 't',
+        description: null,
+        projectId: 'proj_1',
+        workspaceId: 'ws_1',
+      },
+      agent: 'CODEX',
+      turnEvents: [],
+      existingMemories: [],
+    })
+    extract.mockResolvedValue([
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 'x', outcome: 'y' },
+      },
+    ])
+    apply.mockResolvedValue({
+      added: 1,
+      updated: 0,
+      deleted: 0,
+      noop: 0,
+      skipped: 0,
+    })
+
+    await layer1Service.triggerLayer1Extraction({
+      sessionId: 'sess_1',
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+    })
+
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CODEX' })
+    )
+  })
+
   it('swallows unexpected errors instead of throwing (fire-and-forget contract)', async () => {
     getInput.mockRejectedValue(new Error('db down'))
     await expect(

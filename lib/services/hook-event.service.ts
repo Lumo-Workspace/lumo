@@ -1,4 +1,4 @@
-import type { HookEventType, Prisma } from '@prisma/client'
+import type { HookEventType, Prisma, TaskArtifactAgent } from '@prisma/client'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
@@ -8,6 +8,13 @@ interface RecordHookEventInput {
   identity: VerifyApiKeyResult
   type: HookEventType
   payload: Prisma.InputJsonValue
+  /**
+   * Coding agent that produced this hook, parsed from the `X-Lumo-Agent`
+   * request header. Forwarded to the session upsert so it's recorded once on
+   * the session's first event. Undefined when absent/invalid — the DB default
+   * (CLAUDE_CODE) then applies.
+   */
+  agent?: TaskArtifactAgent
 }
 
 function extractStringField(payload: unknown, field: string): string | null {
@@ -19,7 +26,12 @@ function extractStringField(payload: unknown, field: string): string | null {
 }
 
 export const hookEventService = {
-  async recordHookEvent({ identity, type, payload }: RecordHookEventInput) {
+  async recordHookEvent({
+    identity,
+    type,
+    payload,
+    agent,
+  }: RecordHookEventInput) {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
       identity.workspace.id
@@ -46,6 +58,7 @@ export const hookEventService = {
         workspaceId: identity.workspace.id,
         workspaceMemberId: memberId,
         cwd,
+        ...(agent !== undefined ? { agent } : {}),
         now: new Date(),
       })
       taskId = session.taskId

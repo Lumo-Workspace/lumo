@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 
 interface RmOptions { yes?: boolean }
 
@@ -8,8 +8,7 @@ export async function memoryRm(memoryId: string | undefined, options: RmOptions)
   if (!options.yes) { console.error('Error: refusing to delete without --yes. Re-run with --yes to confirm.'); return 1 }
   const creds = readCredentials()
   if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
   let res: Response

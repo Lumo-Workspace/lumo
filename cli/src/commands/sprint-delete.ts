@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 
 export interface DeleteSprintOptions {
@@ -27,8 +27,7 @@ export async function sprintDelete(
     console.error('Error: not logged in. Run `lumo auth login` first.')
     return 1
   }
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
   const workspaceSlug = creds.workspaceSlug ?? ''
 

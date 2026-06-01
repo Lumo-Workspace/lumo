@@ -1,6 +1,6 @@
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
-import type { MemoryCategory, Prisma } from '@prisma/client'
+import type { MemoryCategory, Prisma, TaskArtifactAgent } from '@prisma/client'
 import type { Layer1Operation } from './layer1-extract'
 
 interface ApplyOperationsInput {
@@ -9,6 +9,12 @@ interface ApplyOperationsInput {
   projectId: string
   workspaceId: string
   sessionId: string
+  /**
+   * Agent that owns the source session — stamped onto every ADD so the
+   * auto-sedimented memory is attributed to the agent that produced it. Omit
+   * to fall back to the DB default (CLAUDE_CODE).
+   */
+  agent?: TaskArtifactAgent
   /** Active task memory rows looked up earlier — used to map UPDATE ids to their category for second-pass content validation. */
   existingMemories: Array<{ id: string; category: MemoryCategory }>
 }
@@ -100,6 +106,7 @@ export async function applyLayer1Operations(
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: input.sessionId,
             createdByMemberId: null,
+            ...(input.agent !== undefined ? { agent: input.agent } : {}),
           },
           tx
         )
