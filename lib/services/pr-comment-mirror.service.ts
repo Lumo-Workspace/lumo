@@ -12,6 +12,7 @@ import {
   githubMarkdownToLumoHtml,
   buildHeader,
   computeBodyHash,
+  REVIEW_HEADER,
 } from '@/lib/integrations/github/markdown-bridge'
 import {
   prCommentClient,
@@ -618,10 +619,11 @@ function buildInboundBody(
     const state = (
       payload.raw.review?.state as string | undefined
     )?.toLowerCase()
-    let header = '💬 Commented'
-    if (state === 'approved') header = '✅ Approved'
-    else if (state === 'changes_requested') header = '🛑 Requested changes'
-    else if (state === 'dismissed') header = '📭 Review dismissed'
+    let header: string = REVIEW_HEADER.COMMENTED
+    if (state === 'approved') header = REVIEW_HEADER.APPROVED
+    else if (state === 'changes_requested')
+      header = REVIEW_HEADER.CHANGES_REQUESTED
+    else if (state === 'dismissed') header = REVIEW_HEADER.DISMISSED
     return buildHeader(header) + innerHtml
   }
 

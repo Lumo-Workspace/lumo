@@ -65,7 +65,20 @@ jest.mock('@/lib/repositories/comment.repository', () => ({
   commentRepository: { listAllForTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: { listByTask: jest.fn() },
+  pullRequestRepository: {
+    listByTask: jest.fn(),
+    listIdAndNumberByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/pr-comment-mirror.repository', () => ({
+  prCommentMirrorRepository: {
+    listReviewTodosForPrs: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/actor.repository', () => ({
+  actorRepository: {
+    findGithubIdentitiesByIds: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/services/document.service', () => ({
   scheduleDocumentSummary: jest.fn(),
@@ -74,12 +87,19 @@ jest.mock('@/lib/services/document.service', () => ({
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
+import { actorRepository } from '@/lib/repositories/actor.repository'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 
 const findDocs = miscRepository.findDocumentsForContext as jest.Mock
 const listComments = commentRepository.listAllForTask as jest.Mock
 const listPRs = pullRequestRepository.listByTask as jest.Mock
+const listPRIds = pullRequestRepository.listIdAndNumberByTask as jest.Mock
+const listReviewTodos =
+  prCommentMirrorRepository.listReviewTodosForPrs as jest.Mock
+const listGithubIdents =
+  actorRepository.findGithubIdentitiesByIds as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -144,6 +164,83 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
     expect(ctx?.docSection).toBe('')
     expect(ctx?.commentsSection).toBe('')
     expect(ctx?.prSection).toBe('')
+    expect(ctx?.prReviewTodosSection).toBe('')
+  })
+
+  it('builds the PR Review 待办 section from mirrored review comments', async () => {
+    findDocs.mockResolvedValue([])
+    listComments.mockResolvedValue([])
+    listPRs.mockResolvedValue([])
+
+    listPRIds.mockResolvedValue([{ id: 'pr_1', number: 7 }])
+    listReviewTodos.mockResolvedValue([
+      {
+        pullRequestId: 'pr_1',
+        externalSource: 'REVIEW_LINE',
+        externalUrl: 'https://gh/c/1',
+        filePath: 'lib/foo.ts',
+        lineStart: 40,
+        lineEnd: 42,
+        comment: {
+          body: '<!-- pr-mirror-header -->📍 在 foo<!-- /pr-mirror-header --><p>Extract this</p>',
+          authorActorId: 'act_gh',
+          createdAt: new Date('2026-05-30T10:00:00Z'),
+        },
+      },
+      {
+        pullRequestId: 'pr_1',
+        externalSource: 'REVIEW',
+        externalUrl: 'https://gh/c/2',
+        filePath: null,
+        lineStart: null,
+        lineEnd: null,
+        comment: {
+          // changes_requested summary → kept
+          body: '<!-- pr-mirror-header -->🛑 Requested changes<!-- /pr-mirror-header --><p>Please address</p>',
+          authorActorId: 'act_gh',
+          createdAt: new Date('2026-05-30T11:00:00Z'),
+        },
+      },
+      {
+        pullRequestId: 'pr_1',
+        externalSource: 'REVIEW',
+        externalUrl: 'https://gh/c/3',
+        filePath: null,
+        lineStart: null,
+        lineEnd: null,
+        comment: {
+          // plain "Commented" review → dropped
+          body: '<!-- pr-mirror-header -->💬 Commented<!-- /pr-mirror-header --><p>nice</p>',
+          authorActorId: 'act_gh',
+          createdAt: new Date('2026-05-30T12:00:00Z'),
+        },
+      },
+    ])
+    listGithubIdents.mockResolvedValue([
+      { id: 'act_gh', externalIdentity: 'github:octocat' },
+    ])
+
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-1'
+    )
+
+    expect(listReviewTodos).toHaveBeenCalledWith(['pr_1'])
+    const section = ctx?.prReviewTodosSection ?? ''
+    expect(section).toContain('## PR Review 待办')
+    // line-level comment: file:line + stripped text + reviewer handle + link
+    expect(section).toContain('`lib/foo.ts:42`')
+    expect(section).toContain('Extract this')
+    expect(section).toContain('(@octocat)')
+    expect(section).toContain('https://gh/c/1')
+    // changes_requested summary kept
+    expect(section).toContain('🛑 整体要求改动')
+    expect(section).toContain('Please address')
+    // plain "Commented" review dropped
+    expect(section).not.toContain('nice')
+    // single PR → no [#7] prefix
+    expect(section).not.toContain('[#7]')
   })
 
   it('schedules a lazy summary refresh for a stale document', async () => {

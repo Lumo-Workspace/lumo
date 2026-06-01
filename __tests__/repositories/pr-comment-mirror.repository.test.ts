@@ -10,6 +10,7 @@ jest.mock('@/lib/db/prisma', () => ({
       update: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
   },
 }))
@@ -93,6 +94,41 @@ describe('prCommentMirrorRepository', () => {
     expect(prisma.prCommentMirror.update).toHaveBeenCalledWith({
       where: { id: 'm1' },
       data: { deletedAt: expect.any(Date) },
+    })
+  })
+
+  it('listReviewTodosForPrs short-circuits to [] for an empty id list', async () => {
+    const r = await prCommentMirrorRepository.listReviewTodosForPrs([])
+    expect(r).toEqual([])
+    expect(prisma.prCommentMirror.findMany).not.toHaveBeenCalled()
+  })
+
+  it('listReviewTodosForPrs filters to live REVIEW/REVIEW_LINE rows with comment join', async () => {
+    ;(prisma.prCommentMirror.findMany as jest.Mock).mockResolvedValue([])
+    await prCommentMirrorRepository.listReviewTodosForPrs(['pr1', 'pr2'])
+    expect(prisma.prCommentMirror.findMany).toHaveBeenCalledWith({
+      where: {
+        pullRequestId: { in: ['pr1', 'pr2'] },
+        deletedAt: null,
+        externalSource: { in: ['REVIEW_LINE', 'REVIEW'] },
+        comment: { deletedAt: null },
+      },
+      select: {
+        pullRequestId: true,
+        externalSource: true,
+        externalUrl: true,
+        filePath: true,
+        lineStart: true,
+        lineEnd: true,
+        comment: {
+          select: { body: true, authorActorId: true, createdAt: true },
+        },
+      },
+      orderBy: [
+        { filePath: 'asc' },
+        { lineEnd: 'asc' },
+        { externalUpdatedAt: 'asc' },
+      ],
     })
   })
 })

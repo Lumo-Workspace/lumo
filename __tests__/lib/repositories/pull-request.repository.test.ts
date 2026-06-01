@@ -17,8 +17,22 @@ import { prisma } from '@/lib/db/prisma'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 const mockUpdate = prisma.pullRequest.update as jest.Mock
+const mockFindMany = prisma.pullRequest.findMany as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
+
+describe('pullRequestRepository.listIdAndNumberByTask', () => {
+  it('selects id + number for a task, newest first', async () => {
+    mockFindMany.mockResolvedValue([{ id: 'pr_1', number: 7 }])
+    const r = await pullRequestRepository.listIdAndNumberByTask('tsk_1')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { taskId: 'tsk_1' },
+      select: { id: true, number: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+    expect(r).toEqual([{ id: 'pr_1', number: 7 }])
+  })
+})
 
 describe('pullRequestRepository.updateState', () => {
   it('updates PR state and timestamps', async () => {

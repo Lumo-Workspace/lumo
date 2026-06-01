@@ -131,4 +131,18 @@ export const pullRequestRepository = {
       orderBy: { updatedAt: 'desc' },
     })
   },
+
+  /**
+   * `(id, number)` for every PR linked to a task, newest first. The id is the
+   * join key for fetching mirrored review comments; the number labels todos
+   * when a task spans more than one PR. (`listByTask` omits the id by design,
+   * so the review-todo builder uses this instead.)
+   */
+  async listIdAndNumberByTask(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      select: { id: true, number: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+  },
 }

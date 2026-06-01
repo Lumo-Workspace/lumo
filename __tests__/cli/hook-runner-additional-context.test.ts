@@ -79,4 +79,48 @@ describe('hook-runner SessionStart stdout — additionalContext emission', () =>
 
     expect(lines).toHaveLength(1)
   })
+
+  it('combines memorySection and reviewTodosSection into one additionalContext block', () => {
+    const responseBody = {
+      ok: true,
+      sessionId: 's-1',
+      taskBinding: {
+        bound: true,
+        taskIdentifier: 'LUM-42',
+        taskTitle: 'Test task',
+      },
+      memorySection: '## Relevant Memory\n\n- [task] **X** → Y',
+      reviewTodosSection: '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it',
+    }
+
+    const lines = formatHookStdoutLines('session-start', responseBody)
+
+    expect(lines).toHaveLength(2)
+    const parsed = JSON.parse(lines[1]!)
+    expect(parsed.hookSpecificOutput.additionalContext).toBe(
+      '## Relevant Memory\n\n- [task] **X** → Y\n\n## PR Review 待办\n\n- [ ] `a.ts:1` — fix it'
+    )
+  })
+
+  it('emits reviewTodosSection alone as additionalContext when memorySection is empty', () => {
+    const responseBody = {
+      ok: true,
+      sessionId: 's-1',
+      taskBinding: {
+        bound: true,
+        taskIdentifier: 'LUM-42',
+        taskTitle: 'Test task',
+      },
+      memorySection: '',
+      reviewTodosSection: '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it',
+    }
+
+    const lines = formatHookStdoutLines('session-start', responseBody)
+
+    expect(lines).toHaveLength(2)
+    const parsed = JSON.parse(lines[1]!)
+    expect(parsed.hookSpecificOutput.additionalContext).toBe(
+      '## PR Review 待办\n\n- [ ] `a.ts:1` — fix it'
+    )
+  })
 })
