@@ -20,7 +20,10 @@ jest.mock('@/lib/repositories/misc.repository', () => ({
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
-import { hookEventService } from '@/lib/services/hook-event.service'
+import {
+  hookEventService,
+  extractFilePath,
+} from '@/lib/services/hook-event.service'
 
 const repo = hookEventRepository as jest.Mocked<typeof hookEventRepository>
 const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
@@ -69,6 +72,7 @@ describe('hookEventService.recordHookEvent', () => {
       taskId: null,
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
+      filePath: '/x',
       payload: {
         session_id: 'sess_abc',
         cwd: '/repo',
@@ -76,6 +80,38 @@ describe('hookEventService.recordHookEvent', () => {
         tool_input: { file_path: '/x' },
       },
     })
+  })
+
+  it('extracts and stores filePath from tool_input for file-bearing tool events', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/repo/app/a.ts', old_string: 'x' },
+      },
+    })
+
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ filePath: '/repo/app/a.ts' })
+    )
+  })
+
+  it('stores null filePath for events that carry no file path (e.g. Bash, STOP)', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        tool_name: 'Bash',
+        tool_input: { command: 'ls' },
+      },
+    })
+
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ filePath: null })
+    )
   })
 
   it('forwards agent to the session upsert when supplied', async () => {
@@ -184,6 +220,22 @@ describe('hookEventService.recordHookEvent', () => {
     )
   })
 
+  it('reads filePath from tool_response.filePath when tool_input is absent', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        tool_name: 'Write',
+        tool_response: { filePath: '/repo/written.ts' },
+      },
+    })
+
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ filePath: '/repo/written.ts' })
+    )
+  })
+
   it('throws a 403 when the API key holder has no workspace membership', async () => {
     misc.findMemberIdForHook.mockResolvedValue(null)
     await expect(
@@ -195,5 +247,53 @@ describe('hookEventService.recordHookEvent', () => {
     ).rejects.toMatchObject({ status: 403 })
     expect(repo.createHookEvent).not.toHaveBeenCalled()
     expect(sess.upsertForHookEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('extractFilePath', () => {
+  it('reads tool_input.file_path for Edit/Write/Read tool events', () => {
+    expect(
+      extractFilePath({ tool_input: { file_path: '/repo/a.ts' } })
+    ).toBe('/repo/a.ts')
+  })
+
+  it('reads top-level path for FILE_CHANGED / CONFIG_CHANGE payloads', () => {
+    expect(extractFilePath({ path: '/repo/b.ts' })).toBe('/repo/b.ts')
+  })
+
+  it('falls back to top-level file_path', () => {
+    expect(extractFilePath({ file_path: '/repo/c.ts' })).toBe('/repo/c.ts')
+  })
+
+  it('reads tool_response.filePath when tool_input has no file_path', () => {
+    expect(
+      extractFilePath({ tool_response: { filePath: '/repo/d.ts' } })
+    ).toBe('/repo/d.ts')
+  })
+
+  it('prefers tool_input.file_path over top-level path', () => {
+    expect(
+      extractFilePath({
+        path: '/repo/top.ts',
+        tool_input: { file_path: '/repo/inner.ts' },
+      })
+    ).toBe('/repo/inner.ts')
+  })
+
+  it('returns null when no file path is present (Bash, Stop)', () => {
+    expect(extractFilePath({ tool_input: { command: 'ls' } })).toBeNull()
+    expect(extractFilePath({ stop_reason: 'user' })).toBeNull()
+  })
+
+  it('ignores non-string and empty-string file paths', () => {
+    expect(extractFilePath({ tool_input: { file_path: 42 } })).toBeNull()
+    expect(extractFilePath({ tool_input: { file_path: '' } })).toBeNull()
+    expect(extractFilePath({ path: '' })).toBeNull()
+  })
+
+  it('tolerates non-object payloads', () => {
+    expect(extractFilePath(null)).toBeNull()
+    expect(extractFilePath('nope')).toBeNull()
+    expect(extractFilePath(undefined)).toBeNull()
   })
 })
