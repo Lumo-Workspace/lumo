@@ -6,6 +6,8 @@
 
 **Architecture:** Add a real `agent` column (reusing the existing `TaskArtifactAgent` enum) to the `Memory` model, default `CLAUDE_CODE` so existing rows backfill correctly. Plumb it through repository → service → API → api-client type and the agent-run timeline. The frontend renders the shared `AgentBadge` for auto-sedimented memories; human-created memories keep their "由 X 添加" text. The CLI `memory add` commands gain an optional `--agent`.
 
+**Scope clarification — auto-sedimented (hook → layer1/layer2) memories are CLAUDE_CODE by design.** The dominant memory source is the Claude Code hook pipeline (`.claude/settings.json` → `lumo hook` → `HookEvent`/`Session` → server-side layer1/layer2 extraction → `layer1-apply.ts` creates the row with `createdByMemberId: null` and no `agent`). Those rows intentionally rely on the DB default `CLAUDE_CODE`. This is **accurate today**, not a placeholder: the hook mechanism and `CLAUDE_CODE_SESSION_ID` are Claude-Code-specific, so only Claude Code produces hook-driven memories. The `--agent` flag (Task 11) covers the one case another agent could record a memory today — manually calling `lumo task/project memory add`. True per-agent attribution for _auto-sedimented_ memories belongs at the **Session layer** (`Session` has no `agent` field) and is a deliberate follow-up (see PR notes), not part of LUM-136.
+
 **Tech Stack:** Next.js 14 App Router, TypeScript (strict), Prisma + Neon Postgres, Zod, react-intl, Jest + jsdom, Commander-based CLI, @lobehub/icons.
 
 ---
@@ -1060,6 +1062,7 @@ git commit -m "feat: optional --agent on lumo memory add [LUM-136]"
 - Schema change: adds `memories.agent` (`TaskArtifactAgent`, `NOT NULL DEFAULT 'CLAUDE_CODE'`). **Requires `prisma migrate deploy` on next deploy.** Non-destructive, no data backfill (default covers existing rows). Frontend tolerates a missing/unknown value via the `AgentBadge` fallback, so a brief deploy race is safe.
 - No new npm packages.
 - CLI change: `lumo task memory add` / `lumo project memory add` gain optional `--agent`; `.claude/skills/lumo/SKILL.md` updated to match.
+- **Follow-up (out of scope):** per-agent attribution for auto-sedimented memories needs `Session.agent` (captured at hook time, inherited by layer1/layer2 rows). Only meaningful once non-Claude-Code agents emit hook events. Tracked separately.
 
 ## Self-Review notes
 

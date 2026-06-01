@@ -87,6 +87,38 @@ describe('applyLayer1Operations', () => {
     )
   })
 
+  it('stamps ADDs with the session agent so the memory is attributed to it', async () => {
+    const ops: Layer1Operation[] = [
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+      },
+    ]
+    await applyLayer1Operations({
+      ...baseInput,
+      agent: 'CODEX',
+      operations: ops,
+    })
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CODEX' }),
+      expect.anything()
+    )
+  })
+
+  it('omits agent on ADD when the session has none, letting the DB default apply', async () => {
+    const ops: Layer1Operation[] = [
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 't', outcome: 'o' },
+      },
+    ]
+    await applyLayer1Operations({ ...baseInput, operations: ops })
+    const arg = repo.create.mock.calls[0]![0]
+    expect(arg).not.toHaveProperty('agent')
+  })
+
   it('defaults to scope=TASK when the LLM omits the scope field on ADD', async () => {
     // No explicit scope — apply step must fall back to TASK so existing
     // (pre-scope) LLM outputs keep working unchanged.

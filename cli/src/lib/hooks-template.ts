@@ -35,30 +35,64 @@ type HookEntry = { type: 'command'; command: string }
 type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type SettingsShape = { hooks?: Record<string, HookGroup[]> }
 
+/** Default agent token baked into the hook commands when none is given. */
+const DEFAULT_AGENT_TOKEN = 'claude-code'
+
+/**
+ * A hook command belongs to Lumo when it is exactly `lumo hook <slug>` or
+ * carries trailing flags (`lumo hook <slug> --agent codex`). We match on the
+ * prefix so a re-run can recognize — and rewrite — an entry baked with a
+ * different (or no) `--agent` token.
+ */
+function isLumoHookCommand(command: string, slug: string): boolean {
+  return (
+    command === `lumo hook ${slug}` || command.startsWith(`lumo hook ${slug} `)
+  )
+}
+
 // Build the settings.json fragment we want to install. We do not use a
 // matcher because the Lumo hook handlers ingest every event of a given type;
 // adding a matcher would silently drop events that have no `tool_name` (e.g.
 // SessionStart). Keep this in step with cli/src/commands/hook.ts dispatch.
-export function buildLumoHookFragment(): SettingsShape {
+//
+// `agentToken` is baked into every command (`lumo hook <slug> --agent
+// <token>`) so the hook tells the server which coding agent owns the session.
+export function buildLumoHookFragment(
+  agentToken: string = DEFAULT_AGENT_TOKEN
+): SettingsShape {
   const hooks: Record<string, HookGroup[]> = {}
   for (const [event, slug] of LUMO_HOOK_EVENTS) {
     hooks[event] = [
-      { hooks: [{ type: 'command', command: `lumo hook ${slug}` }] },
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `lumo hook ${slug} --agent ${agentToken}`,
+          },
+        ],
+      },
     ]
   }
   return { hooks }
 }
 
 // Idempotent merge: copies every key from `existing` (preserving user config),
-// then for each Lumo event ensures exactly one `lumo hook <event>` entry is
-// present. Existing non-lumo hook groups for the same event are left alone.
+// then for each Lumo event ensures exactly one `lumo hook <slug> --agent
+// <token>` entry is present. An existing Lumo entry (with any/no `--agent`
+// suffix) is rewritten in place to the desired command — so re-running setup
+// with a different agent, or upgrading a legacy flagless entry, never leaves a
+// duplicate. Existing non-lumo hook groups for the same event are left alone.
 // Returns the merged object plus stats describing what changed.
 export type MergeStats = {
   addedEvents: string[]
   alreadyPresent: string[]
+  updatedEvents: string[]
 }
 
-export function mergeLumoHooks(existing: SettingsShape | undefined | null): {
+export function mergeLumoHooks(
+  existing: SettingsShape | undefined | null,
+  agentToken: string = DEFAULT_AGENT_TOKEN
+): {
   merged: SettingsShape
   stats: MergeStats
 } {
@@ -66,16 +100,38 @@ export function mergeLumoHooks(existing: SettingsShape | undefined | null): {
     ? JSON.parse(JSON.stringify(existing))
     : {}
   if (!base.hooks) base.hooks = {}
-  const stats: MergeStats = { addedEvents: [], alreadyPresent: [] }
+  const stats: MergeStats = {
+    addedEvents: [],
+    alreadyPresent: [],
+    updatedEvents: [],
+  }
 
   for (const [event, slug] of LUMO_HOOK_EVENTS) {
-    const ourCmd = `lumo hook ${slug}`
+    const ourCmd = `lumo hook ${slug} --agent ${agentToken}`
     const groups = base.hooks[event] ?? []
-    const present = groups.some(
-      g => Array.isArray(g.hooks) && g.hooks.some(h => h.command === ourCmd)
-    )
-    if (present) {
+
+    let exact = false
+    let rewritten = false
+    for (const g of groups) {
+      if (!Array.isArray(g.hooks)) continue
+      for (const h of g.hooks) {
+        if (h.command === ourCmd) {
+          exact = true
+        } else if (isLumoHookCommand(h.command, slug)) {
+          // legacy flagless or a different agent token — bring it up to date
+          h.command = ourCmd
+          rewritten = true
+        }
+      }
+    }
+
+    if (exact) {
       stats.alreadyPresent.push(event)
+      base.hooks[event] = groups
+      continue
+    }
+    if (rewritten) {
+      stats.updatedEvents.push(event)
       base.hooks[event] = groups
       continue
     }

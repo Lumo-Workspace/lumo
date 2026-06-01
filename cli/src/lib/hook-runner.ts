@@ -1,6 +1,7 @@
 import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
+import { normalizeAgent } from './agent'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -91,7 +92,11 @@ export function formatHookStdoutLines(
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as {
     sessionId?: string
-    taskBinding?: { bound: boolean; taskIdentifier?: string; taskTitle?: string }
+    taskBinding?: {
+      bound: boolean
+      taskIdentifier?: string
+      taskTitle?: string
+    }
     memorySection?: string
   }
   if (!body.sessionId) return []
@@ -127,9 +132,12 @@ export function formatHookStdoutLines(
  *
  * This function NEVER throws and NEVER rejects.
  */
-export async function runHook(path: HookPath): Promise<void> {
+export async function runHook(
+  path: HookPath,
+  agentToken?: string
+): Promise<void> {
   const body = await readStdin()
-  return runHookWithBody(path, body)
+  return runHookWithBody(path, body, agentToken)
 }
 
 /**
@@ -139,7 +147,8 @@ export async function runHook(path: HookPath): Promise<void> {
  */
 export async function runHookWithBody(
   path: HookPath,
-  body: string
+  body: string,
+  agentToken?: string
 ): Promise<void> {
   try {
     const creds = readCredentials()
@@ -163,13 +172,22 @@ export async function runHookWithBody(
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
+    // Tell the server which coding agent produced this hook. The token is
+    // baked into the hook command at `lumo setup --agent <token>`; we send
+    // the normalized enum so the server can record it on the session. An
+    // unrecognized/absent token is dropped — the server then falls back to
+    // its default (CLAUDE_CODE).
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${creds.token}`,
+    }
+    const agentEnum = agentToken ? normalizeAgent(agentToken) : null
+    if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
+
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${creds.token}`,
-        },
+        headers,
         body: body || '{}',
         signal: controller.signal,
       })
