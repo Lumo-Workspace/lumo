@@ -1,0 +1,49 @@
+import { readCredentials } from '../lib/config'
+import { trimTrailingSlash } from '../lib/api'
+import { lookupDocId } from '../lib/resolve-doc-id'
+
+interface SyncedDocResponse {
+  document: { id: string; title: string }
+}
+
+export function formatSyncedLine(doc: { id: string; title: string }): string {
+  const escaped = doc.title.replace(/"/g, '\\"')
+  return `Synced ${doc.id} "${escaped}" from Google`
+}
+
+export async function docSync(reference: string): Promise<number | void> {
+  const creds = readCredentials()
+  if (!creds) {
+    console.error('Error: not logged in. Run `lumo auth login` first.')
+    return 1
+  }
+
+  const envUrl = process.env.LUMO_API_URL?.trim()
+  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const base = trimTrailingSlash(apiUrl)
+
+  const docId = await lookupDocId(apiUrl, creds.token, reference)
+  if (!docId) {
+    console.error(`Error: doc not found: ${reference}`)
+    return 1
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/documents/${docId}/sync-google`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${creds.token}` },
+    })
+  } catch (err) {
+    console.error(`Error: network failure: ${(err as Error).message}`)
+    return 1
+  }
+  if (!res.ok) {
+    const text = await res.text()
+    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    return 1
+  }
+
+  const { document } = (await res.json()) as SyncedDocResponse
+  console.log(formatSyncedLine(document))
+}

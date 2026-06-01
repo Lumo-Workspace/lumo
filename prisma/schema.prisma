@@ -191,6 +191,7 @@ model Workspace {
   taskWebLinks       TaskWebLink[]
   prCommentSyncJobs  PrCommentSyncJob[]
   figmaIntegrations  FigmaIntegration[]
+  googleDriveIntegrations GoogleDriveIntegration[]
   taskFigmaLinks     TaskFigmaLink[]
   taskArtifacts      TaskArtifact[]
 
@@ -288,6 +289,7 @@ model WorkspaceMember {
   createdWebLinks      TaskWebLink[]       @relation("TaskWebLinkCreator")
   createdMemories      Memory[]            @relation("MemoryCreator")
   figmaIntegrations    FigmaIntegration[]
+  googleDriveIntegrations GoogleDriveIntegration[]
   taskFigmaLinks       TaskFigmaLink[]     @relation("TaskFigmaLinkCreator")
 
   @@unique([workspaceId, clerkId])
@@ -922,6 +924,12 @@ model Document {
   summary            String?   @db.Text
   summaryGeneratedAt DateTime?
 
+  // Google Docs import source (LUM-127). Null for native docs.
+  googleDocId        String? // Google Drive fileId this doc mirrors
+  googleDocImporterId String? // WorkspaceMember whose Google token re-syncs run as
+  googleDocSyncedAt  DateTime? // last successful Google → Lumo sync
+  googleDocSyncError String?  @db.Text // last sync failure reason, cleared on success
+
   // Per-workspace incrementing identifier. Combined with slugified title to
   // form the user-facing slug below.
   number Int
@@ -956,6 +964,7 @@ model Document {
   @@index([parentId])
   @@index([projectId])
   @@index([createdById])
+  @@index([workspaceId, googleDocId])
 }
 
 model DocumentShare {
@@ -1542,6 +1551,30 @@ model FigmaIntegration {
   @@unique([workspaceId, memberId])
   @@index([workspaceId])
   @@map("figma_integrations")
+}
+
+// ─── Google Drive Integration ────────────────────────────────────────────────
+
+model GoogleDriveIntegration {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  memberId     String
+  accessToken  String   // AES-256-GCM encrypted via lib/crypto.ts
+  refreshToken String   // same encryption
+  expiresAt    DateTime
+  googleUserId String
+  googleEmail  String?
+  scopes       String[]
+  needsReauth  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, memberId])
+  @@index([workspaceId])
+  @@map("google_drive_integrations")
 }
 
 model TaskFigmaLink {

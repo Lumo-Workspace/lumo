@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,13 @@ import { SentryIcon } from './SentryIcon'
 import { IntegrationCard } from './IntegrationCard'
 import { useSentryIntegration } from '../hooks/useSentryIntegration'
 
-export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
+export function SentryIntegrationCard({
+  isOwner,
+  onConnectedChange,
+}: {
+  isOwner: boolean
+  onConnectedChange?: (connected: boolean) => void
+}) {
   const intl = useIntl()
   const {
     status,
@@ -36,6 +43,10 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
   } = useSentryIntegration()
 
   const connected = status?.connected === true
+
+  useEffect(() => {
+    onConnectedChange?.(connected)
+  }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
@@ -57,6 +68,11 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
         title={intl.formatMessage({ id: 'sentry.title' })}
         description={intl.formatMessage({ id: 'sentry.description' })}
         headerAction={headerAction}
+        collapsible={connected}
+        onDisconnect={
+          connected && isOwner ? () => setDisconnectOpen(true) : undefined
+        }
+        disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
       >
         {connected ? (
           <>
@@ -87,21 +103,13 @@ export function SentryIntegrationCard({ isOwner }: { isOwner: boolean }) {
             </p>
 
             {isOwner && (
-              <div className='flex items-center justify-between pt-1'>
+              <div className='flex items-center pt-1'>
                 <Button
                   variant='outline'
                   size='sm'
                   onClick={() => setMappingsOpen(true)}
                 >
                   {intl.formatMessage({ id: 'sentry.manageMappings' })}
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='text-zinc-400 hover:text-destructive'
-                  onClick={() => setDisconnectOpen(true)}
-                >
-                  {intl.formatMessage({ id: 'common.disconnect' })}
                 </Button>
               </div>
             )}

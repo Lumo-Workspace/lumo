@@ -27,6 +27,10 @@ export interface CreateDocumentInput {
   visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
   contentMarkdown?: string
   tagIds?: string[]
+  // Google Docs import source (LUM-127). Null/absent for native docs.
+  googleDocId?: string | null
+  googleDocImporterId?: string | null
+  googleDocSyncedAt?: Date | null
 }
 
 export interface UpdateDocumentInput {
@@ -43,6 +47,8 @@ export interface UpdateDocumentInput {
   addTagIds?: string[]
   removeTagIds?: string[]
   childOrder?: string[]
+  googleDocSyncedAt?: Date | null
+  googleDocSyncError?: string | null
 }
 
 interface DocWithShares {
@@ -344,6 +350,9 @@ export const documentService = {
       createdById: memberId,
       visibility: data.visibility,
       sortOrder: maxSortOrder + 1,
+      googleDocId: data.googleDocId ?? null,
+      googleDocImporterId: data.googleDocImporterId ?? null,
+      googleDocSyncedAt: data.googleDocSyncedAt ?? null,
       ...(content !== undefined ? { content } : {}),
     })
 
@@ -446,6 +455,10 @@ export const documentService = {
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder
     if (data.publicToken !== undefined)
       updateData.publicToken = data.publicToken
+    if (data.googleDocSyncedAt !== undefined)
+      updateData.googleDocSyncedAt = data.googleDocSyncedAt
+    if (data.googleDocSyncError !== undefined)
+      updateData.googleDocSyncError = data.googleDocSyncError
     if (data.tags !== undefined) updateData.tags = data.tags
 
     // Downstream calls must use the resolved cuid (`doc.id`), not the raw

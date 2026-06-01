@@ -1,6 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { ChevronDown, X } from 'lucide-react'
 
 interface IntegrationCardProps {
   /** Brand glyph, already sized (typically `h-[18px] w-[18px]`). */
@@ -11,6 +12,15 @@ interface IntegrationCardProps {
   headerAction?: ReactNode
   /** Body rendered below a divider; typically shown when connected. */
   children?: ReactNode
+  /**
+   * When true and `children` exist, the body collapses and starts collapsed.
+   * A chevron toggle appears in the header right cluster.
+   */
+  collapsible?: boolean
+  /** When provided, render an X icon button in the header that calls it. */
+  onDisconnect?: (() => void) | undefined
+  /** Accessible label for the disconnect (X) button. */
+  disconnectLabel?: string
 }
 
 /**
@@ -25,7 +35,15 @@ export function IntegrationCard({
   description,
   headerAction,
   children,
+  collapsible,
+  onDisconnect,
+  disconnectLabel,
 }: IntegrationCardProps) {
+  const [expanded, setExpanded] = useState(false)
+
+  const canCollapse = Boolean(collapsible && children)
+  const bodyVisible = children && (!canCollapse || expanded)
+
   return (
     <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
       <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
@@ -42,11 +60,38 @@ export function IntegrationCard({
             </p>
           </div>
         </div>
-        {headerAction ? (
-          <div className='shrink-0 whitespace-nowrap'>{headerAction}</div>
-        ) : null}
+        <div className='flex items-center gap-2 shrink-0 whitespace-nowrap'>
+          {headerAction}
+          {canCollapse ? (
+            <button
+              type='button'
+              onClick={() => setExpanded(prev => !prev)}
+              aria-expanded={expanded}
+              className='text-muted-foreground hover:text-foreground transition-colors'
+            >
+              <ChevronDown
+                size={16}
+                className={
+                  expanded
+                    ? 'rotate-180 transition-transform'
+                    : 'transition-transform'
+                }
+              />
+            </button>
+          ) : null}
+          {onDisconnect ? (
+            <button
+              type='button'
+              onClick={onDisconnect}
+              aria-label={disconnectLabel}
+              className='text-muted-foreground hover:text-destructive transition-colors'
+            >
+              <X size={16} />
+            </button>
+          ) : null}
+        </div>
       </div>
-      {children ? (
+      {bodyVisible ? (
         <div className='border-t border-zinc-100 dark:border-zinc-800 px-6 py-5 bg-zinc-50 dark:bg-zinc-900/50 space-y-4'>
           {children}
         </div>

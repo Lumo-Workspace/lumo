@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { Check, Loader2 } from 'lucide-react'
@@ -19,7 +20,11 @@ import { IntegrationCard } from './IntegrationCard'
 import { API } from '../constants'
 import { useFigmaIntegration } from '../hooks/useFigmaIntegration'
 
-export function FigmaIntegrationCard() {
+export function FigmaIntegrationCard({
+  onConnectedChange,
+}: {
+  onConnectedChange?: (connected: boolean) => void
+} = {}) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const {
@@ -32,6 +37,10 @@ export function FigmaIntegrationCard() {
   } = useFigmaIntegration()
 
   const connected = status?.connected === true
+
+  useEffect(() => {
+    onConnectedChange?.(connected)
+  }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
@@ -55,6 +64,9 @@ export function FigmaIntegrationCard() {
         title={intl.formatMessage({ id: 'figma.title' })}
         description={intl.formatMessage({ id: 'figma.description' })}
         headerAction={headerAction}
+        collapsible={connected}
+        onDisconnect={connected ? () => setDisconnectOpen(true) : undefined}
+        disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
       >
         {connected ? (
           <>
@@ -72,23 +84,15 @@ export function FigmaIntegrationCard() {
               </p>
             )}
 
-            <div className='flex items-center justify-between pt-1'>
-              {status?.needsReauth && (
+            {status?.needsReauth && (
+              <div className='flex items-center pt-1'>
                 <Button variant='outline' size='sm' asChild>
                   <a href={API.figma.oauth(workspaceUrl)}>
                     {intl.formatMessage({ id: 'figma.reconnect' })}
                   </a>
                 </Button>
-              )}
-              <Button
-                variant='ghost'
-                size='sm'
-                className='text-zinc-400 hover:text-destructive ml-auto'
-                onClick={() => setDisconnectOpen(true)}
-              >
-                {intl.formatMessage({ id: 'common.disconnect' })}
-              </Button>
-            </div>
+              </div>
+            )}
           </>
         ) : null}
       </IntegrationCard>
