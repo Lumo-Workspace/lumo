@@ -29,4 +29,9 @@ describe('matchSensitiveName', () => {
   it('is case-insensitive on the basename', () => {
     expect(matchSensitiveName('Server.PEM')).not.toBeNull()
   })
+
+  it('is case-insensitive on sensitive path segments', () => {
+    expect(matchSensitiveName('.SSH/id_rsa')).not.toBeNull()
+    expect(matchSensitiveName('config/.AWS/credentials')).not.toBeNull()
+  })
 })
