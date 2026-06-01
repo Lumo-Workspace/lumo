@@ -47,11 +47,11 @@ export function IntegrationCard({
   return (
     <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
       <div className='flex items-center justify-between px-6 py-5 bg-white dark:bg-zinc-900'>
-        <div className='flex items-center gap-3'>
+        <div className='flex items-center gap-3 min-w-0'>
           <div className='size-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300'>
             {icon}
           </div>
-          <div>
+          <div className='min-w-0'>
             <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
               {title}
             </p>
@@ -60,7 +60,7 @@ export function IntegrationCard({
             </p>
           </div>
         </div>
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-2 shrink-0 whitespace-nowrap'>
           {headerAction}
           {canCollapse ? (
             <button
