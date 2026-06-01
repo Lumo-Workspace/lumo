@@ -78,6 +78,30 @@ describe('hookEventService.recordHookEvent', () => {
     })
   })
 
+  it('forwards agent to the session upsert when supplied', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      agent: 'CODEX',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CODEX' })
+    )
+  })
+
+  it('does not pass agent to the session upsert when absent', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'sess_abc', tool_name: 'Read' },
+    })
+
+    const arg = sess.upsertForHookEvent.mock.calls[0]![0]
+    expect(arg).not.toHaveProperty('agent')
+  })
+
   it('uses Session.taskId from upsert return value (server-authoritative)', async () => {
     sess.upsertForHookEvent.mockResolvedValue({
       id: 'sess_abc',

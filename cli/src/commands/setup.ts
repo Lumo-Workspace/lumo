@@ -4,20 +4,48 @@ import * as path from 'path'
 import { execSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
 import { promptLine } from '../lib/line-prompt'
+import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
+import { configDir } from '../lib/config'
 
 type SetupOptions = {
   user?: boolean
   project?: boolean
   force?: boolean
+  agent?: string
 }
 
 type Scope = 'user' | 'project'
+
+/**
+ * Validate the `--agent` flag and canonicalize it to the CLI token baked into
+ * the hook commands. Defaults to `claude-code` — accurate today, since only
+ * Claude Code emits hook events. Returns `{ error }` for an unrecognized
+ * token so the caller can abort before writing settings.json.
+ */
+export function resolveAgentToken(
+  raw: string | undefined
+): { token: string } | { error: string } {
+  if (raw === undefined) return { token: 'claude-code' }
+  const enumValue = normalizeAgent(raw)
+  if (!enumValue) {
+    return {
+      error: `Unknown agent "${raw}". Valid agents: ${VALID_AGENT_TOKENS.join(', ')}.`,
+    }
+  }
+  return { token: ENUM_TO_TOKEN[enumValue]! }
+}
 
 export async function setup(options: SetupOptions): Promise<number> {
   if (options.user && options.project) {
     process.stderr.write(
       'Error: --user and --project are mutually exclusive.\n'
     )
+    return 1
+  }
+
+  const agentResult = resolveAgentToken(options.agent)
+  if ('error' in agentResult) {
+    process.stderr.write(`Error: ${agentResult.error}\n`)
     return 1
   }
 
@@ -30,7 +58,7 @@ export async function setup(options: SetupOptions): Promise<number> {
   process.stdout.write(`\nInstalling Lumo for ${scope} scope: ${claudeDir}\n\n`)
 
   installSkill(claudeDir, options.force === true)
-  mergeSettings(claudeDir)
+  mergeSettings(claudeDir, agentResult.token)
   printPostInstall()
 
   return 0
@@ -95,7 +123,7 @@ function installSkill(claudeDir: string, force: boolean): void {
   process.stdout.write(`✓ wrote skill: ${skillDst}\n`)
 }
 
-function mergeSettings(claudeDir: string): void {
+function mergeSettings(claudeDir: string, agentToken: string): void {
   const settingsPath = path.join(claudeDir, 'settings.json')
   let existing: unknown = {}
 
@@ -113,27 +141,26 @@ function mergeSettings(claudeDir: string): void {
   }
 
   const { merged, stats } = mergeLumoHooks(
-    existing as Parameters<typeof mergeLumoHooks>[0]
+    existing as Parameters<typeof mergeLumoHooks>[0],
+    agentToken
   )
   fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n')
 
-  if (stats.addedEvents.length === 0) {
+  const changed = stats.addedEvents.length + stats.updatedEvents.length
+  if (changed === 0) {
     process.stdout.write(
-      `✓ hooks already wired in: ${settingsPath} (${stats.alreadyPresent.length} events)\n`
+      `✓ hooks already wired in (agent=${agentToken}): ${settingsPath} (${stats.alreadyPresent.length} events)\n`
     )
   } else {
     process.stdout.write(
-      `✓ merged hooks into ${settingsPath} (added ${stats.addedEvents.length}, kept ${stats.alreadyPresent.length})\n`
+      `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
     )
   }
 }
 
 function printPostInstall(): void {
   const onPath = isLumoOnPath()
-  const credsPath = path.join(
-    process.env.LUMO_CONFIG_DIR || path.join(os.homedir(), '.lumo'),
-    'credentials.json'
-  )
+  const credsPath = path.join(configDir(), 'credentials.json')
   const authed = fs.existsSync(credsPath)
 
   process.stdout.write('\nNext steps:\n')

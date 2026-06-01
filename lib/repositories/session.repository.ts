@@ -1,11 +1,18 @@
 import { prisma } from '@/lib/db/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, TaskArtifactAgent } from '@prisma/client'
 
 interface UpsertSessionData {
   id: string
   workspaceId: string
   workspaceMemberId: string
   cwd: string | null
+  /**
+   * Coding agent that owns the session. Set once on create; never overwritten
+   * on update (the agent is fixed for a session's lifetime). Omitted when the
+   * hook carried no `X-Lumo-Agent` header, so the DB default (CLAUDE_CODE)
+   * applies — accurate today, since only Claude Code emits hooks.
+   */
+  agent?: TaskArtifactAgent
   now: Date
 }
 
@@ -39,6 +46,7 @@ export const sessionRepository = {
         workspaceMemberId: data.workspaceMemberId,
         cwd: data.cwd,
         taskId: null,
+        ...(data.agent !== undefined ? { agent: data.agent } : {}),
         startedAt: data.now,
         lastActivityAt: data.now,
         eventCount: 1,
@@ -91,6 +99,19 @@ export const sessionRepository = {
       })
       return { ownedByOther: false, session: created } as const
     })
+  },
+
+  /**
+   * Read the coding agent that owns a session. Used by Layer 1 memory
+   * extraction so an auto-sedimented memory inherits the session's agent.
+   * Returns null when the session row is missing.
+   */
+  async findAgent(id: string): Promise<TaskArtifactAgent | null> {
+    const row = await prisma.session.findUnique({
+      where: { id },
+      select: { agent: true },
+    })
+    return row?.agent ?? null
   },
 
   /**

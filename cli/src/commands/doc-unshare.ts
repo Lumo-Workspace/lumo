@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
 import { sanitizeField } from '../lib/sanitize'
@@ -26,8 +26,7 @@ export async function docUnshare(
     return 1
   }
 
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
 
   const docId = await lookupDocId(apiUrl, creds.token, docRef)
   if (!docId) {

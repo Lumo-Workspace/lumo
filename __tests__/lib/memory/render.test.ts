@@ -4,6 +4,7 @@
 import {
   applyTokenBudget,
   renderMemorySection,
+  wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
 
@@ -132,6 +133,38 @@ describe('renderMemorySection', () => {
       },
     ])
     expect(out).toContain('unparseable')
+  })
+})
+
+describe('wrapUntrustedMemory', () => {
+  it('returns empty string unchanged', () => {
+    expect(wrapUntrustedMemory('')).toBe('')
+  })
+
+  it('returns empty string for whitespace-only input', () => {
+    expect(wrapUntrustedMemory('   \n  ')).toBe('')
+  })
+
+  it('wraps non-empty content in an explicit untrusted-team-memory boundary', () => {
+    const out = wrapUntrustedMemory('## Relevant Memory\n\n- [task] X\n')
+    expect(out.startsWith('<untrusted-team-memory>')).toBe(true)
+    expect(out.trimEnd().endsWith('</untrusted-team-memory>')).toBe(true)
+  })
+
+  it('marks the content as reference data, not instructions', () => {
+    const out = wrapUntrustedMemory('## Relevant Memory\n\n- [task] X\n')
+    expect(out).toContain('NOT')
+    expect(out.toLowerCase()).toContain('instruction')
+    // The notice must tell the assistant not to obey directives in the block.
+    expect(out.toLowerCase()).toMatch(/do not (obey|execute|act)/)
+  })
+
+  it('preserves the original section content inside the boundary', () => {
+    const inner = '## Relevant Memory\n\n### Traps\n- [task] **trig** → out\n'
+    const out = wrapUntrustedMemory(inner)
+    expect(out).toContain('## Relevant Memory')
+    expect(out).toContain('### Traps')
+    expect(out).toContain('**trig** → out')
   })
 })
 

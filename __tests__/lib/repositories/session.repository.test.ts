@@ -136,6 +136,44 @@ describe('sessionRepository.upsertForHookEvent', () => {
     const args = upsert.mock.calls[0][0]
     expect(args.select).toEqual({ id: true, taskId: true })
   })
+
+  it('sets agent on create when supplied', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      agent: 'CODEX',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.create.agent).toBe('CODEX')
+  })
+
+  it('omits agent on create when not supplied, letting the DB default apply', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.create).not.toHaveProperty('agent')
+  })
+
+  it('never sets agent on update — agent is fixed for the session lifetime', async () => {
+    await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      agent: 'CODEX',
+      now,
+    })
+    const args = upsert.mock.calls[0][0]
+    expect(args.update).not.toHaveProperty('agent')
+  })
 })
 
 describe('sessionRepository.upsertWithTaskId', () => {
@@ -235,6 +273,23 @@ describe('sessionRepository.listForClerkUser', () => {
   it('honors a custom limit', async () => {
     await sessionRepository.listForClerkUser('clerk_1', 10)
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 10 }))
+  })
+})
+
+describe('sessionRepository.findAgent', () => {
+  it('returns the session agent', async () => {
+    findUnique.mockResolvedValue({ agent: 'CODEX' })
+    const result = await sessionRepository.findAgent('sess_1')
+    expect(result).toBe('CODEX')
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'sess_1' },
+      select: { agent: true },
+    })
+  })
+
+  it('returns null when the session does not exist', async () => {
+    findUnique.mockResolvedValue(null)
+    expect(await sessionRepository.findAgent('missing')).toBeNull()
   })
 })
 

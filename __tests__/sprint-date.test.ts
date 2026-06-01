@@ -1,5 +1,6 @@
 import {
   computeNextSprintWindow,
+  groupSprintsForTaskField,
   nextUtcWeekdayMidnight,
   utcMidnight,
   addDays,
@@ -134,5 +135,49 @@ describe('addDays', () => {
   it('advances a UTC date across month boundary', () => {
     const d = new Date('2026-04-30T00:00:00Z')
     expect(addDays(d, 1).toISOString()).toBe('2026-05-01T00:00:00.000Z')
+  })
+})
+
+describe('groupSprintsForTaskField', () => {
+  // now = Mon Jun 1 — Sprint 4 is current, 5/6 upcoming, 1/2/3 ended.
+  const now = new Date('2026-06-01T12:00:00Z')
+  const mk = (name: string, start: string, end: string) => ({
+    name,
+    startDate: new Date(start),
+    endDate: new Date(end),
+  })
+
+  it('collapses `past` to only the most recently ended sprint', () => {
+    const s1 = mk('S1', '2026-04-20', '2026-05-03')
+    const s2 = mk('S2', '2026-05-04', '2026-05-17')
+    const s3 = mk('S3', '2026-05-18', '2026-05-31')
+    // Pass out of order to prove selection is by endDate, not input order.
+    const { past } = groupSprintsForTaskField([s1, s3, s2], now)
+    expect(past.map(s => s.name)).toEqual(['S3'])
+  })
+
+  it('orders activeAndUpcoming current-first then upcoming, each by start asc', () => {
+    const current = mk('S4', '2026-05-31', '2026-06-13')
+    const up1 = mk('S5', '2026-06-14', '2026-06-27')
+    const up2 = mk('S6', '2026-06-28', '2026-07-11')
+    const ended = mk('S3', '2026-05-18', '2026-05-31')
+    const res = groupSprintsForTaskField([up2, ended, up1, current], now)
+    expect(res.activeAndUpcoming.map(s => s.name)).toEqual(['S4', 'S5', 'S6'])
+    expect(res.past.map(s => s.name)).toEqual(['S3'])
+  })
+
+  it('returns an empty `past` when no sprint has ended yet', () => {
+    const current = mk('S4', '2026-05-31', '2026-06-13')
+    const up = mk('S5', '2026-06-14', '2026-06-27')
+    const res = groupSprintsForTaskField([current, up], now)
+    expect(res.past).toEqual([])
+    expect(res.activeAndUpcoming.map(s => s.name)).toEqual(['S4', 'S5'])
+  })
+
+  it('returns empty buckets for empty input', () => {
+    expect(groupSprintsForTaskField([], now)).toEqual({
+      activeAndUpcoming: [],
+      past: [],
+    })
   })
 })

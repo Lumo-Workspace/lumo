@@ -1299,6 +1299,13 @@ model Session {
   workspaceMemberId    String
   taskId               String?
   cwd                  String?
+  // Which coding agent owns this session. Captured from the `X-Lumo-Agent`
+  // header the CLI hook sends (baked in at `lumo setup --agent <token>`), set
+  // once on the session's first hook event. Auto-sedimented memories inherit
+  // this so a memory is attributed to the agent that actually produced it,
+  // not the DB default. Defaults to CLAUDE_CODE — accurate today, since only
+  // Claude Code emits hook events.
+  agent                TaskArtifactAgent @default(CLAUDE_CODE)
   startedAt            DateTime  @default(now())
   lastActivityAt       DateTime
   eventCount           Int       @default(0)
@@ -1351,6 +1358,7 @@ model Memory {
   taskId            String?
   scope             MemoryScope
   category          MemoryCategory
+  agent             TaskArtifactAgent @default(CLAUDE_CODE)
   content           Json
   sourceSessionId   String?
   createdByMemberId String?

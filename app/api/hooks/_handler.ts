@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server'
+import { TaskArtifactAgent } from '@prisma/client'
 import type { HookEventType, Prisma } from '@prisma/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
+
+/**
+ * Parse the `X-Lumo-Agent` request header into a TaskArtifactAgent enum value.
+ * The CLI hook sends the already-normalized enum token (e.g. `CODEX`), baked in
+ * at `lumo setup --agent <token>`. An absent or unrecognized value yields
+ * `undefined` so the session falls back to the DB default (CLAUDE_CODE) rather
+ * than failing the hook — agent attribution is best-effort metadata.
+ */
+function parseAgentHeader(request: Request): TaskArtifactAgent | undefined {
+  const raw = request.headers.get('x-lumo-agent')
+  if (!raw) return undefined
+  return raw in TaskArtifactAgent ? (raw as TaskArtifactAgent) : undefined
+}
 
 export interface AfterRecordContext {
   /** id of the just-inserted HookEvent row — needed by side effects that
@@ -48,10 +62,12 @@ export async function handleHookRequest(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
 
+    const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({
       identity,
       type,
       payload: (payload ?? {}) as Prisma.InputJsonValue,
+      ...(agent !== undefined ? { agent } : {}),
     })
 
     let extra: Record<string, unknown> | void | undefined

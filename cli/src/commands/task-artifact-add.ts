@@ -1,8 +1,9 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { readFileUtf8 } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 import { sanitizeField } from '../lib/sanitize'
+import { checkArtifactFilePath } from '../lib/path-guard'
 
 export interface ArtifactAddOptions {
   kind?: string
@@ -62,9 +63,22 @@ export async function taskArtifactAdd(
     return 1
   }
 
+  const verdict = checkArtifactFilePath(options.file)
+  if (!verdict.ok) {
+    if (verdict.reason === 'unreadable') {
+      console.error(`Error: could not read file ${options.file}`)
+    } else {
+      console.error(
+        `Error: refusing to read ${options.file} — ${verdict.detail}. ` +
+          `artifact --file must be a non-sensitive path inside the project directory.`
+      )
+    }
+    return 1
+  }
+
   let content: string
   try {
-    content = await readFileUtf8(options.file)
+    content = await readFileUtf8(verdict.resolved)
   } catch {
     console.error(`Error: could not read file ${options.file}`)
     return 1
@@ -79,8 +93,7 @@ export async function taskArtifactAdd(
     console.error('Error: not logged in. Run `lumo auth login` first.')
     return 1
   }
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
 
   const payload: Record<string, string> = {

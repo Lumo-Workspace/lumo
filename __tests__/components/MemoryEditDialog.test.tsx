@@ -27,7 +27,9 @@ jest.mock('react-intl', () => ({
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryEditDialog } from '@/app/workspace/[workspaceUrl]/components/memory/MemoryEditDialog'
 
-function renderDialog(props: Partial<React.ComponentProps<typeof MemoryEditDialog>> = {}) {
+function renderDialog(
+  props: Partial<React.ComponentProps<typeof MemoryEditDialog>> = {}
+) {
   return render(
     <MemoryEditDialog
       open
@@ -58,11 +60,18 @@ describe('MemoryEditDialog', () => {
     fireEvent.click(screen.getByText('Trap'))
     const submit = screen.getByRole('button', { name: 'Create' })
     expect(submit).toBeDisabled()
-    fireEvent.change(screen.getByLabelText(/Trigger/), { target: { value: 'do X' } })
-    fireEvent.change(screen.getByLabelText(/Outcome/), { target: { value: 'Y breaks' } })
+    fireEvent.change(screen.getByLabelText(/Trigger/), {
+      target: { value: 'do X' },
+    })
+    fireEvent.change(screen.getByLabelText(/Outcome/), {
+      target: { value: 'Y breaks' },
+    })
     expect(submit).not.toBeDisabled()
     fireEvent.click(submit)
-    expect(onSubmit).toHaveBeenCalledWith({ category: 'TRAP', content: { trigger: 'do X', outcome: 'Y breaks' } })
+    expect(onSubmit).toHaveBeenCalledWith({
+      category: 'TRAP',
+      content: { trigger: 'do X', outcome: 'Y breaks' },
+    })
   })
 
   it('edit mode locks the category and prefills content', () => {
@@ -71,6 +80,7 @@ describe('MemoryEditDialog', () => {
       editing: {
         id: 'm1',
         category: 'CONVENTION',
+        agent: 'CLAUDE_CODE',
         content: { rule: 'use named exports', scope: 'all files' },
         scope: 'TASK',
         taskId: 't1',
@@ -81,6 +91,8 @@ describe('MemoryEditDialog', () => {
       onSubmit: jest.fn(),
     })
     expect(screen.queryByText('Choose a category')).not.toBeInTheDocument()
-    expect((screen.getByLabelText(/Rule/) as HTMLTextAreaElement).value).toBe('use named exports')
+    expect((screen.getByLabelText(/Rule/) as HTMLTextAreaElement).value).toBe(
+      'use named exports'
+    )
   })
 })

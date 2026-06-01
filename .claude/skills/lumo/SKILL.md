@@ -17,15 +17,18 @@ which lumo && lumo whoami
 
 ## Onboarding
 
-### `lumo setup [--user|--project] [--force]` — install skill + hooks
+### `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill + hooks
 
-Bootstraps Lumo into a Claude Code installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+Bootstraps Lumo into a coding-agent installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+
+`--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
-npx @lumoai/cli setup           # interactive: prompts user/project
-npx @lumoai/cli setup --user    # write to ~/.claude/
-npx @lumoai/cli setup --project # write to ./.claude/
-npx @lumoai/cli setup --force   # overwrite SKILL.md if it differs from bundled
+npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
+npx @lumoai/cli setup --user             # write to ~/.claude/
+npx @lumoai/cli setup --project          # write to ./.claude/
+npx @lumoai/cli setup --force            # overwrite SKILL.md if it differs from bundled
+npx @lumoai/cli setup --agent codex      # bake agent=codex into the hook commands
 ```
 
 Use when:
@@ -33,8 +36,9 @@ Use when:
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
 - A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
+- Wiring Lumo into a non-Claude-Code agent (Codex / Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 
-If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown.
+If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
 
 ## Authentication
 
@@ -378,7 +382,7 @@ Record Claude Code spec-engineering products (spec / plan / design …) on a tas
 
 #### `lumo task artifact add <task> --kind <kind> --title <title> --file <path> --source <source> --agent <agent>`
 
-Attaches an artifact to a task. `--kind`, `--title`, `--source` are stored verbatim — **`kind` is opaque** (no enumeration; `spec` / `plan` / `requirements` / anything is accepted). `--source` is **required** and names the spec-generation framework that produced the artifact, written as its **formal name** (`Superpowers` / `Spec Kit` / `BMad` / `OpenSpec` / `GSD` / …) — it is also opaque (no enumeration), but there is **no default**, so you must pass it. Quote names that contain spaces (`--source "Spec Kit"`). `--file` supplies the body (file contents). Each call appends to the end of the task's artifact list — call once per artifact (e.g. Superpowers: one `spec`, one `plan`). The `<task>` (e.g. `LUM-42`) is resolved server-side.
+Attaches an artifact to a task. `--kind`, `--title`, `--source` are stored verbatim — **`kind` is opaque** (no enumeration; `spec` / `plan` / `requirements` / anything is accepted). `--source` is **required** and names the spec-generation framework that produced the artifact, written as its **formal name** (`Superpowers` / `Spec Kit` / `BMad` / `OpenSpec` / `GSD` / …) — it is also opaque (no enumeration), but there is **no default**, so you must pass it. Quote names that contain spaces (`--source "Spec Kit"`). `--file` supplies the body (file contents). Each call appends to the end of the task's artifact list — call once per artifact (e.g. Superpowers: one `spec`, one `plan`). The `<task>` (e.g. `LUM-42`) is resolved server-side. **`--file` is sandboxed:** the CLI rejects any path that resolves **outside the current project directory** (parent-traversal, absolute paths, escaping symlinks) or that matches a **sensitive-file denylist** (`.env*`, `id_rsa`/`id_ed25519`, `*.pem`/`*.key`, `.aws`/`.ssh` contents, `credentials`, `.npmrc`, …). There is no override flag — pass only project-local, non-secret files (e.g. `docs/spec.md`). To record an out-of-tree file, copy it into the project first.
 
 `--agent` is **required** and names the coding tool that produced the artifact (enum). Valid values: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases).
 
@@ -595,7 +599,7 @@ Use this when the user wants to write a new document from the terminal. Title is
 | `--tag-id <cuid>`  | string (repeatable) | Attach tag by id. Combines with `--tag`. Max 20 per call.                                                        |
 | `--parent <doc>`   | string              | cuid or case-insensitive title. Files the new doc under this parent. Omit for root.                              |
 
-The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one.
+The three content channels (`--content`, `--file`, stdin) are mutually exclusive — specify at most one. **`--file` is sandboxed:** the CLI rejects a path that resolves outside the current project directory (parent-traversal, absolute, escaping symlinks) or matches a sensitive-file denylist (`.env*`, private keys, `*.pem`/`*.key`, `credentials`, `.ssh`/`.aws` contents, …). Pass only project-local, non-secret files; there is no override flag.
 
 Examples:
 
@@ -642,6 +646,8 @@ The `Tags:` line is omitted when no tags were attached.
 | `--remove-tag-id <cuid>` | string (repeatable) | Detach tag by id. Unknown ids are a no-op (no side effects). Max 20.                                                                                                                                                                                                  |
 
 `--tag` / `--tag-id` (bulk replace) are mutually exclusive with `--add-tag` / `--add-tag-id` / `--remove-tag` / `--remove-tag-id`. The CLI errors before any network call if both families are mixed.
+
+Like `doc create`, `--file` is sandboxed: the CLI rejects paths that resolve outside the project directory or match the sensitive-file denylist (`.env*`, private keys, `credentials`, …). No override flag.
 
 Examples:
 
@@ -1038,11 +1044,15 @@ lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [
 lumo project memory list [<project>] [--category ...] [-n N]
 
 # Add (per-category fields; <task>/<project> default to the session-bound task)
-lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."]
-lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."]
-lumo task memory add [LUM-N] --category convention --rule "..." --applies "..."
-lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."]
-lumo project memory add [<project>] --category ...   # same flags; records at PROJECT scope
+lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."] [--agent <agent>]
+lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."] [--agent <agent>]
+lumo task memory add [LUM-N] --category convention --rule "..." --applies "..." [--agent <agent>]
+lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."] [--agent <agent>]
+lumo project memory add [<project>] --category ... [--agent <agent>]   # same flags; records at PROJECT scope
+
+# --agent values: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)
+# Aliases: gemini → gemini-cli, copilot → github-copilot (case-insensitive)
+# Omitting --agent records the memory as produced by Claude Code.
 
 # Single-memory ops (memoryId from `... memory list` column 1)
 lumo memory promote <memoryId>     # TASK → PROJECT

@@ -1,10 +1,16 @@
 import { prisma } from '@/lib/db/prisma'
-import type { MemoryCategory, MemoryScope, Prisma } from '@prisma/client'
+import type {
+  MemoryCategory,
+  MemoryScope,
+  Prisma,
+  TaskArtifactAgent,
+} from '@prisma/client'
 
 const MEMORY_ROW_SELECT = {
   id: true,
   scope: true,
   category: true,
+  agent: true,
   content: true,
   taskId: true,
   createdByMemberId: true,
@@ -21,6 +27,7 @@ interface CreateMemoryInput {
   content: Prisma.InputJsonValue
   sourceSessionId: string | null
   createdByMemberId: string | null
+  agent?: TaskArtifactAgent | undefined
 }
 
 export const memoryRepository = {
@@ -97,6 +104,7 @@ export const memoryRepository = {
       select: {
         id: true,
         category: true,
+        agent: true,
         content: true,
         sourceSessionId: true,
         createdAt: true,
@@ -180,6 +188,7 @@ export const memoryRepository = {
         content: input.content,
         sourceSessionId: input.sourceSessionId,
         createdByMemberId: input.createdByMemberId,
+        ...(input.agent !== undefined ? { agent: input.agent } : {}),
       },
       select: { id: true },
     })

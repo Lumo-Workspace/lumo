@@ -14,6 +14,16 @@ export const AGENT_LABELS: Record<string, string> = {
   WINDSURF: 'Windsurf',
 }
 
+/** enum value → canonical CLI token (inverse of the non-alias TOKEN_TO_ENUM rows) */
+export const ENUM_TO_TOKEN: Record<string, string> = {
+  CLAUDE_CODE: 'claude-code',
+  CODEX: 'codex',
+  CURSOR: 'cursor',
+  GEMINI_CLI: 'gemini-cli',
+  GITHUB_COPILOT: 'github-copilot',
+  WINDSURF: 'windsurf',
+}
+
 /** accepted CLI token (normalized) → enum value */
 const TOKEN_TO_ENUM: Record<string, string> = {
   'claude-code': 'CLAUDE_CODE',

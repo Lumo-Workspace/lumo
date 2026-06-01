@@ -10,6 +10,7 @@ const en: Record<string, string> = {
   'memory.delete.confirm.body': "This can't be undone.",
   'memory.dialog.cancel': 'Cancel',
   'memory.category.trap': 'Trap',
+  'taskArtifact.agent.CLAUDE_CODE': 'Claude Code',
 }
 
 jest.mock('react-intl', () => ({
@@ -29,6 +30,7 @@ const baseRow: MemoryRow = {
   id: 'm1',
   scope: 'TASK',
   category: 'TRAP',
+  agent: 'CLAUDE_CODE',
   content: { trigger: 'do X', outcome: 'Y breaks' },
   taskId: 't1',
   createdByMemberId: null,
@@ -88,12 +90,17 @@ describe('MemoryListItem', () => {
     expect(screen.getByText('do X')).toBeInTheDocument()
   })
 
-  it('shows "Sedimented by Claude" for auto memories', () => {
-    setup()
-    expect(screen.getByText('Sedimented by Claude')).toBeInTheDocument()
+  it('shows AgentBadge label for auto-sedimented memories (no old auto text)', () => {
+    setup({ memory: { ...baseRow, createdByMemberId: null, agent: 'CLAUDE_CODE' } })
+    // AgentBadge renders the agent label
+    expect(screen.getByText('Claude Code')).toBeInTheDocument()
+    // old auto string must not appear
+    expect(screen.queryByText('Sedimented by Claude')).not.toBeInTheDocument()
+    // zh-CN variant also absent
+    expect(screen.queryByText('由 Claude 沉淀')).not.toBeInTheDocument()
   })
 
-  it('shows "Added by <name>" when there is a creator', () => {
+  it('shows "Added by <name>" for human-created memories', () => {
     setup({
       memory: { ...baseRow, createdByMemberId: 'mem1' },
       memberName: 'Alice',

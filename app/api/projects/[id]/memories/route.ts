@@ -17,7 +17,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     const { id } = await params
 
     const project = await projectRepository.findWorkspaceId(id)
-    if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!project)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (project.workspaceId !== identity.workspaceId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -30,7 +31,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     try {
       content = parseMemoryContent(parsed.data.category, parsed.data.content)
     } catch {
-      return NextResponse.json({ error: 'Content does not match the category schema' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Content does not match the category schema' },
+        { status: 400 }
+      )
     }
 
     const memory = await memoryManagementService.createForProject({
@@ -39,14 +43,21 @@ export async function POST(request: NextRequest, { params }: Params) {
       category: parsed.data.category,
       content,
       actorMemberId: identity.memberId,
+      agent: parsed.data.agent,
     })
     return NextResponse.json({ memory }, { status: 201 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
-      return NextResponse.json({ error: error.message }, { status: (error as Error & { status: number }).status })
+      return NextResponse.json(
+        { error: error.message },
+        { status: (error as Error & { status: number }).status }
+      )
     }
     console.error('POST /api/projects/[id]/memories error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -56,7 +67,8 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { id } = await params
     const project = await projectRepository.findWorkspaceId(id)
-    if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!project)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (project.workspaceId !== identity.workspaceId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -64,6 +76,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ memories })
   } catch (error) {
     console.error('GET /api/projects/[id]/memories error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 }

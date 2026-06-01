@@ -19,7 +19,7 @@ beforeEach(() => {
   delete process.env.CLAUDE_CODE_SESSION_ID
   mockRead.mockReturnValue({
     token: 't',
-    apiUrl: 'http://x',
+    apiUrl: 'https://x',
     workspaceSlug: 'lumo',
   })
   consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
@@ -73,7 +73,7 @@ describe('sessionAttach', () => {
 
     expect(exit).toBeUndefined()
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://x/api/sessions/S1/bind-task',
+      'https://x/api/sessions/S1/bind-task',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ taskIdentifier: 'LUM-42' }),

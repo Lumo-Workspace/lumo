@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { MemoryCategory } from '@prisma/client'
+import { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 
 /**
  * Body for POST /api/{projects,tasks}/[id]/memories. `content` is left as
@@ -9,6 +9,7 @@ import { MemoryCategory } from '@prisma/client'
 export const createMemoryBodySchema = z.object({
   category: z.nativeEnum(MemoryCategory),
   content: z.unknown().refine(v => v !== undefined, { message: 'Required' }),
+  agent: z.nativeEnum(TaskArtifactAgent).optional(),
 })
 
 /**

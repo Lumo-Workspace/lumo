@@ -25,6 +25,7 @@ describe('resolveDocContent', () => {
       stdinIsTTY: true,
       readStdin: async () => '',
       readFile: async p => fs.promises.readFile(p, 'utf8'),
+      checkFilePath: () => ({ ok: true, resolved: tmp }),
     })
     expect(result.kind).toBe('ok')
     if (result.kind === 'ok') expect(result.markdown).toBe('# Hello')
@@ -93,6 +94,7 @@ describe('resolveDocContent', () => {
         return 'from-stdin'
       },
       readFile: async () => 'from-file',
+      checkFilePath: () => ({ ok: true, resolved: '/tmp/x.md' }),
     })
     expect(result.kind).toBe('ok')
     if (result.kind === 'ok') expect(result.markdown).toBe('from-file')
@@ -112,5 +114,82 @@ describe('resolveDocContent', () => {
     })
     expect(result.kind).toBe('ok')
     if (result.kind === 'ok') expect(result.markdown).toBe('hello')
+  })
+
+  it('rejects a sensitive --file via the path guard', async () => {
+    const result = await resolveDocContent({
+      content: undefined,
+      file: '.env',
+      stdinIsTTY: true,
+      readStdin: async () => '',
+      readFile: async () => 'SECRET=1',
+      checkFilePath: () => ({
+        ok: false,
+        reason: 'sensitive',
+        detail: 'matches .env',
+      }),
+    })
+    expect(result.kind).toBe('error')
+    if (result.kind === 'error')
+      expect(result.message).toContain('refusing to read')
+  })
+
+  it('rejects an outside-project --file and never reads it', async () => {
+    let read = false
+    const result = await resolveDocContent({
+      content: undefined,
+      file: '../../etc/passwd',
+      stdinIsTTY: true,
+      readStdin: async () => '',
+      readFile: async () => {
+        read = true
+        return 'x'
+      },
+      checkFilePath: () => ({
+        ok: false,
+        reason: 'outside-project',
+        detail: 'resolves outside project directory',
+      }),
+    })
+    expect(result.kind).toBe('error')
+    if (result.kind === 'error')
+      expect(result.message).toContain('refusing to read')
+    expect(read).toBe(false)
+  })
+
+  it('maps an unreadable guard verdict to a plain message', async () => {
+    const result = await resolveDocContent({
+      content: undefined,
+      file: 'missing.md',
+      stdinIsTTY: true,
+      readStdin: async () => '',
+      readFile: async () => '',
+      checkFilePath: () => ({
+        ok: false,
+        reason: 'unreadable',
+        detail: 'path does not resolve',
+      }),
+    })
+    expect(result.kind).toBe('error')
+    if (result.kind === 'error')
+      expect(result.message).toContain('could not read file')
+  })
+
+  it('reads the canonical resolved path on an ok verdict', async () => {
+    let readArg = ''
+    const result = await resolveDocContent({
+      content: undefined,
+      file: 'docs/spec.md',
+      stdinIsTTY: true,
+      readStdin: async () => '',
+      readFile: async p => {
+        readArg = p
+        return '# Spec'
+      },
+      checkFilePath: () => ({ ok: true, resolved: '/proj/docs/spec.md' }),
+    })
+    expect(result.kind).toBe('ok')
+    if (result.kind === 'ok') expect(result.markdown).toBe('# Spec')
+    expect(readArg).toBe('/proj/docs/spec.md')
   })
 })

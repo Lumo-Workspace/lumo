@@ -1,5 +1,5 @@
 import { readCredentials } from '../lib/config'
-import { trimTrailingSlash } from '../lib/api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { isLikelyCuid } from '../lib/resolve-doc'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
@@ -25,8 +25,7 @@ export async function docDelete(
     console.error('Error: not logged in. Run `lumo auth login` first.')
     return 1
   }
-  const envUrl = process.env.LUMO_API_URL?.trim()
-  const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
 
   // For a cuid reference we don't have the title; for a title we look up id+title at once.
   let id: string

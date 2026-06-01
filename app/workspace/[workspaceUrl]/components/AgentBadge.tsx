@@ -34,16 +34,23 @@ export const AGENT_META: Record<TaskArtifactAgent, AgentMeta> = {
   [TaskArtifactAgent.WINDSURF]: { Icon: WindsurfMono, color: '#0D9488' },
 }
 
+/** Coerce any value to a known agent, defaulting to Claude Code. Guards
+ *  against deploy-race rows read before the column exists and dirty data. */
+function safeAgent(agent: TaskArtifactAgent): TaskArtifactAgent {
+  return agent in AGENT_META ? agent : TaskArtifactAgent.CLAUDE_CODE
+}
+
 /** Localized label for an agent (taskArtifact.agent.<ENUM>). */
 export function useAgentLabel(agent: TaskArtifactAgent): string {
   const intl = useIntl()
-  return intl.formatMessage({ id: `taskArtifact.agent.${agent}` })
+  return intl.formatMessage({ id: `taskArtifact.agent.${safeAgent(agent)}` })
 }
 
 /** Row badge: brand icon + label. */
 export function AgentBadge({ agent }: { agent: TaskArtifactAgent }) {
-  const { Icon, color } = AGENT_META[agent]
-  const label = useAgentLabel(agent)
+  const a = safeAgent(agent)
+  const { Icon, color } = AGENT_META[a]
+  const label = useAgentLabel(a)
   return (
     <span className='inline-flex items-center gap-1.5 text-xs text-muted-foreground shrink-0'>
       <span
@@ -59,7 +66,7 @@ export function AgentBadge({ agent }: { agent: TaskArtifactAgent }) {
 
 /** Icon-only avatar for the header stack. */
 export function AgentAvatar({ agent }: { agent: TaskArtifactAgent }) {
-  const { Icon, color } = AGENT_META[agent]
+  const { Icon, color } = AGENT_META[safeAgent(agent)]
   return (
     <span
       className='inline-flex size-5 items-center justify-center rounded-full ring-2 ring-background'

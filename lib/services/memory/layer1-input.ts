@@ -1,4 +1,4 @@
-import type { MemoryCategory } from '@prisma/client'
+import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
@@ -12,6 +12,13 @@ export interface Layer1Input {
     projectId: string
     workspaceId: string
   }
+  /**
+   * Coding agent that owns the source session. Threaded down to memory
+   * creation so an auto-sedimented memory is attributed to the agent that
+   * produced it. Undefined when the session row is missing — memory creation
+   * then falls back to the DB default (CLAUDE_CODE).
+   */
+  agent?: TaskArtifactAgent
   /** Events of the *current* turn (between the previous STOP and the latest STOP, inclusive of the latest STOP). */
   turnEvents: RawEvent[]
   /** Active task-scoped memories already on file — feeds UPDATE / DELETE decisions. */
@@ -66,6 +73,7 @@ export async function getLayer1Input(
   if (turnEvents.length === 0) return null
 
   const existingMemories = await memoryRepository.findActiveTaskMemories(taskId)
+  const agent = await sessionRepository.findAgent(sessionId)
 
   return {
     task: {
@@ -75,6 +83,7 @@ export async function getLayer1Input(
       projectId: task.projectId,
       workspaceId: task.project.workspaceId,
     },
+    ...(agent !== null ? { agent } : {}),
     turnEvents,
     existingMemories: existingMemories.map(m => ({
       id: m.id,
