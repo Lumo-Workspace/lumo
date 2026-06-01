@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { GitBranch, Check, Plus, X, Loader2 } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
@@ -27,11 +28,13 @@ import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
 interface GitHubIntegrationCardProps {
   workspaceUrl: string
   isOwner: boolean
+  onConnectedChange?: (connected: boolean) => void
 }
 
 export function GitHubIntegrationCard({
   workspaceUrl,
   isOwner,
+  onConnectedChange,
 }: GitHubIntegrationCardProps) {
   const intl = useIntl()
   const {
@@ -50,6 +53,12 @@ export function GitHubIntegrationCard({
     openAddRepo,
     handleAddRepo,
   } = useGitHubIntegration(workspaceUrl)
+
+  const connected = status?.connected === true
+
+  useEffect(() => {
+    onConnectedChange?.(connected)
+  }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-muted-foreground' />
@@ -71,6 +80,11 @@ export function GitHubIntegrationCard({
         title={intl.formatMessage({ id: 'github.title' })}
         description={intl.formatMessage({ id: 'github.description' })}
         headerAction={headerAction}
+        collapsible={connected}
+        onDisconnect={
+          connected && isOwner ? () => setDisconnectOpen(true) : undefined
+        }
+        disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
       >
         {status?.connected ? (
           <>
@@ -124,7 +138,7 @@ export function GitHubIntegrationCard({
             </div>
 
             {isOwner && (
-              <div className='flex items-center justify-between pt-1'>
+              <div className='flex items-center pt-1'>
                 <Button
                   variant='outline'
                   size='sm'
@@ -133,14 +147,6 @@ export function GitHubIntegrationCard({
                 >
                   <Plus size={13} />
                   {intl.formatMessage({ id: 'github.addRepo' })}
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='text-zinc-400 hover:text-destructive'
-                  onClick={() => setDisconnectOpen(true)}
-                >
-                  {intl.formatMessage({ id: 'common.disconnect' })}
                 </Button>
               </div>
             )}

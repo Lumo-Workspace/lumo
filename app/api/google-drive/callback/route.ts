@@ -52,5 +52,5 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  return NextResponse.redirect(`${settingsUrl}?connected=1`)
+  return NextResponse.redirect(`${settingsUrl}?google_connected=1`)
 }

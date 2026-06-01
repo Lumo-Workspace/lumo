@@ -54,7 +54,7 @@ export function useGoogleDriveIntegration(): UseGoogleDriveIntegrationReturn {
   // the Google OAuth round-trip with ?connected=1 or ?google_error=...
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('connected') === '1') {
+    if (params.get('google_connected') === '1') {
       toast.success(intl.formatMessage({ id: 'googleDrive.connectSuccess' }))
       queryClient.invalidateQueries({
         queryKey: queryKeys.integrations.googleDrive(workspaceUrl),
