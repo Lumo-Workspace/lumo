@@ -45,6 +45,7 @@ function makeInput() {
     project: { id: 'proj_1', name: 'P', workspaceId: 'ws_1' },
     taskMemories: [],
     existingProjectMemories: [],
+    constitution: { claudeMd: null, agentsMd: null },
   }
 }
 

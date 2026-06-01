@@ -58,9 +58,11 @@ You are writing for another agent that loads this into context later — every w
 # Quality rules — read carefully
 
 - **Recurrence is mandatory for ADD.** Do not promote a pattern that appears in only one source task, even if it looks general. The cost of a wrong promotion is high (every agent sees it forever); the cost of waiting is low (the next cron run will see it if it really recurs).
-- **Avoid duplicating existing PROJECT memories.** If a recurring pattern is already represented at PROJECT scope, output NOOP for that pattern (or UPDATE the existing memory if recent TASK rows genuinely refine it).
+- **Never ADD a lesson already covered. This is the most common mistake — check it for every candidate before emitting ADD.** A candidate is "already covered" when EITHER of these holds:
+  1. **An existing PROJECT memory already says it.** Don't reason only about exact-match wording — re-promotion happens because two memories say the *same thing* in different words. Before ADD, scan the existing PROJECT list above and ask: does any entry already carry this lesson, even loosely? If the candidate is the same lesson as an existing memory (same trigger/outcome, same rule, same decision — paraphrase counts), it is a duplicate. Emit NOOP (or UPDATE that existing id if the new TASK rows genuinely sharpen it). Do NOT ADD a second near-identical row.
+  2. **The project constitution already documents it.** The CLAUDE.md / AGENTS.md section below is the project's standing instructions. If the candidate lesson is already stated there — a workflow, rule, or gotcha the constitution spells out — it is redundant by definition: memory exists for knowledge that is *invisible* in code and docs. Emit NOOP. Never promote something a teammate would already read in CLAUDE.md/AGENTS.md.
 - **Synthesize, don't copy.** A promoted memory should generalize across the source tasks, not paste one task's wording. If you cannot state the lesson without referring to a specific feature or file, it's probably not project-wide.
-- **Prefer NOOP when uncertain.** Quality > quantity. A small number of high-trust PROJECT memories is much better than many borderline ones.
+- **Prefer NOOP when uncertain.** Quality > quantity. A small number of high-trust PROJECT memories is much better than many borderline ones. When unsure whether a candidate is already covered, treat it as covered and NOOP.
 - **No DELETE.** This pass only adds and refines.
 
 # Length guidance
@@ -176,10 +178,16 @@ GOOD output (says it the way you'd say it to a coworker — verbs and concrete w
   const projectDescription = `# Project context
 Name: ${input.project.name}`
 
+  const constitutionSection = buildConstitutionSection(input.constitution)
+
   const userPrompt = `${projectDescription}
 
 # Existing PROJECT-scope memories
 ${projectMemoryLines}
+
+# Project constitution (CLAUDE.md / AGENTS.md)
+A candidate lesson already documented here is redundant — emit NOOP for it, do not ADD.
+${constitutionSection}
 
 # Recent TASK-scope memories (grouped by source task)
 ${taskMemoryLines}
@@ -188,9 +196,22 @@ ${examples}
 
 # Your output
 
-Return a JSON object matching the operations schema. Promote only lessons that recur across two or more tasks AND are not already represented at PROJECT scope. If nothing qualifies, return { "operations": [{ "type": "NOOP" }] }.`
+Return a JSON object matching the operations schema. Promote only lessons that recur across two or more tasks AND are not already covered — neither by an existing PROJECT memory above nor by the project constitution. If nothing qualifies, return { "operations": [{ "type": "NOOP" }] }.`
 
   return { system: SYSTEM_PROMPT, user: userPrompt }
+}
+
+function buildConstitutionSection(
+  constitution: Layer2Input['constitution']
+): string {
+  const blocks: string[] = []
+  if (constitution.claudeMd) {
+    blocks.push(`## CLAUDE.md\n${constitution.claudeMd}`)
+  }
+  if (constitution.agentsMd) {
+    blocks.push(`## AGENTS.md\n${constitution.agentsMd}`)
+  }
+  return blocks.length ? blocks.join('\n\n') : '  (none)'
 }
 
 function groupMemoriesByTask(

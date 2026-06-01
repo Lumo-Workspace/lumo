@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { MemoryCategory } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -25,6 +27,47 @@ export interface Layer2Input {
     category: MemoryCategory
     content: unknown
   }>
+  /**
+   * The project constitution — CLAUDE.md / AGENTS.md read from the repo root.
+   * Layer 2 must NOT promote a lesson the constitution already documents
+   * (memory exists for knowledge invisible in code/docs), so the prompt feeds
+   * these files into the dedup decision. Either field is null when the file is
+   * absent or unreadable (graceful degrade — the prompt renders "(none)").
+   */
+  constitution: {
+    claudeMd: string | null
+    agentsMd: string | null
+  }
+}
+
+/**
+ * Read the project constitution files from the repo root for injection into
+ * the Layer 2 prompt. Both reads degrade to null on any error (missing file,
+ * permission, runtime where the file wasn't bundled) so consolidation never
+ * fails just because a constitution file is absent.
+ *
+ * On Vercel these files only reach the serverless bundle because
+ * `outputFileTracingIncludes` in next.config.mjs lists them for the API
+ * routes; without that, `process.cwd()` would not contain them and both reads
+ * would fall back to null.
+ */
+export async function loadConstitution(): Promise<Layer2Input['constitution']> {
+  const root = process.cwd()
+  const [claudeMd, agentsMd] = await Promise.all([
+    readConstitutionFile(path.join(root, 'CLAUDE.md')),
+    readConstitutionFile(path.join(root, 'AGENTS.md')),
+  ])
+  return { claudeMd, agentsMd }
+}
+
+async function readConstitutionFile(filePath: string): Promise<string | null> {
+  try {
+    const content = await readFile(filePath, 'utf8')
+    const trimmed = content.trim()
+    return trimmed.length > 0 ? trimmed : null
+  } catch {
+    return null
+  }
 }
 
 /** v1 cap on TASK rows per project. See repository docstring for rationale. */
@@ -51,6 +94,8 @@ export async function getLayer2Input(
   const existingProjectMemories =
     await memoryRepository.findActiveProjectMemories(projectId)
 
+  const constitution = await loadConstitution()
+
   return {
     project: {
       id: project.id,
@@ -70,5 +115,6 @@ export async function getLayer2Input(
       category: m.category,
       content: m.content,
     })),
+    constitution,
   }
 }
