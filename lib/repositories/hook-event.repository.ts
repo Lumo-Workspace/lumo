@@ -19,6 +19,17 @@ interface CreateHookEventData {
   filePath?: string | null
 }
 
+interface FindRecentOtherSessionWritesParams {
+  workspaceId: string
+  filePath: string
+  /** The current session, excluded so a session never collides with itself. */
+  excludeSessionId: string
+  /** Lower bound on createdAt — the caller's collision time window. */
+  since: Date
+  /** Tool names that count as a write (caller owns this policy). */
+  toolNames: string[]
+}
+
 // ── HookEvent Repository ──────────────────────────────────────────────────────
 
 export const hookEventRepository = {
@@ -36,6 +47,37 @@ export const hookEventRepository = {
         payload: data.payload,
       },
       select: { id: true },
+    })
+  },
+
+  /**
+   * Recent write events to `filePath` from sessions other than the caller's,
+   * within the `since` window — the raw signal for the parallel-edit collision
+   * warning (LUM-150 step ③). Index-served by
+   * `@@index([workspaceId, filePath, createdAt])`; toolName/session are residual
+   * filters on the already-narrow path+time slice. Returns up to 50 rows newest-
+   * first (the service dedupes them by session); each row carries its session's
+   * `agent` so the warning can name who else is editing.
+   */
+  async findRecentOtherSessionWritesToFile(
+    params: FindRecentOtherSessionWritesParams
+  ) {
+    return prisma.hookEvent.findMany({
+      where: {
+        workspaceId: params.workspaceId,
+        filePath: params.filePath,
+        sessionId: { not: params.excludeSessionId },
+        createdAt: { gte: params.since },
+        toolName: { in: params.toolNames },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        sessionId: true,
+        toolName: true,
+        createdAt: true,
+        session: { select: { agent: true } },
+      },
     })
   },
 
