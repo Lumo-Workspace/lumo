@@ -11,6 +11,7 @@ import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionDetach } from './commands/session-detach'
 import { sessionStatus } from './commands/session-status'
+import { sessionWrap } from './commands/session-wrap'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -218,6 +219,15 @@ session
     'Clear the task binding on the current Claude Code session. Past hook events keep their taskId; only future events become untagged.'
   )
   .action(wrap(() => sessionDetach()))
+
+session
+  .command('wrap')
+  .description(
+    "Session-end wrap-up: draft a progress comment from this session's turn summaries and post it to the bound task after confirmation."
+  )
+  .option('-y, --yes', 'Post the drafted comment without prompting (agent-friendly)')
+  .option('--dry-run', 'Print the draft but do not post or advance the watermark')
+  .action(wrap(options => sessionWrap(options as { yes?: boolean; dryRun?: boolean })))
 
 const task = program
   .command('task')
