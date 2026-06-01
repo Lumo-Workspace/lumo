@@ -86,6 +86,24 @@ describe('checkArtifactFilePath', () => {
     if (!r.ok) expect(r.reason).toBe('sensitive')
   })
 
+  it('rejects a symlink escaping to a non-sensitive outside path', () => {
+    // Exercises the confinement (step 4) branch for symlinks: the target is
+    // outside the project but its name is NOT on the denylist, so it must be
+    // caught by the outside-project check rather than the sensitive check.
+    const r = checkArtifactFilePath('notes.md', {
+      cwd,
+      realpath: makeRealpath({ '/proj/notes.md': '/Users/x/ordinary-notes.txt' }),
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe('outside-project')
+  })
+
+  it('rejects a path that resolves to the project root itself', () => {
+    const r = checkArtifactFilePath('.', { cwd, realpath: makeRealpath() })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe('outside-project')
+  })
+
   it('rejects an in-project sensitive file', () => {
     const r = checkArtifactFilePath('.env', { cwd, realpath: makeRealpath() })
     expect(r.ok).toBe(false)

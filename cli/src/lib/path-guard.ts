@@ -52,6 +52,8 @@ export type PathGuardResult =
  * Two layers: (1) it must resolve to a real path inside the project directory
  * (cwd), and (2) neither the raw nor the canonical path may match the
  * sensitive-filename denylist. realpath defeats symlinks that escape the tree.
+ * NOTE: there is a TOCTOU window between this check and the caller's read;
+ * the caller reads the returned canonical `resolved` path to narrow it.
  */
 export function checkArtifactFilePath(
   rawPath: string,
@@ -81,6 +83,15 @@ export function checkArtifactFilePath(
   //    symlinks pointing at a secret).
   const canonHit = matchSensitiveName(resolved)
   if (canonHit) return { ok: false, reason: 'sensitive', detail: canonHit }
+
+  // The path must be a file inside the project, not the project root itself.
+  if (resolved === rootReal) {
+    return {
+      ok: false,
+      reason: 'outside-project',
+      detail: 'path resolves to the project root, not a file',
+    }
+  }
 
   // 4. Confinement: the canonical path must be inside the project root.
   if (resolved !== rootReal && !resolved.startsWith(rootReal + path.sep)) {
