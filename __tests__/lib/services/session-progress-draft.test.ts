@@ -7,6 +7,11 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: { buildMemorySectionForTask: jest.fn() },
 }))
+// session.service now imports comment.service at the top (for postProgressComment);
+// shim it so this test doesn't pull comment.service's heavy transitive deps.
+jest.mock('@/lib/services/comment.service', () => ({
+  commentService: { createCommentWithSideEffects: jest.fn() },
+}))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     findProgressContextForMember: jest.fn(),
@@ -55,7 +60,7 @@ describe('getSessionProgressDraft', () => {
     expect(summaries).toHaveBeenCalledWith('s1', since)
     expect(r.taskIdentifier).toBe('LUM-42')
     expect(r.summaries.map(s => s.turnSummary)).toEqual(['A', 'B'])
-    expect(r.summaries[0].createdAt).toBe('2026-06-01T10:00:00.000Z') // ISO string
+    expect(r.summaries[0]!.createdAt).toBe('2026-06-01T10:00:00.000Z') // ISO string
     expect(r.watermark).toBe(newest.toISOString())
   })
 
