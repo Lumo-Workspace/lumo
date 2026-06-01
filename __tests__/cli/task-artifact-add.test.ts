@@ -109,4 +109,48 @@ describe('taskArtifactAdd', () => {
     expect(code).toBe(1)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
+
+  it('rejects an outside-project --file with the security message and no API call', async () => {
+    ;(checkArtifactFilePath as jest.Mock).mockReturnValueOnce({
+      ok: false,
+      reason: 'outside-project',
+      detail: 'resolves outside project directory',
+    })
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: '/etc/passwd',
+      source: 'superpowers',
+      agent: 'claude-code',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('refusing to read')
+    )
+  })
+
+  it('maps an unreadable verdict to the plain "could not read file" message', async () => {
+    ;(checkArtifactFilePath as jest.Mock).mockReturnValueOnce({
+      ok: false,
+      reason: 'unreadable',
+      detail: 'path does not resolve',
+    })
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: 'missing.md',
+      source: 'superpowers',
+      agent: 'claude-code',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('could not read file')
+    )
+  })
 })
