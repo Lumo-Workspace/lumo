@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import { MoreHorizontal } from 'lucide-react'
 import type { MemoryRow } from '@/lib/api-client'
 import { MemoryCard } from './MemoryCard'
+import { AgentBadge } from '../AgentBadge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -49,7 +50,7 @@ export function MemoryListItem({
         { id: 'memory.source.byMember' },
         { name: memberName ?? '—' }
       )
-    : intl.formatMessage({ id: 'memory.source.auto' })
+    : undefined
 
   return (
     <div className='relative group'>
@@ -57,9 +58,10 @@ export function MemoryListItem({
         item={{
           id: memory.id,
           category: memory.category,
+          agent: memory.agent,
           content: memory.content,
         }}
-        source={source}
+        source={source ?? <AgentBadge agent={memory.agent} />}
         showSedimentedLabel={false}
       />
 

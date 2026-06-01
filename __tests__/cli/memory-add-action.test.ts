@@ -61,3 +61,55 @@ it('errors when no <task> and no binding', async () => {
   expect(code).toBe(1)
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/no task bound/i))
 })
+
+// --agent flag tests
+it('sends agent: CODEX when --agent codex is passed', async () => {
+  jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  const calls: Array<{ url: string; init?: any }> = []
+  mockFetchSequence([
+    (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem2' } }) } },
+  ])
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o', agent: 'codex' } as any)
+  expect(code).toBeUndefined()
+  expect(JSON.parse(calls[1]!.init.body)).toEqual({ category: 'TRAP', content: { trigger: 't', outcome: 'o' }, agent: 'CODEX' })
+})
+
+it('resolves gemini alias → GEMINI_CLI in POST body', async () => {
+  jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  const calls: Array<{ url: string; init?: any }> = []
+  mockFetchSequence([
+    (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem3' } }) } },
+  ])
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o', agent: 'gemini' } as any)
+  expect(code).toBeUndefined()
+  expect(JSON.parse(calls[1]!.init.body)).toEqual({ category: 'TRAP', content: { trigger: 't', outcome: 'o' }, agent: 'GEMINI_CLI' })
+})
+
+it('omits agent key when --agent is not passed', async () => {
+  jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  const calls: Array<{ url: string; init?: any }> = []
+  mockFetchSequence([
+    (url) => { calls.push({ url }); return { ok: true, status: 200, json: async () => ({ id: 'task_cuid' }) } },
+    (url, init) => { calls.push({ url, init }); return { ok: true, status: 201, json: async () => ({ memory: { id: 'mem4' } }) } },
+  ])
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o' } as any)
+  expect(code).toBeUndefined()
+  const body = JSON.parse(calls[1]!.init.body)
+  expect(body).not.toHaveProperty('agent')
+})
+
+it('returns 1 and makes no memories POST when --agent is invalid', async () => {
+  const err = jest.spyOn(console, 'error').mockImplementation(() => {})
+  const allCalls: string[] = []
+  jest.spyOn(global, 'fetch').mockImplementation(((url: any) => {
+    allCalls.push(String(url))
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as Response)
+  }) as any)
+  const code = await memoryTaskAdd('LUM-1', { category: 'trap', trigger: 't', outcome: 'o', agent: 'bogus' } as any)
+  expect(code).toBe(1)
+  expect(err).toHaveBeenCalledWith(expect.stringMatching(/invalid --agent/i))
+  const memoriesPostMade = allCalls.some(u => u.includes('/memories'))
+  expect(memoriesPostMade).toBe(false)
+})

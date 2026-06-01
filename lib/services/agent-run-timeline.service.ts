@@ -1,7 +1,11 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import type { HookEventType, MemoryCategory } from '@prisma/client'
+import type {
+  HookEventType,
+  MemoryCategory,
+  TaskArtifactAgent,
+} from '@prisma/client'
 
 // Wire-format types returned to the client. Kept separate from Prisma
 // row shapes so the API surface stays decoupled from schema changes.
@@ -22,6 +26,7 @@ export interface AgentRunMemoryItem {
   id: string
   kind: 'memory'
   category: MemoryCategory
+  agent: TaskArtifactAgent
   content: unknown
   createdAt: string
 }
@@ -87,6 +92,7 @@ export const agentRunTimelineService = {
         id: m.id,
         kind: 'memory',
         category: m.category,
+        agent: m.agent,
         content: m.content,
         createdAt: m.createdAt.toISOString(),
       })

@@ -1,3 +1,5 @@
+import type { TaskArtifactAgent } from '@prisma/client'
+
 // ─── Legacy types (used by constants.ts mock data) ───────────────────────────
 
 export type Priority = 'P0' | 'P1' | 'P2'
@@ -554,6 +556,7 @@ export interface AgentRunMemoryItem {
   id: string
   kind: 'memory'
   category: AgentRunMemoryCategory
+  agent: TaskArtifactAgent
   content: unknown
   createdAt: string
 }

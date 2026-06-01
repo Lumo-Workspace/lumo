@@ -125,7 +125,10 @@ describe('promoteToProject', () => {
   it('promotes and edits content in one update when content given', async () => {
     mockFindByIdWithWorkspace.mockResolvedValue({ id: 'm1', scope: 'TASK' })
     mockUpdate.mockResolvedValue({ id: 'm1' })
-    const result = await memoryManagementService.promoteToProject('m1', { rule: 'r', scope: 's' })
+    const result = await memoryManagementService.promoteToProject('m1', {
+      rule: 'r',
+      scope: 's',
+    })
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
       scope: 'PROJECT',
       taskId: null,
@@ -140,5 +143,35 @@ describe('delete', () => {
     mockDelete.mockResolvedValue({ id: 'm1' })
     await memoryManagementService.delete('m1')
     expect(mockDelete).toHaveBeenCalledWith('m1')
+  })
+})
+
+describe('agent forwarding', () => {
+  it('createForTask forwards agent to the repository', () => {
+    memoryManagementService.createForTask({
+      taskId: 't1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 'x', outcome: 'y' },
+      actorMemberId: 'mem1',
+      agent: 'CURSOR',
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'CURSOR' })
+    )
+  })
+
+  it('createForProject without agent leaves it undefined (DB default applies)', () => {
+    memoryManagementService.createForProject({
+      projectId: 'p1',
+      workspaceId: 'w1',
+      category: 'TRAP',
+      content: { trigger: 'x', outcome: 'y' },
+      actorMemberId: 'mem1',
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: undefined })
+    )
   })
 })

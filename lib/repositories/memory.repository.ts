@@ -27,7 +27,7 @@ interface CreateMemoryInput {
   content: Prisma.InputJsonValue
   sourceSessionId: string | null
   createdByMemberId: string | null
-  agent?: TaskArtifactAgent
+  agent?: TaskArtifactAgent | undefined
 }
 
 export const memoryRepository = {

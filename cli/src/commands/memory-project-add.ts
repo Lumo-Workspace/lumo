@@ -4,8 +4,9 @@ import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { resolveBoundProjectId } from '../lib/resolve-project'
+import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 
-interface AddOptions extends MemoryFlags { category?: string }
+interface AddOptions extends MemoryFlags { category?: string; agent?: string }
 
 export async function memoryProjectAdd(
   refArg: string | undefined,
@@ -14,6 +15,17 @@ export async function memoryProjectAdd(
   if (!options.category) { console.error('Error: --category <trap|decision|convention|procedural> is required.'); return 1 }
   const built = buildMemoryContent(options.category, options)
   if (!built.ok) { console.error(`Error: ${built.error}`); return 1 }
+
+  let agent: string | undefined
+  const agentRaw = options.agent?.trim()
+  if (agentRaw) {
+    const normalized = normalizeAgent(agentRaw)
+    if (!normalized) {
+      console.error(`Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`)
+      return 1
+    }
+    agent = normalized
+  }
 
   const creds = readCredentials()
   if (!creds) { console.error('Error: not logged in. Run `lumo auth login` first.'); return 1 }
@@ -38,7 +50,11 @@ export async function memoryProjectAdd(
     res = await fetch(`${base}/api/projects/${encodeURIComponent(projectId)}/memories`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: built.category, content: built.content }),
+      body: JSON.stringify({
+        category: built.category,
+        content: built.content,
+        ...(agent ? { agent } : {}),
+      }),
     })
   } catch (err) {
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)
