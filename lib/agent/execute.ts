@@ -114,13 +114,15 @@ function resolveGitIdentity(actorName?: string, actorEmail?: string) {
   }
 }
 
-async function resolveCredentials(): Promise<{
+async function resolveCredentials(workspaceId?: string): Promise<{
   githubToken: string
   anthropicKey: string
 }> {
-  const githubToken = await getGithubInstallationToken().catch(err => {
-    throw new AgentError('CLONE_FAILED', 'Failed to get GitHub token', err)
-  })
+  const githubToken = await getGithubInstallationToken(workspaceId).catch(
+    err => {
+      throw new AgentError('CLONE_FAILED', 'Failed to get GitHub token', err)
+    }
+  )
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   if (!anthropicKey) throw new Error('ANTHROPIC_API_KEY not configured')
   return { githubToken, anthropicKey }
@@ -367,7 +369,7 @@ export async function processAgentCompletion(params: {
   const identifier = `LUM-${task.number}`
   const { branchName, isFollowUp } = resolveBranch(task, identifier)
   const taskSpec = htmlToMarkdown(task.spec ?? task.description ?? task.title)
-  const { githubToken } = await resolveCredentials()
+  const { githubToken } = await resolveCredentials(task.project.workspaceId)
   const { gitName, gitEmail } = resolveGitIdentity()
 
   const ctx: RunContext = {
@@ -418,7 +420,9 @@ async function buildRunContext(
   const identifier = `LUM-${task.number}`
   const { branchName, isFollowUp } = resolveBranch(task, identifier)
   const taskSpec = htmlToMarkdown(task.spec ?? task.description ?? task.title)
-  const { githubToken, anthropicKey } = await resolveCredentials()
+  const { githubToken, anthropicKey } = await resolveCredentials(
+    task.project.workspaceId
+  )
   const { gitName, gitEmail } = resolveGitIdentity(
     opts.actorName,
     opts.actorEmail

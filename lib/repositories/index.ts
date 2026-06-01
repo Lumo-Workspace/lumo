@@ -13,6 +13,8 @@ export type {
   UpsertPullRequestData,
   UpsertTaskBranchData,
 } from './github.repository'
+export { githubAppInstallationRepository } from './github-app-installation.repository'
+export type { UpsertGitHubAppInstallationData } from './github-app-installation.repository'
 export { slackRepository } from './slack.repository'
 export type {
   UpsertSlackIntegrationData,
