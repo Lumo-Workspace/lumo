@@ -3,9 +3,6 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
-import { taskRepository } from '@/lib/repositories/task.repository'
-import { commentService } from '@/lib/services/comment.service'
-import { getHumanActorId } from '@/lib/actor'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 interface BindSessionToTaskInput {
@@ -279,6 +276,14 @@ export const sessionService = {
         { status: 409 }
       )
     }
+
+    // Lazy imports: keep comment.service's heavy transitive deps (pusher, agent
+    // delegation, PR mirroring) off this module's load path so importing
+    // session.service in tests / other call sites doesn't pull an ESM chain
+    // jest can't parse. Matches the lazy-import pattern in comment.service.ts.
+    const { taskRepository } = await import('@/lib/repositories/task.repository')
+    const { commentService } = await import('@/lib/services/comment.service')
+    const { getHumanActorId } = await import('@/lib/actor')
 
     const task = await taskRepository.findForComment(ctx.taskId)
     if (!task) {
