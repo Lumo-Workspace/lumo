@@ -9,8 +9,12 @@ jest.mock('@/cli/src/lib/config', () => ({
 jest.mock('@/cli/src/lib/doc-input', () => ({
   readFileUtf8: jest.fn(async () => '## Requirements\n- a'),
 }))
+jest.mock('@/cli/src/lib/path-guard', () => ({
+  checkArtifactFilePath: jest.fn(() => ({ ok: true, resolved: '/proj/f.md' })),
+}))
 
 import { taskArtifactAdd } from '@/cli/src/commands/task-artifact-add'
+import { checkArtifactFilePath } from '@/cli/src/lib/path-guard'
 
 const okCreated = {
   ok: true,
@@ -83,6 +87,24 @@ describe('taskArtifactAdd', () => {
       file: 'f.md',
       source: 'superpowers',
       agent: 'devin',
+    })
+    expect(code).toBe(1)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('refuses a sensitive --file and never calls the API', async () => {
+    ;(checkArtifactFilePath as jest.Mock).mockReturnValueOnce({
+      ok: false,
+      reason: 'sensitive',
+      detail: 'matches .env',
+    })
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(okCreated)
+    const code = await taskArtifactAdd('LUM-9', {
+      kind: 'spec',
+      title: 'Spec',
+      file: '../../secret.env',
+      source: 'superpowers',
+      agent: 'claude-code',
     })
     expect(code).toBe(1)
     expect(fetchSpy).not.toHaveBeenCalled()

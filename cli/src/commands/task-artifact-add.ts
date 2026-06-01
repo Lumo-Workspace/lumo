@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { readFileUtf8 } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { checkArtifactFilePath } from '../lib/path-guard'
 
 export interface ArtifactAddOptions {
   kind?: string
@@ -61,9 +62,22 @@ export async function taskArtifactAdd(
     return 1
   }
 
+  const verdict = checkArtifactFilePath(options.file)
+  if (!verdict.ok) {
+    if (verdict.reason === 'unreadable') {
+      console.error(`Error: could not read file ${options.file}`)
+    } else {
+      console.error(
+        `Error: refusing to read ${options.file} — ${verdict.detail}. ` +
+          `artifact --file must be a non-sensitive path inside the project directory.`
+      )
+    }
+    return 1
+  }
+
   let content: string
   try {
-    content = await readFileUtf8(options.file)
+    content = await readFileUtf8(verdict.resolved)
   } catch {
     console.error(`Error: could not read file ${options.file}`)
     return 1
