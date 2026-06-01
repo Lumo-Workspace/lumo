@@ -9,9 +9,12 @@ import { logHookError } from '../lib/hook-log'
  * if `runHook` someday throws (it currently never does), Claude Code is
  * not disrupted.
  */
-export async function hookCommand(path: HookPath): Promise<void> {
+export async function hookCommand(
+  path: HookPath,
+  agentToken?: string
+): Promise<void> {
   try {
-    await runHook(path)
+    await runHook(path, agentToken)
   } catch (err) {
     logHookError(`[${path}] dispatcher`, err)
   }

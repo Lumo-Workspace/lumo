@@ -7,6 +7,7 @@ import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
 import { hookCommand } from './commands/hook'
+import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionDetach } from './commands/session-detach'
 import { sessionStatus } from './commands/session-status'
@@ -175,9 +176,20 @@ program
     '--force',
     'Overwrite an existing SKILL.md when its contents differ from the bundled version'
   )
+  .option(
+    '--agent <token>',
+    'Coding agent these hooks run under (claude-code, codex, cursor, gemini-cli, github-copilot, windsurf). Baked into every hook command. Defaults to claude-code.'
+  )
   .action(
     wrap(options =>
-      setup(options as { user?: boolean; project?: boolean; force?: boolean })
+      setup(
+        options as {
+          user?: boolean
+          project?: boolean
+          force?: boolean
+          agent?: string
+        }
+      )
     )
   )
 
@@ -1036,178 +1048,126 @@ const hook = program
     'Claude Code hook ingestion (invoked by settings.json, not humans)'
   )
 
-hook
-  .command('pre-tool-use')
-  .description(
-    'Forward a PreToolUse hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('pre-tool-use')))
+// Slug → help-text for every `lumo hook <slug>` subcommand. Each one accepts
+// an optional `--agent <token>` flag (baked into settings.json by `lumo setup
+// --agent <token>`); the value rides to the server as the X-Lumo-Agent header
+// so auto-sedimented memories are attributed to the agent that produced them.
+// Keep this list in sync with LUMO_HOOK_EVENTS (cli/src/lib/hooks-template.ts)
+// and the server-side HookEventType slugs.
+const HOOK_SUBCOMMANDS: ReadonlyArray<readonly [HookPath, string]> = [
+  [
+    'pre-tool-use',
+    'Forward a PreToolUse hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'post-tool-use',
+    'Forward a PostToolUse hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'post-tool-use-failure',
+    'Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'user-prompt-submit',
+    'Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)',
+  ],
+  ['stop', 'Forward a Stop hook event to Lumo (reads JSON from stdin)'],
+  [
+    'stop-failure',
+    'Forward a StopFailure hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'permission-request',
+    'Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'permission-denied',
+    'Forward a PermissionDenied hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'session-start',
+    'Forward a SessionStart hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'session-end',
+    'Forward a SessionEnd hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'subagent-start',
+    'Forward a SubagentStart hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'subagent-stop',
+    'Forward a SubagentStop hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'worktree-create',
+    'Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'worktree-remove',
+    'Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'file-changed',
+    'Forward a FileChanged hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'config-change',
+    'Forward a ConfigChange hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'task-created',
+    'Forward a TaskCreated hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'task-completed',
+    'Forward a TaskCompleted hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'post-tool-batch',
+    'Forward a PostToolBatch hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'user-prompt-expansion',
+    'Forward a UserPromptExpansion hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'notification',
+    'Forward a Notification hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'elicitation',
+    'Forward an Elicitation hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'elicitation-result',
+    'Forward an ElicitationResult hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'cwd-changed',
+    'Forward a CwdChanged hook event to Lumo (reads JSON from stdin)',
+  ],
+  [
+    'instructions-loaded',
+    'Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)',
+  ],
+]
 
-hook
-  .command('post-tool-use')
-  .description(
-    'Forward a PostToolUse hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('post-tool-use')))
-
-hook
-  .command('post-tool-use-failure')
-  .description(
-    'Forward a PostToolUseFailure hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('post-tool-use-failure')))
-
-hook
-  .command('user-prompt-submit')
-  .description(
-    'Forward a UserPromptSubmit hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('user-prompt-submit')))
-
-hook
-  .command('stop')
-  .description('Forward a Stop hook event to Lumo (reads JSON from stdin)')
-  .action(wrap(() => hookCommand('stop')))
-
-hook
-  .command('stop-failure')
-  .description(
-    'Forward a StopFailure hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('stop-failure')))
-
-hook
-  .command('permission-request')
-  .description(
-    'Forward a PermissionRequest hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('permission-request')))
-
-hook
-  .command('permission-denied')
-  .description(
-    'Forward a PermissionDenied hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('permission-denied')))
-
-hook
-  .command('session-start')
-  .description(
-    'Forward a SessionStart hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('session-start')))
-
-hook
-  .command('session-end')
-  .description(
-    'Forward a SessionEnd hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('session-end')))
-
-hook
-  .command('subagent-start')
-  .description(
-    'Forward a SubagentStart hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('subagent-start')))
-
-hook
-  .command('subagent-stop')
-  .description(
-    'Forward a SubagentStop hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('subagent-stop')))
-
-hook
-  .command('worktree-create')
-  .description(
-    'Forward a WorktreeCreate hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('worktree-create')))
-
-hook
-  .command('worktree-remove')
-  .description(
-    'Forward a WorktreeRemove hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('worktree-remove')))
-
-hook
-  .command('file-changed')
-  .description(
-    'Forward a FileChanged hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('file-changed')))
-
-hook
-  .command('config-change')
-  .description(
-    'Forward a ConfigChange hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('config-change')))
-
-hook
-  .command('task-created')
-  .description(
-    'Forward a TaskCreated hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('task-created')))
-
-hook
-  .command('task-completed')
-  .description(
-    'Forward a TaskCompleted hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('task-completed')))
-
-hook
-  .command('post-tool-batch')
-  .description(
-    'Forward a PostToolBatch hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('post-tool-batch')))
-
-hook
-  .command('user-prompt-expansion')
-  .description(
-    'Forward a UserPromptExpansion hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('user-prompt-expansion')))
-
-hook
-  .command('notification')
-  .description(
-    'Forward a Notification hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('notification')))
-
-hook
-  .command('elicitation')
-  .description(
-    'Forward an Elicitation hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('elicitation')))
-
-hook
-  .command('elicitation-result')
-  .description(
-    'Forward an ElicitationResult hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('elicitation-result')))
-
-hook
-  .command('cwd-changed')
-  .description(
-    'Forward a CwdChanged hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('cwd-changed')))
-
-hook
-  .command('instructions-loaded')
-  .description(
-    'Forward an InstructionsLoaded hook event to Lumo (reads JSON from stdin)'
-  )
-  .action(wrap(() => hookCommand('instructions-loaded')))
+for (const [slug, description] of HOOK_SUBCOMMANDS) {
+  hook
+    .command(slug)
+    .description(description)
+    .option(
+      '--agent <token>',
+      'Coding agent that owns this session (e.g. claude-code, codex). Baked in by `lumo setup --agent`.'
+    )
+    .action(
+      wrap((opts: unknown) =>
+        hookCommand(slug, (opts as { agent?: string }).agent)
+      )
+    )
+}
 
 if (!isUpdateCheckWorker) {
   program.parseAsync(process.argv).catch(err => {

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook pre-tool-use"
+            "command": "lumo hook pre-tool-use --agent claude-code"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook post-tool-use"
+            "command": "lumo hook post-tool-use --agent claude-code"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook post-tool-use-failure"
+            "command": "lumo hook post-tool-use-failure --agent claude-code"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook user-prompt-submit"
+            "command": "lumo hook user-prompt-submit --agent claude-code"
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook stop"
+            "command": "lumo hook stop --agent claude-code"
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook stop-failure"
+            "command": "lumo hook stop-failure --agent claude-code"
           }
         ]
       }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook permission-request"
+            "command": "lumo hook permission-request --agent claude-code"
           }
         ]
       }
@@ -75,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook permission-denied"
+            "command": "lumo hook permission-denied --agent claude-code"
           }
         ]
       }
@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook session-start"
+            "command": "lumo hook session-start --agent claude-code"
           }
         ]
       }
@@ -95,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook session-end"
+            "command": "lumo hook session-end --agent claude-code"
           }
         ]
       }
@@ -105,7 +105,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook subagent-start"
+            "command": "lumo hook subagent-start --agent claude-code"
           }
         ]
       }
@@ -115,7 +115,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook subagent-stop"
+            "command": "lumo hook subagent-stop --agent claude-code"
           }
         ]
       }
@@ -125,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook worktree-create"
+            "command": "lumo hook worktree-create --agent claude-code"
           }
         ]
       }
@@ -135,7 +135,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook worktree-remove"
+            "command": "lumo hook worktree-remove --agent claude-code"
           }
         ]
       }
@@ -145,7 +145,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook file-changed"
+            "command": "lumo hook file-changed --agent claude-code"
           }
         ]
       }
@@ -155,7 +155,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook config-change"
+            "command": "lumo hook config-change --agent claude-code"
           }
         ]
       }
@@ -165,7 +165,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook task-created"
+            "command": "lumo hook task-created --agent claude-code"
           }
         ]
       }
@@ -175,7 +175,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook task-completed"
+            "command": "lumo hook task-completed --agent claude-code"
           }
         ]
       }
@@ -185,7 +185,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook post-tool-batch"
+            "command": "lumo hook post-tool-batch --agent claude-code"
           }
         ]
       }
@@ -195,7 +195,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook user-prompt-expansion"
+            "command": "lumo hook user-prompt-expansion --agent claude-code"
           }
         ]
       }
@@ -205,7 +205,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook notification"
+            "command": "lumo hook notification --agent claude-code"
           }
         ]
       }
@@ -215,7 +215,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook elicitation"
+            "command": "lumo hook elicitation --agent claude-code"
           }
         ]
       }
@@ -225,7 +225,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook elicitation-result"
+            "command": "lumo hook elicitation-result --agent claude-code"
           }
         ]
       }
@@ -235,7 +235,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook cwd-changed"
+            "command": "lumo hook cwd-changed --agent claude-code"
           }
         ]
       }
@@ -245,7 +245,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lumo hook instructions-loaded"
+            "command": "lumo hook instructions-loaded --agent claude-code"
           }
         ]
       }

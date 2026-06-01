@@ -17,15 +17,18 @@ which lumo && lumo whoami
 
 ## Onboarding
 
-### `lumo setup [--user|--project] [--force]` — install skill + hooks
+### `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill + hooks
 
-Bootstraps Lumo into a Claude Code installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+Bootstraps Lumo into a coding-agent installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+
+`--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
-npx @lumoai/cli setup           # interactive: prompts user/project
-npx @lumoai/cli setup --user    # write to ~/.claude/
-npx @lumoai/cli setup --project # write to ./.claude/
-npx @lumoai/cli setup --force   # overwrite SKILL.md if it differs from bundled
+npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
+npx @lumoai/cli setup --user             # write to ~/.claude/
+npx @lumoai/cli setup --project          # write to ./.claude/
+npx @lumoai/cli setup --force            # overwrite SKILL.md if it differs from bundled
+npx @lumoai/cli setup --agent codex      # bake agent=codex into the hook commands
 ```
 
 Use when:
@@ -33,8 +36,9 @@ Use when:
 - The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
 - A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
 - After `npm install -g @lumoai/cli`, before the first `lumo auth login`
+- Wiring Lumo into a non-Claude-Code agent (Codex / Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
 
-If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown.
+If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
 
 ## Authentication
 
