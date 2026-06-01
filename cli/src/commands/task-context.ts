@@ -25,6 +25,7 @@ interface TaskContextResponse {
   docSection?: string
   commentsSection?: string
   prSection?: string
+  prReviewTodosSection?: string
   sessions: Array<{
     id: string
     startedAt: string
@@ -153,6 +154,14 @@ export function formatTaskContextMarkdown(
 
   if (data.prSection && data.prSection.trim().length > 0) {
     lines.push(sanitizeField(data.prSection.trimEnd()))
+    lines.push('')
+  }
+
+  if (
+    data.prReviewTodosSection &&
+    data.prReviewTodosSection.trim().length > 0
+  ) {
+    lines.push(sanitizeField(data.prReviewTodosSection.trimEnd()))
     lines.push('')
   }
 

@@ -5,6 +5,10 @@ import { renderArtifactSection } from '@/lib/context/render/artifact'
 import { renderDocumentSection } from '@/lib/context/render/document'
 import { renderCommentsSection } from '@/lib/context/render/comments'
 import { renderPRSection } from '@/lib/context/render/pr'
+import {
+  renderPrReviewTodosSection,
+  type ReviewTodoItem,
+} from '@/lib/context/render/pr-review-todos'
 import * as render from '@/lib/context/render'
 
 describe('renderSlackContextSection', () => {
@@ -387,8 +391,72 @@ describe('renderPRSection', () => {
   })
 })
 
+describe('renderPrReviewTodosSection', () => {
+  const lineTodo: ReviewTodoItem = {
+    kind: 'line',
+    prNumber: 7,
+    filePath: 'lib/foo.ts',
+    line: 42,
+    text: 'Extract this into a helper',
+    url: 'https://gh/c/1',
+    author: 'octocat',
+  }
+
+  it('returns empty string when there are no todos', () => {
+    expect(renderPrReviewTodosSection([])).toBe('')
+  })
+
+  it('renders a line-level todo as a checkbox with file:line, handle, and link', () => {
+    const out = renderPrReviewTodosSection([lineTodo])
+    expect(out).toContain('## PR Review 待办')
+    expect(out).toContain('- [ ] `lib/foo.ts:42` (@octocat) — Extract this into a helper')
+    expect(out).toContain('  ↳ https://gh/c/1')
+  })
+
+  it('renders a changes-requested summary with the 整体要求改动 marker', () => {
+    const out = renderPrReviewTodosSection([
+      {
+        kind: 'overall',
+        prNumber: 7,
+        filePath: null,
+        line: null,
+        text: 'Please address the comments',
+        url: 'https://gh/c/2',
+        author: null,
+      },
+    ])
+    expect(out).toContain('- [ ] 🛑 整体要求改动 — Please address the comments')
+    expect(out).not.toContain('(@')
+  })
+
+  it('omits the @handle when author is null', () => {
+    const out = renderPrReviewTodosSection([{ ...lineTodo, author: null }])
+    expect(out).toContain('- [ ] `lib/foo.ts:42` — Extract this into a helper')
+    expect(out).not.toContain('(@')
+  })
+
+  it('prefixes each todo with [#N] only when the task spans multiple PRs', () => {
+    const single = renderPrReviewTodosSection([lineTodo])
+    expect(single).not.toContain('[#7]')
+
+    const multi = renderPrReviewTodosSection([
+      lineTodo,
+      { ...lineTodo, prNumber: 9, url: 'https://gh/c/9' },
+    ])
+    expect(multi).toContain('[#7] `lib/foo.ts:42`')
+    expect(multi).toContain('[#9] `lib/foo.ts:42`')
+  })
+
+  it('drops the trailing " — " when a todo has no body text', () => {
+    const out = renderPrReviewTodosSection([{ ...lineTodo, text: '' }])
+    expect(out).toContain('- [ ] `lib/foo.ts:42` (@octocat)')
+    expect(out).not.toContain('— \n')
+    expect(out.split('\n')[2]).toBe('- [ ] `lib/foo.ts:42` (@octocat)')
+  })
+})
+
 describe('index barrel', () => {
-  it('re-exports all 7 render functions', () => {
+  it('re-exports all 8 render functions', () => {
     expect(typeof render.renderSlackContextSection).toBe('function')
     expect(typeof render.renderWebLinkSection).toBe('function')
     expect(typeof render.renderFigmaSection).toBe('function')
@@ -396,5 +464,6 @@ describe('index barrel', () => {
     expect(typeof render.renderDocumentSection).toBe('function')
     expect(typeof render.renderCommentsSection).toBe('function')
     expect(typeof render.renderPRSection).toBe('function')
+    expect(typeof render.renderPrReviewTodosSection).toBe('function')
   })
 })

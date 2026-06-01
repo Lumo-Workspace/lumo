@@ -53,7 +53,20 @@ jest.mock('@/lib/repositories/comment.repository', () => ({
   commentRepository: { listAllForTask: jest.fn().mockResolvedValue([]) },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: { listByTask: jest.fn().mockResolvedValue([]) },
+  pullRequestRepository: {
+    listByTask: jest.fn().mockResolvedValue([]),
+    listIdAndNumberByTask: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/pr-comment-mirror.repository', () => ({
+  prCommentMirrorRepository: {
+    listReviewTodosForPrs: jest.fn().mockResolvedValue([]),
+  },
+}))
+jest.mock('@/lib/repositories/actor.repository', () => ({
+  actorRepository: {
+    findGithubIdentitiesByIds: jest.fn().mockResolvedValue([]),
+  },
 }))
 jest.mock('@/lib/services/document.service', () => ({
   scheduleDocumentSummary: jest.fn(),

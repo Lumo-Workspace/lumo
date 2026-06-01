@@ -12,6 +12,19 @@ function escapeHtml(s: string): string {
 }
 export const HEADER_MARKER_CLOSE = '<!-- /pr-mirror-header -->'
 
+/**
+ * Header labels for mirrored `pull_request_review` summaries. Single source of
+ * truth shared by the inbound mirror (which writes these into the comment body)
+ * and the task-context review-todo builder (which reads them back to tell a
+ * `changes_requested` review apart from a plain comment / approval / dismissal).
+ */
+export const REVIEW_HEADER = {
+  COMMENTED: '💬 Commented',
+  APPROVED: '✅ Approved',
+  CHANGES_REQUESTED: '🛑 Requested changes',
+  DISMISSED: '📭 Review dismissed',
+} as const
+
 /** Resolve a Lumo clerkId → GitHub login (or null). */
 type LumoMentionResolver = (clerkId: string) => string | null
 
@@ -78,6 +91,16 @@ export function githubMarkdownToLumoHtml(
 /** Build a header marker block. */
 export function buildHeader(content: string): string {
   return `${HEADER_MARKER_OPEN}${content}${HEADER_MARKER_CLOSE}`
+}
+
+/**
+ * Strip the pr-mirror header marker block (and the label inside it) from a
+ * stored comment body. Used when surfacing a mirrored review comment as a
+ * todo — the file:line / "整体要求改动" prefix is rendered separately, so the
+ * header would otherwise be duplicated noise.
+ */
+export function stripPrMirrorHeader(body: string): string {
+  return body.replace(HEADER_RE, '')
 }
 
 /** Hash for race-patch placeholder fallback lookup. Normalizes line endings + whitespace. */

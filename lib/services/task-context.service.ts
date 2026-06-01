@@ -9,6 +9,8 @@ import { taskArtifactRepository } from '@/lib/repositories/task-artifact.reposit
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
+import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { scheduleDocumentSummary } from '@/lib/services/document.service'
 import { waitUntil } from '@vercel/functions'
@@ -21,8 +23,14 @@ import {
   renderDocumentSection,
   renderCommentsSection,
   renderPRSection,
+  renderPrReviewTodosSection,
+  type ReviewTodoItem,
   type SlackContextCard,
 } from '@/lib/context/render'
+import {
+  stripPrMirrorHeader,
+  REVIEW_HEADER,
+} from '@/lib/integrations/github/markdown-bridge'
 import {
   applyTokenBudget,
   renderMemorySection,
@@ -78,6 +86,8 @@ export interface TaskContext {
   commentsSection: string
   /** Pre-rendered "## Pull Requests" markdown; empty when none. */
   prSection: string
+  /** Pre-rendered "## PR Review 待办" markdown; empty when no review comments. */
+  prReviewTodosSection: string
   sessions: SessionContext[]
 }
 
@@ -180,6 +190,25 @@ function scheduleStaleDocumentSummaries(docs: ContextDocument[]): void {
   }
 }
 
+/**
+ * Reduce a mirrored comment's stored HTML body to a single line of plain text
+ * for a todo entry: drop the pr-mirror header block (the file:line / review
+ * label is rendered separately), strip tags, decode the handful of entities
+ * that survive, and collapse all whitespace so the bullet stays on one line.
+ */
+function mirrorBodyToText(html: string): string {
+  return stripPrMirrorHeader(html)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export const taskContextService = {
   /**
    * Build the "## Relevant Memory" markdown block for a given task.
@@ -220,6 +249,72 @@ export const taskContextService = {
     // `additionalContext` and is authored by arbitrary workspace members, so
     // it must be framed as untrusted reference data, not instructions (LUM-140).
     return wrapUntrustedMemory(renderMemorySection(applyTokenBudget(ordered)))
+  },
+
+  /**
+   * Build the "## PR Review 待办" markdown block for a task: mirrored PR review
+   * comments turned into a checkbox todo list. Includes every line-level
+   * comment (REVIEW_LINE) and every `changes_requested` review summary across
+   * the task's PRs; plain comment / approval / dismissal summaries and
+   * tombstoned rows are dropped. Reviewer handles are resolved from the
+   * GITHUB_USER pseudo-actor's `externalIdentity` — no Clerk call.
+   *
+   * Returns an empty string when the task has no qualifying review comments.
+   * Shared by `getContextForIdentifier` (on-demand) and the session-start hook
+   * (auto-injected as `additionalContext`).
+   */
+  async buildReviewTodosSectionForTask(taskId: string): Promise<string> {
+    const prs = await pullRequestRepository.listIdAndNumberByTask(taskId)
+    if (prs.length === 0) return ''
+
+    const prNumberById = new Map(prs.map(p => [p.id, p.number]))
+    const mirrors = await prCommentMirrorRepository.listReviewTodosForPrs(
+      prs.map(p => p.id)
+    )
+    if (mirrors.length === 0) return ''
+
+    // Resolve reviewer GitHub handles in one batch (GITHUB_USER actors only).
+    const actorIds = [
+      ...new Set(
+        mirrors
+          .map(m => m.comment.authorActorId)
+          .filter((id): id is string => id !== null)
+      ),
+    ]
+    const identities = await actorRepository.findGithubIdentitiesByIds(actorIds)
+    const loginByActorId = new Map(
+      identities
+        .filter(a => a.externalIdentity?.startsWith('github:'))
+        .map(a => [a.id, a.externalIdentity!.slice('github:'.length)])
+    )
+
+    const todos: ReviewTodoItem[] = []
+    for (const m of mirrors) {
+      // Keep line-level comments; for review summaries keep only changes_requested.
+      if (
+        m.externalSource === 'REVIEW' &&
+        !m.comment.body.includes(REVIEW_HEADER.CHANGES_REQUESTED)
+      ) {
+        continue
+      }
+      const text = mirrorBodyToText(m.comment.body)
+      // A line comment with no body after stripping is still actionable
+      // (the file:line is the ask); a review summary with no body is just the
+      // "changes requested" signal — both are worth surfacing.
+      todos.push({
+        kind: m.externalSource === 'REVIEW_LINE' ? 'line' : 'overall',
+        prNumber: prNumberById.get(m.pullRequestId) ?? 0,
+        filePath: m.filePath,
+        line: m.lineEnd ?? m.lineStart,
+        text,
+        url: m.externalUrl,
+        author: m.comment.authorActorId
+          ? (loginByActorId.get(m.comment.authorActorId) ?? null)
+          : null,
+      })
+    }
+
+    return renderPrReviewTodosSection(todos)
   },
 
   /**
@@ -297,6 +392,9 @@ export const taskContextService = {
     const prs = await pullRequestRepository.listByTask(resolved.id)
     const prSection = renderPRSection(prs)
 
+    const prReviewTodosSection =
+      await taskContextService.buildReviewTodosSectionForTask(resolved.id)
+
     const memorySection = await taskContextService.buildMemorySectionForTask(
       full.id
     )
@@ -336,6 +434,7 @@ export const taskContextService = {
       docSection,
       commentsSection,
       prSection,
+      prReviewTodosSection,
       sessions: sessions.map(s => ({
         id: s.id,
         startedAt: s.startedAt.toISOString(),

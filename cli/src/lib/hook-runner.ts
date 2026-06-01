@@ -80,7 +80,8 @@ function readStdin(): Promise<string> {
  *
  * For 'session-start' the array contains:
  *   [0] plain-text bind/unbound status line (always present when taskBinding exists)
- *   [1] (optional) hookSpecificOutput JSON when memorySection is a non-empty string
+ *   [1] (optional) hookSpecificOutput JSON when there is any additionalContext —
+ *       the memory section and the PR-review-todos section, concatenated.
  *
  * The JSON on line [1] conforms to Claude Code's hookSpecificOutput envelope so
  * the runtime injects additionalContext into the conversation automatically.
@@ -99,6 +100,7 @@ export function formatHookStdoutLines(
       taskTitle?: string
     }
     memorySection?: string
+    reviewTodosSection?: string
   }
   if (!body.sessionId) return []
   const lines: string[] = []
@@ -113,12 +115,17 @@ export function formatHookStdoutLines(
       `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
     )
   }
-  if (typeof body.memorySection === 'string' && body.memorySection !== '') {
+  // Memory + PR-review todos share one additionalContext block so Claude Code
+  // injects a single coherent context payload at session start.
+  const contextParts = [body.memorySection, body.reviewTodosSection].filter(
+    (s): s is string => typeof s === 'string' && s !== ''
+  )
+  if (contextParts.length > 0) {
     lines.push(
       JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'SessionStart',
-          additionalContext: body.memorySection,
+          additionalContext: contextParts.join('\n\n'),
         },
       })
     )

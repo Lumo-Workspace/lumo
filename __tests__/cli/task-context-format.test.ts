@@ -136,6 +136,39 @@ describe('formatTaskContextMarkdown', () => {
     expect(mdMissing).not.toContain('## Relevant Memory')
   })
 
+  it('renders prReviewTodosSection (after PRs, before sessions) when present', () => {
+    const md = formatTaskContextMarkdown(
+      {
+        task: baseTask,
+        prSection: '## Pull Requests\n\n- #7 Do the thing — open · passing',
+        prReviewTodosSection:
+          '## PR Review 待办\n\n- [ ] `lib/foo.ts:42` (@octocat) — Extract this\n  ↳ https://gh/c/1',
+        sessions: [],
+      },
+      now
+    )
+    const prIdx = md.indexOf('## Pull Requests')
+    const todoIdx = md.indexOf('## PR Review 待办')
+    const sessIdx = md.indexOf('## Previous Sessions')
+    expect(prIdx).toBeGreaterThan(0)
+    expect(prIdx).toBeLessThan(todoIdx)
+    expect(todoIdx).toBeLessThan(sessIdx)
+    expect(md).toContain('- [ ] `lib/foo.ts:42` (@octocat) — Extract this')
+  })
+
+  it('omits the PR Review 待办 section when empty or missing', () => {
+    const mdEmpty = formatTaskContextMarkdown(
+      { task: baseTask, prReviewTodosSection: '', sessions: [] },
+      now
+    )
+    const mdMissing = formatTaskContextMarkdown(
+      { task: baseTask, sessions: [] },
+      now
+    )
+    expect(mdEmpty).not.toContain('## PR Review 待办')
+    expect(mdMissing).not.toContain('## PR Review 待办')
+  })
+
   it('renders "just now" / "Xmin ago" / "yesterday" per relative-time rules', () => {
     const mk = (offsetSec: number) => ({
       id: 'x12345678',

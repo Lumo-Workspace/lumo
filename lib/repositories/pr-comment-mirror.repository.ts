@@ -149,4 +149,39 @@ export const prCommentMirrorRepository = {
       data: { deletedAt: new Date() },
     })
   },
+
+  /**
+   * Mirrored review comments across a set of PRs, for the task-context
+   * "PR Review 待办" section. Returns line-level review comments (REVIEW_LINE)
+   * and review summaries (REVIEW); the caller keeps only the `changes_requested`
+   * summaries. Tombstoned mirrors and soft-deleted comments are excluded.
+   * Ordered file → line → update time so the todo list reads top-to-bottom.
+   */
+  async listReviewTodosForPrs(pullRequestIds: string[]) {
+    if (pullRequestIds.length === 0) return []
+    return prisma.prCommentMirror.findMany({
+      where: {
+        pullRequestId: { in: pullRequestIds },
+        deletedAt: null,
+        externalSource: { in: ['REVIEW_LINE', 'REVIEW'] },
+        comment: { deletedAt: null },
+      },
+      select: {
+        pullRequestId: true,
+        externalSource: true,
+        externalUrl: true,
+        filePath: true,
+        lineStart: true,
+        lineEnd: true,
+        comment: {
+          select: { body: true, authorActorId: true, createdAt: true },
+        },
+      },
+      orderBy: [
+        { filePath: 'asc' },
+        { lineEnd: 'asc' },
+        { externalUpdatedAt: 'asc' },
+      ],
+    })
+  },
 }

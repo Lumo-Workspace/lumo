@@ -122,13 +122,16 @@ The command prints a markdown document to stdout containing:
 
 1. **Task header** — identifier, title, status, description
 2. **Memory section** — cross-session learnings accumulated over prior sessions; treat as trusted background context
-3. **Previous sessions** — ordered newest-first, each with:
+3. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below)
+4. **PR Review 待办** — mirrored PR review comments as a checkbox todo list: each line-level reviewer comment (shown as `` `file:line` `` + the reviewer's ask + a link to the GitHub comment) and each `changes_requested` review summary (shown as "🛑 整体要求改动"). Present only when the task's PR(s) have review comments. This same block is **auto-injected at session start** (alongside the memory section) when the session is bound to a task — so reviewer asks surface without re-running `task context`.
+5. **Previous sessions** — ordered newest-first, each with:
    - A headline summary of what was done
    - Unresolved items (carry-over TODOs from that session)
 
 ### How to use the context
 
 - **Unresolved items** from the most recent session are the highest-priority carry-overs — address them before starting new work unless the user says otherwise
+- **PR Review 待办** items are reviewer-requested changes — treat each unchecked box as a TODO to resolve, then reply on the PR (a Lumo comment mirrors back to GitHub)
 - **Memory section** provides validated context that persists across sessions — use it to avoid re-learning decisions or constraints
 - Focus on the **most recent 1–2 sessions** for relevant state; older sessions are for historical reference only
 - If there are **no prior sessions**, this is a fresh start — read the task description carefully and ask clarifying questions if needed
