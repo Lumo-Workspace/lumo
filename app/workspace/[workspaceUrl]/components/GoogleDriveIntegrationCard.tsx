@@ -52,7 +52,7 @@ export function GoogleDriveIntegrationCard({
   ) : (
     <Button size='sm' asChild>
       <a href={API.googleDrive.oauth(workspaceUrl)}>
-        {intl.formatMessage({ id: 'googleDrive.connectGoogle' })}
+        {intl.formatMessage({ id: 'common.connect' })}
       </a>
     </Button>
   )

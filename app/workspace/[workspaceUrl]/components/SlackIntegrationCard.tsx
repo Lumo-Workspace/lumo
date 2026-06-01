@@ -51,7 +51,7 @@ export function SlackIntegrationCard({
     </span>
   ) : isOwner ? (
     <Button size='sm' onClick={handleConnect}>
-      {intl.formatMessage({ id: 'slack.connectSlack' })}
+      {intl.formatMessage({ id: 'common.connect' })}
     </Button>
   ) : null
 

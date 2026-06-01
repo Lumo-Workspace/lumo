@@ -52,7 +52,7 @@ export function FigmaIntegrationCard({
   ) : (
     <Button size='sm' asChild>
       <a href={API.figma.oauth(workspaceUrl)}>
-        {intl.formatMessage({ id: 'figma.connectFigma' })}
+        {intl.formatMessage({ id: 'common.connect' })}
       </a>
     </Button>
   )

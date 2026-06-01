@@ -69,7 +69,7 @@ export function GitHubIntegrationCard({
     </span>
   ) : isOwner ? (
     <Button size='sm' onClick={handleConnect}>
-      {intl.formatMessage({ id: 'github.connectGitHub' })}
+      {intl.formatMessage({ id: 'common.connect' })}
     </Button>
   ) : null
 

@@ -57,7 +57,7 @@ export function SentryIntegrationCard({
     </span>
   ) : isOwner ? (
     <Button size='sm' onClick={() => setConnectOpen(true)}>
-      {intl.formatMessage({ id: 'sentry.connectSentry' })}
+      {intl.formatMessage({ id: 'common.connect' })}
     </Button>
   ) : null
 

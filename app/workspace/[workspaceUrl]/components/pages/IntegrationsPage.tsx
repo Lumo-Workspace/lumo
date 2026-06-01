@@ -1,14 +1,30 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
+import {
+  INTEGRATIONS,
+  type IntegrationId,
+  type IntegrationKind,
+} from '@/lib/integrations/registry'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { SentryIntegrationCard } from '../SentryIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
 import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
+
+// Sections render top-to-bottom in this fixed order. Integrations within a
+// section follow the registry's declaration order, then connected cards float
+// to the top via CSS `order` (see the per-card wrapper below).
+const KIND_ORDER: readonly IntegrationKind[] = ['TEAM', 'PERSONAL']
+
+// Maps a kind to the i18n key prefix for its section header copy.
+const SECTION_KEY: Record<IntegrationKind, string> = {
+  TEAM: 'team',
+  PERSONAL: 'personal',
+}
 
 export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   const intl = useIntl()
@@ -43,6 +59,47 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     }
   }, [intl])
 
+  // Each integration owns its card markup (the cards take heterogeneous props
+  // and self-title via their own i18n keys); the registry only decides which
+  // section a card lands in.
+  const cards: Record<IntegrationId, ReactNode> = {
+    github: (
+      <GitHubIntegrationCard
+        workspaceUrl={workspaceUrl}
+        isOwner={isOwner}
+        onConnectedChange={reporters.github}
+      />
+    ),
+    slack: (
+      <SlackIntegrationCard
+        isOwner={isOwner}
+        onConnectedChange={reporters.slack}
+      />
+    ),
+    sentry: (
+      <SentryIntegrationCard
+        isOwner={isOwner}
+        onConnectedChange={reporters.sentry}
+      />
+    ),
+    figma: <FigmaIntegrationCard onConnectedChange={reporters.figma} />,
+    googleDrive: (
+      <GoogleDriveIntegrationCard onConnectedChange={reporters.googleDrive} />
+    ),
+  }
+
+  // Group integration ids by kind from the registry (single source of truth).
+  const idsByKind = useMemo(() => {
+    const groups: Record<IntegrationKind, IntegrationId[]> = {
+      TEAM: [],
+      PERSONAL: [],
+    }
+    for (const { id, kind } of Object.values(INTEGRATIONS)) {
+      groups[kind].push(id)
+    }
+    return groups
+  }, [])
+
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
@@ -53,34 +110,34 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
           {intl.formatMessage({ id: 'integrations.description' })}
         </p>
 
-        <div className='flex flex-col gap-4'>
-          <div style={{ order: (connectedMap.github ? 0 : 100) + 0 }}>
-            <GitHubIntegrationCard
-              workspaceUrl={workspaceUrl}
-              isOwner={isOwner}
-              onConnectedChange={reporters.github}
-            />
-          </div>
-          <div style={{ order: (connectedMap.slack ? 0 : 100) + 1 }}>
-            <SlackIntegrationCard
-              isOwner={isOwner}
-              onConnectedChange={reporters.slack}
-            />
-          </div>
-          <div style={{ order: (connectedMap.sentry ? 0 : 100) + 2 }}>
-            <SentryIntegrationCard
-              isOwner={isOwner}
-              onConnectedChange={reporters.sentry}
-            />
-          </div>
-          <div style={{ order: (connectedMap.figma ? 0 : 100) + 3 }}>
-            <FigmaIntegrationCard onConnectedChange={reporters.figma} />
-          </div>
-          <div style={{ order: (connectedMap.googleDrive ? 0 : 100) + 4 }}>
-            <GoogleDriveIntegrationCard
-              onConnectedChange={reporters.googleDrive}
-            />
-          </div>
+        <div className='flex flex-col gap-10'>
+          {KIND_ORDER.map(kind => {
+            const ids = idsByKind[kind]
+            if (ids.length === 0) return null
+            const section = SECTION_KEY[kind]
+            return (
+              <section key={kind}>
+                <h2 className='text-sm font-medium text-foreground mb-1'>
+                  {intl.formatMessage({ id: `integrations.${section}.title` })}
+                </h2>
+                <p className='text-sm text-muted-foreground mb-4'>
+                  {intl.formatMessage({
+                    id: `integrations.${section}.description`,
+                  })}
+                </p>
+                <div className='flex flex-col gap-4'>
+                  {ids.map((id, index) => (
+                    <div
+                      key={id}
+                      style={{ order: (connectedMap[id] ? 0 : 100) + index }}
+                    >
+                      {cards[id]}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       </div>
     </div>
