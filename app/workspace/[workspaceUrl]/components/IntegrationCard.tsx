@@ -9,6 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface IntegrationCardProps {
   /** Brand glyph, already sized (typically `h-[18px] w-[18px]`). */
@@ -48,10 +53,18 @@ interface IntegrationCardProps {
  */
 export function ConnectedDot({ label }: { label: string }) {
   return (
-    <span className='flex items-center' title={label}>
-      <span className='size-2 rounded-full bg-emerald-500' aria-hidden='true' />
-      <span className='sr-only'>{label}</span>
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='flex items-center'>
+          <span
+            className='size-2 rounded-full bg-emerald-500'
+            aria-hidden='true'
+          />
+          <span className='sr-only'>{label}</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 
