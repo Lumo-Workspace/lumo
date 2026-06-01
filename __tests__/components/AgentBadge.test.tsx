@@ -42,4 +42,10 @@ describe('AgentBadge', () => {
     // ignore the <title> inside the lobehub SVG glyph, which also reads "Codex"
     expect(getByText('Codex', { ignore: 'title' })).toBeInTheDocument()
   })
+
+  it('falls back to Claude Code for an unknown agent value', () => {
+    // @ts-expect-error — intentionally passing a value outside the enum
+    const { getByText } = render(<AgentBadge agent={'BOGUS'} />)
+    expect(getByText('Claude Code')).toBeInTheDocument()
+  })
 })
