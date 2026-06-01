@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { Check, Loader2 } from 'lucide-react'
 import { SlackIcon } from './SlackIcon'
@@ -17,7 +18,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useSlackIntegration } from '../hooks/useSlackIntegration'
 
-export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
+export function SlackIntegrationCard({
+  isOwner,
+  onConnectedChange,
+}: {
+  isOwner: boolean
+  onConnectedChange?: (connected: boolean) => void
+}) {
   const intl = useIntl()
   const {
     status,
@@ -28,6 +35,12 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
     handleConnect,
     handleDisconnect,
   } = useSlackIntegration()
+
+  const connected = status?.connected === true
+
+  useEffect(() => {
+    onConnectedChange?.(connected)
+  }, [connected, onConnectedChange])
 
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
@@ -49,6 +62,11 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
         title={intl.formatMessage({ id: 'slack.title' })}
         description={intl.formatMessage({ id: 'slack.description' })}
         headerAction={headerAction}
+        collapsible={connected}
+        onDisconnect={
+          connected && isOwner ? () => setDisconnectOpen(true) : undefined
+        }
+        disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
       >
         {status?.connected ? (
           <>
@@ -68,19 +86,6 @@ export function SlackIntegrationCard({ isOwner }: { isOwner: boolean }) {
             <p className='text-xs text-zinc-400 dark:text-zinc-500'>
               {intl.formatMessage({ id: 'slack.channelNote' })}
             </p>
-
-            {isOwner && (
-              <div className='flex items-center justify-end pt-1'>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='text-zinc-400 hover:text-destructive'
-                  onClick={() => setDisconnectOpen(true)}
-                >
-                  {intl.formatMessage({ id: 'common.disconnect' })}
-                </Button>
-              </div>
-            )}
           </>
         ) : null}
       </IntegrationCard>
