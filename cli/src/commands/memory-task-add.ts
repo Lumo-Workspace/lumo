@@ -2,9 +2,11 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
+import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 
 interface AddOptions extends MemoryFlags {
   category?: string
+  agent?: string
 }
 
 export async function memoryTaskAdd(
@@ -19,6 +21,17 @@ export async function memoryTaskAdd(
   if (!built.ok) {
     console.error(`Error: ${built.error}`)
     return 1
+  }
+
+  let agent: string | undefined
+  const agentRaw = options.agent?.trim()
+  if (agentRaw) {
+    const normalized = normalizeAgent(agentRaw)
+    if (!normalized) {
+      console.error(`Error: invalid --agent "${agentRaw}". Valid values: ${VALID_AGENT_TOKENS.join(', ')}.`)
+      return 1
+    }
+    agent = normalized
   }
 
   const creds = readCredentials()
@@ -58,7 +71,11 @@ export async function memoryTaskAdd(
     res = await fetch(`${base}/api/tasks/${encodeURIComponent(taskId)}/memories`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: built.category, content: built.content }),
+      body: JSON.stringify({
+        category: built.category,
+        content: built.content,
+        ...(agent ? { agent } : {}),
+      }),
     })
   } catch (err) {
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${err instanceof Error ? err.message : String(err)})`)

@@ -1038,11 +1038,15 @@ lumo task memory list [LUM-N] [--category trap|decision|convention|procedural] [
 lumo project memory list [<project>] [--category ...] [-n N]
 
 # Add (per-category fields; <task>/<project> default to the session-bound task)
-lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."]
-lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."]
-lumo task memory add [LUM-N] --category convention --rule "..." --applies "..."
-lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."]
-lumo project memory add [<project>] --category ...   # same flags; records at PROJECT scope
+lumo task memory add [LUM-N] --category trap --trigger "..." --outcome "..." [--workaround "..."] [--agent <agent>]
+lumo task memory add [LUM-N] --category decision --what "..." --why "..." [--alternatives "..."] [--implications "..."] [--agent <agent>]
+lumo task memory add [LUM-N] --category convention --rule "..." --applies "..." [--agent <agent>]
+lumo task memory add [LUM-N] --category procedural --workflow "..." --trigger "..." [--step "..." --step "..."] [--agent <agent>]
+lumo project memory add [<project>] --category ... [--agent <agent>]   # same flags; records at PROJECT scope
+
+# --agent values: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)
+# Aliases: gemini → gemini-cli, copilot → github-copilot (case-insensitive)
+# Omitting --agent records the memory as produced by Claude Code.
 
 # Single-memory ops (memoryId from `... memory list` column 1)
 lumo memory promote <memoryId>     # TASK → PROJECT

@@ -403,6 +403,10 @@ taskMemory
   .option('--applies <text>', 'convention: where the rule applies')
   .option('--workflow <text>', 'procedural: the workflow name')
   .option('--step <text>', 'procedural: a step (repeatable)', collect, [])
+  .option(
+    '--agent <agent>',
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)'
+  )
   .action(
     wrap((taskArg: unknown, opts: unknown) =>
       memoryTaskAdd(
@@ -548,6 +552,10 @@ projectMemory
   .option('--applies <text>', 'convention: where it applies')
   .option('--workflow <text>', 'procedural workflow')
   .option('--step <text>', 'procedural step (repeatable)', collect, [])
+  .option(
+    '--agent <agent>',
+    'Producing agent: claude-code | codex | cursor | gemini-cli | github-copilot | windsurf (default claude-code)'
+  )
   .action(
     wrap((p: unknown, opts: unknown) =>
       memoryProjectAdd(p as string | undefined, opts as Record<string, unknown>)
