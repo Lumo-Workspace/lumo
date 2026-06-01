@@ -57,6 +57,34 @@ range: `/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g`.
 
 ### 3. Application points (untrusted, server-controlled fields only)
 
+> **Scope note (added during implementation).** The enumeration below was the
+> initial pass. Adversarial completeness sweeps during implementation found the
+> list was incomplete relative to the security goal ("strip control chars from
+> **all** untrusted server fields, stdout **and** stderr"). The final
+> implementation therefore covers, in addition to the list below:
+> - **All `show` / `list` / `context` formatters:** `task show`, `task context`
+>   (incl. the server **memory section** + every context section blob),
+>   `sprint show/list`, `milestone show/list`, `doc show`, `project list`,
+>   `task artifact list`, `task figma list`, `doc share-list`, `session
+>   status/detach` task titles, `whoami` workspace/key names + email,
+>   `auth-login`/`auth-logout` email.
+> - **Memory free-text** via `memory-content.ts` `headline()` (drives
+>   `memory task/project memory list`): trigger/what/rule/workflow/etc.
+> - **Tag names** in the `Tags:` line of every create/update formatter (task + doc).
+> - **All server error-body strings** (`res.json().error` / `res.text()`),
+>   wrapped at each `console.error(\`Error: ${serverMsg}\`)` site, at the central
+>   `index.ts` catch (covers all throw-based paths), and at the single point in
+>   helper-thrown messages that embed the server body (`tag-resolver.ts`,
+>   `resolve-member.ts`).
+> - **stderr** refusal / ambiguous-candidate / sync-error messages
+>   (`sprint-close`/`sprint-delete`/`milestone-delete` refusals, `doc-move` /
+>   `resolve-doc-id` candidate lists, figma `syncError` / refresh `r.error`),
+>   plus the hook session-start `taskTitle`.
+>
+> A final static trace triaged **259** interpolating output sites; **64** carry
+> untrusted free-text and are all wrapped (≈230 `sanitizeField` call-sites
+> total). The categories below remain the canonical "definitely sanitize" core.
+
 Apply `sanitizeField()` immediately before the value is emitted.
 
 **In format-layer helpers (sanitize inside the helper; callers unchanged):**
