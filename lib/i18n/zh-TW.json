@@ -431,7 +431,6 @@
   "github.title": "GitHub",
   "github.description": "將儲存庫關聯到任務並自動化工作流程。",
   "github.connected": "已連線",
-  "github.connectedAs": "已連線為",
   "github.authorizedRepos": "已授權的儲存庫",
   "github.noRepos": "尚未新增儲存庫。",
   "github.addRepo": "新增儲存庫",

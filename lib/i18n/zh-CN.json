@@ -328,7 +328,6 @@
   "github.title": "GitHub",
   "github.description": "将仓库关联到任务并自动化工作流。",
   "github.connected": "已连接",
-  "github.connectedAs": "已连接为",
   "github.authorizedRepos": "已授权的仓库",
   "github.noRepos": "尚未添加仓库。",
   "github.addRepo": "添加仓库",

@@ -345,7 +345,6 @@
   "github.title": "GitHub",
   "github.description": "Link repositories to tasks and automate workflows.",
   "github.connected": "Connected",
-  "github.connectedAs": "Connected as",
   "github.authorizedRepos": "Authorized repositories",
   "github.noRepos": "No repositories added yet.",
   "github.addRepo": "Add repository",

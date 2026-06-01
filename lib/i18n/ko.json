@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "저장소를 작업에 연결하고 워크플로를 자동화합니다.",
   "github.connected": "연결됨",
-  "github.connectedAs": "다음으로 연결됨",
   "github.authorizedRepos": "승인된 저장소",
   "github.noRepos": "아직 추가된 저장소가 없습니다.",
   "github.addRepo": "저장소 추가",

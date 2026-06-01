@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "Pautkan repositori ke tugasan dan automatikkan aliran kerja.",
   "github.connected": "Disambung",
-  "github.connectedAs": "Disambung sebagai",
   "github.authorizedRepos": "Repositori yang dibenarkan",
   "github.noRepos": "Tiada repositori ditambah lagi.",
   "github.addRepo": "Tambah repositori",
