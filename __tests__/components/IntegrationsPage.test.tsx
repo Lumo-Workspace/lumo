@@ -76,6 +76,10 @@ function orderOf(testId: string): number {
   return parseInt(wrapper.style.order, 10)
 }
 
+function wrapperOf(testId: string): HTMLElement {
+  return screen.getByTestId(testId).parentElement as HTMLElement
+}
+
 describe('IntegrationsPage', () => {
   beforeEach(() => {
     for (const k of Object.keys(CONNECTED)) delete CONNECTED[k]
@@ -128,5 +132,53 @@ describe('IntegrationsPage', () => {
     expect(orderOf('card-slack')).toBeGreaterThanOrEqual(100)
     expect(orderOf('card-sentry')).toBeGreaterThanOrEqual(100)
     expect(orderOf('card-github')).toBeLessThan(orderOf('card-slack'))
+  })
+})
+
+describe('IntegrationsPage — non-owner visibility', () => {
+  beforeEach(() => {
+    for (const k of Object.keys(CONNECTED)) delete CONNECTED[k]
+  })
+
+  it('hides unconnected TEAM cards but shows connected ones', () => {
+    CONNECTED.github = true // only GitHub connected
+    render(<IntegrationsPage isOwner={false} />)
+    expect(wrapperOf('card-github').hidden).toBe(false)
+    expect(wrapperOf('card-slack').hidden).toBe(true)
+    expect(wrapperOf('card-sentry').hidden).toBe(true)
+  })
+
+  it('always shows PERSONAL cards to non-owners', () => {
+    render(<IntegrationsPage isOwner={false} />)
+    expect(wrapperOf('card-figma').hidden).toBe(false)
+    expect(wrapperOf('card-googleDrive').hidden).toBe(false)
+  })
+
+  it('hides the TEAM section when no team integration is connected', () => {
+    const { container } = render(<IntegrationsPage isOwner={false} />)
+    const teamSection = container.querySelectorAll('section')[0] as HTMLElement
+    expect(teamSection.hidden).toBe(true)
+  })
+
+  it('shows the TEAM section when at least one team integration is connected', () => {
+    CONNECTED.slack = true
+    const { container } = render(<IntegrationsPage isOwner={false} />)
+    const teamSection = container.querySelectorAll('section')[0] as HTMLElement
+    expect(teamSection.hidden).toBe(false)
+  })
+})
+
+describe('IntegrationsPage — owner visibility', () => {
+  beforeEach(() => {
+    for (const k of Object.keys(CONNECTED)) delete CONNECTED[k]
+  })
+
+  it('shows every TEAM card and the TEAM section even when none are connected', () => {
+    const { container } = render(<IntegrationsPage isOwner />)
+    expect(wrapperOf('card-github').hidden).toBe(false)
+    expect(wrapperOf('card-slack').hidden).toBe(false)
+    expect(wrapperOf('card-sentry').hidden).toBe(false)
+    const teamSection = container.querySelectorAll('section')[0] as HTMLElement
+    expect(teamSection.hidden).toBe(false)
   })
 })

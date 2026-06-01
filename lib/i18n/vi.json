@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "Liên kết kho lưu trữ với nhiệm vụ và tự động hóa quy trình làm việc.",
   "github.connected": "Đã kết nối",
-  "github.connectedAs": "Đã kết nối với tư cách",
   "github.authorizedRepos": "Kho lưu trữ được ủy quyền",
   "github.noRepos": "Chưa có kho lưu trữ nào được thêm.",
   "github.addRepo": "Thêm kho lưu trữ",

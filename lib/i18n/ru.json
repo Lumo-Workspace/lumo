@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "Привязывайте репозитории к задачам и автоматизируйте рабочие процессы.",
   "github.connected": "Подключено",
-  "github.connectedAs": "Подключено как",
   "github.authorizedRepos": "Авторизованные репозитории",
   "github.noRepos": "Репозитории ещё не добавлены.",
   "github.addRepo": "Добавить репозиторий",

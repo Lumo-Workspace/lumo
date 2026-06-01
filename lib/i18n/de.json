@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "Verknüpfen Sie Repositories mit Aufgaben und automatisieren Sie Workflows.",
   "github.connected": "Verbunden",
-  "github.connectedAs": "Verbunden als",
   "github.authorizedRepos": "Autorisierte Repositories",
   "github.noRepos": "Noch keine Repositories hinzugefügt.",
   "github.addRepo": "Repository hinzufügen",

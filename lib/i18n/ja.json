@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "リポジトリをタスクにリンクしてワークフローを自動化します。",
   "github.connected": "接続済み",
-  "github.connectedAs": "接続済みユーザー",
   "github.authorizedRepos": "認証済みリポジトリ",
   "github.noRepos": "リポジトリはまだ追加されていません。",
   "github.addRepo": "リポジトリを追加",

@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "रिपॉज़िटरी को कार्यों से लिंक करें और वर्कफ़्लो स्वचालित करें।",
   "github.connected": "कनेक्टेड",
-  "github.connectedAs": "इस रूप में कनेक्टेड",
   "github.authorizedRepos": "अधिकृत रिपॉज़िटरी",
   "github.noRepos": "अभी कोई रिपॉज़िटरी नहीं जोड़ी गई।",
   "github.addRepo": "रिपॉज़िटरी जोड़ें",

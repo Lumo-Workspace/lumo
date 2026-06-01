@@ -288,7 +288,6 @@
   "github.title": "GitHub",
   "github.description": "Liez des dépôts aux tâches et automatisez les flux de travail.",
   "github.connected": "Connecté",
-  "github.connectedAs": "Connecté en tant que",
   "github.authorizedRepos": "Dépôts autorisés",
   "github.noRepos": "Aucun dépôt ajouté pour l'instant.",
   "github.addRepo": "Ajouter un dépôt",

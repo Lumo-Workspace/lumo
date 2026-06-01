@@ -88,18 +88,6 @@ export function GitHubIntegrationCard({
       >
         {status?.connected ? (
           <>
-            <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-              {intl.formatMessage({ id: 'github.connectedAs' })}{' '}
-              <a
-                href={`https://github.com/${status.githubLogin}`}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='font-medium text-zinc-700 dark:text-zinc-300 hover:underline'
-              >
-                @{status.githubLogin}
-              </a>
-            </p>
-
             {/* Authorized repos */}
             <div>
               <p className='text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2'>
