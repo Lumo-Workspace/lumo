@@ -211,6 +211,47 @@ export const memoryRepository = {
   },
 
   /**
+   * Try to claim the Layer 2 consolidation lease for a project. Atomic: the
+   * guarded `updateMany` only matches (and thus only one concurrent caller
+   * wins the row lock) when the lease is unset or already expired. Returns
+   * true if this caller acquired it, false if another run holds it.
+   *
+   * This is the cross-instance serialization Layer 2 relies on — `waitUntil`
+   * fan-out from concurrent task completions can run in separate serverless
+   * instances, so an in-process lock is insufficient; the DB row is the only
+   * shared point of truth.
+   */
+  async tryClaimLayer2Lease(
+    projectId: string,
+    until: Date,
+    now: Date
+  ): Promise<boolean> {
+    const res = await prisma.project.updateMany({
+      where: {
+        id: projectId,
+        OR: [
+          { memoryConsolidationLockedUntil: null },
+          { memoryConsolidationLockedUntil: { lt: now } },
+        ],
+      },
+      data: { memoryConsolidationLockedUntil: until },
+    })
+    return res.count === 1
+  },
+
+  /**
+   * Release the Layer 2 lease for a project. Uses `updateMany` (not `update`)
+   * so a missing/changed row is a no-op rather than a throw — release runs in
+   * a `finally` and must never mask the original error.
+   */
+  async releaseLayer2Lease(projectId: string): Promise<void> {
+    await prisma.project.updateMany({
+      where: { id: projectId },
+      data: { memoryConsolidationLockedUntil: null },
+    })
+  },
+
+  /**
    * Run a batch of memory mutation plans atomically. Each plan receives the
    * transaction client and is expected to call back into this repository
    * (create / updateContent / delete) so every primitive participates in the

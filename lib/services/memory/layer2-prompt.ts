@@ -35,9 +35,19 @@ Same four categories as Layer 1: TRAP, DECISION, CONVENTION, PROCEDURAL. Use the
 - CONVENTION: { summary?: string, rule: string, scope: string }
 - PROCEDURAL: { summary?: string, workflow: string, trigger: string, steps?: string[] }
 
-All headline/detail string fields must be non-empty, full sentences, readable cold by a teammate who never saw the source tasks.
+All headline/detail string fields must be non-empty and readable cold by a teammate who never saw the source tasks — but write them like notes, not documentation (see Writing style below). Clear fragments beat padded full sentences.
 
-\`summary\` (every category) is a very short label — at most ~8 words / ~60 characters, no trailing period — used verbatim as the memory card TITLE. It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which stays the full sentence shown beneath the title. Synthesize one for every promoted memory; omit only if you cannot compress below the headline's length. When present it must be non-empty.
+\`summary\` (every category) is a very short label — at most ~8 words / ~60 characters, no trailing period — used verbatim as the memory card TITLE. It must be SHORTER than the headline field (\`trigger\` / \`what\` / \`rule\` / \`workflow\`), which holds the full lesson shown beneath the title. Synthesize one for every promoted memory; omit only if you cannot compress below the headline's length. When present it must be non-empty.
+
+# Writing style
+
+You are writing for another agent that loads this into context later — every wasted word is wasted tokens on every future retrieval. Write like a senior engineer's note to future-self, not like a doc.
+
+- Plain words, real verbs. Say it the way you'd say it out loud to a teammate. Avoid abstract-noun jargon: "ambiguous identifier resolution in API endpoints" → "two records have the same name and the code grabs the first one". "resolve a reference" → "look up a name"; "disambiguation logic" → "ask which one". Short is NOT enough — it must also be plain.
+- Compress, but never by stacking abstract nouns. Clear fragments, arrows (\`→\`), shorthand, dropped articles are all fine. A grammatically complete sentence is NOT the goal.
+- Cut connective padding: "this means…", "this is because…", "which can lead to…". Explain WHY only when counter-intuitive.
+- One point per memory; if it fits on one line, don't spend two. Don't enumerate exhaustively — representative case + "etc.".
+- A promoted memory is a *synthesis*, so it's even more tempting to dress it up in general-sounding abstractions. Resist hardest here: generalize the lesson but keep the words concrete and plain.
 
 # Operations
 
@@ -55,7 +65,11 @@ All headline/detail string fields must be non-empty, full sentences, readable co
 
 # Length guidance
 
-Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`) are one full sentence, roughly 12–25 words. Detail fields are 1–3 sentences of narration.`
+Tight by default. A whole memory is usually 1–2 lines; only PROCEDURAL earns a step list.
+
+- Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`): one line, ideally under ~15 words. A clear fragment is fine — it need not be a complete sentence.
+- Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence. A second sentence only when the point is genuinely counter-intuitive. \`alternatives\`/\`implications\` stay one clause each, never a paragraph.
+- Don't write to a length. One-clause lesson → ship one clause.`
 
 export function buildLayer2Prompt(input: Layer2Input): BuiltPrompt {
   const taskMemoriesByTask = groupMemoriesByTask(input.taskMemories)
@@ -84,7 +98,7 @@ export function buildLayer2Prompt(input: Layer2Input): BuiltPrompt {
 
   const examples = `# Examples
 
-Example 1 — promote a recurring TRAP that appeared in two different tasks
+Example 1 — promote a recurring TRAP that appeared in two different tasks. Note: the source TASK rows are wordy, but the promoted output is cut to the bone.
 TASK-scope memories:
   task=task_a (1 memories):
     - id=mem_1 category=TRAP content={"trigger":"If you add a new value to a Postgres enum and use it in the same Prisma migration, the migration will fail.","outcome":"Prisma exits with P3009 — Postgres does not allow altering an enum and reading the new value in one transaction."}
@@ -96,8 +110,8 @@ Output:
     { "type": "ADD", "category": "TRAP",
       "content": {
         "summary": "Enum value + use in one migration fails",
-        "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction, so the migration cannot run end-to-end."
+        "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
+        "outcome": "Fails with P3009 — Postgres won't alter an enum and read the new value in one transaction."
       } } ] }
 
 Example 2 — NOOP when the recurring lesson is already at PROJECT scope
@@ -128,9 +142,35 @@ Output:
   { "operations": [
     { "type": "UPDATE", "id": "proj_mem_2",
       "content": {
-        "trigger": "If you add a new value to a Postgres enum and use that value in the same Prisma migration, the migration will fail.",
-        "outcome": "Prisma exits with error P3009. Postgres does not allow altering an enum and reading the new value inside the same transaction. Do not try to recover with \`prisma migrate resolve --applied\` — it marks the migration applied without running the SQL, leaving the schema half-migrated.",
-        "workaround": "Split the change into two migrations: one adds the enum value, the next uses it."
+        "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
+        "outcome": "Fails with P3009. \`migrate resolve --applied\` doesn't help — marks it applied without running the SQL, leaving the schema half-migrated.",
+        "workaround": "Split into two migrations: one adds the value, the next uses it."
+      } } ] }
+
+Example 5 — plain words, not abstract-noun jargon (contrastive). Both promote the SAME recurring lesson; the difference is ONLY the wording.
+TASK-scope memories:
+  task=task_f (1 memories):
+    - id=mem_6 category=TRAP content={"trigger":"When you resolve a user-supplied identifier (email, name, slug) via an API endpoint and multiple resources match, the handler picks the first match.","outcome":"Work is attributed to the wrong resource, requiring manual cleanup."}
+  task=task_g (1 memories):
+    - id=mem_7 category=TRAP content={"trigger":"An API route accepts a member name or project slug and resolves it server-side without checking for multiple candidates.","outcome":"Silently saves data to the wrong entity."}
+Existing PROJECT memories: (none)
+
+BAD output (short, but every key phrase is abstract-noun jargon — reads like a paper title, not a note):
+  { "type": "ADD", "category": "TRAP",
+    "content": {
+      "summary": "Ambiguous identifier resolution in API handlers",
+      "trigger": "API handler resolves a user-supplied identifier without disambiguation when multiple resources match.",
+      "outcome": "Silent failure or first-match selection → misattribution to the wrong resource."
+    } }
+
+GOOD output (says it the way you'd say it to a coworker — verbs and concrete words):
+  { "operations": [
+    { "type": "ADD", "category": "TRAP",
+      "content": {
+        "summary": "Two records share a name, code grabs the first",
+        "trigger": "Look up something by a name/email/slug the user typed, and two records match.",
+        "outcome": "The code silently picks the first one → you save to the wrong record and clean up by hand later.",
+        "workaround": "If more than one matches, stop and ask which one (or make them pass the ID)."
       } } ] }`
 
   const projectDescription = `# Project context

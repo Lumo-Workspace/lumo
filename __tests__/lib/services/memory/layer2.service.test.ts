@@ -18,10 +18,17 @@ jest.mock('@/lib/services/memory/layer2-extract', () => ({
 jest.mock('@/lib/services/memory/layer2-apply', () => ({
   applyLayer2Operations: jest.fn(),
 }))
+jest.mock('@/lib/repositories/memory.repository', () => ({
+  memoryRepository: {
+    tryClaimLayer2Lease: jest.fn(),
+    releaseLayer2Lease: jest.fn(),
+  },
+}))
 
 import { getLayer2Input } from '@/lib/services/memory/layer2-input'
 import { extractLayer2Operations } from '@/lib/services/memory/layer2-extract'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { layer2Service } from '@/lib/services/memory/layer2.service'
 
 const getInput = getLayer2Input as jest.MockedFunction<typeof getLayer2Input>
@@ -31,6 +38,7 @@ const extract = extractLayer2Operations as jest.MockedFunction<
 const apply = applyLayer2Operations as jest.MockedFunction<
   typeof applyLayer2Operations
 >
+const repo = memoryRepository as jest.Mocked<typeof memoryRepository>
 
 function makeInput() {
   return {
@@ -44,9 +52,46 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.spyOn(console, 'log').mockImplementation(() => {})
   jest.spyOn(console, 'error').mockImplementation(() => {})
+  // Default: the lease is free, so the run proceeds. Tests that exercise
+  // contention override this.
+  repo.tryClaimLayer2Lease.mockResolvedValue(true)
+  repo.releaseLayer2Lease.mockResolvedValue(undefined)
 })
 
 describe('layer2Service.runForProject', () => {
+  it('skips without running the pipeline when the lease is held', async () => {
+    // A concurrent run already holds the per-project lease. This run must not
+    // read or promote anything — that's exactly the path that prevents
+    // duplicate PROJECT-scope promotions.
+    repo.tryClaimLayer2Lease.mockResolvedValue(false)
+
+    const result = await layer2Service.runForProject('proj_1')
+
+    expect(result).toBeNull()
+    expect(getInput).not.toHaveBeenCalled()
+    expect(extract).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
+    expect(repo.releaseLayer2Lease).not.toHaveBeenCalled()
+  })
+
+  it('releases the lease after a successful run', async () => {
+    getInput.mockResolvedValue(makeInput())
+    extract.mockResolvedValue([{ type: 'NOOP' }])
+    apply.mockResolvedValue({ added: 0, updated: 0, noop: 1, skipped: 0 })
+
+    await layer2Service.runForProject('proj_1')
+
+    expect(repo.releaseLayer2Lease).toHaveBeenCalledWith('proj_1')
+  })
+
+  it('releases the lease even when the pipeline throws', async () => {
+    getInput.mockRejectedValue(new Error('boom'))
+
+    await expect(layer2Service.runForProject('proj_1')).rejects.toThrow('boom')
+
+    expect(repo.releaseLayer2Lease).toHaveBeenCalledWith('proj_1')
+  })
+
   it('returns null when the project has no input to consolidate', async () => {
     getInput.mockResolvedValue(null)
     const result = await layer2Service.runForProject('proj_1')
