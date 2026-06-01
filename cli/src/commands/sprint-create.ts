@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface CreateSprintOptions {
   team?: string
@@ -92,7 +93,7 @@ export async function sprintCreate(
       // ignore
     }
     console.error(
-      `Error: ${serverMsg ?? `sprint create failed (HTTP ${res.status})`}`
+      `Error: ${serverMsg != null ? sanitizeField(serverMsg) : `sprint create failed (HTTP ${res.status})`}`
     )
     return 1
   }

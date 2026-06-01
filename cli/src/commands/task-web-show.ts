@@ -60,7 +60,7 @@ export async function taskWebShow(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: web show failed (HTTP ${res.status})`
     )
     return 1

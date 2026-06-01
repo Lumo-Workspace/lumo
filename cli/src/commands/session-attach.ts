@@ -78,7 +78,7 @@ export async function sessionAttach(
     } catch {
       // fall through
     }
-    console.error(`Error: ${message}`)
+    console.error(`Error: ${sanitizeField(message)}`)
     return 1
   }
   if (!res.ok) {

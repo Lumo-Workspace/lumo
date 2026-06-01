@@ -33,7 +33,7 @@ export async function docUnbind(
   })
   if (res.status === 409) {
     const { error } = (await res.json()) as { error: string }
-    console.error(`Error: ${error}`)
+    console.error(`Error: ${sanitizeField(error)}`)
     return 1
   }
   if (!res.ok) {

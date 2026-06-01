@@ -130,7 +130,7 @@ export async function taskArtifactAdd(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: artifact add failed (HTTP ${res.status})`
     )
     return 1

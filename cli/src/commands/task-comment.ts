@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ResolveResponse {
   id: string
@@ -115,7 +116,7 @@ export async function taskComment(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: comment create failed (HTTP ${postRes.status})`
     )
     return 1
