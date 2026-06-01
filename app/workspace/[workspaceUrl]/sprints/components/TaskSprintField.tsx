@@ -17,6 +17,7 @@ import type { Sprint, SprintStatus } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import {
   deriveSprintState,
+  groupSprintsForTaskField,
   type DerivedSprintState,
 } from '@/lib/services/sprint-date'
 import { CircleDot, Circle, CircleCheck } from 'lucide-react'
@@ -69,14 +70,6 @@ function formatCompactRange(s: Sprint, locale: string): string {
   return `${start.toLocaleDateString(locale, fmtFull)} – ${end.toLocaleDateString(locale, fmtFull)}`
 }
 
-function sortByStart(sprints: Sprint[], desc = false): Sprint[] {
-  const sign = desc ? -1 : 1
-  return [...sprints].sort(
-    (a, b) =>
-      sign * (new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-  )
-}
-
 const ITEM_CLS =
   'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
 
@@ -93,22 +86,10 @@ export function TaskSprintField({
   const { sprints: drafts } = useSprintsForTeam(task.teamId, 'DRAFT')
   const { sprints: active } = useSprintsForTeam(task.teamId, 'ACTIVE')
 
-  const { activeAndUpcoming, past } = useMemo(() => {
-    const all = [...(active ?? []), ...(drafts ?? [])]
-    const current: Sprint[] = []
-    const upcoming: Sprint[] = []
-    const completed: Sprint[] = []
-    for (const s of all) {
-      const state = deriveSprintState(s)
-      if (state === 'CURRENT') current.push(s)
-      else if (state === 'UPCOMING') upcoming.push(s)
-      else completed.push(s)
-    }
-    return {
-      activeAndUpcoming: [...sortByStart(current), ...sortByStart(upcoming)],
-      past: sortByStart(completed, true),
-    }
-  }, [active, drafts])
+  const { activeAndUpcoming, past } = useMemo(
+    () => groupSprintsForTaskField([...(active ?? []), ...(drafts ?? [])]),
+    [active, drafts]
+  )
 
   const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'

@@ -101,3 +101,50 @@ export function deriveSprintState(
   if (t > end) return 'COMPLETED'
   return 'CURRENT'
 }
+
+interface DatedSprint {
+  startDate: Date | string
+  endDate: Date | string
+}
+
+/**
+ * Bucket a team's sprints for the task sprint selector dropdown.
+ *
+ * - `activeAndUpcoming`: every CURRENT then UPCOMING sprint, each group sorted
+ *   by start date ascending.
+ * - `past`: collapsed to ONLY the most recently ended sprint (the one whose
+ *   `endDate` is closest to `now`). Older completed sprints are dropped so the
+ *   dropdown's "已结束 / Past" section doesn't accumulate history. Empty when
+ *   no sprint has ended yet.
+ *
+ * Returns the same sprint object references that were passed in.
+ */
+export function groupSprintsForTaskField<T extends DatedSprint>(
+  sprints: T[],
+  now: Date = new Date()
+): { activeAndUpcoming: T[]; past: T[] } {
+  const current: T[] = []
+  const upcoming: T[] = []
+  const completed: T[] = []
+  for (const s of sprints) {
+    const state = deriveSprintState(s, now)
+    if (state === 'CURRENT') current.push(s)
+    else if (state === 'UPCOMING') upcoming.push(s)
+    else completed.push(s)
+  }
+  const byStartAsc = (a: T, b: T) =>
+    new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+  const justEnded = completed.reduce<T | null>((latest, s) => {
+    if (!latest) return s
+    return new Date(s.endDate).getTime() > new Date(latest.endDate).getTime()
+      ? s
+      : latest
+  }, null)
+  return {
+    activeAndUpcoming: [
+      ...current.sort(byStartAsc),
+      ...upcoming.sort(byStartAsc),
+    ],
+    past: justEnded ? [justEnded] : [],
+  }
+}
