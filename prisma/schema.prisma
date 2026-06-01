@@ -365,6 +365,12 @@ model Project {
   riskStalePrDays     Int?
   riskThroughputDrop  Float?
 
+  // Per-project lease serializing Layer 2 memory consolidation. A run claims
+  // this (sets it to now + TTL) before reading; concurrent runs that can't
+  // claim it skip the round. Prevents duplicate PROJECT-scope promotions when
+  // multiple task completions fire consolidation at once. See layer2.service.
+  memoryConsolidationLockedUntil DateTime?
+
   workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   createdBy             WorkspaceMember        @relation("ProjectCreator", fields: [createdByMemberId], references: [id])

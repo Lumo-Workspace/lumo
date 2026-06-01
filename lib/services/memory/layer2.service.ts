@@ -1,6 +1,14 @@
 import { getLayer2Input } from './layer2-input'
 import { extractLayer2Operations } from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
+
+/**
+ * Lease TTL for a single consolidation run. Sized to comfortably cover one
+ * haiku extraction call; if a run dies mid-flight the lease self-expires and
+ * the next completion can re-acquire it.
+ */
+const LAYER2_LEASE_TTL_MS = 60_000
 
 export interface Layer2ProjectResult {
   added: number
@@ -70,36 +78,59 @@ export const layer2Service = {
 async function runForProject(
   projectId: string
 ): Promise<Layer2ProjectResult | null> {
-  const input = await getLayer2Input(projectId)
-  if (!input) {
-    console.log(`[memory.layer2] skip project=${projectId} reason=no-input`)
+  // Serialize consolidation per project. Concurrent task completions fan out
+  // through `waitUntil` (possibly on separate serverless instances), so the
+  // only safe lock is the DB row. Without this, two runs each read a stale
+  // pre-LLM snapshot, both decide a recurring lesson isn't promoted yet, and
+  // both ADD it — producing duplicate PROJECT memories. A run that can't claim
+  // the lease skips this round; the lesson stays in the recent-TASK window and
+  // is reconsidered on the next completion.
+  const now = new Date()
+  const until = new Date(now.getTime() + LAYER2_LEASE_TTL_MS)
+  const claimed = await memoryRepository.tryClaimLayer2Lease(
+    projectId,
+    until,
+    now
+  )
+  if (!claimed) {
+    console.log(`[memory.layer2] skip project=${projectId} reason=locked`)
     return null
   }
 
-  const operations = await extractLayer2Operations(input)
-  if (operations.length === 0) {
-    console.log(
-      `[memory.layer2] no-ops project=${projectId} (LLM returned empty list)`
-    )
-    return { added: 0, updated: 0, noop: 0, skipped: 0 }
-  }
+  try {
+    const input = await getLayer2Input(projectId)
+    if (!input) {
+      console.log(`[memory.layer2] skip project=${projectId} reason=no-input`)
+      return null
+    }
 
-  const result = await applyLayer2Operations({
-    operations,
-    projectId: input.project.id,
-    workspaceId: input.project.workspaceId,
-    existingProjectMemories: input.existingProjectMemories.map(m => ({
-      id: m.id,
-      category: m.category,
-    })),
-  })
+    const operations = await extractLayer2Operations(input)
+    if (operations.length === 0) {
+      console.log(
+        `[memory.layer2] no-ops project=${projectId} (LLM returned empty list)`
+      )
+      return { added: 0, updated: 0, noop: 0, skipped: 0 }
+    }
 
-  console.log(`[memory.layer2] applied project=${projectId}`, result)
+    const result = await applyLayer2Operations({
+      operations,
+      projectId: input.project.id,
+      workspaceId: input.project.workspaceId,
+      existingProjectMemories: input.existingProjectMemories.map(m => ({
+        id: m.id,
+        category: m.category,
+      })),
+    })
 
-  return {
-    added: result.added,
-    updated: result.updated,
-    noop: result.noop,
-    skipped: result.skipped,
+    console.log(`[memory.layer2] applied project=${projectId}`, result)
+
+    return {
+      added: result.added,
+      updated: result.updated,
+      noop: result.noop,
+      skipped: result.skipped,
+    }
+  } finally {
+    await memoryRepository.releaseLayer2Lease(projectId)
   }
 }
