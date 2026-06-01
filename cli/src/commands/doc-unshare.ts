@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ShareListResponse {
   shares: Array<{
@@ -66,7 +67,7 @@ export async function docUnshare(
   const { shares } = (await listRes.json()) as ShareListResponse
   const row = shares.find(s => s.member.id === result.member.memberId)
   if (!row) {
-    console.log(`Not shared with ${result.member.displayName}`)
+    console.log(`Not shared with ${sanitizeField(result.member.displayName)}`)
     return
   }
 
@@ -80,5 +81,5 @@ export async function docUnshare(
     console.error(`Error: ${delRes.status} ${delRes.statusText}: ${text}`)
     return 1
   }
-  console.log(`Unshared ${docId} ↔ ${result.member.displayName}`)
+  console.log(`Unshared ${docId} ↔ ${sanitizeField(result.member.displayName)}`)
 }

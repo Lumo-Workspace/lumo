@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { readFileUtf8 } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ArtifactAddOptions {
   kind?: string
@@ -137,6 +138,6 @@ export async function taskArtifactAdd(
 
   const data = (await res.json()) as ArtifactResponse
   process.stdout.write(
-    `Added [${data.artifact.kind}] "${data.artifact.title}" to ${identifier}\n`
+    `Added [${sanitizeField(data.artifact.kind)}] "${sanitizeField(data.artifact.title)}" to ${identifier}\n`
   )
 }

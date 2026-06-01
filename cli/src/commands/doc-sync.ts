@@ -1,13 +1,14 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { sanitizeField } from '../lib/sanitize'
 
 interface SyncedDocResponse {
   document: { id: string; title: string }
 }
 
 export function formatSyncedLine(doc: { id: string; title: string }): string {
-  const escaped = doc.title.replace(/"/g, '\\"')
+  const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   return `Synced ${doc.id} "${escaped}" from Google`
 }
 

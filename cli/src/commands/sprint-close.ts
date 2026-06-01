@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface CloseSprintOptions {
   team?: string
@@ -185,5 +186,7 @@ export async function sprintClose(
     return 1
   }
 
-  process.stdout.write(`Closed sprint #${sprint.number} "${sprint.name}"\n`)
+  process.stdout.write(
+    `Closed sprint #${sprint.number} "${sanitizeField(sprint.name)}"\n`
+  )
 }

@@ -2,6 +2,7 @@ import { promptSecret } from '../lib/prompt'
 import { openBrowser } from '../lib/browser'
 import { resolveApiUrl, trimTrailingSlash, verifyToken } from '../lib/api'
 import { writeCredentials } from '../lib/config'
+import { sanitizeField } from '../lib/sanitize'
 
 const KEY_PREFIX = 'lum_'
 
@@ -54,6 +55,8 @@ export async function authLogin(): Promise<number | void> {
 
   console.log('')
   console.log(`✓ Logged in as ${resp.user.email}`)
-  console.log(`  Workspace: ${resp.workspace.name}`)
-  console.log(`  Key: ${resp.apiKey.name} (${resp.apiKey.prefix})`)
+  console.log(`  Workspace: ${sanitizeField(resp.workspace.name)}`)
+  console.log(
+    `  Key: ${sanitizeField(resp.apiKey.name)} (${resp.apiKey.prefix})`
+  )
 }

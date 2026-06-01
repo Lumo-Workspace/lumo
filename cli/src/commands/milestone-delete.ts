@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface DeleteMilestoneOptions {
   project?: string
@@ -111,5 +112,5 @@ export async function milestoneDelete(
     console.error(`Error: ${errMsg}`)
     return 1
   }
-  process.stdout.write(`Deleted milestone "${name}"\n`)
+  process.stdout.write(`Deleted milestone "${sanitizeField(name)}"\n`)
 }

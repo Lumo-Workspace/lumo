@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveDoc } from '../lib/resolve-doc'
 import { pickNextSortOrder } from '../lib/doc-sort-order'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface MoveDocOptions {
   parent?: string
@@ -97,7 +98,7 @@ export async function docMove(
     }
     const parentRow = documents.find(d => d.id === parentMatch.doc.id)!
     newParentId = parentRow.id
-    parentTitleForOutput = `"${parentRow.title.replace(/"/g, '\\"')}"`
+    parentTitleForOutput = `"${sanitizeField(parentRow.title).replace(/"/g, '\\"')}"`
   }
 
   const siblings = documents.filter(
@@ -131,7 +132,7 @@ export async function docMove(
     return 1
   }
 
-  const escapedDocTitle = docRow.title.replace(/"/g, '\\"')
+  const escapedDocTitle = sanitizeField(docRow.title).replace(/"/g, '\\"')
   console.log(
     `Moved ${docRow.id} "${escapedDocTitle}" → ${parentTitleForOutput}`
   )

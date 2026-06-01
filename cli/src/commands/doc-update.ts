@@ -8,6 +8,7 @@ import {
 import { normalizeScope } from './doc-create'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { resolveTagRefs } from '../lib/tag-resolver'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface UpdateDocOptions {
   title?: string
@@ -29,7 +30,7 @@ export function formatUpdatedDocLine(doc: {
   url: string
   tags?: string[]
 }): string {
-  const escaped = doc.title.replace(/"/g, '\\"')
+  const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   const head = `Updated ${doc.id} "${escaped}"  ${doc.url}`
   if (doc.tags && doc.tags.length > 0) {
     return `${head}\nTags: ${doc.tags.join(', ')}`

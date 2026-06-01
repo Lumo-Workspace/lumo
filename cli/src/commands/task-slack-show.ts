@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface SlackMessage {
   ts?: string
@@ -74,6 +75,7 @@ export async function taskSlackShow(
     return
   }
   for (const m of messages) {
-    console.log(`${m.userName ?? '@' + m.userId}: ${m.text}`)
+    const author = sanitizeField(m.userName ?? '@' + m.userId)
+    console.log(`${author}: ${sanitizeField(m.text)}`)
   }
 }

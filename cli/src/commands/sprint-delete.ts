@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface DeleteSprintOptions {
   team?: string
@@ -101,5 +102,7 @@ export async function sprintDelete(
     console.error(`Error: ${errMsg}`)
     return 1
   }
-  process.stdout.write(`Deleted sprint #${sprint.number} "${sprint.name}"\n`)
+  process.stdout.write(
+    `Deleted sprint #${sprint.number} "${sanitizeField(sprint.name)}"\n`
+  )
 }

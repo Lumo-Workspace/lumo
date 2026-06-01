@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { isLikelyCuid } from '../lib/resolve-doc'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface DeleteDocOptions {
   yes?: boolean
@@ -53,6 +54,6 @@ export async function docDelete(
     console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
     return 1
   }
-  const escaped = title.replace(/"/g, '\\"')
+  const escaped = sanitizeField(title).replace(/"/g, '\\"')
   console.log(`Deleted ${id}${title ? ` "${escaped}"` : ''}`)
 }

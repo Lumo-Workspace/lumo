@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ImportGdocOptions {
   scope?: string
@@ -15,7 +16,7 @@ export function formatImportedLine(doc: {
   title: string
   url: string
 }): string {
-  const escaped = doc.title.replace(/"/g, '\\"')
+  const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   return (
     `Imported ${doc.id} "${escaped}"  ${doc.url}\n` +
     `Note: imported content follows Lumo sharing and is no longer gated by Google permissions.`

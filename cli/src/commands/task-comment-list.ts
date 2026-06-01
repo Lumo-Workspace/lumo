@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ResolveResponse {
   id: string
@@ -35,9 +36,9 @@ function htmlToPlainText(html: string): string {
 }
 
 function printComment(c: CommentNode, indent: string): void {
-  const author = c.authorActorId ?? 'unknown'
+  const author = sanitizeField(c.authorActorId ?? 'unknown')
   console.log(`${indent}${author} · ${c.createdAt}`)
-  const text = htmlToPlainText(c.body)
+  const text = sanitizeField(htmlToPlainText(c.body))
   for (const line of (text || '(empty)').split('\n')) {
     console.log(`${indent}${line}`)
   }

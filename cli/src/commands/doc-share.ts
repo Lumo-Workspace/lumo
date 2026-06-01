@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_ROLES = ['VIEWER', 'EDITOR', 'MANAGER'] as const
 type Role = (typeof ALLOWED_ROLES)[number]
@@ -91,5 +92,7 @@ export async function docShare(
     return 1
   }
 
-  console.log(`Shared ${docId} ↔ ${result.member.displayName} (${role})`)
+  console.log(
+    `Shared ${docId} ↔ ${sanitizeField(result.member.displayName)} (${role})`
+  )
 }

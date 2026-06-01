@@ -239,7 +239,9 @@ export async function taskCreate(
           opts.sprint,
           { id: data.task.id, teamId: data.task.teamId, identifier: data.task.identifier }
         )
-        process.stdout.write(`Sprint: #${sprint.number} "${sprint.name}"\n`)
+        process.stdout.write(
+          `Sprint: #${sprint.number} "${sanitizeField(sprint.name)}"\n`
+        )
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         // Spec's literal mismatch output — print bare, no "Error:" prefix
