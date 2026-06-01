@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ShowResponse {
   task: {
@@ -26,15 +27,16 @@ interface ShowResponse {
  */
 export function formatTaskShow(task: ShowResponse['task']): string {
   const lines: string[] = []
-  lines.push(`${task.identifier}  ${task.title}`)
+  lines.push(`${task.identifier}  ${sanitizeField(task.title)}`)
   lines.push(`Status:    ${task.status}`)
   lines.push(`Priority:  ${task.priority}`)
-  lines.push(`Project:   ${task.project.name}`)
+  lines.push(`Project:   ${sanitizeField(task.project.name)}`)
   if (task.assignee) {
+    const label = sanitizeField(task.assignee.label)
     const detail =
       task.assignee.email && task.assignee.type === 'member'
-        ? `${task.assignee.label} <${task.assignee.email}>`
-        : task.assignee.label
+        ? `${label} <${task.assignee.email}>`
+        : label
     lines.push(`Assignee:  ${detail}`)
   } else {
     lines.push('Assignee:  (unassigned)')
@@ -44,7 +46,7 @@ export function formatTaskShow(task: ShowResponse['task']): string {
   if (body && body.trim().length > 0) {
     lines.push('')
     lines.push('Description:')
-    for (const line of body.split('\n')) {
+    for (const line of sanitizeField(body).split('\n')) {
       lines.push(`  ${line}`)
     }
   }

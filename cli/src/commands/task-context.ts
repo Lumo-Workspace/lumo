@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface TaskContextResponse {
   task: {
@@ -98,61 +99,61 @@ export function formatTaskContextMarkdown(
 ): string {
   const lines: string[] = []
   lines.push(`# Task: ${data.task.identifier}`)
-  lines.push(`**Title**: ${data.task.title}`)
+  lines.push(`**Title**: ${sanitizeField(data.task.title)}`)
   lines.push(`**Status**: ${data.task.status}`)
   if (data.task.milestone) {
     const target = data.task.milestone.targetDate
       ? `, target ${data.task.milestone.targetDate.slice(0, 10)}`
       : ''
     lines.push(
-      `**Milestone**: ${data.task.milestone.name} (${data.task.milestone.status}${target})`
+      `**Milestone**: ${sanitizeField(data.task.milestone.name)} (${data.task.milestone.status}${target})`
     )
   }
   const body = data.task.descriptionMarkdown ?? data.task.description
   if (body && body.trim().length > 0) {
-    lines.push(`**Description**: ${body}`)
+    lines.push(`**Description**: ${sanitizeField(body)}`)
   }
   lines.push('')
 
   // Frontload memory before sessions: it's cold context the agent should see
   // first. Server returns "" when empty, in which case we skip the section.
   if (data.memorySection && data.memorySection.trim().length > 0) {
-    lines.push(data.memorySection.trimEnd())
+    lines.push(sanitizeField(data.memorySection.trimEnd()))
     lines.push('')
   }
 
   if (data.slackContextSection && data.slackContextSection.trim().length > 0) {
-    lines.push(data.slackContextSection.trimEnd())
+    lines.push(sanitizeField(data.slackContextSection.trimEnd()))
     lines.push('')
   }
 
   if (data.webLinkSection && data.webLinkSection.trim().length > 0) {
-    lines.push(data.webLinkSection.trimEnd())
+    lines.push(sanitizeField(data.webLinkSection.trimEnd()))
     lines.push('')
   }
 
   if (data.figmaSection && data.figmaSection.trim().length > 0) {
-    lines.push(data.figmaSection.trimEnd())
+    lines.push(sanitizeField(data.figmaSection.trimEnd()))
     lines.push('')
   }
 
   if (data.artifactSection && data.artifactSection.trim().length > 0) {
-    lines.push(data.artifactSection.trimEnd())
+    lines.push(sanitizeField(data.artifactSection.trimEnd()))
     lines.push('')
   }
 
   if (data.docSection && data.docSection.trim().length > 0) {
-    lines.push(data.docSection.trimEnd())
+    lines.push(sanitizeField(data.docSection.trimEnd()))
     lines.push('')
   }
 
   if (data.commentsSection && data.commentsSection.trim().length > 0) {
-    lines.push(data.commentsSection.trimEnd())
+    lines.push(sanitizeField(data.commentsSection.trimEnd()))
     lines.push('')
   }
 
   if (data.prSection && data.prSection.trim().length > 0) {
-    lines.push(data.prSection.trimEnd())
+    lines.push(sanitizeField(data.prSection.trimEnd()))
     lines.push('')
   }
 
@@ -172,10 +173,10 @@ export function formatTaskContextMarkdown(
     const ago = relativeTime(new Date(s.lastActivityAt), now)
     const dur = formatDuration(s.durationMs)
     lines.push(`### Session ${shortId} · ${ago} · ${dur}`)
-    lines.push(`**Summary**: ${s.headline}`)
+    lines.push(`**Summary**: ${sanitizeField(s.headline)}`)
     if (s.unresolved.length > 0) {
       lines.push('**Unresolved**:')
-      for (const u of s.unresolved) lines.push(`- ${u}`)
+      for (const u of s.unresolved) lines.push(`- ${sanitizeField(u)}`)
     }
     lines.push('')
   }

@@ -1,5 +1,6 @@
 import { trimTrailingSlash } from './api'
 import { resolveDoc, isLikelyCuid } from './resolve-doc'
+import { sanitizeField } from './sanitize'
 
 /**
  * Resolve a user-typed doc reference (cuid OR case-insensitive title) to a
@@ -28,7 +29,7 @@ export async function lookupDocId(
       `Error: title "${reference}" matches ${result.candidates.length} docs:`
     )
     for (const c of result.candidates) {
-      console.error(`  ${c.id}  ${c.title}`)
+      console.error(`  ${c.id}  ${sanitizeField(c.title)}`)
     }
     console.error('Re-run with the cuid.')
     return null

@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers } from '../lib/resolve-member'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ShareListResponse {
   shares: Array<{
@@ -20,7 +21,7 @@ export function formatShareListRows(rows: ShareListRow[]): string[] {
   if (rows.length === 0) return []
   const nameWidth = Math.max(...rows.map(r => r.displayName.length))
   return rows.map(r => {
-    const name = r.displayName.padEnd(nameWidth, ' ')
+    const name = sanitizeField(r.displayName).padEnd(nameWidth, ' ')
     return `${name}  ${r.role}`
   })
 }

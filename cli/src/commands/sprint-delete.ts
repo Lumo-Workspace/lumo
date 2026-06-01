@@ -13,7 +13,7 @@ export function formatDeleteRefusal(
   name: string,
   taskCount: number
 ): string {
-  const head = `Refusing to delete sprint #${number} "${name}" without --yes.`
+  const head = `Refusing to delete sprint #${number} "${sanitizeField(name)}" without --yes.`
   const tail = `Re-run with --yes to confirm.`
   if (taskCount === 0) return `${head}\n${tail}`
   return `${head}\n${taskCount} tasks under it will keep their data; only sprintId is cleared.\n${tail}`

@@ -67,7 +67,7 @@ export async function docMove(
       `Error: title "${reference}" matches ${docMatch.candidates.length} docs:`
     )
     for (const c of docMatch.candidates) {
-      console.error(`  ${c.id}  ${c.title}`)
+      console.error(`  ${c.id}  ${sanitizeField(c.title)}`)
     }
     console.error('Re-run with the cuid.')
     return 1
@@ -87,7 +87,7 @@ export async function docMove(
         `Error: --parent "${opts.parent}" matches ${parentMatch.candidates.length} docs:`
       )
       for (const c of parentMatch.candidates) {
-        console.error(`  ${c.id}  ${c.title}`)
+        console.error(`  ${c.id}  ${sanitizeField(c.title)}`)
       }
       console.error('Re-run with the cuid.')
       return 1

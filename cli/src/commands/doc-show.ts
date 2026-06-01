@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { tiptapToMarkdown } from '../lib/markdown-tiptap'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ShowDocViewModel {
   id: string
@@ -23,15 +24,15 @@ function scopeLabel(s: ShowDocViewModel['scope']): string {
 export function formatShowOutput(vm: ShowDocViewModel): string {
   const lines = [
     `ID: ${vm.id}`,
-    `Title: ${vm.title}`,
+    `Title: ${sanitizeField(vm.title)}`,
     `Scope: ${scopeLabel(vm.scope)}`,
-    `Project: ${vm.projectName ?? '-'}`,
+    `Project: ${vm.projectName ? sanitizeField(vm.projectName) : '-'}`,
     `Created: ${vm.createdAt}`,
     `Updated: ${vm.updatedAt}`,
     `Mentioned tasks: ${vm.mentionedTasks.length ? vm.mentionedTasks.join(', ') : '-'}`,
   ]
   const header = lines.join('\n')
-  return vm.bodyMarkdown ? `${header}\n\n${vm.bodyMarkdown}` : header
+  return vm.bodyMarkdown ? `${header}\n\n${sanitizeField(vm.bodyMarkdown)}` : header
 }
 
 export async function docShow(

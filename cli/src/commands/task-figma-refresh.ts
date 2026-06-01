@@ -24,7 +24,7 @@ export async function taskFigmaRefresh(args: {
           )
         : r.id
       if (r.ok) console.log(`  ✓ ${label}`)
-      else console.log(`  ✗ ${label} (${r.error})`)
+      else console.log(`  ✗ ${label} (${sanitizeField(r.error ?? '')})`)
     }
     return 0
   } catch (e) {

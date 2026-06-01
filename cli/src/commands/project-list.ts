@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { slugify } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ProjectRow {
   id: string
@@ -27,7 +28,7 @@ export function formatProjectList(projects: ProjectRow[]): string {
     .map(p => ({ slug: slugify(p.name), name: p.name }))
   if (rows.length === 0) return 'No projects.'
   const w = Math.max(...rows.map(r => r.slug.length))
-  return rows.map(r => `${r.slug.padEnd(w)}  ${r.name}`).join('\n')
+  return rows.map(r => `${r.slug.padEnd(w)}  ${sanitizeField(r.name)}`).join('\n')
 }
 
 export async function projectList(): Promise<number | void> {

@@ -1,5 +1,6 @@
 // Category/field metadata + builders for the `lumo memory` commands.
 // Mirrors the four content shapes validated server-side by parseMemoryContent.
+import { sanitizeField } from './sanitize'
 
 type Built =
   | { ok: true; category: 'TRAP' | 'DECISION' | 'CONVENTION' | 'PROCEDURAL'; content: Record<string, unknown> }
@@ -87,7 +88,7 @@ function headline(category: string, content: unknown): string {
     : category === 'CONVENTION' ? 'rule'
     : 'workflow'
   const v = c[key]
-  return typeof v === 'string' && v.length > 0 ? v : '(unparseable)'
+  return typeof v === 'string' && v.length > 0 ? sanitizeField(v) : '(unparseable)'
 }
 
 /** Fixed-width rows: id  SCOPE  CATEGORY  headline  source(auto|manual). */

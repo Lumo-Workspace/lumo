@@ -87,7 +87,7 @@ export async function taskPrShow(
 
   const { pullRequest: pr, note } = (await res.json()) as PrResponse
   console.log(
-    `#${pr.number}${pr.repo ? ` (${pr.repo})` : ''}  ${sanitizeField(pr.title ?? '')}`
+    `#${pr.number}${pr.repo ? ` (${sanitizeField(pr.repo)})` : ''}  ${sanitizeField(pr.title ?? '')}`
   )
   console.log(
     `state:    ${pr.state ?? 'unknown'}${pr.isDraft ? ' · draft' : ''}`
@@ -97,5 +97,5 @@ export async function taskPrShow(
   if (pr.headBranch || pr.baseBranch)
     console.log(`branch:   ${pr.headBranch ?? '?'} → ${pr.baseBranch ?? '?'}`)
   if (pr.url) console.log(`url:      ${pr.url}`)
-  if (note) console.log(`\nnote: ${note}`)
+  if (note) console.log(`\nnote: ${sanitizeField(note)}`)
 }

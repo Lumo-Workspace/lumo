@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveTeamId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface SprintRow {
   id: string
@@ -43,7 +44,7 @@ export function formatSprintList(rows: SprintRow[]): string {
       const statusCol = r.status.padEnd(statusW)
       const numCol = `#${r.number}`.padEnd(numW + 1) // +1 for the '#'
       const dateRange = `${formatDate(r.startDate)}..${formatDate(r.endDate)}`
-      return `${statusCol}  ${numCol}  ${dateRange}  ${r.name}`
+      return `${statusCol}  ${numCol}  ${dateRange}  ${sanitizeField(r.name)}`
     })
     .join('\n')
 }

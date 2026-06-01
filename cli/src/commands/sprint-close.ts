@@ -42,7 +42,7 @@ export function formatUnfinishedRefusal(
 ): string {
   const unfinished = tasks.filter(t => t.status !== 'DONE')
   const lines: string[] = [
-    `Refusing to close sprint #${number} "${name}": ${unfinished.length} task(s) not DONE.`,
+    `Refusing to close sprint #${number} "${sanitizeField(name)}": ${unfinished.length} task(s) not DONE.`,
     '',
     formatTaskListTable(unfinished),
     '',

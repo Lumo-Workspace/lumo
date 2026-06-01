@@ -84,6 +84,6 @@ export async function taskFigmaContext(
   console.log(`url:   ${metadata.url}`)
   if (metadata.lastSyncedAt) console.log(`synced: ${metadata.lastSyncedAt}`)
   if (metadata.lastSyncError)
-    console.log(`syncError: ${metadata.lastSyncError}`)
-  if (note) console.log(`\nnote: ${note}`)
+    console.log(`syncError: ${sanitizeField(metadata.lastSyncError)}`)
+  if (note) console.log(`\nnote: ${sanitizeField(note)}`)
 }
