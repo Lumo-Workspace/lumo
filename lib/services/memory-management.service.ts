@@ -1,5 +1,5 @@
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import type { MemoryCategory } from '@prisma/client'
+import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 import type { Prisma } from '@prisma/client'
 
@@ -13,6 +13,7 @@ interface CreateForProjectInput {
   category: MemoryCategory
   content: MemoryContent
   actorMemberId: string
+  agent?: TaskArtifactAgent
 }
 
 interface CreateForTaskInput {
@@ -22,6 +23,7 @@ interface CreateForTaskInput {
   category: MemoryCategory
   content: MemoryContent
   actorMemberId: string
+  agent?: TaskArtifactAgent
 }
 
 /**
@@ -48,6 +50,7 @@ export const memoryManagementService = {
       content: input.content as Prisma.InputJsonValue,
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
+      agent: input.agent,
     })
   },
 
@@ -61,6 +64,7 @@ export const memoryManagementService = {
       content: input.content as Prisma.InputJsonValue,
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
+      agent: input.agent,
     })
   },
 
