@@ -1,4 +1,4 @@
-import { resolveApiUrl, trimTrailingSlash } from './api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { readCredentials } from './config'
 
 export interface FigmaLinkJson {
@@ -40,7 +40,7 @@ async function call<T>(
 ): Promise<T> {
   const creds = readCredentials()
   if (!creds) throw new Error('Not logged in. Run: lumo auth login')
-  const apiUrl = resolveApiUrl()
+  const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const res = await fetch(`${trimTrailingSlash(apiUrl)}${path}`, {
     ...init,
     headers: {

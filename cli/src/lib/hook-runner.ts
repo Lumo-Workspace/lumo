@@ -1,5 +1,5 @@
 import { readCredentials } from './config'
-import { trimTrailingSlash } from './api'
+import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 
 /**
@@ -151,8 +151,13 @@ export async function runHookWithBody(
     // Allow `LUMO_API_URL` to override the baked-in creds.apiUrl for
     // redirecting hooks at dev-env switch without re-running `lumo auth
     // login`. The bearer token from creds.json is still used as-is.
-    const envUrl = process.env.LUMO_API_URL?.trim()
-    const apiUrl = envUrl && envUrl.length > 0 ? envUrl : creds.apiUrl
+    // An insecure override (non-https, non-localhost) throws here and is
+    // caught by the outer try/catch → logged, POST skipped, hook still exits 0.
+    // The host-mismatch warning goes to hook.log (never stdout, which would
+    // pollute Claude Code).
+    const apiUrl = resolveAuthedApiUrl(creds.apiUrl, {
+      warn: message => logHookError(`[${path}]`, message),
+    })
     const url = `${trimTrailingSlash(apiUrl)}/api/hooks/${path}`
 
     const controller = new AbortController()
