@@ -27,6 +27,10 @@ export interface CreateDocumentInput {
   visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
   contentMarkdown?: string
   tagIds?: string[]
+  // Google Docs import source (LUM-127). Null/absent for native docs.
+  googleDocId?: string | null
+  googleDocImporterId?: string | null
+  googleDocSyncedAt?: Date | null
 }
 
 export interface UpdateDocumentInput {
@@ -344,6 +348,9 @@ export const documentService = {
       createdById: memberId,
       visibility: data.visibility,
       sortOrder: maxSortOrder + 1,
+      googleDocId: data.googleDocId ?? null,
+      googleDocImporterId: data.googleDocImporterId ?? null,
+      googleDocSyncedAt: data.googleDocSyncedAt ?? null,
       ...(content !== undefined ? { content } : {}),
     })
 
