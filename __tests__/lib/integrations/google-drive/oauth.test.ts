@@ -1,6 +1,6 @@
 import {
   getAuthorizeUrl,
-  GOOGLE_OAUTH_SCOPES,
+  GOOGLE_DRIVE_OAUTH_SCOPES,
 } from '@/lib/integrations/google-drive/oauth'
 
 describe('google-drive oauth', () => {
@@ -8,9 +8,10 @@ describe('google-drive oauth', () => {
   beforeEach(() => {
     process.env = {
       ...ENV,
-      GOOGLE_OAUTH_CLIENT_ID: 'cid',
-      GOOGLE_OAUTH_CLIENT_SECRET: 'secret',
-      GOOGLE_OAUTH_REDIRECT_URI: 'https://app.test/api/google-drive/callback',
+      GOOGLE_DRIVE_OAUTH_CLIENT_ID: 'cid',
+      GOOGLE_DRIVE_OAUTH_CLIENT_SECRET: 'secret',
+      GOOGLE_DRIVE_OAUTH_REDIRECT_URI:
+        'https://app.test/api/google-drive/callback',
     }
   })
   afterEach(() => {
@@ -33,13 +34,13 @@ describe('google-drive oauth', () => {
     expect(url.searchParams.get('scope')).toContain(
       'https://www.googleapis.com/auth/drive.readonly'
     )
-    expect(GOOGLE_OAUTH_SCOPES.length).toBeGreaterThan(0)
+    expect(GOOGLE_DRIVE_OAUTH_SCOPES.length).toBeGreaterThan(0)
   })
 
   it('throws a clear error when an env var is missing', () => {
-    delete process.env.GOOGLE_OAUTH_CLIENT_ID
+    delete process.env.GOOGLE_DRIVE_OAUTH_CLIENT_ID
     expect(() => getAuthorizeUrl({ state: 'abc' })).toThrow(
-      'GOOGLE_OAUTH_CLIENT_ID'
+      'GOOGLE_DRIVE_OAUTH_CLIENT_ID'
     )
   })
 })
