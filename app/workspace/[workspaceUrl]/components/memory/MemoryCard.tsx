@@ -2,8 +2,8 @@
 
 import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import { Sparkles } from 'lucide-react'
-import type { MemoryCategory } from '@prisma/client'
+import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
+import { AgentBadge } from '../AgentBadge'
 import {
   parseMemoryContent,
   type TrapContent,
@@ -27,15 +27,16 @@ import {
  * Layout is a three-tier scan: title → field section-labels → content.
  *
  * `source` (e.g. "由 Claude 沉淀") renders in the top-right, opposite
- * the category dot — left says "what kind", right says "who sedimented
- * it". The "沉淀记忆" branding (sparkles) is shown by default in the
- * top-right when no explicit `source` is given; set
+ * the category dot — left says "what kind", right says "who produced it".
+ * When no explicit `source` is given, the default top-right shows the
+ * producing agent's badge (icon + name) via `AgentBadge`; set
  * `showSedimentedLabel={false}` when the surrounding context already
- * labels the section as memories.
+ * labels the section as memories and the per-card badge is redundant.
  */
 interface MemoryCardItem {
   id: string
   category: MemoryCategory
+  agent: TaskArtifactAgent
   content: unknown
 }
 
@@ -100,13 +101,7 @@ export function MemoryCard({
             {source}
           </span>
         ) : showSedimentedLabel ? (
-          <span className='inline-flex shrink-0 items-center gap-1 text-[10px] text-violet-500 dark:text-violet-400'>
-            <Sparkles className='size-3' />
-            {intl.formatMessage({
-              id: 'agentRun.memorySedimented',
-              defaultMessage: '沉淀记忆',
-            })}
-          </span>
+          <AgentBadge agent={item.agent} />
         ) : null}
       </div>
       <MemoryBody category={item.category} parsed={parsed} />
