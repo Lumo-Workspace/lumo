@@ -100,6 +100,19 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     return groups
   }, [])
 
+  // Flat id → kind lookup (registry is the single source of truth).
+  const kindById = useMemo(() => {
+    const m = {} as Record<IntegrationId, IntegrationKind>
+    for (const { id, kind } of Object.values(INTEGRATIONS)) m[id] = kind
+    return m
+  }, [])
+
+  // TEAM cards are view-only and hidden from non-owners until they report
+  // connected; owners and PERSONAL cards are always visible. Recomputed each
+  // render because it reads the live connectedMap.
+  const isCardVisible = (id: IntegrationId) =>
+    isOwner || kindById[id] !== 'TEAM' || connectedMap[id] === true
+
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
@@ -115,8 +128,9 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
             const ids = idsByKind[kind]
             if (ids.length === 0) return null
             const section = SECTION_KEY[kind]
+            const sectionVisible = ids.some(id => isCardVisible(id))
             return (
-              <section key={kind}>
+              <section key={kind} hidden={!sectionVisible}>
                 <h2 className='text-sm font-medium text-foreground mb-1'>
                   {intl.formatMessage({ id: `integrations.${section}.title` })}
                 </h2>
@@ -129,6 +143,7 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
                   {ids.map((id, index) => (
                     <div
                       key={id}
+                      hidden={!isCardVisible(id)}
                       style={{ order: (connectedMap[id] ? 0 : 100) + index }}
                     >
                       {cards[id]}
