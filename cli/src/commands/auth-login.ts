@@ -54,7 +54,7 @@ export async function authLogin(): Promise<number | void> {
   })
 
   console.log('')
-  console.log(`✓ Logged in as ${resp.user.email}`)
+  console.log(`✓ Logged in as ${sanitizeField(resp.user.email)}`)
   console.log(`  Workspace: ${sanitizeField(resp.workspace.name)}`)
   console.log(
     `  Key: ${sanitizeField(resp.apiKey.name)} (${resp.apiKey.prefix})`

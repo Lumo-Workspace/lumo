@@ -1,4 +1,5 @@
 import { trimTrailingSlash } from './api'
+import { sanitizeField } from './sanitize'
 
 export interface MemberRow {
   memberId: string
@@ -31,7 +32,7 @@ export async function fetchMembers(
   if (!res.ok) {
     const text = await res.text()
     throw new Error(
-      `failed to load members (${res.status} ${res.statusText}): ${text}`
+      `failed to load members (${res.status} ${res.statusText}): ${sanitizeField(text)}`
     )
   }
   const body = (await res.json()) as MembersResponse

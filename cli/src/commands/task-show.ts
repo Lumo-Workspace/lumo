@@ -35,7 +35,7 @@ export function formatTaskShow(task: ShowResponse['task']): string {
     const label = sanitizeField(task.assignee.label)
     const detail =
       task.assignee.email && task.assignee.type === 'member'
-        ? `${label} <${task.assignee.email}>`
+        ? `${label} <${sanitizeField(task.assignee.email)}>`
         : label
     lines.push(`Assignee:  ${detail}`)
   } else {

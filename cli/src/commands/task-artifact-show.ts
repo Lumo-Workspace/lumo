@@ -79,7 +79,7 @@ export async function taskArtifactShow(
   process.stdout.write(`title:  ${sanitizeField(artifact.title)}\n`)
   process.stdout.write(`source: ${sanitizeField(artifact.source)}\n`)
   process.stdout.write(
-    `agent:  ${AGENT_LABELS[artifact.agent] ?? artifact.agent}\n`
+    `agent:  ${AGENT_LABELS[artifact.agent] ?? sanitizeField(artifact.agent ?? '')}\n`
   )
   process.stdout.write(`order:  ${artifact.order}\n`)
   process.stdout.write(`task:   ${identifier}\n`)
