@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import * as path from 'path'
+
 const SENSITIVE_SEGMENTS = ['.ssh', '.aws', '.gnupg']
 const SENSITIVE_BASENAMES = [
   'id_rsa',
@@ -31,4 +34,62 @@ export function matchSensitiveName(p: string): string | null {
     if (base.endsWith(ext)) return `matches *${ext}`
   }
   return null
+}
+
+export interface PathGuardDeps {
+  cwd: () => string
+  realpath: (p: string) => string
+}
+
+export type PathGuardResult =
+  | { ok: true; resolved: string }
+  | { ok: false; reason: 'sensitive'; detail: string }
+  | { ok: false; reason: 'outside-project'; detail: string }
+  | { ok: false; reason: 'unreadable'; detail: string }
+
+/**
+ * Decide whether `rawPath` is safe to read and upload as an artifact body.
+ * Two layers: (1) it must resolve to a real path inside the project directory
+ * (cwd), and (2) neither the raw nor the canonical path may match the
+ * sensitive-filename denylist. realpath defeats symlinks that escape the tree.
+ */
+export function checkArtifactFilePath(
+  rawPath: string,
+  deps?: Partial<PathGuardDeps>
+): PathGuardResult {
+  const cwd = deps?.cwd ?? process.cwd
+  const realpath = deps?.realpath ?? fs.realpathSync
+
+  // 1. Fail fast on the raw path (no fs access).
+  const rawHit = matchSensitiveName(rawPath)
+  if (rawHit) return { ok: false, reason: 'sensitive', detail: rawHit }
+
+  const root = cwd()
+  const absolute = path.resolve(root, rawPath)
+
+  // 2. Canonicalize. realpath throws if the path does not exist / is unreadable.
+  let resolved: string
+  let rootReal: string
+  try {
+    resolved = realpath(absolute)
+    rootReal = realpath(root)
+  } catch {
+    return { ok: false, reason: 'unreadable', detail: 'path does not resolve' }
+  }
+
+  // 3. Re-check the denylist on the canonical path (catches innocent-looking
+  //    symlinks pointing at a secret).
+  const canonHit = matchSensitiveName(resolved)
+  if (canonHit) return { ok: false, reason: 'sensitive', detail: canonHit }
+
+  // 4. Confinement: the canonical path must be inside the project root.
+  if (resolved !== rootReal && !resolved.startsWith(rootReal + path.sep)) {
+    return {
+      ok: false,
+      reason: 'outside-project',
+      detail: 'resolves outside project directory',
+    }
+  }
+
+  return { ok: true, resolved }
 }
