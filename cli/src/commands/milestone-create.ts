@@ -32,7 +32,7 @@ export function formatCreatedMilestoneLine(milestone: {
   id: string
   name: string
 }): string {
-  return `Created milestone "${milestone.name}"  ${milestone.id}`
+  return `Created milestone "${sanitizeField(milestone.name)}"  ${milestone.id}`
 }
 
 export async function milestoneCreate(

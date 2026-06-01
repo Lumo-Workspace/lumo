@@ -135,6 +135,6 @@ export async function taskArtifactUpdate(
 
   const data = (await res.json()) as ArtifactResponse
   process.stdout.write(
-    `Updated [${data.artifact.kind}] "${data.artifact.title}" (${data.artifact.source}) on ${identifier}\n`
+    `Updated [${sanitizeField(data.artifact.kind)}] "${sanitizeField(data.artifact.title)}" (${sanitizeField(data.artifact.source)}) on ${identifier}\n`
   )
 }

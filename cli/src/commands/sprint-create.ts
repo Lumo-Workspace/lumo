@@ -33,7 +33,7 @@ export function formatCreatedSprintLine(sprint: {
   number: number
   name: string
 }): string {
-  return `Created sprint #${sprint.number} "${sprint.name}"  ${sprint.id}`
+  return `Created sprint #${sprint.number} "${sanitizeField(sprint.name)}"  ${sprint.id}`
 }
 
 export async function sprintCreate(
