@@ -1351,6 +1351,7 @@ model Memory {
   taskId            String?
   scope             MemoryScope
   category          MemoryCategory
+  agent             TaskArtifactAgent @default(CLAUDE_CODE)
   content           Json
   sourceSessionId   String?
   createdByMemberId String?
