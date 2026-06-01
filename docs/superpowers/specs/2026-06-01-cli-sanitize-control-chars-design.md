@@ -27,13 +27,13 @@ format layer / print sites.
 ### 1. New module: `cli/src/lib/sanitize.ts`
 
 ```ts
-const CONTROL_CHARS = /[\x00-\x08\x0b-\x1f\x7f]/g
+const CONTROL_CHARS = /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g
 
 /**
- * Strip terminal control characters (including ESC, \x1b) from untrusted
- * server-returned fields before printing them to the terminal. Prevents ANSI
- * escape-sequence injection. Keeps tab (\x09) and newline (\x0a) so multi-line
- * bodies and tabular output are not flattened.
+ * Strip terminal control characters (including ESC, \x1b, and the 8-bit CSI
+ * introducer \x9b) from untrusted server-returned fields before printing them
+ * to the terminal. Prevents ANSI escape-sequence injection. Keeps tab (\x09)
+ * and newline (\x0a) so multi-line bodies and tabular output are not flattened.
  */
 export function sanitizeField(value: string): string {
   return value.replace(CONTROL_CHARS, '')
@@ -46,8 +46,12 @@ this one function. Callers handle optional/undefined values themselves (e.g.
 
 ### 2. Character set
 
-Use the regex recommended in the task: `/[\x00-\x08\x0b-\x1f\x7f]/g`.
-- Strips ESC (`\x1b`), NUL, DEL, and other C0 control chars.
+Based on the regex recommended in the task, extended to also cover the C1
+range: `/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g`.
+- Strips ESC (`\x1b`), NUL, DEL, other C0 control chars, and the C1 control
+  range (`\x80`–`\x9f`, notably the 8-bit CSI introducer `\x9b`). U+0080–U+009F
+  are never legitimate visible text, so stripping them is safe and closes an
+  8-bit injection vector.
 - **Keeps** tab (`\x09`) and newline (`\x0a`) so multi-line bodies and
   fixed-width tables render correctly.
 
