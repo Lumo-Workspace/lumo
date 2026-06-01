@@ -170,6 +170,55 @@ export const sessionRepository = {
   },
 
   /**
+   * Member-scoped read for `lumo session wrap`: returns the bound task (flat
+   * identifier) plus the progress-comment watermark, or null if the session
+   * doesn't exist / belongs to another member. Task fields are null when the
+   * session has no binding.
+   */
+  async findProgressContextForMember(
+    sessionId: string,
+    workspaceMemberId: string
+  ): Promise<{
+    taskId: string | null
+    taskIdentifier: string | null
+    taskTitle: string | null
+    lastProgressCommentAt: Date | null
+  } | null> {
+    const row = await prisma.session.findFirst({
+      where: { id: sessionId, workspaceMemberId },
+      select: {
+        lastProgressCommentAt: true,
+        task: {
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            team: { select: { identifier: true } },
+          },
+        },
+      },
+    })
+    if (!row) return null
+    return {
+      taskId: row.task?.id ?? null,
+      taskIdentifier: row.task
+        ? `${row.task.team.identifier}-${row.task.number}`
+        : null,
+      taskTitle: row.task?.title ?? null,
+      lastProgressCommentAt: row.lastProgressCommentAt,
+    }
+  },
+
+  /** Advance the progress-comment watermark after a wrap posts a comment. */
+  async setLastProgressCommentAt(sessionId: string, at: Date) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { lastProgressCommentAt: at },
+      select: { id: true },
+    })
+  },
+
+  /**
    * Ownership-scoped detach: clear taskId on the session, but only if the
    * caller owns it. Returns the previous binding for the caller to report,
    * or `null` if the session does not exist / is not owned / had no binding.
