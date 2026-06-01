@@ -168,7 +168,7 @@ async function runOutboundCreate(commentId: string) {
         })
       : {
           actor: 'BOT_APP' as const,
-          token: await getGithubInstallationToken(),
+          token: await getGithubInstallationToken(pr.workspaceId),
           userId: null,
         }
     const since = new Date(existingMirror.lastSyncedAt.getTime() - 5 * 60_000)
@@ -277,7 +277,7 @@ async function runOutboundCreate(commentId: string) {
       })
     : {
         actor: 'BOT_APP' as const,
-        token: await getGithubInstallationToken(),
+        token: await getGithubInstallationToken(pr.workspaceId),
         userId: null,
       }
 
@@ -372,10 +372,10 @@ async function runOutboundUpdate(commentId: string) {
     } else {
       // User disconnected or lost write access — fall back to BOT_APP but preserve BOT_APP body shape
       actorKind = 'BOT_APP'
-      token = await getGithubInstallationToken()
+      token = await getGithubInstallationToken(pr.workspaceId)
     }
   } else {
-    token = await getGithubInstallationToken()
+    token = await getGithubInstallationToken(pr.workspaceId)
   }
 
   const updateTask = await taskRepository.findForComment(comment.taskId)
@@ -457,10 +457,10 @@ async function runOutboundDelete(commentId: string) {
     ) {
       token = decrypt(integration.accessToken)
     } else {
-      token = await getGithubInstallationToken()
+      token = await getGithubInstallationToken(pr.workspaceId)
     }
   } else {
-    token = await getGithubInstallationToken()
+    token = await getGithubInstallationToken(pr.workspaceId)
   }
 
   try {
@@ -843,8 +843,10 @@ export const prCommentMirrorService = {
         return { actor: 'USER_OAUTH', token, userId: input.authorUserId }
       }
     }
-    // getGithubInstallationToken() takes no args (single Lumo App installation; see lib/integrations/github/auth.ts:7)
-    const appToken = await getGithubInstallationToken()
+    // getGithubInstallationToken(workspaceId) resolves the per-workspace GitHub
+    // App installation; falls back to the GITHUB_APP_INSTALLATION_ID env var when
+    // the workspace has no GitHubAppInstallation row (legacy/single-App setups).
+    const appToken = await getGithubInstallationToken(input.workspaceId)
     return { actor: 'BOT_APP', token: appToken, userId: null }
   },
 

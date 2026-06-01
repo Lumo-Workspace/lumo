@@ -15,6 +15,9 @@ export async function syncPullRequestStatus(
 ): Promise<Map<string, PrStatusUpdate>> {
   const updates = new Map<string, PrStatusUpdate>()
   try {
+    // workspaceId not threaded here (batch across PRs); relies on
+    // GITHUB_APP_INSTALLATION_ID env fallback during the per-workspace
+    // migration. See LUM-129 spec §3.
     const token = await getGithubInstallationToken()
 
     for (const pr of openPrs) {
