@@ -26,6 +26,7 @@ import {
 import {
   applyTokenBudget,
   renderMemorySection,
+  wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
@@ -214,7 +215,11 @@ export const taskContextService = {
         content: m.content,
       })),
     ]
-    return renderMemorySection(applyTokenBudget(ordered))
+    // Wrap in an explicit trust boundary before the section leaves the
+    // service: this string is auto-injected into the agent via SessionStart
+    // `additionalContext` and is authored by arbitrary workspace members, so
+    // it must be framed as untrusted reference data, not instructions (LUM-140).
+    return wrapUntrustedMemory(renderMemorySection(applyTokenBudget(ordered)))
   },
 
   /**
