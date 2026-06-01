@@ -139,7 +139,7 @@ export function formatUpdatedTaskLine(task: {
   const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const head = `Updated ${task.identifier} "${escapedTitle}"  ${task.url}`
   if (task.tags && task.tags.length > 0) {
-    return `${head}\nTags: ${task.tags.join(', ')}`
+    return `${head}\nTags: ${task.tags.map(sanitizeField).join(', ')}`
   }
   return head
 }

@@ -33,7 +33,7 @@ export function formatUpdatedDocLine(doc: {
   const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   const head = `Updated ${doc.id} "${escaped}"  ${doc.url}`
   if (doc.tags && doc.tags.length > 0) {
-    return `${head}\nTags: ${doc.tags.join(', ')}`
+    return `${head}\nTags: ${doc.tags.map(sanitizeField).join(', ')}`
   }
   return head
 }
