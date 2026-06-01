@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -130,7 +131,7 @@ export function formatCreatedTaskLine(task: {
   url: string
   tags?: string[]
 }): string {
-  const escapedTitle = task.title.replace(/"/g, '\\"')
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const head = `Created ${task.identifier} "${escapedTitle}"  ${task.url}`
   if (task.tags && task.tags.length > 0) {
     return `${head}\nTags: ${task.tags.join(', ')}`

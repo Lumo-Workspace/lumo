@@ -1,7 +1,10 @@
 /**
  * @jest-environment node
  */
-import { formatDocListRows } from '@/cli/src/commands/doc-list'
+import {
+  formatDocListRows,
+  formatDocListRowsAsTree,
+} from '@/cli/src/commands/doc-list'
 
 describe('formatDocListRows', () => {
   it('renders fixed-width rows', () => {
@@ -33,5 +36,26 @@ describe('formatDocListRows', () => {
 
   it('returns empty array for empty input', () => {
     expect(formatDocListRows([])).toEqual([])
+  })
+})
+
+describe('formatDocListRows sanitization', () => {
+  const row = {
+    id: 'cmd1111111111111111111111',
+    visibility: 'PRIVATE' as const,
+    project: { name: 'Lu\x1bmo' },
+    title: 'Road\x1b[31mmap',
+    parentId: null,
+    sortOrder: 0,
+  }
+  it('strips control chars from title and project name (flat)', () => {
+    const line = formatDocListRows([row])[0]
+    expect(line).not.toMatch(/\x1b/)
+    expect(line).toContain('Road[31mmap')
+    expect(line).toContain('Lumo')
+  })
+  it('strips control chars from title and project name (tree)', () => {
+    const line = formatDocListRowsAsTree([row])[0]
+    expect(line).not.toMatch(/\x1b/)
   })
 })

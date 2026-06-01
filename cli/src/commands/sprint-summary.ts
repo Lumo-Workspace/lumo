@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface SprintSummaryOptions {
   team?: string
@@ -17,7 +18,7 @@ export interface SprintSummaryInput {
 
 export function formatSprintSummary(input: SprintSummaryInput): string {
   const { number, name, stats, tldr, report } = input
-  const lines: string[] = [`Sprint: #${number} ${name}`]
+  const lines: string[] = [`Sprint: #${number} ${sanitizeField(name)}`]
 
   if (stats === null && tldr === null && report === null) {
     lines.push('', '(no summary generated yet)')
@@ -29,11 +30,11 @@ export function formatSprintSummary(input: SprintSummaryInput): string {
   }
 
   if (tldr) {
-    lines.push('', tldr)
+    lines.push('', sanitizeField(tldr))
   }
 
   if (report) {
-    lines.push('', report)
+    lines.push('', sanitizeField(report))
   }
 
   return lines.join('\n')

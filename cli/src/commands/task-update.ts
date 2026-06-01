@@ -3,6 +3,7 @@ import { trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -135,7 +136,7 @@ export function formatUpdatedTaskLine(task: {
   url: string
   tags?: string[]
 }): string {
-  const escapedTitle = task.title.replace(/"/g, '\\"')
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const head = `Updated ${task.identifier} "${escapedTitle}"  ${task.url}`
   if (task.tags && task.tags.length > 0) {
     return `${head}\nTags: ${task.tags.join(', ')}`
