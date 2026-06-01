@@ -248,7 +248,7 @@ export async function taskCreate(
         if (msg.startsWith('Sprint binding skipped:')) {
           console.error(msg)
         } else {
-          console.error(`Error: ${msg}`)
+          console.error(`Error: ${sanitizeField(msg)}`)
         }
         return 1
       }
