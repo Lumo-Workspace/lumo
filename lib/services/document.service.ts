@@ -47,6 +47,8 @@ export interface UpdateDocumentInput {
   addTagIds?: string[]
   removeTagIds?: string[]
   childOrder?: string[]
+  googleDocSyncedAt?: Date | null
+  googleDocSyncError?: string | null
 }
 
 interface DocWithShares {
@@ -453,6 +455,10 @@ export const documentService = {
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder
     if (data.publicToken !== undefined)
       updateData.publicToken = data.publicToken
+    if (data.googleDocSyncedAt !== undefined)
+      updateData.googleDocSyncedAt = data.googleDocSyncedAt
+    if (data.googleDocSyncError !== undefined)
+      updateData.googleDocSyncError = data.googleDocSyncError
     if (data.tags !== undefined) updateData.tags = data.tags
 
     // Downstream calls must use the resolved cuid (`doc.id`), not the raw
