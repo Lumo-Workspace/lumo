@@ -57,5 +57,7 @@ describe('formatDocListRows sanitization', () => {
   it('strips control chars from title and project name (tree)', () => {
     const line = formatDocListRowsAsTree([row])[0]
     expect(line).not.toMatch(/\x1b/)
+    expect(line).toContain('Road[31mmap')
+    expect(line).toContain('Lumo')
   })
 })
