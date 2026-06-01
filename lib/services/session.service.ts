@@ -48,6 +48,13 @@ export type UnbindSessionResult =
       previousTaskTitle: string
     }
 
+export interface ProgressDraftResult {
+  taskIdentifier: string | null
+  taskTitle: string | null
+  summaries: { id: string; turnSummary: string; createdAt: string }[]
+  watermark: string | null
+}
+
 export const sessionService = {
   async bindSessionToTask({
     identity,
@@ -172,6 +179,55 @@ export const sessionService = {
       alreadyUnbound: false,
       previousTaskIdentifier: result.previous.taskIdentifier,
       previousTaskTitle: result.previous.taskTitle,
+    }
+  },
+
+  /**
+   * Assemble the unposted progress draft for `lumo session wrap`: the bound
+   * task plus every turnSummary written since the last progress comment. The
+   * watermark (newest summary's createdAt, ISO) is carried back by the CLI on
+   * post so the server can advance `lastProgressCommentAt` to exactly the turns
+   * this draft covered. Empty payload when the session is missing/unowned.
+   */
+  async getSessionProgressDraft({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<ProgressDraftResult> {
+    const empty: ProgressDraftResult = {
+      taskIdentifier: null,
+      taskTitle: null,
+      summaries: [],
+      watermark: null,
+    }
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return empty
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return empty
+
+    const rows = await hookEventRepository.findTurnSummariesBySession(
+      sessionId,
+      ctx.lastProgressCommentAt ?? undefined
+    )
+    const summaries = rows.map(r => ({
+      id: r.id,
+      turnSummary: r.turnSummary as string,
+      createdAt: r.createdAt.toISOString(),
+    }))
+    return {
+      taskIdentifier: ctx.taskIdentifier,
+      taskTitle: ctx.taskTitle,
+      summaries,
+      watermark:
+        summaries.length > 0
+          ? summaries[summaries.length - 1].createdAt
+          : null,
     }
   },
 }
