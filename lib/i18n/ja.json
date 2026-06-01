@@ -252,6 +252,8 @@
   "common.invite": "招待",
   "common.disconnect": "切断",
   "common.connect": "接続",
+  "common.reauthorize": "再認証",
+  "common.moreOptions": "その他の操作",
   "common.loading": "読み込み中...",
   "common.search": "検索",
   "common.copy": "コピー",

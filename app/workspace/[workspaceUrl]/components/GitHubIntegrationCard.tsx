@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { GitBranch, Check, Plus, X, Loader2 } from 'lucide-react'
+import { GitBranch, Plus, X, Loader2 } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -63,10 +63,7 @@ export function GitHubIntegrationCard({
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-muted-foreground' />
   ) : status?.connected ? (
-    <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-      <Check size={12} />
-      {intl.formatMessage({ id: 'github.connected' })}
-    </span>
+    <ConnectedDot label={intl.formatMessage({ id: 'github.connected' })} />
   ) : isOwner ? (
     <Button size='sm' onClick={handleConnect}>
       {intl.formatMessage({ id: 'common.connect' })}
@@ -81,10 +78,13 @@ export function GitHubIntegrationCard({
         description={intl.formatMessage({ id: 'github.description' })}
         headerAction={headerAction}
         collapsible={connected}
+        onReconnect={connected && isOwner ? handleConnect : undefined}
+        reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={
           connected && isOwner ? () => setDisconnectOpen(true) : undefined
         }
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
+        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {status?.connected ? (
           <>

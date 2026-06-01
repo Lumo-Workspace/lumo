@@ -1,14 +1,21 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronRight, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 
 interface IntegrationCardProps {
   /** Brand glyph, already sized (typically `h-[18px] w-[18px]`). */
   icon: ReactNode
   title: ReactNode
   description: ReactNode
-  /** Right-aligned slot in header — connect button, status badge, or loader. */
+  /** Right-aligned slot in header — connect button, status dot, or loader. */
   headerAction?: ReactNode
   /** Body rendered below a divider; typically shown when connected. */
   children?: ReactNode
@@ -17,10 +24,35 @@ interface IntegrationCardProps {
    * A chevron toggle appears in the header right cluster.
    */
   collapsible?: boolean
-  /** When provided, render an X icon button in the header that calls it. */
+  /**
+   * When provided, adds a "Reauthorize" item to the header overflow (⋯) menu.
+   * Re-runs the integration's connect/OAuth flow.
+   */
+  onReconnect?: (() => void) | undefined
+  /** Label for the reauthorize menu item. */
+  reconnectLabel?: string
+  /**
+   * When provided, adds a destructive "Disconnect" item to the header
+   * overflow (⋯) menu.
+   */
   onDisconnect?: (() => void) | undefined
-  /** Accessible label for the disconnect (X) button. */
+  /** Label for the disconnect menu item. */
   disconnectLabel?: string
+  /** Accessible label for the overflow (⋯) menu trigger. */
+  menuLabel?: string
+}
+
+/**
+ * Green status dot shown in a connected integration card's header (replaces the
+ * older "✓ Connected" text badge). Carries an accessible label for SR users.
+ */
+export function ConnectedDot({ label }: { label: string }) {
+  return (
+    <span className='flex items-center' title={label}>
+      <span className='size-2 rounded-full bg-emerald-500' aria-hidden='true' />
+      <span className='sr-only'>{label}</span>
+    </span>
+  )
 }
 
 /**
@@ -36,13 +68,17 @@ export function IntegrationCard({
   headerAction,
   children,
   collapsible,
+  onReconnect,
+  reconnectLabel,
   onDisconnect,
   disconnectLabel,
+  menuLabel,
 }: IntegrationCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   const canCollapse = Boolean(collapsible && children)
   const bodyVisible = children && (!canCollapse || expanded)
+  const hasMenu = Boolean(onReconnect || onDisconnect)
 
   return (
     <div className='rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden'>
@@ -62,6 +98,35 @@ export function IntegrationCard({
         </div>
         <div className='flex items-center gap-2 shrink-0 whitespace-nowrap'>
           {headerAction}
+          {hasMenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type='button'
+                  aria-label={menuLabel}
+                  className='text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                {onReconnect ? (
+                  <DropdownMenuItem onSelect={onReconnect}>
+                    {reconnectLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                {onReconnect && onDisconnect ? <DropdownMenuSeparator /> : null}
+                {onDisconnect ? (
+                  <DropdownMenuItem
+                    onSelect={onDisconnect}
+                    className='text-destructive focus:text-destructive'
+                  >
+                    {disconnectLabel}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           {canCollapse ? (
             <button
               type='button'
@@ -69,24 +134,14 @@ export function IntegrationCard({
               aria-expanded={expanded}
               className='text-muted-foreground hover:text-foreground transition-colors'
             >
-              <ChevronDown
+              <ChevronRight
                 size={16}
                 className={
                   expanded
-                    ? 'rotate-180 transition-transform'
+                    ? 'rotate-90 transition-transform'
                     : 'transition-transform'
                 }
               />
-            </button>
-          ) : null}
-          {onDisconnect ? (
-            <button
-              type='button'
-              onClick={onDisconnect}
-              aria-label={disconnectLabel}
-              className='text-muted-foreground hover:text-destructive transition-colors'
-            >
-              <X size={16} />
             </button>
           ) : null}
         </div>

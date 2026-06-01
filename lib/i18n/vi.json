@@ -252,6 +252,8 @@
   "common.invite": "Mời",
   "common.disconnect": "Ngắt kết nối",
   "common.connect": "Kết nối",
+  "common.reauthorize": "Cấp quyền lại",
+  "common.moreOptions": "Tùy chọn khác",
   "common.loading": "Đang tải...",
   "common.search": "Tìm kiếm",
   "common.copy": "Sao chép",

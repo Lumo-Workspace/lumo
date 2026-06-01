@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -17,7 +17,7 @@ import {
 import { SentryConnectDialog } from './SentryConnectDialog'
 import { SentryMappingsDialog } from './SentryMappingsDialog'
 import { SentryIcon } from './SentryIcon'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { useSentryIntegration } from '../hooks/useSentryIntegration'
 
 export function SentryIntegrationCard({
@@ -51,10 +51,7 @@ export function SentryIntegrationCard({
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-zinc-400' />
   ) : connected ? (
-    <span className='flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-      <Check size={12} />
-      {intl.formatMessage({ id: 'sentry.connected' })}
-    </span>
+    <ConnectedDot label={intl.formatMessage({ id: 'sentry.connected' })} />
   ) : isOwner ? (
     <Button size='sm' onClick={() => setConnectOpen(true)}>
       {intl.formatMessage({ id: 'common.connect' })}
@@ -69,10 +66,15 @@ export function SentryIntegrationCard({
         description={intl.formatMessage({ id: 'sentry.description' })}
         headerAction={headerAction}
         collapsible={connected}
+        onReconnect={
+          connected && isOwner ? () => setConnectOpen(true) : undefined
+        }
+        reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={
           connected && isOwner ? () => setDisconnectOpen(true) : undefined
         }
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
+        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
         {connected ? (
           <>

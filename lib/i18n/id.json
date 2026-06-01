@@ -252,6 +252,8 @@
   "common.invite": "Undang",
   "common.disconnect": "Putuskan",
   "common.connect": "Hubungkan",
+  "common.reauthorize": "Otorisasi ulang",
+  "common.moreOptions": "Opsi lainnya",
   "common.loading": "Memuat...",
   "common.search": "Cari",
   "common.copy": "Salin",

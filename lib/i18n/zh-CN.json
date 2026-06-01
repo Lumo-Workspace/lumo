@@ -292,6 +292,8 @@
   "common.invite": "邀请",
   "common.disconnect": "断开连接",
   "common.connect": "连接",
+  "common.reauthorize": "重新授权",
+  "common.moreOptions": "更多选项",
   "common.loading": "加载中...",
   "common.search": "搜索",
   "common.copy": "复制",

@@ -252,6 +252,8 @@
   "common.invite": "आमंत्रित करें",
   "common.disconnect": "डिस्कनेक्ट करें",
   "common.connect": "कनेक्ट करें",
+  "common.reauthorize": "फिर से अधिकृत करें",
+  "common.moreOptions": "अधिक विकल्प",
   "common.loading": "लोड हो रहा है...",
   "common.search": "खोजें",
   "common.copy": "कॉपी करें",
