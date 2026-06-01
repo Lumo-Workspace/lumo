@@ -11,7 +11,7 @@ const realFetch = global.fetch
 function mockFetchSequence(responses: Array<() => Response>) {
   let i = 0
   global.fetch = jest.fn(async () =>
-    responses[i++]()
+    responses[i++]!()
   ) as unknown as typeof fetch
 }
 

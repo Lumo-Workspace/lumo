@@ -13,7 +13,7 @@ export function parseGoogleDocId(input: string): string | null {
   if (!/(^|\.)google\.com$/.test(url.hostname)) return null
   // /document/d/<id>/edit  or  /file/d/<id>/...
   const pathMatch = url.pathname.match(/\/d\/([A-Za-z0-9_-]{10,})/)
-  if (pathMatch) return pathMatch[1]
+  if (pathMatch) return pathMatch[1] ?? null
   // open?id=<id>
   const idParam = url.searchParams.get('id')
   if (idParam && ID_RE.test(idParam)) return idParam
