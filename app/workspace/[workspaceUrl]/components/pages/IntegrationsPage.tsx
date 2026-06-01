@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useIntl } from 'react-intl'
@@ -13,6 +13,26 @@ import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
 export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   const intl = useIntl()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
+
+  const [connectedMap, setConnectedMap] = useState<Record<string, boolean>>({})
+
+  const reporters = useMemo(
+    () => ({
+      github: (c: boolean) =>
+        setConnectedMap(p => (p.github === c ? p : { ...p, github: c })),
+      slack: (c: boolean) =>
+        setConnectedMap(p => (p.slack === c ? p : { ...p, slack: c })),
+      sentry: (c: boolean) =>
+        setConnectedMap(p => (p.sentry === c ? p : { ...p, sentry: c })),
+      figma: (c: boolean) =>
+        setConnectedMap(p => (p.figma === c ? p : { ...p, figma: c })),
+      googleDrive: (c: boolean) =>
+        setConnectedMap(p =>
+          p.googleDrive === c ? p : { ...p, googleDrive: c }
+        ),
+    }),
+    []
+  )
 
   useEffect(() => {
     // Handle error redirect from OAuth callback
@@ -33,15 +53,34 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
           {intl.formatMessage({ id: 'integrations.description' })}
         </p>
 
-        <div className='space-y-4'>
-          <GitHubIntegrationCard
-            workspaceUrl={workspaceUrl}
-            isOwner={isOwner}
-          />
-          <SlackIntegrationCard isOwner={isOwner} />
-          <SentryIntegrationCard isOwner={isOwner} />
-          <FigmaIntegrationCard />
-          <GoogleDriveIntegrationCard />
+        <div className='flex flex-col gap-4'>
+          <div style={{ order: (connectedMap.github ? 0 : 100) + 0 }}>
+            <GitHubIntegrationCard
+              workspaceUrl={workspaceUrl}
+              isOwner={isOwner}
+              onConnectedChange={reporters.github}
+            />
+          </div>
+          <div style={{ order: (connectedMap.slack ? 0 : 100) + 1 }}>
+            <SlackIntegrationCard
+              isOwner={isOwner}
+              onConnectedChange={reporters.slack}
+            />
+          </div>
+          <div style={{ order: (connectedMap.sentry ? 0 : 100) + 2 }}>
+            <SentryIntegrationCard
+              isOwner={isOwner}
+              onConnectedChange={reporters.sentry}
+            />
+          </div>
+          <div style={{ order: (connectedMap.figma ? 0 : 100) + 3 }}>
+            <FigmaIntegrationCard onConnectedChange={reporters.figma} />
+          </div>
+          <div style={{ order: (connectedMap.googleDrive ? 0 : 100) + 4 }}>
+            <GoogleDriveIntegrationCard
+              onConnectedChange={reporters.googleDrive}
+            />
+          </div>
         </div>
       </div>
     </div>
