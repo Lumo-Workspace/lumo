@@ -1,19 +1,52 @@
 import { createAppAuth } from '@octokit/auth-app'
+import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 
 /**
  * Returns a short-lived GitHub installation token for the Lumo Agent app.
- * Uses GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, and GITHUB_APP_INSTALLATION_ID.
+ *
+ * App credentials (GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY) stay in env — one
+ * Lumo App, many installations. The installationId is resolved per-workspace
+ * from GitHubAppInstallation; if a workspace has no row (or no workspaceId is
+ * passed) we fall back to the legacy global GITHUB_APP_INSTALLATION_ID env var
+ * during the transition, logging a warning so we can observe migration progress.
  */
-export async function getGithubInstallationToken(): Promise<string> {
-  const appId = process.env.GITHUB_APP_ID
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY
-  const installationId = process.env.GITHUB_APP_INSTALLATION_ID
-
-  if (!appId || !privateKey || !installationId) {
-    throw new Error(
-      'Missing GitHub App env vars: GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID'
+async function resolveInstallationId(workspaceId?: string): Promise<number> {
+  if (workspaceId) {
+    const row =
+      await githubAppInstallationRepository.findByWorkspace(workspaceId)
+    if (row) return row.installationId
+    console.warn(
+      `[github/auth] no GitHubAppInstallation for workspace ${workspaceId}; falling back to GITHUB_APP_INSTALLATION_ID`
     )
   }
+  const envId = process.env.GITHUB_APP_INSTALLATION_ID
+  if (!envId) {
+    throw new Error(
+      'No GitHubAppInstallation for workspace and GITHUB_APP_INSTALLATION_ID not set'
+    )
+  }
+  const parsed = Number(envId)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(
+      `GITHUB_APP_INSTALLATION_ID is not a valid installation id: "${envId}"`
+    )
+  }
+  return parsed
+}
+
+export async function getGithubInstallationToken(
+  workspaceId?: string
+): Promise<string> {
+  const appId = process.env.GITHUB_APP_ID
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY
+
+  if (!appId || !privateKey) {
+    throw new Error(
+      'Missing GitHub App env vars: GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY'
+    )
+  }
+
+  const installationId = await resolveInstallationId(workspaceId)
 
   // Private key may be stored as:
   // 1. Full PEM (with BEGIN/END markers and newlines)
@@ -23,8 +56,6 @@ export async function getGithubInstallationToken(): Promise<string> {
   if (privateKey.includes('BEGIN')) {
     decodedKey = privateKey.replace(/\\n/g, '\n')
   } else {
-    // Raw base64 DER — wrap in PEM envelope
-    // Split into 64-char lines as per PEM spec
     const lines = privateKey.match(/.{1,64}/g) ?? [privateKey]
     decodedKey = `-----BEGIN RSA PRIVATE KEY-----\n${lines.join('\n')}\n-----END RSA PRIVATE KEY-----\n`
   }
@@ -32,7 +63,7 @@ export async function getGithubInstallationToken(): Promise<string> {
   const auth = createAppAuth({
     appId: Number(appId),
     privateKey: decodedKey,
-    installationId: Number(installationId),
+    installationId,
   })
 
   const { token } = await auth({ type: 'installation' })
