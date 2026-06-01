@@ -25,6 +25,40 @@ function extractStringField(payload: unknown, field: string): string | null {
   return null
 }
 
+function extractNestedStringField(
+  payload: unknown,
+  parent: string,
+  field: string
+): string | null {
+  if (payload && typeof payload === 'object') {
+    const nested = (payload as Record<string, unknown>)[parent]
+    return extractStringField(nested, field)
+  }
+  return null
+}
+
+/**
+ * Lift the file path a hook event concerns out of its raw payload, so it can
+ * be stored on an indexed `HookEvent.filePath` column instead of staying buried
+ * in unqueryable JSON. Checks, in priority order, the locations Claude Code uses
+ * across event shapes:
+ *   1. `tool_input.file_path` — Read/Edit/MultiEdit/Write tool events
+ *   2. `tool_response.filePath` — Write/Edit PostToolUse responses
+ *   3. top-level `path` / `file_path` — FILE_CHANGED, CONFIG_CHANGE,
+ *      INSTRUCTIONS_LOADED
+ * Returns null for events that carry no file path (Bash, Stop, prompts, …).
+ * Payload-shape-driven rather than type-driven: a Bash tool_input has no
+ * file_path, so it naturally yields null without enumerating event types.
+ */
+export function extractFilePath(payload: unknown): string | null {
+  return (
+    extractNestedStringField(payload, 'tool_input', 'file_path') ??
+    extractNestedStringField(payload, 'tool_response', 'filePath') ??
+    extractStringField(payload, 'path') ??
+    extractStringField(payload, 'file_path')
+  )
+}
+
 export const hookEventService = {
   async recordHookEvent({
     identity,
@@ -71,6 +105,7 @@ export const hookEventService = {
       taskId,
       type,
       toolName: extractStringField(payload, 'tool_name'),
+      filePath: extractFilePath(payload),
       payload,
     })
 

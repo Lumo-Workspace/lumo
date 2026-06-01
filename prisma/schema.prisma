@@ -1274,6 +1274,12 @@ model HookEvent {
   taskId            String? // associated Lumo task
   type              HookEventType
   toolName          String? // extracted from payload.tool_name when present
+  // File this event touched, lifted out of the raw payload at record time
+  // (tool_input.file_path / tool_response.filePath / top-level path|file_path).
+  // Null for events that carry no file path (Bash, Stop, prompts). Indexed for
+  // cross-session "who else is touching this file" lookups and LUM-146's
+  // "last file changed" — both impossible while the path lived only in JSON.
+  filePath          String?
   payload           Json // raw hook body from Claude Code
   // LLM-generated one-line summary of what Claude did in the turn that
   // just ended. Populated only on STOP / STOP_FAILURE rows, written
@@ -1290,6 +1296,10 @@ model HookEvent {
   @@index([workspaceId, createdAt])
   @@index([workspaceMemberId, createdAt])
   @@index([sessionId, createdAt])
+  // Cross-session collision lookups: filter by workspace + file within a recent
+  // time window. filePath leads the createdAt so a path-equality probe narrows
+  // before the time-range scan.
+  @@index([workspaceId, filePath, createdAt])
   @@map("hook_events")
 }
 

@@ -28,6 +28,7 @@ describe('hookEventRepository.createHookEvent', () => {
       sessionId: 'sess_abc',
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
+      filePath: '/tmp/x',
       payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
     })
 
@@ -40,10 +41,29 @@ describe('hookEventRepository.createHookEvent', () => {
         taskId: null,
         type: 'PRE_TOOL_USE',
         toolName: 'Read',
+        filePath: '/tmp/x',
         payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
       },
       select: { id: true },
     })
+  })
+
+  it('defaults filePath to null when omitted', async () => {
+    mockCreate.mockResolvedValue({ id: 'he_3' })
+
+    await hookEventRepository.createHookEvent({
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      type: 'STOP',
+      toolName: null,
+      payload: { reason: 'user' },
+    })
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ filePath: null }),
+      })
+    )
   })
 
   it('allows null toolName for Stop events', async () => {

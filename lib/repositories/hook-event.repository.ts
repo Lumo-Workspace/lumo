@@ -11,6 +11,12 @@ interface CreateHookEventData {
   payload: Prisma.InputJsonValue
   sessionId?: string | null
   taskId?: string | null
+  /**
+   * File this event concerns, lifted out of the raw payload by the service so
+   * it's queryable/indexable (cross-session "who touched this file" lookups,
+   * LUM-146 "last file changed"). Null for events that carry no file path.
+   */
+  filePath?: string | null
 }
 
 // ── HookEvent Repository ──────────────────────────────────────────────────────
@@ -26,6 +32,7 @@ export const hookEventRepository = {
         taskId: data.taskId ?? null,
         type: data.type,
         toolName: data.toolName,
+        filePath: data.filePath ?? null,
         payload: data.payload,
       },
       select: { id: true },
