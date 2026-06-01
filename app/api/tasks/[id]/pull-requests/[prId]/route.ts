@@ -4,7 +4,10 @@ import { taskRepository, pullRequestRepository } from '@/lib/repositories'
 
 export const runtime = 'nodejs'
 
-type Params = { params: Promise<{ id: string; number: string }> }
+// The `[prId]` slug umbrellas both PR identifiers used under this path: this
+// GET keys off the PR *number* (the CLI calls `LUM-1/pull-requests/<number>`),
+// while the sibling `unlink` route keys off the PR record id (cuid).
+type Params = { params: Promise<{ id: string; prId: string }> }
 
 function isLikelyCuid(segment: string): boolean {
   return /^c[a-z0-9]{24}$/.test(segment)
@@ -43,7 +46,7 @@ function errorResponse(err: unknown, route: string) {
 }
 
 /**
- * GET /api/tasks/[id]/pull-requests/[number]
+ * GET /api/tasks/[id]/pull-requests/[prId]  (PR number)
  * Tier-2 retrieval for the cheap inline PR card (LUM-122).
  *
  * Returns the structured PR record stored by the GitHub sync/webhook pipeline
@@ -57,7 +60,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
 
-    const { id: rawId, number: numberRaw } = await params
+    const { id: rawId, prId: numberRaw } = await params
     const number = Number.parseInt(numberRaw, 10)
     if (!Number.isInteger(number))
       return NextResponse.json({ error: 'Invalid PR number' }, { status: 400 })
@@ -91,6 +94,6 @@ export async function GET(request: NextRequest, { params }: Params) {
       note: 'Live PR diff and review comments require a GitHub integration token and are not included. Returned values are the synced PR record.',
     })
   } catch (err) {
-    return errorResponse(err, 'GET /api/tasks/[id]/pull-requests/[number]')
+    return errorResponse(err, 'GET /api/tasks/[id]/pull-requests/[prId]  (PR number)')
   }
 }
