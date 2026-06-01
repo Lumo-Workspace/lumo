@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ShowMilestoneOptions {
   project?: string
@@ -37,13 +38,13 @@ export function formatMilestoneShow(
     m.taskCounts.IN_REVIEW +
     m.taskCounts.DONE
   const lines = [
-    `Milestone:    ${m.name}`,
+    `Milestone:    ${sanitizeField(m.name)}`,
     `Status:       ${m.status}`,
     `Start:        ${fmtDate(m.startDate)}`,
     `Target:       ${fmtDate(m.targetDate)}`,
-    `Project:      ${m.projectName}`,
+    `Project:      ${sanitizeField(m.projectName)}`,
     `Description:`,
-    `  ${m.description && m.description.length > 0 ? m.description : '-'}`,
+    `  ${m.description && m.description.length > 0 ? sanitizeField(m.description) : '-'}`,
     ``,
     `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})`,
   ]

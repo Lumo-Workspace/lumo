@@ -1,4 +1,5 @@
 import { listFigmaLinks } from '../lib/figma-api'
+import { sanitizeField } from '../lib/sanitize'
 
 const STALE_MS = 25 * 24 * 3600 * 1000
 
@@ -11,8 +12,8 @@ function formatRow(
 ): string {
   return [
     id.padEnd(10),
-    fileName.padEnd(20),
-    frame.padEnd(24),
+    sanitizeField(fileName).padEnd(20),
+    sanitizeField(frame).padEnd(24),
     synced.padEnd(12),
     stale ? '⚠ thumbnail stale' : '',
   ]

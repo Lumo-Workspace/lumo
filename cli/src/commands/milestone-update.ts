@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_STATUSES = [
   'PLANNED',
@@ -82,9 +83,10 @@ export function formatMilestoneUpdateSummary(
   before: MilestoneSnapshot,
   after: UpdatePayload
 ): string {
+  const beforeName = sanitizeField(before.name)
   const changes: string[] = []
   if (after.name !== undefined && after.name !== before.name) {
-    changes.push(`name "${before.name}" → "${after.name}"`)
+    changes.push(`name "${beforeName}" → "${sanitizeField(after.name)}"`)
   }
   if (after.description !== undefined) {
     changes.push(
@@ -100,7 +102,7 @@ export function formatMilestoneUpdateSummary(
   if (after.targetDate !== undefined) {
     changes.push(`target → ${fmtDate(after.targetDate)}`)
   }
-  return `Updated milestone "${before.name}": ${changes.join(', ')}`
+  return `Updated milestone "${beforeName}": ${changes.join(', ')}`
 }
 
 export async function milestoneUpdate(
@@ -204,7 +206,7 @@ export async function milestoneUpdate(
     } catch {
       // body wasn't JSON; keep the status-only message
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
 

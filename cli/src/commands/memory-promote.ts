@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 export async function memoryPromote(memoryId: string | undefined): Promise<number | void> {
   if (!memoryId) { console.error('Error: missing <memoryId>. Usage: lumo memory promote <memoryId>'); return 1 }
@@ -24,7 +25,7 @@ export async function memoryPromote(memoryId: string | undefined): Promise<numbe
   if (res.status !== 200) {
     let m: string | null = null
     try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
-    console.error(m ? `Error: ${m}` : `Error: promote failed (HTTP ${res.status})`)
+    console.error(m ? `Error: ${sanitizeField(m)}` : `Error: promote failed (HTTP ${res.status})`)
     return 1
   }
   process.stdout.write(

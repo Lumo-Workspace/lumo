@@ -1,6 +1,7 @@
 import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
+import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
 
 /**
@@ -105,7 +106,7 @@ export function formatHookStdoutLines(
   const tb = body.taskBinding
   if (tb && tb.bound === true) {
     lines.push(
-      `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${tb.taskTitle}`
+      `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${sanitizeField(tb.taskTitle ?? '')}`
     )
   } else if (tb && tb.bound === false) {
     lines.push(

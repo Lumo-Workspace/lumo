@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -135,10 +136,10 @@ export function formatUpdatedTaskLine(task: {
   url: string
   tags?: string[]
 }): string {
-  const escapedTitle = task.title.replace(/"/g, '\\"')
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const head = `Updated ${task.identifier} "${escapedTitle}"  ${task.url}`
   if (task.tags && task.tags.length > 0) {
-    return `${head}\nTags: ${task.tags.join(', ')}`
+    return `${head}\nTags: ${task.tags.map(sanitizeField).join(', ')}`
   }
   return head
 }
@@ -326,7 +327,7 @@ export async function taskUpdate(
         // Body wasn't JSON; fall through to status-only message
       }
       if (serverMsg) {
-        console.error(`Error: ${serverMsg}`)
+        console.error(`Error: ${sanitizeField(serverMsg)}`)
       } else {
         console.error(`Error: task update failed (HTTP ${res.status})`)
       }
@@ -484,7 +485,7 @@ export async function taskUpdate(
           const b = (await deleteRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
         } catch { /* ignore */ }
-        console.error(`Error: ${errMsg}`)
+        console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 
@@ -518,7 +519,7 @@ export async function taskUpdate(
           const b = (await postRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
         } catch { /* ignore */ }
-        console.error(`Error: ${errMsg}`)
+        console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 

@@ -1,4 +1,5 @@
 import { refreshFigmaLinks, listFigmaLinks } from '../lib/figma-api'
+import { sanitizeField } from '../lib/sanitize'
 
 export async function taskFigmaRefresh(args: {
   identifier: string
@@ -16,12 +17,14 @@ export async function taskFigmaRefresh(args: {
     for (const r of results) {
       const link = byId.get(r.id)
       const label = link
-        ? link.frameName
-          ? `${link.fileName} · ${link.frameName}`
-          : `${link.fileName} (file-level)`
+        ? sanitizeField(
+            link.frameName
+              ? `${link.fileName} · ${link.frameName}`
+              : `${link.fileName} (file-level)`
+          )
         : r.id
       if (r.ok) console.log(`  ✓ ${label}`)
-      else console.log(`  ✗ ${label} (${r.error})`)
+      else console.log(`  ✗ ${label} (${sanitizeField(r.error ?? '')})`)
     }
     return 0
   } catch (e) {

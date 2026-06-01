@@ -1,4 +1,5 @@
 import { removeFigmaLink, listFigmaLinks } from '../lib/figma-api'
+import { sanitizeField } from '../lib/sanitize'
 
 export async function taskFigmaRm(args: {
   identifier: string
@@ -13,9 +14,11 @@ export async function taskFigmaRm(args: {
     return 0
   }
   await removeFigmaLink(args.identifier, match.id)
-  const label = match.frameName
-    ? `${match.fileName} · ${match.frameName}`
-    : `${match.fileName} (file-level)`
+  const label = sanitizeField(
+    match.frameName
+      ? `${match.fileName} · ${match.frameName}`
+      : `${match.fileName} (file-level)`
+  )
   console.log(`Removed Figma link from ${args.identifier}: "${label}"`)
   return 0
 }

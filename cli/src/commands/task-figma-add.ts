@@ -1,4 +1,5 @@
 import { addFigmaLink } from '../lib/figma-api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface Args {
   identifier: string
@@ -8,9 +9,11 @@ interface Args {
 export async function taskFigmaAdd(args: Args): Promise<number> {
   try {
     const { link } = await addFigmaLink(args.identifier, args.url)
-    const label = link.frameName
-      ? `${link.fileName} · ${link.frameName}`
-      : `${link.fileName}${link.nodeId === '' ? ' (file-level)' : ''}`
+    const label = sanitizeField(
+      link.frameName
+        ? `${link.fileName} · ${link.frameName}`
+        : `${link.fileName}${link.nodeId === '' ? ' (file-level)' : ''}`
+    )
     console.log(`Linked ${args.identifier} ↔ Figma "${label}"`)
     console.log(`  ${link.url}`)
     return 0

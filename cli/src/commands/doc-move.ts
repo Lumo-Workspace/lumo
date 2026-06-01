@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveDoc } from '../lib/resolve-doc'
 import { pickNextSortOrder } from '../lib/doc-sort-order'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface MoveDocOptions {
   parent?: string
@@ -54,7 +55,7 @@ export async function docMove(
   }
   if (!listRes.ok) {
     const text = await listRes.text()
-    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${text}`)
+    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { documents } = (await listRes.json()) as { documents: DocLike[] }
@@ -65,7 +66,7 @@ export async function docMove(
       `Error: title "${reference}" matches ${docMatch.candidates.length} docs:`
     )
     for (const c of docMatch.candidates) {
-      console.error(`  ${c.id}  ${c.title}`)
+      console.error(`  ${c.id}  ${sanitizeField(c.title)}`)
     }
     console.error('Re-run with the cuid.')
     return 1
@@ -85,7 +86,7 @@ export async function docMove(
         `Error: --parent "${opts.parent}" matches ${parentMatch.candidates.length} docs:`
       )
       for (const c of parentMatch.candidates) {
-        console.error(`  ${c.id}  ${c.title}`)
+        console.error(`  ${c.id}  ${sanitizeField(c.title)}`)
       }
       console.error('Re-run with the cuid.')
       return 1
@@ -96,7 +97,7 @@ export async function docMove(
     }
     const parentRow = documents.find(d => d.id === parentMatch.doc.id)!
     newParentId = parentRow.id
-    parentTitleForOutput = `"${parentRow.title.replace(/"/g, '\\"')}"`
+    parentTitleForOutput = `"${sanitizeField(parentRow.title).replace(/"/g, '\\"')}"`
   }
 
   const siblings = documents.filter(
@@ -126,11 +127,13 @@ export async function docMove(
       const json = JSON.parse(text) as { error?: string }
       if (json.error) msg = json.error
     } catch {}
-    console.error(`Error: ${moveRes.status} ${moveRes.statusText}: ${msg}`)
+    console.error(
+      `Error: ${moveRes.status} ${moveRes.statusText}: ${sanitizeField(msg)}`
+    )
     return 1
   }
 
-  const escapedDocTitle = docRow.title.replace(/"/g, '\\"')
+  const escapedDocTitle = sanitizeField(docRow.title).replace(/"/g, '\\"')
   console.log(
     `Moved ${docRow.id} "${escapedDocTitle}" → ${parentTitleForOutput}`
   )

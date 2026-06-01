@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { readFileUtf8 } from '../lib/doc-input'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
+import { sanitizeField } from '../lib/sanitize'
 import { checkArtifactFilePath } from '../lib/path-guard'
 
 export interface ArtifactAddOptions {
@@ -142,7 +143,7 @@ export async function taskArtifactAdd(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: artifact add failed (HTTP ${res.status})`
     )
     return 1
@@ -150,6 +151,6 @@ export async function taskArtifactAdd(
 
   const data = (await res.json()) as ArtifactResponse
   process.stdout.write(
-    `Added [${data.artifact.kind}] "${data.artifact.title}" to ${identifier}\n`
+    `Added [${sanitizeField(data.artifact.kind)}] "${sanitizeField(data.artifact.title)}" to ${identifier}\n`
   )
 }

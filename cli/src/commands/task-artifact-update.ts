@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
 
 export interface ArtifactUpdateOptions {
@@ -112,7 +113,7 @@ export async function taskArtifactUpdate(
     } catch {
       /* not JSON */
     }
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
     return 1
   }
   if (res.status !== 200) {
@@ -125,7 +126,7 @@ export async function taskArtifactUpdate(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: artifact update failed (HTTP ${res.status})`
     )
     return 1
@@ -133,6 +134,6 @@ export async function taskArtifactUpdate(
 
   const data = (await res.json()) as ArtifactResponse
   process.stdout.write(
-    `Updated [${data.artifact.kind}] "${data.artifact.title}" (${data.artifact.source}) on ${identifier}\n`
+    `Updated [${sanitizeField(data.artifact.kind)}] "${sanitizeField(data.artifact.title)}" (${sanitizeField(data.artifact.source)}) on ${identifier}\n`
   )
 }

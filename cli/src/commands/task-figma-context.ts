@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface FigmaMetadata {
   id: string
@@ -75,11 +76,13 @@ export async function taskFigmaContext(
   }
 
   const { metadata, note } = (await res.json()) as FigmaContextResponse
-  if (metadata.fileName) console.log(`file:  ${metadata.fileName}`)
-  if (metadata.frameName) console.log(`frame: ${metadata.frameName}`)
+  if (metadata.fileName)
+    console.log(`file:  ${sanitizeField(metadata.fileName)}`)
+  if (metadata.frameName)
+    console.log(`frame: ${sanitizeField(metadata.frameName)}`)
   console.log(`url:   ${metadata.url}`)
   if (metadata.lastSyncedAt) console.log(`synced: ${metadata.lastSyncedAt}`)
   if (metadata.lastSyncError)
-    console.log(`syncError: ${metadata.lastSyncError}`)
-  if (note) console.log(`\nnote: ${note}`)
+    console.log(`syncError: ${sanitizeField(metadata.lastSyncError)}`)
+  if (note) console.log(`\nnote: ${sanitizeField(note)}`)
 }

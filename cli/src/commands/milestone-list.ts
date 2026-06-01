@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 interface MilestoneRow {
   id: string
@@ -36,7 +37,7 @@ export function formatMilestoneList(rows: MilestoneRow[]): string {
   return rows
     .map(
       r =>
-        `${r.status.padEnd(statusW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${r.name}`
+        `${r.status.padEnd(statusW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
     )
     .join('\n')
 }

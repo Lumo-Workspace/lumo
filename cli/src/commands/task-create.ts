@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -130,10 +131,10 @@ export function formatCreatedTaskLine(task: {
   url: string
   tags?: string[]
 }): string {
-  const escapedTitle = task.title.replace(/"/g, '\\"')
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const head = `Created ${task.identifier} "${escapedTitle}"  ${task.url}`
   if (task.tags && task.tags.length > 0) {
-    return `${head}\nTags: ${task.tags.join(', ')}`
+    return `${head}\nTags: ${task.tags.map(sanitizeField).join(', ')}`
   }
   return head
 }
@@ -237,14 +238,16 @@ export async function taskCreate(
           opts.sprint,
           { id: data.task.id, teamId: data.task.teamId, identifier: data.task.identifier }
         )
-        process.stdout.write(`Sprint: #${sprint.number} "${sprint.name}"\n`)
+        process.stdout.write(
+          `Sprint: #${sprint.number} "${sanitizeField(sprint.name)}"\n`
+        )
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         // Spec's literal mismatch output — print bare, no "Error:" prefix
         if (msg.startsWith('Sprint binding skipped:')) {
           console.error(msg)
         } else {
-          console.error(`Error: ${msg}`)
+          console.error(`Error: ${sanitizeField(msg)}`)
         }
         return 1
       }
@@ -262,7 +265,7 @@ export async function taskCreate(
     // Body wasn't JSON; fall through to status-only message
   }
   if (serverMsg) {
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
   } else {
     console.error(`Error: task create failed (HTTP ${res.status})`)
   }

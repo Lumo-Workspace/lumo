@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface CloseSprintOptions {
   team?: string
@@ -41,7 +42,7 @@ export function formatUnfinishedRefusal(
 ): string {
   const unfinished = tasks.filter(t => t.status !== 'DONE')
   const lines: string[] = [
-    `Refusing to close sprint #${number} "${name}": ${unfinished.length} task(s) not DONE.`,
+    `Refusing to close sprint #${number} "${sanitizeField(name)}": ${unfinished.length} task(s) not DONE.`,
     '',
     formatTaskListTable(unfinished),
     '',
@@ -180,9 +181,11 @@ export async function sprintClose(
     } catch {
       // body wasn't JSON
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
 
-  process.stdout.write(`Closed sprint #${sprint.number} "${sprint.name}"\n`)
+  process.stdout.write(
+    `Closed sprint #${sprint.number} "${sanitizeField(sprint.name)}"\n`
+  )
 }

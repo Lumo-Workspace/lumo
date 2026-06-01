@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface BindResponse {
   taskId: string
@@ -76,7 +77,7 @@ export async function sessionAttach(
     } catch {
       // fall through
     }
-    console.error(`Error: ${message}`)
+    console.error(`Error: ${sanitizeField(message)}`)
     return 1
   }
   if (!res.ok) {
@@ -87,7 +88,7 @@ export async function sessionAttach(
   const result = (await res.json()) as BindResponse
 
   console.log(
-    `Attached session ${sessionId} to ${result.taskIdentifier} "${result.taskTitle}"`
+    `Attached session ${sessionId} to ${result.taskIdentifier} "${sanitizeField(result.taskTitle)}"`
   )
   console.log(
     `Re-tagged ${result.retaggedEventCount} previously-untagged event${
@@ -96,6 +97,6 @@ export async function sessionAttach(
   )
   if (result.memorySection !== '') {
     console.log('')
-    console.log(result.memorySection)
+    console.log(sanitizeField(result.memorySection))
   }
 }

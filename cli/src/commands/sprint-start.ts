@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface StartSprintOptions {
   team?: string
@@ -72,8 +73,10 @@ export async function sprintStart(
     } catch {
       // ignore
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
-  process.stdout.write(`Started sprint #${displayNumber} "${displayName}"\n`)
+  process.stdout.write(
+    `Started sprint #${displayNumber} "${sanitizeField(displayName)}"\n`
+  )
 }

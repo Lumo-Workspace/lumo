@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface StatusResponse {
   exists: boolean
@@ -63,7 +64,7 @@ export async function sessionStatus(): Promise<number | void> {
   if (data.taskIdentifier && data.taskTitle) {
     process.stdout.write(
       `Session ${sessionId}\n` +
-        `  Bound to:  ${data.taskIdentifier} "${data.taskTitle}"\n` +
+        `  Bound to:  ${data.taskIdentifier} "${sanitizeField(data.taskTitle)}"\n` +
         `  Events:    ${data.eventCount}\n`
     )
   } else {

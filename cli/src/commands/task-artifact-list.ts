@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ArtifactRow {
   id: string
@@ -60,9 +61,9 @@ export async function taskArtifactList(
     return
   }
   for (const a of artifacts) {
-    const agentLabel = AGENT_LABELS[a.agent] ?? a.agent
+    const agentLabel = AGENT_LABELS[a.agent] ?? sanitizeField(a.agent)
     process.stdout.write(
-      `${a.id}  ${a.kind.padEnd(10)}  ${agentLabel.padEnd(15)}  ${a.source.padEnd(12)}  ${a.title}\n`
+      `${a.id}  ${sanitizeField(a.kind).padEnd(10)}  ${agentLabel.padEnd(15)}  ${sanitizeField(a.source).padEnd(12)}  ${sanitizeField(a.title)}\n`
     )
   }
 }

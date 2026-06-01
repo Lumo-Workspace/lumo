@@ -1,4 +1,5 @@
 import { readCredentials, deleteCredentials } from '../lib/config'
+import { sanitizeField } from '../lib/sanitize'
 
 export async function authLogout(): Promise<number | void> {
   const creds = readCredentials()
@@ -8,5 +9,5 @@ export async function authLogout(): Promise<number | void> {
   }
   const email = creds.email
   deleteCredentials()
-  console.log(`✓ Logged out (${email})`)
+  console.log(`✓ Logged out (${sanitizeField(email)})`)
 }

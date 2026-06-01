@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface UpdateSprintOptions {
   team?: string
@@ -52,9 +53,10 @@ export function formatSprintUpdateSummary(
   before: SprintSnapshot,
   after: UpdatePayload
 ): string {
+  const beforeName = sanitizeField(before.name)
   const changes: string[] = []
   if (after.name !== undefined && after.name !== before.name) {
-    changes.push(`name "${before.name}" → "${after.name}"`)
+    changes.push(`name "${beforeName}" → "${sanitizeField(after.name)}"`)
   }
   if (after.startDate !== undefined) {
     changes.push(`start → ${fmtDate(after.startDate)}`)
@@ -62,7 +64,7 @@ export function formatSprintUpdateSummary(
   if (after.endDate !== undefined) {
     changes.push(`end → ${fmtDate(after.endDate)}`)
   }
-  return `Updated sprint #${before.number} "${before.name}": ${changes.join(', ')}`
+  return `Updated sprint #${before.number} "${beforeName}": ${changes.join(', ')}`
 }
 
 export async function sprintUpdate(
@@ -177,7 +179,7 @@ export async function sprintUpdate(
     } catch {
       // body wasn't JSON; keep the status-only message
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
 

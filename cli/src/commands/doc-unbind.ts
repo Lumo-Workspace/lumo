@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { sanitizeField } from '../lib/sanitize'
 
 export async function docUnbind(
   docRef: string | undefined,
@@ -31,12 +32,12 @@ export async function docUnbind(
   })
   if (res.status === 409) {
     const { error } = (await res.json()) as { error: string }
-    console.error(`Error: ${error}`)
+    console.error(`Error: ${sanitizeField(error)}`)
     return 1
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const data = (await res.json()) as { removed: number; taskIdentifier: string }

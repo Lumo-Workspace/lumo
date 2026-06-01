@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface DeleteMilestoneOptions {
   project?: string
@@ -8,7 +9,7 @@ export interface DeleteMilestoneOptions {
 }
 
 export function formatDeleteRefusal(name: string, taskCount: number): string {
-  const head = `Refusing to delete milestone "${name}" without --yes.`
+  const head = `Refusing to delete milestone "${sanitizeField(name)}" without --yes.`
   const tail = `Re-run with --yes to confirm.`
   if (taskCount === 0) return `${head}\n${tail}`
   return `${head}\n${taskCount} tasks under it will keep their data; only milestoneId is cleared.\n${tail}`
@@ -107,8 +108,8 @@ export async function milestoneDelete(
     } catch {
       // body wasn't JSON
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
-  process.stdout.write(`Deleted milestone "${name}"\n`)
+  process.stdout.write(`Deleted milestone "${sanitizeField(name)}"\n`)
 }

@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { AGENT_LABELS } from '../lib/agent'
+import { sanitizeField } from '../lib/sanitize'
 
 interface Artifact {
   id: string
@@ -63,7 +64,7 @@ export async function taskArtifactShow(
     } catch {
       /* not JSON */
     }
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
     return 1
   }
   if (!res.ok) {
@@ -73,13 +74,13 @@ export async function taskArtifactShow(
 
   const { artifact } = (await res.json()) as { artifact: Artifact }
   process.stdout.write(`id:     ${artifact.id}\n`)
-  process.stdout.write(`kind:   ${artifact.kind}\n`)
-  process.stdout.write(`title:  ${artifact.title}\n`)
-  process.stdout.write(`source: ${artifact.source}\n`)
+  process.stdout.write(`kind:   ${sanitizeField(artifact.kind)}\n`)
+  process.stdout.write(`title:  ${sanitizeField(artifact.title)}\n`)
+  process.stdout.write(`source: ${sanitizeField(artifact.source)}\n`)
   process.stdout.write(
-    `agent:  ${AGENT_LABELS[artifact.agent] ?? artifact.agent}\n`
+    `agent:  ${AGENT_LABELS[artifact.agent] ?? sanitizeField(artifact.agent ?? '')}\n`
   )
   process.stdout.write(`order:  ${artifact.order}\n`)
   process.stdout.write(`task:   ${identifier}\n`)
-  process.stdout.write(`\n${artifact.content}\n`)
+  process.stdout.write(`\n${sanitizeField(artifact.content)}\n`)
 }

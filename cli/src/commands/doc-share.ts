@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers, resolveMember } from '../lib/resolve-member'
+import { sanitizeField } from '../lib/sanitize'
 
 const ALLOWED_ROLES = ['VIEWER', 'EDITOR', 'MANAGER'] as const
 type Role = (typeof ALLOWED_ROLES)[number]
@@ -70,7 +71,9 @@ export async function docShare(
     return 1
   }
   if (result.kind === 'ambiguous') {
-    const list = result.candidates.map(c => c.email ?? c.displayName).join(', ')
+    const list = result.candidates
+      .map(c => sanitizeField(c.email ?? c.displayName))
+      .join(', ')
     console.error(`Error: multiple members match "${result.query}": ${list}`)
     return 1
   }
@@ -86,9 +89,11 @@ export async function docShare(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
 
-  console.log(`Shared ${docId} ↔ ${result.member.displayName} (${role})`)
+  console.log(
+    `Shared ${docId} ↔ ${sanitizeField(result.member.displayName)} (${role})`
+  )
 }

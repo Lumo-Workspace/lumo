@@ -76,6 +76,7 @@ import {
   printUpdateNoticeIfAny,
   runBackgroundRefresh,
 } from './lib/update-check'
+import { sanitizeField } from './lib/sanitize'
 
 // Resolve package.json relative to __dirname so this works regardless of how
 // deep the compiled output ends up (flat dist/ or nested dist/cli/src/).
@@ -124,7 +125,7 @@ function wrap(fn: CommandFn) {
       if (typeof code === 'number' && code !== 0) process.exit(code)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`Error: ${msg}`)
+      console.error(`Error: ${sanitizeField(msg)}`)
       process.exit(1)
     }
   }
@@ -1180,7 +1181,7 @@ for (const [slug, description] of HOOK_SUBCOMMANDS) {
 if (!isUpdateCheckWorker) {
   program.parseAsync(process.argv).catch(err => {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: ${msg}`)
+    console.error(`Error: ${sanitizeField(msg)}`)
     process.exit(1)
   })
 }

@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { normalizeScope } from './doc-create'
 import { buildTree, flattenWithDepth } from '../lib/doc-tree'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ListDocOptions {
   scope?: string
@@ -29,8 +30,8 @@ export function formatDocListRows(rows: DocRow[]): string[] {
   if (rows.length === 0) return []
   return rows.map(r => {
     const label = visibilityLabel(r.visibility).padEnd(10, ' ')
-    const project = (r.project?.name ?? '-').padEnd(14, ' ')
-    return `${r.id}  ${label}  ${project}  ${r.title}`
+    const project = sanitizeField(r.project?.name ?? '-').padEnd(14, ' ')
+    return `${r.id}  ${label}  ${project}  ${sanitizeField(r.title)}`
   })
 }
 
@@ -40,9 +41,9 @@ export function formatDocListRowsAsTree(rows: DocRow[]): string[] {
   const flat = flattenWithDepth(tree)
   return flat.map(({ row, depth }) => {
     const label = visibilityLabel(row.visibility).padEnd(10, ' ')
-    const project = (row.project?.name ?? '-').padEnd(14, ' ')
+    const project = sanitizeField(row.project?.name ?? '-').padEnd(14, ' ')
     const indent = '  '.repeat(depth)
-    return `${row.id}  ${label}  ${project}  ${indent}${row.title}`
+    return `${row.id}  ${label}  ${project}  ${indent}${sanitizeField(row.title)}`
   })
 }
 
@@ -79,7 +80,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }

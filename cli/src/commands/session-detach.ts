@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 interface DetachResponse {
   found: boolean
@@ -69,6 +70,6 @@ export async function sessionDetach(): Promise<number | void> {
     return
   }
   process.stdout.write(
-    `Detached session ${sessionId} from ${data.previousTaskIdentifier} "${data.previousTaskTitle}".\n`
+    `Detached session ${sessionId} from ${data.previousTaskIdentifier} "${sanitizeField(data.previousTaskTitle ?? '')}".\n`
   )
 }

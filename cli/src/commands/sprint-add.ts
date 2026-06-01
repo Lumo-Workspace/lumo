@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { resolveSprintId } from '../lib/resolve'
 
 export interface AddTaskToSprintOptions {
@@ -68,7 +69,7 @@ export async function sprintAdd(
     } catch {
       // ignore
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   process.stdout.write(

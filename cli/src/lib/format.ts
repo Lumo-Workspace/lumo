@@ -1,3 +1,5 @@
+import { sanitizeField } from './sanitize'
+
 export interface TaskRow {
   id: string
   number: number
@@ -20,8 +22,8 @@ export function formatTaskListTable(tasks: TaskRow[]): string {
     identifier: `${t.teamIdentifier}-${t.number}`,
     status: t.status,
     priority: t.priority,
-    project: t.project.name,
-    title: t.title,
+    project: sanitizeField(t.project.name),
+    title: sanitizeField(t.title),
   }))
   const widths = {
     identifier: Math.max(...rows.map(r => r.identifier.length)),

@@ -1,13 +1,14 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
+import { sanitizeField } from '../lib/sanitize'
 
 interface SyncedDocResponse {
   document: { id: string; title: string }
 }
 
 export function formatSyncedLine(doc: { id: string; title: string }): string {
-  const escaped = doc.title.replace(/"/g, '\\"')
+  const escaped = sanitizeField(doc.title).replace(/"/g, '\\"')
   return `Synced ${doc.id} "${escaped}" from Google`
 }
 
@@ -39,7 +40,7 @@ export async function docSync(reference: string): Promise<number | void> {
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
 

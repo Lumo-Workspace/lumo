@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { fetchMembers } from '../lib/resolve-member'
+import { sanitizeField } from '../lib/sanitize'
 
 interface ShareListResponse {
   shares: Array<{
@@ -18,11 +19,14 @@ export interface ShareListRow {
 
 export function formatShareListRows(rows: ShareListRow[]): string[] {
   if (rows.length === 0) return []
-  const nameWidth = Math.max(...rows.map(r => r.displayName.length))
-  return rows.map(r => {
-    const name = r.displayName.padEnd(nameWidth, ' ')
-    return `${name}  ${r.role}`
-  })
+  // Sanitize first, then measure/pad off the sanitized string so the
+  // column width matches the printed cell (control chars stripped).
+  const sanitized = rows.map(r => ({
+    name: sanitizeField(r.displayName),
+    role: r.role,
+  }))
+  const nameWidth = Math.max(...sanitized.map(r => r.name.length))
+  return sanitized.map(r => `${r.name.padEnd(nameWidth, ' ')}  ${r.role}`)
 }
 
 export async function docShareList(
@@ -58,7 +62,7 @@ export async function docShareList(
   ])
   if (!sharesRes.ok) {
     const text = await sharesRes.text()
-    console.error(`Error: ${sharesRes.status} ${sharesRes.statusText}: ${text}`)
+    console.error(`Error: ${sharesRes.status} ${sharesRes.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { shares } = (await sharesRes.json()) as ShareListResponse

@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ShowSprintOptions {
   team?: string
@@ -29,9 +30,9 @@ export function formatSprintShow(
   tasks: TaskRow[]
 ): string {
   const lines = [
-    `Sprint:    #${s.number} ${s.name}`,
+    `Sprint:    #${s.number} ${sanitizeField(s.name)}`,
     `Status:    ${s.status}`,
-    `Team:      ${s.team.name}`,
+    `Team:      ${sanitizeField(s.team.name)}`,
     `Start:     ${fmtDate(s.startDate)}`,
     `End:       ${fmtDate(s.endDate)}`,
     `Started:   ${fmtDate(s.startedAt)}`,

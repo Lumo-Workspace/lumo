@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 /**
  * `lumo task web show <LUM-N> <link-id>`
@@ -58,7 +59,7 @@ export async function taskWebShow(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: web show failed (HTTP ${res.status})`
     )
     return 1
@@ -69,5 +70,5 @@ export async function taskWebShow(
     console.log('(empty body)')
     return
   }
-  console.log(body)
+  console.log(sanitizeField(body))
 }

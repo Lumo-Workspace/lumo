@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { normalizeAgent, VALID_AGENT_TOKENS } from '../lib/agent'
@@ -83,7 +84,7 @@ export async function memoryTaskAdd(
   if (res.status !== 201) {
     let m: string | null = null
     try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
-    console.error(m ? `Error: ${m}` : `Error: memory add failed (HTTP ${res.status})`)
+    console.error(m ? `Error: ${sanitizeField(m)}` : `Error: memory add failed (HTTP ${res.status})`)
     return 1
   }
 
