@@ -2,6 +2,7 @@
 const mockFindMany = jest.fn()
 const mockUpdate = jest.fn()
 const mockFindUnique = jest.fn()
+const mockCreate = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -9,6 +10,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: (...a: any[]) => mockFindMany(...a),
       update: (...a: any[]) => mockUpdate(...a),
       findUnique: (...a: any[]) => mockFindUnique(...a),
+      create: (...a: any[]) => mockCreate(...a),
     },
   },
 }))
@@ -97,5 +99,55 @@ describe('memoryRepository.findByIdWithWorkspace', () => {
       },
     })
     expect(row?.workspaceId).toBe('w1')
+  })
+})
+
+describe('memoryRepository.create', () => {
+  it('forwards an explicit agent', async () => {
+    mockCreate.mockResolvedValue({ id: 'm1' })
+    await memoryRepository.create({
+      workspaceId: 'w1',
+      projectId: 'p1',
+      taskId: 't1',
+      scope: 'TASK',
+      category: 'TRAP',
+      content: { trigger: 'x', outcome: 'y' },
+      sourceSessionId: null,
+      createdByMemberId: null,
+      agent: 'CODEX',
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ agent: 'CODEX' }),
+      })
+    )
+  })
+
+  it('omits agent when not provided (DB default applies)', async () => {
+    mockCreate.mockResolvedValue({ id: 'm2' })
+    await memoryRepository.create({
+      workspaceId: 'w1',
+      projectId: 'p1',
+      taskId: 't1',
+      scope: 'TASK',
+      category: 'TRAP',
+      content: { trigger: 'x', outcome: 'y' },
+      sourceSessionId: null,
+      createdByMemberId: null,
+    })
+    const callArg = mockCreate.mock.calls[0][0]
+    expect(callArg.data).not.toHaveProperty('agent')
+  })
+})
+
+describe('memoryRepository.listForTask agent select', () => {
+  it('listForTask selects agent', async () => {
+    mockFindMany.mockResolvedValue([])
+    await memoryRepository.listForTask('t1')
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ agent: true }),
+      })
+    )
   })
 })
