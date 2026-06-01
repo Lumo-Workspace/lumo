@@ -1,8 +1,12 @@
 import { encrypt, decrypt } from '@/lib/crypto'
 import { googleDriveIntegrationRepository } from '@/lib/repositories/google-drive-integration.repository'
-import { exchangeCode, GOOGLE_OAUTH_SCOPES } from '@/lib/integrations/google-drive/oauth'
+import {
+  exchangeCode,
+  GOOGLE_OAUTH_SCOPES,
+} from '@/lib/integrations/google-drive/oauth'
 import {
   createGoogleDriveClient,
+  GoogleNeedsReauthError,
   type GoogleDriveClient,
 } from '@/lib/integrations/google-drive/client'
 import type { GoogleUserInfo } from '@/lib/integrations/google-drive/types'
@@ -62,7 +66,9 @@ export async function completeOauthFlow(input: {
   const tokens = await exchangeCode(input.code)
   if (!tokens.refresh_token) {
     // Without a refresh token the owner-sync model can't work later.
-    throw new Error('Google did not return a refresh token; re-consent required')
+    throw new Error(
+      'Google did not return a refresh token; re-consent required'
+    )
   }
   const user = await fetchGoogleUser(tokens.access_token)
   await googleDriveIntegrationRepository.upsert({
@@ -88,21 +94,58 @@ export async function getStatus(
   workspaceId: string,
   memberId: string
 ): Promise<{ connected: boolean; email: string | null; needsReauth: boolean }> {
-  const row = await googleDriveIntegrationRepository.findByMember(workspaceId, memberId)
+  const row = await googleDriveIntegrationRepository.findByMember(
+    workspaceId,
+    memberId
+  )
   if (!row) return { connected: false, email: null, needsReauth: false }
-  return { connected: true, email: row.googleEmail, needsReauth: row.needsReauth }
+  return {
+    connected: true,
+    email: row.googleEmail,
+    needsReauth: row.needsReauth,
+  }
+}
+
+/**
+ * Wrap the raw Drive client so a hard 401 (`GoogleNeedsReauthError`, thrown when
+ * the client can't refresh the access token) flips the integration row's
+ * `needsReauth` flag before the error propagates. The same error instance is
+ * rethrown so callers' error handling is unchanged; any other error passes
+ * through untouched.
+ */
+function wrapClient(
+  raw: GoogleDriveClient,
+  integrationId: string
+): GoogleDriveClient {
+  async function guard<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn()
+    } catch (e) {
+      if (e instanceof GoogleNeedsReauthError) {
+        await googleDriveIntegrationRepository.markNeedsReauth(integrationId)
+      }
+      throw e
+    }
+  }
+  return {
+    getMetadata: fileId => guard(() => raw.getMetadata(fileId)),
+    exportMarkdown: fileId => guard(() => raw.exportMarkdown(fileId)),
+  }
 }
 
 /**
  * Build an authenticated Drive client for a specific member's stored tokens.
  * Used by the import/sync service. Refreshed tokens are persisted back via the
- * repository, and a hard 401 marks the row needsReauth.
+ * repository, and a hard 401 marks the row needsReauth (see {@link wrapClient}).
  */
 export async function getClientForMember(
   workspaceId: string,
   memberId: string
 ): Promise<GoogleDriveClient> {
-  const row = await googleDriveIntegrationRepository.findByMember(workspaceId, memberId)
+  const row = await googleDriveIntegrationRepository.findByMember(
+    workspaceId,
+    memberId
+  )
   if (!row) {
     throw Object.assign(new Error('Google Drive not connected'), {
       status: 403,
@@ -115,7 +158,7 @@ export async function getClientForMember(
       code: 'google_needs_reauth',
     })
   }
-  return createGoogleDriveClient({
+  const client = createGoogleDriveClient({
     tokens: {
       accessToken: decrypt(row.accessToken),
       refreshToken: decrypt(row.refreshToken),
@@ -129,4 +172,5 @@ export async function getClientForMember(
       })
     },
   })
+  return wrapClient(client, row.id)
 }
