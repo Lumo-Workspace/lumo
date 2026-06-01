@@ -71,7 +71,7 @@ export async function docImportGdoc(
   }
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
 
@@ -100,7 +100,7 @@ export async function docImportGdoc(
     if (!bindRes.ok) {
       const text = await bindRes.text()
       console.error(
-        `Warning: imported but bind to ${opts.task} failed: ${bindRes.status} ${text}`
+        `Warning: imported but bind to ${opts.task} failed: ${bindRes.status} ${sanitizeField(text)}`
       )
       return 1
     }

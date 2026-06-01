@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 export interface ArtifactRmOptions {
   yes?: boolean
@@ -65,7 +66,7 @@ export async function taskArtifactRm(
     } catch {
       /* not JSON */
     }
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
     return 1
   }
   if (res.status !== 204) {
@@ -78,7 +79,7 @@ export async function taskArtifactRm(
     }
     console.error(
       serverMsg
-        ? `Error: ${serverMsg}`
+        ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: artifact rm failed (HTTP ${res.status})`
     )
     return 1

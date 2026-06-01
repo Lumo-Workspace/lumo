@@ -56,7 +56,7 @@ export async function docMove(
   }
   if (!listRes.ok) {
     const text = await listRes.text()
-    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${text}`)
+    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { documents } = (await listRes.json()) as { documents: DocLike[] }
@@ -128,7 +128,9 @@ export async function docMove(
       const json = JSON.parse(text) as { error?: string }
       if (json.error) msg = json.error
     } catch {}
-    console.error(`Error: ${moveRes.status} ${moveRes.statusText}: ${msg}`)
+    console.error(
+      `Error: ${moveRes.status} ${moveRes.statusText}: ${sanitizeField(msg)}`
+    )
     return 1
   }
 

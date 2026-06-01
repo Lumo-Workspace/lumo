@@ -65,7 +65,7 @@ export async function taskArtifactShow(
     } catch {
       /* not JSON */
     }
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
     return 1
   }
   if (!res.ok) {

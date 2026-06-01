@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { resolveSprintId } from '../lib/resolve'
 
 export interface RemoveTaskFromSprintOptions {
@@ -67,7 +68,7 @@ export async function sprintRemove(
     } catch {
       // ignore
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   process.stdout.write(

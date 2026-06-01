@@ -112,7 +112,7 @@ export async function sprintSummary(
       } catch {
         // ignore
       }
-      console.error(`Error: ${errMsg}`)
+      console.error(`Error: ${sanitizeField(errMsg)}`)
       return 1
     }
     // 202 means queued; regeneration is async. The GET below may still return
@@ -160,7 +160,7 @@ export async function sprintSummary(
     } catch {
       // ignore
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   // 404 → fall through with all-null; formatSprintSummary renders the friendly marker.

@@ -266,7 +266,7 @@ export async function taskCreate(
     // Body wasn't JSON; fall through to status-only message
   }
   if (serverMsg) {
-    console.error(`Error: ${serverMsg}`)
+    console.error(`Error: ${sanitizeField(serverMsg)}`)
   } else {
     console.error(`Error: task create failed (HTTP ${res.status})`)
   }

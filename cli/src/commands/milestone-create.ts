@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { resolveProjectId } from '../lib/resolve'
 
 export interface CreateMilestoneOptions {
@@ -92,7 +93,7 @@ export async function milestoneCreate(
       // Body wasn't JSON; fall through to status-only message
     }
     if (serverMsg) {
-      console.error(`Error: ${serverMsg}`)
+      console.error(`Error: ${sanitizeField(serverMsg)}`)
     } else {
       console.error(`Error: milestone create failed (HTTP ${res.status})`)
     }

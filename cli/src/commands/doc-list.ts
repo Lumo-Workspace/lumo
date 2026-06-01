@@ -81,7 +81,7 @@ export async function docList(opts: ListDocOptions): Promise<number | void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { documents } = (await res.json()) as { documents: DocRow[] }

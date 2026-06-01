@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 import { buildMemoryContent, type MemoryFlags } from '../lib/memory-content'
 import { resolveProjectId } from '../lib/resolve'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
@@ -48,7 +49,7 @@ export async function memoryProjectAdd(
   if (res.status !== 201) {
     let m: string | null = null
     try { const b = (await res.json()) as { error?: string }; if (typeof b.error === 'string') m = b.error } catch { /* */ }
-    console.error(m ? `Error: ${m}` : `Error: memory add failed (HTTP ${res.status})`)
+    console.error(m ? `Error: ${sanitizeField(m)}` : `Error: memory add failed (HTTP ${res.status})`)
     return 1
   }
   process.stdout.write(`Added ${built.category} PROJECT memory${echoSuffix}\n`)

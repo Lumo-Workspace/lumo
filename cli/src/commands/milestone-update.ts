@@ -207,7 +207,7 @@ export async function milestoneUpdate(
     } catch {
       // body wasn't JSON; keep the status-only message
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
 

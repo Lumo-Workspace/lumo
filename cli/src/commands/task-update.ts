@@ -328,7 +328,7 @@ export async function taskUpdate(
         // Body wasn't JSON; fall through to status-only message
       }
       if (serverMsg) {
-        console.error(`Error: ${serverMsg}`)
+        console.error(`Error: ${sanitizeField(serverMsg)}`)
       } else {
         console.error(`Error: task update failed (HTTP ${res.status})`)
       }
@@ -486,7 +486,7 @@ export async function taskUpdate(
           const b = (await deleteRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
         } catch { /* ignore */ }
-        console.error(`Error: ${errMsg}`)
+        console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 
@@ -520,7 +520,7 @@ export async function taskUpdate(
           const b = (await postRes.json()) as { error?: string }
           if (b.error) errMsg = b.error
         } catch { /* ignore */ }
-        console.error(`Error: ${errMsg}`)
+        console.error(`Error: ${sanitizeField(errMsg)}`)
         return 1
       }
 

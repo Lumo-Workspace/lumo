@@ -109,7 +109,7 @@ export async function milestoneDelete(
     } catch {
       // body wasn't JSON
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   process.stdout.write(`Deleted milestone "${sanitizeField(name)}"\n`)

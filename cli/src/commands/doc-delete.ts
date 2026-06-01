@@ -51,7 +51,7 @@ export async function docDelete(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const escaped = sanitizeField(title).replace(/"/g, '\\"')

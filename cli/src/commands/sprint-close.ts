@@ -182,7 +182,7 @@ export async function sprintClose(
     } catch {
       // body wasn't JSON
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
 

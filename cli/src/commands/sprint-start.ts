@@ -74,7 +74,7 @@ export async function sprintStart(
     } catch {
       // ignore
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   process.stdout.write(

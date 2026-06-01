@@ -99,7 +99,7 @@ export async function sprintDelete(
     } catch {
       // body wasn't JSON
     }
-    console.error(`Error: ${errMsg}`)
+    console.error(`Error: ${sanitizeField(errMsg)}`)
     return 1
   }
   process.stdout.write(

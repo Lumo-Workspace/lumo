@@ -48,7 +48,9 @@ export async function docUnshare(
     return 1
   }
   if (result.kind === 'ambiguous') {
-    const list = result.candidates.map(c => c.email ?? c.displayName).join(', ')
+    const list = result.candidates
+      .map(c => sanitizeField(c.email ?? c.displayName))
+      .join(', ')
     console.error(`Error: multiple members match "${result.query}": ${list}`)
     return 1
   }
@@ -61,7 +63,7 @@ export async function docUnshare(
   })
   if (!listRes.ok) {
     const text = await listRes.text()
-    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${text}`)
+    console.error(`Error: ${listRes.status} ${listRes.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   const { shares } = (await listRes.json()) as ShareListResponse
@@ -78,7 +80,7 @@ export async function docUnshare(
   })
   if (!delRes.ok) {
     const text = await delRes.text()
-    console.error(`Error: ${delRes.status} ${delRes.statusText}: ${text}`)
+    console.error(`Error: ${delRes.status} ${delRes.statusText}: ${sanitizeField(text)}`)
     return 1
   }
   console.log(`Unshared ${docId} ↔ ${sanitizeField(result.member.displayName)}`)

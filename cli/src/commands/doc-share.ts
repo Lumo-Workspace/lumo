@@ -72,7 +72,9 @@ export async function docShare(
     return 1
   }
   if (result.kind === 'ambiguous') {
-    const list = result.candidates.map(c => c.email ?? c.displayName).join(', ')
+    const list = result.candidates
+      .map(c => sanitizeField(c.email ?? c.displayName))
+      .join(', ')
     console.error(`Error: multiple members match "${result.query}": ${list}`)
     return 1
   }
@@ -88,7 +90,7 @@ export async function docShare(
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error(`Error: ${res.status} ${res.statusText}: ${text}`)
+    console.error(`Error: ${res.status} ${res.statusText}: ${sanitizeField(text)}`)
     return 1
   }
 
