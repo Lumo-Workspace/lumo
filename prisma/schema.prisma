@@ -177,6 +177,7 @@ model Workspace {
   pullRequests       PullRequest[]
   slackIntegration   SlackIntegration?
   sentryIntegration  SentryIntegration?
+  gitHubAppInstallation GitHubAppInstallation?
   actors             Actor[]
   agentProfiles      AgentProfile[]
   documents          Document[]
@@ -276,6 +277,7 @@ model WorkspaceMember {
   githubIntegrations   GitHubIntegration[]
   slackInstalled       SlackIntegration[]  @relation("SlackInstaller")
   sentryInstalled      SentryIntegration[] @relation("SentryInstaller")
+  gitHubAppInstalls    GitHubAppInstallation[] @relation("GitHubAppInstaller")
   actor                Actor?
   agentProfiles        AgentProfile[]
   apiKeys              ApiKey[]
@@ -697,6 +699,24 @@ model GitHubWebhook {
   @@unique([integrationId, repo])
   @@index([repo])
   @@map("github_webhooks")
+}
+
+model GitHubAppInstallation {
+  id             String   @id @default(cuid())
+  workspaceId    String   @unique
+  installationId Int
+  accountLogin   String?
+  accountType    String?
+  repositories   String[]
+  installedBy    String?
+  installer      WorkspaceMember? @relation("GitHubAppInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([installationId])
+  @@map("github_app_installations")
 }
 
 model SlackIntegration {
