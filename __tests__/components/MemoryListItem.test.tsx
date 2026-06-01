@@ -29,6 +29,7 @@ const baseRow: MemoryRow = {
   id: 'm1',
   scope: 'TASK',
   category: 'TRAP',
+  agent: 'CLAUDE_CODE',
   content: { trigger: 'do X', outcome: 'Y breaks' },
   taskId: 't1',
   createdByMemberId: null,

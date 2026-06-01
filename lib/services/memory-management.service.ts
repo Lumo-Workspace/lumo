@@ -13,7 +13,7 @@ interface CreateForProjectInput {
   category: MemoryCategory
   content: MemoryContent
   actorMemberId: string
-  agent?: TaskArtifactAgent
+  agent?: TaskArtifactAgent | undefined
 }
 
 interface CreateForTaskInput {
@@ -23,7 +23,7 @@ interface CreateForTaskInput {
   category: MemoryCategory
   content: MemoryContent
   actorMemberId: string
-  agent?: TaskArtifactAgent
+  agent?: TaskArtifactAgent | undefined
 }
 
 /**
