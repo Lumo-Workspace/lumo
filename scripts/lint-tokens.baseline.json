@@ -46,6 +46,7 @@
   "app/workspace/[workspaceUrl]/components/FigmaIcon.tsx": 5,
   "app/workspace/[workspaceUrl]/components/FigmaIntegrationCard.tsx": 6,
   "app/workspace/[workspaceUrl]/components/GitHubIntegrationCard.tsx": 26,
+  "app/workspace/[workspaceUrl]/components/GoogleDriveIntegrationCard.tsx": 6,
   "app/workspace/[workspaceUrl]/components/IntegrationCard.tsx": 15,
   "app/workspace/[workspaceUrl]/components/LinkDocPopover.tsx": 13,
   "app/workspace/[workspaceUrl]/components/LinkFigmaPopover.tsx": 6,

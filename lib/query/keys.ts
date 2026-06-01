@@ -96,5 +96,7 @@ export const queryKeys = {
       ['integrations', 'sentry', workspaceUrl] as const,
     figma: (workspaceUrl: string) =>
       ['integrations', 'figma', workspaceUrl] as const,
+    googleDrive: (workspaceUrl: string) =>
+      ['integrations', 'google-drive', workspaceUrl] as const,
   },
 }

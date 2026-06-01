@@ -8,6 +8,7 @@ import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { SentryIntegrationCard } from '../SentryIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
+import { GoogleDriveIntegrationCard } from '../GoogleDriveIntegrationCard'
 
 export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   const intl = useIntl()
@@ -40,6 +41,7 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
           <SlackIntegrationCard isOwner={isOwner} />
           <SentryIntegrationCard isOwner={isOwner} />
           <FigmaIntegrationCard />
+          <GoogleDriveIntegrationCard />
         </div>
       </div>
     </div>
