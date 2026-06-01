@@ -116,6 +116,12 @@ export const API = {
     integration: (workspaceUrl: string) =>
       `/api/figma/integration?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
+  googleDrive: {
+    oauth: (workspaceUrl: string) =>
+      `/api/google-drive/oauth?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    status: '/api/google-drive/status',
+    disconnect: '/api/google-drive',
+  },
   sprints: {
     listByTeam: (teamId: string) => `/api/teams/${teamId}/sprints`,
     byId: (sprintId: string) => `/api/sprints/${sprintId}`,

@@ -53,6 +53,11 @@ import { sprintSummary } from './commands/sprint-summary'
 import { sprintAdd } from './commands/sprint-add'
 import { sprintRemove } from './commands/sprint-remove'
 import { docCreate } from './commands/doc-create'
+import {
+  docImportGdoc,
+  type ImportGdocOptions,
+} from './commands/doc-import-gdoc'
+import { docSync } from './commands/doc-sync'
 import { docUpdate } from './commands/doc-update'
 import { docShow } from './commands/doc-show'
 import { docList } from './commands/doc-list'
@@ -807,6 +812,20 @@ doc
       docCreate(title as string | undefined, opts as Record<string, string>)
     )
   )
+
+doc
+  .command('import-gdoc <url>')
+  .description('Import a Google Doc as a Lumo doc (one-way Google → Lumo)')
+  .option('--scope <scope>', 'personal | workspace (default: personal)')
+  .option('--task <LUM-N>', 'Bind the imported doc to this task')
+  .action(
+    wrap((url, opts) => docImportGdoc(url as string, opts as ImportGdocOptions))
+  )
+
+doc
+  .command('sync <doc>')
+  .description('Re-sync a Google-imported doc (overwrites the Lumo body)')
+  .action(wrap(ref => docSync(ref as string)))
 
 doc
   .command('update <doc>')
