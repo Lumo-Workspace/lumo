@@ -19,7 +19,7 @@ beforeEach(() => {
   process.env.CLAUDE_CODE_SESSION_ID = 's-1'
   mockRead.mockReturnValue({
     token: 't',
-    apiUrl: 'http://x',
+    apiUrl: 'https://x',
     workspaceSlug: 'lumo',
   })
   consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
