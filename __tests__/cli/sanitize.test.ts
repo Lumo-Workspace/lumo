@@ -25,4 +25,12 @@ describe('sanitizeField', () => {
   it('returns an empty string unchanged', () => {
     expect(sanitizeField('')).toBe('')
   })
+
+  it('strips C1 controls including the 8-bit CSI introducer (\\x9b)', () => {
+    expect(sanitizeField('a\x9bb\x9fc')).toBe('abc')
+  })
+
+  it('strips carriage return (\\x0d) while keeping the newline', () => {
+    expect(sanitizeField('a\rb\nc')).toBe('ab\nc')
+  })
 })
