@@ -1,5 +1,17 @@
-export { renderSlackContextSection, type SlackContextCard } from './slack'
-export { renderWebLinkSection, type WebLinkCard } from './web-link'
+export {
+  renderSlackContextSection,
+  slackCard,
+  slackManifest,
+  slackBudgetSection,
+  type SlackContextCard,
+} from './slack'
+export {
+  renderWebLinkSection,
+  webLinkCard,
+  webLinkManifest,
+  webLinkBudgetSection,
+  type WebLinkCard,
+} from './web-link'
 export { renderFigmaSection } from './figma'
 export { renderArtifactSection, type ArtifactCard } from './artifact'
 export { renderDocumentSection, type DocumentCard } from './document'
