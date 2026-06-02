@@ -43,5 +43,7 @@ export function renderWebLinkSection(links: WebLinkCard[]): string {
 
 /** Budget-section wrapper for web links (LUM-147). */
 export function webLinkBudgetSection(links: WebLinkCard[]) {
-  return makeBudgetSection('## Web Links', links, webLinkCard, webLinkManifest)
+  // Single-newline separator to match `renderWebLinkSection`, which packs web
+  // cards with no blank line between them (same reason `prBudgetSection` does).
+  return makeBudgetSection('## Web Links', links, webLinkCard, webLinkManifest, '\n')
 }

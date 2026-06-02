@@ -549,6 +549,13 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
     const { renderWebLinkSection } = require('@/lib/context/render')
     expect(webLinkBudgetSection([link]).render(1)).toBe(renderWebLinkSection([link]))
   })
+
+  it('webLinkBudgetSection.render(2) equals the legacy multi-link section output', () => {
+    const { renderWebLinkSection } = require('@/lib/context/render')
+    const a = link
+    const b = { ...link, id: 'wl_2', url: 'https://ex.com/b', title: 'B Title' }
+    expect(webLinkBudgetSection([a, b]).render(2)).toBe(renderWebLinkSection([a, b]))
+  })
 })
 
 describe('figmaCard / figmaManifest (LUM-147)', () => {
