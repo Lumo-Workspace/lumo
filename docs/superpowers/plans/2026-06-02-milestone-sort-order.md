@@ -79,16 +79,22 @@ model Milestone {
 }
 ```
 
-- [ ] **Step 2: Generate the migration (creates the SQL, does not yet have backfill)**
+> **⚠️ COORDINATION (parallel session LUM-161):** A parallel branch
+> `lumo/LUM-161-milestone-archive` is concurrently adding `Milestone.archivedAt`
+> + its own migration against the **same shared dev DB**, and also edits
+> `milestone.repository.ts` / `milestone.service.ts` / CLI / SKILL.md. Per the
+> user's decision: **do NOT run `prisma migrate dev`, `prisma db execute`, or
+> apply anything to the dev DB.** Hand-write the migration SQL file and commit
+> it only. The migration applies at deploy time (`migrate deploy`); merge
+> conflicts with LUM-161 are reconciled when one branch lands. Unit tests mock
+> Prisma, so they do not need the migration applied.
 
-Run: `npx prisma migrate dev --name milestone_sort_order --create-only`
-Expected: a new folder `prisma/migrations/<timestamp>_milestone_sort_order/` containing `migration.sql` with `ALTER TABLE ... ADD COLUMN "sortOrder"` and a `CREATE INDEX`.
+- [ ] **Step 2: Hand-write the migration directory + SQL (do NOT touch the dev DB)**
 
-> If `migrate dev` rejects with drift (P3008/P3012), hand-write the `migration.sql` per CLAUDE.md's drift workaround (see "Database Migrations") and use `prisma db execute` + `prisma migrate resolve --applied`. Do NOT `migrate reset`.
-
-- [ ] **Step 3: Append the backfill UPDATE to migration.sql**
-
-Edit the generated `migration.sql` so the full file reads (column + index from generation, then the backfill you add):
+Create the folder `prisma/migrations/20260602120000_milestone_sort_order/`
+(use that literal timestamp — chosen ahead of any real-clock value since
+`Date.now()` is unavailable; it sorts after the latest existing migration
+`20260602010000_*`). Write `migration.sql` with the column, index, and backfill:
 
 ```sql
 -- AlterTable
@@ -112,18 +118,15 @@ FROM (
 WHERE m.id = sub.id;
 ```
 
-- [ ] **Step 4: Apply the migration locally + regenerate the client**
+- [ ] **Step 3: Do NOT apply to the dev DB or regenerate the client here**
 
-Run: `npx prisma migrate dev`
-Expected: "The following migration(s) have been applied" + the backfill runs. Then run `npx prisma generate`.
-(If you used the drift workaround in Step 2, instead run `npx prisma db execute --file prisma/migrations/<timestamp>_milestone_sort_order/migration.sql`, then `npx prisma migrate resolve --applied <timestamp>_milestone_sort_order`, then `npx prisma generate`.)
+Skip `prisma migrate dev` / `db execute` / `prisma generate` entirely (shared dev
+DB + shared generated client are owned by the parallel session too). The
+generated client gets refreshed once at final verification (Task 9). Per-task
+jest suites use SWC (transpile-only) and mock Prisma, so they are unaffected by
+the client lacking `sortOrder` until then.
 
-- [ ] **Step 5: Verify the generated client knows the field**
-
-Run: `npx tsc --noEmit 2>&1 | grep -i "sortOrder" || echo "no sortOrder type errors"`
-Expected: `no sortOrder type errors` (the field is now on the generated `Milestone` type).
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add prisma/schema.prisma prisma/migrations
@@ -1321,10 +1324,22 @@ git commit -m "docs: SKILL.md milestone reorder/move + CLI version bump [LUM-160
 Run: `npx jest __tests__/repositories/milestone-reorder.test.ts __tests__/services/milestone-reorder.service.test.ts __tests__/api-milestones-reorder.test.ts __tests__/cli/milestone-reorder-logic.test.ts`
 Expected: all PASS.
 
-- [ ] **Step 2: Full typecheck (root + CLI)**
+- [ ] **Step 2: Regenerate the Prisma client, then full typecheck (root + CLI)**
 
-Run: `npx tsc --noEmit && cd cli && npx tsc --noEmit && cd ..`
-Expected: no errors. (If you see "TaskArtifact not exported"-style phantom errors, run `npx prisma generate` first — stale client, per project memory.)
+The dev DB was never migrated (coordination with LUM-161), so the generated
+client still lacks `sortOrder` until now. Regenerate from schema (reads
+`schema.prisma`, does NOT touch the DB), then typecheck:
+
+Run: `npx prisma generate && npx tsc --noEmit && cd cli && npx tsc --noEmit && cd ..`
+Expected: no errors.
+
+> **Shared-client note:** `node_modules` is symlinked to the main checkout, so
+> this `prisma generate` writes the shared generated client (from the LUM-160
+> schema, with `sortOrder` but without LUM-161's `archivedAt`). That is the only
+> shared-resource touch in this whole task. The parallel LUM-161 session
+> regenerates from its own schema when it verifies — each branch's client is
+> correct right after its own `generate`. Run this step when not racing the other
+> session's typecheck.
 
 - [ ] **Step 3: Run the broader milestone test set to catch regressions**
 
@@ -1348,11 +1363,14 @@ gh pr create --title "feat: milestone manual sort order (sortOrder) [LUM-160]" -
 - New milestones now append to the bottom of the order.
 
 ## Production
-- **Requires `prisma migrate deploy` on next deploy.** Migration is additive (new column + index + backfill UPDATE); non-destructive.
+- **Requires `prisma migrate deploy` on next deploy.** Migration is additive (new column + index + backfill UPDATE); non-destructive. The dev DB was intentionally NOT migrated locally (parallel branch coordination) — the migration is applied for the first time at deploy.
+
+## Coordination
+- Overlaps with `lumo/LUM-161-milestone-archive` (both touch `Milestone` schema, `milestone.repository.ts` findByProject, `milestone.service.ts`, CLI milestone commands, SKILL.md, cli/package.json). Expect merge conflicts; whichever lands second rebases and reconciles (the two changes are additive — sortOrder ordering vs archivedAt filtering — so reconciliation is mechanical).
 
 ## Test plan
 - Repository, service, API route, and CLI-logic unit tests added.
-- `npx tsc --noEmit` clean (root + cli); `npx jest milestone` green.
+- `npx prisma generate && npx tsc --noEmit` clean (root + cli); `npx jest milestone` green.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
