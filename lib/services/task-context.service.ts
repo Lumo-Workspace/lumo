@@ -50,6 +50,13 @@ export interface SessionContext {
   unresolved: string[]
 }
 
+export interface PreviousSessionRecovery {
+  headline: string
+  unresolved: string[]
+  durationMs: number
+  lastActivityAt: string
+}
+
 export interface TaskContext {
   task: {
     id: string
@@ -315,6 +322,37 @@ export const taskContextService = {
     }
 
     return renderPrReviewTodosSection(todos)
+  },
+
+  /**
+   * Build the "续上次进度" recovery payload for a task: the most recent prior
+   * session (newest-first) that actually produced a summary, reduced to
+   * headline + unresolved + duration. Walks back past summary-less sessions
+   * (still generating / too short) and excludes `currentSessionId` so the
+   * brand-new session doesn't echo itself. Returns null when no prior session
+   * with a summary exists. Keyed on taskId, so it spans branches (squash-merge
+   * continuation). Rendered CLI-side; this returns structured data only.
+   */
+  async buildPreviousSessionRecoveryForTask(
+    taskId: string,
+    currentSessionId: string
+  ): Promise<PreviousSessionRecovery | null> {
+    const sessions = await sessionRepository.listForTask(taskId, 5)
+    for (const s of sessions) {
+      if (s.id === currentSessionId) continue
+      const headline = summaryHeadline(s.summary)
+      if (headline === '(no summary)') continue
+      return {
+        headline,
+        unresolved: summaryUnresolved(s.summary),
+        durationMs: Math.max(
+          0,
+          s.lastActivityAt.getTime() - s.startedAt.getTime()
+        ),
+        lastActivityAt: s.lastActivityAt.toISOString(),
+      }
+    }
+    return null
   },
 
   /**
