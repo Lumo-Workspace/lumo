@@ -43,6 +43,14 @@ describe('mergeGitHook', () => {
     expect(content).not.toContain('old_logic_here')
     expect(content).toContain(HOOK_SCRIPT_BLOCK)
   })
+
+  it('appends a clean block when BEGIN marker exists without END (corrupt state)', () => {
+    const corrupt = `#!/bin/sh\n${LUMO_HOOK_BEGIN}\norphaned_content\n`
+    const { content, status } = mergeGitHook(corrupt)
+    expect(status).toBe('appended')
+    expect(content).toContain('orphaned_content')
+    expect(content).toContain(HOOK_SCRIPT_BLOCK)
+  })
 })
 
 describe('resolveHookInstall', () => {
