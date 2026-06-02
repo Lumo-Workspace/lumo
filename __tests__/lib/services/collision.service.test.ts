@@ -21,6 +21,7 @@ function row(overrides: {
   agent?: string
   minutesAgo: number
   toolName?: string
+  branch?: string | null
 }) {
   return {
     sessionId: overrides.sessionId,
@@ -28,6 +29,8 @@ function row(overrides: {
     createdAt: new Date(NOW.getTime() - overrides.minutesAgo * 60_000),
     session: {
       agent: (overrides.agent ?? 'CLAUDE_CODE') as TaskArtifactAgent,
+      worktree:
+        overrides.branch === undefined ? null : { branch: overrides.branch },
     },
   }
 }
@@ -120,6 +123,41 @@ describe('collisionService.checkFileCollision — querying', () => {
     expect(result!.warning).toContain('/repo/app/a.ts')
     expect(result!.warning).toContain('Codex')
     expect(result!.warning).toContain('3 分钟前')
+  })
+
+  it('names the other session branch when its worktree is known', async () => {
+    repo.findRecentOtherSessionWritesToFile.mockResolvedValue([
+      row({
+        sessionId: 'sess_other',
+        agent: 'CODEX',
+        minutesAgo: 2,
+        branch: 'lumo/LUM-149-x',
+      }),
+    ])
+    const result = await collisionService.checkFileCollision({
+      workspaceId: 'ws_1',
+      filePath: '/repo/app/a.ts',
+      toolName: 'Edit',
+      sessionId: 'sess_self',
+      now: NOW,
+    })
+    expect(result!.warning).toContain('lumo/LUM-149-x')
+    expect(result!.warning).toContain('Codex')
+  })
+
+  it('falls back to agent only when the worktree branch is unknown', async () => {
+    repo.findRecentOtherSessionWritesToFile.mockResolvedValue([
+      row({ sessionId: 'sess_other', agent: 'CODEX', minutesAgo: 2 }),
+    ])
+    const result = await collisionService.checkFileCollision({
+      workspaceId: 'ws_1',
+      filePath: '/repo/app/a.ts',
+      toolName: 'Edit',
+      sessionId: 'sess_self',
+      now: NOW,
+    })
+    expect(result!.warning).toContain('Codex')
+    expect(result!.warning).not.toContain('分支')
   })
 
   it('dedupes multiple events from the same other session, keeping the most recent', async () => {

@@ -115,7 +115,9 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
         sessionId: true,
         toolName: true,
         createdAt: true,
-        session: { select: { agent: true } },
+        session: {
+          select: { agent: true, worktree: { select: { branch: true } } },
+        },
       },
     })
   })
@@ -126,7 +128,7 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
         sessionId: 'sess_other',
         toolName: 'Edit',
         createdAt: new Date('2026-06-01T11:55:00Z'),
-        session: { agent: 'CODEX' },
+        session: { agent: 'CODEX', worktree: { branch: 'lumo/LUM-9-x' } },
       },
     ]
     mockFindMany.mockResolvedValue(rows)

@@ -8,6 +8,7 @@ jest.mock('@/lib/db/prisma', () => {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     create: jest.fn(),
   }
   const hookEvent = { findMany: jest.fn() }
@@ -333,5 +334,23 @@ describe('sessionRepository.findTaskBinding', () => {
     findUnique().mockResolvedValue(null)
     const result = await sessionRepository.findTaskBinding('sess_1')
     expect(result).toEqual({ bound: false })
+  })
+})
+
+describe('sessionRepository.linkToWorktreeByCwd', () => {
+  it('points every session whose cwd equals the worktree path at the worktree', async () => {
+    ;(prisma.session.updateMany as jest.Mock).mockResolvedValue({ count: 2 })
+
+    const result = await sessionRepository.linkToWorktreeByCwd({
+      workspaceId: 'ws_1',
+      path: '/repo/.worktrees/x',
+      worktreeId: 'wt_1',
+    })
+
+    expect(result).toEqual({ count: 2 })
+    expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws_1', cwd: '/repo/.worktrees/x' },
+      data: { worktreeId: 'wt_1' },
+    })
   })
 })

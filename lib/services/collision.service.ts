@@ -30,6 +30,8 @@ export interface CheckFileCollisionInput {
 interface OtherSession {
   agent: string
   createdAt: Date
+  /** Branch of the other session's worktree, when it's a hook-tracked one. */
+  branch: string | null
 }
 
 export const collisionService = {
@@ -68,6 +70,7 @@ export const collisionService = {
       bySession.set(r.sessionId, {
         agent: r.session?.agent ?? 'CLAUDE_CODE',
         createdAt: r.createdAt,
+        branch: r.session?.worktree?.branch ?? null,
       })
     }
     if (bySession.size === 0) return null
@@ -83,7 +86,13 @@ function buildWarning(
 ): string {
   const named = others
     .slice(0, MAX_NAMED_SESSIONS)
-    .map(o => `${agentLabel(o.agent)}（${relativeTime(o.createdAt, now)}）`)
+    .map(o => {
+      // Branch is more actionable than the agent name when we have it.
+      const who = o.branch
+        ? `${agentLabel(o.agent)}·分支 ${o.branch}`
+        : agentLabel(o.agent)
+      return `${who}（${relativeTime(o.createdAt, now)}）`
+    })
     .join('、')
   const overflow =
     others.length > MAX_NAMED_SESSIONS ? ` 等共 ${others.length} 个会话` : ''
