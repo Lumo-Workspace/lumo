@@ -17,6 +17,12 @@ import {
   webLinkCard,
   webLinkManifest,
   webLinkBudgetSection,
+  figmaCard,
+  figmaManifest,
+  figmaBudgetSection,
+  prCard,
+  prManifest,
+  prBudgetSection,
 } from '@/lib/context/render'
 
 describe('renderSlackContextSection', () => {
@@ -542,5 +548,61 @@ describe('webLinkCard / webLinkManifest (LUM-147)', () => {
   it('webLinkBudgetSection.render(all) equals the legacy section output', () => {
     const { renderWebLinkSection } = require('@/lib/context/render')
     expect(webLinkBudgetSection([link]).render(1)).toBe(renderWebLinkSection([link]))
+  })
+})
+
+describe('figmaCard / figmaManifest (LUM-147)', () => {
+  const link = {
+    id: 'cfl_1',
+    fileName: 'Onboarding',
+    frameName: 'Welcome',
+    url: 'https://figma/x',
+    thumbnailUrl: 'https://img/x.png',
+    lastSyncedAt: new Date('2026-06-01T00:00:00Z'),
+    lastSyncError: null,
+    thumbnailFetchedAt: new Date('2026-06-01T00:00:00Z'),
+  } as unknown as import('@prisma/client').TaskFigmaLink
+
+  it('figmaCard renders one link without the section heading', () => {
+    const out = figmaCard(link)
+    expect(out).not.toContain('## Figma Designs')
+    expect(out).toContain('- **Onboarding · Welcome**')
+    expect(out).toContain('↳ design context: lumo task figma context cfl_1')
+  })
+
+  it('figmaManifest is one line: title + retrieval command', () => {
+    expect(figmaManifest(link)).toBe('- Onboarding · Welcome — lumo task figma context cfl_1')
+  })
+
+  it('figmaManifest marks file-level links', () => {
+    const fileLevel = { ...link, frameName: null } as typeof link
+    expect(figmaManifest(fileLevel)).toBe(
+      '- Onboarding _(file-level)_ — lumo task figma context cfl_1'
+    )
+  })
+
+  it('figmaBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderFigmaSection } = require('@/lib/context/render')
+    expect(figmaBudgetSection([link]).render(1)).toBe(renderFigmaSection([link]))
+  })
+})
+
+describe('prCard / prManifest (LUM-147)', () => {
+  const pr = { number: 42, title: 'Fix bug', state: 'OPEN', ciStatus: 'passing' }
+
+  it('prCard renders one PR without the section heading', () => {
+    const out = prCard(pr)
+    expect(out).not.toContain('## Pull Requests')
+    expect(out).toContain('- #42 Fix bug — OPEN · passing')
+    expect(out).toContain('↳ diff: lumo task pr show 42')
+  })
+
+  it('prManifest is one line: PR + retrieval command', () => {
+    expect(prManifest(pr)).toBe('- #42 Fix bug — lumo task pr show 42')
+  })
+
+  it('prBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderPRSection } = require('@/lib/context/render')
+    expect(prBudgetSection([pr]).render(1)).toBe(renderPRSection([pr]))
   })
 })
