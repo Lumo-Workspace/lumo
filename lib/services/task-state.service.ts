@@ -132,6 +132,12 @@ export async function updateTask(
         { status: 400 }
       )
     }
+    if (milestone.archivedAt) {
+      throw Object.assign(
+        new Error('Cannot bind a task to an archived milestone'),
+        { status: 409 }
+      )
+    }
   }
 
   // Validate assignee

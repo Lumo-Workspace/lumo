@@ -30,6 +30,7 @@ jest.mock('@/lib/services/task-notifications.service', () => ({
   dispatchCreateTaskSideEffects: jest.fn(),
 }))
 
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import {
@@ -145,5 +146,23 @@ describe('createFromAutomation — description normalization', () => {
     })
 
     expect(createMock.mock.calls[0][0].description).toBeNull()
+  })
+})
+
+describe('createTask — archived milestone bind guard', () => {
+  it('rejects creating a task bound to an archived milestone with 409', async () => {
+    ;(milestoneRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      projectId: 'proj-1',
+      archivedAt: new Date(),
+    })
+    await expect(
+      createTask('proj-1', {
+        title: 'T',
+        status: 'TODO',
+        priority: 'LOW',
+        milestoneId: 'm1',
+      })
+    ).rejects.toMatchObject({ status: 409 })
   })
 })

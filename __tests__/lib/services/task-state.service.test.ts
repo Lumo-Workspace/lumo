@@ -40,6 +40,7 @@ jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,
 }))
 
+import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { updateTask } from '@/lib/services/task-state.service'
@@ -202,5 +203,18 @@ describe('updateTask — description normalization', () => {
     await updateTask('task-1', { title: 'new title' })
     const data = (taskRepository.update as jest.Mock).mock.calls[0][1]
     expect(data.description).toBeUndefined()
+  })
+})
+
+describe('updateTask — archived milestone bind guard', () => {
+  it('rejects binding a task to an archived milestone with 409', async () => {
+    ;(milestoneRepository.findById as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      projectId: 'proj-1',
+      archivedAt: new Date(),
+    })
+    await expect(
+      updateTask('task-1', { milestoneId: 'm1' })
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
