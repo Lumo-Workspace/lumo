@@ -1344,6 +1344,9 @@ model Session {
   /// summaries with createdAt > this are "unposted" and eligible for the next
   /// wrap draft.
   lastProgressCommentAt DateTime?
+  /// Memory-review watermark for `lumo session wrap` (LUM-152): Layer1 memories
+  /// with createdAt > this are "unreviewed" and listed in the next wrap draft.
+  lastMemoryReviewAt    DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
