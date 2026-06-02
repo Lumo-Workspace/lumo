@@ -22,6 +22,29 @@ interface UpdateInput {
   targetDate?: Date | null | undefined
 }
 
+/**
+ * Fire-and-forget milestone retro generation, triggered when a milestone
+ * transitions to COMPLETED (mirrors sprint close). The dynamic imports keep
+ * `@ai-sdk/gateway` (pulled transitively by the LLM client) out of
+ * milestone.service's static dependency graph, so jest test files importing
+ * milestone.service don't crash loading the gateway transform.
+ */
+async function generateMilestoneRetro(milestoneId: string): Promise<void> {
+  try {
+    const { generationJobRepository } = await import(
+      '@/lib/repositories/generation-job.repository'
+    )
+    await generationJobRepository.createMilestonePending(milestoneId)
+
+    const { milestoneSummaryService } = await import(
+      '@/lib/services/milestone-summary.service'
+    )
+    await milestoneSummaryService.generate(milestoneId)
+  } catch (err) {
+    void err
+  }
+}
+
 export const milestoneService = {
   async listMilestones(projectId: string, memberId: string) {
     await projectService.getProject(projectId, memberId)
@@ -89,10 +112,12 @@ export const milestoneService = {
     if (input.startDate !== undefined) data.startDate = input.startDate
     if (input.targetDate !== undefined) data.targetDate = input.targetDate
 
+    let transitionedToCompleted = false
     if (input.status !== undefined && input.status !== existing.status) {
       data.status = input.status
       if (input.status === 'COMPLETED') {
         data.completedAt = new Date()
+        transitionedToCompleted = true
       } else if (existing.status === 'COMPLETED') {
         data.completedAt = null
       }
@@ -101,7 +126,16 @@ export const milestoneService = {
       data.status = input.status
     }
 
-    return milestoneRepository.update(milestoneId, data)
+    const updated = await milestoneRepository.update(milestoneId, data)
+
+    // Kick off retro generation without blocking the HTTP response. The
+    // GenerationJob (status: 'pending') created inside the helper is updated to
+    // 'completed' or 'failed' by milestoneSummaryService.generate.
+    if (transitionedToCompleted) {
+      void generateMilestoneRetro(milestoneId)
+    }
+
+    return updated
   },
 
   async deleteMilestone(milestoneId: string, memberId: string) {

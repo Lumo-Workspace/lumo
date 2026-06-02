@@ -516,6 +516,7 @@ model Milestone {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
+  summary MilestoneSummary?
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -534,6 +535,19 @@ model SprintSummary {
   sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
 
   @@map("sprint_summaries")
+}
+
+model MilestoneSummary {
+  id          String   @id @default(cuid())
+  milestoneId String   @unique
+  stats       Json
+  tldr        String
+  report      String
+  generatedAt DateTime @default(now())
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@map("milestone_summaries")
 }
 
 // ─── View system (Document / Kanban / future) ───────────────────────────────
@@ -1142,7 +1156,7 @@ model DocumentTag {
 
 model GenerationJob {
   id        String   @id @default(cuid())
-  type      String // 'project' | 'workspace' | 'sprint'
+  type      String // 'project' | 'workspace' | 'sprint' | 'milestone'
   targetId  String // projectId or workspaceId
   status    String   @default("pending") // pending | completed | failed
   summaryId String? // populated on success

@@ -874,6 +874,27 @@ export const taskRepository = {
   },
 
   /**
+   * Lightweight task projection for a milestone, used by
+   * milestoneSummaryRepository.computeStatsData().
+   */
+  async listByMilestoneForStats(
+    milestoneId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.task.findMany({
+      where: { milestoneId },
+      select: {
+        id: true,
+        status: true,
+        priority: true,
+        assigneeActorId: true,
+        title: true,
+      },
+    })
+  },
+
+  /**
    * Cache the LLM-generated comment-thread summary on the task row.
    * Part of the context-injection tiering pipeline (LUM-122): comment threads
    * have no standalone entity, so the cached summary lives on Task.
