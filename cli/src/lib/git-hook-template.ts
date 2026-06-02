@@ -22,6 +22,8 @@ esac
 lumo_branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
 lumo_id=$(printf '%s' "$lumo_branch" | grep -oE 'LUM-[0-9]+' | head -n1)
 [ -z "$lumo_id" ] && exit 0
+# Skip if the message already references any [LUM-x] anywhere (subject OR body)
+# — avoids double-tagging when a body line already cites the task.
 grep -qE '\\[LUM-[0-9]+\\]' "$1" && exit 0
 lumo_tmp="$1.lumo.tmp"
 awk -v id="$lumo_id" '
