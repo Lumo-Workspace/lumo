@@ -2,30 +2,30 @@
  * @jest-environment node
  */
 import { execFileSync } from 'child_process'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import { mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { HOOK_SCRIPT_BLOCK } from '@/cli/src/lib/git-hook-template'
 
 // Build a throwaway git repo on an unborn branch, write the hook script, run
 // it against a commit-message file, and return the resulting message text.
 function runHook(branch: string, message: string, source = 'message'): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumo-hook-'))
+  const dir = mkdtempSync(join(tmpdir(), 'lumo-hook-'))
   try {
     execFileSync('git', ['init', '-q'], { cwd: dir })
     // Point HEAD at the branch without needing a commit.
     execFileSync('git', ['symbolic-ref', 'HEAD', `refs/heads/${branch}`], {
       cwd: dir,
     })
-    const hookPath = path.join(dir, 'hook.sh')
-    fs.writeFileSync(hookPath, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
-    fs.chmodSync(hookPath, 0o755)
-    const msgPath = path.join(dir, 'COMMIT_EDITMSG')
-    fs.writeFileSync(msgPath, message)
-    execFileSync('sh', [hookPath, msgPath, source], { cwd: dir })
-    return fs.readFileSync(msgPath, 'utf8')
+    const hookPath = join(dir, 'hook.sh')
+    writeFileSync(hookPath, `#!/bin/sh\n${HOOK_SCRIPT_BLOCK}\n`)
+    chmodSync(hookPath, 0o755)
+    const msgPath = join(dir, 'COMMIT_EDITMSG')
+    writeFileSync(msgPath, message)
+    execFileSync('sh', [hookPath, msgPath, source], { cwd: dir, stdio: 'pipe' })
+    return readFileSync(msgPath, 'utf8')
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
+    rmSync(dir, { recursive: true, force: true })
   }
 }
 
@@ -48,6 +48,11 @@ describe('prepare-commit-msg script', () => {
   it('skips merge commits', () => {
     const out = runHook('lumo/LUM-149-add-hook', "Merge branch 'x'\n", 'merge')
     expect(out).toBe("Merge branch 'x'\n")
+  })
+
+  it('skips squash commits', () => {
+    const out = runHook('lumo/LUM-149-add-hook', 'squashed subject\n', 'squash')
+    expect(out).toBe('squashed subject\n')
   })
 
   it('appends after a leading comment/blank line, on the real subject', () => {
