@@ -125,4 +125,33 @@ describe('resolveSessionStartStdout', () => {
     )
     expect(lines).toHaveLength(0)
   })
+
+  it('injects the recovery card on the auto-bind path', async () => {
+    const lines = await resolveSessionStartStdout(
+      { ok: true, sessionId: 'sess_abc', taskBinding: { bound: false } },
+      {
+        extractTask: () => ({ identifier: 'LUM-146', source: 'branch' }),
+        bindTask: async () => ({
+          ok: true,
+          taskIdentifier: 'LUM-146',
+          taskTitle: 'T',
+          memorySection: '## Relevant Memory\n- x',
+          previousSession: {
+            headline: 'cross-branch carry-over',
+            unresolved: ['ship it'],
+            durationMs: 60_000,
+            lastActivityAt: '2026-06-01T10:00:00Z',
+          },
+        }),
+      },
+      new Date('2026-06-01T12:00:00Z')
+    )
+
+    // lines[0] = auto-bind status line; lines[1] = additionalContext envelope
+    const ctx = JSON.parse(lines[1]!).hookSpecificOutput.additionalContext as string
+    expect(ctx).toContain('## 续上次进度')
+    expect(ctx).toContain('上次干到：cross-branch carry-over')
+    expect(ctx).toContain('- ship it')
+    expect(ctx.indexOf('续上次进度')).toBeLessThan(ctx.indexOf('Relevant Memory'))
+  })
 })

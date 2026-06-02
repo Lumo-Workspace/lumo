@@ -240,6 +240,7 @@ export interface AutoBindAttempt {
   taskIdentifier?: string | undefined
   taskTitle?: string | undefined
   memorySection?: string | undefined
+  previousSession?: PreviousSessionCard | null | undefined
 }
 
 /**
@@ -279,7 +280,8 @@ export function formatAutoBindLine(
  */
 export async function resolveSessionStartStdout(
   responseBody: unknown,
-  deps: AutoBindDeps
+  deps: AutoBindDeps,
+  now: Date = new Date()
 ): Promise<string[]> {
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as SessionStartBody
@@ -288,7 +290,7 @@ export async function resolveSessionStartStdout(
   const tb = body.taskBinding
 
   if (tb && tb.bound === true) {
-    return formatHookStdoutLines('session-start', responseBody)
+    return formatHookStdoutLines('session-start', responseBody, now)
   }
   if (!tb || tb.bound !== false) return []
 
@@ -299,7 +301,12 @@ export async function resolveSessionStartStdout(
   if (!result.ok) return [unboundPromptLine(sessionId)]
 
   const lines = [formatAutoBindLine(sessionId, match, result)]
-  const envelope = sessionContextEnvelope([result.memorySection])
+  const card = renderRecoveryCard(
+    result.previousSession,
+    result.taskIdentifier ?? match.identifier,
+    now
+  )
+  const envelope = sessionContextEnvelope([card, result.memorySection])
   if (envelope) lines.push(envelope)
   return lines
 }
@@ -337,12 +344,14 @@ async function postBindTask(
       taskIdentifier?: string
       taskTitle?: string
       memorySection?: string
+      previousSession?: PreviousSessionCard | null
     }
     return {
       ok: true,
       taskIdentifier: body.taskIdentifier,
       taskTitle: body.taskTitle,
       memorySection: body.memorySection,
+      previousSession: body.previousSession ?? undefined,
     }
   } catch (err) {
     logHookError('[session-start] auto-bind', err)
