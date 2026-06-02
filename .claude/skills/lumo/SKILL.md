@@ -21,6 +21,16 @@ which lumo && lumo whoami
 
 Bootstraps Lumo into a coding-agent installation. Copies the bundled `SKILL.md` into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
 
+On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
+auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
+branch name) to any commit subject that lacks it. The hook is pure sh + git
+(no network, no `lumo` call) and is merged idempotently between
+`# >>> lumo prepare-commit-msg >>>` / `# <<< lumo <<<` markers, preserving any
+existing hook content. When `core.hooksPath` is set (husky or a custom hooks
+dir), setup does **not** write the file — it prints the block plus instructions
+to add it manually (e.g. to `.husky/prepare-commit-msg`). `--user` scope does
+not touch git hooks.
+
 `--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash
