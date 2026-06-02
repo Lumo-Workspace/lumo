@@ -249,3 +249,48 @@ describe('formatTaskContextMarkdown — descriptionMarkdown', () => {
     expect(out).toContain('fallback body')
   })
 })
+
+describe('formatTaskContextMarkdown — milestone', () => {
+  const milestoneBase = {
+    id: 'ms_1',
+    name: 'Milestone 功能增强',
+    status: 'ACTIVE' as const,
+    targetDate: '2026-08-31T00:00:00.000Z',
+  }
+
+  it('renders the Milestone header line with status and target date', () => {
+    const md = formatTaskContextMarkdown(
+      { task: { ...baseTask, milestone: milestoneBase }, sessions: [] } as any,
+      now
+    )
+    expect(md).toContain('**Milestone**: Milestone 功能增强 (ACTIVE, target 2026-08-31)')
+  })
+
+  it('renders the Milestone goal line when description is present', () => {
+    const md = formatTaskContextMarkdown(
+      {
+        task: {
+          ...baseTask,
+          milestone: { ...milestoneBase, description: 'Ship the milestone enhancements end to end.' },
+        },
+        sessions: [],
+      } as any,
+      now
+    )
+    expect(md).toContain('**Milestone goal**: Ship the milestone enhancements end to end.')
+  })
+
+  it('omits the Milestone goal line when description is null, empty, or whitespace', () => {
+    for (const description of [null, '', '   ']) {
+      const md = formatTaskContextMarkdown(
+        {
+          task: { ...baseTask, milestone: { ...milestoneBase, description } },
+          sessions: [],
+        } as any,
+        now
+      )
+      expect(md).toContain('**Milestone**: Milestone 功能增强')
+      expect(md).not.toContain('**Milestone goal**:')
+    }
+  })
+})

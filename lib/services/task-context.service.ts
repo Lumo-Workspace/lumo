@@ -79,6 +79,7 @@ export interface TaskContext {
       name: string
       status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
       targetDate: string | null
+      description: string | null
     } | null
   }
   /**
@@ -543,6 +544,7 @@ export const taskContextService = {
               targetDate: milestone.targetDate
                 ? milestone.targetDate.toISOString()
                 : null,
+              description: milestone.description,
             }
           : null,
       },
