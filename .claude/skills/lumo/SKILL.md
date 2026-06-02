@@ -124,6 +124,7 @@ The command prints a markdown document to stdout containing:
 2. **Memory section** — cross-session learnings accumulated over prior sessions; treat as trusted background context
 3. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below)
 4. **PR Review 待办** — mirrored PR review comments as a checkbox todo list: each line-level reviewer comment (shown as `` `file:line` `` + the reviewer's ask + a link to the GitHub comment) and each `changes_requested` review summary (shown as "🛑 整体要求改动"). Present only when the task's PR(s) have review comments. This same block is **auto-injected at session start** (alongside the memory section) when the session is bound to a task — so reviewer asks surface without re-running `task context`.
+   - The **inline source cards** (Slack / web / Figma / PR) are likewise **auto-injected at session start** when the session is bound, under a single global token budget shared with the memory section (priority: memory > PR > Slack > Figma > web). Cards that don't fit the budget are degraded to a one-line manifest carrying just the title and its `lumo task … show` retrieval command — so you still know they exist and can pull the full content on demand.
 5. **Previous sessions** — ordered newest-first, each with:
    - A headline summary of what was done
    - Unresolved items (carry-over TODOs from that session)
