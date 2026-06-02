@@ -6,10 +6,14 @@ jest.mock('@/cli/src/lib/wrap-panel', () => ({ runWrapPanel: jest.fn() }))
 jest.mock('@/cli/src/commands/wrap/progress-comment-section', () => ({
   ProgressCommentSection: jest.fn().mockImplementation(() => ({ tag: 'progress' })),
 }))
+jest.mock('@/cli/src/commands/wrap/memory-review-section', () => ({
+  MemoryReviewSection: jest.fn().mockImplementation(() => ({ tag: 'review' })),
+}))
 
 import { readCredentials } from '@/cli/src/lib/config'
 import { runWrapPanel } from '@/cli/src/lib/wrap-panel'
 import { ProgressCommentSection } from '@/cli/src/commands/wrap/progress-comment-section'
+import { MemoryReviewSection } from '@/cli/src/commands/wrap/memory-review-section'
 import { sessionWrap } from '@/cli/src/commands/session-wrap'
 
 const mockRead = readCredentials as jest.Mock
@@ -42,12 +46,17 @@ it('exits 1 when not logged in', async () => {
   expect(code).toBe(1)
 })
 
-it('runs the panel with a ProgressCommentSection and passes opts', async () => {
+it('runs the panel with a progress + memory-review section and passes opts', async () => {
   process.env.CLAUDE_CODE_SESSION_ID = 'sess_1'
   await sessionWrap({ yes: true })
-  expect(ProgressCommentSection).toHaveBeenCalledWith({
+  const expectedArgs = {
     creds: { token: 't', apiUrl: 'https://x', workspaceSlug: 'lumo' },
     sessionId: 'sess_1',
+  }
+  expect(ProgressCommentSection).toHaveBeenCalledWith(expectedArgs)
+  expect(MemoryReviewSection).toHaveBeenCalledWith(expectedArgs)
+  expect(mockRun).toHaveBeenCalledWith([{ tag: 'progress' }, { tag: 'review' }], {
+    yes: true,
+    dryRun: false,
   })
-  expect(mockRun).toHaveBeenCalledWith([{ tag: 'progress' }], { yes: true, dryRun: false })
 })
