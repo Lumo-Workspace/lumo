@@ -89,6 +89,30 @@ describe('rankTasks ordering', () => {
     )
     expect(r.map(x => x.identifier)).toEqual(['LUM-2', 'LUM-1'])
   })
+
+  it('both-null dueDates do not produce a NaN comparator (regression)', () => {
+    // dueValue(null) is +Infinity, so a−b = Infinity−Infinity = NaN. The
+    // comparator must treat that as a tie and fall through to updatedAt, not
+    // return NaN (which breaks sort transitivity). Same priority/status/sprint,
+    // both null due — only updatedAt differs, and must decide the order.
+    const r = rankTasks(
+      [
+        task({
+          number: 1,
+          dueDate: null,
+          updatedAt: '2026-05-01T00:00:00.000Z',
+        }),
+        task({
+          number: 2,
+          dueDate: null,
+          updatedAt: '2026-06-01T00:00:00.000Z',
+        }),
+      ],
+      new Set(),
+      NOW
+    )
+    expect(r.map(x => x.identifier)).toEqual(['LUM-2', 'LUM-1'])
+  })
 })
 
 describe('rankTasks reasons', () => {
