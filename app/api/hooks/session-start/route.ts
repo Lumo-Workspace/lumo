@@ -1,6 +1,9 @@
 import { handleHookRequest } from '@/app/api/hooks/_handler'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { taskContextService } from '@/lib/services/task-context.service'
+import {
+  taskContextService,
+  type PreviousSessionRecovery,
+} from '@/lib/services/task-context.service'
 
 export async function POST(request: Request) {
   return handleHookRequest(request, 'SESSION_START', {
@@ -10,14 +13,20 @@ export async function POST(request: Request) {
       let memorySection = ''
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
+      let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
-        const [sections, todos] = await Promise.all([
+        const [sections, todos, previous] = await Promise.all([
           taskContextService.buildSessionStartSections(binding.taskId),
           taskContextService.buildReviewTodosSectionForTask(binding.taskId),
+          taskContextService.buildPreviousSessionRecoveryForTask(
+            binding.taskId,
+            ctx.sessionId
+          ),
         ])
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
         reviewTodosSection = todos
+        previousSession = previous
       }
       return {
         sessionId: ctx.sessionId,
@@ -25,6 +34,7 @@ export async function POST(request: Request) {
         memorySection,
         linkedResourcesSection,
         reviewTodosSection,
+        previousSession,
       }
     },
   })
