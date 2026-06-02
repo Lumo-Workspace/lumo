@@ -275,7 +275,6 @@ export const taskContextService = {
    * still inject.
    */
   async buildSessionStartSections(
-    workspaceId: string,
     taskId: string
   ): Promise<{ memorySection: string; linkedResourcesSection: string }> {
     const empty = { memorySection: '', linkedResourcesSection: '' }
@@ -294,8 +293,6 @@ export const taskContextService = {
         safe(taskFigmaLinkService.listForTask(taskId), [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>),
         safe(pullRequestRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>),
       ])
-
-    void workspaceId // workspaceId reserved for future lazy-refresh integration
 
     const orderedMemories: RenderableMemory[] = [
       ...projectMemories.map(m => ({

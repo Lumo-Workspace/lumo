@@ -44,7 +44,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('returns empty strings when the task has no memory and no linked resources', async () => {
-    const out = await taskContextService.buildSessionStartSections('ws_1', 'tsk_1')
+    const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out).toEqual({ memorySection: '', linkedResourcesSection: '' })
   })
 
@@ -52,7 +52,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValueOnce([
       { number: 7, title: 'Add thing', state: 'OPEN', ciStatus: 'passing' },
     ])
-    const out = await taskContextService.buildSessionStartSections('ws_1', 'tsk_1')
+    const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('<untrusted-linked-context>')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
     expect(out.linkedResourcesSection).toContain('- #7 Add thing — OPEN · passing')
@@ -63,7 +63,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     ;(memoryRepository.findActiveProjectMemories as jest.Mock).mockResolvedValueOnce([
       { id: 'm1', category: 'TRAP', content: { trigger: 'X', outcome: 'Y' } },
     ])
-    const out = await taskContextService.buildSessionStartSections('ws_1', 'tsk_1')
+    const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.memorySection).toContain('<untrusted-team-memory>')
     expect(out.memorySection).toContain('## Relevant Memory')
   })
@@ -75,7 +75,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
     ;(pullRequestRepository.listByTask as jest.Mock).mockResolvedValueOnce([
       { number: 7, title: 'Add thing', state: 'OPEN', ciStatus: 'passing' },
     ])
-    const out = await taskContextService.buildSessionStartSections('ws_1', 'tsk_1')
+    const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.linkedResourcesSection).toContain('## Pull Requests')
     expect(out.linkedResourcesSection).not.toContain('## Slack Context')
   })
@@ -83,7 +83,7 @@ describe('buildSessionStartSections (LUM-147)', () => {
   it('returns empty strings when the task does not exist', async () => {
     const { taskRepository } = require('@/lib/repositories/task.repository')
     ;(taskRepository.findById as jest.Mock).mockResolvedValueOnce(null)
-    const out = await taskContextService.buildSessionStartSections('ws_1', 'nope')
+    const out = await taskContextService.buildSessionStartSections('nope')
     expect(out).toEqual({ memorySection: '', linkedResourcesSection: '' })
   })
 })

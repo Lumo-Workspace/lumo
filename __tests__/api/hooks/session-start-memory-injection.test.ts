@@ -12,11 +12,7 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 }))
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
-    buildMemorySectionForTask: jest.fn(),
-    // The session-start route Promise.all's this alongside the memory section
-    // (added in LUM-148 / #214). Stub it so the afterRecord doesn't throw
-    // "not a function" — without it the route's side effect errors out and the
-    // memorySection assertions below see undefined.
+    buildSessionStartSections: jest.fn(),
     buildReviewTodosSectionForTask: jest.fn().mockResolvedValue(''),
   },
 }))
@@ -61,9 +57,10 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(
-      taskContextService.buildMemorySectionForTask as jest.Mock
-    ).mockResolvedValue('## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n')
+    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      memorySection: '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n',
+      linkedResourcesSection: '',
+    })
 
     const req = post({ sessionId: 's-1' })
     const res = await POST(req)
@@ -73,9 +70,35 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     expect(body.memorySection).toBe(
       '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n'
     )
-    expect(taskContextService.buildMemorySectionForTask).toHaveBeenCalledWith(
+    expect(taskContextService.buildSessionStartSections).toHaveBeenCalledWith(
       'task-1'
     )
+  })
+
+  it('returns linkedResourcesSection from buildSessionStartSections (LUM-147)', async () => {
+    mockRecord.mockResolvedValue({ id: 'he_4', sessionId: 's-4', taskId: null })
+    ;(sessionRepository.findTaskBinding as jest.Mock).mockResolvedValue({
+      bound: true,
+      taskId: 'task-1',
+      taskIdentifier: 'LUM-42',
+      taskTitle: 'Test task',
+    })
+    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      memorySection: 'MEM',
+      linkedResourcesSection:
+        '<untrusted-linked-context>\n## Pull Requests\n- #7 x\n</untrusted-linked-context>',
+    })
+    ;(
+      taskContextService.buildReviewTodosSectionForTask as jest.Mock
+    ).mockResolvedValue('TODOS')
+
+    const req = post({ sessionId: 's-4' })
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(body.memorySection).toBe('MEM')
+    expect(body.linkedResourcesSection).toContain('## Pull Requests')
+    expect(body.reviewTodosSection).toBe('TODOS')
   })
 
   it('returns memorySection="" when session is unbound', async () => {
@@ -90,7 +113,7 @@ describe('POST /api/hooks/session-start — memory injection', () => {
 
     expect(body.ok).toBe(true)
     expect(body.memorySection).toBe('')
-    expect(taskContextService.buildMemorySectionForTask).not.toHaveBeenCalled()
+    expect(taskContextService.buildSessionStartSections).not.toHaveBeenCalled()
   })
 
   it('returns memorySection="" when bound task has no memory', async () => {
@@ -101,16 +124,17 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(
-      taskContextService.buildMemorySectionForTask as jest.Mock
-    ).mockResolvedValue('')
+    ;(taskContextService.buildSessionStartSections as jest.Mock).mockResolvedValue({
+      memorySection: '',
+      linkedResourcesSection: '',
+    })
 
     const req = post({ sessionId: 's-3' })
     const res = await POST(req)
     const body = await res.json()
 
     expect(body.memorySection).toBe('')
-    expect(taskContextService.buildMemorySectionForTask).toHaveBeenCalledWith(
+    expect(taskContextService.buildSessionStartSections).toHaveBeenCalledWith(
       'task-1'
     )
   })
