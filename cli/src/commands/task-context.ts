@@ -16,6 +16,7 @@ interface TaskContextResponse {
       name: string
       status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
       targetDate: string | null
+      description?: string | null
     } | null
   }
   memorySection?: string
@@ -109,6 +110,10 @@ export function formatTaskContextMarkdown(
     lines.push(
       `**Milestone**: ${sanitizeField(data.task.milestone.name)} (${data.task.milestone.status}${target})`
     )
+    const milestoneGoal = data.task.milestone.description
+    if (milestoneGoal && milestoneGoal.trim().length > 0) {
+      lines.push(`**Milestone goal**: ${sanitizeField(milestoneGoal)}`)
+    }
   }
   const body = data.task.descriptionMarkdown ?? data.task.description
   if (body && body.trim().length > 0) {
