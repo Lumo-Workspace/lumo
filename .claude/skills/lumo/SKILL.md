@@ -741,6 +741,8 @@ Moved "Alpha" before "Q3 Launch". New order:
 
 Both commands resolve to a full ordered list client-side and call the same `PATCH /api/projects/<id>/milestones/reorder` endpoint (which requires the list to name every milestone exactly once). New milestones created via `milestone create` are appended to the bottom of the order.
 
+**Ambiguous names:** milestone names are not unique within a project (only the slug is). A ref whose name matches more than one milestone is **rejected** with an `ambiguous milestone name … re-run with the id` error listing the candidate cuids — pass the cuid instead. This applies to every name-based milestone ref (`reorder`, `move`, and also `show` / `update` / `delete` / `summary` / `add` / `remove`).
+
 When to suggest: user asks to "reorder milestones", "排序里程碑", "调整里程碑顺序", "move milestone X before/after Y", "把里程碑 X 移到 Y 前面/后面", "put this milestone first".
 
 ## Document Management

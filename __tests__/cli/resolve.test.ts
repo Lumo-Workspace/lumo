@@ -143,6 +143,42 @@ describe('resolveMilestoneId', () => {
       resolveMilestoneId('http://x', 'tok', 'missing', undefined)
     ).rejects.toThrow(/no milestone matches/)
   })
+
+  it('throws an ambiguous error when a name matches more than one milestone', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          projects: [{ id: 'p-1', name: 'Lumo', isIdea: false }],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          milestones: [
+            { id: 'm-1', name: 'Beta', status: 'ACTIVE' },
+            { id: 'm-2', name: 'Beta', status: 'PLANNED' },
+          ],
+        })
+      )
+    await expect(
+      resolveMilestoneId('http://x', 'tok', 'beta', undefined)
+    ).rejects.toThrow(/ambiguous/i)
+  })
+
+  it('resolves a milestone by its cuid id against the fetched list', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          projects: [{ id: 'p-1', name: 'Lumo', isIdea: false }],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          milestones: [{ id: 'cm123abc', name: 'Q3 Launch', status: 'ACTIVE' }],
+        })
+      )
+    const result = await resolveMilestoneId('http://x', 'tok', 'cm123abc', undefined)
+    expect(result).toEqual({ id: 'cm123abc', name: 'Q3 Launch', projectId: 'p-1' })
+  })
 })
 
 describe('resolveProjectId network failure', () => {

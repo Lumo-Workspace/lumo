@@ -69,3 +69,47 @@ describe('computeMoveOrder', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+// Milestone names are NOT unique within a project (only slug is). A name that
+// matches >1 milestone must error instead of silently picking the first.
+const DUP: MilestoneRef[] = [
+  { id: 'm-a', name: 'Beta', sortOrder: 0 },
+  { id: 'm-b', name: 'Beta', sortOrder: 1 },
+  { id: 'm-c', name: 'Gamma', sortOrder: 2 },
+]
+
+describe('resolveOrderedIds — ambiguous name', () => {
+  it('errors when a name matches >1 milestone, listing candidate ids', () => {
+    const r = resolveOrderedIds(['Beta', 'Beta', 'Gamma'], DUP)
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toMatch(/ambiguous/i)
+      expect(r.error).toContain('m-a')
+      expect(r.error).toContain('m-b')
+    }
+  })
+
+  it('still resolves an ambiguously-named milestone when referenced by id', () => {
+    const r = resolveOrderedIds(['m-a', 'm-b', 'm-c'], DUP)
+    expect(r).toEqual({ ok: true, orderedIds: ['m-a', 'm-b', 'm-c'] })
+  })
+})
+
+describe('computeMoveOrder — ambiguous name', () => {
+  it('errors when the moved ref name is ambiguous', () => {
+    const r = computeMoveOrder('Beta', 'Gamma', 'before', DUP)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/ambiguous/i)
+  })
+
+  it('errors when the target ref name is ambiguous', () => {
+    const r = computeMoveOrder('Gamma', 'Beta', 'after', DUP)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/ambiguous/i)
+  })
+
+  it('resolves ambiguously-named milestones when referenced by id', () => {
+    const r = computeMoveOrder('m-c', 'm-a', 'before', DUP)
+    expect(r).toEqual({ ok: true, orderedIds: ['m-c', 'm-a', 'm-b'] })
+  })
+})

@@ -8,16 +8,27 @@ export type ResolveResult =
   | { ok: true; orderedIds: string[] }
   | { ok: false; error: string }
 
-function findRef(
-  ref: string,
-  milestones: MilestoneRef[]
-): MilestoneRef | undefined {
-  // Try by id first (exact match — milestone ids are cuids, not UUIDs)
+type FindResult =
+  | { kind: 'found'; ref: MilestoneRef }
+  | { kind: 'ambiguous'; candidates: MilestoneRef[] }
+  | { kind: 'not-found' }
+
+function findRef(ref: string, milestones: MilestoneRef[]): FindResult {
+  // Try by id first (exact match — milestone ids are cuids, unique).
   const byId = milestones.find(m => m.id === ref)
-  if (byId) return byId
-  // Then try by name (case-insensitive)
+  if (byId) return { kind: 'found', ref: byId }
+  // Then by name (case-insensitive). Names are NOT unique within a project
+  // (only slug is), so a name can match more than one milestone.
   const needle = ref.trim().toLowerCase()
-  return milestones.find(m => m.name.toLowerCase() === needle)
+  const hits = milestones.filter(m => m.name.toLowerCase() === needle)
+  if (hits.length === 0) return { kind: 'not-found' }
+  if (hits.length === 1) return { kind: 'found', ref: hits[0]! }
+  return { kind: 'ambiguous', candidates: hits }
+}
+
+function ambiguousError(ref: string, candidates: MilestoneRef[]): string {
+  const ids = candidates.map(c => c.id).join(', ')
+  return `ambiguous milestone name "${ref}" matches ${candidates.length} milestones; re-run with the id: ${ids}`
 }
 
 /** Milestones in current display order (sortOrder asc, stable). */
@@ -36,10 +47,14 @@ export function resolveOrderedIds(
   const ids: string[] = []
   const seen = new Set<string>()
   for (const ref of refs) {
-    const match = findRef(ref, milestones)
-    if (!match) {
+    const found = findRef(ref, milestones)
+    if (found.kind === 'not-found') {
       return { ok: false, error: `unknown milestone: "${ref}"` }
     }
+    if (found.kind === 'ambiguous') {
+      return { ok: false, error: ambiguousError(ref, found.candidates) }
+    }
+    const match = found.ref
     if (seen.has(match.id)) {
       return { ok: false, error: `duplicate milestone: "${ref}"` }
     }
@@ -68,10 +83,22 @@ export function computeMoveOrder(
   position: 'before' | 'after',
   milestones: MilestoneRef[]
 ): ResolveResult {
-  const move = findRef(moveRef, milestones)
-  if (!move) return { ok: false, error: `unknown milestone: "${moveRef}"` }
-  const target = findRef(targetRef, milestones)
-  if (!target) return { ok: false, error: `unknown milestone: "${targetRef}"` }
+  const moveFound = findRef(moveRef, milestones)
+  if (moveFound.kind === 'not-found') {
+    return { ok: false, error: `unknown milestone: "${moveRef}"` }
+  }
+  if (moveFound.kind === 'ambiguous') {
+    return { ok: false, error: ambiguousError(moveRef, moveFound.candidates) }
+  }
+  const targetFound = findRef(targetRef, milestones)
+  if (targetFound.kind === 'not-found') {
+    return { ok: false, error: `unknown milestone: "${targetRef}"` }
+  }
+  if (targetFound.kind === 'ambiguous') {
+    return { ok: false, error: ambiguousError(targetRef, targetFound.candidates) }
+  }
+  const move = moveFound.ref
+  const target = targetFound.ref
   if (move.id === target.id) {
     return { ok: false, error: 'cannot move a milestone relative to itself' }
   }
