@@ -585,6 +585,13 @@ describe('figmaCard / figmaManifest (LUM-147)', () => {
     const { renderFigmaSection } = require('@/lib/context/render')
     expect(figmaBudgetSection([link]).render(1)).toBe(renderFigmaSection([link]))
   })
+
+  it('figmaBudgetSection.render(2) equals the legacy multi-link section output', () => {
+    const { renderFigmaSection } = require('@/lib/context/render')
+    const a = link
+    const b = { ...link, id: 'cfl_2', frameName: 'Other' } as typeof link
+    expect(figmaBudgetSection([a, b]).render(2)).toBe(renderFigmaSection([a, b]))
+  })
 })
 
 describe('prCard / prManifest (LUM-147)', () => {
@@ -604,5 +611,12 @@ describe('prCard / prManifest (LUM-147)', () => {
   it('prBudgetSection.render(all) equals the legacy section output', () => {
     const { renderPRSection } = require('@/lib/context/render')
     expect(prBudgetSection([pr]).render(1)).toBe(renderPRSection([pr]))
+  })
+
+  it('prBudgetSection.render(2) equals the legacy multi-PR section output', () => {
+    const { renderPRSection } = require('@/lib/context/render')
+    const a = { number: 1, title: 'one', state: 'OPEN', ciStatus: 'passing' }
+    const b = { number: 2, title: 'two', state: 'MERGED', ciStatus: null }
+    expect(prBudgetSection([a, b]).render(2)).toBe(renderPRSection([a, b]))
   })
 })

@@ -30,7 +30,8 @@ export function makeBudgetSection<T>(
   heading: string,
   cards: T[],
   renderFull: (card: T) => string,
-  renderManifest: (card: T) => string
+  renderManifest: (card: T) => string,
+  cardSeparator = '\n\n'
 ): BudgetSection {
   const fulls = cards.map(renderFull)
   const manifests = cards.map(renderManifest)
@@ -41,7 +42,7 @@ export function makeBudgetSection<T>(
       const keptFulls = fulls.slice(0, fullCount)
       const overflowManifests = manifests.slice(keptFulls.length)
       const parts: string[] = [heading, '']
-      if (keptFulls.length > 0) parts.push(keptFulls.join('\n\n'))
+      if (keptFulls.length > 0) parts.push(keptFulls.join(cardSeparator))
       if (overflowManifests.length > 0) {
         if (keptFulls.length > 0) parts.push('')
         // Agent-facing internal context string (server-rendered markdown injected

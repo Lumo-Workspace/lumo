@@ -34,5 +34,5 @@ export function renderPRSection(prs: PRCard[]): string {
 
 /** Budget-section wrapper for PRs (LUM-147). */
 export function prBudgetSection(prs: PRCard[]) {
-  return makeBudgetSection('## Pull Requests', prs, prCard, prManifest)
+  return makeBudgetSection('## Pull Requests', prs, prCard, prManifest, '\n')
 }

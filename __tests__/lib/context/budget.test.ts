@@ -65,6 +65,11 @@ describe('makeBudgetSection', () => {
     const sec = makeBudgetSection('## H', ['a', 'b'], c => `F:${c}`, c => `- ${c}`)
     expect(sec.render(99)).toBe('## H\n\nF:a\n\nF:b')
   })
+
+  it('honors a custom card separator between full cards', () => {
+    const sec = makeBudgetSection('## H', ['a', 'b'], c => `F:${c}`, c => `- ${c}`, '\n')
+    expect(sec.render(2)).toBe('## H\n\nF:a\nF:b')
+  })
 })
 
 describe('allocateBudget', () => {
