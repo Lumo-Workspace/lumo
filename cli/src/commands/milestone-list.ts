@@ -3,16 +3,30 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveProjectId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 
+type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
+
 interface MilestoneRow {
   id: string
   name: string
   status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   targetDate: string | null
   createdAt: string
+  /** Target-date health light. Server-enriched; null when no light applies. */
+  health?: MilestoneHealth | null
 }
 
 interface MilestonesResponse {
   milestones: MilestoneRow[]
+}
+
+const HEALTH_LABEL: Record<MilestoneHealth, string> = {
+  'on-track': 'ON-TRACK',
+  'at-risk': 'AT-RISK',
+  overdue: 'OVERDUE',
+}
+
+function formatHealth(health: MilestoneHealth | null | undefined): string {
+  return health ? HEALTH_LABEL[health] : '-'
 }
 
 export interface MilestoneListOptions {
@@ -26,18 +40,22 @@ function formatDate(iso: string | null): string {
 
 /**
  * Render milestones as fixed-width rows:
- *   <STATUS>  <target-date or ->  <name>
+ *   <STATUS>  <HEALTH>  <target-date or ->  <name>
+ *
+ * HEALTH is the target-date risk light (ON-TRACK / AT-RISK / OVERDUE), or `-`
+ * when no light applies (terminal status or no target date).
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
 export function formatMilestoneList(rows: MilestoneRow[]): string {
   if (rows.length === 0) return 'No milestones.'
   const statusW = Math.max(...rows.map(r => r.status.length))
+  const healthW = Math.max(...rows.map(r => formatHealth(r.health).length))
   const dateW = Math.max(...rows.map(r => formatDate(r.targetDate).length))
   return rows
     .map(
       r =>
-        `${r.status.padEnd(statusW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
+        `${r.status.padEnd(statusW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
     )
     .join('\n')
 }

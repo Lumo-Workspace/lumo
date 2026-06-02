@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import type { ApiMilestone } from '@/lib/api-client'
+import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 
 interface Props {
   milestone: ApiMilestone
@@ -29,6 +30,14 @@ const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
   CANCELLED: 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-500',
 }
 
+// A single ~7px dot is the one allowed colour signal (typography carries the
+// rest of the hierarchy). Colour encodes the target-date health light.
+const HEALTH_DOT: Record<MilestoneHealth, string> = {
+  'on-track': 'bg-emerald-500',
+  'at-risk': 'bg-amber-500',
+  overdue: 'bg-red-500',
+}
+
 export function MilestoneCard({
   milestone,
   progress,
@@ -43,9 +52,22 @@ export function MilestoneCard({
   return (
     <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors'>
       <div className='flex items-start justify-between gap-2'>
-        <Link href={href} className='flex-1 font-medium hover:underline'>
-          {milestone.name}
-        </Link>
+        <div className='flex flex-1 items-center gap-2'>
+          {milestone.health && (
+            <span
+              className={`h-[7px] w-[7px] shrink-0 rounded-full ${HEALTH_DOT[milestone.health]}`}
+              title={intl.formatMessage({
+                id: `milestone.health.${milestone.health}`,
+              })}
+              aria-label={intl.formatMessage({
+                id: `milestone.health.${milestone.health}`,
+              })}
+            />
+          )}
+          <Link href={href} className='font-medium hover:underline'>
+            {milestone.name}
+          </Link>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant='ghost' size='icon' className='h-7 w-7'>

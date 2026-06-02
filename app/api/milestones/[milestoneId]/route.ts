@@ -4,6 +4,7 @@ import { zodError } from '@/lib/api/helpers'
 import { updateMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
 
 interface Params {
   params: Promise<{ milestoneId: string }>
@@ -20,7 +21,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       identity.memberId
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
-    return NextResponse.json({ milestone: { ...milestone, taskCounts } })
+    const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
+    return NextResponse.json({ milestone: { ...milestone, taskCounts, health } })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

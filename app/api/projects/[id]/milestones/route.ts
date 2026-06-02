@@ -4,6 +4,7 @@ import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { createMilestoneSchema } from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
 
 interface Params {
   params: Promise<{ id: string }>
@@ -20,13 +21,18 @@ export async function GET(request: NextRequest, { params }: Params) {
     const { member } = result
 
     const milestones = await milestoneService.listMilestones(id, member.id)
-    // Enrich with per-status task counts so the frontend can render
-    // progress without an N+1 follow-up from the client.
+    // Enrich with per-status task counts (so the frontend can render progress
+    // without an N+1 follow-up) and a target-date health light.
+    const now = new Date()
     const enriched = await Promise.all(
-      milestones.map(async m => ({
-        ...m,
-        taskCounts: await milestoneRepository.countTasksByStatus(m.id),
-      }))
+      milestones.map(async m => {
+        const taskCounts = await milestoneRepository.countTasksByStatus(m.id)
+        return {
+          ...m,
+          taskCounts,
+          health: milestoneHealthFromCounts(m, taskCounts, now),
+        }
+      })
     )
     return NextResponse.json({ milestones: enriched })
   } catch (error) {

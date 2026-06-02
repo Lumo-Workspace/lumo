@@ -40,6 +40,17 @@ describe('formatMilestoneShow', () => {
     expect(out).toContain('LUM-42  IN_PROGRESS')
   })
 
+  it('renders the health light when provided, "-" when absent', () => {
+    expect(
+      formatMilestoneShow({ ...milestone, health: 'at-risk' }, [])
+    ).toContain('Health:       AT-RISK')
+    expect(formatMilestoneShow({ ...milestone, health: null }, [])).toContain(
+      'Health:       -'
+    )
+    // No health field at all → also "-"
+    expect(formatMilestoneShow(milestone, [])).toContain('Health:       -')
+  })
+
   it('renders "-" for missing description and dates', () => {
     const out = formatMilestoneShow(
       { ...milestone, description: null, startDate: null, targetDate: null },
