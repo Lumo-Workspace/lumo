@@ -112,6 +112,23 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * Memories sedimented by a specific Claude Code session (Layer 1 sets
+   * sourceSessionId; Layer 2 leaves it null so it's naturally excluded).
+   * `since` (the review watermark) filters to rows created strictly after it.
+   * Oldest-first so the wrap list reads in the order they were learned.
+   */
+  async findBySourceSessionId(sessionId: string, since?: Date) {
+    return prisma.memory.findMany({
+      where: {
+        sourceSessionId: sessionId,
+        ...(since ? { createdAt: { gt: since } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      select: MEMORY_ROW_SELECT,
+    })
+  },
+
   /** All PROJECT-scope memories for a project, newest first. Management UI. */
   async listForProject(projectId: string) {
     return prisma.memory.findMany({
