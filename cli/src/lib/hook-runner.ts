@@ -4,6 +4,7 @@ import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
+import { formatDuration, relativeTime } from './format'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -94,7 +95,8 @@ function readStdin(): Promise<string> {
  */
 export function formatHookStdoutLines(
   path: string,
-  responseBody: unknown
+  responseBody: unknown,
+  now: Date = new Date()
 ): string[] {
   if (path === 'pre-tool-use') {
     if (responseBody == null || typeof responseBody !== 'object') return []
@@ -126,14 +128,28 @@ export function formatHookStdoutLines(
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
   }
-  // Memory + PR-review todos share one additionalContext block so Claude Code
-  // injects a single coherent context payload at session start.
+  // Recovery card + memory + PR-review todos share one additionalContext block
+  // so Claude Code injects a single coherent context payload at session start.
+  // The card slots in first so it's the first thing the model reads.
+  const card = renderRecoveryCard(
+    body.previousSession,
+    tb?.taskIdentifier ?? '',
+    now
+  )
   const envelope = sessionContextEnvelope([
+    card,
     body.memorySection,
     body.reviewTodosSection,
   ])
   if (envelope) lines.push(envelope)
   return lines
+}
+
+type PreviousSessionCard = {
+  headline: string
+  unresolved: string[]
+  durationMs: number
+  lastActivityAt: string
 }
 
 type SessionStartBody = {
@@ -145,6 +161,7 @@ type SessionStartBody = {
   }
   memorySection?: string
   reviewTodosSection?: string
+  previousSession?: PreviousSessionCard | null
 }
 
 /**
@@ -153,6 +170,44 @@ type SessionStartBody = {
  */
 function unboundPromptLine(sessionId: string): string {
   return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+}
+
+const MAX_UNRESOLVED = 5
+
+/**
+ * Render the "续上次进度" recovery card from the structured previousSession
+ * payload. Returns undefined when there's nothing to show (null payload or an
+ * empty headline). Free text (headline / unresolved) is sanitized here — it's
+ * LLM-generated and routed to Claude Code stdout. unresolved is capped at
+ * MAX_UNRESOLVED with a "+M more" pointer to `lumo task context`.
+ */
+function renderRecoveryCard(
+  prev: PreviousSessionCard | null | undefined,
+  taskIdentifier: string,
+  now: Date
+): string | undefined {
+  if (!prev || typeof prev.headline !== 'string' || prev.headline === '') {
+    return undefined
+  }
+  const ago = relativeTime(new Date(prev.lastActivityAt), now)
+  const dur = formatDuration(prev.durationMs)
+  const lines: string[] = [
+    `## 续上次进度 (上一段 session · ${ago} · ${dur})`,
+    `上次干到：${sanitizeField(prev.headline)}`,
+  ]
+  const unresolved = Array.isArray(prev.unresolved) ? prev.unresolved : []
+  if (unresolved.length > 0) {
+    lines.push('未完成：')
+    const shown = unresolved.slice(0, MAX_UNRESOLVED)
+    for (const u of shown) lines.push(`- ${sanitizeField(u)}`)
+    const extra = unresolved.length - shown.length
+    if (extra > 0) {
+      lines.push(
+        `- …(+${extra} more, 跑 lumo task context ${taskIdentifier} 查看全部)`
+      )
+    }
+  }
+  return lines.join('\n')
 }
 
 /**
@@ -185,6 +240,7 @@ export interface AutoBindAttempt {
   taskIdentifier?: string | undefined
   taskTitle?: string | undefined
   memorySection?: string | undefined
+  previousSession?: PreviousSessionCard | null | undefined
 }
 
 /**
@@ -224,7 +280,8 @@ export function formatAutoBindLine(
  */
 export async function resolveSessionStartStdout(
   responseBody: unknown,
-  deps: AutoBindDeps
+  deps: AutoBindDeps,
+  now: Date = new Date()
 ): Promise<string[]> {
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as SessionStartBody
@@ -233,7 +290,7 @@ export async function resolveSessionStartStdout(
   const tb = body.taskBinding
 
   if (tb && tb.bound === true) {
-    return formatHookStdoutLines('session-start', responseBody)
+    return formatHookStdoutLines('session-start', responseBody, now)
   }
   if (!tb || tb.bound !== false) return []
 
@@ -244,7 +301,15 @@ export async function resolveSessionStartStdout(
   if (!result.ok) return [unboundPromptLine(sessionId)]
 
   const lines = [formatAutoBindLine(sessionId, match, result)]
-  const envelope = sessionContextEnvelope([result.memorySection])
+  const card = renderRecoveryCard(
+    result.previousSession,
+    result.taskIdentifier ?? match.identifier,
+    now
+  )
+  // bind-task only returns memory + previousSession (not reviewTodosSection) —
+  // the auto-bind endpoint never built PR-review todos. Keep that scope here;
+  // surfacing review todos on the auto-bind path is a separate change.
+  const envelope = sessionContextEnvelope([card, result.memorySection])
   if (envelope) lines.push(envelope)
   return lines
 }
@@ -282,12 +347,14 @@ async function postBindTask(
       taskIdentifier?: string
       taskTitle?: string
       memorySection?: string
+      previousSession?: PreviousSessionCard | null
     }
     return {
       ok: true,
       taskIdentifier: body.taskIdentifier,
       taskTitle: body.taskTitle,
       memorySection: body.memorySection,
+      previousSession: body.previousSession ?? undefined,
     }
   } catch (err) {
     logHookError('[session-start] auto-bind', err)

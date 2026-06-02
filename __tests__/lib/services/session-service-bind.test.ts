@@ -24,6 +24,7 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
+    buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))
 
@@ -60,6 +61,7 @@ beforeEach(() => {
   } as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
   ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
+  ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
 })
 
 describe('sessionService.bindSessionToTask', () => {
@@ -90,6 +92,7 @@ describe('sessionService.bindSessionToTask', () => {
       taskTitle: 'Fix login bug',
       retaggedEventCount: 3,
       memorySection: '',
+      previousSession: null,
     })
   })
 
@@ -140,5 +143,31 @@ describe('sessionService.bindSessionToTask', () => {
       })
     ).rejects.toMatchObject({ status: 404 })
     expect(sessRepo.upsertWithTaskId).not.toHaveBeenCalled()
+  })
+
+  it('includes previousSession from taskContextService in the result', async () => {
+    ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue({
+      headline: 'prev headline',
+      unresolved: ['carry over'],
+      durationMs: 60_000,
+      lastActivityAt: '2026-06-01T10:00:00.000Z',
+    })
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+
+    expect(taskContextService.buildPreviousSessionRecoveryForTask).toHaveBeenCalledWith(
+      'task_1',
+      'sess_1'
+    )
+    expect(result.previousSession).toEqual({
+      headline: 'prev headline',
+      unresolved: ['carry over'],
+      durationMs: 60_000,
+      lastActivityAt: '2026-06-01T10:00:00.000Z',
+    })
   })
 })

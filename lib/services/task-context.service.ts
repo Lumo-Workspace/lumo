@@ -50,6 +50,13 @@ export interface SessionContext {
   unresolved: string[]
 }
 
+export interface PreviousSessionRecovery {
+  headline: string
+  unresolved: string[]
+  durationMs: number
+  lastActivityAt: string
+}
+
 export interface TaskContext {
   task: {
     id: string
@@ -91,6 +98,8 @@ export interface TaskContext {
   sessions: SessionContext[]
 }
 
+const NO_SUMMARY = '(no summary)'
+
 /**
  * One-line synthesis of a session summary. Preference order matches the
  * session-summary type templates: goal > overview > problem > refactorGoal >
@@ -99,7 +108,7 @@ export interface TaskContext {
  */
 function summaryHeadline(summary: unknown): string {
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
-    return '(no summary)'
+    return NO_SUMMARY
   }
   const s = summary as Record<string, unknown>
   for (const key of [
@@ -112,7 +121,7 @@ function summaryHeadline(summary: unknown): string {
     const value = s[key]
     if (typeof value === 'string' && value.trim().length > 0) return value
   }
-  return '(no summary)'
+  return NO_SUMMARY
 }
 
 /**
@@ -315,6 +324,39 @@ export const taskContextService = {
     }
 
     return renderPrReviewTodosSection(todos)
+  },
+
+  /**
+   * Build the "续上次进度" recovery payload for a task: the most recent prior
+   * session (newest-first) that actually produced a summary, reduced to
+   * headline + unresolved + duration. Walks back past summary-less sessions
+   * (still generating / too short) and excludes `currentSessionId` so the
+   * brand-new session doesn't echo itself. Returns null when no prior session
+   * with a summary exists. Keyed on taskId, so it spans branches (squash-merge
+   * continuation). Rendered CLI-side; this returns structured data only.
+   */
+  async buildPreviousSessionRecoveryForTask(
+    taskId: string,
+    currentSessionId: string
+  ): Promise<PreviousSessionRecovery | null> {
+    // Cap at 5: walking back more than 5 sessions for a recovery card is
+    // unlikely to surface anything useful and keeps the query light.
+    const sessions = await sessionRepository.listForTask(taskId, 5)
+    for (const s of sessions) {
+      if (s.id === currentSessionId) continue
+      const headline = summaryHeadline(s.summary)
+      if (headline === NO_SUMMARY) continue
+      return {
+        headline,
+        unresolved: summaryUnresolved(s.summary),
+        durationMs: Math.max(
+          0,
+          s.lastActivityAt.getTime() - s.startedAt.getTime()
+        ),
+        lastActivityAt: s.lastActivityAt.toISOString(),
+      }
+    }
+    return null
   },
 
   /**
