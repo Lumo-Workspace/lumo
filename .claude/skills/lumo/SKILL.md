@@ -1102,6 +1102,27 @@ across multiple tasks → consider `lumo memory promote`.
 
 ## Session Management
 
+### Auto-bind at session start (from local git)
+
+When a session starts **without** a bound task, the `session-start` hook tries to
+infer the task from local git before falling back to the "请告诉我任务编号" prompt:
+
+- It reads the **current branch name** first (e.g. `lumo/LUM-145-...`), then the
+  **most recent commit subjects** (e.g. `... [LUM-145]`), extracting the first
+  `LUM-<n>`.
+- On a hit it binds the session to that task automatically (same `bind-task`
+  endpoint as `session attach`) and prints a single line:
+  `已自动绑定 LUM-145 - <title>（依据分支名/最近 commit）。如果不对，回复"不是"我就帮你解绑。`
+  The freshly-bound task's memory is injected too.
+- No match (detached HEAD, a non-lumo branch with no tagged commits, not a git
+  repo) or a failed bind (unknown task) → it degrades silently to the normal
+  unbound prompt.
+
+**Agent guidance:** if the user responds "不是" / "不对" / "wrong task" to an
+auto-bind line, run `lumo session detach` to clear the binding (then `session
+attach <LUM-N>` if they name the right one). No detach is needed when the
+auto-bound task is correct.
+
 ### `lumo session attach <identifier>` — bind the current session to a task
 
 Use this whenever the user mentions a task ID. The command is the only way to bind a session to a task.
