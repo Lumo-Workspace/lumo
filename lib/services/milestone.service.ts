@@ -85,11 +85,14 @@ export const milestoneService = {
       buildMilestoneSlugBase(input.name),
       existingSlugs
     )
+    const maxSortOrder = await milestoneRepository.getMaxSortOrder(projectId)
+    const sortOrder = maxSortOrder === null ? 0 : maxSortOrder + 1
     return milestoneRepository.create({
       projectId,
       name: input.name,
       slug,
       description: input.description ?? null,
+      sortOrder,
       ...(input.startDate !== undefined && { startDate: input.startDate }),
       ...(input.targetDate !== undefined && { targetDate: input.targetDate }),
     })
@@ -145,6 +148,39 @@ export const milestoneService = {
     }
     await projectService.getProject(existing.projectId, memberId)
     await milestoneRepository.delete(milestoneId)
+  },
+
+  async reorderMilestones(
+    projectId: string,
+    memberId: string,
+    orderedIds: string[]
+  ) {
+    await projectService.getProject(projectId, memberId)
+
+    const milestones = await milestoneRepository.findByProject(projectId)
+    const known = new Set(milestones.map(m => m.id))
+
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      throw Object.assign(
+        new Error('orderedIds must not contain duplicates'),
+        { status: 400 }
+      )
+    }
+    const unknown = orderedIds.find(id => !known.has(id))
+    if (unknown) {
+      throw Object.assign(
+        new Error('orderedIds contains a milestone not in this project'),
+        { status: 400 }
+      )
+    }
+    if (orderedIds.length !== milestones.length) {
+      throw Object.assign(
+        new Error('orderedIds must list every milestone in the project'),
+        { status: 400 }
+      )
+    }
+
+    await milestoneRepository.reorder(projectId, orderedIds)
   },
 
   async listTasks(

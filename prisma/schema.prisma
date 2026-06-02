@@ -511,6 +511,7 @@ model Milestone {
   startDate   DateTime?
   targetDate  DateTime?
   completedAt DateTime?
+  sortOrder   Float           @default(0)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -521,6 +522,7 @@ model Milestone {
   @@unique([projectId, slug])
   @@index([projectId])
   @@index([projectId, status])
+  @@index([projectId, sortOrder])
   @@map("milestones")
 }
 

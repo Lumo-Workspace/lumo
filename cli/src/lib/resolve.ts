@@ -228,12 +228,26 @@ export async function resolveMilestoneId(
     token,
     `/api/projects/${projectId}/milestones`
   )
+  // Exact id match first (milestone ids are cuids, unique).
+  const byId = milestones.find(m => m.id === identifier)
+  if (byId) {
+    return { id: byId.id, name: byId.name, projectId }
+  }
+  // Then by name (case-insensitive). Names are NOT unique within a project
+  // (only slug is), so reject an ambiguous name rather than silently picking
+  // the first match.
   const needle = identifier.trim().toLowerCase()
-  const match = milestones.find(m => m.name.toLowerCase() === needle)
-  if (!match) {
+  const hits = milestones.filter(m => m.name.toLowerCase() === needle)
+  if (hits.length === 0) {
     throw new Error(
       `no milestone matches "${identifier}" in this project. Try \`lumo milestone list\`.`
     )
   }
-  return { id: match.id, name: match.name, projectId }
+  if (hits.length > 1) {
+    const ids = hits.map(h => h.id).join(', ')
+    throw new Error(
+      `ambiguous milestone name "${identifier}" matches ${hits.length} milestones; re-run with the id: ${ids}`
+    )
+  }
+  return { id: hits[0]!.id, name: hits[0]!.name, projectId }
 }

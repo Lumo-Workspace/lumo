@@ -3,6 +3,7 @@ const mockRepoFindById = jest.fn()
 const mockRepoFindByProject = jest.fn()
 const mockRepoFindByProjectAndSlug = jest.fn()
 const mockRepoFindSlugsByProject = jest.fn()
+const mockRepoGetMaxSortOrder = jest.fn()
 const mockRepoCreate = jest.fn()
 const mockRepoUpdate = jest.fn()
 const mockRepoDelete = jest.fn()
@@ -19,6 +20,7 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     findByProject: (...a: any[]) => mockRepoFindByProject(...a),
     findByProjectAndSlug: (...a: any[]) => mockRepoFindByProjectAndSlug(...a),
     findSlugsByProject: (...a: any[]) => mockRepoFindSlugsByProject(...a),
+    getMaxSortOrder: (...a: any[]) => mockRepoGetMaxSortOrder(...a),
     create: (...a: any[]) => mockRepoCreate(...a),
     update: (...a: any[]) => mockRepoUpdate(...a),
     delete: (...a: any[]) => mockRepoDelete(...a),
@@ -76,6 +78,11 @@ describe('milestoneService.getMilestone', () => {
 })
 
 describe('milestoneService.createMilestone', () => {
+  // Default: empty project → new milestone appends at sortOrder 0.
+  beforeEach(() => {
+    mockRepoGetMaxSortOrder.mockResolvedValue(null)
+  })
+
   it('writes through to repository after permission check and generates slug', async () => {
     mockProjectGet.mockResolvedValue({ id: 'p1' })
     mockRepoFindSlugsByProject.mockResolvedValue([])
@@ -90,7 +97,19 @@ describe('milestoneService.createMilestone', () => {
       name: 'v1.0',
       slug: 'v1-0',
       description: 'first release',
+      sortOrder: 0,
     })
+  })
+
+  it('appends to the bottom (max sortOrder + 1) when the project has milestones', async () => {
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockRepoFindSlugsByProject.mockResolvedValue([])
+    mockRepoGetMaxSortOrder.mockResolvedValue(5)
+    mockRepoCreate.mockResolvedValue({ id: 'm-bottom' })
+    await milestoneService.createMilestone('p1', 'mem1', { name: 'Next' })
+    expect(mockRepoCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ sortOrder: 6 })
+    )
   })
 
   it('appends a numeric suffix when the slug already exists in the project', async () => {

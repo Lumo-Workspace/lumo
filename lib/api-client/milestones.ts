@@ -77,4 +77,11 @@ export const milestonesClient = {
       method: 'DELETE',
     })
   },
+
+  reorder(projectId: string, orderedIds: string[]) {
+    return apiFetch<{ ok: boolean }>(API.milestones.reorder(projectId), {
+      method: 'PATCH',
+      body: { orderedIds },
+    })
+  },
 }

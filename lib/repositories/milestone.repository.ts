@@ -10,6 +10,7 @@ type MilestoneUpdate = Partial<
     | 'startDate'
     | 'targetDate'
     | 'completedAt'
+    | 'sortOrder'
   >
 >
 
@@ -27,10 +28,7 @@ export const milestoneRepository = {
   async findByProject(projectId: string) {
     return prisma.milestone.findMany({
       where: { projectId },
-      orderBy: [
-        { targetDate: { sort: 'asc', nulls: 'last' } },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     })
   },
 
@@ -49,6 +47,7 @@ export const milestoneRepository = {
     description?: string | null
     startDate?: Date | null
     targetDate?: Date | null
+    sortOrder?: number
   }) {
     return prisma.milestone.create({
       data: {
@@ -58,6 +57,7 @@ export const milestoneRepository = {
         description: data.description ?? null,
         startDate: data.startDate ?? null,
         targetDate: data.targetDate ?? null,
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
       },
     })
   },
@@ -71,6 +71,26 @@ export const milestoneRepository = {
 
   async delete(id: string) {
     return prisma.milestone.delete({ where: { id } })
+  },
+
+  async getMaxSortOrder(projectId: string): Promise<number | null> {
+    const top = await prisma.milestone.findFirst({
+      where: { projectId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    })
+    return top ? top.sortOrder : null
+  },
+
+  async reorder(projectId: string, orderedIds: string[]) {
+    return prisma.$transaction(async tx => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx.milestone.update({
+          where: { id: orderedIds[i]!, projectId },
+          data: { sortOrder: i },
+        })
+      }
+    })
   },
 
   async countTasksByStatus(milestoneId: string) {
