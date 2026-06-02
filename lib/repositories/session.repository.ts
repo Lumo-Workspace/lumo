@@ -406,4 +406,21 @@ export const sessionRepository = {
       },
     })
   },
+
+  /**
+   * Point every session whose `cwd` equals a worktree's path at that worktree
+   * (LUM-150 ②). Called when a WORKTREE_CREATE hook fires — the cwd↔path match
+   * is how a session is associated with the worktree it runs in, so the
+   * collision warning can later name that session's branch. Idempotent.
+   */
+  async linkToWorktreeByCwd(params: {
+    workspaceId: string
+    path: string
+    worktreeId: string
+  }) {
+    return prisma.session.updateMany({
+      where: { workspaceId: params.workspaceId, cwd: params.path },
+      data: { worktreeId: params.worktreeId },
+    })
+  },
 }

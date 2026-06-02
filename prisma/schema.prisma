@@ -187,6 +187,7 @@ model Workspace {
   mcpConnections     McpConnection[]     @relation("WorkspaceMcpConnections")
   hookEvents         HookEvent[]
   sessions           Session[]
+  worktrees          Worktree[]
   memories           Memory[]
   taskSlackContexts  TaskSlackContext[]
   taskWebLinks       TaskWebLink[]
@@ -1316,6 +1317,12 @@ model Session {
   // not the DB default. Defaults to CLAUDE_CODE — accurate today, since only
   // Claude Code emits hook events.
   agent                TaskArtifactAgent @default(CLAUDE_CODE)
+  // The git worktree this session runs in, when known. Linked by cwd match
+  // when a WORKTREE_CREATE hook fires for a path equal to the session's cwd
+  // (LUM-150 ②), letting the parallel-edit collision warning name the other
+  // session's branch instead of just its agent. Null for sessions not running
+  // in a hook-tracked worktree.
+  worktreeId           String?
   startedAt            DateTime  @default(now())
   lastActivityAt       DateTime
   eventCount           Int       @default(0)
@@ -1343,13 +1350,38 @@ model Session {
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   member    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
   task      Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  worktree  Worktree?       @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
   events    HookEvent[]
   memories  Memory[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])
   @@index([taskId, lastActivityAt])
+  @@index([worktreeId])
   @@map("sessions")
+}
+
+// ─── Worktree (git worktree tracking for parallel-edit awareness) ────────────
+
+model Worktree {
+  id          String    @id @default(cuid())
+  workspaceId String
+  // Absolute filesystem path of the worktree — equals a session's `cwd` when
+  // that session runs inside it. Unique per workspace so WORKTREE_CREATE can
+  // upsert and sessions can link by cwd match.
+  path        String
+  // Git branch checked out in the worktree, when the WORKTREE_CREATE payload
+  // carried it. Surfaced in the collision warning ("分支 lumo/LUM-149-…").
+  branch      String?
+  createdAt   DateTime  @default(now())
+  // Set on WORKTREE_REMOVE; null means the worktree is still present.
+  removedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@unique([workspaceId, path])
+  @@map("worktrees")
 }
 
 // ─── Memory (long-term context across tasks) ────────────────────────────────

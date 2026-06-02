@@ -33,6 +33,9 @@ export interface AfterRecordContext {
   filePath: string | null
   /** Tool this event uses, extracted from the payload (null if none). */
   toolName: string | null
+  /** The raw (already-parsed) hook payload, for side effects that need fields
+   *  beyond the common ones above (e.g. WORKTREE_CREATE → worktree_path/branch). */
+  payload: unknown
 }
 
 export interface HandleHookOptions {
@@ -86,6 +89,7 @@ export async function handleHookRequest(
             workspaceId: identity.workspace.id,
             filePath: recorded.filePath,
             toolName: recorded.toolName,
+            payload: payload ?? {},
           },
           identity
         )

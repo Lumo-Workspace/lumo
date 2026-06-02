@@ -76,7 +76,11 @@ export const hookEventRepository = {
         sessionId: true,
         toolName: true,
         createdAt: true,
-        session: { select: { agent: true } },
+        // agent + (when the session is linked to a hook-tracked worktree) its
+        // branch — both feed the collision warning's "who else" label.
+        session: {
+          select: { agent: true, worktree: { select: { branch: true } } },
+        },
       },
     })
   },
