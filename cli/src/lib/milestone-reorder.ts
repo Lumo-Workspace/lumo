@@ -8,14 +8,11 @@ export type ResolveResult =
   | { ok: true; orderedIds: string[] }
   | { ok: false; error: string }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function findRef(
   ref: string,
   milestones: MilestoneRef[]
 ): MilestoneRef | undefined {
-  // Try by id first (exact match, covers both UUIDs and short ids)
+  // Try by id first (exact match — milestone ids are cuids, not UUIDs)
   const byId = milestones.find(m => m.id === ref)
   if (byId) return byId
   // Then try by name (case-insensitive)
