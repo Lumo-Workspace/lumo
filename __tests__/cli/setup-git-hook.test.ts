@@ -2,13 +2,7 @@
  * @jest-environment node
  */
 import { execFileSync } from 'child_process'
-import {
-  mkdtempSync,
-  rmSync,
-  existsSync,
-  readFileSync,
-  writeFileSync,
-} from 'fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { installGitHook } from '@/cli/src/commands/setup'
