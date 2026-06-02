@@ -12,6 +12,7 @@ import { sessionAttach } from './commands/session-attach'
 import { sessionDetach } from './commands/session-detach'
 import { sessionStatus } from './commands/session-status'
 import { sessionWrap } from './commands/session-wrap'
+import { nextCommand } from './commands/next'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -194,6 +195,14 @@ program
       )
     )
   )
+
+program
+  .command('next')
+  .description(
+    'Recommend the next task(s) to work on, ranked by priority, active sprint, and due date. Prints top N (default 3); pick one and run `session attach` + `task context`.'
+  )
+  .option('-n, --count <N>', 'Number of tasks to recommend (default 3)')
+  .action(wrap(options => nextCommand(options as { count?: string })))
 
 const session = program
   .command('session')
