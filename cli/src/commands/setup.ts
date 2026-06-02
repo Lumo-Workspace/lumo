@@ -1,8 +1,13 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
+import {
+  mergeGitHook,
+  resolveHookInstall,
+  HOOK_SCRIPT_BLOCK,
+} from '../lib/git-hook-template'
 import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
@@ -59,6 +64,9 @@ export async function setup(options: SetupOptions): Promise<number> {
 
   installSkill(claudeDir, options.force === true)
   mergeSettings(claudeDir, agentResult.token)
+  if (scope === 'project') {
+    installGitHook(root)
+  }
   printPostInstall()
 
   return 0
@@ -156,6 +164,80 @@ function mergeSettings(claudeDir: string, agentToken: string): void {
       `✓ merged hooks into ${settingsPath} (agent=${agentToken}; added ${stats.addedEvents.length}, updated ${stats.updatedEvents.length}, kept ${stats.alreadyPresent.length})\n`
     )
   }
+}
+
+function gitCapture(cwd: string, args: string[]): string | null {
+  const res = spawnSync('git', args, { cwd, encoding: 'utf8' })
+  if (res.error || res.status !== 0) return null
+  return res.stdout.trim()
+}
+
+export function installGitHook(projectRoot: string): void {
+  if (gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true') {
+    process.stdout.write(
+      '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
+    )
+    return
+  }
+
+  const coreHooksPath = gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
+  if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
+    printGitHookManualInstructions(coreHooksPath!)
+    return
+  }
+
+  const hooksDirRaw = gitCapture(projectRoot, ['rev-parse', '--git-path', 'hooks'])
+  if (!hooksDirRaw) {
+    process.stdout.write(
+      '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
+    )
+    return
+  }
+  const absHooksDir = path.isAbsolute(hooksDirRaw)
+    ? hooksDirRaw
+    : path.join(projectRoot, hooksDirRaw)
+  const hookPath = path.join(absHooksDir, 'prepare-commit-msg')
+
+  const existing = fs.existsSync(hookPath)
+    ? fs.readFileSync(hookPath, 'utf8')
+    : null
+  const { content, status } = mergeGitHook(existing)
+
+  if (status === 'unchanged') {
+    process.stdout.write(
+      `✓ prepare-commit-msg hook already up to date: ${hookPath}\n`
+    )
+    return
+  }
+
+  try {
+    fs.mkdirSync(absHooksDir, { recursive: true })
+    fs.writeFileSync(hookPath, content)
+    fs.chmodSync(hookPath, 0o755)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stdout.write(`⚠ could not write prepare-commit-msg hook: ${msg}\n`)
+    return
+  }
+
+  const verb =
+    status === 'created'
+      ? 'wrote'
+      : status === 'appended'
+        ? 'appended to'
+        : 'updated'
+  process.stdout.write(`✓ ${verb} prepare-commit-msg hook: ${hookPath}\n`)
+}
+
+function printGitHookManualInstructions(coreHooksPath: string): void {
+  process.stdout.write(
+    `\n⚠ core.hooksPath is set to "${coreHooksPath}" (husky or a custom hooks dir).\n` +
+      `  Skipped auto-install to avoid clobbering it. To auto-tag commits with\n` +
+      `  [LUM-N], add this block to your prepare-commit-msg hook\n` +
+      `  (e.g. .husky/prepare-commit-msg), then make it executable:\n\n` +
+      HOOK_SCRIPT_BLOCK +
+      `\n\n`
+  )
 }
 
 function printPostInstall(): void {

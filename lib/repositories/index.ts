@@ -23,6 +23,7 @@ export type {
 } from './slack.repository'
 export { sprintRepository } from './sprint.repository'
 export { sprintSummaryRepository } from './sprint-summary.repository'
+export { milestoneSummaryRepository } from './milestone-summary.repository'
 export { inviteRepository } from './invite.repository'
 export type { CreateInviteData } from './invite.repository'
 export { mcpConnectionRepository } from './mcp-connection.repository'
