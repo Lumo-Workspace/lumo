@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "milestone health", "milestone risk", "risk light", "on-track", "at-risk", "overdue", "里程碑健康度", "健康度", "风险灯", "延期风险", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "milestone summary", "milestone retro", "summarize milestone", "里程碑总结", "里程碑复盘", "milestone reorder", "milestone move", "reorder milestones", "move milestone", "排序里程碑", "调整里程碑顺序", "里程碑调序", "move milestone before", "move milestone after", "milestone add", "milestone remove", "add tasks to milestone", "remove tasks from milestone", "batch milestone", "bulk milestone", "挂任务到里程碑", "批量挂里程碑", "从里程碑移除任务", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论", "mark blocked", "blocked tag", "标 blocked", "标记 blocked", "卡住检测", "反复失败", "stuck", "repeatedly failing", "lumo next", "next task", "what''s next", "what should I work on", "recommend a task", "推荐下一个任务", "pick my next task".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "milestone health", "milestone risk", "risk light", "on-track", "at-risk", "overdue", "里程碑健康度", "健康度", "风险灯", "延期风险", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "archive milestone", "unarchive milestone", "restore milestone", "archived milestones", "归档里程碑", "恢复里程碑", "取消归档", "milestone summary", "milestone retro", "summarize milestone", "里程碑总结", "里程碑复盘", "milestone reorder", "milestone move", "reorder milestones", "move milestone", "排序里程碑", "调整里程碑顺序", "里程碑调序", "move milestone before", "move milestone after", "milestone add", "milestone remove", "add tasks to milestone", "remove tasks from milestone", "batch milestone", "bulk milestone", "挂任务到里程碑", "批量挂里程碑", "从里程碑移除任务", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论", "mark blocked", "blocked tag", "标 blocked", "标记 blocked", "卡住检测", "反复失败", "stuck", "repeatedly failing", "lumo next", "next task", "what''s next", "what should I work on", "recommend a task", "推荐下一个任务", "pick my next task".'
 ---
 
 ## Prerequisites
@@ -382,8 +382,8 @@ membership**, then **due date** (earlier first), then in-flight status
 sprint lookup is best-effort — if it fails the command still recommends, just
 without the sprint boost.
 
-| Flag | Type | Notes |
-| ---- | ---- | ----- |
+| Flag              | Type    | Notes                                                                   |
+| ----------------- | ------- | ----------------------------------------------------------------------- |
 | `-n, --count <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer. |
 
 ```bash
@@ -559,9 +559,17 @@ Prints `<slug>  <Display Name>` lines. The slug column matches the `--project <r
 lumo project list
 ```
 
-### `lumo milestone list [--project <ref>]` — list milestones in a project
+### `lumo milestone list [--project <ref>] [--archived] [--all]` — list milestones in a project
 
 Prints fixed-width rows: `<STATUS>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc.
+
+By default, only **non-archived** milestones are listed. Use `--archived` to show **only** archived milestones, or `--all` to show **both** archived and non-archived. Archived rows are marked with a ` (archived)` suffix on the name.
+
+| Flag              | Type    | Notes                                                                                  |
+| ----------------- | ------- | -------------------------------------------------------------------------------------- |
+| `--project <ref>` | string  | Required when the workspace has more than one project. Name or slug, case-insensitive. |
+| `--archived`      | boolean | Show **only** archived milestones (instead of the default non-archived set).           |
+| `--all`           | boolean | Show **both** archived and non-archived milestones.                                    |
 
 `HEALTH` is the target-date risk light, server-computed from the milestone's target date + task progress:
 
@@ -571,8 +579,10 @@ Prints fixed-width rows: `<STATUS>  <HEALTH>  <target-date or ->  <name>`, sorte
 - `-` — no light applies (status `COMPLETED`/`CANCELLED`, or no target date)
 
 ```bash
-lumo milestone list                  # one-project workspace
+lumo milestone list                  # one-project workspace (non-archived only)
 lumo milestone list --project lumo   # multi-project workspace
+lumo milestone list --archived       # only archived milestones
+lumo milestone list --all            # archived + non-archived (archived marked "(archived)")
 ```
 
 `--project <ref>` is required when the workspace has more than one project (consistent with `task create --project`). Match is by project name or slug, case-insensitive.
@@ -640,6 +650,23 @@ Requires `--yes`. No interactive prompt — CLI is agent-friendly. Tasks under t
 lumo milestone delete "Q3 Launch" --yes
 ```
 
+### `lumo milestone archive <identifier>` — soft-archive a milestone
+
+Soft-archives a milestone by setting `archivedAt`. The milestone is **hidden from `milestone list` by default** (use `--archived` or `--all` to see it), but its **history and task links are preserved**, and the action is **reversible** via `milestone unarchive`. This is distinct from `milestone delete`, which is a **hard delete**. While archived, the milestone **rejects edits** (`milestone update`) and **new task bindings** (`task --milestone`, `milestone add`) with a 409 until it is restored. `<identifier>` accepts a UUID or name; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+
+```bash
+lumo milestone archive "Q3 Launch"
+lumo milestone archive 11111111-2222-3333-4444-555555555555
+```
+
+### `lumo milestone unarchive <identifier>` — restore an archived milestone
+
+Restores an archived milestone by clearing `archivedAt`. It reappears in `milestone list` and can be edited and bound to tasks again. Idempotent — unarchiving an already-active milestone is a no-op. Same identifier / `--project` rules as `milestone archive`: `<identifier>` accepts a UUID or name; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+
+```bash
+lumo milestone unarchive "Q3 Launch"
+```
+
 ### `lumo milestone add <identifier> <task...>` — bind tasks to a milestone (batch)
 
 Binds **one or more** tasks to a milestone in a single call — the batch counterpart of `task update --milestone <ref>` (which only takes one task at a time). `<identifier>` accepts a milestone name or UUID; each `<task>` accepts `LUM-N` or a task UUID. `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
@@ -688,9 +715,9 @@ Prints the AI-generated retrospective summary for a milestone (mirrors `sprint s
 
 A summary is generated automatically when a milestone transitions to `COMPLETED` (e.g. via `lumo milestone update <id> --status completed`). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
 
-| Flag              | Type    | Notes                                                            |
-| ----------------- | ------- | ---------------------------------------------------------------- |
-| `--project <ref>` | string  | Project name or slug. Required when identifier is a name and the workspace has >1 project. |
+| Flag              | Type    | Notes                                                                                                  |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `--project <ref>` | string  | Project name or slug. Required when identifier is a name and the workspace has >1 project.             |
 | `--retry`         | boolean | Queue a regeneration (async, server returns 202) before fetching. Only valid on a COMPLETED milestone. |
 
 ```bash
@@ -1288,7 +1315,7 @@ auto-bound task is correct.
 
 When the session is bound, session-start may inject a **"🆕 待核对：上次会话自动合并的项目级记忆"** section alongside the memory / PR-review blocks (LUM-165). It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
 
-- **Why it's here:** Layer 2 promotions land async, so they can't be reviewed in the synchronous `session wrap` panel — they're surfaced at the *next* session-start instead, when they've definitely landed.
+- **Why it's here:** Layer 2 promotions land async, so they can't be reviewed in the synchronous `session wrap` panel — they're surfaced at the _next_ session-start instead, when they've definitely landed.
 - **Show-once:** the section appears only at the session that immediately follows the one that produced the memories. It does **not** re-nag on later sessions, so act on it now or it scrolls off.
 - **Agent guidance:** briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id> --yes` (ideally confirm with the user first). If they all look right, ignore the section and continue.
 
