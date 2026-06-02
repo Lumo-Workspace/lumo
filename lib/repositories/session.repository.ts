@@ -183,11 +183,13 @@ export const sessionRepository = {
     taskIdentifier: string | null
     taskTitle: string | null
     lastProgressCommentAt: Date | null
+    lastMemoryReviewAt: Date | null
   } | null> {
     const row = await prisma.session.findFirst({
       where: { id: sessionId, workspaceMemberId },
       select: {
         lastProgressCommentAt: true,
+        lastMemoryReviewAt: true,
         task: {
           select: {
             id: true,
@@ -206,6 +208,7 @@ export const sessionRepository = {
         : null,
       taskTitle: row.task?.title ?? null,
       lastProgressCommentAt: row.lastProgressCommentAt,
+      lastMemoryReviewAt: row.lastMemoryReviewAt,
     }
   },
 
@@ -214,6 +217,15 @@ export const sessionRepository = {
     return prisma.session.update({
       where: { id: sessionId },
       data: { lastProgressCommentAt: at },
+      select: { id: true },
+    })
+  },
+
+  /** Advance the memory-review watermark after a wrap applies a review. */
+  async setLastMemoryReviewAt(sessionId: string, at: Date) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { lastMemoryReviewAt: at },
       select: { id: true },
     })
   },
