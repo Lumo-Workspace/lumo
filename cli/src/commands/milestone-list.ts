@@ -11,6 +11,7 @@ interface MilestoneRow {
   status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
   targetDate: string | null
   createdAt: string
+  archivedAt: string | null
   /** Target-date health light. Server-enriched; null when no light applies. */
   health?: MilestoneHealth | null
 }
@@ -31,6 +32,8 @@ function formatHealth(health: MilestoneHealth | null | undefined): string {
 
 export interface MilestoneListOptions {
   project?: string | undefined
+  archived?: boolean | undefined
+  all?: boolean | undefined
 }
 
 function formatDate(iso: string | null): string {
@@ -55,7 +58,7 @@ export function formatMilestoneList(rows: MilestoneRow[]): string {
   return rows
     .map(
       r =>
-        `${r.status.padEnd(statusW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
+        `${r.status.padEnd(statusW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${r.archivedAt ? `${sanitizeField(r.name)} (archived)` : sanitizeField(r.name)}`
     )
     .join('\n')
 }
@@ -80,9 +83,16 @@ export async function milestoneList(
     return 1
   }
 
-  const res = await fetch(`${base}/api/projects/${projectId}/milestones`, {
-    headers: { Authorization: `Bearer ${creds.token}` },
-  })
+  if (options.archived && options.all) {
+    console.error('Error: --archived and --all are mutually exclusive.')
+    return 1
+  }
+  const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
+
+  const res = await fetch(
+    `${base}/api/projects/${projectId}/milestones?filter=${filter}`,
+    { headers: { Authorization: `Bearer ${creds.token}` } }
+  )
   if (!res.ok) {
     console.error(`Error: milestone list failed (HTTP ${res.status})`)
     return 1

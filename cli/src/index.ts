@@ -637,9 +637,11 @@ const milestoneCmd = program
 milestoneCmd
   .command('list')
   .description(
-    'List milestones for a project. --project required when workspace has >1 project.'
+    'List milestones for a project. --project required when workspace has >1 project. By default only non-archived milestones are shown.'
   )
   .option('--project <ref>', 'Project name or slug')
+  .option('--archived', 'Show only archived milestones')
+  .option('--all', 'Show both archived and non-archived milestones')
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
 milestoneCmd
