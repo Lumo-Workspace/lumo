@@ -1,6 +1,7 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { MilestoneStatus, TaskStatus } from '@prisma/client'
+import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 
 export interface ApiMilestone {
   id: string
@@ -16,6 +17,11 @@ export interface ApiMilestone {
   updatedAt: string
   /** Per-status task counts. Server-enriched on list/detail responses. */
   taskCounts?: Record<TaskStatus, number>
+  /**
+   * Target-date health light. Server-enriched on list/detail responses.
+   * `null` when no light applies (terminal status or no target date).
+   */
+  health?: MilestoneHealth | null
 }
 
 export interface MilestoneCreateInput {

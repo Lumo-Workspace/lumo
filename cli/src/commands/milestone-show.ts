@@ -8,6 +8,8 @@ export interface ShowMilestoneOptions {
   project?: string
 }
 
+type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
+
 export interface MilestoneShowData {
   id: string
   name: string
@@ -22,10 +24,22 @@ export interface MilestoneShowData {
     IN_REVIEW: number
     DONE: number
   }
+  /** Target-date health light. Server-enriched; null when no light applies. */
+  health?: MilestoneHealth | null | undefined
+}
+
+const HEALTH_LABEL: Record<MilestoneHealth, string> = {
+  'on-track': 'ON-TRACK',
+  'at-risk': 'AT-RISK',
+  overdue: 'OVERDUE',
 }
 
 function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '-'
+}
+
+function fmtHealth(health: MilestoneHealth | null | undefined): string {
+  return health ? HEALTH_LABEL[health] : '-'
 }
 
 export function formatMilestoneShow(
@@ -40,6 +54,7 @@ export function formatMilestoneShow(
   const lines = [
     `Milestone:    ${sanitizeField(m.name)}`,
     `Status:       ${m.status}`,
+    `Health:       ${fmtHealth(m.health)}`,
     `Start:        ${fmtDate(m.startDate)}`,
     `Target:       ${fmtDate(m.targetDate)}`,
     `Project:      ${sanitizeField(m.projectName)}`,
@@ -121,6 +136,7 @@ export async function milestoneShow(
       description: string | null
       projectId: string
       taskCounts: MilestoneShowData['taskCounts']
+      health?: MilestoneHealth | null
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
@@ -151,6 +167,7 @@ export async function milestoneShow(
         description: milestone.description,
         projectName,
         taskCounts: milestone.taskCounts,
+        health: milestone.health,
       },
       tasks
     ) + '\n'
