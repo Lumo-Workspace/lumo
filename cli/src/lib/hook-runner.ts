@@ -128,9 +128,10 @@ export function formatHookStdoutLines(
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
   }
-  // Recovery card + memory + PR-review todos share one additionalContext block
-  // so Claude Code injects a single coherent context payload at session start.
-  // The card slots in first so it's the first thing the model reads.
+  // Recovery card + memory + linked resources + PR-review todos share one
+  // additionalContext block so Claude Code injects a single coherent context
+  // payload at session start. The card slots in first so it's the first thing
+  // the model reads.
   const card = renderRecoveryCard(
     body.previousSession,
     tb?.taskIdentifier ?? '',
@@ -139,6 +140,7 @@ export function formatHookStdoutLines(
   const envelope = sessionContextEnvelope([
     card,
     body.memorySection,
+    body.linkedResourcesSection,
     body.reviewTodosSection,
   ])
   if (envelope) lines.push(envelope)
@@ -160,6 +162,7 @@ type SessionStartBody = {
     taskTitle?: string
   }
   memorySection?: string
+  linkedResourcesSection?: string
   reviewTodosSection?: string
   previousSession?: PreviousSessionCard | null
 }

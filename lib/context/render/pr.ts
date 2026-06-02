@@ -1,3 +1,5 @@
+import { makeBudgetSection } from '@/lib/context/budget'
+
 export interface PRCard {
   number: number
   title: string
@@ -5,21 +7,32 @@ export interface PRCard {
   ciStatus: string | null
 }
 
+/** Render a single PR card body (no section heading). */
+export function prCard(pr: PRCard): string {
+  const ci = pr.ciStatus ?? 'no CI'
+  return [
+    `- #${pr.number} ${pr.title} — ${pr.state} · ${ci}`,
+    `  ↳ diff: lumo task pr show ${pr.number}`,
+  ].join('\n')
+}
+
+/** One-line manifest for an overflowed PR. */
+export function prManifest(pr: PRCard): string {
+  return `- #${pr.number} ${pr.title} — lumo task pr show ${pr.number}`
+}
+
 /**
- * Render the "## Pull Requests" section. Each PR becomes a one-line card with
- * number, title, state, and CI rollup, plus the retrieval command for the
- * full diff and review comments.
+ * Render the "## Pull Requests" section. Unchanged public output; now composed
+ * from `prCard`.
  */
 export function renderPRSection(prs: PRCard[]): string {
   if (prs.length === 0) return ''
-
   const lines: string[] = ['## Pull Requests', '']
-
-  for (const pr of prs) {
-    const ci = pr.ciStatus ?? 'no CI'
-    lines.push(`- #${pr.number} ${pr.title} — ${pr.state} · ${ci}`)
-    lines.push(`  ↳ diff: lumo task pr show ${pr.number}`)
-  }
-
+  for (const pr of prs) lines.push(prCard(pr))
   return lines.join('\n').trimEnd()
+}
+
+/** Budget-section wrapper for PRs (LUM-147). */
+export function prBudgetSection(prs: PRCard[]) {
+  return makeBudgetSection('## Pull Requests', prs, prCard, prManifest, '\n')
 }

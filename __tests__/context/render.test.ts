@@ -10,6 +10,20 @@ import {
   type ReviewTodoItem,
 } from '@/lib/context/render/pr-review-todos'
 import * as render from '@/lib/context/render'
+import {
+  slackCard,
+  slackManifest,
+  slackBudgetSection,
+  webLinkCard,
+  webLinkManifest,
+  webLinkBudgetSection,
+  figmaCard,
+  figmaManifest,
+  figmaBudgetSection,
+  prCard,
+  prManifest,
+  prBudgetSection,
+} from '@/lib/context/render'
 
 describe('renderSlackContextSection', () => {
   it('shows summary + retrieval command, no inlined thread', () => {
@@ -465,5 +479,151 @@ describe('index barrel', () => {
     expect(typeof render.renderCommentsSection).toBe('function')
     expect(typeof render.renderPRSection).toBe('function')
     expect(typeof render.renderPrReviewTodosSection).toBe('function')
+  })
+})
+
+describe('slackCard / slackManifest (LUM-147)', () => {
+  const card = {
+    id: 'ctx_1',
+    isThread: true,
+    slackChannelName: 'eng',
+    permalink: 'https://slack/x',
+    snapshotAt: new Date('2026-06-01T10:00:00Z'),
+    refreshError: null,
+    summary: 'Decided to ship Friday.',
+    snapshot: { messages: [] },
+  }
+
+  it('slackCard renders one card body without the section heading', () => {
+    const out = slackCard(card)
+    expect(out).not.toContain('## Slack Context')
+    expect(out).toContain('### #eng · Thread (0 messages, fetched 2026-06-01 10:00 UTC)')
+    expect(out).toContain('Decided to ship Friday.')
+    expect(out).toContain('↳ 全文: lumo task slack show ctx_1')
+  })
+
+  it('slackManifest is one line with channel + retrieval command', () => {
+    expect(slackManifest(card)).toBe('- #eng — lumo task slack show ctx_1')
+  })
+
+  it('slackManifest falls back to #channel when name is null', () => {
+    expect(slackManifest({ ...card, slackChannelName: null })).toBe(
+      '- #channel — lumo task slack show ctx_1'
+    )
+  })
+
+  it('slackBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderSlackContextSection } = require('@/lib/context/render')
+    const section = slackBudgetSection([card])
+    expect(section.render(1)).toBe(renderSlackContextSection([card]))
+  })
+})
+
+describe('webLinkCard / webLinkManifest (LUM-147)', () => {
+  const link = {
+    id: 'wl_1',
+    url: 'https://ex.com/a',
+    domain: 'ex.com',
+    title: 'A Title',
+    description: 'desc',
+    note: null,
+    fetchedAt: new Date('2026-06-01T00:00:00Z'),
+    fetchError: null,
+  }
+
+  it('webLinkCard renders the bullet block without the section heading', () => {
+    const out = webLinkCard(link)
+    expect(out).not.toContain('## Web Links')
+    expect(out).toContain('- [A Title](https://ex.com/a) — ex.com')
+    expect(out).toContain('↳ 正文: lumo task web show wl_1')
+  })
+
+  it('webLinkManifest prefers the title, falls back to the url', () => {
+    expect(webLinkManifest(link)).toBe('- [A Title](https://ex.com/a) — lumo task web show wl_1')
+    expect(webLinkManifest({ ...link, title: null })).toBe(
+      '- https://ex.com/a — lumo task web show wl_1'
+    )
+  })
+
+  it('webLinkBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderWebLinkSection } = require('@/lib/context/render')
+    expect(webLinkBudgetSection([link]).render(1)).toBe(renderWebLinkSection([link]))
+  })
+
+  it('webLinkBudgetSection.render(2) equals the legacy multi-link section output', () => {
+    const { renderWebLinkSection } = require('@/lib/context/render')
+    const a = link
+    const b = { ...link, id: 'wl_2', url: 'https://ex.com/b', title: 'B Title' }
+    expect(webLinkBudgetSection([a, b]).render(2)).toBe(renderWebLinkSection([a, b]))
+  })
+})
+
+describe('figmaCard / figmaManifest (LUM-147)', () => {
+  const link = {
+    id: 'cfl_1',
+    fileName: 'Onboarding',
+    frameName: 'Welcome',
+    url: 'https://figma/x',
+    thumbnailUrl: 'https://img/x.png',
+    lastSyncedAt: new Date('2026-06-01T00:00:00Z'),
+    lastSyncError: null,
+    thumbnailFetchedAt: new Date('2026-06-01T00:00:00Z'),
+  } as unknown as import('@prisma/client').TaskFigmaLink
+
+  it('figmaCard renders one link without the section heading', () => {
+    const out = figmaCard(link)
+    expect(out).not.toContain('## Figma Designs')
+    expect(out).toContain('- **Onboarding · Welcome**')
+    expect(out).toContain('↳ design context: lumo task figma context cfl_1')
+  })
+
+  it('figmaManifest is one line: title + retrieval command', () => {
+    expect(figmaManifest(link)).toBe('- Onboarding · Welcome — lumo task figma context cfl_1')
+  })
+
+  it('figmaManifest marks file-level links', () => {
+    const fileLevel = { ...link, frameName: null } as typeof link
+    expect(figmaManifest(fileLevel)).toBe(
+      '- Onboarding _(file-level)_ — lumo task figma context cfl_1'
+    )
+  })
+
+  it('figmaBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderFigmaSection } = require('@/lib/context/render')
+    expect(figmaBudgetSection([link]).render(1)).toBe(renderFigmaSection([link]))
+  })
+
+  it('figmaBudgetSection.render(2) equals the legacy multi-link section output', () => {
+    const { renderFigmaSection } = require('@/lib/context/render')
+    const a = link
+    const b = { ...link, id: 'cfl_2', frameName: 'Other' } as typeof link
+    expect(figmaBudgetSection([a, b]).render(2)).toBe(renderFigmaSection([a, b]))
+  })
+})
+
+describe('prCard / prManifest (LUM-147)', () => {
+  const pr = { number: 42, title: 'Fix bug', state: 'OPEN', ciStatus: 'passing' }
+
+  it('prCard renders one PR without the section heading', () => {
+    const out = prCard(pr)
+    expect(out).not.toContain('## Pull Requests')
+    expect(out).toContain('- #42 Fix bug — OPEN · passing')
+    expect(out).toContain('↳ diff: lumo task pr show 42')
+  })
+
+  it('prManifest is one line: PR + retrieval command', () => {
+    expect(prManifest(pr)).toBe('- #42 Fix bug — lumo task pr show 42')
+  })
+
+  it('prBudgetSection.render(all) equals the legacy section output', () => {
+    const { renderPRSection } = require('@/lib/context/render')
+    expect(prBudgetSection([pr]).render(1)).toBe(renderPRSection([pr]))
+  })
+
+  it('prBudgetSection.render(2) equals the legacy multi-PR section output', () => {
+    const { renderPRSection } = require('@/lib/context/render')
+    const a = { number: 1, title: 'one', state: 'OPEN', ciStatus: 'passing' }
+    const b = { number: 2, title: 'two', state: 'MERGED', ciStatus: null }
+    expect(prBudgetSection([a, b]).render(2)).toBe(renderPRSection([a, b]))
   })
 })

@@ -46,4 +46,34 @@ describe('formatHookStdoutLines (session-start stdout)', () => {
     expect(formatHookStdoutLines('session-start', null)).toHaveLength(0)
     expect(formatHookStdoutLines('session-start', undefined)).toHaveLength(0)
   })
+
+  it('includes linkedResourcesSection in the additionalContext envelope, after memory (LUM-147)', () => {
+    const body = {
+      sessionId: 'sess_abc',
+      taskBinding: { bound: true, taskIdentifier: 'LUM-12', taskTitle: 'X' },
+      memorySection: 'MEM',
+      linkedResourcesSection: 'LINKED',
+      reviewTodosSection: 'TODOS',
+    }
+    const lines = formatHookStdoutLines('session-start', body)
+    const envelope = lines.find(l => l.includes('additionalContext'))
+    expect(envelope).toBeDefined()
+    const parsed = JSON.parse(envelope as string)
+    const ctx = parsed.hookSpecificOutput.additionalContext
+    expect(ctx).toBe('MEM\n\nLINKED\n\nTODOS')
+  })
+
+  it('omits linkedResourcesSection when empty (LUM-147)', () => {
+    const body = {
+      sessionId: 'sess_abc',
+      taskBinding: { bound: true, taskIdentifier: 'LUM-12', taskTitle: 'X' },
+      memorySection: 'MEM',
+      linkedResourcesSection: '',
+      reviewTodosSection: '',
+    }
+    const lines = formatHookStdoutLines('session-start', body)
+    const envelope = lines.find(l => l.includes('additionalContext'))
+    const parsed = JSON.parse(envelope as string)
+    expect(parsed.hookSpecificOutput.additionalContext).toBe('MEM')
+  })
 })

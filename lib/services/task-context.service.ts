@@ -24,8 +24,14 @@ import {
   renderCommentsSection,
   renderPRSection,
   renderPrReviewTodosSection,
+  slackBudgetSection,
+  webLinkBudgetSection,
+  figmaBudgetSection,
+  prBudgetSection,
   type ReviewTodoItem,
   type SlackContextCard,
+  type WebLinkCard,
+  type PRCard,
 } from '@/lib/context/render'
 import {
   stripPrMirrorHeader,
@@ -35,8 +41,11 @@ import {
   applyTokenBudget,
   renderMemorySection,
   wrapUntrustedMemory,
+  memoryBudgetSection,
+  wrapUntrustedLinked,
   type RenderableMemory,
 } from '@/lib/memory/render'
+import { allocateBudget } from '@/lib/context/budget'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
 
 export interface SessionContext {
@@ -218,6 +227,9 @@ function mirrorBodyToText(html: string): string {
     .trim()
 }
 
+/** Global session-start injection budget shared by memory + linked resources. */
+const SESSION_START_BUDGET_TOKENS = 2500
+
 export const taskContextService = {
   /**
    * Build the "## Relevant Memory" markdown block for a given task.
@@ -258,6 +270,74 @@ export const taskContextService = {
     // `additionalContext` and is authored by arbitrary workspace members, so
     // it must be framed as untrusted reference data, not instructions (LUM-140).
     return wrapUntrustedMemory(renderMemorySection(applyTokenBudget(ordered)))
+  },
+
+  /**
+   * Build the session-start injection payload for a bound task: memory plus the
+   * linked Slack/web/Figma/PR cards, all sharing one global token budget
+   * (priority memory > PR > Slack > Figma > web). Overflowed cards degrade to a
+   * one-line manifest. memory and linked are wrapped in their own trust
+   * boundaries. Returns empty strings when the task is gone or has nothing.
+   *
+   * All fetches run in parallel (session-start has a 3s budget). A single
+   * resource fetch failing is isolated — that section renders empty, the rest
+   * still inject.
+   */
+  async buildSessionStartSections(
+    taskId: string
+  ): Promise<{ memorySection: string; linkedResourcesSection: string }> {
+    const empty = { memorySection: '', linkedResourcesSection: '' }
+    const task = await taskRepository.findById(taskId)
+    if (!task) return empty
+
+    const safe = <T>(p: Promise<T>, fallback: T): Promise<T> =>
+      p.catch(() => fallback)
+
+    const [taskMemories, projectMemories, slack, web, figma, prs] =
+      await Promise.all([
+        safe(memoryRepository.findActiveTaskMemories(taskId), []),
+        safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
+        safe(taskSlackContextRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof taskSlackContextRepository.listByTask>>),
+        safe(taskWebLinkRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof taskWebLinkRepository.listByTask>>),
+        safe(taskFigmaLinkService.listForTask(taskId), [] as Awaited<ReturnType<typeof taskFigmaLinkService.listForTask>>),
+        safe(pullRequestRepository.listByTask(taskId), [] as Awaited<ReturnType<typeof pullRequestRepository.listByTask>>),
+      ])
+
+    const orderedMemories: RenderableMemory[] = [
+      ...projectMemories.map(m => ({
+        id: m.id,
+        scope: 'PROJECT' as const,
+        category: m.category,
+        content: m.content,
+      })),
+      ...taskMemories.map(m => ({
+        id: m.id,
+        scope: 'TASK' as const,
+        category: m.category,
+        content: m.content,
+      })),
+    ]
+
+    // Priority order: memory > PR > Slack > Figma > web.
+    const [memoryOut, prOut, slackOut, figmaOut, webOut] = allocateBudget(
+      [
+        memoryBudgetSection(orderedMemories),
+        prBudgetSection(prs as unknown as PRCard[]),
+        slackBudgetSection(slack as unknown as SlackContextCard[]),
+        figmaBudgetSection(figma),
+        webLinkBudgetSection(web as unknown as WebLinkCard[]),
+      ],
+      SESSION_START_BUDGET_TOKENS
+    ) as [string, string, string, string, string]
+
+    const linkedJoined = [prOut, slackOut, figmaOut, webOut]
+      .filter(s => s !== '')
+      .join('\n\n')
+
+    return {
+      memorySection: wrapUntrustedMemory(memoryOut),
+      linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
+    }
   },
 
   /**

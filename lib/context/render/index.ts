@@ -1,6 +1,23 @@
-export { renderSlackContextSection, type SlackContextCard } from './slack'
-export { renderWebLinkSection, type WebLinkCard } from './web-link'
-export { renderFigmaSection } from './figma'
+export {
+  renderSlackContextSection,
+  slackCard,
+  slackManifest,
+  slackBudgetSection,
+  type SlackContextCard,
+} from './slack'
+export {
+  renderWebLinkSection,
+  webLinkCard,
+  webLinkManifest,
+  webLinkBudgetSection,
+  type WebLinkCard,
+} from './web-link'
+export {
+  renderFigmaSection,
+  figmaCard,
+  figmaManifest,
+  figmaBudgetSection,
+} from './figma'
 export { renderArtifactSection, type ArtifactCard } from './artifact'
 export { renderDocumentSection, type DocumentCard } from './document'
 export {
@@ -8,7 +25,13 @@ export {
   type CommentCard,
   type RenderCommentsInput,
 } from './comments'
-export { renderPRSection, type PRCard } from './pr'
+export {
+  renderPRSection,
+  prCard,
+  prManifest,
+  prBudgetSection,
+  type PRCard,
+} from './pr'
 export {
   renderPrReviewTodosSection,
   type ReviewTodoItem,

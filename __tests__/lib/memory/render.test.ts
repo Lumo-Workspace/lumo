@@ -3,7 +3,10 @@
  */
 import {
   applyTokenBudget,
+  memoryBudgetSection,
+  memoryManifestLine,
   renderMemorySection,
+  wrapUntrustedLinked,
   wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
@@ -203,5 +206,88 @@ describe('applyTokenBudget', () => {
     // Each ~120 chars → ~30 tokens. 1000 / 30 ≈ 33 items max.
     expect(out.length).toBeLessThan(40)
     expect(out.length).toBeGreaterThan(20)
+  })
+})
+
+describe('memoryManifestLine (LUM-147)', () => {
+  it('renders a one-line trap manifest with scope tag', () => {
+    const line = memoryManifestLine({
+      id: 'm1',
+      scope: 'PROJECT',
+      category: 'TRAP',
+      content: { trigger: 'Do X before Y', outcome: 'crash' },
+    })
+    expect(line).toBe('- [project] Do X before Y')
+  })
+
+  it('truncates long headlines to 100 chars with an ellipsis', () => {
+    const long = 'a'.repeat(200)
+    const line = memoryManifestLine({
+      id: 'm2',
+      scope: 'TASK',
+      category: 'CONVENTION',
+      content: { rule: long, scope: 'where' },
+    })
+    expect(line.startsWith('- [task] ')).toBe(true)
+    expect(line.length).toBeLessThanOrEqual('- [task] '.length + 101)
+    expect(line.endsWith('…')).toBe(true)
+  })
+
+  it('falls back gracefully on unparseable content', () => {
+    const line = memoryManifestLine({
+      id: 'm3',
+      scope: 'TASK',
+      category: 'TRAP',
+      content: { bogus: true },
+    })
+    expect(line.startsWith('- [task] ')).toBe(true)
+  })
+})
+
+describe('memoryBudgetSection (LUM-147)', () => {
+  const mem = (id: string, trigger: string) => ({
+    id,
+    scope: 'PROJECT' as const,
+    category: 'TRAP' as const,
+    content: { trigger, outcome: 'boom' },
+  })
+
+  it('render(all) equals the grouped renderMemorySection output', () => {
+    const items = [mem('a', 'one'), mem('b', 'two')]
+    const section = memoryBudgetSection(items)
+    expect(section.render(2)).toBe(renderMemorySection(items))
+  })
+
+  it('render(partial) keeps the grouped fulls and lists the rest as manifest', () => {
+    const items = [mem('a', 'one'), mem('b', 'two')]
+    const out = memoryBudgetSection(items).render(1)
+    expect(out).toContain(renderMemorySection([mem('a', 'one')]))
+    expect(out).toContain('其余 1 条记忆（仅清单）：')
+    expect(out).toContain('- [project] two')
+  })
+
+  it('render(0) emits only the heading + manifest list', () => {
+    const items = [mem('a', 'one')]
+    const out = memoryBudgetSection(items).render(0)
+    expect(out).toContain('## Relevant Memory')
+    expect(out).toContain('- [project] one')
+  })
+
+  it('cardTokens has one entry per memory', () => {
+    expect(memoryBudgetSection([mem('a', 'x'), mem('b', 'y')]).cardTokens).toHaveLength(2)
+  })
+})
+
+describe('wrapUntrustedLinked (LUM-147)', () => {
+  it('wraps non-empty content in an untrusted-linked boundary', () => {
+    const out = wrapUntrustedLinked('## Slack Context\nhi')
+    expect(out.startsWith('<untrusted-linked-context>')).toBe(true)
+    expect(out.endsWith('</untrusted-linked-context>')).toBe(true)
+    expect(out).toContain('## Slack Context')
+  })
+
+  it('returns "" for empty/whitespace input', () => {
+    expect(wrapUntrustedLinked('')).toBe('')
+    expect(wrapUntrustedLinked('   ')).toBe('')
   })
 })

@@ -11,23 +11,28 @@ export async function POST(request: Request) {
       if (!ctx.sessionId) return
       const binding = await sessionRepository.findTaskBinding(ctx.sessionId)
       let memorySection = ''
+      let linkedResourcesSection = ''
       let reviewTodosSection = ''
       let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
-        ;[memorySection, reviewTodosSection, previousSession] =
-          await Promise.all([
-            taskContextService.buildMemorySectionForTask(binding.taskId),
-            taskContextService.buildReviewTodosSectionForTask(binding.taskId),
-            taskContextService.buildPreviousSessionRecoveryForTask(
-              binding.taskId,
-              ctx.sessionId
-            ),
-          ])
+        const [sections, todos, previous] = await Promise.all([
+          taskContextService.buildSessionStartSections(binding.taskId),
+          taskContextService.buildReviewTodosSectionForTask(binding.taskId),
+          taskContextService.buildPreviousSessionRecoveryForTask(
+            binding.taskId,
+            ctx.sessionId
+          ),
+        ])
+        memorySection = sections.memorySection
+        linkedResourcesSection = sections.linkedResourcesSection
+        reviewTodosSection = todos
+        previousSession = previous
       }
       return {
         sessionId: ctx.sessionId,
         taskBinding: binding,
         memorySection,
+        linkedResourcesSection,
         reviewTodosSection,
         previousSession,
       }
