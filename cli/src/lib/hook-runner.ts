@@ -142,6 +142,7 @@ export function formatHookStdoutLines(
     body.memorySection,
     body.linkedResourcesSection,
     body.reviewTodosSection,
+    body.layer2ReviewSection,
   ])
   if (envelope) lines.push(envelope)
   return lines
@@ -164,6 +165,7 @@ type SessionStartBody = {
   memorySection?: string
   linkedResourcesSection?: string
   reviewTodosSection?: string
+  layer2ReviewSection?: string
   previousSession?: PreviousSessionCard | null
 }
 

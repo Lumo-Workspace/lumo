@@ -129,6 +129,21 @@ export const memoryRepository = {
     })
   },
 
+  /**
+   * PROJECT-scope memories a specific session consolidated into a project
+   * (Layer 2 stamps `sourceSessionId` on its ADDs since LUM-165). Scoped to
+   * the project so a previous session that touched a different project's
+   * memories doesn't leak in. Oldest-first to read in the order they were
+   * promoted. Used by the session-start Layer 2 review.
+   */
+  async findProjectMemoriesBySession(sessionId: string, projectId: string) {
+    return prisma.memory.findMany({
+      where: { sourceSessionId: sessionId, projectId, scope: 'PROJECT' },
+      orderBy: { createdAt: 'asc' },
+      select: MEMORY_ROW_SELECT,
+    })
+  },
+
   /** All PROJECT-scope memories for a project, newest first. Management UI. */
   async listForProject(projectId: string) {
     return prisma.memory.findMany({

@@ -90,6 +90,9 @@ export async function PATCH(
       workspaceSlug: identity.workspace.slug,
       callerClerkId: identity.user.id,
       identifier,
+      // CC session driving this update; attributes a DONE→Layer2 promotion to
+      // the session so the next session-start can review it (LUM-165).
+      sourceSessionId: request.headers.get('x-lumo-session-id'),
       input: parsed.data,
     })
     return NextResponse.json({ task }, { status: 200 })

@@ -33,6 +33,27 @@ describe('memoryRepository.listForProject', () => {
   })
 })
 
+describe('memoryRepository.findProjectMemoriesBySession (LUM-165)', () => {
+  it('filters by sourceSessionId + projectId + scope PROJECT, oldest first', async () => {
+    mockFindMany.mockResolvedValue([{ id: 'm1' }])
+    const rows = await memoryRepository.findProjectMemoriesBySession(
+      'sess_prev',
+      'proj_1'
+    )
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sourceSessionId: 'sess_prev',
+          projectId: 'proj_1',
+          scope: 'PROJECT',
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+    )
+    expect(rows).toEqual([{ id: 'm1' }])
+  })
+})
+
 describe('memoryRepository.listForTask', () => {
   it('filters by taskId, newest first', async () => {
     mockFindMany.mockResolvedValue([])

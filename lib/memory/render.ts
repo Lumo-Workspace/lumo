@@ -148,6 +148,40 @@ function tag(m: RenderableMemory): string {
 }
 
 /**
+ * Render the session-start "review what the last session promoted" section
+ * (LUM-165). These PROJECT memories were auto-consolidated by Layer 2 when the
+ * previous session marked a task done, and surface here exactly once — at the
+ * next session-start — so the agent can sanity-check them with the user before
+ * they accrue forever.
+ *
+ * The agent-facing framing (what to do, how to remove a wrong one) is TRUSTED
+ * and sits OUTSIDE the untrusted boundary; the memory bodies themselves are
+ * member/LLM-derived and stay inside `wrapUntrustedMemory`. Each item carries
+ * its id so the agent can run `lumo memory rm <id> --yes` on a bad row.
+ *
+ * Returns "" for an empty list so the caller omits the section entirely.
+ */
+export function renderLayer2ReviewSection(
+  memories: RenderableMemory[]
+): string {
+  if (memories.length === 0) return ''
+  const items = memories
+    .map(m => `${renderMemoryItem(m)}\n  ↳ id: ${m.id}`)
+    .join('\n')
+  const block = wrapUntrustedMemory(items)
+  return [
+    '## 🆕 待核对：上次会话自动合并的项目级记忆',
+    '',
+    `上一个会话结束时，系统把 ${memories.length} 条经验自动合并/提升为**项目级记忆**（下方区块）。` +
+      '请在开始本次工作前，结合代码与上下文快速判断它们是否准确：',
+    '- 有明显错误或过度泛化的，用该条标注的 id 执行 `lumo memory rm <id> --yes` 删除；',
+    '- 没问题就忽略本节，照常工作。本节只在紧邻的下一个会话出现一次，不会反复提醒。',
+    '',
+    block,
+  ].join('\n')
+}
+
+/**
  * Trim a memory list to fit a token budget. Estimate is char-count / 4 — a
  * rough but stable proxy that doesn't depend on a tokenizer dependency.
  *

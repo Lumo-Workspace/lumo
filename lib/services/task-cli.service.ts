@@ -1,6 +1,7 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskService } from '@/lib/services/task.service'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
@@ -217,6 +218,12 @@ async function updateFromCli(args: {
   workspaceSlug: string
   callerClerkId: string
   identifier: string
+  /**
+   * Claude Code session id from the `X-Lumo-Session-Id` request header
+   * (LUM-165). Validated here before being threaded into Layer 2 so a
+   * stale or cross-workspace id never lands on a Memory.sourceSessionId FK.
+   */
+  sourceSessionId?: string | null | undefined
   input: {
     title?: string | undefined
     description?: string | null | undefined
@@ -235,7 +242,14 @@ async function updateFromCli(args: {
   url: string
   taskTags: Array<{ id: string; name: string }>
 }> {
-  const { workspaceId, workspaceSlug, callerClerkId, identifier, input } = args
+  const {
+    workspaceId,
+    workspaceSlug,
+    callerClerkId,
+    identifier,
+    sourceSessionId,
+    input,
+  } = args
 
   const resolved = await taskService.resolveIdentifier(workspaceId, identifier)
   if (!resolved) {
@@ -318,12 +332,25 @@ async function updateFromCli(args: {
   if (input.removeTagIds !== undefined)
     updateInput.removeTagIds = input.removeTagIds
 
+  // Only forward the session id once we've confirmed it's a real session in
+  // this workspace. A bogus/cross-workspace id would otherwise either fail
+  // the Memory FK (rolling back the whole Layer 2 batch) or attribute a
+  // promoted memory to someone else's session. Drop to null on any mismatch.
+  let validatedSessionId: string | null = null
+  if (sourceSessionId) {
+    const session = await sessionRepository.findWorkspaceId(sourceSessionId)
+    if (session?.workspaceId === workspaceId) {
+      validatedSessionId = sourceSessionId
+    }
+  }
+
   const result = await taskService.updateTaskWithSideEffects(
     resolved.id,
     updateInput,
     detail,
     callerActor.id,
-    callerClerkId
+    callerClerkId,
+    validatedSessionId
   )
 
   const teamIdentifier =
