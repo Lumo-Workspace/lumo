@@ -115,6 +115,7 @@ describe('format helpers strip control chars', () => {
         status: 'ACTIVE',
         targetDate: null,
         createdAt: '2026-01-01',
+        archivedAt: null,
       },
     ])
     expect(out).not.toMatch(/\x1b/)

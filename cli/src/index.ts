@@ -45,6 +45,8 @@ import { milestoneCreate } from './commands/milestone-create'
 import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
+import { milestoneArchive } from './commands/milestone-archive'
+import { milestoneUnarchive } from './commands/milestone-unarchive'
 import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
 import { milestoneSummary } from './commands/milestone-summary'
@@ -704,6 +706,30 @@ milestoneCmd
         identifier as string,
         options as { project?: string; yes?: boolean }
       )
+    )
+  )
+
+milestoneCmd
+  .command('archive <identifier>')
+  .description(
+    'Archive a milestone: hidden from `milestone list` by default, history and task links preserved, reversible with `milestone unarchive`. Identifier accepts UUID or name.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .action(
+    wrap((identifier, options) =>
+      milestoneArchive(identifier as string, options as { project?: string })
+    )
+  )
+
+milestoneCmd
+  .command('unarchive <identifier>')
+  .description(
+    'Restore an archived milestone so it shows in `milestone list` again. Identifier accepts UUID or name.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .action(
+    wrap((identifier, options) =>
+      milestoneUnarchive(identifier as string, options as { project?: string })
     )
   )
 
