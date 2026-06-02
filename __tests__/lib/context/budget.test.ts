@@ -50,6 +50,21 @@ describe('makeBudgetSection', () => {
     const empty = makeBudgetSection('## H', [], c => c, c => c)
     expect(empty.render(0)).toBe('')
   })
+
+  it('preserves blank lines inside a multi-line full card (no \\n collapse)', () => {
+    const multi = makeBudgetSection(
+      '## H',
+      ['x'],
+      () => 'line1\n\nline3', // intentional blank line inside the card
+      () => '- m'
+    )
+    expect(multi.render(1)).toBe('## H\n\nline1\n\nline3')
+  })
+
+  it('render(fullCount > card count) renders all cards as full, no overflow', () => {
+    const sec = makeBudgetSection('## H', ['a', 'b'], c => `F:${c}`, c => `- ${c}`)
+    expect(sec.render(99)).toBe('## H\n\nF:a\n\nF:b')
+  })
 })
 
 describe('allocateBudget', () => {

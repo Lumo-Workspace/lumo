@@ -33,20 +33,23 @@ export function makeBudgetSection<T>(
   renderManifest: (card: T) => string
 ): BudgetSection {
   const fulls = cards.map(renderFull)
+  const manifests = cards.map(renderManifest)
   return {
     cardTokens: fulls.map(estimateTokens),
     render: (fullCount: number): string => {
-      if (cards.length === 0) return ''
+      if (fulls.length === 0) return ''
       const keptFulls = fulls.slice(0, fullCount)
-      const overflow = cards.slice(fullCount)
+      const overflowManifests = manifests.slice(keptFulls.length)
       const parts: string[] = [heading, '']
       if (keptFulls.length > 0) parts.push(keptFulls.join('\n\n'))
-      if (overflow.length > 0) {
+      if (overflowManifests.length > 0) {
         if (keptFulls.length > 0) parts.push('')
-        parts.push(`其余 ${overflow.length} 条（仅清单）：`)
-        parts.push(...overflow.map(renderManifest))
+        // Agent-facing internal context string (server-rendered markdown injected
+        // into the coding agent), not a user-facing UI string — not react-intl.
+        parts.push(`其余 ${overflowManifests.length} 条（仅清单）：`)
+        parts.push(...overflowManifests)
       }
-      return parts.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
+      return parts.join('\n').trimEnd()
     },
   }
 }
