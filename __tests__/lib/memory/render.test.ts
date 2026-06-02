@@ -5,11 +5,48 @@ import {
   applyTokenBudget,
   memoryBudgetSection,
   memoryManifestLine,
+  renderLayer2ReviewSection,
   renderMemorySection,
   wrapUntrustedLinked,
   wrapUntrustedMemory,
   type RenderableMemory,
 } from '@/lib/memory/render'
+
+describe('renderLayer2ReviewSection (LUM-165)', () => {
+  it('returns "" for an empty list so the section is omitted', () => {
+    expect(renderLayer2ReviewSection([])).toBe('')
+  })
+
+  it('frames a trusted review preamble OUTSIDE the untrusted block', () => {
+    const out = renderLayer2ReviewSection([
+      {
+        id: 'mem_42',
+        scope: 'PROJECT',
+        category: 'TRAP',
+        content: { trigger: 'enum mid-migration', outcome: 'P3009' },
+      },
+    ])
+    // The actionable framing (heading + rm instruction) precedes the wrapper.
+    const wrapAt = out.indexOf('<untrusted-team-memory>')
+    expect(wrapAt).toBeGreaterThan(0)
+    const preamble = out.slice(0, wrapAt)
+    expect(preamble).toContain('待核对')
+    expect(preamble).toContain('lumo memory rm <id> --yes')
+    // The member-authored body and its id live inside the untrusted block.
+    const block = out.slice(wrapAt)
+    expect(block).toContain('enum mid-migration')
+    expect(block).toContain('id: mem_42')
+  })
+
+  it('lists each memory with its id for targeted removal', () => {
+    const out = renderLayer2ReviewSection([
+      { id: 'a1', scope: 'PROJECT', category: 'CONVENTION', content: { rule: 'r', scope: 's' } },
+      { id: 'b2', scope: 'PROJECT', category: 'CONVENTION', content: { rule: 'r2', scope: 's2' } },
+    ])
+    expect(out).toContain('id: a1')
+    expect(out).toContain('id: b2')
+  })
+})
 
 describe('renderMemorySection', () => {
   it('returns empty string for empty input', () => {

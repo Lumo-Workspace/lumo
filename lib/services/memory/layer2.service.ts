@@ -20,6 +20,12 @@ export interface Layer2ProjectResult {
 interface TriggerForTaskCompletionInput {
   taskId: string
   projectId: string
+  /**
+   * Claude Code session that marked the task done (CLI path). Threaded onto
+   * the consolidated PROJECT memories so the next session-start can surface
+   * them for review (LUM-165). Undefined for Web UI / non-CLI triggers.
+   */
+  sourceSessionId?: string | null | undefined
 }
 
 /**
@@ -55,7 +61,7 @@ export const layer2Service = {
       console.log(
         `[memory.layer2] triggered task=${input.taskId} project=${input.projectId}`
       )
-      await runForProject(input.projectId)
+      await runForProject(input.projectId, input.sourceSessionId ?? null)
     } catch (error) {
       console.error(
         `[memory.layer2] unexpected error project=${input.projectId}:`,
@@ -70,13 +76,17 @@ export const layer2Service = {
    * call it directly. Returns null when the project has nothing to
    * consolidate (no TASK memories or project missing).
    */
-  async runForProject(projectId: string): Promise<Layer2ProjectResult | null> {
-    return runForProject(projectId)
+  async runForProject(
+    projectId: string,
+    sourceSessionId?: string | null
+  ): Promise<Layer2ProjectResult | null> {
+    return runForProject(projectId, sourceSessionId ?? null)
   },
 }
 
 async function runForProject(
-  projectId: string
+  projectId: string,
+  sourceSessionId: string | null = null
 ): Promise<Layer2ProjectResult | null> {
   // Serialize consolidation per project. Concurrent task completions fan out
   // through `waitUntil` (possibly on separate serverless instances), so the
@@ -120,6 +130,7 @@ async function runForProject(
         id: m.id,
         category: m.category,
       })),
+      sourceSessionId,
     })
 
     console.log(`[memory.layer2] applied project=${projectId}`, result)

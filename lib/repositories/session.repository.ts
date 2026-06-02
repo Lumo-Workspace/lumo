@@ -324,6 +324,39 @@ export const sessionRepository = {
     })
   },
 
+  /**
+   * The session that immediately precedes `currentSessionId` for the same
+   * member, by `lastActivityAt` desc. Self-references off the current
+   * session's member so callers don't need to resolve the memberId
+   * separately. Returns null when the current session is unknown or it's the
+   * member's first session.
+   *
+   * Used by the Layer 2 session-start review (LUM-165): the PROJECT memories
+   * the previous session consolidated are surfaced for review exactly once —
+   * at the next session-start. Anchoring on the member (not the task) is
+   * deliberate: Layer 2 is project-scoped, so the relevant prior session may
+   * have been working a different task in the same project. Uses the
+   * `@@index([workspaceMemberId, lastActivityAt])` index.
+   */
+  async findPreviousSessionIdForMember(
+    currentSessionId: string
+  ): Promise<string | null> {
+    const current = await prisma.session.findUnique({
+      where: { id: currentSessionId },
+      select: { workspaceMemberId: true },
+    })
+    if (!current) return null
+    const prev = await prisma.session.findFirst({
+      where: {
+        workspaceMemberId: current.workspaceMemberId,
+        id: { not: currentSessionId },
+      },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { id: true },
+    })
+    return prev?.id ?? null
+  },
+
   async listForMember(workspaceMemberId: string, limit = 50) {
     return prisma.session.findMany({
       where: { workspaceMemberId },

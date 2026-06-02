@@ -272,14 +272,22 @@ export async function taskUpdate(
   if (hasPatchFields) {
     const patchUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
 
+    // When run inside a Claude Code session, pass its id so a status→DONE
+    // update attributes the resulting Layer 2 PROJECT memories to this
+    // session — the next session-start surfaces them for review (LUM-165).
+    // Absent outside Claude Code; the server treats the header as optional.
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${creds.token}`,
+      'Content-Type': 'application/json',
+    }
+    const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+    if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
+
     let res: Response
     try {
       res = await fetch(patchUrl, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${creds.token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       })
     } catch (err) {

@@ -40,6 +40,7 @@ import {
 import {
   applyTokenBudget,
   renderMemorySection,
+  renderLayer2ReviewSection,
   wrapUntrustedMemory,
   memoryBudgetSection,
   wrapUntrustedLinked,
@@ -438,6 +439,52 @@ export const taskContextService = {
       }
     }
     return null
+  },
+
+  /**
+   * Build the session-start "review the project memories the previous session
+   * just promoted" section (LUM-165). Layer 2 consolidation runs async on
+   * task→done and stamps the triggering session id onto each promoted PROJECT
+   * memory; we surface those here at the *next* session-start so they can be
+   * sanity-checked before they accrue forever.
+   *
+   * Anchored on the member's immediately-preceding session (not the task) via
+   * `findPreviousSessionIdForMember`, then filtered to the current task's
+   * project — Layer 2 is project-scoped, so the prior session may have been a
+   * different task in the same project. Returns "" when there's no prior
+   * session, or it promoted nothing into this project. Surfacing only the one
+   * preceding session makes this "show once" without a per-row reviewed flag
+   * (a migration LUM-152 deliberately declined).
+   *
+   * Keyed on (taskId, currentSessionId) to mirror
+   * `buildPreviousSessionRecoveryForTask` and slot into the same session-start
+   * Promise.all. Rendered server-side; the framing is trusted, the memory
+   * bodies are wrapped as untrusted.
+   */
+  async buildLayer2ReviewSectionForTask(
+    taskId: string,
+    currentSessionId: string
+  ): Promise<string> {
+    const task = await taskRepository.findById(taskId)
+    if (!task) return ''
+
+    const prevSessionId =
+      await sessionRepository.findPreviousSessionIdForMember(currentSessionId)
+    if (!prevSessionId) return ''
+
+    const promoted = await memoryRepository.findProjectMemoriesBySession(
+      prevSessionId,
+      task.projectId
+    )
+    if (promoted.length === 0) return ''
+
+    const ordered: RenderableMemory[] = promoted.map(m => ({
+      id: m.id,
+      scope: 'PROJECT' as const,
+      category: m.category,
+      content: m.content,
+    }))
+    return renderLayer2ReviewSection(applyTokenBudget(ordered))
   },
 
   /**

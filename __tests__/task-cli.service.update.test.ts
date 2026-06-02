@@ -15,10 +15,16 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     findAllWithProfilesForCli: jest.fn(),
   },
 }))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: { findWorkspaceId: jest.fn() },
+}))
 
 import { taskService } from '@/lib/services/task.service'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskCliService } from '@/lib/services/task-cli.service'
+
+const mockFindSessionWs = sessionRepository.findWorkspaceId as jest.Mock
 
 const mockResolveIdentifier = taskService.resolveIdentifier as jest.Mock
 const mockGetDetail = taskService.getTaskDetail as jest.Mock
@@ -89,7 +95,9 @@ describe('taskCliService.updateFromCli', () => {
       },
       expect.any(Object),
       'actor_caller',
-      'clerk_1'
+      'clerk_1',
+      // No X-Lumo-Session-Id supplied → null (Web-UI-equivalent attribution).
+      null
     )
   })
 
@@ -143,5 +151,66 @@ describe('taskCliService.updateFromCli', () => {
       title: 'New title',
     })
     expect(res.url).toContain('/workspace/ws/my-tasks/LUM-48')
+  })
+
+  describe('sourceSessionId attribution (LUM-165)', () => {
+    it('forwards the session id once it is confirmed to belong to this workspace', async () => {
+      mockFindSessionWs.mockResolvedValue({ workspaceId: 'ws_1' })
+
+      await taskCliService.updateFromCli({
+        workspaceId: 'ws_1',
+        workspaceSlug: 'ws',
+        callerClerkId: 'clerk_1',
+        identifier: 'LUM-48',
+        sourceSessionId: 'sess_ok',
+        input: { status: 'DONE' },
+      })
+
+      expect(mockFindSessionWs).toHaveBeenCalledWith('sess_ok')
+      expect(mockUpdate.mock.calls[0][5]).toBe('sess_ok')
+    })
+
+    it('drops a session id from another workspace (no cross-workspace attribution)', async () => {
+      mockFindSessionWs.mockResolvedValue({ workspaceId: 'ws_other' })
+
+      await taskCliService.updateFromCli({
+        workspaceId: 'ws_1',
+        workspaceSlug: 'ws',
+        callerClerkId: 'clerk_1',
+        identifier: 'LUM-48',
+        sourceSessionId: 'sess_foreign',
+        input: { status: 'DONE' },
+      })
+
+      expect(mockUpdate.mock.calls[0][5]).toBeNull()
+    })
+
+    it('drops an unknown session id', async () => {
+      mockFindSessionWs.mockResolvedValue(null)
+
+      await taskCliService.updateFromCli({
+        workspaceId: 'ws_1',
+        workspaceSlug: 'ws',
+        callerClerkId: 'clerk_1',
+        identifier: 'LUM-48',
+        sourceSessionId: 'sess_ghost',
+        input: { status: 'DONE' },
+      })
+
+      expect(mockUpdate.mock.calls[0][5]).toBeNull()
+    })
+
+    it('skips the session lookup entirely when no id is supplied', async () => {
+      await taskCliService.updateFromCli({
+        workspaceId: 'ws_1',
+        workspaceSlug: 'ws',
+        callerClerkId: 'clerk_1',
+        identifier: 'LUM-48',
+        input: { status: 'DONE' },
+      })
+
+      expect(mockFindSessionWs).not.toHaveBeenCalled()
+      expect(mockUpdate.mock.calls[0][5]).toBeNull()
+    })
   })
 })

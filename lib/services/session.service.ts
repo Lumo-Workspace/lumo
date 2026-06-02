@@ -2,11 +2,18 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { tagRepository } from '@/lib/repositories/tag.repository'
 import type { Prisma } from '@prisma/client'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
+import {
+  FAILURE_PROMPT_THRESHOLD,
+  aggregateSessionFailures,
+  type SessionFailureRow,
+  type TopFailureGroup,
+} from '@/lib/services/session-failure-aggregate'
 
 interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
@@ -88,6 +95,22 @@ interface PostProgressCommentInput {
   body: string
   watermark: string
   waitUntil: (promise: Promise<unknown>) => void
+}
+
+/** Tag attached to a task that's repeatedly failing (LUM-153). Plain tag, not
+ *  a TaskStatus enum value — keeps the shared board untouched, no migration. */
+const BLOCKED_TAG_NAME = 'blocked'
+
+export interface FailureDraftResult {
+  taskIdentifier: string | null
+  taskTitle: string | null
+  /** Dominant failure group, or null when the session had no failures. */
+  topFailure: TopFailureGroup | null
+  /** Whether the bound task already carries the `blocked` tag. */
+  alreadyBlocked: boolean
+  /** True only when there's a bound task, the dominant failure recurred
+   *  ≥ FAILURE_PROMPT_THRESHOLD times, and the task isn't already blocked. */
+  shouldPrompt: boolean
 }
 
 export const sessionService = {
@@ -376,6 +399,110 @@ export const sessionService = {
 
     await sessionRepository.setLastMemoryReviewAt(sessionId, new Date(watermark))
     return { deleted: toDelete.length, promoted: toPromote.length }
+  },
+
+  /**
+   * Assemble the blocked-tag draft for `lumo session wrap` (LUM-153): detect
+   * whether the same kind of failure recurred ≥ FAILURE_PROMPT_THRESHOLD times
+   * this session and the bound task isn't already flagged. This is a *prompt*
+   * signal only — the section asks the user; nothing is mutated here. Returns
+   * `shouldPrompt: false` (no error) when the session is missing/unowned, has
+   * no bound task, stayed below threshold, or is already blocked.
+   */
+  async getSessionFailureDraft({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<FailureDraftResult> {
+    const empty: FailureDraftResult = {
+      taskIdentifier: null,
+      taskTitle: null,
+      topFailure: null,
+      alreadyBlocked: false,
+      shouldPrompt: false,
+    }
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return empty
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return empty
+    // No bound task → nothing to tag, so never prompt.
+    if (!ctx.taskId) return empty
+
+    const rows = (await hookEventRepository.findFailuresBySession(
+      sessionId
+    )) as SessionFailureRow[]
+    const topFailure = aggregateSessionFailures(rows)
+
+    const tags = await tagRepository.findByTask(ctx.taskId)
+    const alreadyBlocked = tags.some(t => t.name === BLOCKED_TAG_NAME)
+
+    const shouldPrompt =
+      topFailure !== null &&
+      topFailure.count >= FAILURE_PROMPT_THRESHOLD &&
+      !alreadyBlocked
+
+    return {
+      taskIdentifier: ctx.taskIdentifier,
+      taskTitle: ctx.taskTitle,
+      topFailure,
+      alreadyBlocked,
+      shouldPrompt,
+    }
+  },
+
+  /**
+   * Attach the `blocked` tag to the session's bound task (LUM-153). Called only
+   * after the wrap-panel prompt is confirmed — never automatically. Idempotent:
+   * find-or-create the workspace tag, then attach with skipDuplicates, so a
+   * second confirm is a no-op. 409 when the session has no bound task, 404 when
+   * the session is missing / not owned by the caller.
+   */
+  async markBoundTaskBlocked({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<{ taskIdentifier: string; tag: string }> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+    if (!ctx.taskId || !ctx.taskIdentifier) {
+      throw Object.assign(
+        new Error(
+          'Session is not bound to a task. Run `lumo session attach <LUM-N>` first.'
+        ),
+        { status: 409 }
+      )
+    }
+
+    const tags = await tagRepository.findOrCreateMany(identity.workspace.id, [
+      BLOCKED_TAG_NAME,
+    ])
+    const blocked = tags.find(t => t.name === BLOCKED_TAG_NAME)
+    if (!blocked) {
+      throw Object.assign(new Error('Failed to resolve blocked tag'), {
+        status: 500,
+      })
+    }
+    await tagRepository.addTaskTags(ctx.taskId, [blocked.id])
+
+    return { taskIdentifier: ctx.taskIdentifier, tag: BLOCKED_TAG_NAME }
   },
 
   /**

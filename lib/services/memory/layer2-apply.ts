@@ -13,6 +13,14 @@ interface ApplyOperationsInput {
    * touches PROJECT-scope rows, so this list does not include TASK-scope.
    */
   existingProjectMemories: Array<{ id: string; category: MemoryCategory }>
+  /**
+   * Claude Code session that triggered this consolidation (task→done from
+   * the CLI). Stamped onto every ADD so the next session-start can attribute
+   * the promoted PROJECT memory to the session that produced it (LUM-165).
+   * Null/undefined for non-CLI triggers (Web UI mark-done) — those rows stay
+   * unattributable, which is acceptable since there's no session to review.
+   */
+  sourceSessionId?: string | null | undefined
 }
 
 export interface ApplyOperationsResult {
@@ -27,8 +35,9 @@ export interface ApplyOperationsResult {
  * Apply a Layer 2 operations batch atomically. Mirrors the Layer 1 apply
  * pipeline but with a tighter vocabulary:
  *
- *   - ADD always writes scope=PROJECT, taskId=null, sourceSessionId=null.
- *     Layer 2 has no session; the row is the product of consolidation.
+ *   - ADD always writes scope=PROJECT, taskId=null. sourceSessionId is the
+ *     triggering CC session when task→done came from the CLI (LUM-165), else
+ *     null. The row is the product of consolidation, not a session sediment.
  *   - UPDATE refines an existing PROJECT-scope memory in place; the new
  *     content must validate against the existing row's category.
  *   - There is no DELETE — consolidation only promotes / refines.
@@ -80,7 +89,7 @@ export async function applyLayer2Operations(
             scope: 'PROJECT',
             category,
             content: validated as Prisma.InputJsonValue,
-            sourceSessionId: null,
+            sourceSessionId: input.sourceSessionId ?? null,
             createdByMemberId: null,
           },
           tx

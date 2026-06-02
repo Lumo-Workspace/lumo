@@ -238,7 +238,15 @@ export async function updateTaskWithSideEffects(
   input: UpdateTaskInput,
   taskCheck: TaskDetailForUpdate,
   actorId: string | null,
-  actorClerkId: string
+  actorClerkId: string,
+  /**
+   * Claude Code session driving this update (CLI path only). When the update
+   * transitions the task to DONE, this is threaded onto the Layer 2
+   * consolidation so the promoted PROJECT memories are attributed to the
+   * session — letting the next session-start surface them for review
+   * (LUM-165). Undefined for Web UI / quick-dispatch callers.
+   */
+  sourceSessionId?: string | null | undefined
 ): Promise<TaskUpdateResult> {
   const result = await updateTask(taskId, input, actorId)
 
@@ -267,7 +275,11 @@ export async function updateTaskWithSideEffects(
       (async () => {
         const { layer2Service } =
           await import('@/lib/services/memory/layer2.service')
-        await layer2Service.triggerForTaskCompletion({ taskId, projectId })
+        await layer2Service.triggerForTaskCompletion({
+          taskId,
+          projectId,
+          sourceSessionId,
+        })
       })()
     )
   }
