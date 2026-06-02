@@ -306,6 +306,9 @@ export async function resolveSessionStartStdout(
     result.taskIdentifier ?? match.identifier,
     now
   )
+  // bind-task only returns memory + previousSession (not reviewTodosSection) —
+  // the auto-bind endpoint never built PR-review todos. Keep that scope here;
+  // surfacing review todos on the auto-bind path is a separate change.
   const envelope = sessionContextEnvelope([card, result.memorySection])
   if (envelope) lines.push(envelope)
   return lines
