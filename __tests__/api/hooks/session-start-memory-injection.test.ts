@@ -18,6 +18,7 @@ jest.mock('@/lib/services/task-context.service', () => ({
     // "not a function" — without it the route's side effect errors out and the
     // memorySection assertions below see undefined.
     buildReviewTodosSectionForTask: jest.fn().mockResolvedValue(''),
+    buildPreviousSessionRecoveryForTask: jest.fn().mockResolvedValue(null),
   },
 }))
 

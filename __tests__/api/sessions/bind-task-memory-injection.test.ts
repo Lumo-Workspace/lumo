@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 jest.mock('@/lib/services/task-context.service', () => ({
-  taskContextService: { buildMemorySectionForTask: jest.fn() },
+  taskContextService: {
+    buildMemorySectionForTask: jest.fn(),
+    buildPreviousSessionRecoveryForTask: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
@@ -54,6 +57,9 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
     ;(
       hookEventRepository.bulkSetTaskIdForNullEventsInSession as jest.Mock
     ).mockResolvedValue({ count: 0 })
+    ;(
+      taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
+    ).mockResolvedValue(null)
   })
 
   it('returns memorySection from buildMemorySectionForTask', async () => {
