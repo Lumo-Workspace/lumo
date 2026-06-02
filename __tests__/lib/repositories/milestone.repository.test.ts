@@ -44,15 +44,12 @@ describe('milestoneRepository.findById', () => {
 })
 
 describe('milestoneRepository.findByProject', () => {
-  it('orders by targetDate asc nulls last, then createdAt asc', async () => {
+  it('orders by sortOrder asc, then createdAt asc', async () => {
     mockFindMany.mockResolvedValue([])
     await milestoneRepository.findByProject('p1')
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { projectId: 'p1' },
-      orderBy: [
-        { targetDate: { sort: 'asc', nulls: 'last' } },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     })
   })
 })
