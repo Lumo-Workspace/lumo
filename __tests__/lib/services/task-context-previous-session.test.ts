@@ -109,4 +109,17 @@ describe('buildPreviousSessionRecoveryForTask', () => {
     const out = await taskContextService.buildPreviousSessionRecoveryForTask('t1', 'cur')
     expect(out?.durationMs).toBe(5 * 60_000)
   })
+
+  it('floors durationMs at 0 when lastActivityAt precedes startedAt', async () => {
+    mockListForTask.mockResolvedValue([
+      row({
+        id: 'prev',
+        startedAt: new Date('2026-06-01T10:00:00Z'),
+        lastActivityAt: new Date('2026-06-01T09:55:00Z'),
+        summary: { goal: 'g', unresolved: [] },
+      }),
+    ])
+    const out = await taskContextService.buildPreviousSessionRecoveryForTask('t1', 'cur')
+    expect(out?.durationMs).toBe(0)
+  })
 })

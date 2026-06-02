@@ -98,6 +98,8 @@ export interface TaskContext {
   sessions: SessionContext[]
 }
 
+const NO_SUMMARY = '(no summary)'
+
 /**
  * One-line synthesis of a session summary. Preference order matches the
  * session-summary type templates: goal > overview > problem > refactorGoal >
@@ -106,7 +108,7 @@ export interface TaskContext {
  */
 function summaryHeadline(summary: unknown): string {
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
-    return '(no summary)'
+    return NO_SUMMARY
   }
   const s = summary as Record<string, unknown>
   for (const key of [
@@ -119,7 +121,7 @@ function summaryHeadline(summary: unknown): string {
     const value = s[key]
     if (typeof value === 'string' && value.trim().length > 0) return value
   }
-  return '(no summary)'
+  return NO_SUMMARY
 }
 
 /**
@@ -337,11 +339,13 @@ export const taskContextService = {
     taskId: string,
     currentSessionId: string
   ): Promise<PreviousSessionRecovery | null> {
+    // Cap at 5: walking back more than 5 sessions for a recovery card is
+    // unlikely to surface anything useful and keeps the query light.
     const sessions = await sessionRepository.listForTask(taskId, 5)
     for (const s of sessions) {
       if (s.id === currentSessionId) continue
       const headline = summaryHeadline(s.summary)
-      if (headline === '(no summary)') continue
+      if (headline === NO_SUMMARY) continue
       return {
         headline,
         unresolved: summaryUnresolved(s.summary),
