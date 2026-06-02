@@ -1233,6 +1233,16 @@ auto-bind line, run `lumo session detach` to clear the binding (then `session
 attach <LUM-N>` if they name the right one). No detach is needed when the
 auto-bound task is correct.
 
+### Layer 2 project-memory review at session start
+
+When the session is bound, session-start may inject a **"🆕 待核对：上次会话自动合并的项目级记忆"** section alongside the memory / PR-review blocks (LUM-165). It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
+
+- **Why it's here:** Layer 2 promotions land async, so they can't be reviewed in the synchronous `session wrap` panel — they're surfaced at the *next* session-start instead, when they've definitely landed.
+- **Show-once:** the section appears only at the session that immediately follows the one that produced the memories. It does **not** re-nag on later sessions, so act on it now or it scrolls off.
+- **Agent guidance:** briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id> --yes` (ideally confirm with the user first). If they all look right, ignore the section and continue.
+
+Attribution requires the CC session id to reach the server: `lumo task update <id> --status done` automatically sends `CLAUDE_CODE_SESSION_ID` (via an `X-Lumo-Session-Id` header) so the resulting Layer 2 memories are attributed to the session. Marking a task done from the **web UI** leaves them unattributed (they won't surface for review) — that's expected.
+
 ### `lumo session attach <identifier>` — bind the current session to a task
 
 Use this whenever the user mentions a task ID. The command is the only way to bind a session to a task.

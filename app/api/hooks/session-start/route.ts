@@ -13,12 +13,17 @@ export async function POST(request: Request) {
       let memorySection = ''
       let linkedResourcesSection = ''
       let reviewTodosSection = ''
+      let layer2ReviewSection = ''
       let previousSession: PreviousSessionRecovery | null = null
       if (binding.bound === true) {
-        const [sections, todos, previous] = await Promise.all([
+        const [sections, todos, previous, layer2Review] = await Promise.all([
           taskContextService.buildSessionStartSections(binding.taskId),
           taskContextService.buildReviewTodosSectionForTask(binding.taskId),
           taskContextService.buildPreviousSessionRecoveryForTask(
+            binding.taskId,
+            ctx.sessionId
+          ),
+          taskContextService.buildLayer2ReviewSectionForTask(
             binding.taskId,
             ctx.sessionId
           ),
@@ -27,6 +32,7 @@ export async function POST(request: Request) {
         linkedResourcesSection = sections.linkedResourcesSection
         reviewTodosSection = todos
         previousSession = previous
+        layer2ReviewSection = layer2Review
       }
       return {
         sessionId: ctx.sessionId,
@@ -34,6 +40,7 @@ export async function POST(request: Request) {
         memorySection,
         linkedResourcesSection,
         reviewTodosSection,
+        layer2ReviewSection,
         previousSession,
       }
     },

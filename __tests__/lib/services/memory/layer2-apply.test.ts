@@ -79,6 +79,29 @@ describe('applyLayer2Operations', () => {
     )
   })
 
+  it('writes ADD with the provided sourceSessionId for attribution (LUM-165)', async () => {
+    // When task→done threads the CC session id through, the consolidated
+    // PROJECT memory carries it so session-start can attribute the row to
+    // the session that produced it. Omitting the option keeps the null
+    // default (Web UI path, asserted in the test above).
+    const ops: Layer2Operation[] = [
+      {
+        type: 'ADD',
+        category: 'TRAP',
+        content: { trigger: 'enum mid-migration', outcome: 'P3009' },
+      },
+    ]
+    await applyLayer2Operations({
+      ...baseInput,
+      operations: ops,
+      sourceSessionId: 'sess_42',
+    })
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSessionId: 'sess_42' }),
+      expect.anything()
+    )
+  })
+
   it('drops ADD whose content fails the per-category schema', async () => {
     const ops: Layer2Operation[] = [
       { type: 'ADD', category: 'TRAP', content: { foo: 'bar' } },

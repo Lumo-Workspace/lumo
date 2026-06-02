@@ -102,7 +102,28 @@ describe('PATCH /api/tasks/by-identifier/[identifier]', () => {
       workspaceSlug: 'ws',
       callerClerkId: 'clerk_1',
       identifier: 'LUM-48',
+      // No X-Lumo-Session-Id header → null forwarded for Layer 2 attribution.
+      sourceSessionId: null,
       input: { title: 'New title' },
     })
+  })
+
+  it('forwards the X-Lumo-Session-Id header as sourceSessionId (LUM-165)', async () => {
+    mockUpdate.mockResolvedValueOnce({
+      id: 'task_1',
+      identifier: 'LUM-48',
+      title: 'x',
+      url: 'https://www.uselumo.ai/workspace/ws/my-tasks/LUM-48',
+    })
+    await PATCH(
+      req(
+        { status: 'DONE' },
+        { Authorization: 'Bearer t', 'X-Lumo-Session-Id': 'sess_abc' }
+      ),
+      ctx('LUM-48')
+    )
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSessionId: 'sess_abc' })
+    )
   })
 })

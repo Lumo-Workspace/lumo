@@ -59,6 +59,45 @@ describe('sessionRepository.findWorkspaceId', () => {
   })
 })
 
+describe('sessionRepository.findPreviousSessionIdForMember (LUM-165)', () => {
+  const findFirst = prisma.session.findFirst as jest.Mock
+
+  it('resolves the member off the current session, then the prior session by lastActivityAt desc', async () => {
+    findUnique.mockResolvedValue({ workspaceMemberId: 'wm_1' })
+    findFirst.mockResolvedValue({ id: 'sess_prev' })
+
+    const result =
+      await sessionRepository.findPreviousSessionIdForMember('sess_cur')
+
+    expect(result).toBe('sess_prev')
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'sess_cur' },
+      select: { workspaceMemberId: true },
+    })
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { workspaceMemberId: 'wm_1', id: { not: 'sess_cur' } },
+      orderBy: { lastActivityAt: 'desc' },
+      select: { id: true },
+    })
+  })
+
+  it('returns null when the current session is unknown (no member lookup follow-up)', async () => {
+    findUnique.mockResolvedValue(null)
+    expect(
+      await sessionRepository.findPreviousSessionIdForMember('missing')
+    ).toBeNull()
+    expect(findFirst).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the member has no prior session', async () => {
+    findUnique.mockResolvedValue({ workspaceMemberId: 'wm_1' })
+    findFirst.mockResolvedValue(null)
+    expect(
+      await sessionRepository.findPreviousSessionIdForMember('sess_cur')
+    ).toBeNull()
+  })
+})
+
 describe('sessionRepository.upsertForHookEvent', () => {
   it('creates on first touch with eventCount=1 and both timestamps set to now', async () => {
     await sessionRepository.upsertForHookEvent({

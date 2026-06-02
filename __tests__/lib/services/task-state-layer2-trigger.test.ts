@@ -127,6 +127,28 @@ describe('updateTaskWithSideEffects → Layer 2 trigger', () => {
     expect(trigger).toHaveBeenCalledTimes(1)
   })
 
+  it('threads the sourceSessionId into the Layer 2 trigger (LUM-165)', async () => {
+    // The CLI passes the CC session id as a 6th arg so the consolidated
+    // PROJECT memory is attributed to the session that marked the task done.
+    findForUpdate.mockResolvedValue(mockTaskRow({ status: 'IN_REVIEW' }))
+
+    await updateTaskWithSideEffects(
+      'task_1',
+      { status: 'DONE' },
+      { project: { workspaceId: 'ws_1' } } as never,
+      'actor_1',
+      'clerk_1',
+      'sess_99'
+    )
+    await flushWaitUntil()
+
+    expect(trigger).toHaveBeenCalledWith({
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      sourceSessionId: 'sess_99',
+    })
+  })
+
   it('does NOT fire Layer 2 when status moves to IN_PROGRESS', async () => {
     // Anything that isn't DONE must not fire — burning LLM calls on
     // intermediate transitions was the whole point of moving off cron.

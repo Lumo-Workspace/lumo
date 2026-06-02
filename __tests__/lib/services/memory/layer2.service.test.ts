@@ -150,6 +150,43 @@ describe('layer2Service.triggerForTaskCompletion', () => {
     expect(apply).toHaveBeenCalled()
   })
 
+  it('threads sourceSessionId through to applyLayer2Operations (LUM-165)', async () => {
+    // Attribution: the session that marked the task done must be stamped on
+    // the promoted PROJECT memories so the next session-start can review them.
+    getInput.mockResolvedValue(makeInput())
+    extract.mockResolvedValue([
+      { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+
+    await layer2Service.triggerForTaskCompletion({
+      taskId: 'task_1',
+      projectId: 'proj_1',
+      sourceSessionId: 'sess_42',
+    })
+
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSessionId: 'sess_42' })
+    )
+  })
+
+  it('passes sourceSessionId=null when the trigger omits it (Web UI path)', async () => {
+    getInput.mockResolvedValue(makeInput())
+    extract.mockResolvedValue([
+      { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+    ])
+    apply.mockResolvedValue({ added: 1, updated: 0, noop: 0, skipped: 0 })
+
+    await layer2Service.triggerForTaskCompletion({
+      taskId: 'task_1',
+      projectId: 'proj_1',
+    })
+
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSessionId: null })
+    )
+  })
+
   it('swallows unexpected errors instead of throwing (fire-and-forget contract)', async () => {
     // The caller wraps this in waitUntil(), which means any thrown error
     // becomes an unhandled rejection in the serverless runtime. The
