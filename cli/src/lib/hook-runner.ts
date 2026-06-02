@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
 import { normalizeAgent } from './agent'
+import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -113,16 +114,7 @@ export function formatHookStdoutLines(
   }
   if (path !== 'session-start') return []
   if (responseBody == null || typeof responseBody !== 'object') return []
-  const body = responseBody as {
-    sessionId?: string
-    taskBinding?: {
-      bound: boolean
-      taskIdentifier?: string
-      taskTitle?: string
-    }
-    memorySection?: string
-    reviewTodosSection?: string
-  }
+  const body = responseBody as SessionStartBody
   if (!body.sessionId) return []
   const lines: string[] = []
   const sessionId = body.sessionId
@@ -132,26 +124,177 @@ export function formatHookStdoutLines(
       `[Lumo] session_id=${sessionId} | 当前任务: ${tb.taskIdentifier} - ${sanitizeField(tb.taskTitle ?? '')}`
     )
   } else if (tb && tb.bound === false) {
-    lines.push(
-      `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
-    )
+    lines.push(unboundPromptLine(sessionId))
   }
   // Memory + PR-review todos share one additionalContext block so Claude Code
   // injects a single coherent context payload at session start.
-  const contextParts = [body.memorySection, body.reviewTodosSection].filter(
+  const envelope = sessionContextEnvelope([
+    body.memorySection,
+    body.reviewTodosSection,
+  ])
+  if (envelope) lines.push(envelope)
+  return lines
+}
+
+type SessionStartBody = {
+  sessionId?: string
+  taskBinding?: {
+    bound: boolean
+    taskIdentifier?: string
+    taskTitle?: string
+  }
+  memorySection?: string
+  reviewTodosSection?: string
+}
+
+/**
+ * The plain-text line shown when a session starts without a bound task and
+ * no task could be inferred from local git — the user is asked to name one.
+ */
+function unboundPromptLine(sessionId: string): string {
+  return `[Lumo] session_id=${sessionId} | 当前未绑定任务。请告诉我你要处理的任务编号（如 LUM-42），或说"跳过"。`
+}
+
+/**
+ * Wrap any non-empty context parts into a single SessionStart
+ * hookSpecificOutput envelope so Claude Code injects one coherent
+ * additionalContext payload. Returns null when there is nothing to inject.
+ */
+function sessionContextEnvelope(
+  parts: Array<string | undefined>
+): string | null {
+  const filled = parts.filter(
     (s): s is string => typeof s === 'string' && s !== ''
   )
-  if (contextParts.length > 0) {
-    lines.push(
-      JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'SessionStart',
-          additionalContext: contextParts.join('\n\n'),
-        },
-      })
-    )
+  if (filled.length === 0) return null
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
+      additionalContext: filled.join('\n\n'),
+    },
+  })
+}
+
+/**
+ * Result of an attempt to bind a session to an inferred task. `ok: false`
+ * covers every failure (task not found, network error, timeout) and routes
+ * the caller back to the unbound prompt.
+ */
+export interface AutoBindAttempt {
+  ok: boolean
+  taskIdentifier?: string | undefined
+  taskTitle?: string | undefined
+  memorySection?: string | undefined
+}
+
+/**
+ * Dependencies for `resolveSessionStartStdout`, injected so the orchestration
+ * can be unit-tested without touching git or the network.
+ */
+export interface AutoBindDeps {
+  extractTask: () => GitTaskMatch | null
+  bindTask: (
+    sessionId: string,
+    identifier: string
+  ) => Promise<AutoBindAttempt>
+}
+
+/**
+ * The single status line printed after a successful auto-bind. Explains which
+ * git signal (branch name vs recent commit) it relied on and how to undo it.
+ */
+export function formatAutoBindLine(
+  sessionId: string,
+  match: GitTaskMatch,
+  result: AutoBindAttempt
+): string {
+  const basis = match.source === 'branch' ? '分支名' : '最近 commit'
+  const identifier = result.taskIdentifier ?? match.identifier
+  return `[Lumo] session_id=${sessionId} | 已自动绑定 ${identifier} - ${sanitizeField(
+    result.taskTitle ?? ''
+  )}（依据${basis}）。如果不对，回复"不是"我就帮你解绑。`
+}
+
+/**
+ * Build the stdout lines for a session-start response, including the LUM-145
+ * auto-bind behavior: when the server reports no binding, infer the task from
+ * local git and bind it; on a hit, print the auto-bind line (plus the freshly
+ * bound task's memory). Falls back to the unbound prompt when nothing matches
+ * or the bind fails. Bound sessions reuse the existing formatting.
+ */
+export async function resolveSessionStartStdout(
+  responseBody: unknown,
+  deps: AutoBindDeps
+): Promise<string[]> {
+  if (responseBody == null || typeof responseBody !== 'object') return []
+  const body = responseBody as SessionStartBody
+  if (!body.sessionId) return []
+  const sessionId = body.sessionId
+  const tb = body.taskBinding
+
+  if (tb && tb.bound === true) {
+    return formatHookStdoutLines('session-start', responseBody)
   }
+  if (!tb || tb.bound !== false) return []
+
+  const match = deps.extractTask()
+  if (!match) return [unboundPromptLine(sessionId)]
+
+  const result = await deps.bindTask(sessionId, match.identifier)
+  if (!result.ok) return [unboundPromptLine(sessionId)]
+
+  const lines = [formatAutoBindLine(sessionId, match, result)]
+  const envelope = sessionContextEnvelope([result.memorySection])
+  if (envelope) lines.push(envelope)
   return lines
+}
+
+/**
+ * POST the inferred task binding to the same `bind-task` endpoint that
+ * `lumo session attach` uses. Guarded by the same short timeout as the hook
+ * POST so the extra round trip can never make session-start hang. Any
+ * failure (404 unknown task, network, timeout, non-2xx) returns
+ * `{ ok: false }`, which routes the caller back to the unbound prompt.
+ */
+async function postBindTask(
+  sessionId: string,
+  identifier: string,
+  token: string,
+  apiUrl: string
+): Promise<AutoBindAttempt> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(
+      sessionId
+    )}/bind-task`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ taskIdentifier: identifier }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return { ok: false }
+    const body = (await res.json()) as {
+      taskIdentifier?: string
+      taskTitle?: string
+      memorySection?: string
+    }
+    return {
+      ok: true,
+      taskIdentifier: body.taskIdentifier,
+      taskTitle: body.taskTitle,
+      memorySection: body.memorySection,
+    }
+  } catch (err) {
+    logHookError('[session-start] auto-bind', err)
+    return { ok: false }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -224,12 +367,21 @@ export async function runHookWithBody(
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
       } else if (path === 'session-start' || path === 'pre-tool-use') {
         // Paths that turn the response body into stdout for Claude Code:
-        //   session-start → bind status + injected context
+        //   session-start → bind status + injected context (incl. LUM-145
+        //                   auto-bind from local git when unbound)
         //   pre-tool-use  → parallel-edit collision warning (LUM-150 ③)
         // Only after a 2xx so a transient server failure emits nothing.
         try {
           const responseBody = await res.json()
-          for (const line of formatHookStdoutLines(path, responseBody)) {
+          const lines =
+            path === 'session-start'
+              ? await resolveSessionStartStdout(responseBody, {
+                  extractTask: () => extractTaskFromGit(),
+                  bindTask: (sessionId, identifier) =>
+                    postBindTask(sessionId, identifier, creds.token, apiUrl),
+                })
+              : formatHookStdoutLines(path, responseBody)
+          for (const line of lines) {
             process.stdout.write(line + '\n')
           }
         } catch {
