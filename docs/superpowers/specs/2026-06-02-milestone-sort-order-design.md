@@ -88,9 +88,12 @@ async reorder(projectId: string, orderedIds: string[]) {
 }
 ```
 
-- `create`: accept optional `sortOrder` (default behavior unchanged when omitted;
-  new milestones land at `0` by schema default — acceptable, they sort to the top
-  on next list; if undesirable we can append at `max+1`, see Open Questions).
+- `create`: a freshly created milestone **appends to the bottom** — set
+  `sortOrder = max(existing sortOrder in project) + 1` (or `0` when the project
+  has none). Add a `getMaxSortOrder(projectId)` repo helper (mirror
+  `document.repository.getMaxSortOrder`) and compute the value in
+  `createMilestone` before insert. The schema default `0` remains as a safety
+  net only.
 
 ### 3. Service (`lib/services/milestone.service.ts`)
 
@@ -177,10 +180,10 @@ Add `reorder(projectId, orderedIds)` → `PATCH .../milestones/reorder`.
 
 ## Open questions
 
-- New-milestone `sortOrder`: schema default `0` puts a freshly created milestone
-  at the top of the list. Acceptable for v1; if it should append to the bottom,
-  `createMilestone` can set `sortOrder = max(existing) + 1`. Decide during
-  planning — low cost either way.
+_(none — all resolved)_
+
+Resolved: new milestones **append to the bottom** (`sortOrder = max(existing) + 1`),
+not the top. See §2 `create`.
 
 ## Production note
 
