@@ -197,6 +197,7 @@ describe('format helpers strip control chars', () => {
         status: 'ACTIVE',
         startDate: null,
         targetDate: null,
+        archivedAt: null,
         description: 'de\x1bsc',
         projectName: 'pro\x1bj',
         taskCounts: { TODO: 1, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 },

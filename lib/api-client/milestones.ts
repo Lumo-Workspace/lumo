@@ -13,6 +13,7 @@ export interface ApiMilestone {
   startDate: string | null
   targetDate: string | null
   completedAt: string | null
+  archivedAt: string | null
   createdAt: string
   updatedAt: string
   /** Per-status task counts. Server-enriched on list/detail responses. */

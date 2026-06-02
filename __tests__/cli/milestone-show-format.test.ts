@@ -10,6 +10,7 @@ const milestone = {
   status: 'ACTIVE',
   startDate: '2026-06-01T00:00:00.000Z',
   targetDate: '2026-08-31T00:00:00.000Z',
+  archivedAt: null,
   description: 'Ship the launch.',
   projectName: 'Lumo',
   taskCounts: { TODO: 1, IN_PROGRESS: 2, IN_REVIEW: 0, DONE: 3 },
@@ -30,6 +31,7 @@ describe('formatMilestoneShow', () => {
     const out = formatMilestoneShow(milestone, [task])
     expect(out).toContain('Milestone:    Q3 Launch')
     expect(out).toContain('Status:       ACTIVE')
+    expect(out).toContain('Archived:     no')
     expect(out).toContain('Start:        2026-06-01')
     expect(out).toContain('Target:       2026-08-31')
     expect(out).toContain('Project:      Lumo')
