@@ -89,6 +89,13 @@ export const reorderProjectsSchema = z.object({
     .max(500, 'orderedIds is limited to 500 entries'),
 })
 
+export const reorderMilestonesSchema = z.object({
+  orderedIds: z
+    .array(z.string().cuid())
+    .min(1, 'orderedIds must contain at least one id')
+    .max(500, 'orderedIds is limited to 500 entries'),
+})
+
 // ─── Tag shared shapes ─────────────────────────────────────────────────────
 
 const tagsIncrementalShape = {
