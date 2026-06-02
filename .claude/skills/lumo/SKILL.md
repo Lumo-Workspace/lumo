@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "milestone health", "milestone risk", "risk light", "on-track", "at-risk", "overdue", "里程碑健康度", "健康度", "风险灯", "延期风险", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "milestone summary", "milestone retro", "summarize milestone", "里程碑总结", "里程碑复盘", "milestone add", "milestone remove", "add tasks to milestone", "remove tasks from milestone", "batch milestone", "bulk milestone", "挂任务到里程碑", "批量挂里程碑", "从里程碑移除任务", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论", "lumo next", "next task", "what''s next", "what should I work on", "recommend a task", "推荐下一个任务", "pick my next task".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "milestone health", "milestone risk", "risk light", "on-track", "at-risk", "overdue", "里程碑健康度", "健康度", "风险灯", "延期风险", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "milestone summary", "milestone retro", "summarize milestone", "里程碑总结", "里程碑复盘", "milestone reorder", "milestone move", "reorder milestones", "move milestone", "排序里程碑", "调整里程碑顺序", "里程碑调序", "move milestone before", "move milestone after", "milestone add", "milestone remove", "add tasks to milestone", "remove tasks from milestone", "batch milestone", "bulk milestone", "挂任务到里程碑", "批量挂里程碑", "从里程碑移除任务", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论", "lumo next", "next task", "what''s next", "what should I work on", "recommend a task", "推荐下一个任务", "pick my next task".'
 ---
 
 ## Prerequisites
@@ -343,7 +343,7 @@ Task LUM-48 has no sprint binding   # noop (already unbound)
 
 The CLI does **not** currently update due date or parent task. Those need to be edited in the web UI.
 
-Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete`, and tasks can be bound/unbound in bulk via `lumo milestone add / remove <identifier> <task...>` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
+Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete`, tasks can be bound/unbound in bulk via `lumo milestone add / remove <identifier> <task...>`, and milestones can be manually reordered via `lumo milestone reorder <ref...>` / `lumo milestone move <ref> --before|--after <ref>` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
 
 ### `lumo task list [flags]` — list tasks assigned to you
 
@@ -700,6 +700,48 @@ lumo milestone summary 11111111-2222-3333-4444-555555555555
 ```
 
 When to suggest: user asks "summarize the milestone", "milestone retro", "give me a summary of the Q3 milestone", "里程碑总结", "里程碑复盘".
+
+### `lumo milestone reorder <ref...> [--project <ref>]` — set the full milestone order
+
+Reorders a project's milestones. Pass **every** milestone in the project (by name, case-insensitive, or its cuid) in the desired order — the command rewrites each milestone's `sortOrder` to match. An incomplete list (not every milestone named), an unknown ref, or a duplicate is rejected **before any network mutation**, with a message naming the offending / missing milestones.
+
+```bash
+lumo milestone reorder "Q3 Launch" "Beta" "Alpha"
+lumo milestone reorder "Q3 Launch" "Beta" "Alpha" --project backend
+```
+
+`--project <ref>` is required when the workspace has more than one project.
+
+Output:
+
+```
+Reordered 3 milestones:
+  1. Q3 Launch
+  2. Beta
+  3. Alpha
+```
+
+### `lumo milestone move <ref> --before <ref> | --after <ref> [--project <ref>]` — move one milestone
+
+Moves a single milestone immediately before or after a target milestone, leaving the rest in their current relative order. `--before` and `--after` are **mutually exclusive and exactly one is required** (the CLI errors before any network call if both or neither is given). Refs resolve by cuid or case-insensitive name.
+
+```bash
+lumo milestone move "Alpha" --before "Q3 Launch"
+lumo milestone move "Alpha" --after "Beta" --project backend
+```
+
+Output:
+
+```
+Moved "Alpha" before "Q3 Launch". New order:
+  1. Alpha
+  2. Q3 Launch
+  3. Beta
+```
+
+Both commands resolve to a full ordered list client-side and call the same `PATCH /api/projects/<id>/milestones/reorder` endpoint (which requires the list to name every milestone exactly once). New milestones created via `milestone create` are appended to the bottom of the order.
+
+When to suggest: user asks to "reorder milestones", "排序里程碑", "调整里程碑顺序", "move milestone X before/after Y", "把里程碑 X 移到 Y 前面/后面", "put this milestone first".
 
 ## Document Management
 
