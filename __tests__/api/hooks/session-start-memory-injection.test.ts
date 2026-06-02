@@ -11,7 +11,14 @@ jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { findTaskBinding: jest.fn() },
 }))
 jest.mock('@/lib/services/task-context.service', () => ({
-  taskContextService: { buildMemorySectionForTask: jest.fn() },
+  taskContextService: {
+    buildMemorySectionForTask: jest.fn(),
+    // The session-start route Promise.all's this alongside the memory section
+    // (added in LUM-148 / #214). Stub it so the afterRecord doesn't throw
+    // "not a function" — without it the route's side effect errors out and the
+    // memorySection assertions below see undefined.
+    buildReviewTodosSectionForTask: jest.fn().mockResolvedValue(''),
+  },
 }))
 
 import { authService } from '@/lib/services/auth.service'
@@ -54,9 +61,9 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue(
-      '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n'
-    )
+    ;(
+      taskContextService.buildMemorySectionForTask as jest.Mock
+    ).mockResolvedValue('## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n')
 
     const req = post({ sessionId: 's-1' })
     const res = await POST(req)
@@ -94,13 +101,17 @@ describe('POST /api/hooks/session-start — memory injection', () => {
       taskIdentifier: 'LUM-42',
       taskTitle: 'Test task',
     })
-    ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
+    ;(
+      taskContextService.buildMemorySectionForTask as jest.Mock
+    ).mockResolvedValue('')
 
     const req = post({ sessionId: 's-3' })
     const res = await POST(req)
     const body = await res.json()
 
     expect(body.memorySection).toBe('')
-    expect(taskContextService.buildMemorySectionForTask).toHaveBeenCalledWith('task-1')
+    expect(taskContextService.buildMemorySectionForTask).toHaveBeenCalledWith(
+      'task-1'
+    )
   })
 })

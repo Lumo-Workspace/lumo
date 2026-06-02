@@ -1,11 +1,4 @@
-const ARTIFACT_AGENT_LABELS: Record<string, string> = {
-  CLAUDE_CODE: 'Claude Code',
-  CODEX: 'Codex',
-  CURSOR: 'Cursor',
-  GEMINI_CLI: 'Gemini CLI',
-  GITHUB_COPILOT: 'GitHub Copilot',
-  WINDSURF: 'Windsurf',
-}
+import { agentLabel } from '@/lib/agents/agent-label'
 
 export interface ArtifactCard {
   id: string
@@ -28,7 +21,7 @@ export function renderArtifactSection(artifacts: ArtifactCard[]): string {
   if (artifacts.length === 0) return ''
   const blocks: string[] = []
   for (const a of artifacts) {
-    const label = a.agent ? (ARTIFACT_AGENT_LABELS[a.agent] ?? a.agent) : null
+    const label = a.agent ? agentLabel(a.agent) : null
     const heading = label
       ? `## [${a.kind}] ${a.title} · ${label}`
       : `## [${a.kind}] ${a.title}`

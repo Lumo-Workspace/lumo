@@ -76,20 +76,41 @@ function readStdin(): Promise<string> {
 
 /**
  * Build the array of stdout lines to emit for a given hook path + response
- * body. Returns an empty array for any path other than 'session-start'.
+ * body. Returns an empty array for any path that emits nothing.
  *
  * For 'session-start' the array contains:
  *   [0] plain-text bind/unbound status line (always present when taskBinding exists)
  *   [1] (optional) hookSpecificOutput JSON when there is any additionalContext —
  *       the memory section and the PR-review-todos section, concatenated.
  *
- * The JSON on line [1] conforms to Claude Code's hookSpecificOutput envelope so
- * the runtime injects additionalContext into the conversation automatically.
+ * For 'pre-tool-use' the array contains:
+ *   [0] (optional) a PreToolUse hookSpecificOutput JSON carrying the parallel-
+ *       edit collision warning as additionalContext, when the server returned a
+ *       `collisionWarning` (LUM-150 step ③). Empty otherwise.
+ *
+ * The JSON lines conform to Claude Code's hookSpecificOutput envelope so the
+ * runtime injects additionalContext into the conversation automatically.
  */
 export function formatHookStdoutLines(
   path: string,
   responseBody: unknown
 ): string[] {
+  if (path === 'pre-tool-use') {
+    if (responseBody == null || typeof responseBody !== 'object') return []
+    const warning = (responseBody as { collisionWarning?: unknown })
+      .collisionWarning
+    if (typeof warning !== 'string' || warning === '') return []
+    return [
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          // Server-built text routed back to stdout — sanitize untrusted free
+          // text before Claude Code consumes it (ANSI/control-char injection).
+          additionalContext: sanitizeField(warning),
+        },
+      }),
+    ]
+  }
   if (path !== 'session-start') return []
   if (responseBody == null || typeof responseBody !== 'object') return []
   const body = responseBody as {
@@ -201,9 +222,11 @@ export async function runHookWithBody(
       })
       if (!res.ok) {
         logHookError(`[${path}]`, `HTTP ${res.status} from ${url}`)
-      } else if (path === 'session-start') {
-        // Per-hook side effects fire only after a 2xx response so a transient
-        // server failure doesn't desync local state from server state.
+      } else if (path === 'session-start' || path === 'pre-tool-use') {
+        // Paths that turn the response body into stdout for Claude Code:
+        //   session-start → bind status + injected context
+        //   pre-tool-use  → parallel-edit collision warning (LUM-150 ③)
+        // Only after a 2xx so a transient server failure emits nothing.
         try {
           const responseBody = await res.json()
           for (const line of formatHookStdoutLines(path, responseBody)) {

@@ -28,6 +28,11 @@ export interface AfterRecordContext {
   sessionId: string | null
   taskId: string | null
   workspaceId: string
+  /** File this event concerns, extracted from the payload (null if none).
+   *  Lets the PreToolUse collision check run without re-parsing the payload. */
+  filePath: string | null
+  /** Tool this event uses, extracted from the payload (null if none). */
+  toolName: string | null
 }
 
 export interface HandleHookOptions {
@@ -79,6 +84,8 @@ export async function handleHookRequest(
             sessionId: recorded.sessionId,
             taskId: recorded.taskId,
             workspaceId: identity.workspace.id,
+            filePath: recorded.filePath,
+            toolName: recorded.toolName,
           },
           identity
         )

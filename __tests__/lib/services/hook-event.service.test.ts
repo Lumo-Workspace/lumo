@@ -46,6 +46,24 @@ beforeEach(() => {
 })
 
 describe('hookEventService.recordHookEvent', () => {
+  it('returns the extracted filePath and toolName for downstream side effects', async () => {
+    const result = await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: {
+        session_id: 'sess_abc',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/repo/app/a.ts' },
+      },
+    })
+
+    expect(result).toMatchObject({
+      sessionId: 'sess_abc',
+      filePath: '/repo/app/a.ts',
+      toolName: 'Edit',
+    })
+  })
+
   it('extracts tool_name and session_id from payload for PRE_TOOL_USE', async () => {
     await hookEventService.recordHookEvent({
       identity,
@@ -252,9 +270,9 @@ describe('hookEventService.recordHookEvent', () => {
 
 describe('extractFilePath', () => {
   it('reads tool_input.file_path for Edit/Write/Read tool events', () => {
-    expect(
-      extractFilePath({ tool_input: { file_path: '/repo/a.ts' } })
-    ).toBe('/repo/a.ts')
+    expect(extractFilePath({ tool_input: { file_path: '/repo/a.ts' } })).toBe(
+      '/repo/a.ts'
+    )
   })
 
   it('reads top-level path for FILE_CHANGED / CONFIG_CHANGE payloads', () => {
@@ -266,9 +284,9 @@ describe('extractFilePath', () => {
   })
 
   it('reads tool_response.filePath when tool_input has no file_path', () => {
-    expect(
-      extractFilePath({ tool_response: { filePath: '/repo/d.ts' } })
-    ).toBe('/repo/d.ts')
+    expect(extractFilePath({ tool_response: { filePath: '/repo/d.ts' } })).toBe(
+      '/repo/d.ts'
+    )
   })
 
   it('prefers tool_input.file_path over top-level path', () => {

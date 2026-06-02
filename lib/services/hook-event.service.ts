@@ -98,20 +98,22 @@ export const hookEventService = {
       taskId = session.taskId
     }
 
+    const toolName = extractStringField(payload, 'tool_name')
+    const filePath = extractFilePath(payload)
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
       sessionId,
       taskId,
       type,
-      toolName: extractStringField(payload, 'tool_name'),
-      filePath: extractFilePath(payload),
+      toolName,
+      filePath,
       payload,
     })
 
-    // Surface the validated sessionId/taskId so per-event side effects (e.g.
-    // Stop → Layer 1 memory extraction) can fire-and-forget without
-    // re-deriving them.
-    return { id: created.id, sessionId, taskId }
+    // Surface the validated sessionId/taskId plus the extracted toolName/filePath
+    // so per-event side effects (Stop → Layer 1 memory extraction, PreToolUse →
+    // collision check) can act without re-deriving them from the raw payload.
+    return { id: created.id, sessionId, taskId, toolName, filePath }
   },
 }

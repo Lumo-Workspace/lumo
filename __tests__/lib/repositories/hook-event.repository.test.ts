@@ -5,6 +5,7 @@ jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     hookEvent: {
       create: jest.fn(),
+      findMany: jest.fn(),
     },
   },
 }))
@@ -13,6 +14,7 @@ import { prisma } from '@/lib/db/prisma'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
 const mockCreate = prisma.hookEvent.create as jest.Mock
+const mockFindMany = prisma.hookEvent.findMany as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -82,5 +84,63 @@ describe('hookEventRepository.createHookEvent', () => {
         data: expect.objectContaining({ toolName: null }),
       })
     )
+  })
+})
+
+describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
+  const since = new Date('2026-06-01T11:30:00Z')
+
+  it('queries by workspace + file + window, excluding the current session, filtered to write tools', async () => {
+    mockFindMany.mockResolvedValue([])
+
+    await hookEventRepository.findRecentOtherSessionWritesToFile({
+      workspaceId: 'ws_1',
+      filePath: '/repo/app/a.ts',
+      excludeSessionId: 'sess_self',
+      since,
+      toolNames: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'],
+    })
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        workspaceId: 'ws_1',
+        filePath: '/repo/app/a.ts',
+        sessionId: { not: 'sess_self' },
+        createdAt: { gte: since },
+        toolName: { in: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        sessionId: true,
+        toolName: true,
+        createdAt: true,
+        session: { select: { agent: true } },
+      },
+    })
+  })
+
+  it('returns the matching rows verbatim', async () => {
+    const rows = [
+      {
+        sessionId: 'sess_other',
+        toolName: 'Edit',
+        createdAt: new Date('2026-06-01T11:55:00Z'),
+        session: { agent: 'CODEX' },
+      },
+    ]
+    mockFindMany.mockResolvedValue(rows)
+
+    const result = await hookEventRepository.findRecentOtherSessionWritesToFile(
+      {
+        workspaceId: 'ws_1',
+        filePath: '/repo/app/a.ts',
+        excludeSessionId: 'sess_self',
+        since,
+        toolNames: ['Edit'],
+      }
+    )
+
+    expect(result).toEqual(rows)
   })
 })
