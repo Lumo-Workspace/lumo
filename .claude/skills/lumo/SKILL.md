@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论".'
+description: 'Use the Lumo CLI to load task context, manage session bindings, inspect projects and milestones, and create/update/list/show/comment on tasks from the terminal. Activate when: user mentions a Lumo task identifier (LUM-42, LUM-12, etc.), asks to load task background or context, wants to bind, check, or detach a Claude Code session''s task binding, is about to start development work on a specific task, wants to create a new task, list their tasks, view a task, comment on a task, list projects, list milestones, attach a task to a milestone, or update a task''s status/title/description/priority/assignee/milestone. Triggers on: "LUM-", "task context", "load context", "session start", "session attach", "session status", "session detach", "bind session", "unbind session", "which task", "what task am I on", "work on LUM", "create task", "new task", "add task", "file a task", "log a task", "list tasks", "my tasks", "show task", "view task", "comment on task", "leave a comment", "list projects", "what projects", "update task", "change task status", "rename task", "reassign task", "mark task as done", "milestone", "里程碑", "list milestones", "set milestone", "挂到 milestone", "attach milestone", "unbind milestone", "create milestone", "new milestone", "update milestone", "change milestone status", "delete milestone", "show milestone", "view milestone", "tasks in milestone", "milestone tasks", "新建里程碑", "更新里程碑", "删除里程碑", "查看里程碑", "auth login", "log in", "login", "auth logout", "log out", "logout", "sign out", "switch account", "switch identity", "whoami", "who am I", "current identity", "current user", "current workspace", "登录", "登出", "切换账号", "当前身份", "create doc", "new doc", "new document", "write doc", "写文档", "新建文档", "update doc", "edit doc", "修改文档", "更新文档", "list docs", "my docs", "我的文档", "show doc", "view doc", "查看文档", "delete doc", "删除文档", "bind doc", "attach doc to task", "把文档关联到任务", "文档绑定到任务", "unbind doc", "解绑文档", "personal doc", "workspace doc", "个人文档", "workspace 文档", "doc scope", "tag", "add tag", "remove tag", "标签", "添加标签", "移除标签", "doc tag", "task tag", "share doc", "doc share", "share document", "分享文档", "文档分享", "unshare doc", "remove share", "取消分享", "share list", "list doc shares", "who has access", "viewer", "editor", "manager", "shared with", "doc tree", "doc move", "move doc", "reparent doc", "文档树", "移动文档", "sprint", "start sprint", "close sprint", "add to sprint", "active sprints", "冲刺", "迭代", "开始冲刺", "关闭冲刺", "create sprint", "new sprint", "list sprints", "show sprint", "update sprint", "delete sprint", "sprint summary", "sprint retro", "把任务挂到冲刺", "冲刺里有什么", "lumo update", "update cli", "upgrade lumo", "update lumo", "upgrade cli", "升级 lumo", "更新 cli", "new lumo version", "是否有新版本", "lumo setup", "install lumo skill", "install lumo hooks", "wire up lumo", "set up lumo", "onboard lumo", "npx @lumoai/cli", "安装 lumo", "配置 lumo", "lumo 初始化", "task artifact", "artifact add", "artifact list", "artifact show", "artifact rm", "artifact delete", "artifact update", "update artifact", "edit artifact", "change artifact kind", "change artifact source", "remove artifact", "delete artifact", "spec artifact", "record spec", "attach spec", "attach plan", "记录 spec", "挂 spec", "查看 artifact", "编辑 artifact", "修改 artifact", "删除 artifact", figma, attach figma, figma link, 关联 figma, 设计稿, figma design, "memory", "记忆", "remember", "record a memory", "记一条", "promote memory", "promote to project", "沉淀", "task memory", "project memory", "lumo memory", "retrieval", "取全文", "load full content", "拉全文", "task slack show", "看 thread", "看 slack thread", "show slack thread", "slack 全文", "task web show", "show web link body", "web 正文", "抓网页正文", "task figma context", "figma metadata", "figma 元数据", "figma 设计上下文", "task comments list", "list comments", "看评论", "评论流", "task pr show", "查看 PR", "show pr", "PR 详情", "pr metadata", "import google doc", "sync google doc", "google drive", "doc import-gdoc", "doc sync", "导入 google 文档", "同步 google 文档", "session wrap", "wrap up session", "收尾", "post progress", "把进度发出去", "progress comment", "进度评论", "lumo next", "next task", "what''s next", "what should I work on", "recommend a task", "推荐下一个任务", "pick my next task".'
 ---
 
 ## Prerequisites
@@ -359,6 +359,44 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 
 - The user asks "what am I working on", "what tasks do I have", "list my tasks", "show me my queue".
 - Before suggesting a status change ("mark something as done"), if no task ID is in context — run `task list` first to surface candidates.
+
+### `lumo next [--count <N>]` — recommend the next task to work on
+
+Ranks the tasks assigned to you and prints the top N (default 3), each with a
+one-line reason. Read-only — it does **not** bind or load context. Pick one from
+the list, then run `lumo session attach <LUM-N>` + `lumo task context <LUM-N>`.
+
+Ranking is lexicographic: **priority** (URGENT→LOW) first, then **active-sprint
+membership**, then **due date** (earlier first), then in-flight status
+(IN_PROGRESS / IN_REVIEW ahead of TODO). DONE tasks are excluded. The active
+sprint lookup is best-effort — if it fails the command still recommends, just
+without the sprint boost.
+
+| Flag | Type | Notes |
+| ---- | ---- | ----- |
+| `-n, --count <N>` | integer | How many tasks to recommend. Defaults to 3. Must be a positive integer. |
+
+```bash
+lumo next
+lumo next --count 1
+```
+
+Output:
+
+```
+Top 3 recommended tasks (of 12 open):
+
+1. LUM-42  IN_PROGRESS  URGENT  Fix Slack OAuth redirect
+     ↳ URGENT · active sprint · due 2026-06-03 (overdue) · in progress
+2. LUM-48  TODO         HIGH    Investigate slow query
+     ↳ HIGH · active sprint
+3. LUM-12  TODO         MEDIUM  Add rate limiting
+     ↳ MEDIUM · due 2026-06-10
+
+Next: lumo session attach LUM-42 && lumo task context LUM-42
+```
+
+When to suggest: the user asks "what should I work on", "what's next", "推荐下一个任务", "pick my next task", or starts a session without a task in mind. After they choose, run `session attach` + `task context` for the picked task.
 
 ### `lumo task show <identifier>` — print one task's detail
 
