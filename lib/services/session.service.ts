@@ -3,6 +3,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
+import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 interface BindSessionToTaskInput {
@@ -19,6 +20,8 @@ interface BindSessionToTaskResult {
   retaggedEventCount: number
   /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
   memorySection: string
+  /** Recovery card data from the previous session on this task, or null if there is no prior session. */
+  previousSession: PreviousSessionRecovery | null
 }
 
 interface SessionScopedInput {
@@ -110,9 +113,13 @@ export const sessionService = {
         task.id
       )
 
-    const memorySection = await taskContextService.buildMemorySectionForTask(
-      task.id
-    )
+    const [memorySection, previousSession] = await Promise.all([
+      taskContextService.buildMemorySectionForTask(task.id),
+      taskContextService.buildPreviousSessionRecoveryForTask(
+        task.id,
+        sessionId
+      ),
+    ])
 
     return {
       taskId: task.id,
@@ -120,6 +127,7 @@ export const sessionService = {
       taskTitle: task.title,
       retaggedEventCount: count,
       memorySection,
+      previousSession,
     }
   },
 
