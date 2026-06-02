@@ -44,6 +44,8 @@ import { milestoneCreate } from './commands/milestone-create'
 import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
+import { milestoneAdd } from './commands/milestone-add'
+import { milestoneRemove } from './commands/milestone-remove'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -225,9 +227,17 @@ session
   .description(
     "Session-end wrap-up: draft a progress comment from this session's turn summaries and post it to the bound task after confirmation."
   )
-  .option('-y, --yes', 'Post the drafted comment without prompting (agent-friendly)')
-  .option('--dry-run', 'Print the draft but do not post or advance the watermark')
-  .action(wrap(options => sessionWrap(options as { yes?: boolean; dryRun?: boolean })))
+  .option(
+    '-y, --yes',
+    'Post the drafted comment without prompting (agent-friendly)'
+  )
+  .option(
+    '--dry-run',
+    'Print the draft but do not post or advance the watermark'
+  )
+  .action(
+    wrap(options => sessionWrap(options as { yes?: boolean; dryRun?: boolean }))
+  )
 
 const task = program
   .command('task')
@@ -679,6 +689,38 @@ milestoneCmd
       milestoneDelete(
         identifier as string,
         options as { project?: string; yes?: boolean }
+      )
+    )
+  )
+
+milestoneCmd
+  .command('add <identifier> <tasks...>')
+  .description(
+    'Bind one or more tasks to a milestone in one call. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID. Per-task result with a tally; partial failures do not roll back.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .action(
+    wrap((identifier, tasks, options) =>
+      milestoneAdd(
+        identifier as string,
+        tasks as string[],
+        options as { project?: string }
+      )
+    )
+  )
+
+milestoneCmd
+  .command('remove <identifier> <tasks...>')
+  .description(
+    'Unbind one or more tasks from a milestone in one call. Tasks not currently in the milestone are skipped (idempotent), never reassigned. <identifier> accepts a name or UUID; each <task> accepts LUM-N or UUID.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .action(
+    wrap((identifier, tasks, options) =>
+      milestoneRemove(
+        identifier as string,
+        tasks as string[],
+        options as { project?: string }
       )
     )
   )
