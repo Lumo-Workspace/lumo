@@ -171,4 +171,30 @@ export const hookEventRepository = {
       select: { id: true, turnSummary: true, createdAt: true },
     })
   },
+
+  /**
+   * Failure events for a session, oldest-first — the raw signal for the
+   * `lumo session wrap` blocked-tag prompt (LUM-153). Returns both explicit
+   * tool failures (`POST_TOOL_USE_FAILURE`, carrying `toolName` + the raw
+   * payload that holds the error text) and turn-level failures
+   * (`STOP_FAILURE`, carrying an LLM `turnSummary`). Index-served by
+   * `@@index([sessionId, createdAt])`. The caller aggregates these by type to
+   * decide whether the same failure recurred ≥ threshold times.
+   */
+  async findFailuresBySession(sessionId: string) {
+    return prisma.hookEvent.findMany({
+      where: {
+        sessionId,
+        type: { in: ['POST_TOOL_USE_FAILURE', 'STOP_FAILURE'] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        type: true,
+        toolName: true,
+        turnSummary: true,
+        payload: true,
+        createdAt: true,
+      },
+    })
+  },
 }

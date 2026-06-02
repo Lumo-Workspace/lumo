@@ -9,11 +9,15 @@ jest.mock('@/cli/src/commands/wrap/progress-comment-section', () => ({
 jest.mock('@/cli/src/commands/wrap/memory-review-section', () => ({
   MemoryReviewSection: jest.fn().mockImplementation(() => ({ tag: 'review' })),
 }))
+jest.mock('@/cli/src/commands/wrap/blocked-prompt-section', () => ({
+  BlockedPromptSection: jest.fn().mockImplementation(() => ({ tag: 'blocked' })),
+}))
 
 import { readCredentials } from '@/cli/src/lib/config'
 import { runWrapPanel } from '@/cli/src/lib/wrap-panel'
 import { ProgressCommentSection } from '@/cli/src/commands/wrap/progress-comment-section'
 import { MemoryReviewSection } from '@/cli/src/commands/wrap/memory-review-section'
+import { BlockedPromptSection } from '@/cli/src/commands/wrap/blocked-prompt-section'
 import { sessionWrap } from '@/cli/src/commands/session-wrap'
 
 const mockRead = readCredentials as jest.Mock
@@ -46,7 +50,7 @@ it('exits 1 when not logged in', async () => {
   expect(code).toBe(1)
 })
 
-it('runs the panel with a progress + memory-review section and passes opts', async () => {
+it('runs the panel with progress + memory-review + blocked-prompt sections and passes opts', async () => {
   process.env.CLAUDE_CODE_SESSION_ID = 'sess_1'
   await sessionWrap({ yes: true })
   const expectedArgs = {
@@ -55,8 +59,9 @@ it('runs the panel with a progress + memory-review section and passes opts', asy
   }
   expect(ProgressCommentSection).toHaveBeenCalledWith(expectedArgs)
   expect(MemoryReviewSection).toHaveBeenCalledWith(expectedArgs)
-  expect(mockRun).toHaveBeenCalledWith([{ tag: 'progress' }, { tag: 'review' }], {
-    yes: true,
-    dryRun: false,
-  })
+  expect(BlockedPromptSection).toHaveBeenCalledWith(expectedArgs)
+  expect(mockRun).toHaveBeenCalledWith(
+    [{ tag: 'progress' }, { tag: 'review' }, { tag: 'blocked' }],
+    { yes: true, dryRun: false }
+  )
 })
