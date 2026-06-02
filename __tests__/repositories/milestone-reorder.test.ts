@@ -33,7 +33,7 @@ describe('milestoneRepository.findByProject', () => {
     mockFindMany.mockResolvedValue([])
     await milestoneRepository.findByProject('p-1')
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { projectId: 'p-1' },
+      where: { projectId: 'p-1', archivedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     })
   })
