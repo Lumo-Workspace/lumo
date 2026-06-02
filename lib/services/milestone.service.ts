@@ -1,4 +1,7 @@
-import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import {
+  milestoneRepository,
+  type MilestoneListFilter,
+} from '@/lib/repositories/milestone.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
 import {
@@ -31,14 +34,12 @@ interface UpdateInput {
  */
 async function generateMilestoneRetro(milestoneId: string): Promise<void> {
   try {
-    const { generationJobRepository } = await import(
-      '@/lib/repositories/generation-job.repository'
-    )
+    const { generationJobRepository } =
+      await import('@/lib/repositories/generation-job.repository')
     await generationJobRepository.createMilestonePending(milestoneId)
 
-    const { milestoneSummaryService } = await import(
-      '@/lib/services/milestone-summary.service'
-    )
+    const { milestoneSummaryService } =
+      await import('@/lib/services/milestone-summary.service')
     await milestoneSummaryService.generate(milestoneId)
   } catch (err) {
     void err
@@ -46,9 +47,13 @@ async function generateMilestoneRetro(milestoneId: string): Promise<void> {
 }
 
 export const milestoneService = {
-  async listMilestones(projectId: string, memberId: string) {
+  async listMilestones(
+    projectId: string,
+    memberId: string,
+    filter: MilestoneListFilter = 'active'
+  ) {
     await projectService.getProject(projectId, memberId)
-    return milestoneRepository.findByProject(projectId)
+    return milestoneRepository.findByProject(projectId, filter)
   },
 
   async getMilestone(milestoneId: string, memberId: string) {
@@ -108,6 +113,12 @@ export const milestoneService = {
       throw Object.assign(new Error('Milestone not found'), { status: 404 })
     }
     await projectService.getProject(existing.projectId, memberId)
+    if (existing.archivedAt) {
+      throw Object.assign(
+        new Error('Milestone is archived; unarchive it before editing'),
+        { status: 409 }
+      )
+    }
 
     const data: Record<string, unknown> = {}
     if (input.name !== undefined) data.name = input.name
@@ -161,10 +172,9 @@ export const milestoneService = {
     const known = new Set(milestones.map(m => m.id))
 
     if (new Set(orderedIds).size !== orderedIds.length) {
-      throw Object.assign(
-        new Error('orderedIds must not contain duplicates'),
-        { status: 400 }
-      )
+      throw Object.assign(new Error('orderedIds must not contain duplicates'), {
+        status: 400,
+      })
     }
     const unknown = orderedIds.find(id => !known.has(id))
     if (unknown) {
@@ -181,6 +191,26 @@ export const milestoneService = {
     }
 
     await milestoneRepository.reorder(projectId, orderedIds)
+  },
+
+  async archiveMilestone(milestoneId: string, memberId: string) {
+    const existing = await milestoneRepository.findById(milestoneId)
+    if (!existing) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    await projectService.getProject(existing.projectId, memberId)
+    if (existing.archivedAt) return existing
+    return milestoneRepository.archive(milestoneId, new Date())
+  },
+
+  async unarchiveMilestone(milestoneId: string, memberId: string) {
+    const existing = await milestoneRepository.findById(milestoneId)
+    if (!existing) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    await projectService.getProject(existing.projectId, memberId)
+    if (!existing.archivedAt) return existing
+    return milestoneRepository.unarchive(milestoneId)
   },
 
   async listTasks(

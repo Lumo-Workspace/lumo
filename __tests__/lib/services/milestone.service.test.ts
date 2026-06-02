@@ -7,6 +7,8 @@ const mockRepoGetMaxSortOrder = jest.fn()
 const mockRepoCreate = jest.fn()
 const mockRepoUpdate = jest.fn()
 const mockRepoDelete = jest.fn()
+const mockRepoArchive = jest.fn()
+const mockRepoUnarchive = jest.fn()
 
 jest.mock('@/lib/services/project.service', () => ({
   projectService: {
@@ -24,6 +26,8 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     create: (...a: any[]) => mockRepoCreate(...a),
     update: (...a: any[]) => mockRepoUpdate(...a),
     delete: (...a: any[]) => mockRepoDelete(...a),
+    archive: (...a: any[]) => mockRepoArchive(...a),
+    unarchive: (...a: any[]) => mockRepoUnarchive(...a),
   },
 }))
 
@@ -39,7 +43,7 @@ describe('milestoneService.listMilestones', () => {
     mockRepoFindByProject.mockResolvedValue([{ id: 'm1' }])
     const result = await milestoneService.listMilestones('p1', 'mem1')
     expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
-    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1')
+    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'active')
     expect(result).toEqual([{ id: 'm1' }])
   })
 
@@ -229,5 +233,85 @@ describe('milestoneService.deleteMilestone', () => {
     await milestoneService.deleteMilestone('m1', 'mem1')
     expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
     expect(mockRepoDelete).toHaveBeenCalledWith('m1')
+  })
+})
+
+describe('milestoneService.listMilestones filter', () => {
+  it('passes the filter through to the repository', async () => {
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockRepoFindByProject.mockResolvedValue([])
+    await milestoneService.listMilestones('p1', 'mem1', 'all')
+    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'all')
+  })
+})
+
+describe('milestoneService.archiveMilestone', () => {
+  it('throws 404 when not found', async () => {
+    mockRepoFindById.mockResolvedValue(null)
+    await expect(
+      milestoneService.archiveMilestone('m-x', 'mem1')
+    ).rejects.toMatchObject({ message: 'Milestone not found', status: 404 })
+  })
+
+  it('archives after permission check when not already archived', async () => {
+    mockRepoFindById.mockResolvedValue({
+      id: 'm1',
+      projectId: 'p1',
+      archivedAt: null,
+    })
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockRepoArchive.mockResolvedValue({ id: 'm1', archivedAt: new Date() })
+    await milestoneService.archiveMilestone('m1', 'mem1')
+    expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
+    expect(mockRepoArchive).toHaveBeenCalledWith('m1', expect.any(Date))
+  })
+
+  it('is idempotent: returns existing without re-archiving', async () => {
+    const existing = { id: 'm1', projectId: 'p1', archivedAt: new Date() }
+    mockRepoFindById.mockResolvedValue(existing)
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    const result = await milestoneService.archiveMilestone('m1', 'mem1')
+    expect(mockRepoArchive).not.toHaveBeenCalled()
+    expect(result).toBe(existing)
+  })
+})
+
+describe('milestoneService.unarchiveMilestone', () => {
+  it('unarchives when currently archived', async () => {
+    mockRepoFindById.mockResolvedValue({
+      id: 'm1',
+      projectId: 'p1',
+      archivedAt: new Date(),
+    })
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockRepoUnarchive.mockResolvedValue({ id: 'm1', archivedAt: null })
+    await milestoneService.unarchiveMilestone('m1', 'mem1')
+    expect(mockRepoUnarchive).toHaveBeenCalledWith('m1')
+  })
+
+  it('is idempotent: returns existing when not archived', async () => {
+    const existing = { id: 'm1', projectId: 'p1', archivedAt: null }
+    mockRepoFindById.mockResolvedValue(existing)
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    const result = await milestoneService.unarchiveMilestone('m1', 'mem1')
+    expect(mockRepoUnarchive).not.toHaveBeenCalled()
+    expect(result).toBe(existing)
+  })
+})
+
+describe('milestoneService.updateMilestone archive freeze', () => {
+  it('rejects updates on an archived milestone with 409', async () => {
+    mockRepoFindById.mockResolvedValue({
+      id: 'm1',
+      projectId: 'p1',
+      status: 'ACTIVE',
+      completedAt: null,
+      archivedAt: new Date(),
+    })
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    await expect(
+      milestoneService.updateMilestone('m1', 'mem1', { name: 'x' })
+    ).rejects.toMatchObject({ status: 409 })
+    expect(mockRepoUpdate).not.toHaveBeenCalled()
   })
 })
