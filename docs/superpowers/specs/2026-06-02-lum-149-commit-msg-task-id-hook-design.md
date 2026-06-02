@@ -101,12 +101,16 @@ grep -qE '\[LUM-[0-9]+\]' "$1" && exit 0            # message 已有 [LUM-x] →
   `chmod +x` → 按 status 打印一行。
 - `degrade` 模式：打印手动接入说明（含可复制的 marker 块片段）。
 
-## 测试（jest，`cli/__tests__/` 或现有 CLI 测试目录约定）
+## 测试（jest，根 `__tests__/cli/`，由根 jest 跑）
 
-- `mergeGitHook` 四场景纯函数单测：created / updated / unchanged / appended。
-- `resolveHookInstall` 降级判定单测（coreHooksPath 有 / 无）。
-- 集成测试：用 `child_process` 跑实际脚本块，喂临时 message 文件 + 在临时 git 仓库
-  里造分支，断言四类行为：
+CLI 测试统一放在仓库根的 `__tests__/cli/`（例：`hooks-template.test.ts`、
+`setup-agent-token.test.ts`），不在 `cli/` 内（`cli/package.json` 无 test 脚本）。
+
+- `__tests__/cli/git-hook-template.test.ts`：`mergeGitHook` 四场景纯函数单测
+  （created / updated / unchanged / appended）+ `resolveHookInstall` 降级判定
+  （coreHooksPath 有 / 无）。
+- `__tests__/cli/prepare-commit-msg-script.test.ts`：集成测试，用 `child_process`
+  跑实际脚本块，喂临时 message 文件 + 在临时 git 仓库里造分支，断言四类行为：
   1. `lumo/LUM-149-x` 分支 + 无标记 message → 追加 ` [LUM-149]`
   2. message 已含 `[LUM-7]` → 不动
   3. 分支不含 `LUM-N` → 不动
