@@ -71,6 +71,38 @@ export const generationJobRepository = {
     })
   },
 
+  // ── Milestone-domain additions ───────────────────────────────────────────
+
+  /**
+   * Create a pending GenerationJob for a milestone retro. Used both by the
+   * milestone status→COMPLETED transition and by the retro-retry route. When
+   * `tx` is omitted the row is written via the default client.
+   */
+  async createMilestonePending(
+    milestoneId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.generationJob.create({
+      data: { type: 'milestone', targetId: milestoneId, status: 'pending' },
+    })
+  },
+
+  /**
+   * Most-recent pending GenerationJob for a milestone, if any.
+   * milestoneSummaryService.generate looks this up to mark completed/failed.
+   */
+  async findPendingMilestoneJob(
+    milestoneId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma
+    return client.generationJob.findFirst({
+      where: { type: 'milestone', targetId: milestoneId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+    })
+  },
+
   /** Mark a specific GenerationJob as completed with its produced summary. */
   async markCompleted(
     jobId: string,

@@ -44,6 +44,7 @@ import { milestoneCreate } from './commands/milestone-create'
 import { milestoneShow } from './commands/milestone-show'
 import { milestoneUpdate } from './commands/milestone-update'
 import { milestoneDelete } from './commands/milestone-delete'
+import { milestoneSummary } from './commands/milestone-summary'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -679,6 +680,22 @@ milestoneCmd
       milestoneDelete(
         identifier as string,
         options as { project?: string; yes?: boolean }
+      )
+    )
+  )
+
+milestoneCmd
+  .command('summary <identifier>')
+  .description(
+    'Show the AI-generated summary for a milestone. Identifier accepts a milestone name or UUID. Prints "(no summary generated yet)" when none exists. Use --retry to queue regeneration before fetching.'
+  )
+  .option('--project <ref>', 'Project name or slug (when identifier is a name)')
+  .option('--retry', 'Trigger summary regeneration before fetching')
+  .action(
+    wrap((identifier, options) =>
+      milestoneSummary(
+        identifier as string,
+        options as { project?: string; retry?: boolean }
       )
     )
   )
