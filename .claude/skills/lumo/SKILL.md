@@ -1235,27 +1235,46 @@ lumo session detach
 
 When to suggest: the user wants to stop tagging the current session with the active task (e.g., switching to unrelated exploratory work without binding to a different task).
 
-### `lumo session wrap [--yes] [--dry-run]` — draft + post a progress comment at wrap-up
+### `lumo session wrap [--yes] [--dry-run]` — wrap-up panel: progress comment + memory review
 
-Session-end wrap-up panel. Reads back the current Claude Code session's per-turn
+Session-end wrap-up panel with **two sections, run in order**:
+
+**1. 进度评论** — reads back the current Claude Code session's per-turn
 `turnSummary` rows (the one-line Chinese summaries written each STOP), aggregates
 every turn **since the last progress comment** into one bulleted body, and — after
 a `[y] 发送 / [e] 编辑 / [s] 跳过` confirmation — posts it as a comment on the
 session's bound task. A server-side watermark (`Session.lastProgressCommentAt`)
 means re-running never re-posts the same turns.
 
+**2. 记忆审阅** — lists the Layer1 memories this session sedimented since the
+last review (deduped by a per-session watermark `Session.lastMemoryReviewAt`).
+Each new memory is shown as `[SCOPE] CATEGORY  headline`, numbered from 1. You
+curate with a single line: `d 1,3` deletes rows 1 and 3, `p 2` promotes row 2 to
+project scope, and they combine (`d 1,3 p 2`). **回车 (empty) keeps all**; `s`
+skips the section. Keeping all (回车 or `--yes`) still **advances the watermark**
+so the next wrap won't re-list reviewed memories; `s` leaves them for next time.
+Out-of-range indices are ignored. Deletes/promotes run server-side, scoped to
+memories this session created (you can't touch other sessions' memories through
+this panel). With no new memories the section prints "(无内容)" and does nothing.
+
 ```bash
-lumo session wrap            # interactive: preview draft, choose y / e / s
-lumo session wrap --yes      # post the drafted body without prompting (agent-friendly)
-lumo session wrap --dry-run  # print the draft only; never posts, never advances watermark
+lumo session wrap            # interactive: preview each section, choose per-section
+lumo session wrap --yes      # progress comment posted + memories all kept, no prompting (agent-friendly)
+lumo session wrap --dry-run  # print both drafts only; never posts, never mutates, never advances watermarks
 ```
 
 - Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code) and a bound
   task (`lumo session attach <LUM-N>` first). With no bound task or no new turn
-  summaries, the panel prints "(无内容)" and posts nothing.
-- `[e] 编辑` opens `$EDITOR` (fallback vi/nano) on the drafted body; the edited
-  text is posted and the watermark still advances to the turns the draft covered.
-- Non-TTY without `--yes`: prints the draft and does **not** post (safe default).
+  summaries, the 进度评论 section prints "(无内容)" and posts nothing.
+- `[e] 编辑` (进度评论) opens `$EDITOR` (fallback vi/nano) on the drafted body;
+  the edited text is posted and the watermark still advances to the turns the
+  draft covered.
+- `--yes` applies to both sections: posts the progress comment AND keeps all
+  memories (no deletes/promotes) while advancing the memory-review watermark.
+- `--dry-run` prints both drafts; never posts, never mutates memories, never
+  advances either watermark.
+- Non-TTY without `--yes`: prints the drafts and does **not** post or mutate
+  (safe default).
 
 When to suggest: at the end of a working session on a bound task, to record what
 was done as a progress comment — offer `lumo session wrap` rather than composing

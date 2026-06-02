@@ -1,6 +1,8 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
+import { memoryRepository } from '@/lib/repositories/memory.repository'
+import type { Prisma } from '@prisma/client'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import type { PreviousSessionRecovery } from '@/lib/services/task-context.service'
@@ -56,6 +58,28 @@ export interface ProgressDraftResult {
   taskTitle: string | null
   summaries: { id: string; turnSummary: string; createdAt: string }[]
   watermark: string | null
+}
+
+export interface MemoryDraftRow {
+  id: string
+  scope: 'TASK' | 'PROJECT'
+  category: 'TRAP' | 'DECISION' | 'CONVENTION' | 'PROCEDURAL'
+  content: unknown
+  createdByMemberId: string | null
+}
+
+export interface MemoryReviewDraft {
+  taskIdentifier: string | null
+  memories: MemoryDraftRow[]
+  watermark: string | null
+}
+
+interface ApplyMemoryReviewInput {
+  identity: VerifyApiKeyResult
+  sessionId: string
+  watermark: string
+  deleteIds: string[]
+  promoteIds: string[]
 }
 
 interface PostProgressCommentInput {
@@ -245,6 +269,113 @@ export const sessionService = {
           ? summaries[summaries.length - 1]!.createdAt
           : null,
     }
+  },
+
+  /**
+   * Assemble the memory-review draft for `lumo session wrap`: the Layer1
+   * memories this session sedimented since the last review. The watermark
+   * (newest createdAt, ISO) is carried back on apply so the server advances
+   * `lastMemoryReviewAt` to exactly the rows this draft covered. Empty payload
+   * when the session is missing/unowned.
+   */
+  async getSessionMemoryDraft({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<MemoryReviewDraft> {
+    const empty: MemoryReviewDraft = {
+      taskIdentifier: null,
+      memories: [],
+      watermark: null,
+    }
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return empty
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return empty
+
+    const rows = await memoryRepository.findBySourceSessionId(
+      sessionId,
+      ctx.lastMemoryReviewAt ?? undefined
+    )
+    const memories: MemoryDraftRow[] = rows.map(r => ({
+      id: r.id,
+      scope: r.scope,
+      category: r.category,
+      content: r.content,
+      createdByMemberId: r.createdByMemberId,
+    }))
+    return {
+      taskIdentifier: ctx.taskIdentifier,
+      memories,
+      watermark:
+        rows.length > 0
+          ? rows[rows.length - 1]!.createdAt.toISOString()
+          : null,
+    }
+  },
+
+  /**
+   * Apply a wrap memory review: delete and/or promote-to-PROJECT the chosen
+   * memories, then advance `lastMemoryReviewAt`. Authz is session-scoped — ids
+   * not sedimented by THIS session are silently dropped, so the endpoint can't
+   * be used to touch arbitrary memories. The watermark advances after the batch
+   * commits (or immediately on keep-all), so a failed batch leaves the rows
+   * eligible for the next wrap.
+   */
+  async applyMemoryReview({
+    identity,
+    sessionId,
+    watermark,
+    deleteIds,
+    promoteIds,
+  }: ApplyMemoryReviewInput): Promise<{ deleted: number; promoted: number }> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+
+    // Session-scoped authz: only ids this session sedimented are eligible.
+    const ownIds = new Set(
+      (await memoryRepository.findBySourceSessionId(sessionId)).map(m => m.id)
+    )
+    const toDelete = deleteIds.filter(id => ownIds.has(id))
+    const toPromote = promoteIds.filter(
+      id => ownIds.has(id) && !toDelete.includes(id)
+    )
+
+    const plans: Array<(tx: Prisma.TransactionClient) => Promise<void>> = []
+    for (const id of toDelete) {
+      plans.push(async tx => {
+        await memoryRepository.delete(id, tx)
+      })
+    }
+    for (const id of toPromote) {
+      plans.push(async tx => {
+        await memoryRepository.update(id, { scope: 'PROJECT' }, tx)
+      })
+    }
+    if (plans.length > 0) {
+      await memoryRepository.applyPlansAtomically(plans)
+    }
+
+    await sessionRepository.setLastMemoryReviewAt(sessionId, new Date(watermark))
+    return { deleted: toDelete.length, promoted: toPromote.length }
   },
 
   /**

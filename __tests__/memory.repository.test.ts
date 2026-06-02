@@ -151,3 +151,28 @@ describe('memoryRepository.listForTask agent select', () => {
     )
   })
 })
+
+describe('memoryRepository.findBySourceSessionId', () => {
+  it('filters by sourceSessionId, oldest first, no since', async () => {
+    mockFindMany.mockResolvedValue([{ id: 'm1' }])
+    const rows = await memoryRepository.findBySourceSessionId('s1')
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sourceSessionId: 's1' },
+        orderBy: { createdAt: 'asc' },
+      })
+    )
+    expect(rows).toEqual([{ id: 'm1' }])
+  })
+
+  it('adds a createdAt gt filter when since is given', async () => {
+    mockFindMany.mockResolvedValue([])
+    const since = new Date('2026-06-01T10:00:00.000Z')
+    await memoryRepository.findBySourceSessionId('s1', since)
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sourceSessionId: 's1', createdAt: { gt: since } },
+      })
+    )
+  })
+})

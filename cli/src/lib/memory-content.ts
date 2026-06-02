@@ -104,3 +104,10 @@ export function formatMemoryList(rows: MemoryRowLike[]): string {
     })
     .join('\n')
 }
+
+/** Numbered review list: `  N. [SCOPE] CATEGORY  headline`. 1-indexed. */
+export function formatMemoryReviewList(rows: MemoryRowLike[]): string {
+  return rows
+    .map((r, i) => `  ${i + 1}. [${r.scope}] ${r.category}  ${headline(r.category, r.content)}`)
+    .join('\n')
+}
