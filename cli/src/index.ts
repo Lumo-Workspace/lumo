@@ -48,6 +48,8 @@ import { milestoneDelete } from './commands/milestone-delete'
 import { milestoneAdd } from './commands/milestone-add'
 import { milestoneRemove } from './commands/milestone-remove'
 import { milestoneSummary } from './commands/milestone-summary'
+import { milestoneReorder } from './commands/milestone-reorder'
+import { milestoneMove } from './commands/milestone-move'
 import { sprintCreate } from './commands/sprint-create'
 import { sprintList } from './commands/sprint-list'
 import { sprintShow } from './commands/sprint-show'
@@ -747,6 +749,35 @@ milestoneCmd
       milestoneSummary(
         identifier as string,
         options as { project?: string; retry?: boolean }
+      )
+    )
+  )
+
+milestoneCmd
+  .command('reorder <refs...>')
+  .description(
+    "Reorder a project's milestones. Pass every milestone (name or UUID) in the desired order. --project required when workspace has >1 project."
+  )
+  .option('--project <ref>', 'Project name or slug')
+  .action(
+    wrap((refs, options) =>
+      milestoneReorder(refs as string[], options as { project?: string })
+    )
+  )
+
+milestoneCmd
+  .command('move <ref>')
+  .description(
+    'Move one milestone before or after another. --before and --after are mutually exclusive; exactly one is required. --project required when workspace has >1 project.'
+  )
+  .option('--project <ref>', 'Project name or slug')
+  .option('--before <ref>', 'Place <ref> immediately before this milestone')
+  .option('--after <ref>', 'Place <ref> immediately after this milestone')
+  .action(
+    wrap((ref, options) =>
+      milestoneMove(
+        ref as string,
+        options as { project?: string; before?: string; after?: string }
       )
     )
   )
