@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import { mergeLumoHooks } from '../lib/hooks-template'
 import {
   mergeGitHook,
@@ -166,34 +166,27 @@ function mergeSettings(claudeDir: string, agentToken: string): void {
   }
 }
 
-function gitCapture(cwd: string, args: string): string | null {
-  try {
-    return execSync(`git ${args}`, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .toString()
-      .trim()
-  } catch {
-    return null
-  }
+function gitCapture(cwd: string, args: string[]): string | null {
+  const res = spawnSync('git', args, { cwd, encoding: 'utf8' })
+  if (res.error || res.status !== 0) return null
+  return res.stdout.trim()
 }
 
-function installGitHook(projectRoot: string): void {
-  if (gitCapture(projectRoot, 'rev-parse --is-inside-work-tree') !== 'true') {
+export function installGitHook(projectRoot: string): void {
+  if (gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true') {
     process.stdout.write(
-      '• Not a git repository — skipped prepare-commit-msg hook.\n'
+      '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
     )
     return
   }
 
-  const coreHooksPath = gitCapture(projectRoot, 'config core.hooksPath') || null
+  const coreHooksPath = gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
   if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
     printGitHookManualInstructions(coreHooksPath!)
     return
   }
 
-  const hooksDirRaw = gitCapture(projectRoot, 'rev-parse --git-path hooks')
+  const hooksDirRaw = gitCapture(projectRoot, ['rev-parse', '--git-path', 'hooks'])
   if (!hooksDirRaw) {
     process.stdout.write(
       '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'
@@ -217,9 +210,15 @@ function installGitHook(projectRoot: string): void {
     return
   }
 
-  fs.mkdirSync(absHooksDir, { recursive: true })
-  fs.writeFileSync(hookPath, content)
-  fs.chmodSync(hookPath, 0o755)
+  try {
+    fs.mkdirSync(absHooksDir, { recursive: true })
+    fs.writeFileSync(hookPath, content)
+    fs.chmodSync(hookPath, 0o755)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    process.stdout.write(`⚠ could not write prepare-commit-msg hook: ${msg}\n`)
+    return
+  }
 
   const verb =
     status === 'created'
