@@ -1332,6 +1332,11 @@ model Session {
   summaryClassifyModel String?
   summaryContentModel  String?
   summaryEventCount    Int?
+  /// Watermark for `lumo session wrap`: createdAt of the newest turnSummary
+  /// already posted as a progress comment. NULL = nothing posted yet. Turn
+  /// summaries with createdAt > this are "unposted" and eligible for the next
+  /// wrap draft.
+  lastProgressCommentAt DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

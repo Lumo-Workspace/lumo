@@ -48,6 +48,21 @@ export type UnbindSessionResult =
       previousTaskTitle: string
     }
 
+export interface ProgressDraftResult {
+  taskIdentifier: string | null
+  taskTitle: string | null
+  summaries: { id: string; turnSummary: string; createdAt: string }[]
+  watermark: string | null
+}
+
+interface PostProgressCommentInput {
+  identity: VerifyApiKeyResult
+  sessionId: string
+  body: string
+  watermark: string
+  waitUntil: (promise: Promise<unknown>) => void
+}
+
 export const sessionService = {
   async bindSessionToTask({
     identity,
@@ -173,5 +188,134 @@ export const sessionService = {
       previousTaskIdentifier: result.previous.taskIdentifier,
       previousTaskTitle: result.previous.taskTitle,
     }
+  },
+
+  /**
+   * Assemble the unposted progress draft for `lumo session wrap`: the bound
+   * task plus every turnSummary written since the last progress comment. The
+   * watermark (newest summary's createdAt, ISO) is carried back by the CLI on
+   * post so the server can advance `lastProgressCommentAt` to exactly the turns
+   * this draft covered. Empty payload when the session is missing/unowned.
+   */
+  async getSessionProgressDraft({
+    identity,
+    sessionId,
+  }: SessionScopedInput): Promise<ProgressDraftResult> {
+    const empty: ProgressDraftResult = {
+      taskIdentifier: null,
+      taskTitle: null,
+      summaries: [],
+      watermark: null,
+    }
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) return empty
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) return empty
+
+    const rows = await hookEventRepository.findTurnSummariesBySession(
+      sessionId,
+      ctx.lastProgressCommentAt ?? undefined
+    )
+    const summaries = rows.map(r => ({
+      id: r.id,
+      turnSummary: r.turnSummary as string,
+      createdAt: r.createdAt.toISOString(),
+    }))
+    return {
+      taskIdentifier: ctx.taskIdentifier,
+      taskTitle: ctx.taskTitle,
+      summaries,
+      watermark:
+        summaries.length > 0
+          ? summaries[summaries.length - 1]!.createdAt
+          : null,
+    }
+  },
+
+  /**
+   * Post a wrap progress comment to the session's bound task, then advance the
+   * watermark to `watermark` (the newest turn the draft covered). Reuses the
+   * same comment context the POST /api/tasks/[id]/comments route assembles.
+   * Watermark advances ONLY after the comment create succeeds, so a failed
+   * post leaves the turns eligible for the next wrap (no silent data loss).
+   */
+  async postProgressComment({
+    identity,
+    sessionId,
+    body,
+    watermark,
+    waitUntil,
+  }: PostProgressCommentInput): Promise<{ commentId: string }> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+
+    const ctx = await sessionRepository.findProgressContextForMember(
+      sessionId,
+      memberId
+    )
+    if (!ctx) {
+      throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+    if (!ctx.taskId) {
+      throw Object.assign(
+        new Error(
+          'Session is not bound to a task. Run `lumo session attach <LUM-N>` first.'
+        ),
+        { status: 409 }
+      )
+    }
+
+    // Lazy imports: keep comment.service's heavy transitive deps (pusher, agent
+    // delegation, PR mirroring) off this module's load path so importing
+    // session.service in tests / other call sites doesn't pull an ESM chain
+    // jest can't parse. Matches the lazy-import pattern in comment.service.ts.
+    const { taskRepository } = await import('@/lib/repositories/task.repository')
+    const { commentService } = await import('@/lib/services/comment.service')
+    const { getHumanActorId } = await import('@/lib/actor')
+
+    const task = await taskRepository.findForComment(ctx.taskId)
+    if (!task) {
+      throw Object.assign(new Error('Task not found'), { status: 404 })
+    }
+
+    const authorActorId = await getHumanActorId(memberId)
+    if (!authorActorId) {
+      throw Object.assign(new Error('Actor not found'), { status: 500 })
+    }
+
+    const comment = await commentService.createCommentWithSideEffects({
+      taskId: ctx.taskId,
+      authorActorId,
+      body,
+      parentId: null,
+      quotedCommentId: null,
+      authorClerkId: identity.user.id,
+      workspaceId: task.project.workspaceId,
+      projectId: task.projectId,
+      taskTitle: task.title,
+      taskNumber: task.number,
+      teamIdentifier: task.team?.identifier ?? '',
+      workspaceSlug: task.project.workspace?.slug ?? '',
+      waitUntil,
+    })
+
+    await sessionRepository.setLastProgressCommentAt(
+      sessionId,
+      new Date(watermark)
+    )
+
+    return { commentId: comment.id }
   },
 }
