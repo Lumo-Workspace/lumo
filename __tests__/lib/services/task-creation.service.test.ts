@@ -157,12 +157,17 @@ describe('createTask — archived milestone bind guard', () => {
       archivedAt: new Date(),
     })
     await expect(
-      createTask('proj-1', {
-        title: 'T',
-        status: 'TODO',
-        priority: 'LOW',
-        milestoneId: 'm1',
-      })
+      createTask(
+        'proj-1',
+        {
+          title: 'T',
+          status: 'TODO',
+          priority: 'LOW',
+          milestoneId: 'm1',
+        },
+        'actor-1',
+        'clerk-1'
+      )
     ).rejects.toMatchObject({ status: 409 })
   })
 })
