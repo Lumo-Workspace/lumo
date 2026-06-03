@@ -98,7 +98,9 @@ describe('computeBurnupSeries', () => {
     expect(out.series.map(p => p.completed)).toEqual([1, 0, 0])
   })
 
-  test('startedAt anchoring: pre-startedAt days are dropped', () => {
+  test('late startedAt does NOT truncate: window still spans from startDate', () => {
+    // Sprint planned 06-01 but flipped ACTIVE on 06-03 (work happened in DRAFT).
+    // The window must still start at 06-01 — otherwise the real ramp collapses.
     const out = computeBurnupSeries(
       baseInput({
         startDate: new Date('2026-06-01T00:00:00.000Z'),
@@ -106,12 +108,39 @@ describe('computeBurnupSeries', () => {
         endDate: new Date('2026-06-05T00:00:00.000Z'),
         status: 'CLOSED',
         tasks: [
-          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-03') },
+          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-06-01') },
         ],
       })
     )
-    expect(out.start).toBe('2026-06-03')
-    expect(out.series.map(p => p.date)).toEqual(['2026-06-03', '2026-06-04', '2026-06-05'])
+    expect(out.start).toBe('2026-06-01')
+    expect(out.series.map(p => p.date)).toEqual([
+      '2026-06-01',
+      '2026-06-02',
+      '2026-06-03',
+      '2026-06-04',
+      '2026-06-05',
+    ])
+  })
+
+  test('early startedAt extends the window backwards before startDate', () => {
+    // Sprint started 05-30, before its planned startDate 06-01.
+    const out = computeBurnupSeries(
+      baseInput({
+        startDate: new Date('2026-06-01T00:00:00.000Z'),
+        startedAt: new Date('2026-05-30T00:00:00.000Z'),
+        endDate: new Date('2026-06-01T00:00:00.000Z'),
+        status: 'CLOSED',
+        tasks: [
+          { id: 't1', sprintId: SPRINT, status: 'TODO', createdAt: at('2026-05-30') },
+        ],
+      })
+    )
+    expect(out.start).toBe('2026-05-30')
+    expect(out.series.map(p => p.date)).toEqual([
+      '2026-05-30',
+      '2026-05-31',
+      '2026-06-01',
+    ])
   })
 
   test('candidate added mid-sprint via SPRINT_CHANGED still counts; scope tracks createdAt', () => {
@@ -146,6 +175,7 @@ describe('computeBurnupSeries', () => {
   test('effectiveStart after endDate yields empty series', () => {
     const out = computeBurnupSeries(
       baseInput({
+        startDate: new Date('2026-06-10T00:00:00.000Z'),
         startedAt: new Date('2026-06-10T00:00:00.000Z'),
         endDate: new Date('2026-06-03T00:00:00.000Z'),
       })

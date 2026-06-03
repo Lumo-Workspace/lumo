@@ -17,7 +17,10 @@ export interface BurnupActivityInput {
 export interface BurnupComputeInput {
   sprintId: string
   startDate: Date
-  /** When the sprint actually transitioned DRAFT→ACTIVE. Window starts here (falls back to startDate when null) so pre-start empty days don't dominate. */
+  /** When the sprint actually transitioned DRAFT→ACTIVE. Only used to extend the
+   * window backwards when a sprint was started BEFORE its planned startDate; a
+   * late startedAt never truncates the window (work done while still DRAFT must
+   * stay on the chart — burnup scope/completed are meaningful before start). */
   startedAt?: Date | null
   endDate: Date
   status: 'ACTIVE' | 'CLOSED'
@@ -116,7 +119,12 @@ function statusAt(events: StatusEvt[], tMs: number, fallback: TaskStatus): TaskS
 export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
   const { sprintId, startDate, startedAt, endDate, status, now, tasks, activities } =
     input
-  const effectiveStart = startedAt ?? startDate
+  // Anchor at the EARLIER of startDate and startedAt. Normally that's startDate;
+  // only an early start (started before the planned date) pulls the window back.
+  // A late startedAt (sprint flipped ACTIVE after work already happened in DRAFT)
+  // does NOT truncate — otherwise the real ramp collapses to a single point.
+  const effectiveStart =
+    startedAt && startedAt.getTime() < startDate.getTime() ? startedAt : startDate
 
   const statusByTask = new Map<string, StatusEvt[]>()
   const sprintByTask = new Map<string, SprintEvt[]>()
