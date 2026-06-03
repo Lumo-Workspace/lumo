@@ -34,6 +34,7 @@ function milestone(overrides: Partial<ApiMilestone> = {}): ApiMilestone {
     startDate: null,
     targetDate: '2026-08-31T00:00:00.000Z',
     completedAt: null,
+    archivedAt: null,
     createdAt: '2026-06-01T00:00:00.000Z',
     updatedAt: '2026-06-01T00:00:00.000Z',
     ...overrides,
@@ -45,8 +46,8 @@ function renderCard(m: ApiMilestone) {
     <MilestoneCard
       milestone={m}
       progress={{ done: 1, total: 3 }}
-      workspaceUrl="acme"
-      projectSlug="lumo"
+      workspaceUrl='acme'
+      projectSlug='lumo'
       onEdit={() => {}}
       onDelete={() => {}}
     />

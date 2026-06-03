@@ -555,3 +555,7 @@ export const updateMilestoneSchema = z.object({
   startDate: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),
 })
+
+export const listMilestonesQuerySchema = z.object({
+  filter: z.enum(['active', 'archived', 'all']).default('active'),
+})

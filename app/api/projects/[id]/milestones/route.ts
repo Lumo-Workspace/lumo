@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
-import { createMilestoneSchema } from '@/lib/validation/schemas'
+import {
+  createMilestoneSchema,
+  listMilestonesQuerySchema,
+} from '@/lib/validation/schemas'
 import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { milestoneHealthFromCounts } from '@/lib/summaries/milestone-health'
@@ -20,7 +23,16 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (result instanceof NextResponse) return result
     const { member } = result
 
-    const milestones = await milestoneService.listMilestones(id, member.id)
+    const parsedQuery = listMilestonesQuerySchema.safeParse({
+      filter: new URL(request.url).searchParams.get('filter') ?? undefined,
+    })
+    if (!parsedQuery.success) return zodError(parsedQuery)
+
+    const milestones = await milestoneService.listMilestones(
+      id,
+      member.id,
+      parsedQuery.data.filter
+    )
     // Enrich with per-status task counts (so the frontend can render progress
     // without an N+1 follow-up) and a target-date health light.
     const now = new Date()

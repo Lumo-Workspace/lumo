@@ -77,6 +77,12 @@ export async function createTask(
         { status: 400 }
       )
     }
+    if (milestone.archivedAt) {
+      throw Object.assign(
+        new Error('Cannot bind a task to an archived milestone'),
+        { status: 409 }
+      )
+    }
   }
 
   // Auto-calculate order if not provided

@@ -16,6 +16,7 @@ export interface MilestoneShowData {
   status: string
   startDate: string | null
   targetDate: string | null
+  archivedAt: string | null
   description: string | null
   projectName: string
   taskCounts: {
@@ -54,6 +55,7 @@ export function formatMilestoneShow(
   const lines = [
     `Milestone:    ${sanitizeField(m.name)}`,
     `Status:       ${m.status}`,
+    `Archived:     ${m.archivedAt ? m.archivedAt.slice(0, 10) : 'no'}`,
     `Health:       ${fmtHealth(m.health)}`,
     `Start:        ${fmtDate(m.startDate)}`,
     `Target:       ${fmtDate(m.targetDate)}`,
@@ -133,6 +135,7 @@ export async function milestoneShow(
       status: string
       startDate: string | null
       targetDate: string | null
+      archivedAt: string | null
       description: string | null
       projectId: string
       taskCounts: MilestoneShowData['taskCounts']
@@ -164,6 +167,7 @@ export async function milestoneShow(
         status: milestone.status,
         startDate: milestone.startDate,
         targetDate: milestone.targetDate,
+        archivedAt: milestone.archivedAt,
         description: milestone.description,
         projectName,
         taskCounts: milestone.taskCounts,

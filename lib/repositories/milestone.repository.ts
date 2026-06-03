@@ -14,6 +14,8 @@ type MilestoneUpdate = Partial<
   >
 >
 
+export type MilestoneListFilter = 'active' | 'archived' | 'all'
+
 export const milestoneRepository = {
   async findById(id: string) {
     return prisma.milestone.findUnique({ where: { id } })
@@ -25,9 +27,18 @@ export const milestoneRepository = {
     })
   },
 
-  async findByProject(projectId: string) {
+  async findByProject(
+    projectId: string,
+    filter: MilestoneListFilter = 'active'
+  ) {
+    const where: {
+      projectId: string
+      archivedAt?: null | { not: null }
+    } = { projectId }
+    if (filter === 'active') where.archivedAt = null
+    else if (filter === 'archived') where.archivedAt = { not: null }
     return prisma.milestone.findMany({
-      where: { projectId },
+      where,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     })
   },
@@ -90,6 +101,20 @@ export const milestoneRepository = {
           data: { sortOrder: i },
         })
       }
+    })
+  },
+
+  async archive(id: string, archivedAt: Date) {
+    return prisma.milestone.update({
+      where: { id },
+      data: { archivedAt },
+    })
+  },
+
+  async unarchive(id: string) {
+    return prisma.milestone.update({
+      where: { id },
+      data: { archivedAt: null },
     })
   },
 

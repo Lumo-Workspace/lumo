@@ -126,8 +126,7 @@ export async function resolveTeamId(
   const needle = ref.trim().toLowerCase()
   const match = teams.find(
     t =>
-      t.name.toLowerCase() === needle ||
-      t.identifier.toLowerCase() === needle
+      t.name.toLowerCase() === needle || t.identifier.toLowerCase() === needle
   )
   if (!match) {
     throw new Error(`team "${ref}" not found. Try \`lumo team list\`.`)
@@ -226,7 +225,7 @@ export async function resolveMilestoneId(
   const { milestones } = await fetchJson<{ milestones: MilestoneRow[] }>(
     base,
     token,
-    `/api/projects/${projectId}/milestones`
+    `/api/projects/${projectId}/milestones?filter=all`
   )
   // Exact id match first (milestone ids are cuids, unique).
   const byId = milestones.find(m => m.id === identifier)

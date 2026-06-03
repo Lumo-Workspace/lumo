@@ -12,6 +12,7 @@ function row(overrides: Partial<Row>): Row {
     status: 'ACTIVE',
     targetDate: '2026-08-31T00:00:00.000Z',
     createdAt: '2026-06-01T00:00:00.000Z',
+    archivedAt: null,
     ...overrides,
   }
 }
@@ -27,7 +28,9 @@ describe('formatMilestoneList', () => {
   })
 
   it('shows "-" for a milestone with no health light', () => {
-    const out = formatMilestoneList([row({ status: 'COMPLETED', health: null })])
+    const out = formatMilestoneList([
+      row({ status: 'COMPLETED', health: null }),
+    ])
     expect(out).toBe('COMPLETED  -  2026-08-31  Q3 Launch')
   })
 
@@ -56,5 +59,12 @@ describe('formatMilestoneList', () => {
     expect(line2.split(/\s{2,}/)).toEqual(['PLANNED', 'ON-TRACK', '-', 'B'])
     // The HEALTH column starts at the same offset on every row.
     expect(line1.indexOf('OVERDUE')).toBe(line2.indexOf('ON-TRACK'))
+  })
+
+  it('marks an archived milestone with a (archived) suffix', () => {
+    const out = formatMilestoneList([
+      row({ archivedAt: '2026-06-02T00:00:00.000Z' }),
+    ])
+    expect(out).toContain('Q3 Launch (archived)')
   })
 })
