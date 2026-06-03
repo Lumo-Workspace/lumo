@@ -11,10 +11,6 @@ interface Options {
    * outside our `navigateTo` (e.g. browser back/forward, deep-linked load). */
   pathname: string
   projects: ApiProject[]
-  /** Initial `projectSlug` snapshot captured before `projects` are loaded.
-   * Used to lazily resolve the selectedProject once the projects list arrives. */
-  pendingProjectSlug: string | undefined
-  currentPage: Page
   selectedProject: ApiProject | null
   setCurrentPage: (page: Page) => void
   setSelectedProject: (p: ApiProject | null) => void
@@ -32,16 +28,14 @@ interface Options {
  *      `selectedProject`, `selectedDocumentId` from the new URL.
  *   3. Bare `/workspace/[url]` → soft-redirect to `/workspace/[url]/my-tasks`
  *      so refresh lands on a usable page.
- *   4. Lazy `selectedProject` resolution: when the URL says
- *      `project-detail/foo` but `projects` hadn't loaded yet, set it once
- *      they arrive.
+ *   4. `selectedProject` resolution from the current `pathname` — covers both
+ *      deep-links/refresh and in-app sidebar navigation (a plain `<Link>` that
+ *      only pushes the URL and never sets `selectedProject` itself).
  */
 export function useWorkspaceUrlSync({
   workspaceUrl,
   pathname,
   projects,
-  pendingProjectSlug,
-  currentPage,
   selectedProject,
   setCurrentPage,
   setSelectedProject,
@@ -92,22 +86,22 @@ export function useWorkspaceUrlSync({
     }
   }, [workspaceUrl])
 
-  // Lazy selectedProject resolution after `projects` loads.
+  // Resolve `selectedProject` from the current pathname. Reacts to every URL
+  // and projects-list change, so it covers deep-links/refresh AND in-app
+  // navigation: the sidebar renders each project as a plain Next `<Link>` that
+  // only pushes `/projects/<slug>` without calling `navigateTo`, so nothing
+  // else sets `selectedProject`. Without this, a soft-navigation to a project
+  // leaves `selectedProject` null and `WorkspacePageRouter` renders blank.
   useEffect(() => {
-    if (
-      pendingProjectSlug &&
-      currentPage === 'project-detail' &&
-      !selectedProject &&
-      projects.length > 0
-    ) {
-      const match = projects.find(p => slugify(p.name) === pendingProjectSlug)
-      if (match) setSelectedProject(match)
+    const { page, projectSlug } = pathToPage(pathname, workspaceUrl)
+    if (page !== 'project-detail' || !projectSlug || projects.length === 0) {
+      return
     }
-  }, [
-    pendingProjectSlug,
-    currentPage,
-    selectedProject,
-    projects,
-    setSelectedProject,
-  ])
+    const match = projects.find(p => slugify(p.name) === projectSlug)
+    // Skip when already resolved — the `selectedProject` dependency re-runs
+    // this effect after we set it, and the id check then no-ops (no loop).
+    if (match && match.id !== selectedProject?.id) {
+      setSelectedProject(match)
+    }
+  }, [pathname, workspaceUrl, projects, selectedProject, setSelectedProject])
 }
