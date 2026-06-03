@@ -5,7 +5,10 @@ jest.mock('@/lib/auth', () => ({
   requireIdentity: jest.fn(),
 }))
 jest.mock('@/lib/services/milestone.service', () => ({
-  milestoneService: { getMilestone: jest.fn(), getSprintCoverage: jest.fn() },
+  milestoneService: {
+    getMilestoneWithTeam: jest.fn(),
+    getSprintCoverageForTeam: jest.fn(),
+  },
 }))
 jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { countTasksByStatus: jest.fn() },
@@ -17,9 +20,9 @@ import { milestoneService } from '@/lib/services/milestone.service'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 
 const mockIdentity = requireIdentity as jest.Mock
-const mockGet = milestoneService.getMilestone as jest.Mock
+const mockGet = milestoneService.getMilestoneWithTeam as jest.Mock
 const mockCount = milestoneRepository.countTasksByStatus as jest.Mock
-const mockCoverage = milestoneService.getSprintCoverage as jest.Mock
+const mockCoverage = milestoneService.getSprintCoverageForTeam as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -33,7 +36,10 @@ const params = { params: Promise.resolve({ milestoneId: 'm-1' }) }
 describe('GET /api/milestones/[id]', () => {
   it('returns milestone enriched with taskCounts', async () => {
     mockIdentity.mockResolvedValue({ memberId: 'mem-1' })
-    mockGet.mockResolvedValue({ id: 'm-1', name: 'Q3', status: 'ACTIVE' })
+    mockGet.mockResolvedValue({
+      milestone: { id: 'm-1', name: 'Q3', status: 'ACTIVE' },
+      teamId: 'team-1',
+    })
     mockCount.mockResolvedValue({
       TODO: 1,
       IN_PROGRESS: 2,
@@ -73,5 +79,8 @@ describe('GET /api/milestones/[id]', () => {
         unsprinted: 1,
       },
     })
+    // Authorizes once, then reuses the resolved team for coverage (no re-auth).
+    expect(mockGet).toHaveBeenCalledWith('m-1', 'mem-1')
+    expect(mockCoverage).toHaveBeenCalledWith('m-1', 'team-1')
   })
 })

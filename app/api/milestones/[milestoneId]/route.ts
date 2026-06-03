@@ -16,15 +16,15 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { milestoneId } = await params
 
-    const milestone = await milestoneService.getMilestone(
+    const { milestone, teamId } = await milestoneService.getMilestoneWithTeam(
       milestoneId,
       identity.memberId
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    const sprintCoverage = await milestoneService.getSprintCoverage(
+    const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
       milestoneId,
-      identity.memberId
+      teamId
     )
     return NextResponse.json({
       milestone: { ...milestone, taskCounts, health, sprintCoverage },

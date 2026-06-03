@@ -77,3 +77,61 @@ describe('milestoneService.getSprintCoverage', () => {
     expect(result).toEqual({ sprints: [], unsprinted: 2 })
   })
 })
+
+describe('milestoneService.getMilestoneWithTeam', () => {
+  it('authorizes once and returns the milestone plus its team id', async () => {
+    findById.mockResolvedValue({ id: 'm-1', projectId: 'p-1' })
+    getProject.mockResolvedValue({ id: 'p-1', teamId: 'team-1' })
+
+    const result = await milestoneService.getMilestoneWithTeam('m-1', 'mem-1')
+
+    expect(findById).toHaveBeenCalledTimes(1)
+    expect(getProject).toHaveBeenCalledWith('p-1', 'mem-1')
+    expect(result).toEqual({
+      milestone: { id: 'm-1', projectId: 'p-1' },
+      teamId: 'team-1',
+    })
+  })
+
+  it('throws 404 when the milestone is missing', async () => {
+    findById.mockResolvedValue(null)
+    await expect(
+      milestoneService.getMilestoneWithTeam('nope', 'mem-1')
+    ).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('milestoneService.getSprintCoverageForTeam', () => {
+  it('aggregates without re-authorizing (no findById / getProject)', async () => {
+    counts.mockResolvedValue([
+      { sprintId: 's3', status: 'DONE', count: 2 },
+      { sprintId: 's3', status: 'TODO', count: 1 },
+      { sprintId: null, status: 'TODO', count: 4 },
+    ])
+    findByIds.mockResolvedValue([
+      { id: 's3', number: 3, name: 'Sprint 3', status: 'ACTIVE' },
+    ])
+
+    const result = await milestoneService.getSprintCoverageForTeam(
+      'm-1',
+      'team-1'
+    )
+
+    expect(findById).not.toHaveBeenCalled()
+    expect(getProject).not.toHaveBeenCalled()
+    expect(findByIds).toHaveBeenCalledWith(['s3'], 'team-1')
+    expect(result).toEqual({
+      sprints: [
+        {
+          sprintId: 's3',
+          number: 3,
+          name: 'Sprint 3',
+          status: 'ACTIVE',
+          taskCount: 3,
+          doneCount: 2,
+        },
+      ],
+      unsprinted: 4,
+    })
+  })
+})
