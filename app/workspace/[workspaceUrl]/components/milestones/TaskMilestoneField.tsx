@@ -6,7 +6,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useFormatDate } from '../../hooks/useFormatDate'
@@ -16,6 +15,12 @@ interface Props {
   value: string | null
   onChange: (milestoneId: string | null) => void
   triggerClassName?: string
+  /**
+   * SSR-prefetched name of the currently-bound milestone. Lets the trigger
+   * render the correct name on first paint instead of flickering blank until
+   * the client option list (`useMilestones`) loads. See LUM-189.
+   */
+  milestone?: { id: string; name: string } | null
 }
 
 const NONE_VALUE = '__none__'
@@ -37,6 +42,7 @@ export function TaskMilestoneField({
   value,
   onChange,
   triggerClassName,
+  milestone,
 }: Props) {
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
@@ -44,15 +50,29 @@ export function TaskMilestoneField({
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
 
+  // Trigger label: prefer the loaded option (carries targetDate), fall back to
+  // the SSR-prefetched name so the name shows on first paint, else placeholder.
+  const loaded = value ? milestones.find(m => m.id === value) : undefined
+  const triggerName = loaded?.name ?? (value ? (milestone?.name ?? null) : null)
+
   return (
     <Select
       value={value ?? NONE_VALUE}
       onValueChange={v => onChange(v === NONE_VALUE ? null : v)}
     >
       <SelectTrigger className={triggerClassName}>
-        <SelectValue
-          placeholder={intl.formatMessage({ id: 'task.field.milestone' })}
-        />
+        {triggerName ? (
+          <span className='truncate'>
+            {triggerName}
+            {loaded?.targetDate
+              ? ` · ${fmtDate(loaded.targetDate, DATE_OPTS)}`
+              : ''}
+          </span>
+        ) : (
+          <span className='text-muted-foreground'>
+            {intl.formatMessage({ id: 'task.field.milestone' })}
+          </span>
+        )}
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE_VALUE}>
