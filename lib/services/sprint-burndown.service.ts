@@ -21,6 +21,7 @@ export const sprintBurndownService = {
     return computeBurndownSeries({
       sprintId,
       startDate: sprint.startDate,
+      startedAt: sprint.startedAt,
       endDate: sprint.endDate,
       status: sprint.status as 'ACTIVE' | 'CLOSED',
       now,

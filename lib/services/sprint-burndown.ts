@@ -16,6 +16,8 @@ export interface BurndownActivityInput {
 export interface BurndownComputeInput {
   sprintId: string
   startDate: Date
+  /** When the sprint actually transitioned DRAFT→ACTIVE. The chart starts here (falls back to startDate when null) so pre-start empty days don't dominate. */
+  startedAt?: Date | null
   endDate: Date
   status: 'ACTIVE' | 'CLOSED'
   now: Date
@@ -34,7 +36,7 @@ export interface BurndownSeries {
   start: string
   end: string
   unit: 'tasks'
-  /** Remaining at the close of the first day = the ideal line's starting anchor (NOT pre-sprint scope). */
+  /** Committed scope: number of tasks that were ever in the sprint during [effectiveStart, end], including tasks added mid-sprint. Anchors the ideal line and the chart's y-axis. */
   total: number
   series: BurndownPoint[]
 }
@@ -133,7 +135,9 @@ function sprintAt(
 export function computeBurndownSeries(
   input: BurndownComputeInput
 ): BurndownSeries {
-  const { sprintId, startDate, endDate, status, now, tasks, activities } = input
+  const { sprintId, startDate, startedAt, endDate, status, now, tasks, activities } =
+    input
+  const effectiveStart = startedAt ?? startDate
 
   const statusByTask = new Map<string, StatusEvt[]>()
   const sprintByTask = new Map<string, SprintEvt[]>()
@@ -190,12 +194,12 @@ export function computeBurndownSeries(
     return count
   }
 
-  const days = enumerateUtcDays(startDate, endDate)
+  const days = enumerateUtcDays(effectiveStart, endDate)
   const firstDay = days[0]
   if (!firstDay) {
     return {
       sprintId,
-      start: toUtcDateKey(startDate),
+      start: toUtcDateKey(effectiveStart),
       end: toUtcDateKey(endDate),
       unit: 'tasks',
       total: 0,
@@ -205,7 +209,24 @@ export function computeBurndownSeries(
   const lastDay = days[days.length - 1] ?? firstDay
   const nowMs = now.getTime()
 
-  const total = countRemaining(utcMidnight(firstDay) + DAY_MS - 1)
+  // Committed scope = tasks that were in the sprint at the close of ANY sampled
+  // day (future days excluded for ACTIVE sprints). Counts tasks added mid-sprint
+  // and tasks completed same-day they joined — so the ideal line and y-axis
+  // reflect real scope, not just whatever happened to be present on day one.
+  const total = (() => {
+    let count = 0
+    for (const id of candidates) {
+      const evts = sprintByTask.get(id) ?? []
+      const fallbackSprint = taskById.get(id)?.sprintId ?? null
+      const everInSprint = days.some(day => {
+        if (status === 'ACTIVE' && utcMidnight(day) > nowMs) return false
+        const eod = utcMidnight(day) + DAY_MS - 1
+        return sprintAt(evts, eod, fallbackSprint) === sprintId
+      })
+      if (everInSprint) count++
+    }
+    return count
+  })()
 
   const n = days.length
   const series: BurndownPoint[] = days.map((day, idx) => {
