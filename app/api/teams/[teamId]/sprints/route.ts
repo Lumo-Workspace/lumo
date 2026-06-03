@@ -65,9 +65,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     await requireTeamAccessById(teamId, identity.clerkId)
 
-    // Lazy top-up of future DRAFT sprints per cadence config. Fire-and-forget
-    // is tempting, but we await so the newly-created sprints show up in the
-    // same response the user is about to render.
+    // Lazily roll sprint state forward (auto start/close at window boundaries)
+    // and top up future DRAFT sprints per cadence config. We await both so the
+    // response reflects the freshly-transitioned + created sprints; failures
+    // are opportunistic and non-fatal.
+    try {
+      await sprintService.reconcileSprintStates(teamId)
+    } catch {
+      // Non-fatal — continue serving the list.
+    }
     try {
       await sprintService.ensureFutureSprints(teamId)
     } catch {

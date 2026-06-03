@@ -53,6 +53,18 @@ export const teamRepository = {
     })
   },
 
+  /**
+   * Ids of every team that has sprints enabled. Drives the daily sprint-roll
+   * cron, which reconciles each such team's sprint state to the current date.
+   */
+  async listSprintsEnabledIds(): Promise<string[]> {
+    const rows = await prisma.team.findMany({
+      where: { sprintsEnabled: true },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /** Read only the fields needed to decide whether the team can create sprints. */
   async findSprintGatingConfig(teamId: string) {
     return prisma.team.findUnique({
