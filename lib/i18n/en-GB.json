@@ -601,6 +601,7 @@
   "milestone.new": "New milestone",
   "milestone.edit": "Edit milestone",
   "milestone.delete": "Delete milestone",
+  "milestone.openActions": "Open milestone actions",
   "milestone.delete.confirm": "Delete milestone \"{name}\"? Tasks under it will be unassigned.",
   "milestone.field.name": "Name",
   "milestone.field.description": "Description",

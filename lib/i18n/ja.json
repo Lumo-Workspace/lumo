@@ -601,6 +601,7 @@
   "milestone.new": "新規マイルストーン",
   "milestone.edit": "マイルストーンを編集",
   "milestone.delete": "マイルストーンを削除",
+  "milestone.openActions": "マイルストーン操作を開く",
   "milestone.delete.confirm": "マイルストーン「{name}」を削除しますか？関連タスクは外されます。",
   "milestone.field.name": "名前",
   "milestone.field.description": "説明",

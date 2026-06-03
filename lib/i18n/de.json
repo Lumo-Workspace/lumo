@@ -601,6 +601,7 @@
   "milestone.new": "Neuer Meilenstein",
   "milestone.edit": "Meilenstein bearbeiten",
   "milestone.delete": "Meilenstein löschen",
+  "milestone.openActions": "Meilenstein-Aktionen öffnen",
   "milestone.delete.confirm": "Meilenstein \"{name}\" löschen? Zugehörige Aufgaben werden entkoppelt.",
   "milestone.field.name": "Name",
   "milestone.field.description": "Beschreibung",

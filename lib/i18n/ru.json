@@ -602,6 +602,7 @@
   "milestone.new": "Новая веха",
   "milestone.edit": "Изменить веху",
   "milestone.delete": "Удалить веху",
+  "milestone.openActions": "Открыть действия вехи",
   "milestone.delete.confirm": "Удалить веху «{name}»? Связанные задачи будут отвязаны.",
   "milestone.field.name": "Имя",
   "milestone.field.description": "Описание",
