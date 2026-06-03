@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { tasksClient } from '@/lib/api-client'
+import { StatusIcon } from '../StatusIcon'
 
 interface Props {
   projectId: string
@@ -62,14 +63,14 @@ export function TaskListByMilestone({ projectId, milestoneId }: Props) {
 
   if (tasks.length === 0) {
     return (
-      <div className='rounded border border-zinc-200 dark:border-zinc-800 p-6 text-center text-sm text-zinc-500'>
+      <div className='rounded border border-border p-6 text-center text-sm text-muted-foreground'>
         {intl.formatMessage({ id: 'milestone.tasks.empty' })}
       </div>
     )
   }
 
   return (
-    <div className='rounded border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-800'>
+    <div className='rounded border border-border divide-y divide-border'>
       {tasks.map(t => {
         const ident =
           t.identifier ??
@@ -77,6 +78,7 @@ export function TaskListByMilestone({ projectId, milestoneId }: Props) {
             ? `${t.team.identifier}-${t.number}`
             : t.id.slice(0, 8))
         const statusKey = STATUS_LABEL_KEY[t.status]
+        const done = t.status === 'DONE'
         const href = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}/tasks/${ident}`
         return (
           <Link
@@ -84,9 +86,18 @@ export function TaskListByMilestone({ projectId, milestoneId }: Props) {
             href={href}
             className='flex items-center gap-3 p-3 text-sm hover:bg-muted/50 transition-colors'
           >
-            <span className='font-mono text-xs text-zinc-500'>{ident}</span>
-            <span className='min-w-0 flex-1 truncate'>{t.title}</span>
-            <span className='shrink-0 text-xs text-zinc-500'>
+            <span className='shrink-0'>
+              <StatusIcon status={t.status} />
+            </span>
+            <span className='font-mono text-xs text-muted-foreground'>
+              {ident}
+            </span>
+            <span
+              className={`min-w-0 flex-1 truncate ${done ? 'text-muted-foreground' : ''}`}
+            >
+              {t.title}
+            </span>
+            <span className='shrink-0 text-xs text-muted-foreground'>
               {statusKey ? intl.formatMessage({ id: statusKey }) : t.status}
             </span>
           </Link>

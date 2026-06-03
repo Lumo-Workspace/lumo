@@ -210,9 +210,6 @@ export function MilestoneDetailPage() {
         }
       >
         <div className='space-y-6 p-4 md:p-8 lg:overflow-y-auto'>
-          <h1 className='text-2xl font-semibold text-balance'>
-            {milestone.name}
-          </h1>
           <MilestoneSprintCoverage coverage={milestone.sprintCoverage} />
           <TaskListByMilestone
             projectId={milestone.projectId}
