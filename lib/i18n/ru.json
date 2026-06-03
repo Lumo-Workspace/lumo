@@ -836,6 +836,7 @@
   "sprints.detail.expandSidebar": "Показать детали спринта",
   "board.addTask": "Добавить задачу",
   "sprints.detail.progress": "Прогресс",
+  "sprints.detail.health": "Состояние",
   "sprints.detail.byPriority": "По приоритету",
   "sprints.detail.byMember": "По участнику",
   "sprints.detail.dateStart": "Начало",

@@ -1,11 +1,17 @@
 import { statsRepository } from '@/lib/repositories/stats.repository'
 import {
   aggregateProjectStats,
+  aggregateSprintRisk,
   aggregateWorkspaceStats,
   type ProjectRiskOverride,
 } from '@/lib/summaries/stats'
 import { resolveEffectiveRiskConfig } from '@/lib/summaries/risk'
-import type { TaskSummaryStats, WorkspaceSummaryStats } from '@/types/summary'
+import type {
+  RiskAssessment,
+  TaskSummaryStats,
+  TopBlockers,
+  WorkspaceSummaryStats,
+} from '@/types/summary'
 
 export async function getProjectStats(
   projectId: string,
@@ -23,6 +29,25 @@ export async function getProjectStats(
 
   const config = resolveEffectiveRiskConfig(workspace, project)
   return aggregateProjectStats(projectId, config)
+}
+
+/**
+ * Sprint-dimension risk. Sprints live under a team and carry no risk-config
+ * overrides of their own (no schema change for this), so the effective config
+ * is the workspace baseline. The caller already loaded the sprint and passes
+ * its workspaceId.
+ */
+export async function getSprintRisk(
+  sprintId: string,
+  workspaceId: string
+): Promise<{ risk: RiskAssessment; topBlockers: TopBlockers }> {
+  const workspace =
+    await statsRepository.findWorkspaceWithRiskConfig(workspaceId)
+  if (!workspace)
+    throw Object.assign(new Error('Workspace not found'), { status: 404 })
+
+  const config = resolveEffectiveRiskConfig(workspace, null)
+  return aggregateSprintRisk(sprintId, config)
 }
 
 export async function getWorkspaceStats(

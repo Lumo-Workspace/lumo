@@ -344,6 +344,186 @@ export async function aggregateProjectStats(
   return { ...baseStats, risk, topBlockers }
 }
 
+/**
+ * Sprint-dimension risk. Feeds the sprint's task set into the same risk
+ * engine used for project/workspace stats, but only produces the two outputs
+ * sprints surface today: the risk level and the top blockers. The heavier
+ * member/trend aggregation that `aggregateProjectStats` computes is
+ * intentionally omitted — add it here if a sprint analytics panel needs it.
+ */
+export async function aggregateSprintRisk(
+  sprintId: string,
+  config: RiskConfig
+): Promise<{ risk: RiskAssessment; topBlockers: TopBlockers }> {
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+  const stalledCutoff = new Date(
+    now.getTime() - config.stalledDays * 24 * 60 * 60 * 1000
+  )
+  const stalePrCutoff = new Date(
+    now.getTime() - config.stalePrDays * 24 * 60 * 60 * 1000
+  )
+
+  const [
+    statusGroups,
+    overdueTasks,
+    agentGroups,
+    stalledCandidates,
+    failingAgentTasks,
+    completedRecently,
+    openPrs,
+  ] = await Promise.all([
+    prisma.task.groupBy({
+      by: ['status'],
+      where: { sprintId },
+      _count: { _all: true },
+    }),
+    prisma.task.findMany({
+      where: { sprintId, dueDate: { lt: now }, status: { not: 'DONE' } },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        team: { select: { identifier: true } },
+      },
+    }),
+    prisma.task.groupBy({
+      by: ['agentStatus'],
+      where: { sprintId, agentStatus: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.task.findMany({
+      where: {
+        sprintId,
+        status: { notIn: ['DONE'] },
+        updatedAt: { lt: stalledCutoff },
+      },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        status: true,
+        dueDate: true,
+        updatedAt: true,
+        team: { select: { identifier: true } },
+      },
+    }),
+    prisma.task.findMany({
+      where: { sprintId, agentStatus: 'FAILED' },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        agentStatus: true,
+        team: { select: { identifier: true } },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        sprintId,
+        status: 'DONE',
+        updatedAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+      },
+      select: { updatedAt: true },
+    }),
+    prisma.pullRequest.findMany({
+      where: { task: { sprintId }, state: 'open' },
+      select: { number: true, state: true, createdAt: true },
+    }),
+  ])
+
+  let totalTasks = 0
+  const statusDistribution: Record<string, number> = {}
+  for (const g of statusGroups) {
+    const count = g._count._all
+    statusDistribution[g.status] = count
+    totalTasks += count
+  }
+
+  const agentStats = { total: 0, completed: 0, failed: 0, working: 0 }
+  for (const g of agentGroups as Array<{
+    agentStatus: string | null
+    _count: { _all: number }
+  }>) {
+    const count = g._count._all
+    agentStats.total += count
+    if (g.agentStatus === 'COMPLETED') agentStats.completed += count
+    else if (g.agentStatus === 'FAILED') agentStats.failed += count
+    else if (g.agentStatus === 'WORKING') agentStats.working += count
+  }
+
+  let last7dCompleted = 0
+  let prev7dCompleted = 0
+  for (const t of completedRecently) {
+    if (t.updatedAt >= sevenDaysAgo) last7dCompleted++
+    else if (t.updatedAt >= fourteenDaysAgo) prev7dCompleted++
+  }
+
+  const staleOpenPrCount = openPrs.filter(
+    p => p.createdAt < stalePrCutoff
+  ).length
+
+  const signals: RiskSignals = {
+    stalledTaskCount: stalledCandidates.length,
+    staleOpenPrCount,
+    last7dCompleted,
+    prev7dCompleted,
+  }
+
+  // computeRisk only reads totalTasks, overdueTasks.count and agentStats; the
+  // rest of TaskSummaryStats is filled with empties to satisfy the type.
+  const statsForRisk: TaskSummaryStats = {
+    totalTasks,
+    statusDistribution,
+    priorityDistribution: {},
+    overdueTasks: {
+      count: overdueTasks.length,
+      taskIds: overdueTasks.map(t => t.id),
+    },
+    memberWorkload: [],
+    completionTrend: [],
+    avgCompletionTime: null,
+    subtaskCompletionRate: null,
+    agentStats,
+    prStats: { total: openPrs.length, merged: 0, open: openPrs.length },
+    risk: EMPTY_RISK,
+    topBlockers: EMPTY_BLOCKERS,
+  }
+
+  const risk = computeRisk(statsForRisk, signals, config)
+
+  const topBlockers = collectTopBlockers({
+    tasks: stalledCandidates.map(t => ({
+      id: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      status: t.status,
+      dueDate: t.dueDate,
+      updatedAt: t.updatedAt,
+    })),
+    agents: failingAgentTasks.map(t => ({
+      taskId: t.id,
+      identifier: `${t.team.identifier}-${t.number}`,
+      title: t.title,
+      agentStatus: t.agentStatus,
+    })),
+    prs: openPrs,
+    now,
+    config,
+  })
+
+  // collectTopBlockers only saw the stalled subset; re-populate overdue
+  // blockers from the dedicated overdue query (mirrors aggregateProjectStats).
+  topBlockers.overdueTaskIds = overdueTasks.slice(0, 10).map(t => ({
+    id: t.id,
+    identifier: `${t.team.identifier}-${t.number}`,
+    title: t.title,
+  }))
+
+  return { risk, topBlockers }
+}
+
 export async function aggregateWorkspaceStats(
   workspaceId: string,
   workspaceConfig: RiskConfig,

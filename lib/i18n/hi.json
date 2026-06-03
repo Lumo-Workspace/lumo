@@ -836,6 +836,7 @@
   "sprints.detail.expandSidebar": "स्प्रिंट विवरण दिखाएं",
   "board.addTask": "कार्य जोड़ें",
   "sprints.detail.progress": "प्रगति",
+  "sprints.detail.health": "स्वास्थ्य",
   "sprints.detail.byPriority": "प्राथमिकता के अनुसार",
   "sprints.detail.byMember": "सदस्य के अनुसार",
   "sprints.detail.dateStart": "आरंभ",

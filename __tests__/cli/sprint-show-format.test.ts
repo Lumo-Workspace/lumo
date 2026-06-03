@@ -57,4 +57,58 @@ describe('formatSprintShow', () => {
     expect(out).toContain('Progress:  0 / 0')
     expect(out).not.toContain('LUM-')
   })
+
+  it('omits the Health line entirely when risk is not provided', () => {
+    const out = formatSprintShow(sprint, progress, [task])
+    expect(out).not.toContain('Health:')
+    expect(out).not.toContain('Blockers:')
+  })
+
+  it('renders the health level, reasons, and blockers when provided', () => {
+    const risk = {
+      level: 'at-risk',
+      score: 5,
+      reasons: [
+        { code: 'overdue_ratio_high', detail: '4/10 tasks overdue (40%)' },
+        {
+          code: 'stalled_tasks',
+          detail: '3 tasks with no progress in 7 days',
+        },
+      ],
+    }
+    const topBlockers = {
+      overdueTaskIds: [
+        { id: 't1', identifier: 'LUM-1', title: 'Fix login' },
+        { id: 't8', identifier: 'LUM-8', title: 'Wire API' },
+      ],
+      stalledTaskIds: [{ id: 't5', identifier: 'LUM-5', title: 'Add tests' }],
+      failingAgentTaskIds: [
+        { id: 't9', identifier: 'LUM-9', title: 'Agent task' },
+      ],
+      staleOpenPrNumbers: [12, 15],
+    }
+    const out = formatSprintShow(sprint, progress, [task], risk, topBlockers)
+    expect(out).toContain('Health:    AT-RISK')
+    expect(out).toContain('- 4/10 tasks overdue (40%)')
+    expect(out).toContain('- 3 tasks with no progress in 7 days')
+    expect(out).toContain('Blockers:')
+    expect(out).toContain('LUM-1 Fix login')
+    expect(out).toContain('LUM-8 Wire API')
+    expect(out).toContain('LUM-5 Add tests')
+    expect(out).toContain('LUM-9 Agent task')
+    expect(out).toContain('#12, #15')
+  })
+
+  it('renders the Health line but no Blockers section when all blockers empty', () => {
+    const risk = { level: 'healthy', score: 0, reasons: [] }
+    const topBlockers = {
+      overdueTaskIds: [],
+      stalledTaskIds: [],
+      failingAgentTaskIds: [],
+      staleOpenPrNumbers: [],
+    }
+    const out = formatSprintShow(sprint, progress, [], risk, topBlockers)
+    expect(out).toContain('Health:    HEALTHY')
+    expect(out).not.toContain('Blockers:')
+  })
 })

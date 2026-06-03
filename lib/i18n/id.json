@@ -836,6 +836,7 @@
   "sprints.detail.expandSidebar": "Tampilkan detail sprint",
   "board.addTask": "Tambah tugas",
   "sprints.detail.progress": "Kemajuan",
+  "sprints.detail.health": "Kesehatan",
   "sprints.detail.byPriority": "Menurut prioritas",
   "sprints.detail.byMember": "Menurut anggota",
   "sprints.detail.dateStart": "Mulai",

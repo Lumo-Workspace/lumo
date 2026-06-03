@@ -5,6 +5,7 @@ import { sprintRepository } from '@/lib/repositories'
 import { updateSprintSchema } from '@/lib/validation/sprint.schema'
 import { zodError } from '@/lib/api/helpers'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getSprintRisk } from '@/lib/services/stats.service'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
@@ -29,12 +30,18 @@ export async function GET(req: NextRequest, { params }: Params) {
       identity.clerkId
     )
 
-    const [done, total] = await Promise.all([
+    const [done, total, sprintRisk] = await Promise.all([
       sprintRepository.countTasks(sprintId, { status: 'DONE' }),
       sprintRepository.countTasks(sprintId),
+      getSprintRisk(sprintId, sprint.team.workspaceId),
     ])
 
-    return NextResponse.json({ sprint, progress: { done, total } })
+    return NextResponse.json({
+      sprint,
+      progress: { done, total },
+      risk: sprintRisk.risk,
+      topBlockers: sprintRisk.topBlockers,
+    })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

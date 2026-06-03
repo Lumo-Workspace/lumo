@@ -907,6 +907,7 @@
   "sprints.detail.expandSidebar": "展开冲刺详情",
   "board.addTask": "添加任务",
   "sprints.detail.progress": "进度",
+  "sprints.detail.health": "健康度",
   "sprints.detail.byPriority": "按优先级",
   "sprints.detail.byMember": "按成员",
   "sprints.detail.dateStart": "开始",
