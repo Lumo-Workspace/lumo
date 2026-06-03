@@ -602,6 +602,7 @@
   "milestone.new": "नया मील का पत्थर",
   "milestone.edit": "मील का पत्थर संपादित करें",
   "milestone.delete": "मील का पत्थर हटाएँ",
+  "milestone.openActions": "मील का पत्थर क्रियाएं खोलें",
   "milestone.delete.confirm": "मील का पत्थर \"{name}\" हटाएँ? संबंधित कार्य अनलिंक हो जाएँगे।",
   "milestone.field.name": "नाम",
   "milestone.field.description": "विवरण",

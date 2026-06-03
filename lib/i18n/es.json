@@ -601,6 +601,7 @@
   "milestone.new": "Nuevo hito",
   "milestone.edit": "Editar hito",
   "milestone.delete": "Eliminar hito",
+  "milestone.openActions": "Abrir acciones del hito",
   "milestone.delete.confirm": "¿Eliminar el hito \"{name}\"? Las tareas se desvincularán.",
   "milestone.field.name": "Nombre",
   "milestone.field.description": "Descripción",

@@ -18,7 +18,6 @@ import {
 } from '../../hooks/useMilestone'
 import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { useProjects } from '../../hooks/useProjects'
-import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,6 +28,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { DetailLayout } from '../DetailLayout'
 import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
+import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
 import { MilestoneSprintCoverage } from '../milestones/MilestoneSprintCoverage'
 import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
@@ -152,46 +152,23 @@ export function MilestoneDetailPage() {
   )
 
   const actions = (
-    <div className='flex gap-2'>
-      {!archived ? (
-        <Button variant='outline' onClick={() => setEditing(true)}>
-          {intl.formatMessage({ id: 'milestone.edit' })}
-        </Button>
-      ) : null}
-      {archived ? (
-        <Button
-          variant='outline'
-          disabled={mutating}
-          onClick={() => unarchive.mutate(milestone)}
-        >
-          {intl.formatMessage({ id: 'milestone.unarchive' })}
-        </Button>
-      ) : (
-        <Button
-          variant='outline'
-          disabled={mutating}
-          onClick={() => archive.mutate(milestone)}
-        >
-          {intl.formatMessage({ id: 'milestone.archive' })}
-        </Button>
-      )}
-      <Button
-        variant='outline'
-        disabled={mutating}
-        className='text-red-600 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400'
-        onClick={() => {
-          const ok = window.confirm(
-            intl.formatMessage(
-              { id: 'milestone.delete.confirm' },
-              { name: milestone.name }
-            )
+    <MilestoneActionsMenu
+      archived={archived}
+      disabled={mutating}
+      onEdit={() => setEditing(true)}
+      onArchiveToggle={() =>
+        archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
+      }
+      onDelete={() => {
+        const ok = window.confirm(
+          intl.formatMessage(
+            { id: 'milestone.delete.confirm' },
+            { name: milestone.name }
           )
-          if (ok) deleteMutation.mutate()
-        }}
-      >
-        {intl.formatMessage({ id: 'milestone.delete' })}
-      </Button>
-    </div>
+        )
+        if (ok) deleteMutation.mutate()
+      }}
+    />
   )
 
   return (
