@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useTaskForecast } from '../hooks/useTaskForecast'
 import type { Interval } from '@/lib/forecast/types'
+import type { ApiStatus } from '../types'
 
 function ForecastRow({ label, value }: { label: string; value: string }) {
   return (
@@ -16,10 +17,23 @@ function ForecastRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function ForecastPanel({ taskId }: { taskId: string }) {
+export function ForecastPanel({
+  taskId,
+  status,
+}: {
+  taskId: string
+  status: ApiStatus
+}) {
   const intl = useIntl()
   const [showSources, setShowSources] = useState(false)
-  const { forecast, isLoading, error } = useTaskForecast(taskId)
+  // A delivered task has no forecast to make — skip the fetch (null disables
+  // the query) and render nothing rather than "insufficient data".
+  const isTerminal = status === 'DONE'
+  const { forecast, isLoading, error } = useTaskForecast(
+    isTerminal ? null : taskId
+  )
+
+  if (isTerminal) return null
 
   // Hide entirely while loading or on error — keeps the sidebar quiet.
   if (isLoading || error || !forecast) return null
