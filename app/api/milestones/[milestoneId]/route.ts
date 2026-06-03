@@ -22,7 +22,13 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    return NextResponse.json({ milestone: { ...milestone, taskCounts, health } })
+    const sprintCoverage = await milestoneService.getSprintCoverage(
+      milestoneId,
+      identity.memberId
+    )
+    return NextResponse.json({
+      milestone: { ...milestone, taskCounts, health, sprintCoverage },
+    })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(
