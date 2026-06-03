@@ -135,47 +135,47 @@ export function MilestoneDetailPage() {
   const projectName = project?.name ?? params.projectSlug
   const projectHref = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}`
 
+  // Kebab sits next to the breadcrumb (not in the right-aligned actions slot),
+  // matching the sprint detail page's SprintActionsMenu placement.
   const breadcrumb = (
-    <Breadcrumb>
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href={projectHref}>{projectName}</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{milestone.name}</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
-  )
-
-  const actions = (
-    <MilestoneActionsMenu
-      archived={archived}
-      disabled={mutating}
-      onEdit={() => setEditing(true)}
-      onArchiveToggle={() =>
-        archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
-      }
-      onDelete={() => {
-        const ok = window.confirm(
-          intl.formatMessage(
-            { id: 'milestone.delete.confirm' },
-            { name: milestone.name }
+    <div className='flex items-center gap-1.5'>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={projectHref}>{projectName}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{milestone.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <MilestoneActionsMenu
+        archived={archived}
+        disabled={mutating}
+        onEdit={() => setEditing(true)}
+        onArchiveToggle={() =>
+          archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
+        }
+        onDelete={() => {
+          const ok = window.confirm(
+            intl.formatMessage(
+              { id: 'milestone.delete.confirm' },
+              { name: milestone.name }
+            )
           )
-        )
-        if (ok) deleteMutation.mutate()
-      }}
-    />
+          if (ok) deleteMutation.mutate()
+        }}
+      />
+    </div>
   )
 
   return (
     <>
       <DetailLayout
         breadcrumb={breadcrumb}
-        actions={actions}
         sidebar={
           <MilestoneSidebar
             status={milestone.status}
