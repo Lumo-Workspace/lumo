@@ -5,7 +5,12 @@ import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
+import {
+  milestonesClient,
+  type ApiMilestone,
+  type MilestoneListFilter,
+} from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useMilestones } from '../../hooks/useMilestones'
 import { MilestoneCard } from './MilestoneCard'
@@ -22,44 +27,96 @@ type DialogState =
   | { mode: 'edit'; milestone: ApiMilestone }
   | null
 
+const FILTERS: { key: MilestoneListFilter; labelId: string }[] = [
+  { key: 'active', labelId: 'milestone.filter.active' },
+  { key: 'archived', labelId: 'milestone.filter.archived' },
+  { key: 'all', labelId: 'milestone.filter.all' },
+]
+
 export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
   const intl = useIntl()
   const params = useParams<{ workspaceUrl: string }>()
   const qc = useQueryClient()
 
-  const { milestones, loading } = useMilestones(projectId)
+  const [filter, setFilter] = useState<MilestoneListFilter>('active')
+  const { milestones, loading } = useMilestones(projectId, filter)
   const [dialog, setDialog] = useState<DialogState>(null)
+
+  const invalidate = () =>
+    qc.invalidateQueries({
+      queryKey: queryKeys.milestones.byProject(projectId),
+    })
 
   const deleteMutation = useMutation({
     mutationFn: (m: ApiMilestone) => milestonesClient.delete(m.id),
-    onSuccess: () =>
-      qc.invalidateQueries({
-        queryKey: queryKeys.milestones.byProject(projectId),
-      }),
+    onSuccess: invalidate,
+  })
+  const archiveMutation = useMutation({
+    mutationFn: (m: ApiMilestone) => milestonesClient.archive(m.id),
+    onSuccess: invalidate,
+  })
+  const unarchiveMutation = useMutation({
+    mutationFn: (m: ApiMilestone) => milestonesClient.unarchive(m.id),
+    onSuccess: invalidate,
   })
 
-  if (loading) return null
+  const filterBar = (
+    <div
+      className='inline-flex rounded-md border border-border p-0.5'
+      role='group'
+      aria-label={intl.formatMessage({ id: 'milestone.filter.label' })}
+    >
+      {FILTERS.map(f => (
+        <button
+          key={f.key}
+          type='button'
+          aria-pressed={filter === f.key}
+          onClick={() => setFilter(f.key)}
+          className={cn(
+            'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+            filter === f.key
+              ? 'bg-muted text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {intl.formatMessage({ id: f.labelId })}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div className='space-y-4 p-4 md:p-8'>
-      <div className='flex justify-end'>
+      <div className='flex items-center justify-between gap-2'>
+        {filterBar}
         <Button onClick={() => setDialog({ mode: 'create' })}>
           {intl.formatMessage({ id: 'milestone.new' })}
         </Button>
       </div>
 
-      {milestones.length === 0 ? (
+      {loading ? (
+        <div className='grid gap-3' aria-busy='true'>
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className='h-[88px] animate-pulse rounded-lg border border-border bg-muted/50'
+            />
+          ))}
+        </div>
+      ) : milestones.length === 0 ? (
         <div className='py-12 text-center'>
           <p className='text-lg font-medium'>
             {intl.formatMessage({ id: 'milestone.empty.title' })}
           </p>
-          <Button
-            variant='outline'
-            className='mt-4'
-            onClick={() => setDialog({ mode: 'create' })}
-          >
-            {intl.formatMessage({ id: 'milestone.empty.cta' })}
-          </Button>
+          {filter !== 'archived' && (
+            <Button
+              variant='outline'
+              className='mt-4'
+              onClick={() => setDialog({ mode: 'create' })}
+            >
+              {intl.formatMessage({ id: 'milestone.empty.cta' })}
+            </Button>
+          )}
         </div>
       ) : (
         <div className='grid gap-3'>
@@ -78,6 +135,8 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
                 workspaceUrl={params.workspaceUrl as string}
                 projectSlug={projectSlug}
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
+                onArchive={mm => archiveMutation.mutate(mm)}
+                onUnarchive={mm => unarchiveMutation.mutate(mm)}
                 onDelete={mm => {
                   const ok = window.confirm(
                     intl.formatMessage(

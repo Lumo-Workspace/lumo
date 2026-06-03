@@ -9,7 +9,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Command, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { useMilestones } from '../../hooks/useMilestones'
 
 interface Props {
@@ -36,13 +42,21 @@ export function MilestoneFilterPicker({ projectId, value, onChange }: Props) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant='ghost' size='sm' className='gap-1.5'>
-          <ChevronDown size={14} />
+          <ChevronDown size={14} aria-hidden='true' />
           {selectedLabel}
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-56 p-0' align='end'>
         <Command>
+          <CommandInput
+            placeholder={intl.formatMessage({
+              id: 'milestone.search.placeholder',
+            })}
+          />
           <CommandList>
+            <CommandEmpty>
+              {intl.formatMessage({ id: 'milestone.search.empty' })}
+            </CommandEmpty>
             <CommandItem
               onSelect={() => {
                 onChange(undefined)
@@ -62,6 +76,7 @@ export function MilestoneFilterPicker({ projectId, value, onChange }: Props) {
             {milestones.map(m => (
               <CommandItem
                 key={m.id}
+                value={m.name}
                 onSelect={() => {
                   onChange(m.id)
                   setOpen(false)

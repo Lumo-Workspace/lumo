@@ -1212,5 +1212,18 @@
   "memory.section.steps": "ステップ",
   "memory.section.what": "決定内容",
   "memory.section.rule": "ルール",
-  "memory.section.workflow": "ワークフロー"
+  "memory.section.workflow": "ワークフロー",
+  "milestone.actions": "マイルストーンの操作",
+  "milestone.archive": "アーカイブ",
+  "milestone.unarchive": "アーカイブ解除",
+  "milestone.archived": "アーカイブ済み",
+  "milestone.filter.active": "進行中",
+  "milestone.filter.archived": "アーカイブ済み",
+  "milestone.filter.all": "すべて",
+  "milestone.filter.label": "マイルストーンを絞り込む",
+  "milestone.tasks.empty": "このマイルストーンにはまだタスクがありません",
+  "milestone.save.error": "マイルストーンを保存できませんでした。もう一度お試しください。",
+  "milestone.search.placeholder": "マイルストーンを検索…",
+  "milestone.search.empty": "マイルストーンが見つかりません",
+  "milestone.notFound": "マイルストーンが見つかりません"
 }

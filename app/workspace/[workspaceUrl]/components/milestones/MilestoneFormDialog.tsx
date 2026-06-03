@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   const intl = useIntl()
   const qc = useQueryClient()
   const editing = !!milestone
+  const fieldId = useId()
 
   const [name, setName] = useState(milestone?.name ?? '')
   const [description, setDescription] = useState(milestone?.description ?? '')
@@ -91,6 +93,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   })
 
   const busy = createMutation.isPending || updateMutation.isPending
+  const failed = createMutation.isError || updateMutation.isError
   const submit = () =>
     editing ? updateMutation.mutate() : createMutation.mutate()
 
@@ -106,16 +109,28 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
         </DialogHeader>
         <div className='space-y-3'>
           <div>
-            <label className='text-sm font-medium'>
+            <label
+              htmlFor={`${fieldId}-name`}
+              className='text-sm font-medium'
+            >
               {intl.formatMessage({ id: 'milestone.field.name' })}
             </label>
-            <Input value={name} onChange={e => setName(e.target.value)} />
+            <Input
+              id={`${fieldId}-name`}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              autoFocus
+            />
           </div>
           <div>
-            <label className='text-sm font-medium'>
+            <label
+              htmlFor={`${fieldId}-description`}
+              className='text-sm font-medium'
+            >
               {intl.formatMessage({ id: 'milestone.field.description' })}
             </label>
             <Textarea
+              id={`${fieldId}-description`}
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
@@ -123,14 +138,17 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
           </div>
           {editing && (
             <div>
-              <label className='text-sm font-medium'>
+              <label
+                htmlFor={`${fieldId}-status`}
+                className='text-sm font-medium'
+              >
                 {intl.formatMessage({ id: 'milestone.field.status' })}
               </label>
               <Select
                 value={status}
                 onValueChange={v => setStatus(v as MilestoneStatus)}
               >
-                <SelectTrigger>
+                <SelectTrigger id={`${fieldId}-status`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -145,33 +163,51 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
           )}
           <div className='grid grid-cols-2 gap-3'>
             <div>
-              <label className='text-sm font-medium'>
+              <label
+                htmlFor={`${fieldId}-start`}
+                className='text-sm font-medium'
+              >
                 {intl.formatMessage({ id: 'milestone.field.startDate' })}
               </label>
               <Input
+                id={`${fieldId}-start`}
                 type='date'
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
               />
             </div>
             <div>
-              <label className='text-sm font-medium'>
+              <label
+                htmlFor={`${fieldId}-target`}
+                className='text-sm font-medium'
+              >
                 {intl.formatMessage({ id: 'milestone.field.targetDate' })}
               </label>
               <Input
+                id={`${fieldId}-target`}
                 type='date'
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
               />
             </div>
           </div>
+          {failed && (
+            <p
+              role='alert'
+              aria-live='polite'
+              className='text-sm text-red-600 dark:text-red-400'
+            >
+              {intl.formatMessage({ id: 'milestone.save.error' })}
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant='ghost' onClick={onClose} disabled={busy}>
             {intl.formatMessage({ id: 'common.cancel' })}
           </Button>
           <Button onClick={submit} disabled={busy || name.trim().length === 0}>
-            {intl.formatMessage({ id: 'common.save' })}
+            {busy && <Spinner className='mr-2 size-4' />}
+            {intl.formatMessage({ id: busy ? 'common.saving' : 'common.save' })}
           </Button>
         </DialogFooter>
       </DialogContent>

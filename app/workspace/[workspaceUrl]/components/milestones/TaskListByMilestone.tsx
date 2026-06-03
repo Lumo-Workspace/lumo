@@ -2,6 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { tasksClient } from '@/lib/api-client'
 
 interface Props {
   projectId: string
@@ -21,35 +24,46 @@ interface TasksResponse {
   tasks: TaskRow[]
 }
 
+// Task status enum → existing localized label key.
+const STATUS_LABEL_KEY: Record<string, string> = {
+  TODO: 'status.todo',
+  IN_PROGRESS: 'status.inProgress',
+  IN_REVIEW: 'status.inReview',
+  DONE: 'status.done',
+}
+
 /**
  * Minimal task list scoped to a milestone. Hits the existing project task
- * route with the new `milestoneId` filter. Rendering is intentionally
+ * route with the `milestoneId` filter. Rendering is intentionally
  * lightweight — the full TaskTable is heavy on props for sort/drag/etc.
  * which a milestone detail page doesn't need.
  */
 export function TaskListByMilestone({ projectId, milestoneId }: Props) {
   const intl = useIntl()
+  const params = useParams<{ workspaceUrl: string; projectSlug: string }>()
   const { data: tasks = [], isLoading } = useQuery<TaskRow[]>({
     queryKey: ['tasks', 'byMilestone', projectId, milestoneId],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/projects/${projectId}/tasks?milestoneId=${encodeURIComponent(milestoneId)}`
-      )
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as TasksResponse
+      const data = await tasksClient.listByProject<TasksResponse>(projectId, {
+        milestoneId,
+      })
       return data.tasks
     },
   })
 
-  if (isLoading) return null
+  if (isLoading) {
+    return (
+      <div
+        className='h-24 animate-pulse rounded border border-border bg-muted/50'
+        aria-busy='true'
+      />
+    )
+  }
 
   if (tasks.length === 0) {
     return (
       <div className='rounded border border-zinc-200 dark:border-zinc-800 p-6 text-center text-sm text-zinc-500'>
-        {intl.formatMessage({
-          id: 'milestone.empty.title',
-          defaultMessage: 'No tasks in this milestone yet.',
-        })}
+        {intl.formatMessage({ id: 'milestone.tasks.empty' })}
       </div>
     )
   }
@@ -62,12 +76,20 @@ export function TaskListByMilestone({ projectId, milestoneId }: Props) {
           (t.team?.identifier && t.number
             ? `${t.team.identifier}-${t.number}`
             : t.id.slice(0, 8))
+        const statusKey = STATUS_LABEL_KEY[t.status]
+        const href = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}/tasks/${ident}`
         return (
-          <div key={t.id} className='flex items-center gap-3 p-3 text-sm'>
+          <Link
+            key={t.id}
+            href={href}
+            className='flex items-center gap-3 p-3 text-sm hover:bg-muted/50 transition-colors'
+          >
             <span className='font-mono text-xs text-zinc-500'>{ident}</span>
-            <span className='flex-1'>{t.title}</span>
-            <span className='text-xs uppercase text-zinc-500'>{t.status}</span>
-          </div>
+            <span className='min-w-0 flex-1 truncate'>{t.title}</span>
+            <span className='shrink-0 text-xs text-zinc-500'>
+              {statusKey ? intl.formatMessage({ id: statusKey }) : t.status}
+            </span>
+          </Link>
         )
       })}
     </div>

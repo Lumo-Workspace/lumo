@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Các bước",
   "memory.section.what": "Quyết định",
   "memory.section.rule": "Quy tắc",
-  "memory.section.workflow": "Quy trình"
+  "memory.section.workflow": "Quy trình",
+  "milestone.actions": "Thao tác cột mốc",
+  "milestone.archive": "Lưu trữ",
+  "milestone.unarchive": "Bỏ lưu trữ",
+  "milestone.archived": "Đã lưu trữ",
+  "milestone.filter.active": "Đang hoạt động",
+  "milestone.filter.archived": "Đã lưu trữ",
+  "milestone.filter.all": "Tất cả",
+  "milestone.filter.label": "Lọc cột mốc",
+  "milestone.tasks.empty": "Chưa có công việc nào trong cột mốc này",
+  "milestone.save.error": "Không thể lưu cột mốc. Vui lòng thử lại.",
+  "milestone.search.placeholder": "Tìm cột mốc…",
+  "milestone.search.empty": "Không tìm thấy cột mốc",
+  "milestone.notFound": "Không tìm thấy cột mốc"
 }

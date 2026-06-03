@@ -3,6 +3,10 @@
 const en: Record<string, string> = {
   'milestone.edit': 'Edit milestone',
   'milestone.delete': 'Delete milestone',
+  'milestone.actions': 'Milestone actions',
+  'milestone.archive': 'Archive',
+  'milestone.unarchive': 'Unarchive',
+  'milestone.archived': 'Archived',
   'milestone.status.ACTIVE': 'Active',
   'milestone.progress': '{done}/{total} tasks',
   'milestone.targetDate.none': 'No target date',
@@ -50,6 +54,8 @@ function renderCard(m: ApiMilestone) {
       projectSlug='lumo'
       onEdit={() => {}}
       onDelete={() => {}}
+      onArchive={() => {}}
+      onUnarchive={() => {}}
     />
   )
 }
@@ -65,5 +71,22 @@ describe('MilestoneCard health dot', () => {
     expect(screen.queryByLabelText('On track')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('At risk')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Overdue')).not.toBeInTheDocument()
+  })
+})
+
+describe('MilestoneCard archive state', () => {
+  it('shows an Archived badge when the milestone is archived', () => {
+    renderCard(milestone({ archivedAt: '2026-06-01T00:00:00.000Z' }))
+    expect(screen.getByText('Archived')).toBeInTheDocument()
+  })
+
+  it('shows no Archived badge for an active milestone', () => {
+    renderCard(milestone({ archivedAt: null }))
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument()
+  })
+
+  it('labels the actions trigger for screen readers', () => {
+    renderCard(milestone())
+    expect(screen.getByLabelText('Milestone actions')).toBeInTheDocument()
   })
 })

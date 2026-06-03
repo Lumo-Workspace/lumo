@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Schritte",
   "memory.section.what": "Entscheidung",
   "memory.section.rule": "Regel",
-  "memory.section.workflow": "Ablauf"
+  "memory.section.workflow": "Ablauf",
+  "milestone.actions": "Meilenstein-Aktionen",
+  "milestone.archive": "Archivieren",
+  "milestone.unarchive": "Wiederherstellen",
+  "milestone.archived": "Archiviert",
+  "milestone.filter.active": "Aktiv",
+  "milestone.filter.archived": "Archiviert",
+  "milestone.filter.all": "Alle",
+  "milestone.filter.label": "Meilensteine filtern",
+  "milestone.tasks.empty": "Noch keine Aufgaben in diesem Meilenstein",
+  "milestone.save.error": "Meilenstein konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "milestone.search.placeholder": "Meilensteine suchen…",
+  "milestone.search.empty": "Keine Meilensteine gefunden",
+  "milestone.notFound": "Meilenstein nicht gefunden"
 }

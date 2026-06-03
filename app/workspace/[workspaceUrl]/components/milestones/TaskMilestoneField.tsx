@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useMilestones } from '../../hooks/useMilestones'
+import { useFormatDate } from '../../hooks/useFormatDate'
 
 interface Props {
   projectId: string
@@ -18,6 +19,14 @@ interface Props {
 }
 
 const NONE_VALUE = '__none__'
+
+// Calendar date stored at UTC midnight — format in UTC to avoid day drift.
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+}
 
 /**
  * Right-rail selector for a task's milestone. Filters out CANCELLED
@@ -30,6 +39,7 @@ export function TaskMilestoneField({
   triggerClassName,
 }: Props) {
   const intl = useIntl()
+  const { fmtDate } = useFormatDate()
   const { milestones } = useMilestones(projectId)
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
@@ -51,7 +61,7 @@ export function TaskMilestoneField({
         {selectable.map(m => (
           <SelectItem key={m.id} value={m.id}>
             {m.name}
-            {m.targetDate ? ` · ${m.targetDate.slice(0, 10)}` : ''}
+            {m.targetDate ? ` · ${fmtDate(m.targetDate, DATE_OPTS)}` : ''}
           </SelectItem>
         ))}
       </SelectContent>

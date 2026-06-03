@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Шаги",
   "memory.section.what": "Решение",
   "memory.section.rule": "Правило",
-  "memory.section.workflow": "Рабочий процесс"
+  "memory.section.workflow": "Рабочий процесс",
+  "milestone.actions": "Действия с вехой",
+  "milestone.archive": "Архивировать",
+  "milestone.unarchive": "Разархивировать",
+  "milestone.archived": "В архиве",
+  "milestone.filter.active": "Активные",
+  "milestone.filter.archived": "В архиве",
+  "milestone.filter.all": "Все",
+  "milestone.filter.label": "Фильтр вех",
+  "milestone.tasks.empty": "В этой вехе пока нет задач",
+  "milestone.save.error": "Не удалось сохранить веху. Повторите попытку.",
+  "milestone.search.placeholder": "Поиск вех…",
+  "milestone.search.empty": "Вехи не найдены",
+  "milestone.notFound": "Веха не найдена"
 }

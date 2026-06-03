@@ -40,11 +40,16 @@ export interface MilestoneUpdateInput {
   targetDate?: string | null
 }
 
+/** Which milestones a list request returns, by archive state. */
+export type MilestoneListFilter = 'active' | 'archived' | 'all'
+
 export const milestonesClient = {
-  listByProject(projectId: string) {
-    return apiFetch<{ milestones: ApiMilestone[] }>(
-      API.milestones.listByProject(projectId)
-    )
+  listByProject(projectId: string, filter: MilestoneListFilter = 'active') {
+    const base = API.milestones.listByProject(projectId)
+    // `active` is the server default — omit the param so the URL (and its
+    // query cache key) stays stable for the common case.
+    const url = filter === 'active' ? base : `${base}?filter=${filter}`
+    return apiFetch<{ milestones: ApiMilestone[] }>(url)
   },
 
   getById(milestoneId: string) {
@@ -84,5 +89,19 @@ export const milestonesClient = {
       method: 'PATCH',
       body: { orderedIds },
     })
+  },
+
+  archive(milestoneId: string) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.archive(milestoneId),
+      { method: 'POST' }
+    )
+  },
+
+  unarchive(milestoneId: string) {
+    return apiFetch<{ milestone: ApiMilestone }>(
+      API.milestones.unarchive(milestoneId),
+      { method: 'POST' }
+    )
   },
 }

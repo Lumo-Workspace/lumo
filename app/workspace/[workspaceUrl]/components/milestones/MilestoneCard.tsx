@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import type { ApiMilestone } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
+import { useFormatDate } from '../../hooks/useFormatDate'
 
 interface Props {
   milestone: ApiMilestone
@@ -20,6 +21,8 @@ interface Props {
   projectSlug: string
   onEdit: (m: ApiMilestone) => void
   onDelete: (m: ApiMilestone) => void
+  onArchive: (m: ApiMilestone) => void
+  onUnarchive: (m: ApiMilestone) => void
 }
 
 const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
@@ -38,6 +41,15 @@ const HEALTH_DOT: Record<MilestoneHealth, string> = {
   overdue: 'bg-red-500',
 }
 
+// Target/start dates are calendar dates stored at UTC midnight — format in UTC
+// so the displayed day matches what was entered, regardless of viewer's zone.
+const DATE_OPTS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+}
+
 export function MilestoneCard({
   milestone,
   progress,
@@ -45,14 +57,18 @@ export function MilestoneCard({
   projectSlug,
   onEdit,
   onDelete,
+  onArchive,
+  onUnarchive,
 }: Props) {
   const intl = useIntl()
+  const { fmtDate } = useFormatDate()
   const href = `/workspace/${workspaceUrl}/projects/${projectSlug}/milestones/${milestone.slug}`
+  const archived = !!milestone.archivedAt
 
   return (
     <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40 transition-colors'>
       <div className='flex items-start justify-between gap-2'>
-        <div className='flex flex-1 items-center gap-2'>
+        <div className='flex min-w-0 flex-1 items-center gap-2'>
           {milestone.health && (
             <span
               className={`h-[7px] w-[7px] shrink-0 rounded-full ${HEALTH_DOT[milestone.health]}`}
@@ -64,21 +80,40 @@ export function MilestoneCard({
               })}
             />
           )}
-          <Link href={href} className='font-medium hover:underline'>
+          <Link href={href} className='truncate font-medium hover:underline'>
             {milestone.name}
           </Link>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='ghost' size='icon' className='h-7 w-7'>
-              <MoreHorizontal size={16} />
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-7 w-7'
+              aria-label={intl.formatMessage({ id: 'milestone.actions' })}
+            >
+              <MoreHorizontal size={16} aria-hidden='true' />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end'>
-            <DropdownMenuItem onClick={() => onEdit(milestone)}>
-              {intl.formatMessage({ id: 'milestone.edit' })}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(milestone)}>
+            {!archived && (
+              <DropdownMenuItem onClick={() => onEdit(milestone)}>
+                {intl.formatMessage({ id: 'milestone.edit' })}
+              </DropdownMenuItem>
+            )}
+            {archived ? (
+              <DropdownMenuItem onClick={() => onUnarchive(milestone)}>
+                {intl.formatMessage({ id: 'milestone.unarchive' })}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => onArchive(milestone)}>
+                {intl.formatMessage({ id: 'milestone.archive' })}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className='text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400'
+              onClick={() => onDelete(milestone)}
+            >
               {intl.formatMessage({ id: 'milestone.delete' })}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -90,9 +125,14 @@ export function MilestoneCard({
         >
           {intl.formatMessage({ id: `milestone.status.${milestone.status}` })}
         </span>
+        {archived && (
+          <span className='inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.archived' })}
+          </span>
+        )}
         <span>
           {milestone.targetDate
-            ? milestone.targetDate.slice(0, 10)
+            ? fmtDate(milestone.targetDate, DATE_OPTS)
             : intl.formatMessage({ id: 'milestone.targetDate.none' })}
         </span>
         <span>
