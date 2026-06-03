@@ -38,13 +38,26 @@ export function useSentryIntegration(): UseSentryIntegrationReturn {
     retry: false,
   })
 
-  const disconnectMutation = useMutation<unknown, Error>({
+  const disconnectMutation = useMutation<
+    unknown,
+    Error,
+    void,
+    { prev: SentryStatus | undefined }
+  >({
     mutationFn: () => sentryApi.disconnect(workspaceUrl),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<SentryStatus>(queryKey)
       queryClient.setQueryData<SentryStatus>(queryKey, { connected: false })
+      return { prev }
+    },
+    onSuccess: () => {
       toast.success(intl.formatMessage({ id: 'sentry.disconnectSuccess' }))
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.prev !== undefined) {
+        queryClient.setQueryData(queryKey, context.prev)
+      }
       toast.error(intl.formatMessage({ id: 'sentry.disconnectFailed' }))
     },
     onSettled: () => {
