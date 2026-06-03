@@ -15,6 +15,7 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildSessionStartSections: jest.fn(),
     buildReviewTodosSectionForTask: jest.fn().mockResolvedValue(''),
     buildPreviousSessionRecoveryForTask: jest.fn().mockResolvedValue(null),
+    buildLayer2ReviewSectionForTask: jest.fn().mockResolvedValue(''),
   },
 }))
 
