@@ -49,6 +49,17 @@ describe('useSprintsForTeam — enabled gating (LUM-190)', () => {
     expect(mockList).not.toHaveBeenCalled()
   })
 
+  // A deferred (disabled) query is `isPending` but not actually fetching;
+  // `isLoading` must read false so the field skeleton (LUM-191) isn't pinned on.
+  it('reports isLoading=false while deferred (enabled=false)', async () => {
+    const { result } = renderHook(
+      () => useSprintsForTeam('team_1', 'ACTIVE', false),
+      { wrapper: Wrapper }
+    )
+    await new Promise(r => setTimeout(r, 0))
+    expect(result.current.isLoading).toBe(false)
+  })
+
   it('fetches once enabled flips to true (dropdown opened)', async () => {
     mockList.mockResolvedValue({ sprints: [] })
 

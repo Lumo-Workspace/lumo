@@ -106,7 +106,10 @@ export function useSprintsForTeam(
     sprints: query.data,
     setSprints,
     error: query.error ?? undefined,
-    isLoading: query.isPending && !!teamId,
+    // `isLoading` (not `isPending`) so a deferred/disabled query — gated off
+    // until the dropdown opens (LUM-190) — reads as not-loading instead of a
+    // perpetual pending, which would otherwise pin the field skeleton (LUM-191).
+    isLoading: query.isLoading && !!teamId,
     refetch: query.refetch,
   }
 }

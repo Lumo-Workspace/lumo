@@ -42,7 +42,10 @@ export function useMilestones(
 
   return {
     milestones: query.data ?? [],
-    loading: query.isPending && !!projectId,
+    // `isLoading` (not `isPending`) so a deferred/disabled query — gated off
+    // until the dropdown opens (LUM-190) — reads as not-loading instead of a
+    // perpetual pending, which would otherwise pin the field skeleton (LUM-191).
+    loading: query.isLoading && !!projectId,
     error: query.error
       ? ((query.error as Error).message ?? 'Could not load milestones.')
       : null,
