@@ -19,7 +19,7 @@ let mockMilestones: Array<{
 }> = []
 
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMilestones', () => ({
-  useMilestones: () => ({ milestones: mockMilestones }),
+  useMilestones: jest.fn(() => ({ milestones: mockMilestones })),
 }))
 
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFormatDate', () => ({
@@ -28,6 +28,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFormatDate', () => ({
 
 import { render, screen } from '@testing-library/react'
 import { TaskMilestoneField } from '@/app/workspace/[workspaceUrl]/components/milestones/TaskMilestoneField'
+import { useMilestones } from '@/app/workspace/[workspaceUrl]/hooks/useMilestones'
+
+const useMilestonesMock = useMilestones as unknown as jest.Mock
 
 function renderField(
   props: Partial<React.ComponentProps<typeof TaskMilestoneField>> = {}
@@ -45,6 +48,17 @@ function renderField(
 describe('TaskMilestoneField', () => {
   beforeEach(() => {
     mockMilestones = []
+    useMilestonesMock.mockClear()
+  })
+
+  // LUM-190: the option list is a client request the first paint doesn't
+  // need — the trigger name comes from the SSR-prefetched object. The query
+  // must stay disabled (enabled=false) until the dropdown is opened.
+  it('keeps the option-list query disabled until the dropdown opens', () => {
+    renderField({ value: 'ms_1', milestone: { id: 'ms_1', name: 'X' } })
+    const calls = useMilestonesMock.mock.calls
+    const lastCall = calls[calls.length - 1]
+    expect(lastCall?.[2]).toBe(false)
   })
 
   // Regression guard for LUM-189: on first paint the client option list is
