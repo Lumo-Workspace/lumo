@@ -1238,5 +1238,15 @@
   "milestone.save.error": "Meilenstein konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "milestone.search.placeholder": "Meilensteine suchen…",
   "milestone.search.empty": "Keine Meilensteine gefunden",
-  "milestone.notFound": "Meilenstein nicht gefunden"
+  "milestone.notFound": "Meilenstein nicht gefunden",
+  "forecast.title": "Lieferprognose",
+  "forecast.basis": "Basierend auf {count, plural, one {# ähnlichen Aufgabe} other {# ähnlichen Aufgaben}}",
+  "forecast.metricIterations": "Iterationen",
+  "forecast.metricPrs": "Gemergte PRs",
+  "forecast.metricCycle": "Zyklus",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} T ({low}–{high} T)",
+  "forecast.cycleHours": "{median} Std. ({low}–{high} Std.)",
+  "forecast.insufficient": "Nicht genügend Verlauf für eine zuverlässige Prognose",
+  "forecast.viewSources": "Referenzaufgaben anzeigen"
 }

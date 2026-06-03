@@ -1238,5 +1238,15 @@
   "milestone.save.error": "Tidak dapat menyimpan tonggak. Sila cuba lagi.",
   "milestone.search.placeholder": "Cari tonggak…",
   "milestone.search.empty": "Tiada tonggak dijumpai",
-  "milestone.notFound": "Tonggak tidak dijumpai"
+  "milestone.notFound": "Tonggak tidak dijumpai",
+  "forecast.title": "Ramalan penghantaran",
+  "forecast.basis": "Berdasarkan {count} tugasan serupa yang selesai",
+  "forecast.metricIterations": "Lelaran",
+  "forecast.metricPrs": "PR digabung",
+  "forecast.metricCycle": "Kitaran",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
+  "forecast.cycleHours": "{median} jam ({low}–{high} jam)",
+  "forecast.insufficient": "Sejarah tidak mencukupi untuk ramalan yang boleh dipercayai",
+  "forecast.viewSources": "Lihat tugasan rujukan"
 }
