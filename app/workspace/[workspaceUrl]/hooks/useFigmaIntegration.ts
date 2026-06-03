@@ -31,15 +31,28 @@ export function useFigmaIntegration(): UseFigmaIntegrationReturn {
     retry: false,
   })
 
-  const disconnectMutation = useMutation<unknown, Error>({
+  const disconnectMutation = useMutation<
+    unknown,
+    Error,
+    void,
+    { prev: FigmaIntegrationStatus | undefined }
+  >({
     mutationFn: () => figmaApi.disconnect(workspaceUrl),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<FigmaIntegrationStatus>(queryKey)
       queryClient.setQueryData<FigmaIntegrationStatus>(queryKey, {
         connected: false,
       })
+      return { prev }
+    },
+    onSuccess: () => {
       toast.success(intl.formatMessage({ id: 'figma.disconnectSuccess' }))
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.prev !== undefined) {
+        queryClient.setQueryData(queryKey, context.prev)
+      }
       toast.error(intl.formatMessage({ id: 'figma.disconnectFailed' }))
     },
     onSettled: () => {
