@@ -558,4 +558,5 @@ export const updateMilestoneSchema = z.object({
 
 export const listMilestonesQuerySchema = z.object({
   filter: z.enum(['active', 'archived', 'all']).default('active'),
+  search: z.string().trim().max(120).optional(),
 })

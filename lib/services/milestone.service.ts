@@ -50,10 +50,11 @@ export const milestoneService = {
   async listMilestones(
     projectId: string,
     memberId: string,
-    filter: MilestoneListFilter = 'active'
+    filter: MilestoneListFilter = 'active',
+    search?: string
   ) {
     await projectService.getProject(projectId, memberId)
-    return milestoneRepository.findByProject(projectId, filter)
+    return milestoneRepository.findByProject(projectId, filter, search)
   },
 
   async getMilestone(milestoneId: string, memberId: string) {

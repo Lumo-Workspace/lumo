@@ -644,6 +644,10 @@ milestoneCmd
   .option('--project <ref>', 'Project name or slug')
   .option('--archived', 'Show only archived milestones')
   .option('--all', 'Show both archived and non-archived milestones')
+  .option(
+    '--search <text>',
+    'Filter by name/description substring (case-insensitive)'
+  )
   .action(wrap(options => milestoneList(options as Record<string, string>)))
 
 milestoneCmd

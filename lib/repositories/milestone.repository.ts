@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import type { Milestone, TaskStatus } from '@prisma/client'
+import type { Milestone, Prisma, TaskStatus } from '@prisma/client'
 
 type MilestoneUpdate = Partial<
   Pick<
@@ -29,14 +29,19 @@ export const milestoneRepository = {
 
   async findByProject(
     projectId: string,
-    filter: MilestoneListFilter = 'active'
+    filter: MilestoneListFilter = 'active',
+    search?: string
   ) {
-    const where: {
-      projectId: string
-      archivedAt?: null | { not: null }
-    } = { projectId }
+    const where: Prisma.MilestoneWhereInput = { projectId }
     if (filter === 'active') where.archivedAt = null
     else if (filter === 'archived') where.archivedAt = { not: null }
+    const term = search?.trim()
+    if (term) {
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+      ]
+    }
     return prisma.milestone.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
