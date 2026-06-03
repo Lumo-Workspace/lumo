@@ -116,8 +116,7 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
     mutationFn: linkId => webLinksClient.remove(taskId, linkId),
     onMutate: async linkId => {
       await queryClient.cancelQueries({ queryKey })
-      const previous =
-        queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
+      const previous = queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
       queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
         (prev ?? []).filter(l => l.id !== linkId)
       )
@@ -125,7 +124,10 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
     },
     onError: (_err, _linkId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData<OptimisticWebLink[]>(queryKey, context.previous)
+        queryClient.setQueryData<OptimisticWebLink[]>(
+          queryKey,
+          context.previous
+        )
       }
     },
   })
@@ -142,8 +144,7 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
     },
     onMutate: async linkId => {
       await queryClient.cancelQueries({ queryKey })
-      const previous =
-        queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
+      const previous = queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
       queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
         (prev ?? []).map(l => (l.id === linkId ? { ...l, loading: true } : l))
       )
@@ -156,7 +157,10 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
     },
     onError: (_err, _linkId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData<OptimisticWebLink[]>(queryKey, context.previous)
+        queryClient.setQueryData<OptimisticWebLink[]>(
+          queryKey,
+          context.previous
+        )
       }
     },
   })

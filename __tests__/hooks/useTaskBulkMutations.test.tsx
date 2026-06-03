@@ -137,10 +137,11 @@ describe('useTaskBulkMutations — bulk update', () => {
 
   it('mirrors the patch into the per-task detail cache', async () => {
     mockUpdate.mockResolvedValue({})
-    queryClient.setQueryData<TaskDetail>(
-      queryKeys.tasks.detail('a'),
-      { id: 'a', status: 'TODO', priority: 'MEDIUM' } as TaskDetail
-    )
+    queryClient.setQueryData<TaskDetail>(queryKeys.tasks.detail('a'), {
+      id: 'a',
+      status: 'TODO',
+      priority: 'MEDIUM',
+    } as TaskDetail)
 
     const { result } = renderHook(
       () => useHarness([makeTask({ id: 'a' })], ['a']),
@@ -159,10 +160,11 @@ describe('useTaskBulkMutations — bulk update', () => {
 
   it('rolls back the optimistic patch and refetches when a row fails', async () => {
     mockUpdate.mockRejectedValue(new Error('nope'))
-    queryClient.setQueryData<TaskDetail>(
-      queryKeys.tasks.detail('a'),
-      { id: 'a', status: 'TODO', priority: 'MEDIUM' } as TaskDetail
-    )
+    queryClient.setQueryData<TaskDetail>(queryKeys.tasks.detail('a'), {
+      id: 'a',
+      status: 'TODO',
+      priority: 'MEDIUM',
+    } as TaskDetail)
 
     const { result } = renderHook(
       () => useHarness([makeTask({ id: 'a', status: 'TODO' })], ['a']),
