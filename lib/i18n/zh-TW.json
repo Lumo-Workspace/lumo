@@ -747,6 +747,7 @@
   "milestone.new": "新增里程碑",
   "milestone.edit": "編輯里程碑",
   "milestone.delete": "刪除里程碑",
+  "milestone.openActions": "開啟里程碑操作",
   "milestone.delete.confirm": "確認刪除里程碑「{name}」？其下的任務將解除關聯。",
   "milestone.field.name": "名稱",
   "milestone.field.description": "描述",

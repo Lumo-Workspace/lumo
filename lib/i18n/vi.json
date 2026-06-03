@@ -602,6 +602,7 @@
   "milestone.new": "Cột mốc mới",
   "milestone.edit": "Sửa cột mốc",
   "milestone.delete": "Xoá cột mốc",
+  "milestone.openActions": "Mở thao tác cột mốc",
   "milestone.delete.confirm": "Xoá cột mốc \"{name}\"? Các nhiệm vụ sẽ bị bỏ liên kết.",
   "milestone.field.name": "Tên",
   "milestone.field.description": "Mô tả",

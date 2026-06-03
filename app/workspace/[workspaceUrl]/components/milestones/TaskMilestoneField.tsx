@@ -6,7 +6,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import { FieldValueSkeleton } from '../fields'
 import { useMilestones } from '../../hooks/useMilestones'
@@ -17,6 +16,12 @@ interface Props {
   value: string | null
   onChange: (milestoneId: string | null) => void
   triggerClassName?: string
+  /**
+   * SSR-prefetched name of the currently-bound milestone. Lets the trigger
+   * render the correct name on first paint instead of flickering blank until
+   * the client option list (`useMilestones`) loads. See LUM-189.
+   */
+  milestone?: { id: string; name: string } | null
 }
 
 const NONE_VALUE = '__none__'
@@ -38,6 +43,7 @@ export function TaskMilestoneField({
   value,
   onChange,
   triggerClassName,
+  milestone,
 }: Props) {
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
@@ -45,10 +51,17 @@ export function TaskMilestoneField({
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
 
-  // 兜底防抖 (LUM-191): a bound milestone's name is resolved from the loaded
-  // option list, so while that list is still loading the trigger would render
-  // empty and then pop the name in. Reserve the space with a skeleton instead.
-  if (loading && value !== null) {
+  // Trigger label: prefer the loaded option (carries targetDate), fall back to
+  // the SSR-prefetched name so the name shows on first paint, else placeholder.
+  const loaded = value ? milestones.find(m => m.id === value) : undefined
+  const triggerName = loaded?.name ?? (value ? (milestone?.name ?? null) : null)
+
+  // 兜底防抖 (LUM-191): if a bound milestone's name can't be resolved yet —
+  // neither the loaded option nor the SSR-prefetched fallback (LUM-189) — and
+  // the option list is still loading, reserve the space with a skeleton instead
+  // of showing the placeholder and then popping the name in. Only fires when no
+  // name is available, so it never hides an already-resolvable name.
+  if (loading && value !== null && triggerName === null) {
     return <FieldValueSkeleton />
   }
 
@@ -58,9 +71,18 @@ export function TaskMilestoneField({
       onValueChange={v => onChange(v === NONE_VALUE ? null : v)}
     >
       <SelectTrigger className={triggerClassName}>
-        <SelectValue
-          placeholder={intl.formatMessage({ id: 'task.field.milestone' })}
-        />
+        {triggerName ? (
+          <span className='truncate'>
+            {triggerName}
+            {loaded?.targetDate
+              ? ` · ${fmtDate(loaded.targetDate, DATE_OPTS)}`
+              : ''}
+          </span>
+        ) : (
+          <span className='text-muted-foreground'>
+            {intl.formatMessage({ id: 'task.field.milestone' })}
+          </span>
+        )}
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE_VALUE}>

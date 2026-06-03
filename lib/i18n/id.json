@@ -602,6 +602,7 @@
   "milestone.new": "Tonggak baru",
   "milestone.edit": "Sunting tonggak",
   "milestone.delete": "Hapus tonggak",
+  "milestone.openActions": "Buka tindakan tonggak",
   "milestone.delete.confirm": "Hapus tonggak \"{name}\"? Tugas terkait akan dilepas.",
   "milestone.field.name": "Nama",
   "milestone.field.description": "Deskripsi",

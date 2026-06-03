@@ -127,6 +127,13 @@ const TASK_DETAIL_INCLUDE = {
       name: true,
     },
   },
+  milestone: {
+    select: {
+      id: true,
+      status: true,
+      name: true,
+    },
+  },
 } as const
 
 /** Include for task update operations (lighter than full detail). */

@@ -179,6 +179,7 @@ export function TaskDetailSidebar({
                 <TaskMilestoneField
                   projectId={task.projectId}
                   value={task.milestoneId ?? null}
+                  milestone={task.milestone ?? null}
                   onChange={v => onPatch({ milestoneId: v })}
                   triggerClassName={FIELD_TRIGGER_CLS}
                 />

@@ -601,6 +601,7 @@
   "milestone.new": "Nouveau jalon",
   "milestone.edit": "Modifier le jalon",
   "milestone.delete": "Supprimer le jalon",
+  "milestone.openActions": "Ouvrir les actions du jalon",
   "milestone.delete.confirm": "Supprimer le jalon « {name} » ? Les tâches associées seront détachées.",
   "milestone.field.name": "Nom",
   "milestone.field.description": "Description",

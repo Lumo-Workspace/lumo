@@ -601,6 +601,7 @@
   "milestone.new": "새 마일스톤",
   "milestone.edit": "마일스톤 편집",
   "milestone.delete": "마일스톤 삭제",
+  "milestone.openActions": "마일스톤 작업 열기",
   "milestone.delete.confirm": "마일스톤 \"{name}\"을(를) 삭제할까요? 관련 작업의 연결이 해제됩니다.",
   "milestone.field.name": "이름",
   "milestone.field.description": "설명",
