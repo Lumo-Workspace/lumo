@@ -27,6 +27,20 @@ export interface MilestoneShowData {
   }
   /** Target-date health light. Server-enriched; null when no light applies. */
   health?: MilestoneHealth | null | undefined
+  /** Read-only sprint coverage derived from the milestone's tasks. */
+  sprintCoverage?:
+    | {
+        sprints: Array<{
+          sprintId: string
+          number: number
+          name: string
+          status: 'DRAFT' | 'ACTIVE' | 'CLOSED'
+          taskCount: number
+          doneCount: number
+        }>
+        unsprinted: number
+      }
+    | undefined
 }
 
 const HEALTH_LABEL: Record<MilestoneHealth, string> = {
@@ -41,6 +55,33 @@ function fmtDate(iso: string | null): string {
 
 function fmtHealth(health: MilestoneHealth | null | undefined): string {
   return health ? HEALTH_LABEL[health] : '-'
+}
+
+function sprintCoverageLines(
+  coverage: MilestoneShowData['sprintCoverage']
+): string[] {
+  if (!coverage) return []
+  if (coverage.sprints.length === 0) {
+    return ['', 'Sprint coverage: (no sprint coverage)']
+  }
+  const numW = Math.max(...coverage.sprints.map(s => `#${s.number}`.length))
+  const statusW = Math.max(...coverage.sprints.map(s => s.status.length))
+  const nameW = Math.max(
+    ...coverage.sprints.map(s => sanitizeField(s.name).length)
+  )
+  const rows = coverage.sprints.map(s => {
+    const num = `#${s.number}`.padEnd(numW)
+    const status = s.status.padEnd(statusW)
+    const name = sanitizeField(s.name).padEnd(nameW)
+    return `  ${num}  ${status}  ${name}   ${s.doneCount}/${s.taskCount} done`
+  })
+  if (coverage.unsprinted > 0) {
+    const label = '未排期'.padEnd(numW + 2 + statusW + 2 + nameW)
+    rows.push(
+      `  ${label}   ${coverage.unsprinted} task${coverage.unsprinted === 1 ? '' : 's'}`
+    )
+  }
+  return ['', 'Sprint coverage:', ...rows]
 }
 
 export function formatMilestoneShow(
@@ -65,6 +106,7 @@ export function formatMilestoneShow(
     ``,
     `Tasks:        ${total} total (TODO ${m.taskCounts.TODO} / IN_PROGRESS ${m.taskCounts.IN_PROGRESS} / IN_REVIEW ${m.taskCounts.IN_REVIEW} / DONE ${m.taskCounts.DONE})`,
   ]
+  lines.push(...sprintCoverageLines(m.sprintCoverage))
   if (tasks.length > 0) {
     lines.push('', formatTaskListTable(tasks))
   }
@@ -140,6 +182,7 @@ export async function milestoneShow(
       projectId: string
       taskCounts: MilestoneShowData['taskCounts']
       health?: MilestoneHealth | null
+      sprintCoverage?: MilestoneShowData['sprintCoverage']
     }
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
@@ -172,6 +215,7 @@ export async function milestoneShow(
         projectName,
         taskCounts: milestone.taskCounts,
         health: milestone.health,
+        sprintCoverage: milestone.sprintCoverage,
       },
       tasks
     ) + '\n'

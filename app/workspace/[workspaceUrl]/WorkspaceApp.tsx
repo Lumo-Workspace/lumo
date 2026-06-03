@@ -56,11 +56,6 @@ export default function DashboardApp() {
     null
   )
 
-  const [pendingProjectSlug] = useState<string | undefined>(() => {
-    if (typeof window === 'undefined') return undefined
-    return pathToPage(window.location.pathname, workspaceUrl).projectSlug
-  })
-
   // ─── Documents ─────────────────────────────────────────────────────────────
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     () => {
@@ -260,8 +255,6 @@ export default function DashboardApp() {
     workspaceUrl,
     pathname,
     projects,
-    pendingProjectSlug,
-    currentPage,
     selectedProject,
     setCurrentPage,
     setSelectedProject,

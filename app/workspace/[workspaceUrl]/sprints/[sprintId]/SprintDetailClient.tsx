@@ -44,10 +44,8 @@ export function SprintDetailClient({
   // The `sprintId` segment is now the per-team sprint number (e.g. `1`).
   const parsedNumber = Number(sprintId)
   const sprintNumber = Number.isInteger(parsedNumber) ? parsedNumber : null
-  const { sprint, progress, isLoading, error, refetch } = useSprintByNumber(
-    workspaceUrl,
-    sprintNumber
-  )
+  const { sprint, progress, risk, topBlockers, isLoading, error, refetch } =
+    useSprintByNumber(workspaceUrl, sprintNumber)
   const { tasks, refetch: refetchTasks } = useSprintTasks(sprint?.id ?? null)
   const { members, fetchMembers } = useMembers()
   const { projects, fetchProjects } = useProjects()
@@ -150,6 +148,8 @@ export function SprintDetailClient({
       <SprintSidebar
         sprint={sprint}
         progress={progress ?? { done: 0, total: 0 }}
+        risk={risk ?? null}
+        topBlockers={topBlockers ?? null}
         tasks={localTasks}
         members={members}
         onRefresh={() => {

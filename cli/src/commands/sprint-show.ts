@@ -20,14 +20,51 @@ export interface SprintShowData {
   team: { id: string; name: string }
 }
 
+interface SprintRiskReason {
+  code: string
+  detail: string
+}
+
+export interface SprintRisk {
+  level: string
+  score: number
+  reasons: SprintRiskReason[]
+}
+
+interface SprintBlockerItem {
+  id: string
+  identifier: string
+  title: string
+}
+
+export interface SprintBlockers {
+  overdueTaskIds: SprintBlockerItem[]
+  stalledTaskIds: SprintBlockerItem[]
+  failingAgentTaskIds: SprintBlockerItem[]
+  staleOpenPrNumbers: number[]
+}
+
 function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '-'
+}
+
+function blockerLine(
+  label: string,
+  items: SprintBlockerItem[]
+): string | null {
+  if (items.length === 0) return null
+  const rendered = items
+    .map(i => `${i.identifier} ${sanitizeField(i.title)}`)
+    .join(', ')
+  return `  ${label.padEnd(11)}${rendered}`
 }
 
 export function formatSprintShow(
   s: SprintShowData,
   progress: { done: number; total: number },
-  tasks: TaskRow[]
+  tasks: TaskRow[],
+  risk?: SprintRisk,
+  topBlockers?: SprintBlockers
 ): string {
   const lines = [
     `Sprint:    #${s.number} ${sanitizeField(s.name)}`,
@@ -40,6 +77,30 @@ export function formatSprintShow(
     ``,
     `Progress:  ${progress.done} / ${progress.total}`,
   ]
+
+  if (risk) {
+    lines.push(`Health:    ${risk.level.toUpperCase()}`)
+    for (const r of risk.reasons) {
+      lines.push(`  - ${sanitizeField(r.detail)}`)
+    }
+  }
+
+  if (topBlockers) {
+    const blockerLines = [
+      blockerLine('Overdue:', topBlockers.overdueTaskIds),
+      blockerLine('Stalled:', topBlockers.stalledTaskIds),
+      blockerLine('Agent fail:', topBlockers.failingAgentTaskIds),
+      topBlockers.staleOpenPrNumbers.length > 0
+        ? `  ${'Stale PRs:'.padEnd(11)}${topBlockers.staleOpenPrNumbers
+            .map(n => `#${n}`)
+            .join(', ')}`
+        : null,
+    ].filter((l): l is string => l !== null)
+    if (blockerLines.length > 0) {
+      lines.push('Blockers:', ...blockerLines)
+    }
+  }
+
   if (tasks.length > 0) {
     lines.push('', formatTaskListTable(tasks))
   }
@@ -104,11 +165,15 @@ export async function sprintShow(
     return 1
   }
 
-  const { sprint, progress } = (await sprintRes.json()) as {
+  const { sprint, progress, risk, topBlockers } = (await sprintRes.json()) as {
     sprint: SprintShowData
     progress: { done: number; total: number }
+    risk?: SprintRisk
+    topBlockers?: SprintBlockers
   }
   const { tasks } = (await tasksRes.json()) as { tasks: TaskRow[] }
 
-  process.stdout.write(formatSprintShow(sprint, progress, tasks) + '\n')
+  process.stdout.write(
+    formatSprintShow(sprint, progress, tasks, risk, topBlockers) + '\n'
+  )
 }

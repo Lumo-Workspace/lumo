@@ -19,6 +19,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { useFormatDate } from '../../hooks/useFormatDate'
 import { Button } from '@/components/ui/button'
 import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
+import { MilestoneSprintCoverage } from '../milestones/MilestoneSprintCoverage'
 import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
 
 const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
@@ -214,6 +215,8 @@ export function MilestoneDetailPage() {
           </p>
         )}
       </header>
+
+      <MilestoneSprintCoverage coverage={milestone.sprintCoverage} />
 
       <TaskListByMilestone
         projectId={milestone.projectId}

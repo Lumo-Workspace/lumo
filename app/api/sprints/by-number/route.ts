@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
+import { getSprintRisk } from '@/lib/services/stats.service'
 
 /**
  * GET /api/sprints/by-number?workspaceUrl=X&number=N
@@ -52,12 +53,18 @@ export async function GET(req: NextRequest) {
       identity.clerkId
     )
 
-    const [done, total] = await Promise.all([
+    const [done, total, sprintRisk] = await Promise.all([
       sprintRepository.countTasks(sprint.id, { status: 'DONE' }),
       sprintRepository.countTasks(sprint.id),
+      getSprintRisk(sprint.id, sprint.team.workspaceId),
     ])
 
-    return NextResponse.json({ sprint, progress: { done, total } })
+    return NextResponse.json({
+      sprint,
+      progress: { done, total },
+      risk: sprintRisk.risk,
+      topBlockers: sprintRisk.topBlockers,
+    })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

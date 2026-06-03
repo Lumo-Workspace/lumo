@@ -21,6 +21,8 @@ import {
   PRIORITY_CONFIG,
   MemberAvatar,
 } from '../../components/fields/shared'
+import { RiskBadge } from '../../components/summary/RiskBadge'
+import type { RiskAssessment, TopBlockers } from '@/types/summary'
 
 interface SprintProgress {
   done: number
@@ -30,6 +32,8 @@ interface SprintProgress {
 interface SprintSidebarProps {
   sprint: Sprint
   progress: SprintProgress
+  risk?: RiskAssessment | null
+  topBlockers?: TopBlockers | null
   tasks: ApiTask[]
   members: WorkspaceMemberInfo[]
   onRefresh: () => void
@@ -51,6 +55,8 @@ const STATE_I18N_KEY: Record<DerivedSprintState, string> = {
 export function SprintSidebar({
   sprint,
   progress,
+  risk,
+  topBlockers,
   tasks,
   members,
   onRefresh,
@@ -77,6 +83,49 @@ export function SprintSidebar({
     () => memberBreakdown(tasks, members),
     [tasks, members]
   )
+
+  // Risk reasons rendered as a single muted line (mirrors ProjectsAtGlanceList).
+  const reasonLine = useMemo(
+    () =>
+      (risk?.reasons ?? [])
+        .slice(0, 2)
+        .map(r => r.detail)
+        .join(', '),
+    [risk]
+  )
+
+  // Non-empty blocker categories, each as a label + comma-joined identifiers.
+  const blockerGroups = useMemo(() => {
+    if (!topBlockers) return []
+    const ids = (items: Array<{ identifier: string }>) =>
+      items.map(i => i.identifier).join(', ')
+    const groups: Array<{ key: string; labelKey: string; value: string }> = []
+    if (topBlockers.overdueTaskIds.length > 0)
+      groups.push({
+        key: 'overdue',
+        labelKey: 'summary.blockerGroup.overdue',
+        value: ids(topBlockers.overdueTaskIds),
+      })
+    if (topBlockers.stalledTaskIds.length > 0)
+      groups.push({
+        key: 'stalled',
+        labelKey: 'summary.blockerGroup.stalled',
+        value: ids(topBlockers.stalledTaskIds),
+      })
+    if (topBlockers.failingAgentTaskIds.length > 0)
+      groups.push({
+        key: 'failingAgents',
+        labelKey: 'summary.blockerGroup.failingAgents',
+        value: ids(topBlockers.failingAgentTaskIds),
+      })
+    if (topBlockers.staleOpenPrNumbers.length > 0)
+      groups.push({
+        key: 'stalePrs',
+        labelKey: 'summary.blockerGroup.stalePrs',
+        value: topBlockers.staleOpenPrNumbers.map(n => `#${n}`).join(', '),
+      })
+    return groups
+  }, [topBlockers])
 
   const bucketPct = (done: number, total: number) =>
     total > 0 ? Math.round((done / total) * 100) : 0
@@ -148,6 +197,39 @@ export function SprintSidebar({
         <Progress value={pct} className='h-2' />
         <p className='text-xs text-muted-foreground text-right'>{pct}%</p>
       </div>
+
+      {/* Health — risk level + reasons + top blockers */}
+      {risk && (
+        <div className='flex flex-col gap-2 border-t pt-3'>
+          <div className='flex items-center justify-between gap-2'>
+            <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+              {intl.formatMessage({ id: 'sprints.detail.health' })}
+            </p>
+            <RiskBadge level={risk.level} size='sm' />
+          </div>
+          {reasonLine && (
+            <p className='text-xs text-muted-foreground'>{reasonLine}</p>
+          )}
+          {blockerGroups.length > 0 && (
+            <div className='flex flex-col gap-1.5 pt-1'>
+              <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                {intl.formatMessage({ id: 'summary.topBlockers' })}
+              </p>
+              {blockerGroups.map(g => (
+                <div
+                  key={g.key}
+                  className='flex items-start justify-between gap-2 text-xs'
+                >
+                  <span className='shrink-0 text-muted-foreground'>
+                    {intl.formatMessage({ id: g.labelKey })}
+                  </span>
+                  <span className='break-all text-right'>{g.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Priority breakdown — hidden when sprint has no tasks */}
       {byPriority.length > 0 && (

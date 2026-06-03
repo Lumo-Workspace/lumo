@@ -4,6 +4,8 @@ import {
 } from '@/lib/repositories/milestone.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
+import { sprintRepository } from '@/lib/repositories/sprint.repository'
+import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -46,6 +48,36 @@ async function generateMilestoneRetro(milestoneId: string): Promise<void> {
   }
 }
 
+/**
+ * Resolve a milestone and authorize the caller against its project's
+ * workspace, in a single pass (one `findById` + one `getProject`). Throws 404
+ * when the milestone is missing. Shared by every read that needs both the
+ * milestone row and an access check, so the work isn't duplicated per call.
+ */
+async function authorizeMilestone(milestoneId: string, memberId: string) {
+  const milestone = await milestoneRepository.findById(milestoneId)
+  if (!milestone) {
+    throw Object.assign(new Error('Milestone not found'), { status: 404 })
+  }
+  const project = await projectService.getProject(milestone.projectId, memberId)
+  return { milestone, project }
+}
+
+/**
+ * Aggregate sprint coverage for an ALREADY-authorized milestone whose team is
+ * known. Assumes the caller has verified access — performs no auth itself.
+ */
+async function sprintCoverageForTeam(milestoneId: string, teamId: string) {
+  const counts = await milestoneRepository.sprintCoverageCounts(milestoneId)
+  const sprintIds = [
+    ...new Set(
+      counts.map(c => c.sprintId).filter((id): id is string => id !== null)
+    ),
+  ]
+  const sprints = await sprintRepository.findByIds(sprintIds, teamId)
+  return computeSprintCoverage(counts, sprints)
+}
+
 export const milestoneService = {
   async listMilestones(
     projectId: string,
@@ -58,12 +90,41 @@ export const milestoneService = {
   },
 
   async getMilestone(milestoneId: string, memberId: string) {
-    const milestone = await milestoneRepository.findById(milestoneId)
-    if (!milestone) {
-      throw Object.assign(new Error('Milestone not found'), { status: 404 })
-    }
-    await projectService.getProject(milestone.projectId, memberId)
+    const { milestone } = await authorizeMilestone(milestoneId, memberId)
     return milestone
+  },
+
+  /**
+   * Authorize and return the milestone together with its resolved team id, so
+   * a caller (e.g. the detail route) can authorize once and then fetch sprint
+   * coverage via `getSprintCoverageForTeam` without a second findById/getProject.
+   */
+  async getMilestoneWithTeam(milestoneId: string, memberId: string) {
+    const { milestone, project } = await authorizeMilestone(
+      milestoneId,
+      memberId
+    )
+    return { milestone, teamId: project.teamId }
+  },
+
+  /**
+   * Self-contained sprint coverage: authorizes, then aggregates. Kept as the
+   * standalone public entry point. Callers that have already authorized the
+   * milestone and resolved its team should use `getSprintCoverageForTeam` to
+   * avoid the redundant findById + getProject.
+   */
+  async getSprintCoverage(milestoneId: string, memberId: string) {
+    const { project } = await authorizeMilestone(milestoneId, memberId)
+    return sprintCoverageForTeam(milestoneId, project.teamId)
+  },
+
+  /**
+   * Sprint coverage for an already-authorized milestone whose team is known.
+   * Performs NO auth — only call after authorizing (e.g. via
+   * `getMilestoneWithTeam`).
+   */
+  async getSprintCoverageForTeam(milestoneId: string, teamId: string) {
+    return sprintCoverageForTeam(milestoneId, teamId)
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {
