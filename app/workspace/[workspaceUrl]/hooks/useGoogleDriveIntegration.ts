@@ -34,15 +34,29 @@ export function useGoogleDriveIntegration(): UseGoogleDriveIntegrationReturn {
     retry: false,
   })
 
-  const disconnectMutation = useMutation<unknown, Error>({
+  const disconnectMutation = useMutation<
+    unknown,
+    Error,
+    void,
+    { prev: GoogleDriveIntegrationStatus | undefined }
+  >({
     mutationFn: () => googleDriveApi.disconnect(),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev =
+        queryClient.getQueryData<GoogleDriveIntegrationStatus>(queryKey)
       queryClient.setQueryData<GoogleDriveIntegrationStatus>(queryKey, {
         connected: false,
       })
+      return { prev }
+    },
+    onSuccess: () => {
       toast.success(intl.formatMessage({ id: 'googleDrive.disconnectSuccess' }))
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.prev !== undefined) {
+        queryClient.setQueryData(queryKey, context.prev)
+      }
       toast.error(intl.formatMessage({ id: 'googleDrive.disconnectFailed' }))
     },
     onSettled: () => {

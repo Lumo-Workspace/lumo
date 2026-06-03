@@ -39,14 +39,27 @@ export function useSlackIntegration(): UseSlackIntegrationReturn {
     queryFn: () => apiFetch<SlackStatus>(API.slack.integration(workspaceUrl)),
   })
 
-  const disconnectMutation = useMutation<void, Error>({
+  const disconnectMutation = useMutation<
+    void,
+    Error,
+    void,
+    { prev: SlackStatus | undefined }
+  >({
     mutationFn: () =>
       apiFetch<void>(API.slack.integration(workspaceUrl), { method: 'DELETE' }),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<SlackStatus>(queryKey)
       queryClient.setQueryData<SlackStatus>(queryKey, { connected: false })
+      return { prev }
+    },
+    onSuccess: () => {
       toast.success(intl.formatMessage({ id: 'slack.disconnectSuccess' }))
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.prev !== undefined) {
+        queryClient.setQueryData(queryKey, context.prev)
+      }
       toast.error(intl.formatMessage({ id: 'slack.disconnectFailed' }))
     },
     onSettled: () => {

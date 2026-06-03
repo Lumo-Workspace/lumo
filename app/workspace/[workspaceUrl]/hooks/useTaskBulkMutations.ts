@@ -13,6 +13,8 @@ interface BulkPatch {
 }
 
 interface Options {
+  /** Current list, snapshotted in `onMutate` so a failed row can roll back. */
+  tasks: MyTask[]
   selected: Set<string>
   setSelected: React.Dispatch<React.SetStateAction<Set<string>>>
   setTasks: React.Dispatch<React.SetStateAction<MyTask[]>>
@@ -20,16 +22,46 @@ interface Options {
   onRetry: () => void
 }
 
+/** Snapshot of one detail-cache entry, kept so `onError` can restore it. */
+interface DetailSnapshot {
+  id: string
+  data: TaskDetail | undefined
+}
+
+/** Context threaded from `onMutate` to `onSuccess`/`onError` for rollback. */
+interface BulkUpdateContext {
+  previousTasks: MyTask[]
+  previousDetails: DetailSnapshot[]
+}
+
+interface BulkDeleteContext {
+  previousTasks: MyTask[]
+}
+
+/** Spread only the fields present on `patch` onto `target`. */
+function mergePatch<T extends BulkPatch>(target: T, patch: BulkPatch): T {
+  return {
+    ...target,
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    ...(patch.assigneeActorId !== undefined
+      ? { assigneeActorId: patch.assigneeActorId }
+      : {}),
+  }
+}
+
 /**
  * Bulk status/priority/assignee updates + bulk delete for any task-list page
  * (My Tasks, Sprint Tasks, etc.).
  *
  * Mutations run via `Promise.allSettled` so a per-row failure doesn't abort the
- * batch. On any failure the toast surfaces the count and we ask the page to
- * `onRetry` (refetch); on full success we apply the patch optimistically and
- * clear the selection.
+ * batch. Changes apply **optimistically** in `onMutate` — selected rows (and
+ * any open detail cache) patch/remove immediately — and roll back from a
+ * snapshot if any row is rejected, at which point we also ask the page to
+ * `onRetry` (refetch) so the list reconciles to server truth.
  */
 export function useTaskBulkMutations({
+  tasks,
   selected,
   setSelected,
   setTasks,
@@ -46,26 +78,26 @@ export function useTaskBulkMutations({
   const writeDetailPatches = (ids: string[], patch: BulkPatch) => {
     for (const id of ids) {
       queryClient.setQueryData<TaskDetail>(queryKeys.tasks.detail(id), prev =>
-        prev
-          ? {
-              ...prev,
-              ...(patch.status !== undefined ? { status: patch.status } : {}),
-              ...(patch.priority !== undefined
-                ? { priority: patch.priority }
-                : {}),
-              ...(patch.assigneeActorId !== undefined
-                ? { assigneeActorId: patch.assigneeActorId }
-                : {}),
-            }
-          : prev
+        prev ? mergePatch(prev, patch) : prev
       )
+    }
+  }
+
+  const restoreDetails = (snapshots: DetailSnapshot[]) => {
+    for (const { id, data } of snapshots) {
+      // Untouched entries (no cached detail) were never written — skip them so
+      // we don't materialize an `undefined` query.
+      if (data !== undefined) {
+        queryClient.setQueryData(queryKeys.tasks.detail(id), data)
+      }
     }
   }
 
   const bulkUpdateMutation = useMutation<
     { ids: string[]; failed: number },
     Error,
-    BulkPatch
+    BulkPatch,
+    BulkUpdateContext
   >({
     mutationFn: async patch => {
       const ids = Array.from(selected)
@@ -75,8 +107,24 @@ export function useTaskBulkMutations({
       const failed = results.filter(r => r.status === 'rejected').length
       return { ids, failed }
     },
-    onSuccess: ({ ids, failed }, patch) => {
+    onMutate: patch => {
+      const ids = Array.from(selected)
+      const idSet = new Set(ids)
+      const previousTasks = tasks
+      const previousDetails: DetailSnapshot[] = ids.map(id => ({
+        id,
+        data: queryClient.getQueryData<TaskDetail>(queryKeys.tasks.detail(id)),
+      }))
+      setTasks(prev =>
+        prev.map(t => (idSet.has(t.id) ? mergePatch(t, patch) : t))
+      )
+      writeDetailPatches(ids, patch)
+      return { previousTasks, previousDetails }
+    },
+    onSuccess: ({ ids, failed }, _patch, context) => {
       if (failed > 0) {
+        setTasks(context.previousTasks)
+        restoreDetails(context.previousDetails)
         toast.error(
           intl.formatMessage(
             {
@@ -88,26 +136,6 @@ export function useTaskBulkMutations({
         )
         onRetry()
       } else {
-        const idSet = new Set(ids)
-        setTasks(prev =>
-          prev.map(t =>
-            idSet.has(t.id)
-              ? {
-                  ...t,
-                  ...(patch.status !== undefined
-                    ? { status: patch.status }
-                    : {}),
-                  ...(patch.priority !== undefined
-                    ? { priority: patch.priority }
-                    : {}),
-                  ...(patch.assigneeActorId !== undefined
-                    ? { assigneeActorId: patch.assigneeActorId }
-                    : {}),
-                }
-              : t
-          )
-        )
-        writeDetailPatches(ids, patch)
         toast.success(
           intl.formatMessage(
             {
@@ -121,11 +149,21 @@ export function useTaskBulkMutations({
       }
       setSelected(new Set())
     },
+    onError: (_err, _patch, context) => {
+      if (context) {
+        setTasks(context.previousTasks)
+        restoreDetails(context.previousDetails)
+      }
+      setSelected(new Set())
+      onRetry()
+    },
   })
 
   const bulkDeleteMutation = useMutation<
     { ids: string[]; failed: number },
-    Error
+    Error,
+    void,
+    BulkDeleteContext
   >({
     mutationFn: async () => {
       const ids = Array.from(selected)
@@ -135,8 +173,15 @@ export function useTaskBulkMutations({
       const failed = results.filter(r => r.status === 'rejected').length
       return { ids, failed }
     },
-    onSuccess: ({ ids, failed }) => {
+    onMutate: () => {
+      const idSet = new Set(selected)
+      const previousTasks = tasks
+      setTasks(prev => prev.filter(t => !idSet.has(t.id)))
+      return { previousTasks }
+    },
+    onSuccess: ({ ids, failed }, _vars, context) => {
       if (failed > 0) {
+        setTasks(context.previousTasks)
         toast.error(
           intl.formatMessage(
             {
@@ -148,8 +193,8 @@ export function useTaskBulkMutations({
         )
         onRetry()
       } else {
-        const idSet = new Set(ids)
-        setTasks(prev => prev.filter(t => !idSet.has(t.id)))
+        // The rows are gone for good — drop their detail caches now that the
+        // server has confirmed the delete.
         for (const id of ids) {
           queryClient.removeQueries({
             queryKey: queryKeys.tasks.detail(id),
@@ -168,6 +213,13 @@ export function useTaskBulkMutations({
         )
       }
       setSelected(new Set())
+    },
+    onError: (_err, _vars, context) => {
+      if (context) {
+        setTasks(context.previousTasks)
+      }
+      setSelected(new Set())
+      onRetry()
     },
     onSettled: () => {
       setConfirmDeleteOpen(false)

@@ -16,6 +16,7 @@ import {
   useMilestone,
   useMilestoneByProjectAndSlug,
 } from '../../hooks/useMilestone'
+import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { useProjects } from '../../hooks/useProjects'
 import { Button } from '@/components/ui/button'
 import {
@@ -74,17 +75,6 @@ export function MilestoneDetailPage() {
     if (canonical) router.replace(canonical)
   }, [params, milestone, project?.name, router])
 
-  const invalidate = () => {
-    if (milestone) {
-      qc.invalidateQueries({
-        queryKey: queryKeys.milestones.byProject(milestone.projectId),
-      })
-      qc.invalidateQueries({
-        queryKey: queryKeys.milestones.detail(milestone.id),
-      })
-    }
-  }
-
   const deleteMutation = useMutation({
     mutationFn: () => milestonesClient.delete(milestone!.id),
     onSuccess: () => {
@@ -98,14 +88,9 @@ export function MilestoneDetailPage() {
       )
     },
   })
-  const archiveMutation = useMutation({
-    mutationFn: () => milestonesClient.archive(milestone!.id),
-    onSuccess: invalidate,
-  })
-  const unarchiveMutation = useMutation({
-    mutationFn: () => milestonesClient.unarchive(milestone!.id),
-    onSuccess: invalidate,
-  })
+  // Archive/unarchive flip optimistically (greying the milestone on click);
+  // delete still waits on the server before navigating away.
+  const { archive, unarchive } = useMilestoneArchive()
 
   if (loading) {
     return (
@@ -145,9 +130,7 @@ export function MilestoneDetailPage() {
 
   const archived = !!milestone.archivedAt
   const mutating =
-    archiveMutation.isPending ||
-    unarchiveMutation.isPending ||
-    deleteMutation.isPending
+    archive.isPending || unarchive.isPending || deleteMutation.isPending
 
   const projectName = project?.name ?? params.projectSlug
   const projectHref = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}`
@@ -179,7 +162,7 @@ export function MilestoneDetailPage() {
         <Button
           variant='outline'
           disabled={mutating}
-          onClick={() => unarchiveMutation.mutate()}
+          onClick={() => unarchive.mutate(milestone)}
         >
           {intl.formatMessage({ id: 'milestone.unarchive' })}
         </Button>
@@ -187,7 +170,7 @@ export function MilestoneDetailPage() {
         <Button
           variant='outline'
           disabled={mutating}
-          onClick={() => archiveMutation.mutate()}
+          onClick={() => archive.mutate(milestone)}
         >
           {intl.formatMessage({ id: 'milestone.archive' })}
         </Button>
