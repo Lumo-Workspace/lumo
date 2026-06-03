@@ -60,7 +60,7 @@ describe('computeBurndownSeries', () => {
     expect(out.unit).toBe('tasks')
   })
 
-  test('task completed on the start day: total reflects end-of-day-1 remaining', () => {
+  test('task completed on the start day still counts toward committed scope', () => {
     const out = computeBurndownSeries(
       baseInput({
         tasks: [
@@ -70,10 +70,53 @@ describe('computeBurndownSeries', () => {
         activities: [statusEvt('t1', 'TODO', 'DONE', '2026-06-01')],
       })
     )
-    // t1 finishes on day 1 → end-of-day-1 remaining is 1, so total anchors at 1
-    expect(out.total).toBe(1)
+    // Both tasks were committed to the sprint → scope is 2 even though t1 was
+    // already done by end of day 1. The ideal line burns the full scope down.
+    expect(out.total).toBe(2)
     expect(out.series.map(p => p.remaining)).toEqual([1, 1, 1])
-    expect(out.series.map(p => p.ideal)).toEqual([1, 0.5, 0])
+    expect(out.series.map(p => p.ideal)).toEqual([2, 1, 0])
+  })
+
+  test('full-set baseline: task added AND completed same day still counts toward scope', () => {
+    const out = computeBurndownSeries(
+      baseInput({
+        tasks: [
+          { id: 't1', sprintId: SPRINT, status: 'TODO' },
+          { id: 't2', sprintId: SPRINT, status: 'DONE' },
+        ],
+        activities: [
+          sprintEvt('t2', null, SPRINT, '2026-06-02'),
+          statusEvt('t2', 'TODO', 'DONE', '2026-06-02'),
+        ],
+      })
+    )
+    // t2 joined the sprint and finished on the same day (06-02). The old
+    // day-1 anchor would miss it (total=1); the full-set baseline counts it.
+    expect(out.total).toBe(2)
+    expect(out.series.map(p => p.ideal)).toEqual([2, 1, 0])
+    // remaining never rises: t2 is already DONE at every EOD it is in-sprint.
+    expect(out.series.map(p => p.remaining)).toEqual([1, 1, 1])
+  })
+
+  test('burndown starts at startedAt, not startDate, when the sprint started late', () => {
+    const out = computeBurndownSeries(
+      baseInput({
+        startDate: new Date('2026-06-01T00:00:00.000Z'),
+        startedAt: new Date('2026-06-03T00:00:00.000Z'),
+        endDate: new Date('2026-06-05T00:00:00.000Z'),
+        now: new Date('2026-06-10T00:00:00.000Z'),
+        status: 'CLOSED',
+        tasks: [{ id: 't1', sprintId: SPRINT, status: 'TODO' }],
+      })
+    )
+    // Pre-start days (06-01, 06-02) are dropped; the chart begins at startedAt.
+    expect(out.start).toBe('2026-06-03')
+    expect(out.series.map(p => p.date)).toEqual([
+      '2026-06-03',
+      '2026-06-04',
+      '2026-06-05',
+    ])
+    expect(out.total).toBe(1)
   })
 
   test('ideal line is linear from total to 0', () => {
