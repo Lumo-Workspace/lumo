@@ -856,6 +856,18 @@ export const taskRepository = {
   },
 
   /**
+   * Ids of every non-DONE task on `sprintId`, read outside any transaction.
+   * Used by the automated sprint-close reconcile to build "all → backlog"
+   * spillover decisions before delegating to the transactional close.
+   */
+  async listUnfinishedIdsBySprint(sprintId: string): Promise<{ id: string }[]> {
+    return prisma.task.findMany({
+      where: { sprintId, status: { not: 'DONE' } },
+      select: { id: true },
+    })
+  },
+
+  /**
    * Return the minimal task fields needed for sprint-summary stats.
    * Used by sprintSummaryRepository.computeStatsData().
    */

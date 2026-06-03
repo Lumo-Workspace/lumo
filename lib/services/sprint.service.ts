@@ -1,5 +1,6 @@
 import { sprintRepository } from '@/lib/repositories/sprint.repository'
 import { teamRepository } from '@/lib/repositories/team.repository'
+import { taskRepository } from '@/lib/repositories/task.repository'
 import { sprintSummaryService } from '@/lib/services/sprint-summary.service'
 import { dispatchSprintNotification } from '@/lib/services/sprint-notifications.service'
 import { computeNextSprintWindow } from '@/lib/services/sprint-date'
@@ -15,6 +16,21 @@ export type {
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
+}
+
+/** Actor used for automated (cron / lazy reconcile) state transitions — no
+ *  human member, so notifications are attributed to the system. */
+const SYSTEM_ACTOR: ActorRef & { id?: string } = { memberId: null }
+
+/**
+ * A reconcile transition raced another caller (or the sprint vanished). These
+ * surface as httpErrors with a 4xx status (409 contention, 404 missing, 400
+ * stale decision set) and are safe to swallow — the next reconcile converges.
+ * Anything else (DB failure, bug) must propagate.
+ */
+function isReconcileRace(err: unknown): boolean {
+  const status = (err as { status?: unknown })?.status
+  return typeof status === 'number' && status >= 400 && status < 500
 }
 
 export interface CreateDraftInput {
@@ -97,6 +113,61 @@ export const sprintService = {
     ).catch(err => void err)
 
     return closed
+  },
+
+  /**
+   * Roll a team's sprint state forward to `now`:
+   *  - Close the ACTIVE sprint once its window has ended (`endDate < now`),
+   *    routing every unfinished task back to the backlog.
+   *  - Activate the DRAFT sprint whose window currently contains `now`
+   *    (`startDate <= now <= endDate`) when no sprint is ACTIVE.
+   *
+   * Past DRAFT sprints that were never started (window already ended) are left
+   * untouched — we don't retroactively run history. Idempotent and race-safe:
+   * the underlying start/close transactions throw on contention and those 4xx
+   * status errors are swallowed, so concurrent lazy (read-path) and cron calls
+   * converge instead of crashing. Unexpected (non-4xx) errors propagate.
+   *
+   * Call opportunistically from sprint read paths and from the daily cron.
+   */
+  async reconcileSprintStates(teamId: string, now: Date = new Date()) {
+    const active = await sprintRepository.findActiveByTeam(teamId)
+    if (active) {
+      // Still within its window — single-active invariant means nothing else
+      // can start, so there's nothing to do.
+      if (active.endDate.getTime() >= now.getTime()) return
+
+      const unfinished = await taskRepository.listUnfinishedIdsBySprint(
+        active.id
+      )
+      const decisions: SprintCloseDecisions = Object.fromEntries(
+        unfinished.map(t => [t.id, 'backToBacklog' as const])
+      )
+      try {
+        await sprintService.close(active.id, decisions, SYSTEM_ACTOR)
+      } catch (err) {
+        if (!isReconcileRace(err)) throw err
+        // Someone else is closing/closed it — let the next reconcile finish.
+        return
+      }
+    }
+
+    // No sprint is active now → activate the DRAFT whose window contains `now`.
+    const drafts = await sprintRepository.listByTeam(teamId, {
+      status: 'DRAFT',
+      limit: 100,
+    })
+    const candidate = drafts.find(
+      s =>
+        s.startDate.getTime() <= now.getTime() &&
+        now.getTime() <= s.endDate.getTime()
+    )
+    if (!candidate) return
+    try {
+      await sprintService.start(candidate.id, SYSTEM_ACTOR)
+    } catch (err) {
+      if (!isReconcileRace(err)) throw err
+    }
   },
 
   async addTaskToSprint(

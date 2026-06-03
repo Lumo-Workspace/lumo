@@ -30,14 +30,23 @@ export async function GET(req: NextRequest, { params }: Params) {
       identity.clerkId
     )
 
+    // Lazily roll sprint state forward so the detail reflects an auto
+    // start/close at the window boundary; re-read to pick up any transition.
+    try {
+      await sprintService.reconcileSprintStates(sprint.teamId)
+    } catch {
+      // Non-fatal — serve the sprint as-is.
+    }
+    const fresh = (await sprintRepository.findById(sprintId)) ?? sprint
+
     const [done, total, sprintRisk] = await Promise.all([
       sprintRepository.countTasks(sprintId, { status: 'DONE' }),
       sprintRepository.countTasks(sprintId),
-      getSprintRisk(sprintId, sprint.team.workspaceId),
+      getSprintRisk(sprintId, fresh.team.workspaceId),
     ])
 
     return NextResponse.json({
-      sprint,
+      sprint: fresh,
       progress: { done, total },
       risk: sprintRisk.risk,
       topBlockers: sprintRisk.topBlockers,
