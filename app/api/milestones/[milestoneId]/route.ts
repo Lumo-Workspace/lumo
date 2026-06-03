@@ -16,13 +16,19 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { milestoneId } = await params
 
-    const milestone = await milestoneService.getMilestone(
+    const { milestone, teamId } = await milestoneService.getMilestoneWithTeam(
       milestoneId,
       identity.memberId
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    return NextResponse.json({ milestone: { ...milestone, taskCounts, health } })
+    const sprintCoverage = await milestoneService.getSprintCoverageForTeam(
+      milestoneId,
+      teamId
+    )
+    return NextResponse.json({
+      milestone: { ...milestone, taskCounts, health, sprintCoverage },
+    })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(
