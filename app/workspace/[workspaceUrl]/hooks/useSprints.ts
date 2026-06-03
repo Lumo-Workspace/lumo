@@ -8,6 +8,7 @@ import {
   type Updater,
 } from '@tanstack/react-query'
 import { sprintsClient, tasksClient } from '@/lib/api-client'
+import type { SprintBurndownResponse } from '@/lib/api-client/sprints'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
@@ -262,5 +263,32 @@ export function useSprintSummary(sprintId: string | null) {
     isLoading: query.isPending && !!sprintId,
     error: query.error ?? undefined,
     refetch: query.refetch,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// useSprintBurndown
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the reconstructed burndown series for a sprint.
+ * Returns { burndown, isLoading, error }.
+ */
+export function useSprintBurndown(sprintId: string | null) {
+  const query = useQuery<SprintBurndownResponse | null>({
+    queryKey: sprintId
+      ? queryKeys.sprints.burndown(sprintId)
+      : ['sprints', 'burndown', 'disabled'],
+    queryFn: async () => {
+      const res = await sprintsClient.getBurndown(sprintId as string)
+      return res ?? null
+    },
+    enabled: !!sprintId,
+  })
+
+  return {
+    burndown: query.data ?? null,
+    isLoading: query.isPending && !!sprintId,
+    error: query.error ?? undefined,
   }
 }
