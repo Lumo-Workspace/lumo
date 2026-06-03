@@ -14,7 +14,7 @@ import { SprintActionsMenu } from '../components/SprintActionsMenu'
 import { SprintBurndownChart } from '../components/SprintBurndownChart'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
-import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
+import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -100,27 +100,29 @@ export function SprintDetailClient({
 
   if (isLoading) {
     return (
-      <div className='flex flex-col h-full overflow-hidden'>
-        <PageBreadcrumb>
-          {breadcrumb(intl.formatMessage({ id: 'sprints.detail.loading' }))}
-        </PageBreadcrumb>
+      <DetailLayout
+        breadcrumb={breadcrumb(
+          intl.formatMessage({ id: 'sprints.detail.loading' })
+        )}
+      >
         <div className='p-6 text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.detail.loading' })}
         </div>
-      </div>
+      </DetailLayout>
     )
   }
 
   if (error || !sprint) {
     return (
-      <div className='flex flex-col h-full overflow-hidden'>
-        <PageBreadcrumb>
-          {breadcrumb(intl.formatMessage({ id: 'sprints.detail.notFound' }))}
-        </PageBreadcrumb>
+      <DetailLayout
+        breadcrumb={breadcrumb(
+          intl.formatMessage({ id: 'sprints.detail.notFound' })
+        )}
+      >
         <div className='p-6 text-muted-foreground'>
           {intl.formatMessage({ id: 'sprints.detail.notFound' })}
         </div>
-      </div>
+      </DetailLayout>
     )
   }
 
@@ -164,8 +166,8 @@ export function SprintDetailClient({
   )
 
   return (
-    <div className='flex flex-col h-full overflow-hidden'>
-      <PageBreadcrumb>
+    <DetailLayout
+      breadcrumb={
         <div className='flex items-center gap-1.5'>
           {breadcrumb(sprint.name)}
           <SprintActionsMenu
@@ -173,17 +175,11 @@ export function SprintDetailClient({
             onDeleted={() => router.push(sprintsHref)}
           />
         </div>
-      </PageBreadcrumb>
-      <div
-        className={`grid flex-1 overflow-hidden ${
-          sidebarCollapsed
-            ? 'grid-cols-[1fr]'
-            : 'grid-cols-[1fr_320px] gap-4 pr-4'
-        }`}
-      >
-        {workspace}
-        {!sidebarCollapsed && sidePanel}
-      </div>
-    </div>
+      }
+      sidebar={sidePanel}
+      sidebarCollapsed={sidebarCollapsed}
+    >
+      {workspace}
+    </DetailLayout>
   )
 }
