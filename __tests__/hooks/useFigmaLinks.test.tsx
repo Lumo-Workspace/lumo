@@ -160,6 +160,139 @@ describe('useFigmaLinks', () => {
     expect(result.current.figmaLinks[0]?.id).toBe('cfl_b')
   })
 
+  it('remove drops the row optimistically before the server responds', async () => {
+    mockList.mockResolvedValue({
+      links: [makeServerLink({ id: 'cfl_a' }), makeServerLink({ id: 'cfl_b' })],
+    })
+    let resolveRemove!: () => void
+    mockRemove.mockReturnValue(
+      new Promise<void>(resolve => {
+        resolveRemove = resolve
+      })
+    )
+
+    const { result } = renderHook(() => useFigmaLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(2))
+
+    let removePromise!: Promise<void>
+    act(() => {
+      removePromise = result.current.remove('cfl_a')
+    })
+
+    // Row is gone immediately, while the request is still in flight.
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(1))
+    expect(result.current.figmaLinks[0]?.id).toBe('cfl_b')
+
+    await act(async () => {
+      resolveRemove()
+      await removePromise
+    })
+
+    expect(result.current.figmaLinks).toHaveLength(1)
+    expect(result.current.figmaLinks[0]?.id).toBe('cfl_b')
+  })
+
+  it('remove restores the row when the request fails', async () => {
+    mockList.mockResolvedValue({
+      links: [makeServerLink({ id: 'cfl_a' }), makeServerLink({ id: 'cfl_b' })],
+    })
+    mockRemove.mockRejectedValue(new Error('delete failed'))
+
+    const { result } = renderHook(() => useFigmaLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(2))
+
+    await act(async () => {
+      await expect(result.current.remove('cfl_a')).rejects.toThrow(
+        'delete failed'
+      )
+    })
+
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(2))
+    expect(result.current.figmaLinks.map(l => l.id)).toEqual(['cfl_a', 'cfl_b'])
+  })
+
+  it('refreshAll marks every row loading optimistically while in flight', async () => {
+    mockList.mockResolvedValue({
+      links: [makeServerLink({ id: 'cfl_a' }), makeServerLink({ id: 'cfl_b' })],
+    })
+    let resolveRefresh!: (v: {
+      results: Array<{ id: string; ok: boolean; error?: string }>
+    }) => void
+    mockRefreshAll.mockReturnValue(
+      new Promise(resolve => {
+        resolveRefresh = resolve
+      })
+    )
+
+    const { result } = renderHook(() => useFigmaLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(2))
+
+    let refreshPromise!: Promise<void>
+    act(() => {
+      refreshPromise = result.current.refreshAll()
+    })
+
+    // Every row flips to loading before the fanout resolves.
+    await waitFor(() =>
+      expect(result.current.figmaLinks.every(l => l.loading)).toBe(true)
+    )
+
+    await act(async () => {
+      resolveRefresh({ results: [{ id: 'cfl_a', ok: true }] })
+      await refreshPromise
+    })
+  })
+
+  it('refreshAll clears the loading flags when the request fails', async () => {
+    mockList.mockResolvedValue({
+      links: [makeServerLink({ id: 'cfl_a' })],
+    })
+    mockRefreshAll.mockRejectedValue(new Error('refresh failed'))
+
+    const { result } = renderHook(() => useFigmaLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(1))
+
+    await act(async () => {
+      await expect(result.current.refreshAll()).rejects.toThrow(
+        'refresh failed'
+      )
+    })
+
+    await waitFor(() =>
+      expect(result.current.figmaLinks[0]?.loading).toBeUndefined()
+    )
+    expect(result.current.figmaLinks[0]?.id).toBe('cfl_a')
+  })
+
+  it('refreshAll clears the loading flags when all results failed', async () => {
+    mockList.mockResolvedValue({ links: [makeServerLink({ id: 'cfl_a' })] })
+    mockRefreshAll.mockResolvedValue({
+      results: [{ id: 'cfl_a', ok: false, error: 'figma_needs_reauth' }],
+    })
+
+    const { result } = renderHook(() => useFigmaLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.figmaLinks).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.refreshAll()
+    })
+
+    await waitFor(() =>
+      expect(result.current.figmaLinks[0]?.loading).toBeUndefined()
+    )
+    expect(mockList).toHaveBeenCalledTimes(1)
+  })
+
   it('refreshAll re-fetches the list when at least one link succeeded', async () => {
     mockList
       .mockResolvedValueOnce({ links: [makeServerLink({ id: 'cfl_a' })] })

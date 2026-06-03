@@ -98,12 +98,27 @@ export function useFigmaLinks(
     },
   })
 
-  const removeMutation = useMutation<void, Error, string>({
+  const removeMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previous: OptimisticFigmaLink[] }
+  >({
     mutationFn: linkId => taskFigmaLinksClient.remove(taskId, linkId),
-    onSuccess: (_data, linkId) => {
+    onMutate: async linkId => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous =
+        queryClient.getQueryData<OptimisticFigmaLink[]>(queryKey) ?? []
       queryClient.setQueryData<OptimisticFigmaLink[]>(queryKey, prev =>
         (prev ?? []).filter(l => l.id !== linkId)
       )
+      return { previous }
+    },
+    onError: (_err, _linkId, context) => {
+      // Server rejected the delete — put the row back exactly as it was.
+      if (context) {
+        queryClient.setQueryData(queryKey, context.previous)
+      }
     },
   })
 
@@ -112,12 +127,33 @@ export function useFigmaLinks(
   // one link came back ok so the UI picks up the new thumbnails.
   const refreshAllMutation = useMutation<
     { results: Array<{ id: string; ok: boolean; error?: string }> },
-    Error
+    Error,
+    void,
+    { previous: OptimisticFigmaLink[] }
   >({
     mutationFn: () => taskFigmaLinksClient.refreshAll(taskId),
-    onSuccess: data => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous =
+        queryClient.getQueryData<OptimisticFigmaLink[]>(queryKey) ?? []
+      // Flip every row to loading so the section shows spinners during the
+      // fanout; the invalidate (or rollback) below clears the flags.
+      queryClient.setQueryData<OptimisticFigmaLink[]>(queryKey, prev =>
+        (prev ?? []).map(l => ({ ...l, loading: true }))
+      )
+      return { previous }
+    },
+    onSuccess: (data, _vars, context) => {
       if (data.results.some(r => r.ok)) {
         void queryClient.invalidateQueries({ queryKey })
+      } else if (context) {
+        // Nothing changed server-side; just drop the optimistic loading flags.
+        queryClient.setQueryData(queryKey, context.previous)
+      }
+    },
+    onError: (_err, _vars, context) => {
+      if (context) {
+        queryClient.setQueryData(queryKey, context.previous)
       }
     },
   })
