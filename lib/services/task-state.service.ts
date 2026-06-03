@@ -288,6 +288,22 @@ export async function updateTaskWithSideEffects(
         })
       })()
     )
+
+    // 复杂度沉淀:DONE 是执行数据的终态点,聚合本任务所有 AgentRun 的
+    // 时长/变更文件信号写入 TaskComplexity,供 LUM-171 检索预测。
+    // 动态 import 与 layer2 同款:避免把 service→repository→prisma 链
+    // 拉进每个 import task-state 的测试模块。service 内部自捕获错误。
+    waitUntil(
+      (async () => {
+        const { taskComplexityService } = await import(
+          '@/lib/services/task-complexity.service'
+        )
+        await taskComplexityService.sedimentForTask(
+          taskId,
+          result.task.teamId as string
+        )
+      })()
+    )
   }
 
   return result
