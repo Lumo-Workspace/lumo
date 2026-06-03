@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check } from 'lucide-react'
 import { useSprintsForTeam } from '../../hooks/useSprints'
+import { FieldValueSkeleton } from '../../components/fields'
 import {
   Select,
   SelectContent,
@@ -83,8 +84,14 @@ export function TaskSprintField({
   triggerClassName?: string
 }) {
   const intl = useIntl()
-  const { sprints: drafts } = useSprintsForTeam(task.teamId, 'DRAFT')
-  const { sprints: active } = useSprintsForTeam(task.teamId, 'ACTIVE')
+  const { sprints: drafts, isLoading: draftsLoading } = useSprintsForTeam(
+    task.teamId,
+    'DRAFT'
+  )
+  const { sprints: active, isLoading: activeLoading } = useSprintsForTeam(
+    task.teamId,
+    'ACTIVE'
+  )
 
   const { activeAndUpcoming, past } = useMemo(
     () => groupSprintsForTaskField([...(active ?? []), ...(drafts ?? [])]),
@@ -93,6 +100,13 @@ export function TaskSprintField({
 
   const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'
+
+  // 兜底防抖 (LUM-191): the trigger label for a bound sprint comes from the
+  // matching option in the async list, so until it loads the trigger renders
+  // empty and then pops the name in. Reserve the space with a skeleton.
+  if ((draftsLoading || activeLoading) && task.sprintId !== null) {
+    return <FieldValueSkeleton />
+  }
 
   const renderItem = (s: Sprint) => {
     const state = deriveSprintState(s)

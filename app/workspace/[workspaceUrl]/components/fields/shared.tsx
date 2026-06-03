@@ -8,7 +8,9 @@ import {
   BatteryLow,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { getInitials } from '@/lib/utils/getInitials'
+import { cn } from '@/lib/utils'
 import type { ApiPriority, WorkspaceMemberInfo } from '../../types'
 
 // ─── Priority config ───────────────────────────────────────────────────────────
@@ -46,6 +48,28 @@ export const PRIORITY_CONFIG: Record<
 /** Shared trigger class for all inline task-field selects */
 export const FIELD_TRIGGER_CLS =
   'h-7 text-xs border-none shadow-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 w-auto gap-1.5 focus:ring-0 rounded-md'
+
+// ─── FieldValueSkeleton ──────────────────────────────────────────────────────────
+
+/**
+ * Placeholder shown while an inline field's option list is still loading and a
+ * bound value's name can't be resolved yet. Matches the field trigger's `h-7`
+ * height and `px-2` padding so swapping it for the real `<Select>` causes no
+ * vertical shift, and reserves a fixed width so the resolved name doesn't pop
+ * the layout sideways (LUM-191 兜底防抖). `widthClassName` lets callers tune the
+ * reserved width to the field's typical value length.
+ */
+export function FieldValueSkeleton({
+  widthClassName = 'w-20',
+}: {
+  widthClassName?: string
+}) {
+  return (
+    <div className='flex h-7 items-center px-2' aria-hidden='true'>
+      <Skeleton className={cn('h-3.5 rounded', widthClassName)} />
+    </div>
+  )
+}
 
 // ─── SeparatorDot ──────────────────────────────────────────────────────────────
 
