@@ -89,6 +89,19 @@ export const sprintRepository = {
     return rows.map(r => r.id)
   },
 
+  /**
+   * Bulk-fetch minimal sprint metadata by id, used to label a milestone's
+   * sprint coverage. `teamId` is an optional defensive scope guard. Returns
+   * `[]` without querying when `sprintIds` is empty.
+   */
+  async findByIds(sprintIds: string[], teamId?: string) {
+    if (sprintIds.length === 0) return []
+    return prisma.sprint.findMany({
+      where: { id: { in: sprintIds }, ...(teamId ? { teamId } : {}) },
+      select: { id: true, number: true, name: true, status: true },
+    })
+  },
+
   async listByTeam(
     teamId: string,
     opts: { status?: SprintStatus; limit?: number; cursor?: string } = {}

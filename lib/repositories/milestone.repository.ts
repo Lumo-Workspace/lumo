@@ -140,6 +140,19 @@ export const milestoneRepository = {
     }
     return result
   },
+
+  async sprintCoverageCounts(milestoneId: string) {
+    const rows = await prisma.task.groupBy({
+      by: ['sprintId', 'status'],
+      where: { milestoneId },
+      _count: { _all: true },
+    })
+    return rows.map(r => ({
+      sprintId: r.sprintId,
+      status: r.status,
+      count: r._count._all,
+    }))
+  },
 }
 
 export type MilestoneRepository = typeof milestoneRepository
