@@ -1,15 +1,11 @@
 /**
  * @jest-environment node
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/tags/resolve/route'
 
-jest.mock('@/lib/auth', () => ({
-  requireAuth: jest.fn(),
-}))
-jest.mock('@/lib/api/helpers', () => ({
-  requireUserWorkspace: jest.fn(),
-  zodError: jest.fn(),
+jest.mock('@/lib/auth/bearer', () => ({
+  verifyBearer: jest.fn(),
 }))
 jest.mock('@/lib/repositories/tag.repository', () => ({
   tagRepository: {
@@ -17,12 +13,8 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   },
 }))
 
-const { requireAuth } = jest.requireMock('@/lib/auth') as {
-  requireAuth: jest.Mock
-}
-const { requireUserWorkspace } = jest.requireMock('@/lib/api/helpers') as {
-  requireUserWorkspace: jest.Mock
-  zodError: jest.Mock
+const { verifyBearer } = jest.requireMock('@/lib/auth/bearer') as {
+  verifyBearer: jest.Mock
 }
 const { tagRepository } = jest.requireMock(
   '@/lib/repositories/tag.repository'
@@ -32,10 +24,17 @@ const { tagRepository } = jest.requireMock(
   }
 }
 
+function mkIdentity(workspaceId: string) {
+  return {
+    user: { id: 'clerk-1' },
+    workspace: { id: workspaceId, slug: 'lumo', name: 'Lumo' },
+    apiKey: { id: 'k-1', name: 'CLI', prefix: 'lum_test' },
+  }
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
-  requireAuth.mockResolvedValue({ userId: 'user_clerk_1' })
-  requireUserWorkspace.mockResolvedValue({ workspaceId: 'ws1' })
+  verifyBearer.mockResolvedValue(mkIdentity('ws1'))
   tagRepository.findOrCreateMany.mockResolvedValue([])
 })
 
@@ -43,7 +42,10 @@ function mkReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/tags/resolve', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer lum_test',
+    },
   })
 }
 
@@ -96,13 +98,26 @@ describe('POST /api/tags/resolve', () => {
     expect(tagRepository.findOrCreateMany).not.toHaveBeenCalled()
   })
 
-  it('requires auth — returns 401 when unauthenticated', async () => {
-    requireAuth.mockResolvedValueOnce(
-      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    )
+  it('requires a valid bearer key — returns 401 when verifyBearer yields null', async () => {
+    // No / invalid Authorization header → verifyBearer resolves null.
+    verifyBearer.mockResolvedValueOnce(null)
     const res = await POST(mkReq({ names: ['tag1'] }))
     expect(res.status).toBe(401)
+    const json = await res.json()
+    expect(json.error).toBe('Invalid or revoked API key')
     expect(tagRepository.findOrCreateMany).not.toHaveBeenCalled()
+  })
+
+  it('derives the workspace from the bearer identity, not a Clerk session', async () => {
+    verifyBearer.mockResolvedValueOnce(mkIdentity('ws-from-key'))
+    tagRepository.findOrCreateMany.mockResolvedValueOnce([
+      { id: 'k1', name: 'bug', color: null },
+    ])
+    const res = await POST(mkReq({ names: ['bug'] }))
+    expect(res.status).toBe(200)
+    expect(tagRepository.findOrCreateMany).toHaveBeenCalledWith('ws-from-key', [
+      'bug',
+    ])
   })
 
   it('preserves input order in the response (regression guard)', async () => {
@@ -140,6 +155,7 @@ describe('POST /api/tags/resolve', () => {
 
   it('scopes to caller workspace — same name in two workspaces yields different ids', async () => {
     // First call: ws1
+    verifyBearer.mockResolvedValueOnce(mkIdentity('ws1'))
     tagRepository.findOrCreateMany.mockResolvedValueOnce([
       { id: 'ws1-tag-id', name: 'shared', color: null },
     ])
@@ -153,7 +169,7 @@ describe('POST /api/tags/resolve', () => {
     expect(json1.tags[0].id).toBe('ws1-tag-id')
 
     // Second call: ws2
-    requireUserWorkspace.mockResolvedValueOnce({ workspaceId: 'ws2' })
+    verifyBearer.mockResolvedValueOnce(mkIdentity('ws2'))
     tagRepository.findOrCreateMany.mockResolvedValueOnce([
       { id: 'ws2-tag-id', name: 'shared', color: null },
     ])
