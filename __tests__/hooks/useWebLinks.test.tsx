@@ -155,6 +155,67 @@ describe('useWebLinks', () => {
     expect(result.current.webLinks[0]?.id).toBe('wl_b')
   })
 
+  it('remove drops the row optimistically before the server responds', async () => {
+    mockList.mockResolvedValue({
+      webLinks: [
+        makeServerLink({ id: 'wl_a' }),
+        makeServerLink({ id: 'wl_b' }),
+      ],
+    })
+    let resolveRemove!: () => void
+    mockRemove.mockReturnValue(
+      new Promise<void>(resolve => {
+        resolveRemove = resolve
+      })
+    )
+
+    const { result } = renderHook(() => useWebLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(2))
+
+    let removePromise!: Promise<void>
+    act(() => {
+      removePromise = result.current.remove('wl_a')
+    })
+
+    // Row is gone immediately, while the request is still in flight.
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(1))
+    expect(result.current.webLinks[0]?.id).toBe('wl_b')
+
+    await act(async () => {
+      resolveRemove()
+      await removePromise
+    })
+
+    expect(result.current.webLinks).toHaveLength(1)
+    expect(result.current.webLinks[0]?.id).toBe('wl_b')
+  })
+
+  it('remove restores the row when the request fails', async () => {
+    mockList.mockResolvedValue({
+      webLinks: [
+        makeServerLink({ id: 'wl_a' }),
+        makeServerLink({ id: 'wl_b' }),
+      ],
+    })
+    mockRemove.mockRejectedValue(new Error('delete failed'))
+
+    const { result } = renderHook(() => useWebLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(2))
+
+    await act(async () => {
+      await expect(result.current.remove('wl_a')).rejects.toThrow(
+        'delete failed'
+      )
+    })
+
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(2))
+    expect(result.current.webLinks.map(l => l.id)).toEqual(['wl_a', 'wl_b'])
+  })
+
   it('refreshOne replaces the matching row with the refreshed payload', async () => {
     mockList.mockResolvedValue({
       webLinks: [makeServerLink({ id: 'wl_a' })],
@@ -175,5 +236,66 @@ describe('useWebLinks', () => {
     await waitFor(() =>
       expect(result.current.webLinks[0]?.title).toBe('Updated')
     )
+  })
+
+  it('refreshOne marks the row loading optimistically while in flight', async () => {
+    mockList.mockResolvedValue({
+      webLinks: [makeServerLink({ id: 'wl_a' })],
+    })
+    let resolveRefresh!: (v: {
+      webLink: ReturnType<typeof makeServerLink>
+    }) => void
+    mockRefresh.mockReturnValue(
+      new Promise(resolve => {
+        resolveRefresh = resolve
+      })
+    )
+
+    const { result } = renderHook(() => useWebLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(1))
+
+    let refreshPromise!: Promise<void>
+    act(() => {
+      refreshPromise = result.current.refreshOne('wl_a')
+    })
+
+    await waitFor(() => expect(result.current.webLinks[0]?.loading).toBe(true))
+
+    await act(async () => {
+      resolveRefresh({
+        webLink: { ...makeServerLink({ id: 'wl_a' }), title: 'Updated' },
+      })
+      await refreshPromise
+    })
+
+    await waitFor(() =>
+      expect(result.current.webLinks[0]?.title).toBe('Updated')
+    )
+    expect(result.current.webLinks[0]?.loading).toBeUndefined()
+  })
+
+  it('refreshOne clears the loading flag when the request fails', async () => {
+    mockList.mockResolvedValue({
+      webLinks: [makeServerLink({ id: 'wl_a' })],
+    })
+    mockRefresh.mockRejectedValue(new Error('refresh failed'))
+
+    const { result } = renderHook(() => useWebLinks('tsk_1'), {
+      wrapper: Wrapper,
+    })
+    await waitFor(() => expect(result.current.webLinks).toHaveLength(1))
+
+    await act(async () => {
+      await expect(result.current.refreshOne('wl_a')).rejects.toThrow(
+        'refresh failed'
+      )
+    })
+
+    await waitFor(() =>
+      expect(result.current.webLinks[0]?.loading).toBeUndefined()
+    )
+    expect(result.current.webLinks[0]?.title).toBe('Example')
   })
 })
