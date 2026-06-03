@@ -211,7 +211,7 @@ export function TaskDetailSidebar({
           </div>
         ))}
       </div>
-      <ForecastPanel taskId={task.id} />
+      <ForecastPanel taskId={task.id} status={task.status} />
     </div>
   )
 }
