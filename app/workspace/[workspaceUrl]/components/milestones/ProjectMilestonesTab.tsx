@@ -13,6 +13,7 @@ import {
 } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useMilestones } from '../../hooks/useMilestones'
+import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { MilestoneCard } from './MilestoneCard'
 import { MilestoneFormDialog } from './MilestoneFormDialog'
 
@@ -51,14 +52,9 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
     mutationFn: (m: ApiMilestone) => milestonesClient.delete(m.id),
     onSuccess: invalidate,
   })
-  const archiveMutation = useMutation({
-    mutationFn: (m: ApiMilestone) => milestonesClient.archive(m.id),
-    onSuccess: invalidate,
-  })
-  const unarchiveMutation = useMutation({
-    mutationFn: (m: ApiMilestone) => milestonesClient.unarchive(m.id),
-    onSuccess: invalidate,
-  })
+  // Archive/unarchive are optimistic (see useMilestoneArchive); create/update/
+  // delete stay invalidate-only, waiting on server confirmation.
+  const { archive, unarchive } = useMilestoneArchive()
 
   const filterBar = (
     <div
@@ -135,8 +131,8 @@ export function ProjectMilestonesTab({ projectId, projectSlug }: Props) {
                 workspaceUrl={params.workspaceUrl as string}
                 projectSlug={projectSlug}
                 onEdit={() => setDialog({ mode: 'edit', milestone: m })}
-                onArchive={mm => archiveMutation.mutate(mm)}
-                onUnarchive={mm => unarchiveMutation.mutate(mm)}
+                onArchive={mm => archive.mutate(mm)}
+                onUnarchive={mm => unarchive.mutate(mm)}
                 onDelete={mm => {
                   const ok = window.confirm(
                     intl.formatMessage(
