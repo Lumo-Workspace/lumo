@@ -107,24 +107,57 @@ export function useWebLinks(taskId: string, enabled = true): UseWebLinksResult {
     },
   })
 
-  const removeMutation = useMutation<void, Error, string>({
+  const removeMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previous: OptimisticWebLink[] | undefined }
+  >({
     mutationFn: linkId => webLinksClient.remove(taskId, linkId),
-    onSuccess: (_data, linkId) => {
+    onMutate: async linkId => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous =
+        queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
       queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
         (prev ?? []).filter(l => l.id !== linkId)
       )
+      return { previous }
+    },
+    onError: (_err, _linkId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<OptimisticWebLink[]>(queryKey, context.previous)
+      }
     },
   })
 
-  const refreshOneMutation = useMutation<TaskWebLink, Error, string>({
+  const refreshOneMutation = useMutation<
+    TaskWebLink,
+    Error,
+    string,
+    { previous: OptimisticWebLink[] | undefined }
+  >({
     mutationFn: async linkId => {
       const { webLink } = await webLinksClient.refresh(taskId, linkId)
       return webLink
+    },
+    onMutate: async linkId => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous =
+        queryClient.getQueryData<OptimisticWebLink[]>(queryKey)
+      queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
+        (prev ?? []).map(l => (l.id === linkId ? { ...l, loading: true } : l))
+      )
+      return { previous }
     },
     onSuccess: webLink => {
       queryClient.setQueryData<OptimisticWebLink[]>(queryKey, prev =>
         (prev ?? []).map(l => (l.id === webLink.id ? webLink : l))
       )
+    },
+    onError: (_err, _linkId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<OptimisticWebLink[]>(queryKey, context.previous)
+      }
     },
   })
 
