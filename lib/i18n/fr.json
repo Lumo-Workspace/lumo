@@ -1237,5 +1237,15 @@
   "milestone.save.error": "Impossible d'enregistrer le jalon. Veuillez réessayer.",
   "milestone.search.placeholder": "Rechercher des jalons…",
   "milestone.search.empty": "Aucun jalon trouvé",
-  "milestone.notFound": "Jalon introuvable"
+  "milestone.notFound": "Jalon introuvable",
+  "forecast.title": "Prévision de livraison",
+  "forecast.basis": "Basé sur {count, plural, one {# tâche similaire} other {# tâches similaires}}",
+  "forecast.metricIterations": "Itérations",
+  "forecast.metricPrs": "PR fusionnées",
+  "forecast.metricCycle": "Cycle",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} j ({low}–{high} j)",
+  "forecast.cycleHours": "{median} h ({low}–{high} h)",
+  "forecast.insufficient": "Historique insuffisant pour une prévision fiable",
+  "forecast.viewSources": "Voir les tâches de référence"
 }

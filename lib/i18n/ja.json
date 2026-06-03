@@ -1237,5 +1237,15 @@
   "milestone.save.error": "マイルストーンを保存できませんでした。もう一度お試しください。",
   "milestone.search.placeholder": "マイルストーンを検索…",
   "milestone.search.empty": "マイルストーンが見つかりません",
-  "milestone.notFound": "マイルストーンが見つかりません"
+  "milestone.notFound": "マイルストーンが見つかりません",
+  "forecast.title": "デリバリー予測",
+  "forecast.basis": "類似の完了タスク {count} 件に基づく",
+  "forecast.metricIterations": "反復回数",
+  "forecast.metricPrs": "マージ済み PR 数",
+  "forecast.metricCycle": "サイクル",
+  "forecast.range": "{median}(目安 {low}–{high})",
+  "forecast.cycleDays": "{median}日(目安 {low}–{high}日)",
+  "forecast.cycleHours": "{median}時間(目安 {low}–{high}時間)",
+  "forecast.insufficient": "信頼できる予測には履歴が不足しています",
+  "forecast.viewSources": "参照した履歴タスクを表示"
 }

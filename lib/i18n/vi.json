@@ -1237,5 +1237,15 @@
   "milestone.save.error": "Không thể lưu cột mốc. Vui lòng thử lại.",
   "milestone.search.placeholder": "Tìm cột mốc…",
   "milestone.search.empty": "Không tìm thấy cột mốc",
-  "milestone.notFound": "Không tìm thấy cột mốc"
+  "milestone.notFound": "Không tìm thấy cột mốc",
+  "forecast.title": "Dự báo bàn giao",
+  "forecast.basis": "Dựa trên {count} công việc tương tự đã hoàn thành",
+  "forecast.metricIterations": "Số vòng lặp",
+  "forecast.metricPrs": "PR đã hợp nhất",
+  "forecast.metricCycle": "Chu kỳ",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} ngày ({low}–{high} ngày)",
+  "forecast.cycleHours": "{median} giờ ({low}–{high} giờ)",
+  "forecast.insufficient": "Không đủ lịch sử để dự báo đáng tin cậy",
+  "forecast.viewSources": "Xem công việc tham chiếu"
 }

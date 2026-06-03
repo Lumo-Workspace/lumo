@@ -1237,5 +1237,15 @@
   "milestone.save.error": "保存里程碑失败，请重试。",
   "milestone.search.placeholder": "搜索里程碑…",
   "milestone.search.empty": "未找到里程碑",
-  "milestone.notFound": "未找到里程碑"
+  "milestone.notFound": "未找到里程碑",
+  "forecast.title": "交付预测",
+  "forecast.basis": "基于 {count} 个相似已完成任务",
+  "forecast.metricIterations": "迭代轮次",
+  "forecast.metricPrs": "合并 PR 数",
+  "forecast.metricCycle": "周期",
+  "forecast.range": "{median}(常见 {low}–{high})",
+  "forecast.cycleDays": "{median} 天(常见 {low}–{high} 天)",
+  "forecast.cycleHours": "{median} 小时(常见 {low}–{high} 小时)",
+  "forecast.insufficient": "历史数据不足,暂无可靠预测",
+  "forecast.viewSources": "查看依据的历史任务"
 }

@@ -1237,5 +1237,15 @@
   "milestone.save.error": "Couldn't save milestone. Please try again.",
   "milestone.search.placeholder": "Search milestones…",
   "milestone.search.empty": "No milestones found",
-  "milestone.notFound": "Milestone not found"
+  "milestone.notFound": "Milestone not found",
+  "forecast.title": "Delivery forecast",
+  "forecast.basis": "Based on {count, plural, one {# similar task} other {# similar tasks}}",
+  "forecast.metricIterations": "Iterations",
+  "forecast.metricPrs": "Merged PRs",
+  "forecast.metricCycle": "Cycle",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median}d ({low}–{high}d)",
+  "forecast.cycleHours": "{median}h ({low}–{high}h)",
+  "forecast.insufficient": "Not enough history for a reliable forecast",
+  "forecast.viewSources": "View source tasks"
 }
