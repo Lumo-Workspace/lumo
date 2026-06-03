@@ -242,17 +242,6 @@ function statusAt(events: StatusEvt[], tMs: number, fallback: TaskStatus): TaskS
   return chosen ? chosen.to : first.from
 }
 
-function sprintAt(events: SprintEvt[], tMs: number, fallback: string | null): string | null {
-  const first = events[0]
-  if (!first) return fallback
-  let chosen: SprintEvt | null = null
-  for (const e of events) {
-    if (e.createdAt.getTime() <= tMs) chosen = e
-    else break
-  }
-  return chosen ? chosen.toSprintId : first.fromSprintId
-}
-
 export function computeBurnupSeries(input: BurnupComputeInput): BurnupSeries {
   const { sprintId, startDate, startedAt, endDate, status, now, tasks, activities } =
     input
