@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
-import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
+import Link from 'next/link'
+import { milestonesClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import {
   findProjectForMilestoneSegment,
@@ -16,32 +17,23 @@ import {
   useMilestoneByProjectAndSlug,
 } from '../../hooks/useMilestone'
 import { useProjects } from '../../hooks/useProjects'
-import { useFormatDate } from '../../hooks/useFormatDate'
 import { Button } from '@/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import { DetailLayout } from '../DetailLayout'
+import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
 import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
 import { MilestoneSprintCoverage } from '../milestones/MilestoneSprintCoverage'
 import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
 
-const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
-  PLANNED: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
-  ACTIVE: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  COMPLETED:
-    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  CANCELLED: 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-500',
-}
-
-// Calendar dates stored at UTC midnight — format in UTC so the shown day
-// matches what was entered regardless of the viewer's time zone.
-const DATE_OPTS: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  timeZone: 'UTC',
-}
-
 export function MilestoneDetailPage() {
   const intl = useIntl()
-  const { fmtDate } = useFormatDate()
   const params = useParams<{
     workspaceUrl: string
     projectSlug: string
@@ -117,21 +109,37 @@ export function MilestoneDetailPage() {
 
   if (loading) {
     return (
-      <div className='flex-1 space-y-6 p-4 md:p-8' aria-busy='true'>
-        <div className='h-8 w-1/3 animate-pulse rounded bg-muted/50' />
-        <div className='h-4 w-1/4 animate-pulse rounded bg-muted/50' />
-        <div className='h-40 animate-pulse rounded-lg border border-border bg-muted/50' />
-      </div>
+      <DetailLayout
+        breadcrumb={
+          <span className='text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.tab.title' })}
+          </span>
+        }
+      >
+        <div className='flex-1 space-y-6 p-4 md:p-8' aria-busy='true'>
+          <div className='h-8 w-1/3 animate-pulse rounded bg-muted/50' />
+          <div className='h-4 w-1/4 animate-pulse rounded bg-muted/50' />
+          <div className='h-40 animate-pulse rounded-lg border border-border bg-muted/50' />
+        </div>
+      </DetailLayout>
     )
   }
 
   if (!milestone) {
     return (
-      <div className='flex-1 p-4 md:p-8'>
-        <p className='text-sm text-muted-foreground'>
-          {intl.formatMessage({ id: 'milestone.notFound' })}
-        </p>
-      </div>
+      <DetailLayout
+        breadcrumb={
+          <span className='text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.tab.title' })}
+          </span>
+        }
+      >
+        <div className='flex-1 p-4 md:p-8'>
+          <p className='text-sm text-muted-foreground'>
+            {intl.formatMessage({ id: 'milestone.notFound' })}
+          </p>
+        </div>
+      </DetailLayout>
     )
   }
 
@@ -141,95 +149,102 @@ export function MilestoneDetailPage() {
     unarchiveMutation.isPending ||
     deleteMutation.isPending
 
+  const projectName = project?.name ?? params.projectSlug
+  const projectHref = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}`
+
+  const breadcrumb = (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <Link href={projectHref}>{projectName}</Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage>{milestone.name}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  )
+
+  const actions = (
+    <div className='flex gap-2'>
+      {!archived ? (
+        <Button variant='outline' onClick={() => setEditing(true)}>
+          {intl.formatMessage({ id: 'milestone.edit' })}
+        </Button>
+      ) : null}
+      {archived ? (
+        <Button
+          variant='outline'
+          disabled={mutating}
+          onClick={() => unarchiveMutation.mutate()}
+        >
+          {intl.formatMessage({ id: 'milestone.unarchive' })}
+        </Button>
+      ) : (
+        <Button
+          variant='outline'
+          disabled={mutating}
+          onClick={() => archiveMutation.mutate()}
+        >
+          {intl.formatMessage({ id: 'milestone.archive' })}
+        </Button>
+      )}
+      <Button
+        variant='outline'
+        disabled={mutating}
+        className='text-red-600 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400'
+        onClick={() => {
+          const ok = window.confirm(
+            intl.formatMessage(
+              { id: 'milestone.delete.confirm' },
+              { name: milestone.name }
+            )
+          )
+          if (ok) deleteMutation.mutate()
+        }}
+      >
+        {intl.formatMessage({ id: 'milestone.delete' })}
+      </Button>
+    </div>
+  )
+
   return (
-    <div className='flex-1 overflow-y-auto space-y-6 p-4 md:p-8'>
-      <header className='space-y-2'>
-        <div className='flex items-center gap-3 flex-wrap'>
+    <>
+      <DetailLayout
+        breadcrumb={breadcrumb}
+        actions={actions}
+        sidebar={
+          <MilestoneSidebar
+            status={milestone.status}
+            startDate={milestone.startDate}
+            targetDate={milestone.targetDate}
+            description={milestone.description}
+            archived={archived}
+          />
+        }
+      >
+        <div className='space-y-6 p-4 md:p-8 lg:overflow-y-auto'>
           <h1 className='text-2xl font-semibold text-balance'>
             {milestone.name}
           </h1>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[milestone.status]}`}
-          >
-            {intl.formatMessage({ id: `milestone.status.${milestone.status}` })}
-          </span>
-          {archived && (
-            <span className='rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'>
-              {intl.formatMessage({ id: 'milestone.archived' })}
-            </span>
-          )}
-          <div className='ml-auto flex gap-2'>
-            {!archived && (
-              <Button variant='outline' onClick={() => setEditing(true)}>
-                {intl.formatMessage({ id: 'milestone.edit' })}
-              </Button>
-            )}
-            {archived ? (
-              <Button
-                variant='outline'
-                disabled={mutating}
-                onClick={() => unarchiveMutation.mutate()}
-              >
-                {intl.formatMessage({ id: 'milestone.unarchive' })}
-              </Button>
-            ) : (
-              <Button
-                variant='outline'
-                disabled={mutating}
-                onClick={() => archiveMutation.mutate()}
-              >
-                {intl.formatMessage({ id: 'milestone.archive' })}
-              </Button>
-            )}
-            <Button
-              variant='outline'
-              disabled={mutating}
-              className='text-red-600 hover:text-red-600 dark:text-red-400 dark:hover:text-red-400'
-              onClick={() => {
-                const ok = window.confirm(
-                  intl.formatMessage(
-                    { id: 'milestone.delete.confirm' },
-                    { name: milestone.name }
-                  )
-                )
-                if (ok) deleteMutation.mutate()
-              }}
-            >
-              {intl.formatMessage({ id: 'milestone.delete' })}
-            </Button>
-          </div>
+          <MilestoneSprintCoverage coverage={milestone.sprintCoverage} />
+          <TaskListByMilestone
+            projectId={milestone.projectId}
+            milestoneId={milestone.id}
+          />
         </div>
-        <div className='text-sm text-zinc-500 dark:text-zinc-400 space-x-2'>
-          {milestone.startDate && (
-            <span>{fmtDate(milestone.startDate, DATE_OPTS)} →</span>
-          )}
-          <span>
-            {milestone.targetDate
-              ? fmtDate(milestone.targetDate, DATE_OPTS)
-              : intl.formatMessage({ id: 'milestone.targetDate.none' })}
-          </span>
-        </div>
-        {milestone.description && (
-          <p className='whitespace-pre-wrap text-sm pt-2'>
-            {milestone.description}
-          </p>
-        )}
-      </header>
+      </DetailLayout>
 
-      <MilestoneSprintCoverage coverage={milestone.sprintCoverage} />
-
-      <TaskListByMilestone
-        projectId={milestone.projectId}
-        milestoneId={milestone.id}
-      />
-
-      {editing && (
+      {editing ? (
         <MilestoneFormDialog
           projectId={milestone.projectId}
           milestone={milestone}
           onClose={() => setEditing(false)}
         />
-      )}
-    </div>
+      ) : null}
+    </>
   )
 }
