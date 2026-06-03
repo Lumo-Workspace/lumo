@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check } from 'lucide-react'
 import { useSprintsForTeam } from '../../hooks/useSprints'
@@ -83,13 +83,20 @@ export function TaskSprintField({
   triggerClassName?: string
 }) {
   const intl = useIntl()
+  // Defer the option-list fetch until the dropdown is first opened. The
+  // trigger name comes from the SSR-prefetched `task.sprint` (LUM-189), so
+  // first paint needs no client request. Sticky once opened: the list stays
+  // cached so re-opens are instant. See LUM-190.
+  const [hasOpened, setHasOpened] = useState(false)
   const { sprints: drafts, isLoading: draftsLoading } = useSprintsForTeam(
     task.teamId,
-    'DRAFT'
+    'DRAFT',
+    hasOpened
   )
   const { sprints: active, isLoading: activeLoading } = useSprintsForTeam(
     task.teamId,
-    'ACTIVE'
+    'ACTIVE',
+    hasOpened
   )
 
   const { activeAndUpcoming, past } = useMemo(
@@ -158,6 +165,9 @@ export function TaskSprintField({
     <Select
       value={value}
       onValueChange={v => onChange(v === 'none' ? null : v)}
+      onOpenChange={open => {
+        if (open) setHasOpened(true)
+      }}
       disabled={disabled}
     >
       <SelectTrigger className={cn(triggerClassName)}>

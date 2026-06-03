@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import {
   Select,
@@ -47,7 +48,12 @@ export function TaskMilestoneField({
 }: Props) {
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
-  const { milestones, loading } = useMilestones(projectId)
+  // Defer the option-list fetch until the dropdown is first opened. The
+  // trigger name comes from the SSR-prefetched `milestone` prop (LUM-189), so
+  // first paint needs no client request. Sticky once opened so re-opens are
+  // instant. See LUM-190.
+  const [hasOpened, setHasOpened] = useState(false)
+  const { milestones, loading } = useMilestones(projectId, 'active', hasOpened)
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
 
@@ -69,6 +75,9 @@ export function TaskMilestoneField({
     <Select
       value={value ?? NONE_VALUE}
       onValueChange={v => onChange(v === NONE_VALUE ? null : v)}
+      onOpenChange={open => {
+        if (open) setHasOpened(true)
+      }}
     >
       <SelectTrigger className={triggerClassName}>
         {triggerName ? (

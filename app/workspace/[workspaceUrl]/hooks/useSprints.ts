@@ -58,11 +58,17 @@ interface TaskListResult {
 
 /**
  * Lists sprints for a team, optionally filtered by status.
+ *
+ * `enabled` (default true) lets callers defer the fetch — e.g. the task-field
+ * dropdown gates it on `open` so the full option list isn't pulled on first
+ * paint, only when the user actually opens the selector (LUM-190).
+ *
  * Returns { sprints, setSprints, error, isLoading, refetch }.
  */
 export function useSprintsForTeam(
   teamId: string | null,
-  status?: SprintStatus
+  status?: SprintStatus,
+  enabled = true
 ) {
   const queryClient = useQueryClient()
   const queryKey = teamId ? queryKeys.sprints.byTeam(teamId, status) : null
@@ -77,7 +83,7 @@ export function useSprintsForTeam(
       )) as SprintListResult
       return res.sprints
     },
-    enabled: !!teamId,
+    enabled: !!teamId && enabled,
   })
 
   // Preserve the legacy `setSprints` API so callers (e.g. SprintCards
@@ -100,7 +106,10 @@ export function useSprintsForTeam(
     sprints: query.data,
     setSprints,
     error: query.error ?? undefined,
-    isLoading: query.isPending && !!teamId,
+    // `isLoading` (not `isPending`) so a deferred/disabled query — gated off
+    // until the dropdown opens (LUM-190) — reads as not-loading instead of a
+    // perpetual pending, which would otherwise pin the field skeleton (LUM-191).
+    isLoading: query.isLoading && !!teamId,
     refetch: query.refetch,
   }
 }
