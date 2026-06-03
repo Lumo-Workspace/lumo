@@ -188,6 +188,6 @@ describe('computeBurndownSeries', () => {
       })
     )
     expect(out.series).toHaveLength(1)
-    expect(out.series[0].ideal).toBe(1)
+    expect(out.series[0]?.ideal).toBe(1)
   })
 })

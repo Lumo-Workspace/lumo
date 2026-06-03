@@ -105,13 +105,14 @@ function statusAt(
   tMs: number,
   fallback: TaskStatus
 ): TaskStatus {
-  if (events.length === 0) return fallback
+  const first = events[0]
+  if (!first) return fallback
   let chosen: StatusEvt | null = null
   for (const e of events) {
     if (e.createdAt.getTime() <= tMs) chosen = e
     else break
   }
-  return chosen ? chosen.to : events[0].from
+  return chosen ? chosen.to : first.from
 }
 
 function sprintAt(
@@ -119,13 +120,14 @@ function sprintAt(
   tMs: number,
   fallback: string | null
 ): string | null {
-  if (events.length === 0) return fallback
+  const first = events[0]
+  if (!first) return fallback
   let chosen: SprintEvt | null = null
   for (const e of events) {
     if (e.createdAt.getTime() <= tMs) chosen = e
     else break
   }
-  return chosen ? chosen.toSprintId : events[0].fromSprintId
+  return chosen ? chosen.toSprintId : first.fromSprintId
 }
 
 export function computeBurndownSeries(
@@ -189,10 +191,21 @@ export function computeBurndownSeries(
   }
 
   const days = enumerateUtcDays(startDate, endDate)
+  const firstDay = days[0]
+  if (!firstDay) {
+    return {
+      sprintId,
+      start: toUtcDateKey(startDate),
+      end: toUtcDateKey(endDate),
+      unit: 'tasks',
+      total: 0,
+      series: [],
+    }
+  }
+  const lastDay = days[days.length - 1] ?? firstDay
   const nowMs = now.getTime()
 
-  const firstEod = days.length ? utcMidnight(days[0]) + DAY_MS - 1 : 0
-  const total = days.length ? countRemaining(firstEod) : 0
+  const total = countRemaining(utcMidnight(firstDay) + DAY_MS - 1)
 
   const n = days.length
   const series: BurndownPoint[] = days.map((day, idx) => {
@@ -209,8 +222,8 @@ export function computeBurndownSeries(
 
   return {
     sprintId,
-    start: days.length ? toUtcDateKey(days[0]) : toUtcDateKey(startDate),
-    end: days.length ? toUtcDateKey(days[n - 1]) : toUtcDateKey(endDate),
+    start: toUtcDateKey(firstDay),
+    end: toUtcDateKey(lastDay),
     unit: 'tasks',
     total,
     series,
