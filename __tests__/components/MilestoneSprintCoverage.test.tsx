@@ -2,16 +2,37 @@
  * @jest-environment jsdom
  */
 import { render, screen } from '@testing-library/react'
-import { IntlProvider } from 'react-intl'
-import en from '@/lib/i18n/en.json'
 import { MilestoneSprintCoverage } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneSprintCoverage'
 
-function renderWith(coverage: any) {
-  return render(
-    <IntlProvider locale='en' messages={en as Record<string, string>}>
-      <MilestoneSprintCoverage coverage={coverage} />
-    </IntlProvider>
-  )
+// Match the repo convention: component tests mock react-intl rather than
+// transpiling its ESM. Resolve ids through the real en.json and interpolate
+// {placeholders} so assertions on real English strings remain meaningful.
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: (
+      descriptor: { id: string },
+      values?: Record<string, unknown>
+    ) => {
+      const messages = jest.requireActual('@/lib/i18n/en.json') as Record<
+        string,
+        string
+      >
+      const template = messages[descriptor.id] ?? descriptor.id
+      return values
+        ? template.replace(/\{(\w+)\}/g, (_m, k) =>
+            k in values ? String(values[k]) : `{${k}}`
+          )
+        : template
+    },
+  }),
+}))
+
+type Coverage = NonNullable<
+  import('@/lib/api-client/milestones').ApiMilestone['sprintCoverage']
+>
+
+function renderWith(coverage: Coverage | null) {
+  return render(<MilestoneSprintCoverage coverage={coverage} />)
 }
 
 describe('MilestoneSprintCoverage', () => {
