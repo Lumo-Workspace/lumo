@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check } from 'lucide-react'
 import { useSprintsForTeam } from '../../hooks/useSprints'
+import { FieldValueSkeleton } from '../../components/fields'
 import {
   Select,
   SelectContent,
@@ -82,8 +83,14 @@ export function TaskSprintField({
   triggerClassName?: string
 }) {
   const intl = useIntl()
-  const { sprints: drafts } = useSprintsForTeam(task.teamId, 'DRAFT')
-  const { sprints: active } = useSprintsForTeam(task.teamId, 'ACTIVE')
+  const { sprints: drafts, isLoading: draftsLoading } = useSprintsForTeam(
+    task.teamId,
+    'DRAFT'
+  )
+  const { sprints: active, isLoading: activeLoading } = useSprintsForTeam(
+    task.teamId,
+    'ACTIVE'
+  )
 
   const { activeAndUpcoming, past } = useMemo(
     () => groupSprintsForTaskField([...(active ?? []), ...(drafts ?? [])]),
@@ -102,6 +109,19 @@ export function TaskSprintField({
   const triggerName =
     loaded?.name ?? (task.sprintId ? (task.sprint?.name ?? null) : null)
   const noSprintLabel = intl.formatMessage({ id: 'sprints.taskField.noSprint' })
+
+  // 兜底防抖 (LUM-191): if a bound sprint's name can't be resolved yet — neither
+  // the loaded option nor the SSR-prefetched fallback (LUM-189) — and the
+  // option list is still loading, reserve the space with a skeleton instead of
+  // showing the "no sprint" placeholder and then popping the name in. Only fires
+  // when no name is available, so it never hides an already-resolvable name.
+  if (
+    (draftsLoading || activeLoading) &&
+    task.sprintId !== null &&
+    triggerName === null
+  ) {
+    return <FieldValueSkeleton />
+  }
 
   const renderItem = (s: Sprint) => {
     const state = deriveSprintState(s)

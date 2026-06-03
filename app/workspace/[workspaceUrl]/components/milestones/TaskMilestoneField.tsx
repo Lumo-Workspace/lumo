@@ -7,6 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select'
+import { FieldValueSkeleton } from '../fields'
 import { useMilestones } from '../../hooks/useMilestones'
 import { useFormatDate } from '../../hooks/useFormatDate'
 
@@ -46,7 +47,7 @@ export function TaskMilestoneField({
 }: Props) {
   const intl = useIntl()
   const { fmtDate } = useFormatDate()
-  const { milestones } = useMilestones(projectId)
+  const { milestones, loading } = useMilestones(projectId)
 
   const selectable = milestones.filter(m => m.status !== 'CANCELLED')
 
@@ -54,6 +55,15 @@ export function TaskMilestoneField({
   // the SSR-prefetched name so the name shows on first paint, else placeholder.
   const loaded = value ? milestones.find(m => m.id === value) : undefined
   const triggerName = loaded?.name ?? (value ? (milestone?.name ?? null) : null)
+
+  // 兜底防抖 (LUM-191): if a bound milestone's name can't be resolved yet —
+  // neither the loaded option nor the SSR-prefetched fallback (LUM-189) — and
+  // the option list is still loading, reserve the space with a skeleton instead
+  // of showing the placeholder and then popping the name in. Only fires when no
+  // name is available, so it never hides an already-resolvable name.
+  if (loading && value !== null && triggerName === null) {
+    return <FieldValueSkeleton />
+  }
 
   return (
     <Select
