@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace } from '@/lib/api/helpers'
+import { verifyBearer } from '@/lib/auth/bearer'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 
 const bodySchema = z.object({
@@ -15,21 +14,25 @@ const bodySchema = z.object({
  * always returns the existing-or-newly-created tag for each name. Intended for
  * CLI workflows that need to resolve a list of tag names to IDs.
  *
+ * Authenticated via `Authorization: Bearer <lum_...>` API key (CLI-only), so
+ * the workspace is derived from the bearer identity — matching POST /api/tasks
+ * and the other CLI-facing routes. Web callers use Clerk-authed endpoints.
+ *
  * Body: { names: string[] }   (max 20 entries)
  * Response: { tags: Array<{ id, name, color, workspaceId, createdAt }> }
  */
 export async function POST(req: NextRequest): Promise<Response> {
-  // 1. Auth
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
+  // 1. Auth — Bearer API key (CLI). Workspace comes from the key's identity.
+  const identity = await verifyBearer(req)
+  if (!identity) {
+    return NextResponse.json(
+      { error: 'Invalid or revoked API key' },
+      { status: 401 }
+    )
+  }
+  const workspaceId = identity.workspace.id
 
-  const { userId } = authResult
-
-  // 2. Workspace
-  const ws = await requireUserWorkspace(userId)
-  if (ws instanceof NextResponse) return ws
-
-  // 3. Parse + validate body
+  // 2. Parse + validate body
   let raw: unknown
   try {
     raw = await req.json()
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   // 7. Find-or-create, then reorder to match input order
   let tags: Awaited<ReturnType<typeof tagRepository.findOrCreateMany>>
   try {
-    tags = await tagRepository.findOrCreateMany(ws.workspaceId, cleaned)
+    tags = await tagRepository.findOrCreateMany(workspaceId, cleaned)
   } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
