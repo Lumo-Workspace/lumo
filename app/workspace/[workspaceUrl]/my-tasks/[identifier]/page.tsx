@@ -59,6 +59,8 @@ export default async function MyTaskDetailPage({
         orderBy: { number: 'asc' },
       },
       team: { select: { identifier: true } },
+      sprint: { select: { id: true, name: true, status: true } },
+      milestone: { select: { id: true, name: true, status: true } },
       agentRuns: {
         select: {
           id: true,

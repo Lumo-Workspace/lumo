@@ -10,7 +10,6 @@ import {
   SelectItem,
   SelectSeparator,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import { useIntl } from 'react-intl'
 import type { Sprint, SprintStatus } from '@prisma/client'
@@ -94,6 +93,16 @@ export function TaskSprintField({
   const disabled = task.sprint?.status === 'CLOSED'
   const value = task.sprintId ?? 'none'
 
+  // Trigger label: prefer the loaded sprint, fall back to the SSR-prefetched
+  // name so the name shows on first paint instead of flickering blank until
+  // `useSprintsForTeam` loads. See LUM-189.
+  const loaded = task.sprintId
+    ? [...activeAndUpcoming, ...past].find(s => s.id === task.sprintId)
+    : undefined
+  const triggerName =
+    loaded?.name ?? (task.sprintId ? (task.sprint?.name ?? null) : null)
+  const noSprintLabel = intl.formatMessage({ id: 'sprints.taskField.noSprint' })
+
   const renderItem = (s: Sprint) => {
     const state = deriveSprintState(s)
     const Icon = STATUS_ICON[state]
@@ -132,14 +141,14 @@ export function TaskSprintField({
       disabled={disabled}
     >
       <SelectTrigger className={cn(triggerClassName)}>
-        <SelectValue
-          placeholder={intl.formatMessage({ id: 'sprints.taskField.noSprint' })}
-        />
+        {triggerName ? (
+          <span className='truncate'>{triggerName}</span>
+        ) : (
+          <span className='text-muted-foreground'>{noSprintLabel}</span>
+        )}
       </SelectTrigger>
       <SelectContent className='min-w-[18rem]'>
-        <SelectItem value='none'>
-          {intl.formatMessage({ id: 'sprints.taskField.noSprint' })}
-        </SelectItem>
+        <SelectItem value='none'>{noSprintLabel}</SelectItem>
         {activeAndUpcoming.map(renderItem)}
         {past.length > 0 && activeAndUpcoming.length > 0 && <SelectSeparator />}
         {past.map(renderItem)}
