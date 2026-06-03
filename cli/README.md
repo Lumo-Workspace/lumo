@@ -24,7 +24,7 @@ npx @lumoai/cli setup
 
 The command interactively asks whether to install for the current user (`~/.claude/`) or just the current project (`./.claude/`), then:
 
-1. Drops the `SKILL.md` into `.claude/skills/lumo/`
+1. Drops the skill files (`SKILL.md` + `references/`) into `.claude/skills/lumo/`
 2. Idempotently merges 25 Lumo hook handlers into `.claude/settings.json` (existing hooks and permissions are preserved)
 3. Prints any remaining steps (global install, `lumo auth login`)
 
@@ -91,18 +91,18 @@ lumo task update LUM-42 --status done
 
 ## Commands
 
-| Group       | Highlights                                                             |
-| ----------- | ---------------------------------------------------------------------- |
-| `setup`     | Install SKILL.md + hooks into `~/.claude/` or `./.claude/`             |
-| `auth`      | `login`, `logout`                                                      |
-| `whoami`    | Show current identity + workspace                                      |
-| `update`    | Self-update to the latest npm release                                  |
-| `task`      | `create`, `update`, `list`, `show`, `comment`, `context`               |
-| `session`   | `attach`, `status`, `detach` (binds Claude Code sessions)              |
-| `project`   | `list`                                                                 |
-| `milestone` | `create`, `update`, `list`, `show`, `delete`                           |
-| `sprint`    | `create`, `start`, `close`, `list`, `show`, `add`, `remove`, `summary` |
-| `doc`       | `create`, `update`, `list`, `show`, `move`, `bind`, `share`            |
+| Group       | Highlights                                                                             |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `setup`     | Install skill files (SKILL.md + references/) + hooks into `~/.claude/` or `./.claude/` |
+| `auth`      | `login`, `logout`                                                                      |
+| `whoami`    | Show current identity + workspace                                                      |
+| `update`    | Self-update to the latest npm release                                                  |
+| `task`      | `create`, `update`, `list`, `show`, `comment`, `context`                               |
+| `session`   | `attach`, `status`, `detach` (binds Claude Code sessions)                              |
+| `project`   | `list`                                                                                 |
+| `milestone` | `create`, `update`, `list`, `show`, `delete`                                           |
+| `sprint`    | `create`, `start`, `close`, `list`, `show`, `add`, `remove`, `summary`                 |
+| `doc`       | `create`, `update`, `list`, `show`, `move`, `bind`, `share`                            |
 
 Every command accepts `--help` for full flags and examples:
 

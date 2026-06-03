@@ -1,0 +1,102 @@
+# Onboarding, Authentication & Self-Update
+
+## Onboarding
+
+### `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill + hooks
+
+Bootstraps Lumo into a coding-agent installation. Copies the bundled skill files (`SKILL.md` **and its `references/` directory**) into `<scope>/.claude/skills/lumo/` and idempotently merges 25 hook entries into `<scope>/.claude/settings.json`. Existing user permissions and non-Lumo hook entries are preserved.
+
+On `--project` scope, setup also installs a `prepare-commit-msg` git hook that
+auto-appends the branch's task ID (`[LUM-N]`, parsed from a `lumo/LUM-N-...`
+branch name) to any commit subject that lacks it. The hook is pure sh + git
+(no network, no `lumo` call) and is merged idempotently between
+`# >>> lumo prepare-commit-msg >>>` / `# <<< lumo <<<` markers, preserving any
+existing hook content. When `core.hooksPath` is set (husky or a custom hooks
+dir), setup does **not** write the file — it prints the block plus instructions
+to add it manually (e.g. to `.husky/prepare-commit-msg`). `--user` scope does
+not touch git hooks.
+
+`--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
+
+```bash
+npx @lumoai/cli setup                    # interactive: prompts user/project; agent=claude-code
+npx @lumoai/cli setup --user             # write to ~/.claude/
+npx @lumoai/cli setup --project          # write to ./.claude/
+npx @lumoai/cli setup --force            # overwrite skill files if they differ from bundled
+npx @lumoai/cli setup --agent codex      # bake agent=codex into the hook commands
+```
+
+Use when:
+
+- The user asks "how do I set up lumo", "install the lumo skill", "wire up lumo hooks"
+- A fresh checkout of a project that uses Lumo doesn't have `.claude/skills/lumo/SKILL.md` yet
+- After `npm install -g @lumoai/cli`, before the first `lumo auth login`
+- Wiring Lumo into a non-Claude-Code agent (Codex / Cursor / …) — pass `--agent <token>` so its memories are attributed correctly
+
+If stdin is not a TTY (CI, piped invocation), the default scope is `project` and no prompt is shown. An unrecognized `--agent` token aborts before writing anything.
+
+## Authentication
+
+### `lumo auth login` — paste an API key to log in
+
+Walks the user through creating an API key in the web app and pasting it back. Opens the browser to the API Keys settings page, then reads the key from stdin (must start with the `lum_` prefix). On success prints `✓ Logged in as <email>` plus workspace + key name.
+
+```bash
+lumo auth login
+```
+
+Use when:
+
+- `lumo whoami` reports "Not logged in"
+- A bearer call returns 401 (`API key invalid or revoked`) and the user wants to re-auth
+- The user switches workspaces / accounts
+
+The CLI stores credentials in `~/.lumo/credentials.json`. There's no `--token` flag — the paste-from-browser flow is the only auth path, and that's intentional.
+
+### `lumo auth logout` — remove local credentials
+
+Wipes `~/.lumo/credentials.json`. Idempotent — running twice just prints `Not logged in` the second time.
+
+```bash
+lumo auth logout
+```
+
+Use when the user says "log out", "sign out", or wants to clear credentials before switching accounts (then run `lumo auth login` to re-auth).
+
+### `lumo whoami` — show current identity
+
+Prints the logged-in email, workspace name + slug, API key name + prefix, and API URL.
+
+```bash
+lumo whoami
+# Logged in as cli@uselumo.ai
+#   Workspace: Lumo (lumo)
+#   Key: Claude Code (lum_68d4...)
+#   API: https://www.uselumo.ai
+```
+
+Use when:
+
+- The user asks "who am I", "which workspace am I in", "what account is this"
+- You need to disambiguate whether `lumo task list` would hit the user's expected workspace
+- Before suggesting a destructive command on a shared machine — confirm the identity is right
+
+## Self-Update
+
+### `lumo update` — upgrade the CLI to the latest npm release
+
+Synchronously checks `registry.npmjs.org` for the latest published version of `@lumoai/cli`. When a newer version exists, runs `npm install -g @lumoai/cli@latest` and streams npm's output. When already on the latest, exits cleanly with a "Already on the latest version (X)" message.
+
+```bash
+lumo update
+```
+
+The CLI also performs a passive check at most once every 24 hours (a detached child process refreshes a cache at `~/.lumo/update-check.json`), and prints a one-line "Update available" notice on subsequent invocations when a newer version is in the cache.
+
+Use when:
+
+- The user asks "how do I update", "upgrade lumo", "is there a new version"
+- A bug-fix or feature mentioned in conversation requires a newer CLI than the user is running
+- The passive notice has appeared and the user wants to act on it
+
+If `npm install -g` fails (permissions, npm not on PATH, alternative package manager), `lumo update` prints a fallback hint instructing the user to run the install command manually. Do not auto-retry; let the user resolve the environment issue first.

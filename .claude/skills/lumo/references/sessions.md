@@ -1,0 +1,142 @@
+# Session Management
+
+## Session Management
+
+### Auto-bind at session start (from local git)
+
+When a session starts **without** a bound task, the `session-start` hook tries to
+infer the task from local git before falling back to the "请告诉我任务编号" prompt:
+
+- It reads the **current branch name** first (e.g. `lumo/LUM-145-...`), then the
+  **most recent commit subjects** (e.g. `... [LUM-145]`), extracting the first
+  `LUM-<n>`.
+- On a hit it binds the session to that task automatically (same `bind-task`
+  endpoint as `session attach`) and prints a single line:
+  `已自动绑定 LUM-145 - <title>（依据分支名/最近 commit）。如果不对，回复"不是"我就帮你解绑。`
+  The freshly-bound task's memory is injected too.
+- No match (detached HEAD, a non-lumo branch with no tagged commits, not a git
+  repo) or a failed bind (unknown task) → it degrades silently to the normal
+  unbound prompt.
+
+**Agent guidance:** if the user responds "不是" / "不对" / "wrong task" to an
+auto-bind line, run `lumo session detach` to clear the binding (then `session
+attach <LUM-N>` if they name the right one). No detach is needed when the
+auto-bound task is correct.
+
+### Layer 2 project-memory review at session start
+
+When the session is bound, session-start may inject a **"🆕 待核对：上次会话自动合并的项目级记忆"** section alongside the memory / PR-review blocks (LUM-165). It lists the **PROJECT-scope** memories that the member's **immediately-preceding session** auto-consolidated (Layer 2 runs asynchronously when a task is marked `done`). Each item shows its `id`.
+
+- **Why it's here:** Layer 2 promotions land async, so they can't be reviewed in the synchronous `session wrap` panel — they're surfaced at the _next_ session-start instead, when they've definitely landed.
+- **Show-once:** the section appears only at the session that immediately follows the one that produced the memories. It does **not** re-nag on later sessions, so act on it now or it scrolls off.
+- **Agent guidance:** briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id> --yes` (ideally confirm with the user first). If they all look right, ignore the section and continue.
+
+Attribution requires the CC session id to reach the server: `lumo task update <id> --status done` automatically sends `CLAUDE_CODE_SESSION_ID` (via an `X-Lumo-Session-Id` header) so the resulting Layer 2 memories are attributed to the session. Marking a task done from the **web UI** leaves them unattributed (they won't surface for review) — that's expected.
+
+### `lumo session attach <identifier>` — bind the current session to a task
+
+Use this whenever the user mentions a task ID. The command is the only way to bind a session to a task.
+
+```bash
+lumo session attach LUM-42
+```
+
+What it does:
+
+- Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets this automatically). If it is not set, the command errors out — it must run from inside a Claude Code session.
+- Calls `POST /api/sessions/<session_id>/bind-task` on the Lumo server, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
+- The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
+
+**After attaching, always run `lumo task context <identifier>` to load the task background.**
+
+### Parallel sessions
+
+Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`. Two terminals running `claude code` and binding to different tasks will not interfere with each other — the bindings are scoped per session row server-side.
+
+### `lumo session status` — show current binding
+
+Prints which task the current Claude Code session is bound to, or "(no task)" if none. Requires `$CLAUDE_CODE_SESSION_ID` (i.e. must run inside Claude Code).
+
+```bash
+lumo session status
+```
+
+When to suggest: the user asks "which task am I on", "what's this session bound to", or you need to decide whether to suggest `session attach` for a mentioned task ID.
+
+### `lumo session detach` — clear the current binding
+
+Idempotent — running it twice is fine, the second call reports `already unbound`. Past hook events keep their original `taskId`; only future events on this session will be untagged.
+
+```bash
+lumo session detach
+```
+
+When to suggest: the user wants to stop tagging the current session with the active task (e.g., switching to unrelated exploratory work without binding to a different task).
+
+### `lumo session wrap [--yes] [--dry-run]` — wrap-up panel: progress comment + memory review + blocked-tag prompt
+
+Session-end wrap-up panel with **three sections, run in order**:
+
+**1. 进度评论** — reads back the current Claude Code session's per-turn
+`turnSummary` rows (the one-line Chinese summaries written each STOP), aggregates
+every turn **since the last progress comment** into one bulleted body, and — after
+a `[y] 发送 / [e] 编辑 / [s] 跳过` confirmation — posts it as a comment on the
+session's bound task. A server-side watermark (`Session.lastProgressCommentAt`)
+means re-running never re-posts the same turns.
+
+**2. 记忆审阅** — lists the Layer1 memories this session sedimented since the
+last review (deduped by a per-session watermark `Session.lastMemoryReviewAt`).
+Each new memory is shown as `[SCOPE] CATEGORY  headline`, numbered from 1. You
+curate with a single line: `d 1,3` deletes rows 1 and 3, `p 2` promotes row 2 to
+project scope, and they combine (`d 1,3 p 2`). **回车 (empty) keeps all**; `s`
+skips the section. Keeping all (回车 or `--yes`) still **advances the watermark**
+so the next wrap won't re-list reviewed memories; `s` leaves them for next time.
+Out-of-range indices are ignored. Deletes/promotes run server-side, scoped to
+memories this session created (you can't touch other sessions' memories through
+this panel). With no new memories the section prints "(无内容)" and does nothing.
+
+**3. 卡住检测 (blocked-tag prompt, LUM-153)** — if the **same kind of failure
+recurred ≥ 3 times** in this session (server-aggregated from
+`POST_TOOL_USE_FAILURE` events grouped by tool name, plus `STOP_FAILURE`
+turn-level failures), the section surfaces the dominant failure (`卡在 <tool>
+(N 次失败)` + last error summary) and prompts `[y] 标记 / [s] 跳过` whether to
+flag the bound task with a **`blocked` tag**. **Prompt-only — never auto-flips
+status.** It uses a plain tag (no `TaskStatus` enum, no board column, **no
+schema migration**). The prompt is **suppressed** when: there's no bound task,
+the threshold isn't met, or the task **already** carries a `blocked` tag (the
+idempotent gate — there's no watermark, the existing tag is what prevents
+re-nagging). The default on empty input / `s` is **do nothing** (tagging is
+opt-in), so a stray Enter never tags the task. Confirming with an explicit `y`
+attaches the tag idempotently. **`--yes` does NOT auto-tag** — tagging the
+shared board requires an interactive `y`, so `--yes` (and non-TTY) prints the
+suggestion and moves on rather than silently flipping board state. When there's
+nothing to prompt, the section prints "(无内容)".
+
+```bash
+lumo session wrap            # interactive: preview each section, choose per-section
+lumo session wrap --yes      # progress posted + memories kept; blocked tag NOT auto-applied (needs interactive y)
+lumo session wrap --dry-run  # print all drafts only; never posts, never mutates, never advances watermarks
+```
+
+- Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code) and a bound
+  task (`lumo session attach <LUM-N>` first). With no bound task or no new turn
+  summaries, the 进度评论 section prints "(无内容)" and posts nothing.
+- `[e] 编辑` (进度评论) opens `$EDITOR` (fallback vi/nano) on the drafted body;
+  the edited text is posted and the watermark still advances to the turns the
+  draft covered.
+- `--yes` posts the progress comment AND keeps all memories (no
+  deletes/promotes) while advancing the memory-review watermark; for the
+  blocked-tag section it prints the suggestion but does **not** apply the tag.
+- `--dry-run` prints all drafts; never posts, never mutates memories/tags, never
+  advances either watermark.
+- Non-TTY without `--yes`: prints the drafts and does **not** post, mutate, or
+  tag (safe default).
+
+When to suggest: at the end of a working session on a bound task, to record what
+was done as a progress comment — offer `lumo session wrap` rather than composing
+a `task comment` by hand.
+
+### When to suggest session binding
+
+- If the user mentions a task ID (e.g., "let's work on LUM-42") and no session is currently bound, **suggest running `lumo session attach`**.
+- If the user switches tasks mid-session, run `attach` with the new task ID — the server overwrites the existing binding atomically.
