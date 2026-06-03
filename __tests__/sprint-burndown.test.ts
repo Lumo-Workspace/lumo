@@ -60,6 +60,22 @@ describe('computeBurndownSeries', () => {
     expect(out.unit).toBe('tasks')
   })
 
+  test('task completed on the start day: total reflects end-of-day-1 remaining', () => {
+    const out = computeBurndownSeries(
+      baseInput({
+        tasks: [
+          { id: 't1', sprintId: SPRINT, status: 'DONE' },
+          { id: 't2', sprintId: SPRINT, status: 'TODO' },
+        ],
+        activities: [statusEvt('t1', 'TODO', 'DONE', '2026-06-01')],
+      })
+    )
+    // t1 finishes on day 1 → end-of-day-1 remaining is 1, so total anchors at 1
+    expect(out.total).toBe(1)
+    expect(out.series.map(p => p.remaining)).toEqual([1, 1, 1])
+    expect(out.series.map(p => p.ideal)).toEqual([1, 0.5, 0])
+  })
+
   test('ideal line is linear from total to 0', () => {
     const out = computeBurndownSeries(
       baseInput({

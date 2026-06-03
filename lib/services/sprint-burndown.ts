@@ -34,6 +34,7 @@ export interface BurndownSeries {
   start: string
   end: string
   unit: 'tasks'
+  /** Remaining at the close of the first day = the ideal line's starting anchor (NOT pre-sprint scope). */
   total: number
   series: BurndownPoint[]
 }
@@ -76,6 +77,8 @@ function parseStatusPayload(
   if (!p || typeof p !== 'object') return null
   const o = p as Record<string, unknown>
   if (typeof o.from !== 'string' || typeof o.to !== 'string') return null
+  // Cast unchecked: only `!== 'DONE'` is compared downstream, so an unexpected
+  // enum value safely counts as "remaining" rather than throwing.
   return { from: o.from as TaskStatus, to: o.to as TaskStatus }
 }
 
@@ -91,8 +94,8 @@ function parseSprintPayload(
   const okTo = to === null || typeof to === 'string'
   if (!okFrom || !okTo) return null
   return {
-    fromSprintId: (from as string | null) ?? null,
-    toSprintId: (to as string | null) ?? null,
+    fromSprintId: from as string | null,
+    toSprintId: to as string | null,
   }
 }
 
