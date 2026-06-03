@@ -21,13 +21,18 @@ interface SprintListResult {
   nextCursor?: string
 }
 
-export interface SprintBurndownResponse {
+export interface SprintBurnupResponse {
   sprintId: string
   start: string
   end: string
   unit: 'tasks'
-  total: number
-  series: Array<{ date: string; remaining: number | null; ideal: number }>
+  scopeTotal: number
+  series: Array<{
+    date: string
+    scope: number
+    completed: number | null
+    projected: number | null
+  }>
 }
 
 export const sprintsClient = {
@@ -108,8 +113,8 @@ export const sprintsClient = {
     return apiFetch<SprintSummary>(API.sprints.summary(sprintId))
   },
 
-  getBurndown(sprintId: string) {
-    return apiFetch<SprintBurndownResponse>(API.sprints.burndown(sprintId))
+  getBurnup(sprintId: string) {
+    return apiFetch<SprintBurnupResponse>(API.sprints.burnup(sprintId))
   },
 
   retrySummary(sprintId: string) {

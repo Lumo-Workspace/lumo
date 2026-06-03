@@ -47,7 +47,7 @@ export const queryKeys = {
     byNumber: (workspaceUrl: string, number: number) =>
       ['sprints', 'byNumber', workspaceUrl, number] as const,
     summary: (sprintId: string) => ['sprints', 'summary', sprintId] as const,
-    burndown: (sprintId: string) => ['sprints', 'burndown', sprintId] as const,
+    burnup: (sprintId: string) => ['sprints', 'burnup', sprintId] as const,
   },
 
   milestones: {
