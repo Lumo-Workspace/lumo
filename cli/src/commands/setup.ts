@@ -94,41 +94,67 @@ async function resolveScope(options: SetupOptions): Promise<Scope | null> {
   return null
 }
 
+// Recursively list files under `dir` as paths relative to `base`.
+function listSkillFiles(dir: string, base: string = dir): string[] {
+  const out: string[] = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...listSkillFiles(full, base))
+    else if (entry.isFile()) out.push(path.relative(base, full))
+  }
+  return out
+}
+
+function filesEqual(src: string, dst: string): boolean {
+  if (!fs.existsSync(dst)) return false
+  if (fs.statSync(src).size !== fs.statSync(dst).size) return false
+  return fs.readFileSync(src).equals(fs.readFileSync(dst))
+}
+
 function installSkill(claudeDir: string, force: boolean): void {
   const skillDir = path.join(claudeDir, 'skills', 'lumo')
-  const skillDst = path.join(skillDir, 'SKILL.md')
-  // Asset bundled in cli/assets/skill.md, shipped via package.json "files".
-  // From dist/cli/src/commands/setup.js → ../../../../assets/skill.md
-  const skillSrc = path.resolve(__dirname, '../../../..', 'assets', 'skill.md')
+  const skillDstMain = path.join(skillDir, 'SKILL.md')
+  // The skill is a directory (SKILL.md + references/*.md) bundled in
+  // cli/assets/skill/, shipped via package.json "files".
+  // From dist/cli/src/commands/setup.js → ../../../../assets/skill
+  const skillSrcDir = path.resolve(__dirname, '../../../..', 'assets', 'skill')
 
-  if (!fs.existsSync(skillSrc)) {
+  if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
     throw new Error(
-      `Bundled skill asset missing at ${skillSrc} — reinstall @lumoai/cli.`
+      `Bundled skill asset missing at ${skillSrcDir} — reinstall @lumoai/cli.`
     )
   }
 
-  fs.mkdirSync(skillDir, { recursive: true })
+  const relFiles = listSkillFiles(skillSrcDir)
 
-  if (fs.existsSync(skillDst) && !force) {
-    const srcStat = fs.statSync(skillSrc)
-    const dstStat = fs.statSync(skillDst)
-    if (srcStat.size === dstStat.size) {
-      const a = fs.readFileSync(skillSrc, 'utf8')
-      const b = fs.readFileSync(skillDst, 'utf8')
-      if (a === b) {
-        process.stdout.write(`✓ skill already up to date: ${skillDst}\n`)
-        return
-      }
+  // Non-force, install already present: only overwrite when something differs,
+  // and then only with --force.
+  if (fs.existsSync(skillDstMain) && !force) {
+    const allMatch = relFiles.every(rel =>
+      filesEqual(path.join(skillSrcDir, rel), path.join(skillDir, rel))
+    )
+    if (allMatch) {
+      process.stdout.write(`✓ skill already up to date: ${skillDir}\n`)
+      return
     }
     process.stdout.write(
-      `⚠ ${skillDst} exists and differs from the bundled version.\n` +
+      `⚠ ${skillDir} exists and differs from the bundled version.\n` +
         `  Re-run with --force to overwrite.\n`
     )
     return
   }
 
-  fs.copyFileSync(skillSrc, skillDst)
-  process.stdout.write(`✓ wrote skill: ${skillDst}\n`)
+  // Fresh install or --force: replace the managed references/ dir wholesale so
+  // stale reference files don't linger, then copy every bundled file.
+  fs.rmSync(path.join(skillDir, 'references'), { recursive: true, force: true })
+  for (const rel of relFiles) {
+    const dst = path.join(skillDir, rel)
+    fs.mkdirSync(path.dirname(dst), { recursive: true })
+    fs.copyFileSync(path.join(skillSrcDir, rel), dst)
+  }
+  process.stdout.write(
+    `✓ wrote skill (${relFiles.length} files): ${skillDir}\n`
+  )
 }
 
 function mergeSettings(claudeDir: string, agentToken: string): void {
@@ -173,20 +199,27 @@ function gitCapture(cwd: string, args: string[]): string | null {
 }
 
 export function installGitHook(projectRoot: string): void {
-  if (gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true') {
+  if (
+    gitCapture(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true'
+  ) {
     process.stdout.write(
       '⚠ Not a git repository (or git unavailable) — skipped prepare-commit-msg hook.\n'
     )
     return
   }
 
-  const coreHooksPath = gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
+  const coreHooksPath =
+    gitCapture(projectRoot, ['config', 'core.hooksPath']) || null
   if (resolveHookInstall(coreHooksPath).mode === 'degrade') {
     printGitHookManualInstructions(coreHooksPath!)
     return
   }
 
-  const hooksDirRaw = gitCapture(projectRoot, ['rev-parse', '--git-path', 'hooks'])
+  const hooksDirRaw = gitCapture(projectRoot, [
+    'rev-parse',
+    '--git-path',
+    'hooks',
+  ])
   if (!hooksDirRaw) {
     process.stdout.write(
       '⚠ could not resolve git hooks dir — skipped prepare-commit-msg hook.\n'

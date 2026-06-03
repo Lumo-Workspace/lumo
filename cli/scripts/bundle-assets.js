@@ -14,13 +14,33 @@ const assetsDir = path.join(cliRoot, 'assets')
 
 fs.mkdirSync(assetsDir, { recursive: true })
 
-const skillSrc = path.join(repoRoot, '.claude', 'skills', 'lumo', 'SKILL.md')
-const skillDst = path.join(assetsDir, 'skill.md')
+// The lumo skill is now a directory (SKILL.md + references/*.md), so copy the
+// whole tree into cli/assets/skill/ rather than a single file. `setup`
+// installs this directory verbatim into <scope>/.claude/skills/lumo/.
+const skillSrcDir = path.join(repoRoot, '.claude', 'skills', 'lumo')
+const skillDstDir = path.join(assetsDir, 'skill')
 
-if (!fs.existsSync(skillSrc)) {
-  console.error(`bundle-assets: cannot find ${skillSrc}`)
+if (!fs.existsSync(path.join(skillSrcDir, 'SKILL.md'))) {
+  console.error(`bundle-assets: cannot find SKILL.md under ${skillSrcDir}`)
   process.exit(1)
 }
 
-fs.copyFileSync(skillSrc, skillDst)
-console.log(`bundle-assets: ${skillSrc} → ${skillDst}`)
+// Recursively copy a directory tree (markdown-only skill assets). Removes any
+// stale destination first so deleted reference files don't linger in the
+// bundle.
+function copyDir(src, dst) {
+  fs.mkdirSync(dst, { recursive: true })
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name)
+    const d = path.join(dst, entry.name)
+    if (entry.isDirectory()) {
+      copyDir(s, d)
+    } else if (entry.isFile()) {
+      fs.copyFileSync(s, d)
+    }
+  }
+}
+
+fs.rmSync(skillDstDir, { recursive: true, force: true })
+copyDir(skillSrcDir, skillDstDir)
+console.log(`bundle-assets: ${skillSrcDir} → ${skillDstDir}`)

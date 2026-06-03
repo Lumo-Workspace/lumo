@@ -184,7 +184,7 @@ program
   )
   .option(
     '--force',
-    'Overwrite an existing SKILL.md when its contents differ from the bundled version'
+    'Overwrite existing skill files (SKILL.md + references/) when they differ from the bundled version'
   )
   .option(
     '--agent <token>',
