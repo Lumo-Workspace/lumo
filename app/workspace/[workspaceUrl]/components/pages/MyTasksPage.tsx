@@ -114,7 +114,7 @@ export function MyTasksPage({
     deleting,
     runBulkUpdate,
     runBulkDelete,
-  } = useTaskBulkMutations({ selected, setSelected, setTasks, onRetry })
+  } = useTaskBulkMutations({ tasks, selected, setSelected, setTasks, onRetry })
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
