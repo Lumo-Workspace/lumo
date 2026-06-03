@@ -4,6 +4,8 @@ import {
 } from '@/lib/repositories/milestone.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectService } from '@/lib/services/project.service'
+import { sprintRepository } from '@/lib/repositories/sprint.repository'
+import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import {
   buildMilestoneSlugBase,
   resolveUniqueMilestoneSlug,
@@ -64,6 +66,25 @@ export const milestoneService = {
     }
     await projectService.getProject(milestone.projectId, memberId)
     return milestone
+  },
+
+  async getSprintCoverage(milestoneId: string, memberId: string) {
+    const milestone = await milestoneRepository.findById(milestoneId)
+    if (!milestone) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    const project = await projectService.getProject(
+      milestone.projectId,
+      memberId
+    )
+    const counts = await milestoneRepository.sprintCoverageCounts(milestoneId)
+    const sprintIds = [
+      ...new Set(
+        counts.map(c => c.sprintId).filter((id): id is string => id !== null)
+      ),
+    ]
+    const sprints = await sprintRepository.findByIds(sprintIds, project.teamId)
+    return computeSprintCoverage(counts, sprints)
   },
 
   async getMilestoneBySlug(projectId: string, slug: string, memberId: string) {
