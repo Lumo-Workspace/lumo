@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Langkah-langkah",
   "memory.section.what": "Keputusan",
   "memory.section.rule": "Aturan",
-  "memory.section.workflow": "Alur kerja"
+  "memory.section.workflow": "Alur kerja",
+  "milestone.actions": "Tindakan tonggak",
+  "milestone.archive": "Arsipkan",
+  "milestone.unarchive": "Batalkan arsip",
+  "milestone.archived": "Diarsipkan",
+  "milestone.filter.active": "Aktif",
+  "milestone.filter.archived": "Diarsipkan",
+  "milestone.filter.all": "Semua",
+  "milestone.filter.label": "Filter tonggak",
+  "milestone.tasks.empty": "Belum ada tugas di tonggak ini",
+  "milestone.save.error": "Tidak dapat menyimpan tonggak. Silakan coba lagi.",
+  "milestone.search.placeholder": "Cari tonggak…",
+  "milestone.search.empty": "Tonggak tidak ditemukan",
+  "milestone.notFound": "Tonggak tidak ditemukan"
 }

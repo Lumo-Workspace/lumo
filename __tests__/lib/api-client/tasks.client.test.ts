@@ -58,6 +58,22 @@ describe('tasksClient.listBySprint', () => {
   })
 })
 
+describe('tasksClient.listByProject', () => {
+  it('calls project tasks endpoint without query string when no opts', async () => {
+    mockApiFetch.mockResolvedValueOnce({ tasks: [] })
+    await tasksClient.listByProject('p-1')
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/p-1/tasks')
+  })
+
+  it('appends milestoneId filter', async () => {
+    mockApiFetch.mockResolvedValueOnce({ tasks: [] })
+    await tasksClient.listByProject('p-1', { milestoneId: 'm-9' })
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/projects/p-1/tasks?milestoneId=m-9'
+    )
+  })
+})
+
 describe('tasksClient.listByTeam', () => {
   it('calls team tasks endpoint without query string when no opts', async () => {
     mockApiFetch.mockResolvedValueOnce({ tasks: [] })

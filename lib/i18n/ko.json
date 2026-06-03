@@ -1212,5 +1212,18 @@
   "memory.section.steps": "단계",
   "memory.section.what": "결정 내용",
   "memory.section.rule": "규칙",
-  "memory.section.workflow": "워크플로"
+  "memory.section.workflow": "워크플로",
+  "milestone.actions": "마일스톤 작업",
+  "milestone.archive": "보관",
+  "milestone.unarchive": "보관 해제",
+  "milestone.archived": "보관됨",
+  "milestone.filter.active": "진행 중",
+  "milestone.filter.archived": "보관됨",
+  "milestone.filter.all": "전체",
+  "milestone.filter.label": "마일스톤 필터",
+  "milestone.tasks.empty": "이 마일스톤에는 아직 작업이 없습니다",
+  "milestone.save.error": "마일스톤을 저장하지 못했습니다. 다시 시도해 주세요.",
+  "milestone.search.placeholder": "마일스톤 검색…",
+  "milestone.search.empty": "마일스톤을 찾을 수 없습니다",
+  "milestone.notFound": "마일스톤을 찾을 수 없습니다"
 }

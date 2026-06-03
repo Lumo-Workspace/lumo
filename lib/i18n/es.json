@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Pasos",
   "memory.section.what": "Decisión",
   "memory.section.rule": "Regla",
-  "memory.section.workflow": "Flujo de trabajo"
+  "memory.section.workflow": "Flujo de trabajo",
+  "milestone.actions": "Acciones del hito",
+  "milestone.archive": "Archivar",
+  "milestone.unarchive": "Desarchivar",
+  "milestone.archived": "Archivado",
+  "milestone.filter.active": "Activos",
+  "milestone.filter.archived": "Archivados",
+  "milestone.filter.all": "Todos",
+  "milestone.filter.label": "Filtrar hitos",
+  "milestone.tasks.empty": "Aún no hay tareas en este hito",
+  "milestone.save.error": "No se pudo guardar el hito. Inténtalo de nuevo.",
+  "milestone.search.placeholder": "Buscar hitos…",
+  "milestone.search.empty": "No se encontraron hitos",
+  "milestone.notFound": "Hito no encontrado"
 }

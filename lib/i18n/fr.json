@@ -1212,5 +1212,18 @@
   "memory.section.steps": "Étapes",
   "memory.section.what": "Décision",
   "memory.section.rule": "Règle",
-  "memory.section.workflow": "Flux de travail"
+  "memory.section.workflow": "Flux de travail",
+  "milestone.actions": "Actions du jalon",
+  "milestone.archive": "Archiver",
+  "milestone.unarchive": "Désarchiver",
+  "milestone.archived": "Archivé",
+  "milestone.filter.active": "Actifs",
+  "milestone.filter.archived": "Archivés",
+  "milestone.filter.all": "Tous",
+  "milestone.filter.label": "Filtrer les jalons",
+  "milestone.tasks.empty": "Aucune tâche dans ce jalon pour le moment",
+  "milestone.save.error": "Impossible d'enregistrer le jalon. Veuillez réessayer.",
+  "milestone.search.placeholder": "Rechercher des jalons…",
+  "milestone.search.empty": "Aucun jalon trouvé",
+  "milestone.notFound": "Jalon introuvable"
 }

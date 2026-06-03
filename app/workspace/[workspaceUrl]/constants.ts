@@ -143,6 +143,10 @@ export const API = {
       `/api/projects/${projectId}/milestones/by-slug/${encodeURIComponent(slug)}`,
     reorder: (projectId: string) =>
       `/api/projects/${projectId}/milestones/reorder`,
+    archive: (milestoneId: string) =>
+      `/api/milestones/${milestoneId}/archive`,
+    unarchive: (milestoneId: string) =>
+      `/api/milestones/${milestoneId}/unarchive`,
   },
   teams: {
     tasks: (teamId: string) => `/api/teams/${teamId}/tasks`,

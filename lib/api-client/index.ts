@@ -19,6 +19,7 @@ export type {
   ApiMilestone,
   MilestoneCreateInput,
   MilestoneUpdateInput,
+  MilestoneListFilter,
 } from './milestones'
 export { waitlistClient } from './waitlist'
 export type { WaitlistSignupInput, WaitlistSignupResult } from './waitlist'

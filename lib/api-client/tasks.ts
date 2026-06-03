@@ -10,15 +10,22 @@ export const tasksClient = {
   },
 
   /**
-   * Fetch tasks for a project, with optional sprintId filter.
+   * Fetch tasks for a project, with optional sprintId / milestoneId filters.
    * - sprintId: string  → tasks in that sprint
    * - sprintId: null    → backlog tasks (sprintId IS NULL)
    * - sprintId omitted  → all tasks (no sprint filter)
+   * - milestoneId: string → tasks attached to that milestone
    */
-  listByProject<T>(projectId: string, opts: { sprintId?: string | null } = {}) {
+  listByProject<T>(
+    projectId: string,
+    opts: { sprintId?: string | null; milestoneId?: string } = {}
+  ) {
     const params = new URLSearchParams()
     if (opts.sprintId !== undefined) {
       params.set('sprintId', opts.sprintId === null ? 'null' : opts.sprintId)
+    }
+    if (opts.milestoneId !== undefined) {
+      params.set('milestoneId', opts.milestoneId)
     }
     const qs = params.toString()
     const url = `${API.projects.tasks(projectId)}${qs ? `?${qs}` : ''}`

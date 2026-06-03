@@ -1212,5 +1212,18 @@
   "memory.section.steps": "चरण",
   "memory.section.what": "निर्णय",
   "memory.section.rule": "नियम",
-  "memory.section.workflow": "कार्यप्रवाह"
+  "memory.section.workflow": "कार्यप्रवाह",
+  "milestone.actions": "मील का पत्थर क्रियाएँ",
+  "milestone.archive": "संग्रह करें",
+  "milestone.unarchive": "संग्रह से हटाएँ",
+  "milestone.archived": "संग्रहित",
+  "milestone.filter.active": "सक्रिय",
+  "milestone.filter.archived": "संग्रहित",
+  "milestone.filter.all": "सभी",
+  "milestone.filter.label": "मील के पत्थर फ़िल्टर करें",
+  "milestone.tasks.empty": "इस मील के पत्थर में अभी कोई कार्य नहीं है",
+  "milestone.save.error": "मील का पत्थर सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।",
+  "milestone.search.placeholder": "मील के पत्थर खोजें…",
+  "milestone.search.empty": "कोई मील का पत्थर नहीं मिला",
+  "milestone.notFound": "मील का पत्थर नहीं मिला"
 }

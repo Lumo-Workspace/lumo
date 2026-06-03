@@ -69,6 +69,14 @@ coverage/
 node_modules/
 jspm_packages/
 
+# Workspace node_modules symlinks — the trailing-slash rule above only matches
+# real directories, so a *symlinked* node_modules slips through and can get
+# committed. A tracked cli/node_modules symlink broke `npm install` on CI
+# (ERR_INVALID_ARG_TYPE), so ignore the workspace symlinks explicitly.
+cli/node_modules
+shared/node_modules
+agent-server/node_modules
+
 # Optional npm cache directory
 .npm
 

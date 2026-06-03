@@ -1212,5 +1212,18 @@
   "memory.section.steps": "步骤",
   "memory.section.what": "决策内容",
   "memory.section.rule": "规则",
-  "memory.section.workflow": "工作流"
+  "memory.section.workflow": "工作流",
+  "milestone.actions": "里程碑操作",
+  "milestone.archive": "归档",
+  "milestone.unarchive": "取消归档",
+  "milestone.archived": "已归档",
+  "milestone.filter.active": "活跃",
+  "milestone.filter.archived": "已归档",
+  "milestone.filter.all": "全部",
+  "milestone.filter.label": "筛选里程碑",
+  "milestone.tasks.empty": "此里程碑下暂无任务",
+  "milestone.save.error": "保存里程碑失败，请重试。",
+  "milestone.search.placeholder": "搜索里程碑…",
+  "milestone.search.empty": "未找到里程碑",
+  "milestone.notFound": "未找到里程碑"
 }
