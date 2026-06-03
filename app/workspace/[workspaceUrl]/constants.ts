@@ -133,6 +133,7 @@ export const API = {
     summary: (sprintId: string) => `/api/sprints/${sprintId}/summary`,
     summaryRetry: (sprintId: string) =>
       `/api/sprints/${sprintId}/summary/retry`,
+    burndown: (sprintId: string) => `/api/sprints/${sprintId}/burndown`,
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   milestones: {
@@ -143,8 +144,7 @@ export const API = {
       `/api/projects/${projectId}/milestones/by-slug/${encodeURIComponent(slug)}`,
     reorder: (projectId: string) =>
       `/api/projects/${projectId}/milestones/reorder`,
-    archive: (milestoneId: string) =>
-      `/api/milestones/${milestoneId}/archive`,
+    archive: (milestoneId: string) => `/api/milestones/${milestoneId}/archive`,
     unarchive: (milestoneId: string) =>
       `/api/milestones/${milestoneId}/unarchive`,
   },
