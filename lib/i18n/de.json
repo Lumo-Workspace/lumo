@@ -828,6 +828,7 @@
   "sprints.detail.expandSidebar": "Sprint-Details einblenden",
   "board.addTask": "Aufgabe hinzufügen",
   "sprints.detail.progress": "Fortschritt",
+  "sprints.detail.health": "Zustand",
   "sprints.detail.byPriority": "Nach Priorität",
   "sprints.detail.byMember": "Nach Mitglied",
   "sprints.detail.dateStart": "Start",

@@ -11,6 +11,7 @@ import { sprintsClient, tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import type { TaskDetail } from '../types'
 import type { Sprint, SprintStatus, SprintSummary } from '@prisma/client'
+import type { RiskAssessment, TopBlockers } from '@/types/summary'
 
 // Mirror each fetched task into the per-task detail cache so detail pages
 // can read by id without a re-fetch. Sprint / backlog responses include
@@ -38,6 +39,8 @@ interface SprintProgress {
 interface SprintWithProgress {
   sprint: Sprint
   progress: SprintProgress
+  risk?: RiskAssessment
+  topBlockers?: TopBlockers
 }
 
 interface SprintListResult {
@@ -157,6 +160,8 @@ export function useSprintByNumber(
   return {
     sprint: query.data?.sprint,
     progress: query.data?.progress,
+    risk: query.data?.risk,
+    topBlockers: query.data?.topBlockers,
     isLoading: query.isPending && enabled,
     error: query.error ?? undefined,
     refetch: query.refetch,

@@ -828,6 +828,7 @@
   "sprints.detail.expandSidebar": "スプリント詳細を表示",
   "board.addTask": "タスクを追加",
   "sprints.detail.progress": "進捗",
+  "sprints.detail.health": "健全性",
   "sprints.detail.byPriority": "優先度別",
   "sprints.detail.byMember": "メンバー別",
   "sprints.detail.dateStart": "開始",

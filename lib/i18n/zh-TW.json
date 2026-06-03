@@ -78,6 +78,7 @@
   "sprints.detail.expandSidebar": "展開衝刺詳情",
   "board.addTask": "新增任務",
   "sprints.detail.progress": "進度",
+  "sprints.detail.health": "健康度",
   "sprints.detail.byPriority": "按優先級",
   "sprints.detail.byMember": "按成員",
   "sprints.detail.dateStart": "開始",

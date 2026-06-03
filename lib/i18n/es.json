@@ -828,6 +828,7 @@
   "sprints.detail.expandSidebar": "Mostrar detalles del sprint",
   "board.addTask": "Agregar tarea",
   "sprints.detail.progress": "Progreso",
+  "sprints.detail.health": "Salud",
   "sprints.detail.byPriority": "Por prioridad",
   "sprints.detail.byMember": "Por miembro",
   "sprints.detail.dateStart": "Inicio",

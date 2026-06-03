@@ -828,6 +828,7 @@
   "sprints.detail.expandSidebar": "스프린트 상세 보기",
   "board.addTask": "작업 추가",
   "sprints.detail.progress": "진행률",
+  "sprints.detail.health": "상태",
   "sprints.detail.byPriority": "우선순위별",
   "sprints.detail.byMember": "담당자별",
   "sprints.detail.dateStart": "시작",
