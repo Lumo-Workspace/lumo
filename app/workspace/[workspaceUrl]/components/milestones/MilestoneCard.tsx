@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import type { ApiMilestone } from '@/lib/api-client'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 import { useFormatDate } from '../../hooks/useFormatDate'
+import { STATUS_CLASS, DATE_OPTS } from './milestoneDisplay'
 
 interface Props {
   milestone: ApiMilestone
@@ -25,29 +26,12 @@ interface Props {
   onUnarchive: (m: ApiMilestone) => void
 }
 
-const STATUS_CLASS: Record<ApiMilestone['status'], string> = {
-  PLANNED: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
-  ACTIVE: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  COMPLETED:
-    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  CANCELLED: 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-500',
-}
-
 // A single ~7px dot is the one allowed colour signal (typography carries the
 // rest of the hierarchy). Colour encodes the target-date health light.
 const HEALTH_DOT: Record<MilestoneHealth, string> = {
   'on-track': 'bg-emerald-500',
   'at-risk': 'bg-amber-500',
   overdue: 'bg-red-500',
-}
-
-// Target/start dates are calendar dates stored at UTC midnight — format in UTC
-// so the displayed day matches what was entered, regardless of viewer's zone.
-const DATE_OPTS: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  timeZone: 'UTC',
 }
 
 export function MilestoneCard({
