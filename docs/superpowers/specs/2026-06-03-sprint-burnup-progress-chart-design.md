@@ -61,8 +61,12 @@ Why Pairing X (vs the membership-snapshot "Pairing Y" = `scopeJoin`/`compSnap`):
 
 ### Projection
 
-- Window starts at `startedAt ?? startDate` (keeps the #255 fix; drops pre-start
-  empty days).
+- Window starts at the **earlier** of `startDate` and `startedAt`. Normally that's
+  `startDate`; a late `startedAt` (sprint flipped DRAFT→ACTIVE *after* work already
+  happened in DRAFT) must NOT truncate the window — prod Sprint 4 proved that
+  anchoring at `startedAt` collapses the real scope/completed ramp to a single
+  point. (This corrects the `startedAt ?? startDate` rule the burndown #255 used;
+  for a burnup, scope/completed are meaningful before the sprint formally starts.)
 - **ACTIVE**: `completed`/`scope` actual values run up to "today"; future days
   get `completed = null`, `scope` held flat at its current value. A dashed
   **`projected`** line runs from today's `completed` point straight to
