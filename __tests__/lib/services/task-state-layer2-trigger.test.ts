@@ -26,6 +26,11 @@ jest.mock('@/lib/services/memory/layer2.service', () => ({
     triggerForTaskCompletion: jest.fn().mockResolvedValue(undefined),
   },
 }))
+jest.mock('@/lib/services/task-complexity.service', () => ({
+  taskComplexityService: {
+    sedimentForTask: jest.fn().mockResolvedValue(undefined),
+  },
+}))
 jest.mock('@/lib/services/task-notifications.service', () => ({
   dispatchUpdateTaskSideEffects: jest.fn(),
 }))
@@ -75,6 +80,7 @@ function mockTaskRow(overrides: {
     title: 'T',
     status: overrides.status,
     projectId: 'proj_1',
+    teamId: 'team_1',
     project: { workspaceId: 'ws_1' },
     team: { identifier: 'LUM' },
     sprintId: null,

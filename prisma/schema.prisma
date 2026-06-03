@@ -463,6 +463,7 @@ model Task {
   webLinks          TaskWebLink[]
   figmaLinks        TaskFigmaLink[]
   artifacts         TaskArtifact[]
+  complexity        TaskComplexity?
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -475,6 +476,21 @@ model Task {
   @@index([sprintId])
   @@index([milestoneId])
   @@map("tasks")
+}
+
+model TaskComplexity {
+  id               String   @id @default(cuid())
+  taskId           String   @unique
+  teamId           String // 分位分布的范围键
+  totalDurationMs  Int // 所有 finished AgentRun 的 durationMs 求和
+  changedFileCount Int // 各 run changedFiles 去重并集的大小
+  agentRunCount    Int // 上下文用,不进复合分
+  computedAt       DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@map("task_complexities")
 }
 
 // ─── Sprint & SprintSummary ───────────────────────────────────────────────
