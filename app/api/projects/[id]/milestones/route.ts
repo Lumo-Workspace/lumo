@@ -23,15 +23,18 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (result instanceof NextResponse) return result
     const { member } = result
 
+    const searchParams = new URL(request.url).searchParams
     const parsedQuery = listMilestonesQuerySchema.safeParse({
-      filter: new URL(request.url).searchParams.get('filter') ?? undefined,
+      filter: searchParams.get('filter') ?? undefined,
+      search: searchParams.get('search') ?? undefined,
     })
     if (!parsedQuery.success) return zodError(parsedQuery)
 
     const milestones = await milestoneService.listMilestones(
       id,
       member.id,
-      parsedQuery.data.filter
+      parsedQuery.data.filter,
+      parsedQuery.data.search
     )
     // Enrich with per-status task counts (so the frontend can render progress
     // without an N+1 follow-up) and a target-date health light.

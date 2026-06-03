@@ -52,6 +52,46 @@ describe('milestoneRepository.findByProject', () => {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     })
   })
+
+  it('adds a case-insensitive name/description OR filter when search is given', async () => {
+    mockFindMany.mockResolvedValue([])
+    await milestoneRepository.findByProject('p1', 'active', 'launch')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        projectId: 'p1',
+        archivedAt: null,
+        OR: [
+          { name: { contains: 'launch', mode: 'insensitive' } },
+          { description: { contains: 'launch', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  })
+
+  it('trims the search term before matching', async () => {
+    mockFindMany.mockResolvedValue([])
+    await milestoneRepository.findByProject('p1', 'all', '  Q3  ')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        projectId: 'p1',
+        OR: [
+          { name: { contains: 'Q3', mode: 'insensitive' } },
+          { description: { contains: 'Q3', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  })
+
+  it('ignores a blank/whitespace-only search term (no OR clause)', async () => {
+    mockFindMany.mockResolvedValue([])
+    await milestoneRepository.findByProject('p1', 'all', '   ')
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { projectId: 'p1' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  })
 })
 
 describe('milestoneRepository.create', () => {

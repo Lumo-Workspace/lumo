@@ -43,7 +43,7 @@ describe('milestoneService.listMilestones', () => {
     mockRepoFindByProject.mockResolvedValue([{ id: 'm1' }])
     const result = await milestoneService.listMilestones('p1', 'mem1')
     expect(mockProjectGet).toHaveBeenCalledWith('p1', 'mem1')
-    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'active')
+    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'active', undefined)
     expect(result).toEqual([{ id: 'm1' }])
   })
 
@@ -241,7 +241,14 @@ describe('milestoneService.listMilestones filter', () => {
     mockProjectGet.mockResolvedValue({ id: 'p1' })
     mockRepoFindByProject.mockResolvedValue([])
     await milestoneService.listMilestones('p1', 'mem1', 'all')
-    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'all')
+    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'all', undefined)
+  })
+
+  it('forwards the search term to the repository', async () => {
+    mockProjectGet.mockResolvedValue({ id: 'p1' })
+    mockRepoFindByProject.mockResolvedValue([])
+    await milestoneService.listMilestones('p1', 'mem1', 'all', 'launch')
+    expect(mockRepoFindByProject).toHaveBeenCalledWith('p1', 'all', 'launch')
   })
 })
 

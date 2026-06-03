@@ -34,6 +34,7 @@ export interface MilestoneListOptions {
   project?: string | undefined
   archived?: boolean | undefined
   all?: boolean | undefined
+  search?: string | undefined
 }
 
 function formatDate(iso: string | null): string {
@@ -89,8 +90,12 @@ export async function milestoneList(
   }
   const filter = options.all ? 'all' : options.archived ? 'archived' : 'active'
 
+  const query = new URLSearchParams({ filter })
+  const term = options.search?.trim()
+  if (term) query.set('search', term)
+
   const res = await fetch(
-    `${base}/api/projects/${projectId}/milestones?filter=${filter}`,
+    `${base}/api/projects/${projectId}/milestones?${query.toString()}`,
     { headers: { Authorization: `Bearer ${creds.token}` } }
   )
   if (!res.ok) {
