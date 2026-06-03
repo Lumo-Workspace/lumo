@@ -68,6 +68,7 @@ export function SprintBurndownChart({ sprintId }: { sprintId: string }) {
         role='img'
         aria-label={title}
       >
+        <title>{title}</title>
         <line
           x1={PAD.left}
           y1={PAD.top}

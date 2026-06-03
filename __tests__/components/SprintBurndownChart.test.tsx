@@ -42,7 +42,7 @@ test('renders chart with legend and a polyline when data present', () => {
     error: undefined,
   })
   const { container } = render(<SprintBurndownChart sprintId='s1' />)
-  expect(screen.getByText('Burndown')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Burndown' })).toBeInTheDocument()
   expect(screen.getByText('Remaining')).toBeInTheDocument()
   expect(screen.getByText('Ideal')).toBeInTheDocument()
   expect(container.querySelectorAll('polyline').length).toBeGreaterThanOrEqual(
@@ -65,4 +65,33 @@ test('renders empty state when total is 0', () => {
   })
   render(<SprintBurndownChart sprintId='s1' />)
   expect(screen.getByText('No burndown data yet')).toBeInTheDocument()
+})
+
+test('actual polyline skips future days with null remaining', () => {
+  mockUseSprintBurndown.mockReturnValue({
+    burndown: {
+      sprintId: 's1',
+      start: '2026-06-01',
+      end: '2026-06-03',
+      unit: 'tasks',
+      total: 2,
+      series: [
+        { date: '2026-06-01', remaining: 2, ideal: 2 },
+        { date: '2026-06-02', remaining: 1, ideal: 1 },
+        { date: '2026-06-03', remaining: null, ideal: 0 },
+      ],
+    },
+    isLoading: false,
+    error: undefined,
+  })
+  const { container } = render(<SprintBurndownChart sprintId='s1' />)
+  const ideal = container.querySelector('polyline[stroke-dasharray]')
+  const actual = Array.from(container.querySelectorAll('polyline')).find(
+    p => !p.hasAttribute('stroke-dasharray')
+  )
+  const countPoints = (el: Element | null | undefined) =>
+    (el?.getAttribute('points') ?? '').trim().split(/\s+/).filter(Boolean)
+      .length
+  expect(countPoints(ideal)).toBe(3) // ideal fills all 3 days
+  expect(countPoints(actual)).toBe(2) // future null day is skipped
 })
