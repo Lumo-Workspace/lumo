@@ -567,11 +567,11 @@ By default, only **non-archived** milestones are listed. Use `--archived` to sho
 
 Use `--search <text>` to filter to milestones whose **name or description** contains the text (case-insensitive substring match). It applies **on top of** the archive filter (e.g. `--all --search q3`). A blank/whitespace-only value is ignored (no filtering). The matched text is bounded to 120 chars server-side.
 
-| Flag              | Type    | Notes                                                                                  |
-| ----------------- | ------- | -------------------------------------------------------------------------------------- |
-| `--project <ref>` | string  | Required when the workspace has more than one project. Name or slug, case-insensitive. |
-| `--archived`      | boolean | Show **only** archived milestones (instead of the default non-archived set).           |
-| `--all`           | boolean | Show **both** archived and non-archived milestones.                                    |
+| Flag              | Type    | Notes                                                                                                             |
+| ----------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--project <ref>` | string  | Required when the workspace has more than one project. Name or slug, case-insensitive.                            |
+| `--archived`      | boolean | Show **only** archived milestones (instead of the default non-archived set).                                      |
+| `--all`           | boolean | Show **both** archived and non-archived milestones.                                                               |
 | `--search <text>` | string  | Filter by **name/description** case-insensitive substring. Combines with the archive filter; blank value ignored. |
 
 `HEALTH` is the target-date risk light, server-computed from the milestone's target date + task progress:
@@ -623,6 +623,22 @@ On success: `Created milestone "Q3 Launch"  <id>`.
 Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
 
 Prints a key:value header (name, status, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
+
+It also prints a **Sprint coverage** section (above the task table) listing which
+sprints the milestone's tasks span — each row shows the sprint number, status, name,
+and `done/total` progress — plus an `未排期` line counting milestone tasks not in any
+sprint (shown only when there are any). The section is derived from the milestone's
+tasks (no schema relation), so it needs no extra flags. When no task is in any sprint
+it prints `Sprint coverage: (no sprint coverage)`.
+
+Example coverage section:
+
+```
+Sprint coverage:
+  #3  ACTIVE  Sprint 3   4/6 done
+  #4  DRAFT   Sprint 4   0/2 done
+  未排期                  1 task
+```
 
 ```bash
 lumo milestone show "Q3 Launch"
