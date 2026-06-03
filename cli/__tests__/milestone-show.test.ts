@@ -46,6 +46,20 @@ describe('formatMilestoneShow — sprint coverage', () => {
     expect(out).toMatch(/未排期\s+1 task/)
   })
 
+  it('pluralizes the unsprinted label when unsprinted > 1', () => {
+    const out = formatMilestoneShow(
+      {
+        ...base,
+        sprintCoverage: {
+          sprints: base.sprintCoverage!.sprints,
+          unsprinted: 2,
+        },
+      },
+      []
+    )
+    expect(out).toMatch(/未排期\s+2 tasks/)
+  })
+
   it('omits the unsprinted line when unsprinted === 0', () => {
     const out = formatMilestoneShow(
       {
