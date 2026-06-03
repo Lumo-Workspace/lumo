@@ -11,6 +11,7 @@ import type { ApiStatus, MyTask } from '../../types'
 import { SprintTasksView } from '../components/SprintTasksView'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
+import { SprintBurndownChart } from '../components/SprintBurndownChart'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { PageBreadcrumb } from '@/app/workspace/[workspaceUrl]/components/PageBreadcrumb'
@@ -145,16 +146,21 @@ export function SprintDetailClient({
   )
 
   const sidePanel = (
-    <SprintSidebar
-      sprint={sprint}
-      progress={progress ?? { done: 0, total: 0 }}
-      tasks={localTasks}
-      members={members}
-      onRefresh={() => {
-        refetch()
-        refetchTasks()
-      }}
-    />
+    <div className='flex flex-col gap-4 overflow-y-auto'>
+      <SprintSidebar
+        sprint={sprint}
+        progress={progress ?? { done: 0, total: 0 }}
+        tasks={localTasks}
+        members={members}
+        onRefresh={() => {
+          refetch()
+          refetchTasks()
+        }}
+      />
+      {(sprint.status === 'ACTIVE' || sprint.status === 'CLOSED') && (
+        <SprintBurndownChart sprintId={sprint.id} />
+      )}
+    </div>
   )
 
   return (
