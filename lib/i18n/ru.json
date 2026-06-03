@@ -1237,5 +1237,15 @@
   "milestone.save.error": "Не удалось сохранить веху. Повторите попытку.",
   "milestone.search.placeholder": "Поиск вех…",
   "milestone.search.empty": "Вехи не найдены",
-  "milestone.notFound": "Веха не найдена"
+  "milestone.notFound": "Веха не найдена",
+  "forecast.title": "Прогноз поставки",
+  "forecast.basis": "На основе {count, plural, one {# похожей задачи} few {# похожих задач} many {# похожих задач} other {# похожих задач}}",
+  "forecast.metricIterations": "Итерации",
+  "forecast.metricPrs": "Влитые PR",
+  "forecast.metricCycle": "Цикл",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} дн. ({low}–{high} дн.)",
+  "forecast.cycleHours": "{median} ч ({low}–{high} ч)",
+  "forecast.insufficient": "Недостаточно истории для надёжного прогноза",
+  "forecast.viewSources": "Показать исходные задачи"
 }

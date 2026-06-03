@@ -1237,5 +1237,15 @@
   "milestone.save.error": "No se pudo guardar el hito. Inténtalo de nuevo.",
   "milestone.search.placeholder": "Buscar hitos…",
   "milestone.search.empty": "No se encontraron hitos",
-  "milestone.notFound": "Hito no encontrado"
+  "milestone.notFound": "Hito no encontrado",
+  "forecast.title": "Previsión de entrega",
+  "forecast.basis": "Basado en {count, plural, one {# tarea similar} other {# tareas similares}}",
+  "forecast.metricIterations": "Iteraciones",
+  "forecast.metricPrs": "PR fusionados",
+  "forecast.metricCycle": "Ciclo",
+  "forecast.range": "{median} ({low}–{high})",
+  "forecast.cycleDays": "{median} d ({low}–{high} d)",
+  "forecast.cycleHours": "{median} h ({low}–{high} h)",
+  "forecast.insufficient": "No hay suficiente historial para una previsión confiable",
+  "forecast.viewSources": "Ver tareas de referencia"
 }
