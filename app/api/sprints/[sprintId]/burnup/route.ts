@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { sprintRepository } from '@/lib/repositories'
-import { sprintBurndownService } from '@/lib/services/sprint-burndown.service'
+import { sprintBurnupService } from '@/lib/services/sprint-burnup.service'
 import { requireTeamMemberOrOwner } from '@/lib/auth/require-team-access'
 
 type Params = { params: Promise<{ sprintId: string }> }
 
 /**
- * GET /api/sprints/[sprintId]/burndown — Reconstructed daily-remaining series.
+ * GET /api/sprints/[sprintId]/burnup — Reconstructed scope/completed/projected
+ * series for a sprint.
  *
  * Accepts both Clerk sessions (browser) and bearer tokens (CLI).
  */
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       identity.clerkId
     )
 
-    const data = await sprintBurndownService.compute(sprintId, new Date())
+    const data = await sprintBurnupService.compute(sprintId, new Date())
     return NextResponse.json(data)
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
@@ -36,9 +37,6 @@ export async function GET(req: NextRequest, { params }: Params) {
         { status: (error as Error & { status: number }).status }
       )
     }
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

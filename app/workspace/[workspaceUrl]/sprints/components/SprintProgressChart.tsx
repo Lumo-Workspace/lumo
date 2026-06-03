@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { useSprintBurndown } from '../../hooks/useSprints'
+import { useSprintBurnup } from '../../hooks/useSprints'
 
 const WIDTH = 288
 const HEIGHT = 150
@@ -24,12 +24,12 @@ function Card({
   )
 }
 
-export function SprintBurndownChart({ sprintId }: { sprintId: string }) {
+export function SprintProgressChart({ sprintId }: { sprintId: string }) {
   const intl = useIntl()
-  const { burndown, isLoading } = useSprintBurndown(sprintId)
-  const title = intl.formatMessage({ id: 'sprint.burndown.title' })
+  const { burnup, isLoading } = useSprintBurnup(sprintId)
+  const title = intl.formatMessage({ id: 'sprint.burnup.title' })
 
-  if (isLoading || !burndown) {
+  if (isLoading || !burnup) {
     return (
       <Card title={title}>
         <div className='h-[120px] animate-pulse rounded bg-muted' />
@@ -37,28 +37,35 @@ export function SprintBurndownChart({ sprintId }: { sprintId: string }) {
     )
   }
 
-  const { series, total } = burndown
-  if (series.length === 0 || total === 0) {
+  const { series, scopeTotal } = burnup
+  if (series.length === 0 || scopeTotal === 0) {
     return (
       <Card title={title}>
         <p className='py-6 text-center text-xs text-muted-foreground'>
-          {intl.formatMessage({ id: 'sprint.burndown.empty' })}
+          {intl.formatMessage({ id: 'sprint.burnup.empty' })}
         </p>
       </Card>
     )
   }
 
   const n = series.length
-  const maxY = Math.max(total, 1)
+  const maxY = Math.max(scopeTotal, 1)
   const x = (i: number) =>
     PAD.left + (n === 1 ? PLOT_W / 2 : (PLOT_W * i) / (n - 1))
   const y = (v: number) => PAD.top + PLOT_H - (PLOT_H * v) / maxY
 
-  const idealPoints = series.map((p, i) => `${x(i)},${y(p.ideal)}`).join(' ')
-  const actualPoints = series
-    .map((p, i) => (p.remaining === null ? null : `${x(i)},${y(p.remaining)}`))
-    .filter((s): s is string => s !== null)
-    .join(' ')
+  const line = (pick: (p: (typeof series)[number]) => number | null) =>
+    series
+      .map((p, i) => {
+        const v = pick(p)
+        return v === null ? null : `${x(i)},${y(v)}`
+      })
+      .filter((s): s is string => s !== null)
+      .join(' ')
+
+  const scopePoints = line(p => p.scope)
+  const completedPoints = line(p => p.completed)
+  const projectedPoints = line(p => p.projected)
 
   return (
     <Card title={title}>
@@ -86,15 +93,22 @@ export function SprintBurndownChart({ sprintId }: { sprintId: string }) {
           strokeWidth={1}
         />
         <polyline
-          points={idealPoints}
+          points={scopePoints}
           fill='none'
           className='text-muted-foreground'
+          stroke='currentColor'
+          strokeWidth={1.5}
+        />
+        <polyline
+          points={projectedPoints}
+          fill='none'
+          className='text-primary'
           stroke='currentColor'
           strokeWidth={1.5}
           strokeDasharray='4 3'
         />
         <polyline
-          points={actualPoints}
+          points={completedPoints}
           fill='none'
           className='text-primary'
           stroke='currentColor'
@@ -117,14 +131,18 @@ export function SprintBurndownChart({ sprintId }: { sprintId: string }) {
           0
         </text>
       </svg>
-      <div className='mt-1 flex items-center gap-4 text-xs text-muted-foreground'>
+      <div className='mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground'>
         <span className='flex items-center gap-1'>
-          <span className='inline-block h-0.5 w-3 bg-primary' />
-          {intl.formatMessage({ id: 'sprint.burndown.remaining' })}
+          <span className='inline-block h-0.5 w-3 bg-muted-foreground' />
+          {intl.formatMessage({ id: 'sprint.burnup.scope' })}
         </span>
         <span className='flex items-center gap-1'>
-          <span className='inline-block h-0.5 w-3 border-t border-dashed border-muted-foreground' />
-          {intl.formatMessage({ id: 'sprint.burndown.ideal' })}
+          <span className='inline-block h-0.5 w-3 bg-primary' />
+          {intl.formatMessage({ id: 'sprint.burnup.completed' })}
+        </span>
+        <span className='flex items-center gap-1'>
+          <span className='inline-block h-0.5 w-3 border-t border-dashed border-primary' />
+          {intl.formatMessage({ id: 'sprint.burnup.projected' })}
         </span>
       </div>
     </Card>

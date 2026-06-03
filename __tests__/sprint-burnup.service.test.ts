@@ -1,3 +1,5 @@
+// Mocks must be declared before any imports that reference the mocked modules.
+
 const mockFindById = jest.fn()
 const mockLoadInputs = jest.fn()
 
@@ -6,37 +8,43 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
     findById: (...a: unknown[]) => mockFindById(...a),
   },
 }))
-jest.mock('@/lib/repositories/sprint-burndown.repository', () => ({
-  sprintBurndownRepository: {
+
+jest.mock('@/lib/repositories/sprint-burnup.repository', () => ({
+  sprintBurnupRepository: {
     loadInputs: (...a: unknown[]) => mockLoadInputs(...a),
   },
 }))
 
-import { sprintBurndownService } from '@/lib/services/sprint-burndown.service'
+import { sprintBurnupService } from '@/lib/services/sprint-burnup.service'
 
-beforeEach(() => {
-  mockFindById.mockReset()
-  mockLoadInputs.mockReset()
-})
+beforeEach(() => jest.clearAllMocks())
 
-describe('sprintBurndownService.compute', () => {
-  test('404 when sprint missing', async () => {
+describe('sprintBurnupService.compute', () => {
+  test('404 when sprint not found', async () => {
     mockFindById.mockResolvedValue(null)
+
     await expect(
-      sprintBurndownService.compute('nope', new Date('2026-06-10T00:00:00Z'))
+      sprintBurnupService.compute('missing-id', new Date())
     ).rejects.toMatchObject({ status: 404 })
+
+    expect(mockFindById).toHaveBeenCalledWith('missing-id')
+    expect(mockLoadInputs).not.toHaveBeenCalled()
   })
 
   test('409 when sprint is DRAFT', async () => {
     mockFindById.mockResolvedValue({
-      id: 's1',
+      id: 'draft-sprint',
       status: 'DRAFT',
       startDate: new Date('2026-06-01T00:00:00Z'),
-      endDate: new Date('2026-06-03T00:00:00Z'),
+      startedAt: null,
+      endDate: new Date('2026-06-07T00:00:00Z'),
     })
+
     await expect(
-      sprintBurndownService.compute('s1', new Date('2026-06-10T00:00:00Z'))
+      sprintBurnupService.compute('draft-sprint', new Date())
     ).rejects.toMatchObject({ status: 409 })
+
+    expect(mockLoadInputs).not.toHaveBeenCalled()
   })
 
   test('computes series for a CLOSED sprint', async () => {
@@ -44,10 +52,19 @@ describe('sprintBurndownService.compute', () => {
       id: 's1',
       status: 'CLOSED',
       startDate: new Date('2026-06-01T00:00:00Z'),
+      startedAt: new Date('2026-06-01T00:00:00Z'),
       endDate: new Date('2026-06-02T00:00:00Z'),
     })
+
     mockLoadInputs.mockResolvedValue({
-      tasks: [{ id: 't1', sprintId: 's1', status: 'DONE' }],
+      tasks: [
+        {
+          id: 't1',
+          sprintId: 's1',
+          status: 'DONE',
+          createdAt: new Date('2026-06-01T00:00:00Z'),
+        },
+      ],
       activities: [
         {
           taskId: 't1',
@@ -57,12 +74,17 @@ describe('sprintBurndownService.compute', () => {
         },
       ],
     })
-    const out = await sprintBurndownService.compute(
+
+    const out = await sprintBurnupService.compute(
       's1',
       new Date('2026-06-10T00:00:00Z')
     )
+
     expect(out.sprintId).toBe('s1')
-    expect(out.series.map(p => p.remaining)).toEqual([1, 0])
+    expect(out.scopeTotal).toBe(1)
+    // t1 created 06-01 → in scope both days
+    // STATUS_CHANGED to DONE at 06-02T10:00 → not done at EOD 06-01, done at EOD 06-02
+    expect(out.series.map(p => p.completed)).toEqual([0, 1])
     expect(mockLoadInputs).toHaveBeenCalledWith('s1')
   })
 })

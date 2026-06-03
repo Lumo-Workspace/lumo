@@ -1,8 +1,13 @@
 import { prisma } from '@/lib/db/prisma'
 import type { TaskStatus } from '@prisma/client'
 
-export interface BurndownInputs {
-  tasks: Array<{ id: string; sprintId: string | null; status: TaskStatus }>
+export interface BurnupInputs {
+  tasks: Array<{
+    id: string
+    sprintId: string | null
+    status: TaskStatus
+    createdAt: Date
+  }>
   activities: Array<{
     taskId: string
     type: 'STATUS_CHANGED' | 'SPRINT_CHANGED'
@@ -11,13 +16,13 @@ export interface BurndownInputs {
   }>
 }
 
-export const sprintBurndownRepository = {
+export const sprintBurnupRepository = {
   /**
    * Load the candidate task set + their status/sprint activity timelines.
    * Candidates = tasks currently in the sprint ∪ tasks with any SPRINT_CHANGED
    * whose payload from/to references this sprint (i.e. tasks that left it).
    */
-  async loadInputs(sprintId: string): Promise<BurndownInputs> {
+  async loadInputs(sprintId: string): Promise<BurnupInputs> {
     const currentTaskIds = (
       await prisma.task.findMany({
         where: { sprintId },
@@ -44,7 +49,7 @@ export const sprintBurndownRepository = {
 
     const tasks = await prisma.task.findMany({
       where: { id: { in: ids } },
-      select: { id: true, sprintId: true, status: true },
+      select: { id: true, sprintId: true, status: true, createdAt: true },
     })
 
     const activities = await prisma.taskActivity.findMany({
@@ -58,7 +63,7 @@ export const sprintBurndownRepository = {
 
     return {
       tasks,
-      activities: activities as unknown as BurndownInputs['activities'],
+      activities: activities as unknown as BurnupInputs['activities'],
     }
   },
 }

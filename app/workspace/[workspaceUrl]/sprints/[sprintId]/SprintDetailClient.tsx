@@ -11,7 +11,7 @@ import type { ApiStatus, MyTask } from '../../types'
 import { SprintTasksView } from '../components/SprintTasksView'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
-import { SprintBurndownChart } from '../components/SprintBurndownChart'
+import { SprintProgressChart } from '../components/SprintProgressChart'
 import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache } from '../../cache'
 import { DetailLayout } from '@/app/workspace/[workspaceUrl]/components/DetailLayout'
@@ -160,7 +160,7 @@ export function SprintDetailClient({
         }}
       />
       {(sprint.status === 'ACTIVE' || sprint.status === 'CLOSED') && (
-        <SprintBurndownChart sprintId={sprint.id} />
+        <SprintProgressChart sprintId={sprint.id} />
       )}
     </div>
   )
