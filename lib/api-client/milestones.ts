@@ -23,6 +23,17 @@ export interface ApiMilestone {
    * `null` when no light applies (terminal status or no target date).
    */
   health?: MilestoneHealth | null
+  sprintCoverage?: {
+    sprints: Array<{
+      sprintId: string
+      number: number
+      name: string
+      status: 'DRAFT' | 'ACTIVE' | 'CLOSED'
+      taskCount: number
+      doneCount: number
+    }>
+    unsprinted: number
+  } | null
 }
 
 export interface MilestoneCreateInput {
