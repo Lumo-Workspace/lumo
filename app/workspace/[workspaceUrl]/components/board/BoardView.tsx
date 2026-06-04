@@ -51,10 +51,12 @@ function VirtualColumnBody<T extends { id: string }>({
   columnId,
   items,
   renderCard,
+  footer,
 }: {
   columnId: string
   items: T[]
   renderCard: (task: T, isOverlay: boolean) => React.ReactNode
+  footer?: React.ReactNode
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const { setNodeRef } = useDroppable({ id: columnId })
@@ -98,6 +100,7 @@ function VirtualColumnBody<T extends { id: string }>({
           )
         })}
       </div>
+      {footer}
     </div>
   )
 }
@@ -209,36 +212,40 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                 items={col.map(t => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {shouldVirtualize(
-                  col.length,
-                  BOARD_COLUMN_VIRTUALIZE_THRESHOLD
-                ) ? (
-                  <VirtualColumnBody
-                    columnId={column.id}
-                    items={col}
-                    renderCard={renderCard}
-                  />
-                ) : (
-                  <DroppableColumn id={column.id}>
-                    {col.map(task =>
-                      keyedCard(task.id, renderCard(task, false))
-                    )}
-                    {onAddTask && (
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => onAddTask(column.id)}
-                        className='w-full justify-start gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
-                      >
-                        <Plus size={16} />
-                        {intl.formatMessage({
-                          id: 'board.addTask',
-                          defaultMessage: 'Add task',
-                        })}
-                      </Button>
-                    )}
-                  </DroppableColumn>
-                )}
+                {(() => {
+                  const addTaskButton = onAddTask ? (
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => onAddTask(column.id)}
+                      className='w-full justify-start gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 h-auto px-2 py-1.5'
+                    >
+                      <Plus size={16} />
+                      {intl.formatMessage({
+                        id: 'board.addTask',
+                        defaultMessage: 'Add task',
+                      })}
+                    </Button>
+                  ) : null
+                  return shouldVirtualize(
+                    col.length,
+                    BOARD_COLUMN_VIRTUALIZE_THRESHOLD
+                  ) ? (
+                    <VirtualColumnBody
+                      columnId={column.id}
+                      items={col}
+                      renderCard={renderCard}
+                      footer={addTaskButton}
+                    />
+                  ) : (
+                    <DroppableColumn id={column.id}>
+                      {col.map(task =>
+                        keyedCard(task.id, renderCard(task, false))
+                      )}
+                      {addTaskButton}
+                    </DroppableColumn>
+                  )
+                })()}
               </SortableContext>
             </div>
           )

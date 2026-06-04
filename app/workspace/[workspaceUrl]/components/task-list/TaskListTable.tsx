@@ -370,119 +370,122 @@ export function TaskListTable({
   )
 
   return (
-    <div ref={scrollRef} className='flex-1 min-h-0 overflow-auto'>
+    <div ref={scrollRef} role='table' className='flex-1 min-h-0 overflow-auto'>
       {/* Sticky header */}
-      <div
-        role='row'
-        className='grid sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm z-10 border-b border-zinc-200 dark:border-zinc-800'
-        style={{ gridTemplateColumns: COLUMN_TEMPLATE }}
-      >
-        <div role='columnheader' className='py-2 px-4'>
-          <Checkbox
-            checked={headerCheckboxState}
-            onCheckedChange={toggleAll}
-            aria-label={intl.formatMessage({
-              id: 'task.selectAll',
-              defaultMessage: 'Select all tasks',
+      <div role='rowgroup'>
+        <div
+          role='row'
+          className='grid sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm z-10 border-b border-zinc-200 dark:border-zinc-800'
+          style={{ gridTemplateColumns: COLUMN_TEMPLATE }}
+        >
+          <div role='columnheader' className='py-2 px-4'>
+            <Checkbox
+              checked={headerCheckboxState}
+              onCheckedChange={toggleAll}
+              aria-label={intl.formatMessage({
+                id: 'task.selectAll',
+                defaultMessage: 'Select all tasks',
+              })}
+            />
+          </div>
+          <SortableHeader
+            col='title'
+            label={intl.formatMessage({
+              id: 'task.title',
+              defaultMessage: 'Title',
             })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-left py-2 px-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.title',
+              defaultMessage: 'Task title.',
+            })}
+            as='div'
+          />
+          <SortableHeader
+            col='project'
+            label={intl.formatMessage({
+              id: 'task.project',
+              defaultMessage: 'Project',
+            })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-left py-2 px-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.project',
+              defaultMessage: 'Project this task belongs to.',
+            })}
+            as='div'
+          />
+          <SortableHeader
+            col='status'
+            label={intl.formatMessage({
+              id: 'task.status',
+              defaultMessage: 'Status',
+            })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-left py-2 px-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.status',
+              defaultMessage:
+                'Workflow stage: To Do, In Progress, In Review, or Done.',
+            })}
+            as='div'
+          />
+          <SortableHeader
+            col='priority'
+            label={intl.formatMessage({
+              id: 'task.priority',
+              defaultMessage: 'Priority',
+            })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-left py-2 px-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.priority',
+              defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
+            })}
+            as='div'
+          />
+          <SortableHeader
+            col='assignee'
+            label={intl.formatMessage({
+              id: 'task.assignee',
+              defaultMessage: 'Assignee',
+            })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-left py-2 px-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.assignee',
+              defaultMessage: 'Person responsible for completing this task.',
+            })}
+            as='div'
+          />
+          <SortableHeader
+            col='updatedAt'
+            label={intl.formatMessage({
+              id: 'common.updated',
+              defaultMessage: 'Updated',
+            })}
+            sort={sort}
+            onToggle={toggle}
+            className='text-right py-2 px-8 pr-8'
+            tooltip={intl.formatMessage({
+              id: 'tasks.tooltip.updated',
+              defaultMessage: 'Last time this task was modified.',
+            })}
+            as='div'
           />
         </div>
-        <SortableHeader
-          col='title'
-          label={intl.formatMessage({
-            id: 'task.title',
-            defaultMessage: 'Title',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-left py-2 px-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.title',
-            defaultMessage: 'Task title.',
-          })}
-          as='div'
-        />
-        <SortableHeader
-          col='project'
-          label={intl.formatMessage({
-            id: 'task.project',
-            defaultMessage: 'Project',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-left py-2 px-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.project',
-            defaultMessage: 'Project this task belongs to.',
-          })}
-          as='div'
-        />
-        <SortableHeader
-          col='status'
-          label={intl.formatMessage({
-            id: 'task.status',
-            defaultMessage: 'Status',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-left py-2 px-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.status',
-            defaultMessage:
-              'Workflow stage: To Do, In Progress, In Review, or Done.',
-          })}
-          as='div'
-        />
-        <SortableHeader
-          col='priority'
-          label={intl.formatMessage({
-            id: 'task.priority',
-            defaultMessage: 'Priority',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-left py-2 px-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.priority',
-            defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
-          })}
-          as='div'
-        />
-        <SortableHeader
-          col='assignee'
-          label={intl.formatMessage({
-            id: 'task.assignee',
-            defaultMessage: 'Assignee',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-left py-2 px-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.assignee',
-            defaultMessage: 'Person responsible for completing this task.',
-          })}
-          as='div'
-        />
-        <SortableHeader
-          col='updatedAt'
-          label={intl.formatMessage({
-            id: 'common.updated',
-            defaultMessage: 'Updated',
-          })}
-          sort={sort}
-          onToggle={toggle}
-          className='text-right py-2 px-8 pr-8'
-          tooltip={intl.formatMessage({
-            id: 'tasks.tooltip.updated',
-            defaultMessage: 'Last time this task was modified.',
-          })}
-          as='div'
-        />
       </div>
 
       {/* Body */}
       {virtualize ? (
         <div
+          role='rowgroup'
           style={{
             height: rowVirtualizer.getTotalSize(),
             position: 'relative',
@@ -508,7 +511,7 @@ export function TaskListTable({
           })}
         </div>
       ) : (
-        <div>
+        <div role='rowgroup'>
           {sorted.map(task => (
             <div key={task.id}>{renderRow(task)}</div>
           ))}
