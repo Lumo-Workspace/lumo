@@ -32,8 +32,8 @@ export function MilestoneDetailTabs({
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
               tab === t
-                ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
-                : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-300'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
             )}
           >
             {intl.formatMessage({ id: `milestone.tab.${t}` })}

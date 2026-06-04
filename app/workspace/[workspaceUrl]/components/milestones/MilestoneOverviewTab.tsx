@@ -48,7 +48,7 @@ export function MilestoneOverviewTab({
       </div>
 
       <div className='max-w-3xl'>
-        <p className='text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3'>
+        <p className='text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3'>
           {intl.formatMessage({ id: 'milestone.field.description' })}
         </p>
         <DescriptionEditor
