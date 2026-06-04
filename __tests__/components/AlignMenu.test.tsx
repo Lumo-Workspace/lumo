@@ -28,7 +28,7 @@ describe('AlignMenu', () => {
     const { editor } = makeEditor()
     render(<AlignMenu editor={editor} alignLeft alignCenter={false} alignRight={false} />)
     expect(screen.queryByText('Align center')).not.toBeInTheDocument()
-    fireEvent.mouseDown(screen.getByRole('button'))
+    fireEvent.mouseDown(screen.getByRole('button', { name: /alignment/i }))
     expect(screen.getByText('Align left')).toBeInTheDocument()
     expect(screen.getByText('Align center')).toBeInTheDocument()
     expect(screen.getByText('Align right')).toBeInTheDocument()
@@ -37,7 +37,7 @@ describe('AlignMenu', () => {
   it('applies the chosen alignment and closes', () => {
     const { editor, chain } = makeEditor()
     render(<AlignMenu editor={editor} alignLeft alignCenter={false} alignRight={false} />)
-    fireEvent.mouseDown(screen.getByRole('button'))
+    fireEvent.mouseDown(screen.getByRole('button', { name: /alignment/i }))
     fireEvent.mouseDown(screen.getByText('Align center'))
     expect(chain.setTextAlign).toHaveBeenCalledWith('center')
     expect(screen.queryByText('Align center')).not.toBeInTheDocument()
