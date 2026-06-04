@@ -8,12 +8,14 @@ import { TypographyH3 } from '@/components/ui/typography'
 interface MilestoneOverviewTabProps {
   milestone: Pick<ApiMilestone, 'id' | 'name' | 'description'>
   onUpdate: (fields: MilestoneUpdateInput) => void
+  archived?: boolean
 }
 
 /** Overview tab: inline-editable name + description. Mirrors ProjectOverviewTab. */
 export function MilestoneOverviewTab({
   milestone,
   onUpdate,
+  archived = false,
 }: MilestoneOverviewTabProps) {
   const intl = useIntl()
   return (
@@ -21,9 +23,10 @@ export function MilestoneOverviewTab({
       <div className='mb-8'>
         <TypographyH3
           key={milestone.id}
-          contentEditable
+          contentEditable={!archived}
           suppressContentEditableWarning
           onBlur={e => {
+            if (archived) return
             const trimmed = e.currentTarget.textContent?.trim() ?? ''
             if (!trimmed || trimmed === milestone.name) {
               e.currentTarget.textContent = milestone.name
@@ -32,6 +35,7 @@ export function MilestoneOverviewTab({
             onUpdate({ name: trimmed })
           }}
           onKeyDown={e => {
+            if (archived) return
             if (e.key === 'Enter') {
               e.preventDefault()
               e.currentTarget.blur()
@@ -54,7 +58,7 @@ export function MilestoneOverviewTab({
         <DescriptionEditor
           key={milestone.id}
           value={milestone.description}
-          onCommit={html => onUpdate({ description: html || null })}
+          onCommit={html => { if (!archived) onUpdate({ description: html || null }) }}
           documentId={milestone.id}
         />
       </div>

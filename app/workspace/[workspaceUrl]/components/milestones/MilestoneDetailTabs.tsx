@@ -21,6 +21,7 @@ export function MilestoneDetailTabs({
 }: MilestoneDetailTabsProps) {
   const intl = useIntl()
   const [tab, setTab] = useState<Tab>('overview')
+  const archived = !!milestone.archivedAt
 
   return (
     <div className='flex flex-1 flex-col lg:overflow-y-auto'>
@@ -42,7 +43,7 @@ export function MilestoneDetailTabs({
       </div>
 
       {tab === 'overview' ? (
-        <MilestoneOverviewTab milestone={milestone} onUpdate={onUpdate} />
+        <MilestoneOverviewTab milestone={milestone} onUpdate={onUpdate} archived={archived} />
       ) : (
         <MilestoneTasksTab
           projectId={milestone.projectId}

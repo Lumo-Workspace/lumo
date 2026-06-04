@@ -7,18 +7,23 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-// DescriptionEditor pulls Tiptap — stub it to a button that fires onCommit.
+// DescriptionEditor pulls Tiptap — stub it to buttons that fire onCommit.
 jest.mock('@/app/workspace/[workspaceUrl]/components/DescriptionEditor', () => ({
   DescriptionEditor: ({
     value,
     onCommit,
   }: {
     value: string | null
-    onCommit: (html: string | null) => void
+    onCommit: (html: string) => void
   }) => (
-    <button data-testid='desc' onClick={() => onCommit('<p>new body</p>')}>
-      {value ?? 'empty'}
-    </button>
+    <>
+      <button data-testid='desc' onClick={() => onCommit('<p>new body</p>')}>
+        {value ?? 'empty'}
+      </button>
+      <button data-testid='desc-empty' onClick={() => onCommit('')}>
+        empty commit
+      </button>
+    </>
   ),
 }))
 
@@ -59,6 +64,30 @@ test('renaming via title blur calls onUpdate with trimmed { name }', () => {
 test('blurring an unchanged title does not call onUpdate', () => {
   const { onUpdate } = setup()
   const title = screen.getByText('Beta release')
+  fireEvent.blur(title)
+  expect(onUpdate).not.toHaveBeenCalled()
+})
+
+test('committing an empty description calls onUpdate with { description: null }', () => {
+  const { onUpdate } = setup()
+  fireEvent.click(screen.getByTestId('desc-empty'))
+  expect(onUpdate).toHaveBeenCalledWith({ description: null })
+})
+
+test('archived milestone does not commit name or description edits', () => {
+  const onUpdate = jest.fn()
+  render(
+    <MilestoneOverviewTab
+      milestone={{ id: 'm1', name: 'Beta release', description: 'Old body' }}
+      onUpdate={onUpdate}
+      archived
+    />
+  )
+  // description commit is gated
+  fireEvent.click(screen.getByTestId('desc'))
+  // title is not contentEditable; even if blurred with changed text, no commit
+  const title = screen.getByText('Beta release')
+  title.textContent = 'Gamma'
   fireEvent.blur(title)
   expect(onUpdate).not.toHaveBeenCalled()
 })
