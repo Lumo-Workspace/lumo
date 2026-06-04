@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Cette action est irréversible.",
   "task.descriptionPlaceholder": "Ajouter une description…",
   "task.copyLink": "Copier le lien",
+  "task.moreOptions": "Plus d'options",
   "task.linkCopied": "Lien copié",
   "task.imageUploadFailed": "Échec du téléversement de l'image",
   "task.imageTooLarge": "L'image ne doit pas dépasser 10 Mo",

@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "This cannot be undone.",
   "task.descriptionPlaceholder": "Add a description…",
   "task.copyLink": "Copy link",
+  "task.moreOptions": "More options",
   "task.linkCopied": "Link copied",
   "task.imageUploadFailed": "Image upload failed",
   "task.imageTooLarge": "Image must be 10 MB or smaller",

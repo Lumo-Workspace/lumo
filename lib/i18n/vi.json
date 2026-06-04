@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Không thể hoàn tác.",
   "task.descriptionPlaceholder": "Thêm mô tả…",
   "task.copyLink": "Sao chép liên kết",
+  "task.moreOptions": "Tùy chọn khác",
   "task.linkCopied": "Đã sao chép liên kết",
   "task.imageUploadFailed": "Tải lên ảnh thất bại",
   "task.imageTooLarge": "Hình ảnh không được vượt quá 10 MB",

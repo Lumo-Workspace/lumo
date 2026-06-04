@@ -15,16 +15,14 @@ import {
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
 import { isMac } from '@/lib/utils/keyboard'
+import { computeActiveTocIndex } from '@/lib/editor/toc-active'
 import {
   DocExtractProvider,
   buildStampPending,
 } from '@/lib/editor/doc-extract-context'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import {
-  uploadImageFile,
-  validateImageFile,
-} from '@/lib/editor/image-upload'
+import { uploadImageFile, validateImageFile } from '@/lib/editor/image-upload'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -511,6 +509,27 @@ export function DescriptionEditor({
 
     const ACTIVE_OFFSET = 80 // px below container top that still counts as "at the top"
 
+    // Cache heading elements by toc-id so scroll doesn't re-run an O(n)
+    // querySelector sweep every frame. A cached node is reused until it leaves
+    // the DOM (el.isConnected === false) — which is exactly when ProseMirror
+    // has replaced the heading node mid-edit, so the next lookup re-queries.
+    // offsetTop is read live off the cached node (cheap; no layout thrash
+    // during a pure scroll), only the tree traversal is what we elide.
+    const elCache = new Map<string, HTMLElement>()
+    const resolveOffsetTop = (root: HTMLElement, id: string): number | null => {
+      const cached = elCache.get(id)
+      if (cached && cached.isConnected) return cached.offsetTop
+      const el = root.querySelector(
+        `[data-toc-id="${id}"]`
+      ) as HTMLElement | null
+      if (!el) {
+        elCache.delete(id)
+        return null
+      }
+      elCache.set(id, el)
+      return el.offsetTop
+    }
+
     const emit = () => {
       const tocStorage = editor.storage.tableOfContents as
         | { content?: TableOfContentData }
@@ -521,30 +540,25 @@ export function DescriptionEditor({
         return
       }
 
+      // With no scroll root we can't measure geometry; highlight the first
+      // heading (matches the old activeIdx === -1 → 0 fallback). Otherwise hand
+      // the cached offsetTops + scroll metrics to the pure resolver, which
+      // keeps the "at bottom → last heading" and "nothing crossed → first
+      // heading" semantics. See lib/editor/toc-active.ts.
       const root = tocScrollRootRef.current
-      let activeIdx = -1
-      if (root) {
-        const scrollTop = root.scrollTop
-        const atBottom = scrollTop + root.clientHeight >= root.scrollHeight - 2
-        if (atBottom) {
-          activeIdx = items.length - 1
-        } else {
-          items.forEach((item, i) => {
-            const el = root.querySelector(
-              `[data-toc-id="${item.id}"]`
-            ) as HTMLElement | null
-            if (el && el.offsetTop <= scrollTop + ACTIVE_OFFSET) {
-              activeIdx = i
-            }
-          })
-        }
-      }
-      // Fallback to the first heading when no candidate has crossed the
-      // threshold yet — at scrollTop = 0 the first heading lives below the
-      // title/metadata block, so its offsetTop is greater than the threshold
-      // and the loop above leaves activeIdx at -1, which would mean "nothing
-      // highlighted" even though the user is clearly reading the top section.
-      if (activeIdx === -1) activeIdx = 0
+      const activeIdx = root
+        ? computeActiveTocIndex(
+            items.map(item => ({
+              offsetTop: resolveOffsetTop(root, item.id),
+            })),
+            {
+              scrollTop: root.scrollTop,
+              clientHeight: root.clientHeight,
+              scrollHeight: root.scrollHeight,
+            },
+            ACTIVE_OFFSET
+          )
+        : 0
 
       onTocUpdateRef.current?.(
         items.map((item, i) => ({
@@ -574,11 +588,24 @@ export function DescriptionEditor({
       return
     }
 
-    tocScrollRoot.addEventListener('scroll', emit, { passive: true })
+    // Coalesce bursts of scroll events into one recompute per frame. Scroll
+    // fires far faster than the display refreshes, and emit() reads layout, so
+    // throttling to rAF keeps long-document scrolling smooth.
+    let rafId: number | null = null
+    const onScroll = () => {
+      if (rafId !== null) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        emit()
+      })
+    }
+
+    tocScrollRoot.addEventListener('scroll', onScroll, { passive: true })
     emit()
 
     return () => {
-      tocScrollRoot.removeEventListener('scroll', emit)
+      tocScrollRoot.removeEventListener('scroll', onScroll)
+      if (rafId !== null) cancelAnimationFrame(rafId)
     }
   }, [editor, tocEnabled, tocScrollRoot])
 

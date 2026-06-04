@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Tindakan ini tidak boleh dibatalkan.",
   "task.descriptionPlaceholder": "Tambah keterangan…",
   "task.copyLink": "Salin pautan",
+  "task.moreOptions": "Pilihan lain",
   "task.linkCopied": "Pautan disalin",
   "task.imageUploadFailed": "Muat naik imej gagal",
   "task.imageTooLarge": "Imej tidak boleh melebihi 10 MB",
