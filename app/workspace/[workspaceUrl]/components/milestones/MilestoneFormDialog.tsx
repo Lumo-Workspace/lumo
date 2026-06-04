@@ -24,19 +24,13 @@ import {
 import { milestonesClient, type ApiMilestone } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import type { MilestoneStatus } from '@prisma/client'
+import { MILESTONE_STATUSES } from './milestoneDisplay'
 
 interface Props {
   projectId: string
   milestone?: ApiMilestone | undefined
   onClose: () => void
 }
-
-const STATUSES: MilestoneStatus[] = [
-  'PLANNED',
-  'ACTIVE',
-  'COMPLETED',
-  'CANCELLED',
-]
 
 export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
   const intl = useIntl()
@@ -152,7 +146,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map(s => (
+                  {MILESTONE_STATUSES.map(s => (
                     <SelectItem key={s} value={s}>
                       {intl.formatMessage({ id: `milestone.status.${s}` })}
                     </SelectItem>

@@ -12,13 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { MilestoneStatus } from '@prisma/client'
-
-const STATUSES: MilestoneStatus[] = [
-  'PLANNED',
-  'ACTIVE',
-  'COMPLETED',
-  'CANCELLED',
-]
+import { MILESTONE_STATUSES } from './milestoneDisplay'
 
 interface MilestoneSidebarProps {
   status: ApiMilestone['status']
@@ -61,7 +55,7 @@ export function MilestoneSidebar({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {STATUSES.map(s => (
+              {MILESTONE_STATUSES.map(s => (
                 <SelectItem key={s} value={s}>
                   {intl.formatMessage({ id: `milestone.status.${s}` })}
                 </SelectItem>

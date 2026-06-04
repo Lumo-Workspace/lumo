@@ -32,18 +32,13 @@ jest.mock('@/components/ui/select', () => ({
     children: React.ReactNode
     disabled?: boolean
   }) => (
-    <select
+    <input
+      type='text'
       data-testid='status-select'
       value={value}
       disabled={disabled}
       onChange={e => onValueChange(e.target.value)}
-    >
-      {['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED'].map(s => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
-    </select>
+    />
   ),
   SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SelectValue: () => null,
@@ -107,4 +102,5 @@ test('archived disables the controls', () => {
   setup({ archived: true })
   expect((screen.getByTestId('status-select') as HTMLSelectElement).disabled).toBe(true)
   expect((screen.getByLabelText('Start date') as HTMLInputElement).disabled).toBe(true)
+  expect((screen.getByLabelText('Target date') as HTMLInputElement).disabled).toBe(true)
 })
