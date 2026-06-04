@@ -20,8 +20,7 @@ import {
 } from '@/lib/editor/doc-extract-context'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import { validateImageFile } from '@/lib/editor/image-upload'
-import { insertImageWithUpload } from '@/lib/editor/insert-image-with-upload'
+import { useImageUploads } from '../hooks/useImageUploads'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -114,29 +113,18 @@ export function DescriptionEditor({
   // its decoration.
   const placeholderRef = useRef(placeholder)
   placeholderRef.current = placeholder
-  const imageUploadFailedMsg = intl.formatMessage({
-    id: 'task.imageUploadFailed',
-  })
-  const imageTooLargeMsg = intl.formatMessage({ id: 'task.imageTooLarge' })
-  const imageInvalidTypeMsg = intl.formatMessage({
-    id: 'task.imageInvalidType',
-  })
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
   const mentionListRef = useRef<MentionListRef | null>(null)
   // Ref kept in sync with the editor instance so async upload callbacks can
   // always reach the latest editor without stale closures.
   const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
+  const { enqueueImageUpload, runOrDeferCommit } = useImageUploads({
+    editorRef,
+    documentId,
+  })
   const imageInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
-  // Track in-flight uploads so we delay onCommit until all are settled.
-  const pendingUploadsRef = useRef(0)
-  const pendingCommitRef = useRef<(() => void) | null>(null)
-  // Validate + enqueue an image upload. Held in a ref so the editor's
-  // handlePaste (frozen at editor-creation time) always calls the latest.
-  const enqueueImageUploadRef = useRef<
-    (file: File, insertPos?: number) => void
-  >(() => {})
   // Fire undo-warning toast only once per session
   const hasShownUndoWarning = useRef(false)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
@@ -273,7 +261,7 @@ export function DescriptionEditor({
         // ProseMirror's default handler runs, then validate (size + MIME
         // whitelist) inside enqueueImageUpload, which toasts on rejection.
         event.preventDefault()
-        enqueueImageUploadRef.current(img)
+        enqueueImageUpload(img)
         return true
       },
     },
@@ -288,17 +276,10 @@ export function DescriptionEditor({
       // dedupe-on-last-value commit handler would then treat as a no-op and skip
       // the immediate save.
       serializerRef.current.cancel()
-      const commit = () => {
+      runOrDeferCommit(() => {
         const html = editor.isEmpty ? null : editor.getHTML()
         onCommit(html)
-      }
-      if (pendingUploadsRef.current > 0) {
-        // Uploads still in flight — defer commit until they all settle so we
-        // never write a blob: URL into the database.
-        pendingCommitRef.current = commit
-      } else {
-        commit()
-      }
+      })
     },
     onUpdate: () => {
       // Route serialization through the serializer so getHTML() stays off the
@@ -313,43 +294,6 @@ export function DescriptionEditor({
   useEffect(() => {
     editorRef.current = editor ?? null
   }, [editor])
-
-  // Single entry point for all three upload paths (toolbar picker, paste,
-  // drop). Validates size + MIME whitelist up front — the picker's `accept`
-  // attribute only constrains the picker, and has no effect on paste/drop —
-  // then tracks the in-flight upload so onBlur can defer its commit.
-  const enqueueImageUpload = useCallback(
-    (file: File, insertPos?: number) => {
-      const check = validateImageFile(file)
-      if (!check.ok) {
-        toast.error(
-          check.reason === 'size' ? imageTooLargeMsg : imageInvalidTypeMsg
-        )
-        return
-      }
-      pendingUploadsRef.current++
-      insertImageWithUpload(
-        file,
-        documentId,
-        () => editorRef.current,
-        insertPos,
-        () => toast.error(imageUploadFailedMsg)
-      ).finally(() => {
-        pendingUploadsRef.current--
-        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-          pendingCommitRef.current()
-          pendingCommitRef.current = null
-        }
-      })
-    },
-    [documentId, imageUploadFailedMsg, imageTooLargeMsg, imageInvalidTypeMsg]
-  )
-
-  // Mirror the latest enqueue fn into a ref so the editor's handlePaste
-  // (captured once at editor creation) never calls a stale version.
-  useEffect(() => {
-    enqueueImageUploadRef.current = enqueueImageUpload
-  }, [enqueueImageUpload])
 
   // Compute the active heading ourselves and push the TOC items upstream.
   //
