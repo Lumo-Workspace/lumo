@@ -27,6 +27,7 @@ import {
   ListPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isMac } from '@/lib/utils/keyboard'
 import {
   Tooltip,
   TooltipContent,
@@ -104,9 +105,6 @@ export function BubbleMenuBar({
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/i.test(navigator.platform)
   const mod = isMac ? '⌘' : 'Ctrl+'
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)

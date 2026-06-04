@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Spinner } from '@/components/ui/spinner'
+import { isMac } from '@/lib/utils/keyboard'
 import type { ApiComment, WorkspaceMemberInfo } from '../types'
 import { slugify } from '@/lib/utils/slugify'
 import { useFormatDate } from '../hooks/useFormatDate'
@@ -133,9 +134,6 @@ export function TaskDetailComments({
                         <div
                           className='px-3 pt-2 pb-1 text-sm'
                           onKeyDown={e => {
-                            const isMac = /Mac|iPhone|iPad/i.test(
-                              navigator.platform
-                            )
                             if (
                               (isMac ? e.metaKey : e.ctrlKey) &&
                               e.key === 'Enter'
@@ -313,9 +311,6 @@ export function TaskDetailComments({
                                 <div
                                   className='px-3 pt-2 pb-1 text-sm'
                                   onKeyDown={e => {
-                                    const isMac = /Mac|iPhone|iPad/i.test(
-                                      navigator.platform
-                                    )
                                     if (
                                       (isMac ? e.metaKey : e.ctrlKey) &&
                                       e.key === 'Enter'
@@ -555,9 +550,6 @@ export function TaskDetailComments({
                       <div
                         className='px-3 pt-2 pb-1 text-sm'
                         onKeyDown={e => {
-                          const isMac = /Mac|iPhone|iPad/i.test(
-                            navigator.platform
-                          )
                           if (
                             (isMac ? e.metaKey : e.ctrlKey) &&
                             e.key === 'Enter'
@@ -594,10 +586,7 @@ export function TaskDetailComments({
                           <Send size={12} />
                           {intl.formatMessage({ id: 'task.reply' })}
                           <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
-                            {typeof navigator !== 'undefined' &&
-                            /Mac|iPhone|iPad/i.test(navigator.platform)
-                              ? '⌘↵'
-                              : 'Ctrl+↵'}
+                            {isMac ? '⌘↵' : 'Ctrl+↵'}
                           </kbd>
                         </Button>
                       </div>
@@ -622,7 +611,6 @@ export function TaskDetailComments({
           <div
             className='px-3 pt-2 pb-1 text-sm'
             onKeyDown={e => {
-              const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
               if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault()
                 tc.submitComment()
@@ -651,10 +639,7 @@ export function TaskDetailComments({
               <Send size={12} />
               {intl.formatMessage({ id: 'task.comment' })}
               <kbd className='ml-0.5 text-[10px] opacity-60 font-sans'>
-                {typeof navigator !== 'undefined' &&
-                /Mac|iPhone|iPad/i.test(navigator.platform)
-                  ? '⌘↵'
-                  : 'Ctrl+↵'}
+                {isMac ? '⌘↵' : 'Ctrl+↵'}
               </kbd>
             </Button>
           </div>
