@@ -69,6 +69,17 @@ describe('MemoryTab', () => {
     expect(screen.getByText('No memories yet')).toBeInTheDocument()
   })
 
+  it('hides the header chrome when empty so only the empty-state CTA shows (no duplicate)', () => {
+    mockUseMemories.mockReturnValue({ ...hookBase, memories: [] })
+    render(<MemoryTab scope='task' parentId='t1' enabled />)
+    // The empty state owns the single add CTA.
+    expect(screen.getByRole('button', { name: 'Add the first memory' })).toBeInTheDocument()
+    // The header count + its "Add memory" button must NOT also render — that
+    // would duplicate the "no memories" message and the add action.
+    expect(screen.queryByText('0 memories')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add memory' })).not.toBeInTheDocument()
+  })
+
   it('renders a card per memory row (newest order preserved from hook)', () => {
     mockUseMemories.mockReturnValue({
       ...hookBase,
@@ -128,8 +139,8 @@ describe('MemoryTab', () => {
 
     render(<MemoryTab scope='task' parentId='t1' enabled />)
 
-    // Open create dialog via "Add memory" button
-    fireEvent.click(screen.getByRole('button', { name: 'Add memory' }))
+    // Open create dialog via the empty-state CTA (header is hidden when empty)
+    fireEvent.click(screen.getByRole('button', { name: 'Add the first memory' }))
 
     // Category step: pick TRAP
     fireEvent.click(screen.getByRole('button', { name: 'Trap' }))
