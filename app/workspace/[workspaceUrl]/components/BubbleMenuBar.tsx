@@ -20,15 +20,7 @@ import {
   Link2Off,
   Table2,
   ImageIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Trash2,
   ListPlus,
-  BetweenHorizontalStart,
-  BetweenHorizontalEnd,
-  BetweenVerticalStart,
-  BetweenVerticalEnd,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/utils/keyboard'
@@ -39,6 +31,8 @@ import {
 } from '@/components/ui/tooltip'
 import { ToolbarButton, Divider } from './bubble-menu/ToolbarButton'
 import { ColorPicker } from './bubble-menu/ColorPicker'
+import { AlignMenu } from './bubble-menu/AlignMenu'
+import { TableActionsMenu } from './bubble-menu/TableActionsMenu'
 import { useDocExtractContext } from '@/lib/editor/doc-extract-context'
 import { wrapSelectionWithExtractPending } from './extract/wrapSelection'
 import { extractTasks } from '@/lib/api-client/documents-extract'
@@ -109,26 +103,10 @@ export function BubbleMenuBar({
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
-  // Two-step confirm for the destructive "delete whole table" action: the first
-  // click arms it, a second click within the timeout actually deletes.
-  const [confirmDeleteTable, setConfirmDeleteTable] = useState(false)
   const mod = isMac ? '⌘' : 'Ctrl+'
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const confirmDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  )
-
-  // Clear any pending confirm timer on unmount
-  useEffect(
-    () => () => {
-      if (confirmDeleteTimerRef.current) {
-        clearTimeout(confirmDeleteTimerRef.current)
-      }
-    },
-    []
-  )
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -157,6 +135,8 @@ export function BubbleMenuBar({
       isOrderedList: ctx.editor.isActive('orderedList'),
       isTaskList: ctx.editor.isActive('taskList'),
       isTable: ctx.editor.isActive('table'),
+      canMergeCells: ctx.editor.can().mergeCells(),
+      canSplitCell: ctx.editor.can().splitCell(),
       selectionEmpty: ctx.editor.state.selection.empty,
       selectionCrossParagraph:
         ctx.editor.state.selection.$from.parent !==
@@ -224,23 +204,6 @@ export function BubbleMenuBar({
     setLinkUrl('')
   }
 
-  function handleDeleteTableClick() {
-    if (confirmDeleteTable) {
-      if (confirmDeleteTimerRef.current) {
-        clearTimeout(confirmDeleteTimerRef.current)
-        confirmDeleteTimerRef.current = null
-      }
-      setConfirmDeleteTable(false)
-      editor.chain().focus().deleteTable().run()
-    } else {
-      setConfirmDeleteTable(true)
-      confirmDeleteTimerRef.current = setTimeout(() => {
-        setConfirmDeleteTable(false)
-        confirmDeleteTimerRef.current = null
-      }, 3000)
-    }
-  }
-
   const activeFlags = [
     state.isParagraph,
     state.isH1,
@@ -250,142 +213,6 @@ export function BubbleMenuBar({
   ]
   const activeStyle =
     TEXT_STYLES.find((_, i) => activeFlags[i]) ?? TEXT_STYLES[0]!
-
-  // Table-only toolbar — shown when cursor is inside a table with no text selected
-  if (state.isTable && state.selectionEmpty) {
-    return (
-      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().addRowBefore().run()}
-          title={intl.formatMessage({ id: 'table.addRowAbove' })}
-        >
-          <BetweenHorizontalStart size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().addRowAfter().run()}
-          title={intl.formatMessage({ id: 'table.addRowBelow' })}
-        >
-          <BetweenHorizontalEnd size={14} />
-        </ToolbarButton>
-        <Divider />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().addColumnBefore().run()}
-          title={intl.formatMessage({ id: 'table.addColLeft' })}
-        >
-          <BetweenVerticalStart size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().addColumnAfter().run()}
-          title={intl.formatMessage({ id: 'table.addColRight' })}
-        >
-          <BetweenVerticalEnd size={14} />
-        </ToolbarButton>
-        <Divider />
-        <ToolbarButton
-          onClick={() => editor.chain().focus().deleteRow().run()}
-          title={intl.formatMessage({ id: 'table.deleteRow' })}
-          variant='destructive'
-        >
-          <Trash2 size={13} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().deleteColumn().run()}
-          title={intl.formatMessage({ id: 'table.deleteCol' })}
-          variant='destructive'
-        >
-          <Trash2 size={13} />
-        </ToolbarButton>
-        <Divider />
-        <ToolbarButton
-          onClick={handleDeleteTableClick}
-          active={confirmDeleteTable}
-          variant='destructive'
-          title={intl.formatMessage({
-            id: confirmDeleteTable
-              ? 'table.deleteTableConfirm'
-              : 'table.deleteTable',
-          })}
-        >
-          <Trash2 size={13} />
-        </ToolbarButton>
-      </div>
-    )
-  }
-
-  // Table inline formatting toolbar — shown when text is selected inside a table
-  if (state.isTable && !state.selectionEmpty) {
-    return (
-      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          active={state.isBold}
-          title={`${intl.formatMessage({ id: 'editor.bold' })} ${mod}B`}
-        >
-          <Bold size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          active={state.isItalic}
-          title={`${intl.formatMessage({ id: 'editor.italic' })} ${mod}I`}
-        >
-          <Italic size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          active={state.isUnderline}
-          title={`${intl.formatMessage({ id: 'editor.underline' })} ${mod}U`}
-        >
-          <UnderlineIcon size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          active={state.isStrike}
-          title={intl.formatMessage({ id: 'editor.strikethrough' })}
-        >
-          <Strikethrough size={14} />
-        </ToolbarButton>
-        <ColorPicker
-          editor={editor}
-          currentColor={state.currentColor}
-          currentHighlight={state.currentHighlight}
-        />
-
-        <Divider />
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-          active={state.alignLeft}
-          title={intl.formatMessage({ id: 'editor.alignLeft' })}
-        >
-          <AlignLeft size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          active={state.alignCenter}
-          title={intl.formatMessage({ id: 'editor.alignCenter' })}
-        >
-          <AlignCenter size={14} />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          active={state.alignRight}
-          title={intl.formatMessage({ id: 'editor.alignRight' })}
-        >
-          <AlignRight size={14} />
-        </ToolbarButton>
-
-        <Divider />
-
-        <ToolbarButton
-          onClick={openLinkInput}
-          active={state.isLink}
-          title={`${intl.formatMessage({ id: 'editor.link' })} ${mod}K`}
-        >
-          <Link2 size={14} />
-        </ToolbarButton>
-      </div>
-    )
-  }
 
   // Link URL input panel
   if (linkOpen) {
@@ -444,6 +271,74 @@ export function BubbleMenuBar({
     )
   }
 
+  // Unified in-table toolbar — stable shape regardless of selection.
+  if (state.isTable) {
+    return (
+      <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={state.isBold}
+          title={`${intl.formatMessage({ id: 'editor.bold' })} ${mod}B`}
+        >
+          <Bold size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={state.isItalic}
+          title={`${intl.formatMessage({ id: 'editor.italic' })} ${mod}I`}
+        >
+          <Italic size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          active={state.isUnderline}
+          title={`${intl.formatMessage({ id: 'editor.underline' })} ${mod}U`}
+        >
+          <UnderlineIcon size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={state.isStrike}
+          title={intl.formatMessage({ id: 'editor.strikethrough' })}
+        >
+          <Strikethrough size={14} />
+        </ToolbarButton>
+        <ColorPicker
+          editor={editor}
+          currentColor={state.currentColor}
+          currentHighlight={state.currentHighlight}
+        />
+
+        <Divider />
+
+        <AlignMenu
+          editor={editor}
+          alignLeft={state.alignLeft}
+          alignCenter={state.alignCenter}
+          alignRight={state.alignRight}
+        />
+
+        <Divider />
+
+        <ToolbarButton
+          onClick={openLinkInput}
+          active={state.isLink}
+          title={`${intl.formatMessage({ id: 'editor.link' })} ${mod}K`}
+        >
+          <Link2 size={14} />
+        </ToolbarButton>
+
+        <Divider />
+
+        <TableActionsMenu
+          editor={editor}
+          canMergeCells={state.canMergeCells}
+          canSplitCell={state.canSplitCell}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className='flex items-center gap-0.5 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
       {/* Text style dropdown — custom, no portal to avoid first-render position bug */}
@@ -452,11 +347,14 @@ export function BubbleMenuBar({
           <TooltipTrigger asChild>
             <button
               type='button'
+              aria-label={intl.formatMessage({ id: activeStyle.id })}
+              aria-haspopup='menu'
+              aria-expanded={styleOpen}
               onMouseDown={e => {
                 e.preventDefault()
                 setStyleOpen(o => !o)
               }}
-              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
             >
               {intl.formatMessage({ id: activeStyle.id })}
               <ChevronDown size={12} />
@@ -467,10 +365,11 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {styleOpen && (
-          <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
             {TEXT_STYLES.map((style, i) => (
               <button
                 key={style.id}
+                role='menuitem'
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -478,10 +377,10 @@ export function BubbleMenuBar({
                   setStyleOpen(false)
                 }}
                 className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                  'w-full text-left px-3 py-1.5 text-xs transition-colors',
                   activeFlags[i]
-                    ? 'font-semibold text-zinc-900 dark:text-zinc-100'
-                    : 'text-zinc-600 dark:text-zinc-400'
+                    ? 'bg-accent text-accent-foreground font-semibold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 )}
               >
                 {intl.formatMessage({ id: style.id })}
@@ -572,6 +471,15 @@ export function BubbleMenuBar({
           <TooltipTrigger asChild>
             <button
               type='button'
+              aria-label={intl.formatMessage({
+                id: state.isOrderedList
+                  ? 'editor.list.numbered'
+                  : state.isTaskList
+                    ? 'editor.list.checklist'
+                    : 'editor.list.bulleted',
+              })}
+              aria-haspopup='menu'
+              aria-expanded={listOpen}
               onMouseDown={e => {
                 e.preventDefault()
                 setListOpen(o => !o)
@@ -579,8 +487,8 @@ export function BubbleMenuBar({
               className={cn(
                 'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
                 state.isBulletList || state.isOrderedList || state.isTaskList
-                  ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               <List size={14} />
@@ -598,12 +506,13 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {listOpen && (
-          <div className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
             {LIST_STYLES.map(style => {
               const active = style.isActive(editor)
               return (
                 <button
                   key={style.id}
+                  role='menuitem'
                   type='button'
                   onMouseDown={e => {
                     e.preventDefault()
@@ -611,10 +520,10 @@ export function BubbleMenuBar({
                     setListOpen(false)
                   }}
                   className={cn(
-                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors',
                     active
-                      ? 'font-semibold text-zinc-900 dark:text-zinc-100'
-                      : 'text-zinc-600 dark:text-zinc-400'
+                      ? 'bg-accent text-accent-foreground font-semibold'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
                   {style.icon}

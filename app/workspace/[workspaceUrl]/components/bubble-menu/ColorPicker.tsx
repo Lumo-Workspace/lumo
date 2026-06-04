@@ -70,11 +70,14 @@ export function ColorPicker({
         <TooltipTrigger asChild>
           <button
             type='button'
+            aria-label='Text color'
+            aria-haspopup='menu'
+            aria-expanded={open}
             onMouseDown={e => {
               e.preventDefault()
               setOpen(o => !o)
             }}
-            className='flex items-center justify-center size-7 rounded transition-colors text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+            className='flex items-center justify-center size-7 rounded transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground'
           >
             <Baseline
               size={14}
@@ -89,7 +92,7 @@ export function ColorPicker({
         <TooltipContent>Text color</TooltipContent>
       </Tooltip>
       {open && (
-        <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-2'>
+        <div role='menu' className='absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 w-[200px] bg-popover text-popover-foreground border border-border rounded-lg shadow-lg p-2'>
           {/* Font colors */}
           <div className='text-[10px] font-medium text-muted-foreground mb-1'>
             Font color
@@ -98,6 +101,7 @@ export function ColorPicker({
             {FONT_COLORS.map(c => (
               <button
                 key={c.value || 'default'}
+                role='menuitem'
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -130,6 +134,7 @@ export function ColorPicker({
             {BG_COLORS_LIGHT.map(c => (
               <button
                 key={c.value || 'none'}
+                role='menuitem'
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -168,6 +173,7 @@ export function ColorPicker({
             {BG_COLORS_DARK.map(c => (
               <button
                 key={c.value}
+                role='menuitem'
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -188,13 +194,14 @@ export function ColorPicker({
 
           {/* Reset */}
           <button
+            role='menuitem'
             type='button'
             onMouseDown={e => {
               e.preventDefault()
               editor.chain().focus().unsetColor().unsetHighlight().run()
               setOpen(false)
             }}
-            className='w-full text-center text-[11px] text-muted-foreground hover:text-foreground py-1 border-t border-zinc-100 dark:border-zinc-800 transition-colors'
+            className='w-full text-center text-[11px] text-muted-foreground hover:text-foreground py-1 border-t border-border transition-colors'
           >
             Reset to default
           </button>

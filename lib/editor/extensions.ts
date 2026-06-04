@@ -15,12 +15,17 @@ import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import type { Extensions } from '@tiptap/core'
 import { TaskLink } from './marks/task-link'
+import { CodeBlock } from './nodes/code-block'
 
 export function getBaseExtensions(): Extensions {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4] },
+      // Replaced by the lowlight-backed CodeBlock below (syntax highlighting
+      // + language dropdown). Both the editor and read-only viewer use it.
+      codeBlock: false,
     }),
+    CodeBlock,
     Underline,
     Link.configure({
       openOnClick: false,
