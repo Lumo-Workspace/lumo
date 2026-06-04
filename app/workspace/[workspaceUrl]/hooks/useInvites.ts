@@ -19,6 +19,20 @@ export interface PendingInvite {
   createdAt: string
 }
 
+/**
+ * A single invite-email input row. Carries a stable `id` so React can key the
+ * list by identity — keying by array index made removing a middle row reuse the
+ * wrong DOM node, leaking focus and values across the surviving rows.
+ */
+export interface EmailField {
+  id: string
+  value: string
+}
+
+const MAX_EMAIL_FIELDS = 10
+
+const seedEmailFields = (): EmailField[] => [{ id: 'email-0', value: '' }]
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useInvites() {
@@ -45,8 +59,16 @@ export function useInvites() {
 
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [emailInputs, setEmailInputs] = useState([''])
+  const [emailInputs, setEmailInputs] = useState<EmailField[]>(seedEmailFields)
+  // Monotonic counter for fresh field ids; bumped only in event handlers, never
+  // during render (keeps the hook pure).
+  const emailIdRef = useRef(1)
   const [sending, setSending] = useState(false)
+
+  const resetEmails = useCallback(() => {
+    emailIdRef.current = 1
+    setEmailInputs(seedEmailFields())
+  }, [])
 
   // Revoke confirm
   const [revokeToken, setRevokeToken] = useState<string | null>(null)
@@ -57,7 +79,7 @@ export function useInvites() {
 
   // ─── Send invites ───────────────────────────────────────────────────────────
   const handleSendInvites = async () => {
-    const emails = emailInputs.map(e => e.trim()).filter(Boolean)
+    const emails = emailInputs.map(f => f.value.trim()).filter(Boolean)
     if (emails.length === 0) return
 
     setSending(true)
@@ -82,7 +104,7 @@ export function useInvites() {
           : undefined
       )
       setInviteOpen(false)
-      setEmailInputs([''])
+      resetEmails()
       await fetchInvites()
     } catch (err) {
       toast.error(
@@ -129,21 +151,24 @@ export function useInvites() {
     }
   }
 
-  // ─── Email input helpers ────────────────────────────────────────────────────
+  // ─── Email input helpers (keyed by stable id, not array index) ───────────────
   const addEmailField = () => {
-    if (emailInputs.length < 10) setEmailInputs(prev => [...prev, ''])
+    setEmailInputs(prev =>
+      prev.length < MAX_EMAIL_FIELDS
+        ? [...prev, { id: `email-${emailIdRef.current++}`, value: '' }]
+        : prev
+    )
   }
 
-  const updateEmail = (index: number, value: string) => {
-    setEmailInputs(prev => prev.map((e, i) => (i === index ? value : e)))
+  const updateEmail = (id: string, value: string) => {
+    setEmailInputs(prev => prev.map(f => (f.id === id ? { ...f, value } : f)))
   }
 
-  const removeEmail = (index: number) => {
-    if (emailInputs.length === 1) {
-      setEmailInputs([''])
-    } else {
-      setEmailInputs(prev => prev.filter((_, i) => i !== index))
-    }
+  const removeEmail = (id: string) => {
+    setEmailInputs(prev => {
+      const next = prev.filter(f => f.id !== id)
+      return next.length === 0 ? seedEmailFields() : next
+    })
   }
 
   return {
@@ -152,7 +177,7 @@ export function useInvites() {
     inviteOpen,
     setInviteOpen,
     emailInputs,
-    setEmailInputs,
+    resetEmails,
     sending,
     revokeToken,
     setRevokeToken,

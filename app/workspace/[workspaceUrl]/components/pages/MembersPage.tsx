@@ -65,7 +65,7 @@ export function MembersPage() {
     inviteOpen,
     setInviteOpen,
     emailInputs,
-    setEmailInputs,
+    resetEmails,
     sending,
     revokeToken,
     setRevokeToken,
@@ -401,7 +401,7 @@ export function MembersPage() {
         open={inviteOpen}
         onOpenChange={open => {
           setInviteOpen(open)
-          if (!open) setEmailInputs([''])
+          if (!open) resetEmails()
         }}
       >
         <DialogContent className='sm:max-w-md'>
@@ -412,15 +412,15 @@ export function MembersPage() {
           </DialogHeader>
 
           <div className='space-y-2 py-2'>
-            {emailInputs.map((email, i) => (
-              <div key={i} className='flex gap-2'>
+            {emailInputs.map((field, i) => (
+              <div key={field.id} className='flex gap-2'>
                 <input
                   type='email'
                   placeholder={intl.formatMessage({
                     id: 'members.emailPlaceholder',
                   })}
-                  value={email}
-                  onChange={e => updateEmail(i, e.target.value)}
+                  value={field.value}
+                  onChange={e => updateEmail(field.id, e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -436,7 +436,7 @@ export function MembersPage() {
                     variant='ghost'
                     size='icon'
                     className='h-9 w-9 shrink-0 text-zinc-400'
-                    onClick={() => removeEmail(i)}
+                    onClick={() => removeEmail(field.id)}
                   >
                     <X size={14} />
                   </Button>
@@ -461,14 +461,14 @@ export function MembersPage() {
               variant='outline'
               onClick={() => {
                 setInviteOpen(false)
-                setEmailInputs([''])
+                resetEmails()
               }}
             >
               {intl.formatMessage({ id: 'common.cancel' })}
             </Button>
             <Button
               onClick={handleSendInvites}
-              disabled={sending || emailInputs.every(e => e.trim() === '')}
+              disabled={sending || emailInputs.every(f => f.value.trim() === '')}
             >
               {sending
                 ? intl.formatMessage({ id: 'common.sending' })
