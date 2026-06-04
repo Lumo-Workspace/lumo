@@ -1268,5 +1268,8 @@
   "forecast.cycleDays": "{median} ngày ({low}–{high} ngày)",
   "forecast.cycleHours": "{median} giờ ({low}–{high} giờ)",
   "forecast.insufficient": "Không đủ lịch sử để dự báo đáng tin cậy",
-  "forecast.viewSources": "Xem công việc tham chiếu"
+  "forecast.viewSources": "Xem công việc tham chiếu",
+  "documentEditor.stats.words": "{count} từ",
+  "documentEditor.stats.characters": "{count} ký tự",
+  "documentEditor.stats.readingTime": "{minutes} phút đọc"
 }

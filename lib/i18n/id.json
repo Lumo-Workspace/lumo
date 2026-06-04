@@ -1268,5 +1268,8 @@
   "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
   "forecast.cycleHours": "{median} jam ({low}–{high} jam)",
   "forecast.insufficient": "Riwayat tidak cukup untuk prakiraan yang andal",
-  "forecast.viewSources": "Lihat tugas rujukan"
+  "forecast.viewSources": "Lihat tugas rujukan",
+  "documentEditor.stats.words": "{count} kata",
+  "documentEditor.stats.characters": "{count} karakter",
+  "documentEditor.stats.readingTime": "{minutes} menit baca"
 }

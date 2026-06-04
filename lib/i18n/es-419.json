@@ -1268,5 +1268,8 @@
   "forecast.cycleDays": "{median} d ({low}–{high} d)",
   "forecast.cycleHours": "{median} h ({low}–{high} h)",
   "forecast.insufficient": "No hay suficiente historial para una previsión confiable",
-  "forecast.viewSources": "Ver tareas de referencia"
+  "forecast.viewSources": "Ver tareas de referencia",
+  "documentEditor.stats.words": "{count, plural, one {# palabra} other {# palabras}}",
+  "documentEditor.stats.characters": "{count, plural, one {# carácter} other {# caracteres}}",
+  "documentEditor.stats.readingTime": "{minutes} min de lectura"
 }
