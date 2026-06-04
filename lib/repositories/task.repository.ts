@@ -6,6 +6,17 @@ import type {
   AgentStatus,
 } from '@prisma/client'
 
+export const WORKSPACE_TASK_QUERY_LIMIT = 500
+
+export interface WorkspaceTaskFilters {
+  projectIds?: string[] | undefined
+  milestoneIds?: string[] | undefined
+  statuses?: TaskStatus[] | undefined
+  priorities?: TaskPriority[] | undefined
+  assigneeActorIds?: string[] | undefined
+  tagIds?: string[] | undefined
+}
+
 export interface TaskUpdateData {
   title?: string | undefined
   description?: string | null | undefined
@@ -575,6 +586,43 @@ export const taskRepository = {
       where,
       include: TASK_LIST_INCLUDE,
       orderBy: { order: 'asc' },
+    })
+  },
+
+  /** Find all tasks in a workspace, optionally filtered by project, milestone, status, priority, assignee, and tags.
+   * Capped at WORKSPACE_TASK_QUERY_LIMIT results, ordered by task order.
+   * Used by the workspace-wide task view (LUM-224).
+   */
+  async findByWorkspaceWithFilters(
+    workspaceId: string,
+    filters: WorkspaceTaskFilters = {}
+  ) {
+    const where: Prisma.TaskWhereInput = {
+      project: { workspaceId },
+    }
+    if (filters.projectIds?.length) {
+      where.projectId = { in: filters.projectIds }
+    }
+    if (filters.milestoneIds?.length) {
+      where.milestoneId = { in: filters.milestoneIds }
+    }
+    if (filters.statuses?.length) {
+      where.status = { in: filters.statuses }
+    }
+    if (filters.priorities?.length) {
+      where.priority = { in: filters.priorities }
+    }
+    if (filters.assigneeActorIds?.length) {
+      where.assigneeActorId = { in: filters.assigneeActorIds }
+    }
+    if (filters.tagIds?.length) {
+      where.taskTags = { some: { tagId: { in: filters.tagIds } } }
+    }
+    return prisma.task.findMany({
+      where,
+      include: TASK_LIST_INCLUDE,
+      orderBy: { order: 'asc' },
+      take: WORKSPACE_TASK_QUERY_LIMIT,
     })
   },
 
