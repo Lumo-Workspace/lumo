@@ -43,4 +43,20 @@ describe('resolveInsertTarget', () => {
       resolveInsertTarget({ ...base, pointer: { x: 150, y: 2 } })
     ).toBeNull()
   })
+
+  it('returns null when columnBoundaries is empty', () => {
+    expect(
+      resolveInsertTarget({ ...base, columnBoundaries: [], rowBoundaries: [], pointer: { x: 1, y: 2 } })
+    ).toBeNull()
+  })
+
+  it('corner overlap: pointer in both top band and left band resolves to column (col zone checked first)', () => {
+    // pointer (1,1): within top edgeBand (y=1 near tableRect.top=0) AND
+    // within left edgeBand (x=1 near tableRect.left=0); nearest column boundary
+    // is 0 and nearest row boundary is 0 — column wins because col zone is
+    // evaluated first in the function.
+    expect(
+      resolveInsertTarget({ ...base, pointer: { x: 1, y: 1 } })
+    ).toEqual({ axis: 'col', side: 'before', anchorIndex: 0, boundaryCoord: 0 })
+  })
 })
