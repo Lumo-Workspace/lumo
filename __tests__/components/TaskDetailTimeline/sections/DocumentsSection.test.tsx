@@ -64,6 +64,7 @@ describe('DocumentsSection', () => {
               title: 'Spec',
               emoji: null,
               updatedAt: '2026-05-19T00:00:00Z',
+              source: 'CONTENT',
             },
             {
               id: 'd2',
@@ -71,6 +72,7 @@ describe('DocumentsSection', () => {
               title: 'RFC',
               emoji: '📄',
               updatedAt: '2026-05-19T00:00:00Z',
+              source: 'EXPLICIT',
             },
           ]}
         />
@@ -95,6 +97,7 @@ describe('DocumentsSection', () => {
               title: 'Spec',
               emoji: null,
               updatedAt: '',
+              source: 'CONTENT',
             },
           ]}
         />
@@ -112,9 +115,9 @@ describe('DocumentsSection', () => {
           taskId='task-1'
           onAttached={jest.fn()}
           documents={[
-            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '' },
-            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '' },
-            { id: 'd3', slug: 'c-3', title: 'c', emoji: null, updatedAt: '' },
+            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '', source: 'CONTENT' },
+            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '', source: 'CONTENT' },
+            { id: 'd3', slug: 'c-3', title: 'c', emoji: null, updatedAt: '', source: 'CONTENT' },
           ]}
         />
       </Accordion>
@@ -140,6 +143,7 @@ describe('DocumentsSection', () => {
               title: 'Spec',
               emoji: null,
               updatedAt: '',
+              source: 'EXPLICIT',
             },
           ]}
         />
@@ -180,6 +184,7 @@ describe('DocumentsSection', () => {
               title: 'Spec',
               emoji: null,
               updatedAt: '',
+              source: 'EXPLICIT',
             },
           ]}
         />
@@ -220,6 +225,7 @@ describe('DocumentsSection', () => {
               title: 'Spec',
               emoji: null,
               updatedAt: '',
+              source: 'EXPLICIT',
             },
           ]}
         />
@@ -235,5 +241,65 @@ describe('DocumentsSection', () => {
     expect(mockToastError).toHaveBeenCalledWith(
       'task.contextLink.common.errors.network'
     )
+  })
+
+  it('renders a source badge for each document', () => {
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+          documents={[
+            { id: 'd1', slug: 'a-1', title: 'a', emoji: null, updatedAt: '', source: 'CONTENT' },
+            { id: 'd2', slug: 'b-2', title: 'b', emoji: null, updatedAt: '', source: 'EXPLICIT' },
+          ]}
+        />
+      </Accordion>
+    )
+    expect(
+      screen.getByText('task.context.documents.source.content')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('task.context.documents.source.explicit')
+    ).toBeInTheDocument()
+  })
+
+  it('sorts CONTENT backlinks before EXPLICIT binds', () => {
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+          documents={[
+            { id: 'x', slug: 'x-1', title: 'Explicit doc', emoji: null, updatedAt: '', source: 'EXPLICIT' },
+            { id: 'y', slug: 'y-1', title: 'Content doc', emoji: null, updatedAt: '', source: 'CONTENT' },
+          ]}
+        />
+      </Accordion>
+    )
+    const items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Content doc')
+    expect(items[1]).toHaveTextContent('Explicit doc')
+  })
+
+  it('shows a detach button only for EXPLICIT documents', () => {
+    render(
+      <Accordion type='multiple' defaultValue={['documents']}>
+        <DocumentsSection
+          workspaceUrl='lumo'
+          taskId='task-1'
+          onAttached={jest.fn()}
+          documents={[
+            { id: 'd1', slug: 'a-1', title: 'Content doc', emoji: null, updatedAt: '', source: 'CONTENT' },
+            { id: 'd2', slug: 'b-2', title: 'Explicit doc', emoji: null, updatedAt: '', source: 'EXPLICIT' },
+          ]}
+        />
+      </Accordion>
+    )
+    expect(
+      screen.getAllByRole('button', { name: 'task.contextLink.doc.detachAction' })
+    ).toHaveLength(1)
   })
 })

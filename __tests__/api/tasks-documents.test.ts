@@ -117,6 +117,41 @@ describe('GET /api/tasks/[id]/documents', () => {
     })
     expect(res.status).toBe(404)
   })
+
+  it('passes through the mention source on each document', async () => {
+    const cuid = 'cld7z3k2m0000abc12345678x'
+    miscRepository.findDocumentMentionsByTask.mockResolvedValueOnce([
+      {
+        source: 'CONTENT',
+        document: {
+          id: 'doc1',
+          slug: 'sprint-notes',
+          title: 'Sprint notes',
+          emoji: null,
+          updatedAt: new Date('2026-06-01').toISOString(),
+        },
+      },
+      {
+        source: 'EXPLICIT',
+        document: {
+          id: 'doc2',
+          slug: 'spec',
+          title: 'Spec',
+          emoji: '📄',
+          updatedAt: new Date('2026-06-02').toISOString(),
+        },
+      },
+    ])
+
+    const res = await GET(mkGetReq(cuid), {
+      params: Promise.resolve({ id: cuid }),
+    })
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.documents).toHaveLength(2)
+    expect(json.documents[0]).toMatchObject({ id: 'doc1', source: 'CONTENT' })
+    expect(json.documents[1]).toMatchObject({ id: 'doc2', source: 'EXPLICIT' })
+  })
 })
 
 function mkPostReq(id: string, body: unknown): NextRequest {
