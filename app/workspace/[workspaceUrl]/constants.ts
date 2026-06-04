@@ -12,6 +12,7 @@ export const API = {
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
+    workspace: '/api/tasks/workspace',
   },
   projects: {
     list: '/api/projects',
