@@ -26,6 +26,7 @@ import { documentsClient } from '@/lib/api-client'
 import { readCache, writeCache } from '../../cache'
 import { useTags } from '../../hooks/useTags'
 import { useDocTocCollapsed } from '../../hooks/useDocTocCollapsed'
+import { useDocumentSave } from '../../hooks/useDocumentSave'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -36,8 +37,6 @@ interface DocumentEditorPageProps {
   members: WorkspaceMemberInfo[]
   currentMemberId: string | undefined
 }
-
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
   const date = new Date(dateStr)
@@ -75,10 +74,7 @@ export function DocumentEditorPage({
     initialCache?.ancestors ?? []
   )
   const [loading, setLoading] = useState(!initialCache)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [title, setTitle] = useState(initialCache?.title ?? '')
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastContentRef = useRef<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
@@ -150,40 +146,24 @@ export function DocumentEditorPage({
     }
   }, [documentId])
 
-  // Auto-save with debounce
-  const save = useCallback(
-    async (updates: {
-      title?: string
-      content?: string
-      emoji?: string | null
-    }) => {
-      setSaveStatus('saving')
-      try {
-        const data = await documentsClient.update<{
-          document: Partial<ApiDocumentDetail>
-        }>(documentId, updates)
-        setSaveStatus('saved')
-        if (savedTimer.current) clearTimeout(savedTimer.current)
-        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
-        setDoc(prev => {
-          const updated = prev ? { ...prev, ...data.document } : prev
-          if (updated) writeCache(CACHE_KEY.documentDetail(documentId), updated)
-          return updated
-        })
-      } catch {
-        setSaveStatus('error')
-      }
+  // Merge a server save response into local state + cache. Only invoked for
+  // the most-recently-started save (the hook discards stale responses), so a
+  // slow earlier request can't clobber newer edits.
+  const applyResult = useCallback(
+    (partial: Partial<ApiDocumentDetail>) => {
+      setDoc(prev => {
+        const updated = prev ? { ...prev, ...partial } : prev
+        if (updated) writeCache(CACHE_KEY.documentDetail(documentId), updated)
+        return updated
+      })
     },
     [documentId]
   )
 
-  const debouncedSave = useCallback(
-    (updates: { title?: string; content?: string; emoji?: string | null }) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => save(updates), 1000)
-    },
-    [save]
-  )
+  const { saveStatus, debouncedSave, saveNow } = useDocumentSave({
+    documentId,
+    applyResult,
+  })
 
   const handleContentChange = useCallback(
     (html: string | null) => {
@@ -200,10 +180,9 @@ export function DocumentEditorPage({
       const content = html ?? ''
       if (content === (lastContentRef.current ?? '')) return
       lastContentRef.current = content
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      save({ content })
+      saveNow({ content })
     },
-    [save]
+    [saveNow]
   )
 
   const handleTitleChange = useCallback(
@@ -218,10 +197,10 @@ export function DocumentEditorPage({
   const handleEmojiChange = useCallback(
     (emoji: string | null) => {
       setDoc(prev => (prev ? { ...prev, emoji } : prev))
-      save({ emoji })
+      saveNow({ emoji })
       onEmojiChanged?.(documentId, emoji)
     },
-    [save, onEmojiChanged, documentId]
+    [saveNow, onEmojiChanged, documentId]
   )
 
   const handleTagsChange = useCallback(

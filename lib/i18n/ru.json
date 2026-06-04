@@ -494,6 +494,8 @@
   "task.copyLink": "Скопировать ссылку",
   "task.linkCopied": "Ссылка скопирована",
   "task.imageUploadFailed": "Не удалось загрузить изображение",
+  "task.imageTooLarge": "Изображение не должно превышать 10 МБ",
+  "task.imageInvalidType": "Неподдерживаемый формат изображения — используйте PNG, JPEG, WebP, GIF или SVG",
   "branch.searchRepos": "Поиск репозиториев…",
   "subtask.removeDraft": "Удалить черновик подзадачи",
   "subtask.addAll": "Добавить все",

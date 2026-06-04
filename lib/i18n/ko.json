@@ -494,6 +494,8 @@
   "task.copyLink": "링크 복사",
   "task.linkCopied": "링크가 복사되었습니다",
   "task.imageUploadFailed": "이미지 업로드에 실패했습니다",
+  "task.imageTooLarge": "이미지는 10MB 이하여야 합니다",
+  "task.imageInvalidType": "지원되지 않는 이미지 형식입니다. PNG, JPEG, WebP, GIF 또는 SVG를 사용하세요",
   "branch.searchRepos": "저장소 검색…",
   "subtask.removeDraft": "임시 하위 작업 제거",
   "subtask.addAll": "모두 추가",

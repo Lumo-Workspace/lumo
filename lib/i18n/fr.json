@@ -494,6 +494,8 @@
   "task.copyLink": "Copier le lien",
   "task.linkCopied": "Lien copié",
   "task.imageUploadFailed": "Échec du téléversement de l'image",
+  "task.imageTooLarge": "L'image ne doit pas dépasser 10 Mo",
+  "task.imageInvalidType": "Format d'image non pris en charge — utilisez PNG, JPEG, WebP, GIF ou SVG",
   "branch.searchRepos": "Rechercher des dépôts…",
   "subtask.removeDraft": "Supprimer la sous-tâche brouillon",
   "subtask.addAll": "Tout ajouter",

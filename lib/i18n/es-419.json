@@ -494,6 +494,8 @@
   "task.copyLink": "Copiar enlace",
   "task.linkCopied": "Enlace copiado",
   "task.imageUploadFailed": "Error al subir la imagen",
+  "task.imageTooLarge": "La imagen no puede superar los 10 MB",
+  "task.imageInvalidType": "Formato de imagen no admitido: usa PNG, JPEG, WebP, GIF o SVG",
   "branch.searchRepos": "Buscar repositorios…",
   "subtask.removeDraft": "Quitar subtarea borrador",
   "subtask.addAll": "Agregar todas",

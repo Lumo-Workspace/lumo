@@ -494,6 +494,8 @@
   "task.copyLink": "लिंक कॉपी करें",
   "task.linkCopied": "लिंक कॉपी किया गया",
   "task.imageUploadFailed": "छवि अपलोड विफल हुई",
+  "task.imageTooLarge": "छवि 10 MB या उससे छोटी होनी चाहिए",
+  "task.imageInvalidType": "असमर्थित छवि प्रकार — PNG, JPEG, WebP, GIF या SVG का उपयोग करें",
   "branch.searchRepos": "रिपॉज़िटरी खोजें…",
   "subtask.removeDraft": "ड्राफ्ट उप-कार्य हटाएं",
   "subtask.addAll": "सभी जोड़ें",

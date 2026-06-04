@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
+import { useNow } from '@/hooks/use-now'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -96,6 +97,7 @@ export function SummaryCard({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+  const now = useNow()
 
   async function regenerate() {
     setLoading(true)
@@ -135,9 +137,9 @@ export function SummaryCard({
           {summaryType && <TypeBadge type={summaryType} />}
         </h2>
         <div className='flex items-center gap-3 text-xs text-muted-foreground'>
-          {generatedAt && (
+          {generatedAt && now != null && (
             <span>
-              generated {formatRelativeTime(new Date(generatedAt))}
+              generated {formatRelativeTime(new Date(generatedAt), now)}
               {isStale && !loading && ` · stale (+${deltaEvents} events)`}
             </span>
           )}
@@ -537,8 +539,8 @@ function SeverityGroup({
   )
 }
 
-function formatRelativeTime(d: Date): string {
-  const diffMs = Date.now() - d.getTime()
+function formatRelativeTime(d: Date, now: number): string {
+  const diffMs = now - d.getTime()
   const s = Math.round(diffMs / 1000)
   if (s < 60) return 'just now'
   const m = Math.round(s / 60)

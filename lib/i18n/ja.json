@@ -494,6 +494,8 @@
   "task.copyLink": "リンクをコピー",
   "task.linkCopied": "リンクをコピーしました",
   "task.imageUploadFailed": "画像のアップロードに失敗しました",
+  "task.imageTooLarge": "画像は 10 MB 以下にしてください",
+  "task.imageInvalidType": "サポートされていない画像形式です。PNG、JPEG、WebP、GIF、SVG をご利用ください",
   "branch.searchRepos": "リポジトリを検索…",
   "subtask.removeDraft": "サブタスクの下書きを削除",
   "subtask.addAll": "すべて追加",

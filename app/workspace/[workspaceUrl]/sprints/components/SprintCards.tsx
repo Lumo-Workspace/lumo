@@ -19,14 +19,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { sprintsClient } from '@/lib/api-client'
+import { useNow } from '@/hooks/use-now'
 import type { Sprint } from '@prisma/client'
 import { SprintActionsMenu } from './SprintActionsMenu'
 import { DatePickerField, formatDate, startOfDay } from './DatePickerField'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function daysFromNow(date: Date | string): number {
-  const ms = new Date(date).getTime() - Date.now()
+function daysFromNow(date: Date | string, now: number): number {
+  const ms = new Date(date).getTime() - now
   return Math.ceil(ms / (1000 * 60 * 60 * 24))
 }
 
@@ -38,7 +39,7 @@ function daysFromNow(date: Date | string): number {
 function timeElapsedPct(
   start: Date | string,
   end: Date | string,
-  now: number = Date.now()
+  now: number
 ): number {
   const s = new Date(start).getTime()
   const e = new Date(end).getTime()
@@ -59,21 +60,23 @@ function SprintLandingCard({
   sprint,
   workspaceUrl,
   onChanged,
+  now,
 }: {
   sprint: Sprint
   workspaceUrl: string
   onChanged: () => void
+  now: number
 }) {
   const intl = useIntl()
   const { sprint: detail, progress } = useSprint(sprint.id)
   const done = progress?.done ?? 0
   const total = progress?.total ?? 0
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const daysToStart = daysFromNow(sprint.startDate)
-  const daysToEnd = daysFromNow(sprint.endDate)
+  const daysToStart = daysFromNow(sprint.startDate, now)
+  const daysToEnd = daysFromNow(sprint.endDate, now)
   const upcoming = daysToStart > 0
   const overdue = !upcoming && daysToEnd < 0
-  const timePct = timeElapsedPct(sprint.startDate, sprint.endDate)
+  const timePct = timeElapsedPct(sprint.startDate, sprint.endDate, now)
   // Left accent + underlay tone match the sprint's temporal state, so the
   // card itself signals "past / now / future" before you read the dates.
   const tone = overdue ? 'overdue' : upcoming ? 'upcoming' : 'current'
@@ -243,14 +246,16 @@ function CreateSprintDialog({
   onSubmit: (input: CreateSprintInput) => void
 }) {
   const intl = useIntl()
-  const today = startOfDay(new Date())
-  // 14 days inclusive of both endpoints → end is start + 13.
-  const defaultEnd = startOfDay(
-    new Date(today.getTime() + 13 * 24 * 60 * 60 * 1000)
-  )
   const [name, setName] = useState('')
-  const [start, setStart] = useState<Date>(today)
-  const [end, setEnd] = useState<Date>(defaultEnd)
+  // Lazy initializers so the clock is read once on mount, not on every render
+  // (reading `new Date()` during render violates purity). 14 days inclusive of
+  // both endpoints → end is start + 13.
+  const [start, setStart] = useState<Date>(() => startOfDay(new Date()))
+  const [end, setEnd] = useState<Date>(() =>
+    startOfDay(
+      new Date(startOfDay(new Date()).getTime() + 13 * 24 * 60 * 60 * 1000)
+    )
+  )
 
   const valid = end > start
 
@@ -339,6 +344,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
     refetch: refetchAll,
   } = useSprintsForTeam(teamId)
 
+  const now = useNow()
   const [createOpen, setCreateOpen] = useState(false)
 
   async function handleCreate(input: CreateSprintInput) {
@@ -381,30 +387,38 @@ export function SprintCards({ teamId }: { teamId: string }) {
 
   // Partition purely by date so the landing page never lies about what's
   // "current" vs "upcoming" just because nobody clicked a state-transition
-  // button.
-  const now = Date.now()
+  // button. `now` is null until mount (purity — the clock can't be read during
+  // render); treat that like "not ready" so SSR and the first client render
+  // agree, then partition once the mount effect supplies the time.
   const bySortedStart = (sprints ?? [])
     .slice()
     .sort(
       (a, b) =>
         new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
     )
-  const currentSprint = bySortedStart.find(
-    s =>
-      new Date(s.startDate).getTime() <= now &&
-      now <= new Date(s.endDate).getTime()
-  )
-  const upcomingSprints = bySortedStart.filter(
-    s => new Date(s.startDate).getTime() > now
-  )
-  const completedSprints = bySortedStart
-    .filter(s => new Date(s.endDate).getTime() < now)
-    .reverse() // most-recent first
+  const currentSprint =
+    now == null
+      ? undefined
+      : bySortedStart.find(
+          s =>
+            new Date(s.startDate).getTime() <= now &&
+            now <= new Date(s.endDate).getTime()
+        )
+  const upcomingSprints =
+    now == null
+      ? []
+      : bySortedStart.filter(s => new Date(s.startDate).getTime() > now)
+  const completedSprints =
+    now == null
+      ? []
+      : bySortedStart.filter(s => new Date(s.endDate).getTime() < now).reverse() // most-recent first
   const recent = completedSprints.slice(0, 5)
-  const noUpcoming = !currentSprint && upcomingSprints.length === 0
+  const noUpcoming =
+    now != null && !currentSprint && upcomingSprints.length === 0
 
   const isEmpty =
     !isLoading &&
+    now != null &&
     !currentSprint &&
     upcomingSprints.length === 0 &&
     recent.length === 0
@@ -444,7 +458,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
       )}
 
       {/* Current */}
-      {currentSprint && (
+      {currentSprint && now != null && (
         <section className='space-y-2'>
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.active' })}
@@ -453,12 +467,13 @@ export function SprintCards({ teamId }: { teamId: string }) {
             sprint={currentSprint}
             workspaceUrl={workspaceUrl}
             onChanged={refetchAll}
+            now={now}
           />
         </section>
       )}
 
       {/* Upcoming */}
-      {upcomingSprints.length > 0 && (
+      {upcomingSprints.length > 0 && now != null && (
         <section className='space-y-2'>
           <h2 className='text-sm font-semibold text-muted-foreground uppercase tracking-wide'>
             {intl.formatMessage({ id: 'sprints.landing.next' })}
@@ -470,6 +485,7 @@ export function SprintCards({ teamId }: { teamId: string }) {
                 sprint={s}
                 workspaceUrl={workspaceUrl}
                 onChanged={refetchAll}
+                now={now}
               />
             ))}
           </div>
