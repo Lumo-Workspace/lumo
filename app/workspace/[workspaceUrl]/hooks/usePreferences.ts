@@ -88,8 +88,13 @@ export function usePreferences() {
       return data
     },
     initialData: loadFromStorage,
-    // initialData is from localStorage and may be stale — always refetch on mount.
-    staleTime: 0,
+    // The localStorage seed may be stale, so mark it as fetched-at-epoch: the
+    // first mount always refetches to freshen. A long staleTime then dedupes
+    // redundant refetches — preferences change rarely, and the cache is kept
+    // live by optimistic mutation writes plus the cross-tab `storage` sync
+    // below, so revisiting settings pages needn't hit the network each time.
+    initialDataUpdatedAt: 0,
+    staleTime: 5 * 60_000,
   })
 
   // Cross-tab sync — when another tab writes to localStorage, broadcast that
@@ -117,7 +122,8 @@ export function usePreferences() {
     const oldDarkMode = localStorage.getItem('lumo:darkMode')
     if (oldDarkMode === null) return
     localStorage.removeItem('lumo:darkMode')
-    const migrated: Preferences['theme'] = oldDarkMode === 'true' ? 'dark' : 'light'
+    const migrated: Preferences['theme'] =
+      oldDarkMode === 'true' ? 'dark' : 'light'
     queryClient.setQueryData<Preferences>(queryKey, prev =>
       prev ? { ...prev, theme: migrated } : { ...DEFAULTS, theme: migrated }
     )

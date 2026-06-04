@@ -68,8 +68,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       const cached = readCache<ApiProject[]>(CACHE_KEY.projects)
       return cached && cached.length > 0 ? cached : undefined
     },
-    // localStorage data may be stale — always refetch on mount.
-    staleTime: 0,
+    // The localStorage seed may be stale, so mark it as fetched-at-epoch: the
+    // first mount always refetches to freshen. A long staleTime then dedupes
+    // redundant refetches — projects change rarely and the workspace Pusher
+    // subscription below pushes live create/delete/update/reorder events, so
+    // cross-tab/cross-user changes arrive without polling on every remount.
+    initialDataUpdatedAt: 0,
+    staleTime: 5 * 60_000,
   })
 
   // Memoize so `[]` doesn't get a fresh identity each render — keeps
@@ -106,8 +111,12 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   // Refetch when the workspace changes. TanStack handles the initial fetch
-  // via the queryFn; this effect just keeps cross-workspace switches fresh.
+  // via the queryFn, so skip the first run (it would be a redundant
+  // invalidate on top of that fetch) and only refetch on an actual switch.
+  const lastSlugRef = useRef(workspaceSlug)
   useEffect(() => {
+    if (lastSlugRef.current === workspaceSlug) return
+    lastSlugRef.current = workspaceSlug
     void fetchProjects()
   }, [workspaceSlug, fetchProjects])
 
