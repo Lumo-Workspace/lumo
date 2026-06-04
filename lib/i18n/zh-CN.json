@@ -548,6 +548,8 @@
   "table.addRowBelow": "在下方添加行",
   "table.addColLeft": "在左侧添加列",
   "table.addColRight": "在右侧添加列",
+  "table.insertColumnHere": "插入列",
+  "table.insertRowHere": "插入行",
   "table.deleteRow": "删除行",
   "table.deleteCol": "删除列",
   "table.deleteTable": "删除表格",

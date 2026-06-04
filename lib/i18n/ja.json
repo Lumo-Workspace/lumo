@@ -506,6 +506,8 @@
   "table.addRowBelow": "下に行を追加",
   "table.addColLeft": "左に列を追加",
   "table.addColRight": "右に列を追加",
+  "table.insertColumnHere": "列を挿入",
+  "table.insertRowHere": "行を挿入",
   "table.deleteRow": "行を削除",
   "table.deleteCol": "列を削除",
   "table.deleteTable": "テーブルを削除",

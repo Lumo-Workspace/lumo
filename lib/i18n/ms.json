@@ -506,6 +506,8 @@
   "table.addRowBelow": "Tambah baris di bawah",
   "table.addColLeft": "Tambah lajur di kiri",
   "table.addColRight": "Tambah lajur di kanan",
+  "table.insertColumnHere": "Sisip lajur",
+  "table.insertRowHere": "Sisip baris",
   "table.deleteRow": "Padam baris",
   "table.deleteCol": "Padam lajur",
   "table.deleteTable": "Padam jadual",

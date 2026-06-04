@@ -506,6 +506,8 @@
   "table.addRowBelow": "Добавить строку ниже",
   "table.addColLeft": "Добавить столбец слева",
   "table.addColRight": "Добавить столбец справа",
+  "table.insertColumnHere": "Вставить столбец",
+  "table.insertRowHere": "Вставить строку",
   "table.deleteRow": "Удалить строку",
   "table.deleteCol": "Удалить столбец",
   "table.deleteTable": "Удалить таблицу",

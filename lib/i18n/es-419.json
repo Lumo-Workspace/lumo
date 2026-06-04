@@ -506,6 +506,8 @@
   "table.addRowBelow": "Agregar fila abajo",
   "table.addColLeft": "Agregar columna a la izquierda",
   "table.addColRight": "Agregar columna a la derecha",
+  "table.insertColumnHere": "Insertar columna",
+  "table.insertRowHere": "Insertar fila",
   "table.deleteRow": "Eliminar fila",
   "table.deleteCol": "Eliminar columna",
   "table.deleteTable": "Eliminar tabla",

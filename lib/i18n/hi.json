@@ -506,6 +506,8 @@
   "table.addRowBelow": "नीचे पंक्ति जोड़ें",
   "table.addColLeft": "बाईं ओर कॉलम जोड़ें",
   "table.addColRight": "दाईं ओर कॉलम जोड़ें",
+  "table.insertColumnHere": "कॉलम डालें",
+  "table.insertRowHere": "पंक्ति डालें",
   "table.deleteRow": "पंक्ति हटाएं",
   "table.deleteCol": "कॉलम हटाएं",
   "table.deleteTable": "तालिका हटाएं",
