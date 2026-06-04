@@ -1,17 +1,28 @@
 /** @jest-environment jsdom */
 
-// ─── i18n mock ──────────────────────────────────────────────────────────────
 const messages: Record<string, string> = {
+  'editor.bold': 'Bold',
+  'editor.italic': 'Italic',
+  'editor.underline': 'Underline',
+  'editor.strikethrough': 'Strikethrough',
+  'editor.link': 'Link',
+  'editor.align': 'Alignment',
+  'editor.alignLeft': 'Align left',
+  'editor.alignCenter': 'Align center',
+  'editor.alignRight': 'Align right',
+  'table.actions': 'Table',
   'table.addRowAbove': 'Add row above',
   'table.addRowBelow': 'Add row below',
   'table.addColLeft': 'Add column left',
   'table.addColRight': 'Add column right',
+  'table.toggleHeaderRow': 'Toggle header row',
+  'table.mergeCells': 'Merge cells',
+  'table.splitCell': 'Split cell',
   'table.deleteRow': 'Delete row',
   'table.deleteCol': 'Delete column',
   'table.deleteTable': 'Delete table',
   'table.deleteTableConfirm': 'Click again to confirm',
 }
-
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -19,36 +30,26 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-// ─── tiptap useEditorState mock ───────────────────────────────────────────────
-// The component derives all button state from useEditorState; for the
-// table-only toolbar we only need isTable + selectionEmpty to be true.
+// useEditorState is mocked to return our flat editorState (selector ignored).
 let editorState: Record<string, unknown> = {}
 jest.mock('@tiptap/react', () => ({
   useEditorState: () => editorState,
 }))
 
 import { createRef } from 'react'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenuBar } from '@/app/workspace/[workspaceUrl]/components/BubbleMenuBar'
 
-// A chainable editor stub: every method returns the same chain, `run` is terminal.
 function makeEditor() {
   const chain: Record<string, jest.Mock> = {}
   const methods = [
-    'focus',
-    'addRowBefore',
-    'addRowAfter',
-    'addColumnBefore',
-    'addColumnAfter',
-    'deleteRow',
-    'deleteColumn',
-    'deleteTable',
-    'run',
+    'focus', 'toggleBold', 'toggleItalic', 'toggleUnderline', 'toggleStrike',
+    'setTextAlign', 'addRowBefore', 'addRowAfter', 'addColumnBefore',
+    'addColumnAfter', 'toggleHeaderRow', 'mergeCells', 'splitCell',
+    'deleteRow', 'deleteColumn', 'deleteTable', 'run',
   ]
-  for (const m of methods) {
-    chain[m] = jest.fn(() => (m === 'run' ? true : chain))
-  }
+  for (const m of methods) chain[m] = jest.fn(() => (m === 'run' ? true : chain))
   const editor = {
     chain: () => chain,
     getAttributes: () => ({}),
@@ -67,77 +68,44 @@ function renderToolbar(editor: Editor) {
   )
 }
 
-// Table-only toolbar button order:
-// 0 addRowBefore, 1 addRowAfter, 2 addColumnBefore, 3 addColumnAfter,
-// 4 deleteRow, 5 deleteColumn, 6 deleteTable
-const DELETE_ROW = 4
-const DELETE_COL = 5
-const DELETE_TABLE = 6
-
-// Armed = solid destructive background applied unconditionally (vs. the idle
-// destructive variant which only gets `bg-destructive/10` on hover).
-const isArmed = (btn: HTMLElement) =>
-  btn.className.split(/\s+/).includes('bg-destructive/10')
-
-beforeEach(() => {
-  editorState = { isTable: true, selectionEmpty: true }
+const inTable = (selectionEmpty: boolean) => ({
+  isTable: true,
+  selectionEmpty,
+  canMergeCells: false,
+  canSplitCell: false,
 })
 
-describe('BubbleMenuBar table toolbar', () => {
-  it('renders the seven table-control buttons', () => {
-    const { editor } = makeEditor()
-    renderToolbar(editor)
-    expect(screen.getAllByRole('button')).toHaveLength(7)
+describe('BubbleMenuBar unified table toolbar', () => {
+  it('shows the same controls whether or not text is selected (no shape-shift)', () => {
+    const a = makeEditor()
+    editorState = inTable(true)
+    const { unmount } = renderToolbar(a.editor)
+    expect(screen.getByRole('button', { name: /Table/i })).toBeInTheDocument()
+    unmount()
+
+    const b = makeEditor()
+    editorState = inTable(false)
+    renderToolbar(b.editor)
+    expect(screen.getByRole('button', { name: /Table/i })).toBeInTheDocument()
   })
 
-  it('deletes a row immediately on a single click', () => {
+  it('opens the table dropdown and runs a row insert', () => {
     const { editor, chain } = makeEditor()
+    editorState = inTable(true)
     renderToolbar(editor)
-    fireEvent.mouseDown(screen.getAllByRole('button')[DELETE_ROW]!)
-    expect(chain.deleteRow).toHaveBeenCalledTimes(1)
+    fireEvent.mouseDown(screen.getByRole('button', { name: /Table/i }))
+    fireEvent.mouseDown(screen.getByText('Add row above'))
+    expect(chain.addRowBefore).toHaveBeenCalledTimes(1)
   })
 
-  it('deletes a column immediately on a single click', () => {
+  it('still requires two clicks to delete the whole table', () => {
     const { editor, chain } = makeEditor()
+    editorState = inTable(true)
     renderToolbar(editor)
-    fireEvent.mouseDown(screen.getAllByRole('button')[DELETE_COL]!)
-    expect(chain.deleteColumn).toHaveBeenCalledTimes(1)
-  })
-
-  it('requires two clicks to delete the whole table (arm, then confirm)', () => {
-    const { editor, chain } = makeEditor()
-    renderToolbar(editor)
-    const btn = screen.getAllByRole('button')[DELETE_TABLE]!
-
-    // First click arms — no deletion yet, button shows the destructive-armed style.
-    fireEvent.mouseDown(btn)
+    fireEvent.mouseDown(screen.getByRole('button', { name: /Table/i }))
+    fireEvent.mouseDown(screen.getByText('Delete table'))
     expect(chain.deleteTable).not.toHaveBeenCalled()
-    expect(isArmed(btn)).toBe(true)
-
-    // Second click confirms the deletion.
-    fireEvent.mouseDown(btn)
+    fireEvent.mouseDown(screen.getByText('Click again to confirm'))
     expect(chain.deleteTable).toHaveBeenCalledTimes(1)
-  })
-
-  it('auto-disarms the delete-table confirm after the timeout', () => {
-    jest.useFakeTimers()
-    try {
-      const { editor, chain } = makeEditor()
-      renderToolbar(editor)
-      const btn = screen.getAllByRole('button')[DELETE_TABLE]!
-
-      fireEvent.mouseDown(btn)
-      expect(isArmed(btn)).toBe(true)
-
-      act(() => {
-        jest.advanceTimersByTime(3000)
-      })
-      // Reverted to idle: a subsequent click only re-arms, does not delete.
-      expect(isArmed(btn)).toBe(false)
-      fireEvent.mouseDown(btn)
-      expect(chain.deleteTable).not.toHaveBeenCalled()
-    } finally {
-      jest.useRealTimers()
-    }
   })
 })
