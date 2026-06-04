@@ -81,11 +81,12 @@ export const SlashCommandList = forwardRef<
 
   if (items.length === 0) return null
 
-  // Group by category
+  // Group by categoryKey (stable, never localized) to avoid re-grouping on
+  // locale changes. The display label comes from the first item's `category`.
   const grouped = items.reduce<Record<string, SlashCommandItem[]>>(
     (acc, item) => {
-      if (!acc[item.category]) acc[item.category] = []
-      acc[item.category]!.push(item)
+      if (!acc[item.categoryKey]) acc[item.categoryKey] = []
+      acc[item.categoryKey]!.push(item)
       return acc
     },
     {}
@@ -101,10 +102,12 @@ export const SlashCommandList = forwardRef<
         aria-label={label}
         aria-activedescendant={optionId(selectedIndex)}
       >
-        {Object.entries(grouped).map(([category, categoryItems]) => (
-          <div key={category} role='group' aria-label={category}>
+        {Object.entries(grouped).map(([categoryKey, categoryItems]) => {
+          const categoryLabel = categoryItems[0]?.category ?? ''
+          return (
+          <div key={categoryKey} role='group' aria-label={categoryLabel}>
             <div className='px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider'>
-              {category}
+              {categoryLabel}
             </div>
             {categoryItems.map(item => {
               const idx = globalIndex++
@@ -142,7 +145,8 @@ export const SlashCommandList = forwardRef<
               )
             })}
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
