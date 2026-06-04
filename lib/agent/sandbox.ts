@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { AgentError } from './errors'
@@ -14,7 +15,7 @@ const PUSH_TIMEOUT_MS = 60 * 1000
 // ── Sandbox setup ─────────────────────────────────────────────────────────
 
 export async function createSandbox(runId: string): Promise<Sandbox> {
-  console.log(`[Agent] Creating sandbox (timeout=${SANDBOX_TIMEOUT_MS}ms)...`)
+  logger.debug(`[Agent] Creating sandbox (timeout=${SANDBOX_TIMEOUT_MS}ms)...`)
   const sandbox = await Sandbox.create({
     timeoutMs: SANDBOX_TIMEOUT_MS,
   }).catch(err => {
@@ -24,7 +25,7 @@ export async function createSandbox(runId: string): Promise<Sandbox> {
       err
     )
   })
-  console.log(`[Agent] Sandbox created: ${sandbox.sandboxId}`)
+  logger.debug(`[Agent] Sandbox created: ${sandbox.sandboxId}`)
   await prisma.agentRun.update({
     where: { id: runId },
     data: { sandboxId: sandbox.sandboxId },
@@ -58,7 +59,7 @@ export async function cloneRepo(
     | 'gitEmail'
   >
 ) {
-  console.log(`[Agent] Cloning repo ${ctx.repoOwner}/${ctx.repoName}...`)
+  logger.debug(`[Agent] Cloning repo ${ctx.repoOwner}/${ctx.repoName}...`)
   fireProgress(
     ctx.taskId,
     ctx.currentRunId,
@@ -80,7 +81,7 @@ export async function installClaude(
   taskId: string,
   runId: string
 ) {
-  console.log('[Agent] Installing Claude Code...')
+  logger.debug('[Agent] Installing Claude Code...')
   fireProgress(taskId, runId, 'setup', 'Setting up environment...')
   const install = await sandbox.commands
     .run('sudo npm install -g @anthropic-ai/claude-code', {
@@ -98,7 +99,7 @@ export async function installClaude(
       `Failed to install Claude Code (exit ${install.exitCode}): ${install.stderr?.slice(-300) || '(no stderr)'}`
     )
   }
-  console.log('[Agent] Claude Code installed')
+  logger.debug('[Agent] Claude Code installed')
 }
 
 // ── Branch operations ────────────────────────────────────────────────────

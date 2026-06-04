@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { pushAgentEvent, pushTaskEvent } from '@/lib/integrations/pusher'
 import { transitionAgentStatus } from './state-machine'
 import { markRunCompleted } from './run-lifecycle'
@@ -66,7 +67,7 @@ export async function processPostAgent(
   )
 
   if (!branchOnGitHub) {
-    console.warn(
+    logger.warn(
       `[Agent] Branch ${ctx.branchName} not found on GitHub — agent may not have pushed`
     )
     return handleNoCommits(ctx, ctx.isFollowUp && branchExistsOnRemote)

@@ -36,7 +36,6 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
 
       // Connection opened
       eventSource.onopen = () => {
-        console.log('SSE connection opened')
         setIsConnected(true)
         setError(null)
       }
@@ -52,8 +51,7 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
       }
 
       // Handle connection established event
-      eventSource.addEventListener('connection_established', event => {
-        console.log('Connection established:', event)
+      eventSource.addEventListener('connection_established', () => {
         setIsConnected(true)
         setError(null)
       })
@@ -62,7 +60,6 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
       eventSource.addEventListener('profile_updated', event => {
         try {
           const data = JSON.parse(event.data)
-          console.log('Profile update received:', data)
 
           if (data.userId === userId) {
             setProfile(prevProfile => {
@@ -81,11 +78,8 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
         }
       })
 
-      // Handle heartbeat events
-      eventSource.addEventListener('heartbeat', event => {
-        console.log('Heartbeat received:', event)
-        // Connection is alive, no action needed
-      })
+      // Handle heartbeat events — connection is alive, no action needed
+      eventSource.addEventListener('heartbeat', () => {})
 
       // Handle error events - these are connection errors, not server errors
       eventSource.addEventListener('error', event => {
@@ -100,7 +94,6 @@ export function useProfileUpdates(userId: string): UseProfileUpdatesReturn {
   }, [userId])
 
   const reconnect = useCallback(() => {
-    console.log('Manual reconnect requested')
     connect()
   }, [connect])
 

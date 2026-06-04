@@ -9,6 +9,7 @@
  * contains a matching task identifier (e.g. "ENG-123").
  */
 
+import { logger } from '@/lib/logger'
 import { prisma } from '@/lib/db/prisma'
 import { parseBranchIdentifier, splitIdentifier } from './branch'
 
@@ -119,5 +120,5 @@ export async function syncRepoPRs(
     }
   }
 
-  console.log(`[github/sync] synced ${prs.length} PRs for ${fullName}`)
+  logger.debug(`[github/sync] synced ${prs.length} PRs for ${fullName}`)
 }

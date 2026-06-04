@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { getLayer2Input } from './layer2-input'
 import { extractLayer2Operations } from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
@@ -58,7 +59,7 @@ export const layer2Service = {
     input: TriggerForTaskCompletionInput
   ): Promise<void> {
     try {
-      console.log(
+      logger.debug(
         `[memory.layer2] triggered task=${input.taskId} project=${input.projectId}`
       )
       await runForProject(input.projectId, input.sourceSessionId ?? null)
@@ -103,20 +104,20 @@ async function runForProject(
     now
   )
   if (!claimed) {
-    console.log(`[memory.layer2] skip project=${projectId} reason=locked`)
+    logger.debug(`[memory.layer2] skip project=${projectId} reason=locked`)
     return null
   }
 
   try {
     const input = await getLayer2Input(projectId)
     if (!input) {
-      console.log(`[memory.layer2] skip project=${projectId} reason=no-input`)
+      logger.debug(`[memory.layer2] skip project=${projectId} reason=no-input`)
       return null
     }
 
     const operations = await extractLayer2Operations(input)
     if (operations.length === 0) {
-      console.log(
+      logger.debug(
         `[memory.layer2] no-ops project=${projectId} (LLM returned empty list)`
       )
       return { added: 0, updated: 0, noop: 0, skipped: 0 }
@@ -133,7 +134,7 @@ async function runForProject(
       sourceSessionId,
     })
 
-    console.log(`[memory.layer2] applied project=${projectId}`, result)
+    logger.debug(`[memory.layer2] applied project=${projectId}`, result)
 
     return {
       added: result.added,

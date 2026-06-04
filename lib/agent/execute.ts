@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { Sandbox } from '@e2b/code-interpreter'
 import { prisma } from '@/lib/db/prisma'
 import { getGithubInstallationToken } from '@/lib/integrations/github'
@@ -268,7 +269,7 @@ export async function executeAgent({
       background: true,
     })
 
-    console.log(
+    logger.debug(
       `[Agent] Agent started in background for task ${taskId}, sandbox ${sandbox.sandboxId}`
     )
     // Do NOT kill sandbox — it runs independently
@@ -357,7 +358,7 @@ export async function processAgentCompletion(params: {
   }
 
   // Success — post-processing via GitHub API
-  console.log(
+  logger.debug(
     `[Agent] Agent done for task ${taskId}, proceeding to post-processing`
   )
 

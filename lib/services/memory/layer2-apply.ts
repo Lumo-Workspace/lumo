@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import type { MemoryCategory, Prisma } from '@prisma/client'
@@ -72,7 +73,7 @@ export async function applyLayer2Operations(
       try {
         validated = parseMemoryContent(op.category, op.content)
       } catch (error) {
-        console.warn(
+        logger.warn(
           `[memory.layer2] dropped ADD (content failed ${op.category} schema):`,
           error instanceof Error ? error.message : error
         )
@@ -108,7 +109,7 @@ export async function applyLayer2Operations(
     try {
       validated = parseMemoryContent(existingCategory, op.content)
     } catch (error) {
-      console.warn(
+      logger.warn(
         `[memory.layer2] dropped UPDATE id=${op.id} (content failed ${existingCategory} schema):`,
         error instanceof Error ? error.message : error
       )
