@@ -212,7 +212,7 @@ function MemoryBody({
             <Section label={label('memory.section.steps')}>
               <ol className='ml-4 list-decimal space-y-0.5 marker:text-zinc-400 dark:marker:text-zinc-600'>
                 {c.steps.map((step, i) => (
-                  <li key={i}>{step}</li>
+                  <li key={`${i}-${step}`}>{step}</li>
                 ))}
               </ol>
             </Section>
