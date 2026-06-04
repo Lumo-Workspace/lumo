@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { FormattedMessage, useIntl } from 'react-intl'
-import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import {
   Dialog,
@@ -11,74 +10,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { sentryApi, type SentryMapping } from '@/lib/api-client/sentry'
-import { projectsClient } from '@/lib/api-client'
+import { useSentryMappings } from '../hooks/useSentryMappings'
+import { useProjects } from '../hooks/useProjects'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-interface Project {
-  id: string
-  name: string
-}
-
 export function SentryMappingsDialog({ open, onOpenChange }: Props) {
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
   const intl = useIntl()
-  const [mappings, setMappings] = useState<SentryMapping[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  // Mappings load (and stay cached) only while the dialog is open; projects
+  // come from the workspace-level ProjectsProvider cache, so no extra fetch.
+  const { mappings, loading, submitting, addMapping, removeMapping } =
+    useSentryMappings(workspaceUrl, open)
+  const { projects } = useProjects()
   const [newSlug, setNewSlug] = useState('')
   const [newProjectId, setNewProjectId] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    Promise.all([
-      sentryApi.listMappings(workspaceUrl),
-      projectsClient.list<{ projects: Project[] }>(),
-    ])
-      .then(([m, projectsResp]) => {
-        setMappings(m)
-        setProjects(projectsResp.projects)
-      })
-      .catch(() =>
-        toast.error(intl.formatMessage({ id: 'sentry.mappingsLoadFailed' }))
-      )
-      .finally(() => setLoading(false))
-  }, [open, workspaceUrl, intl])
-
-  const addMapping = async () => {
+  const handleAdd = async () => {
     if (!newSlug || !newProjectId) return
-    setSubmitting(true)
     try {
-      const created = await sentryApi.createMapping(workspaceUrl, {
-        sentryProjectSlug: newSlug,
-        projectId: newProjectId,
-      })
-      setMappings(prev => [...prev, created])
+      await addMapping({ sentryProjectSlug: newSlug, projectId: newProjectId })
       setNewSlug('')
       setNewProjectId('')
-      toast.success(intl.formatMessage({ id: 'sentry.mappingAdded' }))
-    } catch (err) {
-      toast.error(
-        (err as Error).message ||
-          intl.formatMessage({ id: 'sentry.mappingAddFailed' })
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const removeMapping = async (id: string) => {
-    try {
-      await sentryApi.deleteMapping(workspaceUrl, id)
-      setMappings(prev => prev.filter(m => m.id !== id))
     } catch {
-      toast.error(intl.formatMessage({ id: 'sentry.mappingRemoveFailed' }))
+      // Failure toast is surfaced by the mutation in useSentryMappings.
     }
   }
 
@@ -172,7 +130,7 @@ export function SentryMappingsDialog({ open, onOpenChange }: Props) {
             <button
               className='text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 disabled:opacity-50'
               disabled={submitting || !newSlug || !newProjectId}
-              onClick={addMapping}
+              onClick={handleAdd}
             >
               {intl.formatMessage({ id: 'common.add' })}
             </button>

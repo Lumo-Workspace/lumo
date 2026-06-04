@@ -35,6 +35,9 @@ export const queryKeys = {
   comments: (taskId: string) => ['comments', taskId] as const,
   description: (taskId: string) => ['description', taskId] as const,
 
+  prSearch: (workspaceId: string, query: string) =>
+    ['pr-search', workspaceId, query] as const,
+
   projects: {
     all: () => ['projects'] as const,
     detail: (id: string) => ['projects', 'detail', id] as const,
@@ -96,6 +99,8 @@ export const queryKeys = {
       ['integrations', 'github-repos', workspaceUrl] as const,
     sentry: (workspaceUrl: string) =>
       ['integrations', 'sentry', workspaceUrl] as const,
+    sentryMappings: (workspaceUrl: string) =>
+      ['integrations', 'sentry-mappings', workspaceUrl] as const,
     figma: (workspaceUrl: string) =>
       ['integrations', 'figma', workspaceUrl] as const,
     googleDrive: (workspaceUrl: string) =>

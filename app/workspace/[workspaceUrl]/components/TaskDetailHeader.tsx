@@ -87,6 +87,7 @@ export function TaskDetailHeader({
               <Button
                 variant='ghost'
                 size='icon'
+                aria-label={intl.formatMessage({ id: 'task.moreOptions' })}
                 className='h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               >
                 <MoreHorizontal size={14} />
@@ -109,6 +110,7 @@ export function TaskDetailHeader({
               variant='ghost'
               size='icon'
               onClick={onCopyTaskLink}
+              aria-label={intl.formatMessage({ id: 'task.copyLink' })}
               className='h-7 w-7 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
             >
               {taskLinkCopied ? <Check size={14} /> : <LinkIcon size={14} />}

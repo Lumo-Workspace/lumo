@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl'
 import { Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { isMac } from '@/lib/utils/keyboard'
 import type { ApiTask, WorkspaceMemberInfo } from '../../types'
 import { CommentEditor } from './CommentEditor'
 import { CommentQuote, previewCommentText } from './CommentQuote'
@@ -33,9 +34,6 @@ export function ReplyInput({
   tc,
 }: Props) {
   const intl = useIntl()
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/i.test(navigator.platform)
 
   return (
     <div className='ml-9 mt-3 flex gap-2'>

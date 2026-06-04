@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
+import { isMac } from '@/lib/utils/keyboard'
 import { DescriptionEditor } from '../DescriptionEditor'
 import type { ApiTask, WorkspaceMemberInfo } from '../../types'
 
@@ -49,7 +50,6 @@ export function CommentEditMode({
       <div
         className='px-3 pt-2 pb-1 text-sm'
         onKeyDown={e => {
-          const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
           if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault()
             onSave()

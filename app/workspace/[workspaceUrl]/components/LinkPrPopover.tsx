@@ -21,8 +21,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { tasksClient } from '@/lib/api-client'
 import { ApiClientError } from '@/lib/api-client/base'
-import type { ApiPullRequestSearchResult } from '../types'
 import { PrStateBadge } from './pr-helpers'
+import { usePrSearch } from '../hooks/usePrSearch'
 
 const GITHUB_PR_URL_RE = /github\.com\/[^/]+\/[^/]+\/pull\/\d+/
 
@@ -47,50 +47,25 @@ export function LinkPrPopover({
   const intl = useIntl()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<ApiPullRequestSearchResult[]>([])
-  const [loading, setLoading] = useState(false)
   const [linking, setLinking] = useState(false)
   const [conflict, setConflict] = useState<ConflictInfo | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const isUrl = GITHUB_PR_URL_RE.test(query.trim())
 
-  // Focus input when popover opens
+  // Debounced, cached PR search — the URL case is handled inline below, so it
+  // disables searching. Results stay cached across reopen/re-search via the
+  // query key + staleTime in usePrSearch.
+  const { results, loading } = usePrSearch(workspaceId, query, open && !isUrl)
+
+  // Focus input when popover opens; clear the query when it closes.
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 0)
     } else {
       setQuery('')
-      setResults([])
     }
   }, [open])
-
-  // Debounced search
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    const trimmed = query.trim()
-    if (!trimmed || isUrl) {
-      setResults([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    debounceRef.current = setTimeout(() => {
-      tasksClient
-        .searchPrs<{ pullRequests: ApiPullRequestSearchResult[] }>(
-          workspaceId,
-          trimmed,
-          10
-        )
-        .then(data => setResults(data.pullRequests))
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false))
-    }, 300)
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [query, workspaceId, isUrl])
 
   const handleLink = useCallback(
     async (payload: { prId?: string; url?: string; force?: boolean }) => {
