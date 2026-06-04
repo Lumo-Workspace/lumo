@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     visibility,
     contentMarkdown,
     tagIds,
+    templateId,
   } = parsed.data
 
   // projectRef (CLI's name/slug input) wins over projectId when both are
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
       projectId: resolvedProjectId,
       ...(contentMarkdown !== undefined ? { contentMarkdown } : {}),
       ...(tagIds !== undefined ? { tagIds } : {}),
+      ...(templateId !== undefined ? { templateId } : {}),
     }
   )
 
