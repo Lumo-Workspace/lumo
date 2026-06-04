@@ -23,6 +23,8 @@ function computeMarker(
 
   const tableRect = table.getBoundingClientRect()
 
+  // Assumes one cell per column (no colspan). Lumo exposes no merge-cell UI,
+  // so header cells map 1:1 to columns; revisit if cell merging is ever added.
   const columnBoundaries: number[] = [headerCells[0]!.getBoundingClientRect().left]
   for (const c of headerCells) columnBoundaries.push(c.getBoundingClientRect().right)
 
@@ -100,6 +102,8 @@ export function useTableInsertHandles(
 
     dom.addEventListener('mousemove', onMove)
     dom.addEventListener('mouseleave', clear)
+    // capture:true because blur doesn't bubble; catches focus leaving the editor
+    dom.addEventListener('blur', clear, true)
     // capture:true catches scrolls on any ancestor scroll container
     window.addEventListener('scroll', clear, true)
     const ro = new ResizeObserver(clear)
@@ -108,6 +112,7 @@ export function useTableInsertHandles(
     return () => {
       dom.removeEventListener('mousemove', onMove)
       dom.removeEventListener('mouseleave', clear)
+      dom.removeEventListener('blur', clear, true)
       window.removeEventListener('scroll', clear, true)
       ro.disconnect()
     }
