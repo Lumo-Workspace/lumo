@@ -7,10 +7,14 @@
  * `prisma migrate deploy`).
  */
 import { markdownToHtml, isMarkdown } from '@/lib/utils/markdown'
+import { BLOCK_TAGS, tagGroup } from '@/lib/utils/html-tags'
 import { prisma } from '@/lib/db/prisma'
 
 const SINGLE_P = /^\s*<p>([\s\S]+)<\/p>\s*$/i
-const NESTED_BLOCK = /<(p|div|h[1-6]|ul|ol|li|pre|blockquote|table)\b/i
+// Shared block-level core + `li`: detects whether the unwrapped inner body
+// already contains a nested block tag (meaning it was real structural HTML,
+// not still-markdown). Derived from the single tag-vocabulary source.
+const NESTED_BLOCK = new RegExp(`<(${tagGroup(...BLOCK_TAGS, 'li')})\\b`, 'i')
 
 export function shouldBackfill(html: string | null): boolean {
   if (!html) return false
