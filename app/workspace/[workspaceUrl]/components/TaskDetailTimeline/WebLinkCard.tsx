@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { RefreshCw, Trash2, Link } from 'lucide-react'
 import type { OptimisticWebLink } from '../../hooks/useWebLinks'
+import { useNow } from '@/hooks/use-now'
 
 interface Props {
   link: OptimisticWebLink
@@ -11,11 +12,8 @@ interface Props {
   onRemove: (linkId: string) => Promise<void>
 }
 
-function relativeAgo(date: Date, now = new Date()): string {
-  const diffMin = Math.max(
-    0,
-    Math.round((now.getTime() - date.getTime()) / 60000)
-  )
+function relativeAgo(date: Date, now: number): string {
+  const diffMin = Math.max(0, Math.round((now - date.getTime()) / 60000))
   if (diffMin < 1) return 'just now'
   if (diffMin < 60) return `${diffMin}m ago`
   const diffH = Math.round(diffMin / 60)
@@ -34,6 +32,7 @@ export function WebLinkCard({
 }: Props): React.ReactElement {
   const intl = useIntl()
   const [busy, setBusy] = useState(false)
+  const now = useNow()
 
   const safeHref = isSafeUrl(link.url) ? link.url : undefined
   const safeImage =
@@ -123,7 +122,9 @@ export function WebLinkCard({
               </p>
             )}
             <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
-              {link.domain} · {relativeAgo(new Date(link.createdAt))}
+              {link.domain}
+              {now != null &&
+                ` · ${relativeAgo(new Date(link.createdAt), now)}`}
             </p>
           </div>
         </div>
@@ -201,7 +202,7 @@ export function WebLinkCard({
               )}
             </div>
             <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
-              {relativeAgo(new Date(link.createdAt))}
+              {now != null ? relativeAgo(new Date(link.createdAt), now) : ''}
             </p>
           </div>
         </div>
