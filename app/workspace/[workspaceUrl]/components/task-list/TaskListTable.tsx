@@ -31,6 +31,7 @@ import {
   cmpString,
   useTableSort,
 } from '../../hooks/useTableSort'
+import { useFormatDate } from '../../hooks/useFormatDate'
 import { SortableHeader } from '../SortableHeader'
 import { AssigneeSelect } from '../fields/AssigneeSelect'
 import { PrioritySelect } from '../fields/PrioritySelect'
@@ -171,6 +172,7 @@ export function TaskListTable({
   setSelected,
 }: Props) {
   const intl = useIntl()
+  const { fmtDate } = useFormatDate()
   const { sort, toggle } = useTableSort<TaskSortKey>()
 
   const memberByActorId = useMemo(
@@ -364,7 +366,7 @@ export function TaskListTable({
         />
       </div>
       <div role='cell' className='px-8 pr-8 text-xs text-zinc-400 text-right'>
-        {new Date(task.updatedAt).toLocaleDateString()}
+        {fmtDate(task.updatedAt)}
       </div>
     </div>
   )
