@@ -1175,6 +1175,8 @@
   "mention.empty": "Нет результатов",
   "mention.users": "Пользователи",
   "mention.tasks": "Задачи",
+  "mention.label": "Предложения упоминаний",
+  "slash.label": "Предложения команд",
   "taskDrawer.title": "Детали задачи",
   "taskDrawer.openFull": "Открыть полную страницу",
   "common.copyLink": "Копировать ссылку",

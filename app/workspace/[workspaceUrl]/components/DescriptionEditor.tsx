@@ -36,6 +36,7 @@ import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
 import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
+import { EditorSuggestionPopup } from './EditorSuggestionPopup'
 import { BubbleMenuBar } from './BubbleMenuBar'
 import { BatchExtractButton } from './extract/BatchExtractButton'
 
@@ -829,43 +830,28 @@ export function DescriptionEditor({
           />,
           menuElement
         )}
-      {mentionPopup &&
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              top: mentionPopup.rect.bottom + 6,
-              left: mentionPopup.rect.left,
-              zIndex: 9999,
-            }}
-            className='w-[260px] max-h-[320px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
-          >
-            <MentionList
-              ref={mentionListRef}
-              items={mentionPopup.items}
-              command={mentionPopup.command}
-            />
-          </div>,
-          document.body
-        )}
-      {slashPopup &&
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              left: slashPopup.rect.left,
-              top: slashPopup.rect.bottom + 4,
-              zIndex: 9999,
-            }}
-          >
-            <SlashCommandList
-              ref={slashListRef}
-              items={slashPopup.items}
-              command={slashPopup.command}
-            />
-          </div>,
-          document.body
-        )}
+      {mentionPopup && (
+        <EditorSuggestionPopup
+          anchorRect={mentionPopup.rect}
+          className='w-[260px] max-h-[320px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
+        >
+          <MentionList
+            ref={mentionListRef}
+            items={mentionPopup.items}
+            command={mentionPopup.command}
+          />
+        </EditorSuggestionPopup>
+      )}
+      {slashPopup && (
+        <EditorSuggestionPopup anchorRect={slashPopup.rect}>
+          <SlashCommandList
+            ref={slashListRef}
+            items={slashPopup.items}
+            command={slashPopup.command}
+            label={intl.formatMessage({ id: 'slash.label' })}
+          />
+        </EditorSuggestionPopup>
+      )}
     </>
   )
 

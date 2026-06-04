@@ -1175,6 +1175,8 @@
   "mention.empty": "結果なし",
   "mention.users": "ユーザー",
   "mention.tasks": "タスク",
+  "mention.label": "メンション候補",
+  "slash.label": "コマンド候補",
   "taskDrawer.title": "タスク詳細",
   "taskDrawer.openFull": "フルページで開く",
   "common.copyLink": "リンクをコピー",

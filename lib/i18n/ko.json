@@ -1175,6 +1175,8 @@
   "mention.empty": "결과 없음",
   "mention.users": "사용자",
   "mention.tasks": "작업",
+  "mention.label": "멘션 제안",
+  "slash.label": "명령어 제안",
   "taskDrawer.title": "작업 세부정보",
   "taskDrawer.openFull": "전체 페이지 열기",
   "common.copyLink": "링크 복사",

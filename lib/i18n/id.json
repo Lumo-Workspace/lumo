@@ -1175,6 +1175,8 @@
   "mention.empty": "Tidak ada hasil",
   "mention.users": "Pengguna",
   "mention.tasks": "Tugas",
+  "mention.label": "Saran sebutan",
+  "slash.label": "Saran perintah",
   "taskDrawer.title": "Detail tugas",
   "taskDrawer.openFull": "Buka halaman penuh",
   "common.copyLink": "Salin tautan",

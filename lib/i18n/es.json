@@ -1175,6 +1175,8 @@
   "mention.empty": "Sin resultados",
   "mention.users": "Usuarios",
   "mention.tasks": "Tareas",
+  "mention.label": "Sugerencias de mención",
+  "slash.label": "Sugerencias de comandos",
   "taskDrawer.title": "Detalle de la tarea",
   "taskDrawer.openFull": "Abrir página completa",
   "common.copyLink": "Copiar enlace",

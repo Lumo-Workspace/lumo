@@ -1175,6 +1175,8 @@
   "mention.empty": "无结果",
   "mention.users": "成员",
   "mention.tasks": "任务",
+  "mention.label": "提及建议",
+  "slash.label": "命令建议",
   "taskDrawer.title": "任务详情",
   "taskDrawer.openFull": "打开完整页面",
   "common.copyLink": "复制链接",

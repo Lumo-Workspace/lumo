@@ -1175,6 +1175,8 @@
   "mention.empty": "No results",
   "mention.users": "Users",
   "mention.tasks": "Tasks",
+  "mention.label": "Mention suggestions",
+  "slash.label": "Command suggestions",
   "taskDrawer.title": "Task detail",
   "taskDrawer.openFull": "Open full page",
   "common.copyLink": "Copy link",

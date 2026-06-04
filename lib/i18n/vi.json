@@ -1175,6 +1175,8 @@
   "mention.empty": "Không có kết quả",
   "mention.users": "Người dùng",
   "mention.tasks": "Công việc",
+  "mention.label": "Gợi ý nhắc đến",
+  "slash.label": "Gợi ý lệnh",
   "taskDrawer.title": "Chi tiết công việc",
   "taskDrawer.openFull": "Mở toàn trang",
   "common.copyLink": "Sao chép liên kết",
