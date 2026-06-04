@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "이 작업은 되돌릴 수 없습니다.",
   "task.descriptionPlaceholder": "설명 추가…",
   "task.copyLink": "링크 복사",
+  "task.moreOptions": "추가 옵션",
   "task.linkCopied": "링크가 복사되었습니다",
   "task.imageUploadFailed": "이미지 업로드에 실패했습니다",
   "task.imageTooLarge": "이미지는 10MB 이하여야 합니다",
