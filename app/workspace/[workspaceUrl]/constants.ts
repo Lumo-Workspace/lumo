@@ -67,6 +67,9 @@ export const API = {
     move: (id: string) => `/api/documents/${id}/move`,
     tree: '/api/documents/tree',
   },
+  documentTemplates: {
+    list: '/api/document-templates',
+  },
   slack: {
     oauth: (workspaceUrl: string) =>
       `/api/slack/oauth?workspaceUrl=${workspaceUrl}`,
