@@ -640,6 +640,8 @@
   "task.copyLink": "複製連結",
   "task.linkCopied": "連結已複製",
   "task.imageUploadFailed": "圖片上傳失敗",
+  "task.imageTooLarge": "圖片不能超過 10 MB",
+  "task.imageInvalidType": "不支援的圖片格式，請使用 PNG、JPEG、WebP、GIF 或 SVG",
   "branch.searchRepos": "搜尋儲存庫…",
   "subtask.removeDraft": "移除子任務草稿",
   "subtask.addAll": "全部新增",

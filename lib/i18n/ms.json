@@ -494,6 +494,8 @@
   "task.copyLink": "Salin pautan",
   "task.linkCopied": "Pautan disalin",
   "task.imageUploadFailed": "Muat naik imej gagal",
+  "task.imageTooLarge": "Imej tidak boleh melebihi 10 MB",
+  "task.imageInvalidType": "Jenis imej tidak disokong — gunakan PNG, JPEG, WebP, GIF atau SVG",
   "branch.searchRepos": "Cari repositori…",
   "subtask.removeDraft": "Buang draf sub-tugasan",
   "subtask.addAll": "Tambah semua",

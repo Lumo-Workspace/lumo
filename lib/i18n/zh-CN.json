@@ -536,6 +536,8 @@
   "task.copyLink": "复制链接",
   "task.linkCopied": "链接已复制",
   "task.imageUploadFailed": "图片上传失败",
+  "task.imageTooLarge": "图片不能超过 10 MB",
+  "task.imageInvalidType": "不支持的图片格式，请使用 PNG、JPEG、WebP、GIF 或 SVG",
   "branch.searchRepos": "搜索仓库…",
   "subtask.removeDraft": "移除子任务草稿",
   "subtask.addAll": "全部添加",
