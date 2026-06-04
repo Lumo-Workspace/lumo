@@ -20,7 +20,8 @@ import {
 } from '@/lib/editor/doc-extract-context'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import { uploadImageFile, validateImageFile } from '@/lib/editor/image-upload'
+import { validateImageFile } from '@/lib/editor/image-upload'
+import { insertImageWithUpload } from '@/lib/editor/insert-image-with-upload'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -88,82 +89,6 @@ interface DescriptionEditorProps {
    * risk a stale read on focused keyboard-submit and saves nothing.
    */
   onChangeDebounceMs?: number
-}
-
-/**
- * Insert an image immediately using a local blob URL for instant preview,
- * upload in the background, then swap the src to the real CDN URL when done.
- * On failure, removes the placeholder and shows a toast.
- *
- * Returns a Promise that resolves when the upload is settled (success or fail),
- * so callers can track pending uploads before committing the document.
- */
-async function insertImageWithUpload(
-  file: File,
-  documentId: string | undefined,
-  getEditor: () => import('@tiptap/core').Editor | null,
-  insertPos?: number,
-  errorMessage?: string
-): Promise<void> {
-  const tempUrl = URL.createObjectURL(file)
-  const ed = getEditor()
-  if (!ed) {
-    URL.revokeObjectURL(tempUrl)
-    return
-  }
-
-  // Show the image immediately with the local blob URL
-  if (insertPos !== undefined) {
-    ed.chain()
-      .focus()
-      .insertContentAt(insertPos, { type: 'image', attrs: { src: tempUrl } })
-      .run()
-  } else {
-    ed.chain().focus().setImage({ src: tempUrl }).run()
-  }
-
-  try {
-    const realUrl = await uploadImageFile(file, documentId)
-    if (!realUrl) throw new Error('Upload returned no URL')
-
-    // Swap blob URL → CDN URL in the document
-    const current = getEditor()
-    if (current) {
-      let swapped = false
-      current.state.doc.descendants((node, pos) => {
-        if (swapped) return false
-        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
-          const tr = current.state.tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            src: realUrl,
-          })
-          current.view.dispatch(tr)
-          swapped = true
-          return false
-        }
-        return true
-      })
-    }
-  } catch {
-    // Remove the broken placeholder image
-    const current = getEditor()
-    if (current) {
-      let removed = false
-      current.state.doc.descendants((node, pos) => {
-        if (removed) return false
-        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
-          const tr = current.state.tr.delete(pos, pos + node.nodeSize)
-          current.view.dispatch(tr)
-          removed = true
-          return false
-        }
-        return true
-      })
-    }
-    toast.error(errorMessage ?? 'Image upload failed')
-  } finally {
-    URL.revokeObjectURL(tempUrl)
-  }
 }
 
 export function DescriptionEditor({
@@ -408,7 +333,7 @@ export function DescriptionEditor({
         documentId,
         () => editorRef.current,
         insertPos,
-        imageUploadFailedMsg
+        () => toast.error(imageUploadFailedMsg)
       ).finally(() => {
         pendingUploadsRef.current--
         if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
