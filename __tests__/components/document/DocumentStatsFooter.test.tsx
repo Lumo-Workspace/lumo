@@ -36,7 +36,9 @@ describe('DocumentStatsFooter', () => {
         stats={{ words: 128, characters: 642, readingMinutes: 3 }}
       />
     )
-    expect(container.textContent).toBe('128 words · 642 characters · 3 min read')
+    expect(container.textContent).toBe(
+      '128 words · 642 characters · 3 min read'
+    )
   })
 
   it('omits reading time for empty content (0 minutes)', () => {
@@ -46,5 +48,29 @@ describe('DocumentStatsFooter', () => {
       />
     )
     expect(container.textContent).toBe('0 words · 0 characters')
+  })
+
+  it('renders a sticky, click-through floating layer with a pointer-enabled pill', () => {
+    const { container } = render(
+      <DocumentStatsFooter
+        stats={{ words: 1, characters: 1, readingMinutes: 0 }}
+      />
+    )
+    // Zero-height sticky layer reserves no flow space and stays click-through.
+    const layer = container.firstElementChild as HTMLElement
+    expect(layer).toHaveClass(
+      'sticky',
+      'bottom-0',
+      'h-0',
+      'pointer-events-none'
+    )
+    // The pill itself is pinned bottom-right and re-enables pointer events.
+    const pill = layer.firstElementChild as HTMLElement
+    expect(pill).toHaveClass(
+      'absolute',
+      'bottom-4',
+      'right-4',
+      'pointer-events-auto'
+    )
   })
 })
