@@ -42,6 +42,9 @@ interface SprintWithProgress {
   progress: SprintProgress
   risk?: RiskAssessment
   topBlockers?: TopBlockers
+  // The by-number response bundles the sprint's tasks so we can seed the
+  // tasks.bySprint cache and avoid the serial sprint→tasks waterfall (LUM-200).
+  tasks?: unknown[]
 }
 
 interface SprintListResult {
@@ -154,16 +157,30 @@ export function useSprintByNumber(
   workspaceUrl: string | null,
   number: number | null
 ) {
+  const queryClient = useQueryClient()
   const enabled = !!workspaceUrl && !!number
   const query = useQuery<SprintWithProgress>({
     queryKey: enabled
       ? queryKeys.sprints.byNumber(workspaceUrl, number)
       : ['sprints', 'byNumber', 'disabled'],
-    queryFn: () =>
-      sprintsClient.getByNumber(
+    queryFn: async () => {
+      const data = (await sprintsClient.getByNumber(
         workspaceUrl as string,
         number as number
-      ) as Promise<SprintWithProgress>,
+      )) as SprintWithProgress
+      // Seed the tasks.bySprint cache from the bundled tasks so the gated
+      // useSprintTasks(sprint.id) call below is an instant cache hit instead
+      // of a second serial request (LUM-200). Within the 30s default
+      // staleTime it won't even background-refetch.
+      if (data.sprint?.id && Array.isArray(data.tasks)) {
+        queryClient.setQueryData(
+          queryKeys.tasks.bySprint(data.sprint.id),
+          data.tasks
+        )
+        seedTaskDetailCache(queryClient, data.tasks)
+      }
+      return data
+    },
     enabled,
   })
 
