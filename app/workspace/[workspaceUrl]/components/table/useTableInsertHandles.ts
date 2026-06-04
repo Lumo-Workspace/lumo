@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
 import type { Editor } from '@tiptap/core'
-import { resolveInsertTarget } from '@/lib/editor/table/resolve-insert-target'
+import { resolveInsertTarget, dedupeSortedCoords } from '@/lib/editor/table/resolve-insert-target'
 import { runTableInsert, type InsertMarker } from '@/lib/editor/table/insert-command'
 
 /** Measure the hovered table and resolve a marker, or null. */
@@ -16,20 +16,19 @@ function computeMarker(
   const rows = Array.from(
     table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr, :scope > tr')
   ) as HTMLElement[]
-  const firstRow = rows[0]
-  if (!firstRow) return null
-  const headerCells = Array.from(firstRow.children) as HTMLElement[]
-  if (headerCells.length === 0) return null
+  if (rows.length === 0) return null
+
+  const cells = rows.flatMap(r => Array.from(r.children) as HTMLElement[])
+  if (cells.length === 0) return null
 
   const tableRect = table.getBoundingClientRect()
 
-  // Assumes one cell per column (no colspan). Lumo exposes no merge-cell UI,
-  // so header cells map 1:1 to columns; revisit if cell merging is ever added.
-  const columnBoundaries: number[] = [headerCells[0]!.getBoundingClientRect().left]
-  for (const c of headerCells) columnBoundaries.push(c.getBoundingClientRect().right)
-
-  const rowBoundaries: number[] = [rows[0]!.getBoundingClientRect().top]
-  for (const r of rows) rowBoundaries.push(r.getBoundingClientRect().bottom)
+  // Column/row grid lines = the union of every cell's edges, deduped. Robust
+  // to merged cells: a boundary hidden by a colspan/rowspan in one row is still
+  // contributed by another row.
+  const rects = cells.map(c => c.getBoundingClientRect())
+  const columnBoundaries = dedupeSortedCoords(rects.flatMap(r => [r.left, r.right]))
+  const rowBoundaries = dedupeSortedCoords(rects.flatMap(r => [r.top, r.bottom]))
 
   const target = resolveInsertTarget({
     pointer: { x: clientX, y: clientY },
@@ -39,12 +38,15 @@ function computeMarker(
   })
   if (!target) return null
 
+  const EPS = 4
+  const midX = (tableRect.left + tableRect.right) / 2
+  const midY = (tableRect.top + tableRect.bottom) / 2
   const containerRect = container.getBoundingClientRect()
 
   if (target.axis === 'col') {
-    const cell = headerCells[target.anchorIndex]
-    if (!cell) return null
-    const r = cell.getBoundingClientRect()
+    // 'before' → point just right of the boundary (into the first column);
+    // 'after'  → point just left of the boundary (into the anchor column).
+    const x = target.side === 'before' ? target.boundaryCoord + EPS : target.boundaryCoord - EPS
     return {
       axis: 'col',
       side: target.side,
@@ -52,14 +54,11 @@ function computeMarker(
       left: target.boundaryCoord - containerRect.left,
       top: tableRect.top - containerRect.top,
       lineLength: tableRect.height,
-      cellPoint: { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 },
+      cellPoint: { x, y: midY },
     }
   }
 
-  const row = rows[target.anchorIndex]
-  const cell = row?.children[0] as HTMLElement | undefined
-  if (!cell) return null
-  const r = cell.getBoundingClientRect()
+  const y = target.side === 'before' ? target.boundaryCoord + EPS : target.boundaryCoord - EPS
   return {
     axis: 'row',
     side: target.side,
@@ -67,7 +66,7 @@ function computeMarker(
     left: tableRect.left - containerRect.left,
     top: target.boundaryCoord - containerRect.top,
     lineLength: tableRect.width,
-    cellPoint: { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 },
+    cellPoint: { x: midX, y },
   }
 }
 

@@ -1,5 +1,22 @@
 export type InsertAxis = 'row' | 'col'
 
+/**
+ * Sort coordinates ascending and collapse near-duplicates (within `tol` px) to
+ * a single representative. Used to derive a table's true column/row grid lines
+ * from the union of every cell's edges — which is robust to merged cells
+ * (colspan/rowspan), since a boundary hidden by a merge in one row is exposed
+ * by another row.
+ */
+export function dedupeSortedCoords(coords: number[], tol = 0.5): number[] {
+  const sorted = [...coords].sort((a, b) => a - b)
+  const out: number[] = []
+  for (const c of sorted) {
+    const last = out[out.length - 1]
+    if (last === undefined || Math.abs(c - last) > tol) out.push(c)
+  }
+  return out
+}
+
 export interface InsertTarget {
   axis: InsertAxis
   side: 'before' | 'after'

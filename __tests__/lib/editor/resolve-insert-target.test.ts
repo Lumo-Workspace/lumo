@@ -1,4 +1,4 @@
-import { resolveInsertTarget } from '@/lib/editor/table/resolve-insert-target'
+import { resolveInsertTarget, dedupeSortedCoords } from '@/lib/editor/table/resolve-insert-target'
 
 // 3-column / 2-row table. Column boundaries at x = 0,100,200,300.
 // Row boundaries at y = 0,40,80. Table spans (0,0)→(300,80).
@@ -58,5 +58,23 @@ describe('resolveInsertTarget', () => {
     expect(
       resolveInsertTarget({ ...base, pointer: { x: 1, y: 1 } })
     ).toEqual({ axis: 'col', side: 'before', anchorIndex: 0, boundaryCoord: 0 })
+  })
+})
+
+describe('dedupeSortedCoords', () => {
+  it('sorts ascending', () => {
+    expect(dedupeSortedCoords([300, 0, 100])).toEqual([0, 100, 300])
+  })
+
+  it('collapses near-duplicates within default tolerance', () => {
+    expect(dedupeSortedCoords([0, 0.3, 100, 100.4, 200])).toEqual([0, 100, 200])
+  })
+
+  it('keeps coords farther apart than tolerance', () => {
+    expect(dedupeSortedCoords([0, 1, 2])).toEqual([0, 1, 2])
+  })
+
+  it('returns empty array for empty input', () => {
+    expect(dedupeSortedCoords([])).toEqual([])
   })
 })
