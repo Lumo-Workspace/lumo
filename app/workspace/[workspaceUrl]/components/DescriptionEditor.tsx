@@ -6,14 +6,11 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
-import {
-  TableOfContents,
-  type TableOfContentData,
-} from '@tiptap/extension-table-of-contents'
+import { TableOfContents } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
 import { isMac } from '@/lib/utils/keyboard'
-import { computeActiveTocIndex } from '@/lib/editor/toc-active'
+import { useTocSync, type TocItem } from '../hooks/useTocSync'
 import {
   DocExtractProvider,
   buildStampPending,
@@ -43,13 +40,7 @@ import { toast } from 'sonner'
 
 // ─── Main editor ───────────────────────────────────────────────────────────────
 
-export type TocItem = {
-  id: string
-  level: number
-  textContent: string
-  isActive: boolean
-  itemIndex: number
-}
+export type { TocItem }
 
 interface DescriptionEditorProps {
   value: string | null
@@ -138,21 +129,15 @@ export function DescriptionEditor({
   // Stable ref for onTocUpdate so the extension config (created once) always
   // calls the latest prop without needing to re-init the editor.
   const onTocUpdateRef = useRef(onTocUpdate)
-  useEffect(() => {
-    onTocUpdateRef.current = onTocUpdate
-  }, [onTocUpdate])
   // Stable ref so the (created-once) extension config can always reach the
   // latest scroll container.
   const tocScrollRootRef = useRef(tocScrollRoot)
-  useEffect(() => {
-    tocScrollRootRef.current = tocScrollRoot
-  }, [tocScrollRoot])
   // Ref the extension's onUpdate calls into. We compute the active heading
-  // ourselves (see the rebind effect below) instead of trusting Tiptap's
-  // built-in scroll math, because Tiptap's check (`scrollTop >= offsetTop`)
-  // can never highlight the last heading once the container has scrolled to
-  // its bottom — the heading still sits below scrollTop, just not far enough
-  // to make the container scroll any further.
+  // ourselves instead of trusting Tiptap's built-in scroll math, because
+  // Tiptap's check (`scrollTop >= offsetTop`) can never highlight the last
+  // heading once the container has scrolled to its bottom — the heading still
+  // sits below scrollTop, just not far enough to make the container scroll any
+  // further. Mirror effects + the big TOC effect live in useTocSync below.
   const emitTocRef = useRef<() => void>(() => {})
   const tocEnabled = !!onTocUpdate
 
@@ -295,124 +280,17 @@ export function DescriptionEditor({
     editorRef.current = editor ?? null
   }, [editor])
 
-  // Compute the active heading ourselves and push the TOC items upstream.
-  //
-  // Why not use Tiptap's built-in active state? It only marks a heading
-  // active when `scrollTop >= heading.offsetTop`. Once the container has
-  // scrolled to its bottom, the last heading still sits below scrollTop —
-  // the container literally cannot scroll any further — so the highlight
-  // gets stuck on whichever heading happens to be flush with the top edge.
-  //
-  // This effect (re)wires three things:
-  //   1. `emitTocRef` — called by the extension's onUpdate when the heading
-  //      list changes (typing a new heading), and by our own scroll listener.
-  //   2. A scroll listener on the real container so we re-emit on scroll.
-  //   3. Removal of the extension's window-bound listener that would
-  //      otherwise fire onUpdate with stale active states.
-  useEffect(() => {
-    if (!tocEnabled || !editor) return
-
-    const ACTIVE_OFFSET = 80 // px below container top that still counts as "at the top"
-
-    // Cache heading elements by toc-id so scroll doesn't re-run an O(n)
-    // querySelector sweep every frame. A cached node is reused until it leaves
-    // the DOM (el.isConnected === false) — which is exactly when ProseMirror
-    // has replaced the heading node mid-edit, so the next lookup re-queries.
-    // offsetTop is read live off the cached node (cheap; no layout thrash
-    // during a pure scroll), only the tree traversal is what we elide.
-    const elCache = new Map<string, HTMLElement>()
-    const resolveOffsetTop = (root: HTMLElement, id: string): number | null => {
-      const cached = elCache.get(id)
-      if (cached && cached.isConnected) return cached.offsetTop
-      const el = root.querySelector(
-        `[data-toc-id="${id}"]`
-      ) as HTMLElement | null
-      if (!el) {
-        elCache.delete(id)
-        return null
-      }
-      elCache.set(id, el)
-      return el.offsetTop
-    }
-
-    const emit = () => {
-      const tocStorage = editor.storage.tableOfContents as
-        | { content?: TableOfContentData }
-        | undefined
-      const items = tocStorage?.content ?? []
-      if (!items.length) {
-        onTocUpdateRef.current?.([])
-        return
-      }
-
-      // With no scroll root we can't measure geometry; highlight the first
-      // heading (matches the old activeIdx === -1 → 0 fallback). Otherwise hand
-      // the cached offsetTops + scroll metrics to the pure resolver, which
-      // keeps the "at bottom → last heading" and "nothing crossed → first
-      // heading" semantics. See lib/editor/toc-active.ts.
-      const root = tocScrollRootRef.current
-      const activeIdx = root
-        ? computeActiveTocIndex(
-            items.map(item => ({
-              offsetTop: resolveOffsetTop(root, item.id),
-            })),
-            {
-              scrollTop: root.scrollTop,
-              clientHeight: root.clientHeight,
-              scrollHeight: root.scrollHeight,
-            },
-            ACTIVE_OFFSET
-          )
-        : 0
-
-      onTocUpdateRef.current?.(
-        items.map((item, i) => ({
-          id: item.id,
-          level: item.level,
-          textContent: item.textContent,
-          isActive: i === activeIdx,
-          itemIndex: item.itemIndex,
-        }))
-      )
-    }
-
-    emitTocRef.current = emit
-
-    // The extension auto-attaches its own scrollHandler to window during
-    // onCreate. Detach it so it doesn't push stale `isActive` values that
-    // race with ours.
-    const tocStorage = editor.storage.tableOfContents as
-      | { scrollHandler?: () => void }
-      | undefined
-    if (typeof tocStorage?.scrollHandler === 'function') {
-      window.removeEventListener('scroll', tocStorage.scrollHandler)
-    }
-
-    if (!tocScrollRoot) {
-      emit()
-      return
-    }
-
-    // Coalesce bursts of scroll events into one recompute per frame. Scroll
-    // fires far faster than the display refreshes, and emit() reads layout, so
-    // throttling to rAF keeps long-document scrolling smooth.
-    let rafId: number | null = null
-    const onScroll = () => {
-      if (rafId !== null) return
-      rafId = requestAnimationFrame(() => {
-        rafId = null
-        emit()
-      })
-    }
-
-    tocScrollRoot.addEventListener('scroll', onScroll, { passive: true })
-    emit()
-
-    return () => {
-      tocScrollRoot.removeEventListener('scroll', onScroll)
-      if (rafId !== null) cancelAnimationFrame(rafId)
-    }
-  }, [editor, tocEnabled, tocScrollRoot])
+  // Sync the TOC: wire the scroll listener, compute active heading, push items
+  // upstream. Mirror effects for onTocUpdateRef/tocScrollRootRef also live here.
+  useTocSync({
+    editor,
+    tocEnabled,
+    tocScrollRoot,
+    onTocUpdate,
+    onTocUpdateRef,
+    tocScrollRootRef,
+    emitTocRef,
+  })
 
   // Open the hidden file picker when the toolbar image button is clicked
   const handleInsertImage = useCallback(() => {
