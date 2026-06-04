@@ -154,6 +154,11 @@ export function TaskDetailPage({
   // sole owner of the projects list + cache. A stale `projectsClient.list()`
   // resolving after a concurrent delete from another page used to repopulate
   // the cache with the deleted project.
+  //
+  // Comments are intentionally NOT fetched here either — `useTaskComments`'
+  // `useQuery` already loads them on mount. Calling `tc.fetchComments()` here
+  // duplicated that initial load (a redundant refetch of the same data); the
+  // query is the sole owner of the comment fetch.
   useEffect(() => {
     Promise.all([
       tasksClient
@@ -168,7 +173,6 @@ export function TaskDetailPage({
           members: [] as WorkspaceMemberInfo[],
           agentActors: undefined,
         })),
-      tc.fetchComments(),
     ])
       .then(([taskData, membersData]) => {
         if (taskData.task) {
