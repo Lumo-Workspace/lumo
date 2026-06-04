@@ -1268,5 +1268,8 @@
   "forecast.cycleDays": "{median} 天(常見 {low}–{high} 天)",
   "forecast.cycleHours": "{median} 小時(常見 {low}–{high} 小時)",
   "forecast.insufficient": "歷史資料不足,暫無可靠預測",
-  "forecast.viewSources": "查看依據的歷史任務"
+  "forecast.viewSources": "查看依據的歷史任務",
+  "documentEditor.stats.words": "{count} 字",
+  "documentEditor.stats.characters": "{count} 字元",
+  "documentEditor.stats.readingTime": "約 {minutes} 分鐘"
 }

@@ -1268,5 +1268,8 @@
   "forecast.cycleDays": "{median} дн. ({low}–{high} дн.)",
   "forecast.cycleHours": "{median} ч ({low}–{high} ч)",
   "forecast.insufficient": "Недостаточно истории для надёжного прогноза",
-  "forecast.viewSources": "Показать исходные задачи"
+  "forecast.viewSources": "Показать исходные задачи",
+  "documentEditor.stats.words": "{count, plural, one {# слово} few {# слова} many {# слов} other {# слова}}",
+  "documentEditor.stats.characters": "{count, plural, one {# символ} few {# символа} many {# символов} other {# символа}}",
+  "documentEditor.stats.readingTime": "{minutes} мин чтения"
 }
