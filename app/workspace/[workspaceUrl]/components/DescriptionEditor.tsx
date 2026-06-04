@@ -35,6 +35,7 @@ import { MentionList } from './MentionList'
 import type { MentionListRef } from './MentionList'
 import { EditorSuggestionPopup } from './EditorSuggestionPopup'
 import { BubbleMenuBar } from './BubbleMenuBar'
+import { TableInsertHandles } from './table/TableInsertHandles'
 import { BatchExtractButton } from './extract/BatchExtractButton'
 import { toast } from 'sonner'
 
@@ -496,9 +497,13 @@ export function DescriptionEditor({
         className='hidden'
         onChange={handleImageFileChange}
       />
-      {/* Native capture listeners are bound to this div via useEffect above */}
-      <div ref={dropZoneRef}>
+      {/* Native capture listeners are bound to this div via useEffect above.
+          `relative` so TableInsertHandles can absolutely-position its markers. */}
+      <div ref={dropZoneRef} className='relative'>
         <EditorContent editor={editor} />
+        {editor && editor.isEditable && (
+          <TableInsertHandles editor={editor} containerRef={dropZoneRef} />
+        )}
       </div>
       {menuElement &&
         editor &&

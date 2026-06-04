@@ -506,6 +506,8 @@
   "table.addRowBelow": "아래에 행 추가",
   "table.addColLeft": "왼쪽에 열 추가",
   "table.addColRight": "오른쪽에 열 추가",
+  "table.insertColumnHere": "열 삽입",
+  "table.insertRowHere": "행 삽입",
   "table.deleteRow": "행 삭제",
   "table.deleteCol": "열 삭제",
   "table.deleteTable": "테이블 삭제",

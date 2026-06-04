@@ -506,6 +506,8 @@
   "table.addRowBelow": "Zeile darunter einfügen",
   "table.addColLeft": "Spalte links einfügen",
   "table.addColRight": "Spalte rechts einfügen",
+  "table.insertColumnHere": "Spalte einfügen",
+  "table.insertRowHere": "Zeile einfügen",
   "table.deleteRow": "Zeile löschen",
   "table.deleteCol": "Spalte löschen",
   "table.deleteTable": "Tabelle löschen",

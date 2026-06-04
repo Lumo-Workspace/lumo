@@ -506,6 +506,8 @@
   "table.addRowBelow": "Tambah baris di bawah",
   "table.addColLeft": "Tambah kolom di kiri",
   "table.addColRight": "Tambah kolom di kanan",
+  "table.insertColumnHere": "Sisipkan kolom",
+  "table.insertRowHere": "Sisipkan baris",
   "table.deleteRow": "Hapus baris",
   "table.deleteCol": "Hapus kolom",
   "table.deleteTable": "Hapus tabel",
