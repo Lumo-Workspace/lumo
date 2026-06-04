@@ -597,6 +597,8 @@
   "task.filter.milestone": "मील का पत्थर",
   "task.filter.milestone.none": "कोई नहीं",
   "milestone.tab.title": "मील के पत्थर",
+  "milestone.tab.overview": "अवलोकन",
+  "milestone.tab.tasks": "कार्य",
   "milestone.empty.title": "अभी तक कोई मील का पत्थर नहीं",
   "milestone.empty.cta": "पहला मील का पत्थर बनाएँ",
   "milestone.new": "नया मील का पत्थर",

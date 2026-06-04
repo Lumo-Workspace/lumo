@@ -597,6 +597,8 @@
   "task.filter.milestone": "Веха",
   "task.filter.milestone.none": "Без вехи",
   "milestone.tab.title": "Вехи",
+  "milestone.tab.overview": "Обзор",
+  "milestone.tab.tasks": "Задачи",
   "milestone.empty.title": "Пока нет вех",
   "milestone.empty.cta": "Создать первую веху",
   "milestone.new": "Новая веха",
