@@ -37,7 +37,7 @@ jest.mock('@tiptap/react', () => ({
 }))
 
 import { createRef } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenuBar } from '@/app/workspace/[workspaceUrl]/components/BubbleMenuBar'
 
@@ -71,22 +71,27 @@ function renderToolbar(editor: Editor) {
 const inTable = (selectionEmpty: boolean) => ({
   isTable: true,
   selectionEmpty,
+  isLink: false,
   canMergeCells: false,
   canSplitCell: false,
 })
 
 describe('BubbleMenuBar unified table toolbar', () => {
   it('shows the same controls whether or not text is selected (no shape-shift)', () => {
-    const a = makeEditor()
     editorState = inTable(true)
-    const { unmount } = renderToolbar(a.editor)
+    const a = renderToolbar(makeEditor().editor)
+    const whenEmpty = screen.getAllByRole('button').length
     expect(screen.getByRole('button', { name: /Table/i })).toBeInTheDocument()
-    unmount()
+    a.unmount()
 
-    const b = makeEditor()
     editorState = inTable(false)
-    renderToolbar(b.editor)
+    renderToolbar(makeEditor().editor)
+    const whenSelected = screen.getAllByRole('button').length
     expect(screen.getByRole('button', { name: /Table/i })).toBeInTheDocument()
+    // Same number of controls in both selection states — the old code dropped
+    // all text-format buttons when text was selected; the unified bar must not.
+    expect(whenSelected).toBe(whenEmpty)
+    expect(whenEmpty).toBeGreaterThan(1)
   })
 
   it('opens the table dropdown and runs a row insert', () => {
@@ -107,5 +112,24 @@ describe('BubbleMenuBar unified table toolbar', () => {
     expect(chain.deleteTable).not.toHaveBeenCalled()
     fireEvent.mouseDown(screen.getByText('Click again to confirm'))
     expect(chain.deleteTable).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the link panel even while inside a table', () => {
+    const openRef = createRef<(() => void) | null>()
+    const { editor } = makeEditor()
+    editorState = inTable(true)
+    render(
+      <BubbleMenuBar
+        editor={editor}
+        openLinkInputRef={openRef}
+        onInsertImage={() => {}}
+      />
+    )
+    // The editor's keydown handler invokes this ref to open the link panel.
+    // Previously the table branch shadowed it; now the link panel must show.
+    act(() => {
+      openRef.current?.()
+    })
+    expect(screen.getByPlaceholderText('https://')).toBeInTheDocument()
   })
 })
