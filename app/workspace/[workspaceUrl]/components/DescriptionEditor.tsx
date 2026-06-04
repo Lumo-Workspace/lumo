@@ -6,23 +6,13 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
-import Mention from '@tiptap/extension-mention'
-import { mergeAttributes } from '@tiptap/core'
-import {
-  TableOfContents,
-  type TableOfContentData,
-} from '@tiptap/extension-table-of-contents'
+import { TableOfContents } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
-import { isMac } from '@/lib/utils/keyboard'
-import { computeActiveTocIndex } from '@/lib/editor/toc-active'
 import {
   DocExtractProvider,
   buildStampPending,
 } from '@/lib/editor/doc-extract-context'
-import type { ExtractResponse } from '@/lib/api-client/documents-extract'
-import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import { uploadImageFile, validateImageFile } from '@/lib/editor/image-upload'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -32,6 +22,12 @@ import {
   SlashCommandList,
   type SlashCommandListRef,
 } from '@/lib/editor/slash-command-list'
+import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
+import { isMac } from '@/lib/utils/keyboard'
+import type { ExtractResponse } from '@/lib/api-client/documents-extract'
+import { ExtractTasksError } from '@/lib/api-client/documents-extract'
+import { useTocSync, type TocItem } from '../hooks/useTocSync'
+import { useImageUploads } from '../hooks/useImageUploads'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
@@ -40,81 +36,11 @@ import type { MentionListRef } from './MentionList'
 import { EditorSuggestionPopup } from './EditorSuggestionPopup'
 import { BubbleMenuBar } from './BubbleMenuBar'
 import { BatchExtractButton } from './extract/BatchExtractButton'
-
-/** Mention node extended with type / title / status attributes */
-const MentionWithType = Mention.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      mentionType: {
-        default: 'user',
-        parseHTML: el => el.getAttribute('data-mention-type') ?? 'user',
-        renderHTML: attrs => ({ 'data-mention-type': attrs.mentionType }),
-      },
-      mentionTitle: {
-        default: null,
-        parseHTML: el => el.getAttribute('data-mention-title') ?? null,
-        renderHTML: attrs =>
-          attrs.mentionTitle
-            ? { 'data-mention-title': attrs.mentionTitle }
-            : {},
-      },
-      mentionStatus: {
-        default: null,
-        parseHTML: el => el.getAttribute('data-mention-status') ?? null,
-        renderHTML: attrs =>
-          attrs.mentionStatus
-            ? { 'data-mention-status': attrs.mentionStatus }
-            : {},
-      },
-    }
-  },
-  renderHTML({ node, HTMLAttributes }) {
-    const isTask = node.attrs.mentionType === 'task'
-    if (isTask) {
-      const label = node.attrs.label ?? node.attrs.id
-      const title = node.attrs.mentionTitle ?? ''
-      const text = title ? `${label} ${title}` : label
-      return [
-        'span',
-        mergeAttributes(HTMLAttributes, {
-          class: 'mention mention-task',
-          'data-mention-type': 'task',
-          ...(node.attrs.mentionStatus
-            ? { 'data-mention-status': node.attrs.mentionStatus }
-            : {}),
-        }),
-        text,
-      ]
-    }
-    return [
-      'span',
-      mergeAttributes(HTMLAttributes, { class: 'mention' }),
-      `@${node.attrs.label ?? node.attrs.id}`,
-    ]
-  },
-  renderText({ node }) {
-    const isTask = node.attrs.mentionType === 'task'
-    if (isTask) {
-      const label = node.attrs.label ?? node.attrs.id
-      return node.attrs.mentionTitle
-        ? `${label} ${node.attrs.mentionTitle}`
-        : label
-    }
-    return `@${node.attrs.label ?? node.attrs.id}`
-  },
-})
 import { toast } from 'sonner'
 
 // ─── Main editor ───────────────────────────────────────────────────────────────
 
-export type TocItem = {
-  id: string
-  level: number
-  textContent: string
-  isActive: boolean
-  itemIndex: number
-}
+export type { TocItem }
 
 interface DescriptionEditorProps {
   value: string | null
@@ -155,82 +81,6 @@ interface DescriptionEditorProps {
   onChangeDebounceMs?: number
 }
 
-/**
- * Insert an image immediately using a local blob URL for instant preview,
- * upload in the background, then swap the src to the real CDN URL when done.
- * On failure, removes the placeholder and shows a toast.
- *
- * Returns a Promise that resolves when the upload is settled (success or fail),
- * so callers can track pending uploads before committing the document.
- */
-async function insertImageWithUpload(
-  file: File,
-  documentId: string | undefined,
-  getEditor: () => import('@tiptap/core').Editor | null,
-  insertPos?: number,
-  errorMessage?: string
-): Promise<void> {
-  const tempUrl = URL.createObjectURL(file)
-  const ed = getEditor()
-  if (!ed) {
-    URL.revokeObjectURL(tempUrl)
-    return
-  }
-
-  // Show the image immediately with the local blob URL
-  if (insertPos !== undefined) {
-    ed.chain()
-      .focus()
-      .insertContentAt(insertPos, { type: 'image', attrs: { src: tempUrl } })
-      .run()
-  } else {
-    ed.chain().focus().setImage({ src: tempUrl }).run()
-  }
-
-  try {
-    const realUrl = await uploadImageFile(file, documentId)
-    if (!realUrl) throw new Error('Upload returned no URL')
-
-    // Swap blob URL → CDN URL in the document
-    const current = getEditor()
-    if (current) {
-      let swapped = false
-      current.state.doc.descendants((node, pos) => {
-        if (swapped) return false
-        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
-          const tr = current.state.tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            src: realUrl,
-          })
-          current.view.dispatch(tr)
-          swapped = true
-          return false
-        }
-        return true
-      })
-    }
-  } catch {
-    // Remove the broken placeholder image
-    const current = getEditor()
-    if (current) {
-      let removed = false
-      current.state.doc.descendants((node, pos) => {
-        if (removed) return false
-        if (node.type.name === 'image' && node.attrs.src === tempUrl) {
-          const tr = current.state.tr.delete(pos, pos + node.nodeSize)
-          current.view.dispatch(tr)
-          removed = true
-          return false
-        }
-        return true
-      })
-    }
-    toast.error(errorMessage ?? 'Image upload failed')
-  } finally {
-    URL.revokeObjectURL(tempUrl)
-  }
-}
-
 export function DescriptionEditor({
   value,
   onCommit,
@@ -254,29 +104,18 @@ export function DescriptionEditor({
   // its decoration.
   const placeholderRef = useRef(placeholder)
   placeholderRef.current = placeholder
-  const imageUploadFailedMsg = intl.formatMessage({
-    id: 'task.imageUploadFailed',
-  })
-  const imageTooLargeMsg = intl.formatMessage({ id: 'task.imageTooLarge' })
-  const imageInvalidTypeMsg = intl.formatMessage({
-    id: 'task.imageInvalidType',
-  })
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
   const mentionListRef = useRef<MentionListRef | null>(null)
   // Ref kept in sync with the editor instance so async upload callbacks can
   // always reach the latest editor without stale closures.
   const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
+  const { enqueueImageUpload, runOrDeferCommit } = useImageUploads({
+    editorRef,
+    documentId,
+  })
   const imageInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
-  // Track in-flight uploads so we delay onCommit until all are settled.
-  const pendingUploadsRef = useRef(0)
-  const pendingCommitRef = useRef<(() => void) | null>(null)
-  // Validate + enqueue an image upload. Held in a ref so the editor's
-  // handlePaste (frozen at editor-creation time) always calls the latest.
-  const enqueueImageUploadRef = useRef<
-    (file: File, insertPos?: number) => void
-  >(() => {})
   // Fire undo-warning toast only once per session
   const hasShownUndoWarning = useRef(false)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
@@ -290,21 +129,15 @@ export function DescriptionEditor({
   // Stable ref for onTocUpdate so the extension config (created once) always
   // calls the latest prop without needing to re-init the editor.
   const onTocUpdateRef = useRef(onTocUpdate)
-  useEffect(() => {
-    onTocUpdateRef.current = onTocUpdate
-  }, [onTocUpdate])
   // Stable ref so the (created-once) extension config can always reach the
   // latest scroll container.
   const tocScrollRootRef = useRef(tocScrollRoot)
-  useEffect(() => {
-    tocScrollRootRef.current = tocScrollRoot
-  }, [tocScrollRoot])
   // Ref the extension's onUpdate calls into. We compute the active heading
-  // ourselves (see the rebind effect below) instead of trusting Tiptap's
-  // built-in scroll math, because Tiptap's check (`scrollTop >= offsetTop`)
-  // can never highlight the last heading once the container has scrolled to
-  // its bottom — the heading still sits below scrollTop, just not far enough
-  // to make the container scroll any further.
+  // ourselves instead of trusting Tiptap's built-in scroll math, because
+  // Tiptap's check (`scrollTop >= offsetTop`) can never highlight the last
+  // heading once the container has scrolled to its bottom — the heading still
+  // sits below scrollTop, just not far enough to make the container scroll any
+  // further. Mirror effects + the big TOC effect live in useTocSync below.
   const emitTocRef = useRef<() => void>(() => {})
   const tocEnabled = !!onTocUpdate
 
@@ -413,7 +246,7 @@ export function DescriptionEditor({
         // ProseMirror's default handler runs, then validate (size + MIME
         // whitelist) inside enqueueImageUpload, which toasts on rejection.
         event.preventDefault()
-        enqueueImageUploadRef.current(img)
+        enqueueImageUpload(img)
         return true
       },
     },
@@ -428,17 +261,10 @@ export function DescriptionEditor({
       // dedupe-on-last-value commit handler would then treat as a no-op and skip
       // the immediate save.
       serializerRef.current.cancel()
-      const commit = () => {
+      runOrDeferCommit(() => {
         const html = editor.isEmpty ? null : editor.getHTML()
         onCommit(html)
-      }
-      if (pendingUploadsRef.current > 0) {
-        // Uploads still in flight — defer commit until they all settle so we
-        // never write a blob: URL into the database.
-        pendingCommitRef.current = commit
-      } else {
-        commit()
-      }
+      })
     },
     onUpdate: () => {
       // Route serialization through the serializer so getHTML() stays off the
@@ -454,161 +280,17 @@ export function DescriptionEditor({
     editorRef.current = editor ?? null
   }, [editor])
 
-  // Single entry point for all three upload paths (toolbar picker, paste,
-  // drop). Validates size + MIME whitelist up front — the picker's `accept`
-  // attribute only constrains the picker, and has no effect on paste/drop —
-  // then tracks the in-flight upload so onBlur can defer its commit.
-  const enqueueImageUpload = useCallback(
-    (file: File, insertPos?: number) => {
-      const check = validateImageFile(file)
-      if (!check.ok) {
-        toast.error(
-          check.reason === 'size' ? imageTooLargeMsg : imageInvalidTypeMsg
-        )
-        return
-      }
-      pendingUploadsRef.current++
-      insertImageWithUpload(
-        file,
-        documentId,
-        () => editorRef.current,
-        insertPos,
-        imageUploadFailedMsg
-      ).finally(() => {
-        pendingUploadsRef.current--
-        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-          pendingCommitRef.current()
-          pendingCommitRef.current = null
-        }
-      })
-    },
-    [documentId, imageUploadFailedMsg, imageTooLargeMsg, imageInvalidTypeMsg]
-  )
-
-  // Mirror the latest enqueue fn into a ref so the editor's handlePaste
-  // (captured once at editor creation) never calls a stale version.
-  useEffect(() => {
-    enqueueImageUploadRef.current = enqueueImageUpload
-  }, [enqueueImageUpload])
-
-  // Compute the active heading ourselves and push the TOC items upstream.
-  //
-  // Why not use Tiptap's built-in active state? It only marks a heading
-  // active when `scrollTop >= heading.offsetTop`. Once the container has
-  // scrolled to its bottom, the last heading still sits below scrollTop —
-  // the container literally cannot scroll any further — so the highlight
-  // gets stuck on whichever heading happens to be flush with the top edge.
-  //
-  // This effect (re)wires three things:
-  //   1. `emitTocRef` — called by the extension's onUpdate when the heading
-  //      list changes (typing a new heading), and by our own scroll listener.
-  //   2. A scroll listener on the real container so we re-emit on scroll.
-  //   3. Removal of the extension's window-bound listener that would
-  //      otherwise fire onUpdate with stale active states.
-  useEffect(() => {
-    if (!tocEnabled || !editor) return
-
-    const ACTIVE_OFFSET = 80 // px below container top that still counts as "at the top"
-
-    // Cache heading elements by toc-id so scroll doesn't re-run an O(n)
-    // querySelector sweep every frame. A cached node is reused until it leaves
-    // the DOM (el.isConnected === false) — which is exactly when ProseMirror
-    // has replaced the heading node mid-edit, so the next lookup re-queries.
-    // offsetTop is read live off the cached node (cheap; no layout thrash
-    // during a pure scroll), only the tree traversal is what we elide.
-    const elCache = new Map<string, HTMLElement>()
-    const resolveOffsetTop = (root: HTMLElement, id: string): number | null => {
-      const cached = elCache.get(id)
-      if (cached && cached.isConnected) return cached.offsetTop
-      const el = root.querySelector(
-        `[data-toc-id="${id}"]`
-      ) as HTMLElement | null
-      if (!el) {
-        elCache.delete(id)
-        return null
-      }
-      elCache.set(id, el)
-      return el.offsetTop
-    }
-
-    const emit = () => {
-      const tocStorage = editor.storage.tableOfContents as
-        | { content?: TableOfContentData }
-        | undefined
-      const items = tocStorage?.content ?? []
-      if (!items.length) {
-        onTocUpdateRef.current?.([])
-        return
-      }
-
-      // With no scroll root we can't measure geometry; highlight the first
-      // heading (matches the old activeIdx === -1 → 0 fallback). Otherwise hand
-      // the cached offsetTops + scroll metrics to the pure resolver, which
-      // keeps the "at bottom → last heading" and "nothing crossed → first
-      // heading" semantics. See lib/editor/toc-active.ts.
-      const root = tocScrollRootRef.current
-      const activeIdx = root
-        ? computeActiveTocIndex(
-            items.map(item => ({
-              offsetTop: resolveOffsetTop(root, item.id),
-            })),
-            {
-              scrollTop: root.scrollTop,
-              clientHeight: root.clientHeight,
-              scrollHeight: root.scrollHeight,
-            },
-            ACTIVE_OFFSET
-          )
-        : 0
-
-      onTocUpdateRef.current?.(
-        items.map((item, i) => ({
-          id: item.id,
-          level: item.level,
-          textContent: item.textContent,
-          isActive: i === activeIdx,
-          itemIndex: item.itemIndex,
-        }))
-      )
-    }
-
-    emitTocRef.current = emit
-
-    // The extension auto-attaches its own scrollHandler to window during
-    // onCreate. Detach it so it doesn't push stale `isActive` values that
-    // race with ours.
-    const tocStorage = editor.storage.tableOfContents as
-      | { scrollHandler?: () => void }
-      | undefined
-    if (typeof tocStorage?.scrollHandler === 'function') {
-      window.removeEventListener('scroll', tocStorage.scrollHandler)
-    }
-
-    if (!tocScrollRoot) {
-      emit()
-      return
-    }
-
-    // Coalesce bursts of scroll events into one recompute per frame. Scroll
-    // fires far faster than the display refreshes, and emit() reads layout, so
-    // throttling to rAF keeps long-document scrolling smooth.
-    let rafId: number | null = null
-    const onScroll = () => {
-      if (rafId !== null) return
-      rafId = requestAnimationFrame(() => {
-        rafId = null
-        emit()
-      })
-    }
-
-    tocScrollRoot.addEventListener('scroll', onScroll, { passive: true })
-    emit()
-
-    return () => {
-      tocScrollRoot.removeEventListener('scroll', onScroll)
-      if (rafId !== null) cancelAnimationFrame(rafId)
-    }
-  }, [editor, tocEnabled, tocScrollRoot])
+  // Sync the TOC: wire the scroll listener, compute active heading, push items
+  // upstream. Mirror effects for onTocUpdateRef/tocScrollRootRef also live here.
+  useTocSync({
+    editor,
+    tocEnabled,
+    tocScrollRoot,
+    onTocUpdate,
+    onTocUpdateRef,
+    tocScrollRootRef,
+    emitTocRef,
+  })
 
   // Open the hidden file picker when the toolbar image button is clicked
   const handleInsertImage = useCallback(() => {
