@@ -105,6 +105,8 @@ export function TableActionsMenu({
           <button
             type='button'
             aria-label={intl.formatMessage({ id: 'table.actions' })}
+            aria-haspopup='menu'
+            aria-expanded={open}
             onMouseDown={e => {
               e.preventDefault()
               setOpen(o => !o)
@@ -120,9 +122,10 @@ export function TableActionsMenu({
         </TooltipContent>
       </Tooltip>
       {open && (
-        <div className='absolute top-full left-0 mt-1 z-50 min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+        <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
           {/* rows / cols */}
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_IDLE)}
             onMouseDown={e => {
@@ -134,6 +137,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.addRowAbove' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_IDLE)}
             onMouseDown={e => {
@@ -145,6 +149,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.addRowBelow' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_IDLE)}
             onMouseDown={e => {
@@ -156,6 +161,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.addColLeft' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_IDLE)}
             onMouseDown={e => {
@@ -171,6 +177,7 @@ export function TableActionsMenu({
 
           {/* structure */}
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_IDLE)}
             onMouseDown={e => {
@@ -182,6 +189,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.toggleHeaderRow' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             disabled={!canMergeCells}
             className={cn(ITEM_BASE, canMergeCells ? ITEM_IDLE : ITEM_DISABLED)}
@@ -195,6 +203,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.mergeCells' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             disabled={!canSplitCell}
             className={cn(ITEM_BASE, canSplitCell ? ITEM_IDLE : ITEM_DISABLED)}
@@ -212,6 +221,7 @@ export function TableActionsMenu({
 
           {/* delete */}
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_DANGER)}
             onMouseDown={e => {
@@ -223,6 +233,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.deleteRow' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             className={cn(ITEM_BASE, ITEM_DANGER)}
             onMouseDown={e => {
@@ -234,6 +245,7 @@ export function TableActionsMenu({
             {intl.formatMessage({ id: 'table.deleteCol' })}
           </button>
           <button
+            role='menuitem'
             type='button'
             className={cn(
               ITEM_BASE,

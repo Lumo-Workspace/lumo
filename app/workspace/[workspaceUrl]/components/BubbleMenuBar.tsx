@@ -347,11 +347,14 @@ export function BubbleMenuBar({
           <TooltipTrigger asChild>
             <button
               type='button'
+              aria-label={intl.formatMessage({ id: activeStyle.id })}
+              aria-haspopup='menu'
+              aria-expanded={styleOpen}
               onMouseDown={e => {
                 e.preventDefault()
                 setStyleOpen(o => !o)
               }}
-              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors'
+              className='flex items-center gap-1 px-1.5 h-7 rounded text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors'
             >
               {intl.formatMessage({ id: activeStyle.id })}
               <ChevronDown size={12} />
@@ -362,10 +365,11 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {styleOpen && (
-          <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
             {TEXT_STYLES.map((style, i) => (
               <button
                 key={style.id}
+                role='menuitem'
                 type='button'
                 onMouseDown={e => {
                   e.preventDefault()
@@ -373,10 +377,10 @@ export function BubbleMenuBar({
                   setStyleOpen(false)
                 }}
                 className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                  'w-full text-left px-3 py-1.5 text-xs transition-colors',
                   activeFlags[i]
-                    ? 'font-semibold text-zinc-900 dark:text-zinc-100'
-                    : 'text-zinc-600 dark:text-zinc-400'
+                    ? 'bg-accent text-accent-foreground font-semibold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 )}
               >
                 {intl.formatMessage({ id: style.id })}
@@ -467,6 +471,15 @@ export function BubbleMenuBar({
           <TooltipTrigger asChild>
             <button
               type='button'
+              aria-label={intl.formatMessage({
+                id: state.isOrderedList
+                  ? 'editor.list.numbered'
+                  : state.isTaskList
+                    ? 'editor.list.checklist'
+                    : 'editor.list.bulleted',
+              })}
+              aria-haspopup='menu'
+              aria-expanded={listOpen}
               onMouseDown={e => {
                 e.preventDefault()
                 setListOpen(o => !o)
@@ -474,8 +487,8 @@ export function BubbleMenuBar({
               className={cn(
                 'flex items-center gap-1 px-1.5 h-7 rounded transition-colors',
                 state.isBulletList || state.isOrderedList || state.isTaskList
-                  ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               <List size={14} />
@@ -493,12 +506,13 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {listOpen && (
-          <div className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md shadow-lg py-1'>
+          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
             {LIST_STYLES.map(style => {
               const active = style.isActive(editor)
               return (
                 <button
                   key={style.id}
+                  role='menuitem'
                   type='button'
                   onMouseDown={e => {
                     e.preventDefault()
@@ -506,10 +520,10 @@ export function BubbleMenuBar({
                     setListOpen(false)
                   }}
                   className={cn(
-                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors',
+                    'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors',
                     active
-                      ? 'font-semibold text-zinc-900 dark:text-zinc-100'
-                      : 'text-zinc-600 dark:text-zinc-400'
+                      ? 'bg-accent text-accent-foreground font-semibold'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
                   {style.icon}

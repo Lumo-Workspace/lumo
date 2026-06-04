@@ -53,6 +53,8 @@ export function AlignMenu({
           <button
             type='button'
             aria-label={label}
+            aria-haspopup='menu'
+            aria-expanded={open}
             onMouseDown={e => {
               e.preventDefault()
               setOpen(o => !o)
@@ -66,10 +68,11 @@ export function AlignMenu({
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
       {open && (
-        <div className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+        <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
           {options.map(o => (
             <button
               key={o.id}
+              role='menuitem'
               type='button'
               onMouseDown={e => {
                 e.preventDefault()
