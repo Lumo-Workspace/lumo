@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { milestonesClient } from '@/lib/api-client'
+import { milestonesClient, type MilestoneUpdateInput } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import {
   findProjectForMilestoneSegment,
@@ -29,9 +29,7 @@ import {
 import { DetailLayout } from '../DetailLayout'
 import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
 import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
-import { MilestoneFormDialog } from '../milestones/MilestoneFormDialog'
-import { MilestoneSprintCoverage } from '../milestones/MilestoneSprintCoverage'
-import { TaskListByMilestone } from '../milestones/TaskListByMilestone'
+import { MilestoneDetailTabs } from '../milestones/MilestoneDetailTabs'
 
 export function MilestoneDetailPage() {
   const intl = useIntl()
@@ -42,8 +40,6 @@ export function MilestoneDetailPage() {
   }>()
   const router = useRouter()
   const qc = useQueryClient()
-  const [editing, setEditing] = useState(false)
-
   // The URL segment may be either a legacy cuid or the new slug. We branch
   // here so the right endpoint resolves the milestone; both hooks are always
   // called (one with disabled inputs) to keep the hook order stable.
@@ -91,6 +87,19 @@ export function MilestoneDetailPage() {
   // Archive/unarchive flip optimistically (greying the milestone on click);
   // delete still waits on the server before navigating away.
   const { archive, unarchive } = useMilestoneArchive()
+  const updateMutation = useMutation({
+    mutationFn: (fields: MilestoneUpdateInput) =>
+      milestonesClient.update(milestone!.id, fields),
+    onSuccess: () => {
+      if (!milestone) return
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.detail(milestone.id),
+      })
+      qc.invalidateQueries({
+        queryKey: queryKeys.milestones.byProject(milestone.projectId),
+      })
+    },
+  })
 
   if (loading) {
     return (
@@ -132,6 +141,9 @@ export function MilestoneDetailPage() {
   const mutating =
     archive.isPending || unarchive.isPending || deleteMutation.isPending
 
+  const handleUpdate = (fields: MilestoneUpdateInput) =>
+    updateMutation.mutate(fields)
+
   const projectName = project?.name ?? params.projectSlug
   const projectHref = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}`
 
@@ -155,7 +167,6 @@ export function MilestoneDetailPage() {
       <MilestoneActionsMenu
         archived={archived}
         disabled={mutating}
-        onEdit={() => setEditing(true)}
         onArchiveToggle={() =>
           archived ? unarchive.mutate(milestone) : archive.mutate(milestone)
         }
@@ -173,35 +184,19 @@ export function MilestoneDetailPage() {
   )
 
   return (
-    <>
-      <DetailLayout
-        breadcrumb={breadcrumb}
-        sidebar={
-          <MilestoneSidebar
-            status={milestone.status}
-            startDate={milestone.startDate}
-            targetDate={milestone.targetDate}
-            description={milestone.description}
-            archived={archived}
-          />
-        }
-      >
-        <div className='space-y-6 p-4 md:p-8 lg:overflow-y-auto'>
-          <MilestoneSprintCoverage coverage={milestone.sprintCoverage} />
-          <TaskListByMilestone
-            projectId={milestone.projectId}
-            milestoneId={milestone.id}
-          />
-        </div>
-      </DetailLayout>
-
-      {editing ? (
-        <MilestoneFormDialog
-          projectId={milestone.projectId}
-          milestone={milestone}
-          onClose={() => setEditing(false)}
+    <DetailLayout
+      breadcrumb={breadcrumb}
+      sidebar={
+        <MilestoneSidebar
+          status={milestone.status}
+          startDate={milestone.startDate}
+          targetDate={milestone.targetDate}
+          archived={archived}
+          onUpdate={handleUpdate}
         />
-      ) : null}
-    </>
+      }
+    >
+      <MilestoneDetailTabs milestone={milestone} onUpdate={handleUpdate} />
+    </DetailLayout>
   )
 }

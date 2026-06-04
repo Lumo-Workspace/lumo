@@ -1,4 +1,13 @@
+import type { MilestoneStatus } from '@prisma/client'
 import type { ApiMilestone } from '@/lib/api-client'
+
+/** Milestone status values in display order — shared by the sidebar editor and the form dialog. */
+export const MILESTONE_STATUSES: MilestoneStatus[] = [
+  'PLANNED',
+  'ACTIVE',
+  'COMPLETED',
+  'CANCELLED',
+]
 
 /** Status → badge color classes, shared by milestone card and detail rail. */
 export const STATUS_CLASS: Record<ApiMilestone['status'], string> = {

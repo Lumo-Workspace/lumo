@@ -598,6 +598,8 @@
   "task.filter.milestone": "Hito",
   "task.filter.milestone.none": "Sin hito",
   "milestone.tab.title": "Hitos",
+  "milestone.tab.overview": "Resumen",
+  "milestone.tab.tasks": "Tareas",
   "milestone.empty.title": "Aún no hay hitos",
   "milestone.empty.cta": "Crear el primer hito",
   "milestone.new": "Nuevo hito",

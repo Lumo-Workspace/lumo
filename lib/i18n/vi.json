@@ -599,6 +599,8 @@
   "task.filter.milestone": "Cột mốc",
   "task.filter.milestone.none": "Không có cột mốc",
   "milestone.tab.title": "Cột mốc",
+  "milestone.tab.overview": "Tổng quan",
+  "milestone.tab.tasks": "Nhiệm vụ",
   "milestone.empty.title": "Chưa có cột mốc",
   "milestone.empty.cta": "Tạo cột mốc đầu tiên",
   "milestone.new": "Cột mốc mới",

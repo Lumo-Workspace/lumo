@@ -2,12 +2,13 @@
 
 const en: Record<string, string> = {
   'milestone.field.status': 'Status',
+  'milestone.field.startDate': 'Start date',
   'milestone.field.targetDate': 'Target date',
-  'milestone.field.description': 'Description',
   'milestone.status.ACTIVE': 'Active',
   'milestone.status.PLANNED': 'Planned',
+  'milestone.status.COMPLETED': 'Completed',
+  'milestone.status.CANCELLED': 'Cancelled',
   'milestone.archived': 'Archived',
-  'milestone.targetDate.none': 'No target date',
 }
 
 jest.mock('react-intl', () => ({
@@ -17,40 +18,89 @@ jest.mock('react-intl', () => ({
   }),
 }))
 
-jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFormatDate', () => ({
-  useFormatDate: () => ({ fmtDate: (d: string) => `D(${d})` }),
+// Radix Select can't open in jsdom — render a native <select> so onValueChange
+// fires on change and we can assert the callback payload.
+jest.mock('@/components/ui/select', () => ({
+  Select: ({
+    value,
+    onValueChange,
+    children: _children,
+    disabled,
+  }: {
+    value: string
+    onValueChange: (v: string) => void
+    children: React.ReactNode
+    disabled?: boolean
+  }) => (
+    <input
+      type='text'
+      data-testid='status-select'
+      value={value}
+      disabled={disabled}
+      onChange={e => onValueChange(e.target.value)}
+    />
+  ),
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MilestoneSidebar } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneSidebar'
 
-test('renders status, date range and description', () => {
+function setup(overrides: Partial<React.ComponentProps<typeof MilestoneSidebar>> = {}) {
+  const onUpdate = jest.fn()
   render(
     <MilestoneSidebar
       status='ACTIVE'
       startDate='2026-06-01T00:00:00.000Z'
       targetDate='2026-08-31T00:00:00.000Z'
-      description='Ship the thing'
       archived={false}
+      onUpdate={onUpdate}
+      {...overrides}
     />
   )
-  expect(screen.getByText('Active')).toBeTruthy()
-  expect(screen.getByText('Ship the thing')).toBeTruthy()
-  expect(screen.getByText(/D\(2026-06-01/)).toBeTruthy()
-  expect(screen.getByText(/D\(2026-08-31/)).toBeTruthy()
+  return { onUpdate }
+}
+
+test('changing status calls onUpdate with { status }', () => {
+  const { onUpdate } = setup()
+  fireEvent.change(screen.getByTestId('status-select'), {
+    target: { value: 'COMPLETED' },
+  })
+  expect(onUpdate).toHaveBeenCalledWith({ status: 'COMPLETED' })
 })
 
-test('shows archived badge and target-date fallback, no description block', () => {
-  render(
-    <MilestoneSidebar
-      status='PLANNED'
-      startDate={null}
-      targetDate={null}
-      description={null}
-      archived={true}
-    />
+test('editing start date calls onUpdate with { startDate }', () => {
+  const { onUpdate } = setup()
+  fireEvent.change(screen.getByLabelText('Start date'), {
+    target: { value: '2026-07-01' },
+  })
+  expect(onUpdate).toHaveBeenCalledWith({ startDate: '2026-07-01' })
+})
+
+test('clearing target date calls onUpdate with { targetDate: null }', () => {
+  const { onUpdate } = setup()
+  fireEvent.change(screen.getByLabelText('Target date'), {
+    target: { value: '' },
+  })
+  expect(onUpdate).toHaveBeenCalledWith({ targetDate: null })
+})
+
+test('date inputs prefill from ISO values (sliced to yyyy-mm-dd)', () => {
+  setup()
+  expect((screen.getByLabelText('Start date') as HTMLInputElement).value).toBe(
+    '2026-06-01'
   )
-  expect(screen.getByText('Archived')).toBeTruthy()
-  expect(screen.getByText('No target date')).toBeTruthy()
-  expect(screen.queryByText('Description')).toBeNull()
+  expect((screen.getByLabelText('Target date') as HTMLInputElement).value).toBe(
+    '2026-08-31'
+  )
+})
+
+test('archived disables the controls', () => {
+  setup({ archived: true })
+  expect((screen.getByTestId('status-select') as HTMLSelectElement).disabled).toBe(true)
+  expect((screen.getByLabelText('Start date') as HTMLInputElement).disabled).toBe(true)
+  expect((screen.getByLabelText('Target date') as HTMLInputElement).disabled).toBe(true)
 })

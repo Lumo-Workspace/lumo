@@ -599,6 +599,8 @@
   "task.filter.milestone": "Tonggak",
   "task.filter.milestone.none": "Tiada tonggak",
   "milestone.tab.title": "Tonggak",
+  "milestone.tab.overview": "Gambaran Keseluruhan",
+  "milestone.tab.tasks": "Tugasan",
   "milestone.empty.title": "Belum ada tonggak",
   "milestone.empty.cta": "Cipta tonggak pertama",
   "milestone.new": "Tonggak baharu",

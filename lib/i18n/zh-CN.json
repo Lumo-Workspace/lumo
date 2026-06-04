@@ -670,6 +670,8 @@
   "task.filter.milestone": "里程碑",
   "task.filter.milestone.none": "无里程碑",
   "milestone.tab.title": "里程碑",
+  "milestone.tab.overview": "概览",
+  "milestone.tab.tasks": "任务",
   "milestone.empty.title": "还没有里程碑",
   "milestone.empty.cta": "创建第一个里程碑",
   "milestone.new": "新建里程碑",

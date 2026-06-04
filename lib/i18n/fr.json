@@ -598,6 +598,8 @@
   "task.filter.milestone": "Jalon",
   "task.filter.milestone.none": "Aucun jalon",
   "milestone.tab.title": "Jalons",
+  "milestone.tab.overview": "Vue d'ensemble",
+  "milestone.tab.tasks": "Tâches",
   "milestone.empty.title": "Aucun jalon pour le moment",
   "milestone.empty.cta": "Créer le premier jalon",
   "milestone.new": "Nouveau jalon",

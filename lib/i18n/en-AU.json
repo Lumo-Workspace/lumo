@@ -598,6 +598,8 @@
   "task.filter.milestone": "Milestone",
   "task.filter.milestone.none": "No milestone",
   "milestone.tab.title": "Milestones",
+  "milestone.tab.overview": "Overview",
+  "milestone.tab.tasks": "Tasks",
   "milestone.empty.title": "No milestones yet",
   "milestone.empty.cta": "Create your first milestone",
   "milestone.new": "New milestone",

@@ -598,6 +598,8 @@
   "task.filter.milestone": "マイルストーン",
   "task.filter.milestone.none": "マイルストーンなし",
   "milestone.tab.title": "マイルストーン",
+  "milestone.tab.overview": "概要",
+  "milestone.tab.tasks": "タスク",
   "milestone.empty.title": "マイルストーンがありません",
   "milestone.empty.cta": "最初のマイルストーンを作成",
   "milestone.new": "新規マイルストーン",

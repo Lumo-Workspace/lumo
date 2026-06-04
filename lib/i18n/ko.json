@@ -598,6 +598,8 @@
   "task.filter.milestone": "마일스톤",
   "task.filter.milestone.none": "마일스톤 없음",
   "milestone.tab.title": "마일스톤",
+  "milestone.tab.overview": "개요",
+  "milestone.tab.tasks": "작업",
   "milestone.empty.title": "마일스톤이 없습니다",
   "milestone.empty.cta": "첫 마일스톤 만들기",
   "milestone.new": "새 마일스톤",

@@ -94,4 +94,17 @@ describe('MilestoneActionsMenu', () => {
       screen.getByText('Delete milestone').closest('button')
     ).toBeDisabled()
   })
+
+  it('hides the Edit item when onEdit is not provided', () => {
+    render(
+      <MilestoneActionsMenu
+        archived={false}
+        disabled={false}
+        onArchiveToggle={() => {}}
+        onDelete={() => {}}
+      />
+    )
+    expect(screen.queryByText('Edit milestone')).toBeNull()
+    expect(screen.getByText('Archive')).toBeTruthy()
+  })
 })

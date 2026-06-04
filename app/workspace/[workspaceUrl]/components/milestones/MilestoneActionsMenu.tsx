@@ -20,7 +20,7 @@ import {
 interface MilestoneActionsMenuProps {
   archived: boolean
   disabled: boolean
-  onEdit: () => void
+  onEdit?: () => void
   onArchiveToggle: () => void
   onDelete: () => void
 }
@@ -52,7 +52,7 @@ export function MilestoneActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
-        {!archived ? (
+        {!archived && onEdit ? (
           <DropdownMenuItem onSelect={onEdit}>
             <Pencil className='size-4 mr-2' />
             {intl.formatMessage({ id: 'milestone.edit' })}
