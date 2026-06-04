@@ -807,6 +807,8 @@
   "sprints.landing.empty": "अभी कोई स्प्रिंट नहीं है। टीम सेटिंग्स में स्प्रिंट सक्षम करें, फिर एक बनाएं।",
   "sprints.landing.noUpcoming": "कोई आगामी स्प्रिंट नहीं। शुरू करने के लिए एक बनाएं।",
   "sprints.landing.newSprint": "नया स्प्रिंट",
+  "sprints.teamSelector.placeholder": "टीम चुनें",
+  "sprints.teamSelector.disabled": "(अक्षम)",
   "sprints.create.title": "नया स्प्रिंट",
   "sprints.create.name": "नाम (वैकल्पिक)",
   "sprints.create.namePlaceholder": "उदा. Sprint 7",

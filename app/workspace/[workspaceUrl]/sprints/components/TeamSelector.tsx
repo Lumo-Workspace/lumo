@@ -1,5 +1,6 @@
 'use client'
 
+import { useIntl } from 'react-intl'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -17,6 +18,8 @@ interface TeamSelectorProps {
 }
 
 export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
+  const intl = useIntl()
+
   // Nothing to switch between — hide the selector entirely.
   if (teams.length <= 1) return null
 
@@ -29,7 +32,7 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
               {t.name}
               {!t.sprintsEnabled && (
                 <span className='ml-2 text-xs text-muted-foreground'>
-                  (disabled)
+                  {intl.formatMessage({ id: 'sprints.teamSelector.disabled' })}
                 </span>
               )}
             </TabsTrigger>
@@ -44,7 +47,9 @@ export function TeamSelector({ teams, value, onChange }: TeamSelectorProps) {
   return (
     <Select value={selectValue} onValueChange={onChange}>
       <SelectTrigger className='w-64'>
-        <SelectValue placeholder='Select team' />
+        <SelectValue
+          placeholder={intl.formatMessage({ id: 'sprints.teamSelector.placeholder' })}
+        />
       </SelectTrigger>
       <SelectContent>
         {teams.map(t => (

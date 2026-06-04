@@ -806,6 +806,8 @@
   "sprints.landing.empty": "아직 스프린트가 없습니다. 팀 설정에서 스프린트를 활성화한 뒤 생성하세요.",
   "sprints.landing.noUpcoming": "예정된 스프린트가 없습니다. 새로 만들어 시작하세요.",
   "sprints.landing.newSprint": "새 스프린트",
+  "sprints.teamSelector.placeholder": "팀 선택",
+  "sprints.teamSelector.disabled": "(비활성화됨)",
   "sprints.create.title": "새 스프린트",
   "sprints.create.name": "이름 (선택)",
   "sprints.create.namePlaceholder": "예: Sprint 7",

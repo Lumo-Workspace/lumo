@@ -806,6 +806,8 @@
   "sprints.landing.empty": "Aún no hay sprints. Activa los sprints en la configuración del equipo y luego crea uno.",
   "sprints.landing.noUpcoming": "No hay ningún sprint próximo. Crea uno para empezar.",
   "sprints.landing.newSprint": "Nuevo sprint",
+  "sprints.teamSelector.placeholder": "Seleccionar equipo",
+  "sprints.teamSelector.disabled": "(desactivado)",
   "sprints.create.title": "Nuevo sprint",
   "sprints.create.name": "Nombre (opcional)",
   "sprints.create.namePlaceholder": "ej. Sprint 7",

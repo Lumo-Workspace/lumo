@@ -806,6 +806,8 @@
   "sprints.landing.empty": "スプリントはまだありません。チーム設定でスプリントを有効化してから作成してください。",
   "sprints.landing.noUpcoming": "予定されているスプリントはありません。作成して始めましょう。",
   "sprints.landing.newSprint": "新しいスプリント",
+  "sprints.teamSelector.placeholder": "チームを選択",
+  "sprints.teamSelector.disabled": "（無効）",
   "sprints.create.title": "新しいスプリント",
   "sprints.create.name": "名前（任意）",
   "sprints.create.namePlaceholder": "例: Sprint 7",
