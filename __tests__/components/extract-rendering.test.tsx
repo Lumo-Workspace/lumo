@@ -1,3 +1,12 @@
+// The code-block node view (reachable via getBaseExtensions) imports react-intl,
+// which ships untranspiled ESM; stub it. Mirrors other component suites.
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    locale: 'en',
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}))
+
 import { render, waitFor } from '@testing-library/react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { getBaseExtensions } from '@/lib/editor/extensions'

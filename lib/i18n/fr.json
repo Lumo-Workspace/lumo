@@ -1139,6 +1139,8 @@
   "editor.alignRight": "Aligner à droite",
   "editor.inlineCode": "Code en ligne",
   "editor.codeBlock": "Bloc de code",
+  "editor.codeBlock.languageLabel": "Langage du code",
+  "editor.codeBlock.plainText": "Texte brut",
   "editor.quote": "Citation",
   "editor.insertTable": "Insérer un tableau",
   "editor.insertImage": "Insérer une image",

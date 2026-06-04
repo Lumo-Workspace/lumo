@@ -1139,6 +1139,8 @@
   "editor.alignRight": "Căn phải",
   "editor.inlineCode": "Mã nội tuyến",
   "editor.codeBlock": "Khối mã",
+  "editor.codeBlock.languageLabel": "Ngôn ngữ mã",
+  "editor.codeBlock.plainText": "Văn bản thuần",
   "editor.quote": "Trích dẫn",
   "editor.insertTable": "Chèn bảng",
   "editor.insertImage": "Chèn ảnh",
