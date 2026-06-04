@@ -69,6 +69,8 @@ describe('TableActionsMenu', () => {
     expect(split).toBeDisabled()
     fireEvent.mouseDown(merge)
     expect(chain.mergeCells).not.toHaveBeenCalled()
+    fireEvent.mouseDown(split)
+    expect(chain.splitCell).not.toHaveBeenCalled()
   })
 
   it('requires two clicks to delete the whole table', () => {

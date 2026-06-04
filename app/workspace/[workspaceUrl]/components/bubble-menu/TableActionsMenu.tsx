@@ -52,11 +52,15 @@ export function TableActionsMenu({
     []
   )
 
-  // Close on outside click; reset the delete-confirm when the menu closes
+  // Close on outside click; reset the delete-confirm (and its timer) when the menu closes
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) {
+        if (confirmTimerRef.current) {
+          clearTimeout(confirmTimerRef.current)
+          confirmTimerRef.current = null
+        }
         setOpen(false)
         setConfirmDeleteTable(false)
       }
