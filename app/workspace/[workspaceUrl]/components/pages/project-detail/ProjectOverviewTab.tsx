@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
+import { useGithubRepos } from '../../../hooks/useGithubRepos'
 import { ApiProject, ApiRepository, WorkspaceMemberInfo } from '../../../types'
 import { OwnerSelect, FIELD_TRIGGER_CLS } from '../../fields'
 import { ProjectRiskOverrideCard } from '../../summary/ProjectRiskOverrideCard'
@@ -73,31 +74,14 @@ export function ProjectOverviewTab({
     if (project.repositories) setRepositories(project.repositories)
   }, [project.repositories])
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [availableRepos, setAvailableRepos] = useState<
-    { fullName: string; private: boolean }[]
-  >([])
-  const [reposLoading, setReposLoading] = useState(false)
-  const [githubConnected, setGithubConnected] = useState<boolean | null>(null)
   const [addingRepo, setAddingRepo] = useState<string | null>(null)
 
-  // Fetch available repos from GitHub when picker opens
-  useEffect(() => {
-    if (!pickerOpen) return
-    setReposLoading(true)
-    apiFetch<{ repos?: { fullName: string; private: boolean }[] }>(
-      `/api/github/repos?workspaceUrl=${workspaceUrl}`
-    )
-      .then(data => {
-        if (data.repos) {
-          setAvailableRepos(data.repos)
-          setGithubConnected(true)
-        } else {
-          setGithubConnected(false)
-        }
-      })
-      .catch(() => setGithubConnected(false))
-      .finally(() => setReposLoading(false))
-  }, [pickerOpen, workspaceUrl])
+  // Available repos load (and stay cached) only while the picker is open.
+  const {
+    repos: availableRepos,
+    loading: reposLoading,
+    connected: githubConnected,
+  } = useGithubRepos(workspaceUrl, pickerOpen)
 
   const linkedFullNames = new Set(repositories.map(r => r.fullName))
 
