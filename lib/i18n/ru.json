@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Это действие нельзя отменить.",
   "task.descriptionPlaceholder": "Добавить описание…",
   "task.copyLink": "Скопировать ссылку",
+  "task.moreOptions": "Дополнительные параметры",
   "task.linkCopied": "Ссылка скопирована",
   "task.imageUploadFailed": "Не удалось загрузить изображение",
   "task.imageTooLarge": "Изображение не должно превышать 10 МБ",

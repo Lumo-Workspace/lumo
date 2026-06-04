@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "この操作は元に戻せません。",
   "task.descriptionPlaceholder": "説明を追加…",
   "task.copyLink": "リンクをコピー",
+  "task.moreOptions": "その他のオプション",
   "task.linkCopied": "リンクをコピーしました",
   "task.imageUploadFailed": "画像のアップロードに失敗しました",
   "task.imageTooLarge": "画像は 10 MB 以下にしてください",

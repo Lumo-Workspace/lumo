@@ -640,6 +640,7 @@
   "task.deleteCommentDesc": "此操作無法復原。",
   "task.descriptionPlaceholder": "新增描述…",
   "task.copyLink": "複製連結",
+  "task.moreOptions": "更多選項",
   "task.linkCopied": "連結已複製",
   "task.imageUploadFailed": "圖片上傳失敗",
   "task.imageTooLarge": "圖片不能超過 10 MB",
