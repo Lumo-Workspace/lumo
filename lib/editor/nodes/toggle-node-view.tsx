@@ -1,4 +1,5 @@
 // lib/editor/nodes/toggle-node-view.tsx
+import { ChevronRight } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import {
   NodeViewWrapper,
@@ -35,8 +36,12 @@ export function ToggleNodeView({ node, updateAttributes }: NodeViewProps) {
         onClick={() => updateAttributes({ open: !open })}
         onMouseDown={event => event.preventDefault()}
       >
-        ▶
+        <ChevronRight size={14} aria-hidden />
       </button>
+      {/* Tiptap React node views expose exactly one contentDOM, so this single
+          NodeViewContent holds BOTH children (toggleSummary then toggleContent).
+          Layout/visibility is done in CSS via the [data-toggle-summary] /
+          [data-toggle-content] selectors, not separate React slots. */}
       <NodeViewContent className='toggle-inner' />
     </NodeViewWrapper>
   )
