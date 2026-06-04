@@ -13,6 +13,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
+import { CharacterCount } from '@tiptap/extension-character-count'
 import type { Extensions } from '@tiptap/core'
 import { TaskLink } from './marks/task-link'
 import { CodeBlock } from './nodes/code-block'
@@ -45,5 +46,9 @@ export function getBaseExtensions(): Extensions {
     Highlight.configure({ multicolor: true }),
     Typography,
     TaskLink,
+    // Storage-only: powers the word/character/reading-time footer. The
+    // CJK-aware word + reading-time math lives in lib/editor/reading-stats.ts;
+    // we read characters() from this extension's storage.
+    CharacterCount,
   ]
 }
