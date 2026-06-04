@@ -183,7 +183,8 @@ export function DescriptionEditor({
           state => setSlashPopup(state),
           state => setSlashPopup(state),
           () => setSlashPopup(null),
-          slashListRef
+          slashListRef,
+          id => intl.formatMessage({ id })
         ),
       }),
       MentionWithType.configure({
