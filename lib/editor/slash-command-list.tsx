@@ -3,6 +3,7 @@
 import {
   useState,
   useEffect,
+  useId,
   useLayoutEffect,
   useCallback,
   useRef,
@@ -14,6 +15,11 @@ import type { SlashCommandItem } from './slash-command'
 interface SlashCommandListProps {
   items: SlashCommandItem[]
   command: (item: SlashCommandItem) => void
+  /**
+   * Accessible name for the listbox. Injected by the parent so this lib-layer
+   * component stays free of react-intl.
+   */
+  label?: string
 }
 
 export interface SlashCommandListRef {
@@ -23,9 +29,13 @@ export interface SlashCommandListRef {
 export const SlashCommandList = forwardRef<
   SlashCommandListRef,
   SlashCommandListProps
->(function SlashCommandList({ items, command }, ref) {
+>(function SlashCommandList({ items, command, label }, ref) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
+  // Stable per-instance prefix for aria-activedescendant (virtual listbox: the
+  // editor keeps DOM focus while this tracks the active option).
+  const baseId = useId()
+  const optionId = (index: number) => `${baseId}-opt-${index}`
 
   useEffect(() => {
     setSelectedIndex(0)
@@ -85,9 +95,14 @@ export const SlashCommandList = forwardRef<
 
   return (
     <div className='z-50 w-56 rounded-lg border bg-popover shadow-lg overflow-hidden'>
-      <div className='max-h-64 overflow-y-auto p-1'>
+      <div
+        className='max-h-64 overflow-y-auto p-1'
+        role='listbox'
+        aria-label={label}
+        aria-activedescendant={optionId(selectedIndex)}
+      >
         {Object.entries(grouped).map(([category, categoryItems]) => (
-          <div key={category}>
+          <div key={category} role='group' aria-label={category}>
             <div className='px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider'>
               {category}
             </div>
@@ -96,11 +111,14 @@ export const SlashCommandList = forwardRef<
               return (
                 <button
                   key={item.title}
+                  id={optionId(idx)}
                   ref={el => {
                     if (el) itemRefs.current.set(idx, el)
                     else itemRefs.current.delete(idx)
                   }}
                   type='button'
+                  role='option'
+                  aria-selected={idx === selectedIndex}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs ${
                     idx === selectedIndex
                       ? 'bg-accent text-accent-foreground'

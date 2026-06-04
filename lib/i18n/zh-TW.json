@@ -1175,6 +1175,8 @@
   "mention.empty": "無結果",
   "mention.users": "成員",
   "mention.tasks": "任務",
+  "mention.label": "提及建議",
+  "slash.label": "命令建議",
   "taskDrawer.title": "任務詳情",
   "taskDrawer.openFull": "開啟完整頁面",
   "common.copyLink": "複製連結",

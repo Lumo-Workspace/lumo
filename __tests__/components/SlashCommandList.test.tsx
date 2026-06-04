@@ -1,0 +1,90 @@
+/** @jest-environment jsdom */
+import { createRef } from 'react'
+import { act, render, screen } from '@testing-library/react'
+
+// jsdom doesn't implement scrollIntoView; the list scrolls the active option
+// into view in a layout effect.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+})
+import {
+  SlashCommandList,
+  type SlashCommandListRef,
+} from '@/lib/editor/slash-command-list'
+import type { SlashCommandItem } from '@/lib/editor/slash-command'
+
+const items: SlashCommandItem[] = [
+  {
+    title: 'Heading 1',
+    description: 'Big heading',
+    icon: null,
+    category: 'Basic',
+    command: jest.fn(),
+  },
+  {
+    title: 'Bullet list',
+    description: 'Unordered list',
+    icon: null,
+    category: 'Basic',
+    command: jest.fn(),
+  },
+  {
+    title: 'Divider',
+    description: 'Horizontal line',
+    icon: null,
+    category: 'Advanced',
+    command: jest.fn(),
+  },
+]
+
+describe('SlashCommandList a11y', () => {
+  it('exposes a labelled listbox with one option per item', () => {
+    render(
+      <SlashCommandList
+        items={items}
+        command={jest.fn()}
+        label='Command suggestions'
+      />
+    )
+    expect(
+      screen.getByRole('listbox', { name: 'Command suggestions' })
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+  })
+
+  it('marks the first option selected and wires aria-activedescendant', () => {
+    render(<SlashCommandList items={items} command={jest.fn()} label='Commands' />)
+    const options = screen.getAllByRole('option')
+    expect(options[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('listbox').getAttribute('aria-activedescendant')).toBe(
+      options[0]!.id
+    )
+  })
+
+  it('moves the active option on ArrowDown via the imperative ref', () => {
+    const ref = createRef<SlashCommandListRef>()
+    render(
+      <SlashCommandList
+        ref={ref}
+        items={items}
+        command={jest.fn()}
+        label='Commands'
+      />
+    )
+    let handled = false
+    act(() => {
+      handled = ref.current!.onKeyDown({
+        event: new KeyboardEvent('keydown', { key: 'ArrowDown' }),
+      })
+    })
+    expect(handled).toBe(true)
+    const options = screen.getAllByRole('option')
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('groups options by category', () => {
+    render(<SlashCommandList items={items} command={jest.fn()} label='Commands' />)
+    expect(screen.getByRole('group', { name: 'Basic' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Advanced' })).toBeInTheDocument()
+  })
+})

@@ -1,6 +1,12 @@
 'use client'
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useState,
+} from 'react'
 import { useIntl } from 'react-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 // Bot icon removed — agent features disabled for now
@@ -42,6 +48,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
   ({ items, command }, ref) => {
     const intl = useIntl()
     const [selectedIndex, setSelectedIndex] = useState(0)
+    // Stable per-instance prefix so aria-activedescendant can reference the
+    // active option's id (the editor keeps DOM focus; this is a virtual listbox).
+    const baseId = useId()
+    const optionId = (index: number) => `${baseId}-opt-${index}`
 
     useEffect(() => {
       setSelectedIndex(0)
@@ -113,7 +123,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
         return (
           <button
             key={`user-${item.id}`}
+            id={optionId(flatIndex)}
             type='button'
+            role='option'
+            aria-selected={isSelected}
             onPointerDown={e => {
               e.preventDefault()
               selectItem(flatIndex)
@@ -137,7 +150,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
       return (
         <button
           key={`task-${item.id}`}
+          id={optionId(flatIndex)}
           type='button'
+          role='option'
+          aria-selected={isSelected}
           onMouseDown={e => e.preventDefault()}
           onClick={() => selectItem(flatIndex)}
           onMouseEnter={() => setSelectedIndex(flatIndex)}
@@ -155,17 +171,28 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     }
 
     return (
-      <div className='py-1'>
+      <div
+        className='py-1'
+        role='listbox'
+        aria-label={intl.formatMessage({ id: 'mention.label' })}
+        aria-activedescendant={optionId(selectedIndex)}
+      >
         {users.length > 0 && (
-          <>
+          <div
+            role='group'
+            aria-label={intl.formatMessage({ id: 'mention.users' })}
+          >
             <div className='px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400'>
               {intl.formatMessage({ id: 'mention.users' })}
             </div>
             {users.map((item, i) => renderItem(item, userOffset + i))}
-          </>
+          </div>
         )}
         {tasks.length > 0 && (
-          <>
+          <div
+            role='group'
+            aria-label={intl.formatMessage({ id: 'mention.tasks' })}
+          >
             <div
               className={cn(
                 'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400',
@@ -176,7 +203,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
               {intl.formatMessage({ id: 'mention.tasks' })}
             </div>
             {tasks.map((item, i) => renderItem(item, taskOffset + i))}
-          </>
+          </div>
         )}
       </div>
     )

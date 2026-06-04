@@ -1175,6 +1175,8 @@
   "mention.empty": "कोई परिणाम नहीं",
   "mention.users": "उपयोगकर्ता",
   "mention.tasks": "कार्य",
+  "mention.label": "उल्लेख सुझाव",
+  "slash.label": "कमांड सुझाव",
   "taskDrawer.title": "कार्य विवरण",
   "taskDrawer.openFull": "पूर्ण पृष्ठ खोलें",
   "common.copyLink": "लिंक कॉपी करें",

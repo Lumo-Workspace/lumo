@@ -1175,6 +1175,8 @@
   "mention.empty": "Keine Ergebnisse",
   "mention.users": "Personen",
   "mention.tasks": "Aufgaben",
+  "mention.label": "Erwähnungsvorschläge",
+  "slash.label": "Befehlsvorschläge",
   "taskDrawer.title": "Aufgabendetails",
   "taskDrawer.openFull": "Ganze Seite öffnen",
   "common.copyLink": "Link kopieren",
