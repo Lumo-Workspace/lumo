@@ -70,6 +70,12 @@ export function TableActionsMenu({
   }, [open])
 
   function runAndClose(fn: () => void) {
+    // Disarm any pending delete-table confirm so it can't linger across a reopen
+    if (confirmTimerRef.current) {
+      clearTimeout(confirmTimerRef.current)
+      confirmTimerRef.current = null
+    }
+    setConfirmDeleteTable(false)
     fn()
     setOpen(false)
   }
