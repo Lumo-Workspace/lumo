@@ -107,17 +107,22 @@ export function BubbleMenuBar({
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
+  const linkPanelRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdowns on outside click
+  // Close dropdowns / link panel on outside click
   useEffect(() => {
-    if (!styleOpen && !listOpen) return
+    if (!styleOpen && !listOpen && !linkOpen) return
     const handler = (e: MouseEvent) => {
       if (!styleRef.current?.contains(e.target as Node)) setStyleOpen(false)
       if (!listRef.current?.contains(e.target as Node)) setListOpen(false)
+      if (!linkPanelRef.current?.contains(e.target as Node)) {
+        setLinkOpen(false)
+        setLinkUrl('')
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [styleOpen, listOpen])
+  }, [styleOpen, listOpen, linkOpen])
 
   // Subscribe to editor state so buttons re-render on every transaction
   const state = useEditorState({
@@ -141,14 +146,19 @@ export function BubbleMenuBar({
       selectionCrossParagraph:
         ctx.editor.state.selection.$from.parent !==
         ctx.editor.state.selection.$to.parent,
-      selectionHasTaskLink: (() => {
-        const { $from, $to } = ctx.editor.state.selection
-        let found = false
-        ctx.editor.state.doc.nodesBetween($from.pos, $to.pos, node => {
-          if (node.marks.some(m => m.type.name === 'taskLink')) found = true
-        })
-        return found
-      })(),
+      // Only the convert-to-task action consumes this, and canConvert already
+      // gates on !!extractCtx — so skip the per-transaction full-doc walk
+      // entirely when there's no extract feature mounted.
+      selectionHasTaskLink:
+        !!extractCtx &&
+        (() => {
+          const { $from, $to } = ctx.editor.state.selection
+          let found = false
+          ctx.editor.state.doc.nodesBetween($from.pos, $to.pos, node => {
+            if (node.marks.some(m => m.type.name === 'taskLink')) found = true
+          })
+          return found
+        })(),
       alignLeft: ctx.editor.isActive({ textAlign: 'left' }),
       alignCenter: ctx.editor.isActive({ textAlign: 'center' }),
       alignRight: ctx.editor.isActive({ textAlign: 'right' }),
@@ -217,7 +227,10 @@ export function BubbleMenuBar({
   // Link URL input panel
   if (linkOpen) {
     return (
-      <div className='flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'>
+      <div
+        ref={linkPanelRef}
+        className='flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg'
+      >
         <Link2 size={13} className='shrink-0 text-zinc-400' />
         <input
           ref={linkInputRef}

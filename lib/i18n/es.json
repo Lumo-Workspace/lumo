@@ -506,6 +506,8 @@
   "table.addRowBelow": "Añadir fila debajo",
   "table.addColLeft": "Añadir columna a la izquierda",
   "table.addColRight": "Añadir columna a la derecha",
+  "table.insertColumnHere": "Insertar columna",
+  "table.insertRowHere": "Insertar fila",
   "table.deleteRow": "Eliminar fila",
   "table.deleteCol": "Eliminar columna",
   "table.deleteTable": "Eliminar tabla",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} d ({low}–{high} d)",
   "forecast.cycleHours": "{median} h ({low}–{high} h)",
   "forecast.insufficient": "No hay suficiente historial para una previsión fiable",
-  "forecast.viewSources": "Ver tareas de referencia"
+  "forecast.viewSources": "Ver tareas de referencia",
+  "documentEditor.stats.words": "{count, plural, one {# palabra} other {# palabras}}",
+  "documentEditor.stats.characters": "{count, plural, one {# carácter} other {# caracteres}}",
+  "documentEditor.stats.readingTime": "{minutes} min de lectura"
 }

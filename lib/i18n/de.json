@@ -506,6 +506,8 @@
   "table.addRowBelow": "Zeile darunter einfügen",
   "table.addColLeft": "Spalte links einfügen",
   "table.addColRight": "Spalte rechts einfügen",
+  "table.insertColumnHere": "Spalte einfügen",
+  "table.insertRowHere": "Zeile einfügen",
   "table.deleteRow": "Zeile löschen",
   "table.deleteCol": "Spalte löschen",
   "table.deleteTable": "Tabelle löschen",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} T ({low}–{high} T)",
   "forecast.cycleHours": "{median} Std. ({low}–{high} Std.)",
   "forecast.insufficient": "Nicht genügend Verlauf für eine zuverlässige Prognose",
-  "forecast.viewSources": "Referenzaufgaben anzeigen"
+  "forecast.viewSources": "Referenzaufgaben anzeigen",
+  "documentEditor.stats.words": "{count, plural, one {# Wort} other {# Wörter}}",
+  "documentEditor.stats.characters": "{count, plural, one {# Zeichen} other {# Zeichen}}",
+  "documentEditor.stats.readingTime": "{minutes} Min. Lesezeit"
 }

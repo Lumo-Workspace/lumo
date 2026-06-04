@@ -565,6 +565,8 @@
   "table.addRowBelow": "Add row below",
   "table.addColLeft": "Add column left",
   "table.addColRight": "Add column right",
+  "table.insertColumnHere": "Insert column",
+  "table.insertRowHere": "Insert row",
   "table.deleteRow": "Delete row",
   "table.deleteCol": "Delete column",
   "table.deleteTable": "Delete table",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median}d ({low}–{high}d)",
   "forecast.cycleHours": "{median}h ({low}–{high}h)",
   "forecast.insufficient": "Not enough history for a reliable forecast",
-  "forecast.viewSources": "View source tasks"
+  "forecast.viewSources": "View source tasks",
+  "documentEditor.stats.words": "{count, plural, one {# word} other {# words}}",
+  "documentEditor.stats.characters": "{count, plural, one {# character} other {# characters}}",
+  "documentEditor.stats.readingTime": "{minutes} min read"
 }

@@ -11,6 +11,8 @@ import { ShareDialog } from '../document/ShareDialog'
 import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { DocumentToc } from '../document/DocumentToc'
+import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
+import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/utils/getInitials'
 import type {
@@ -89,6 +91,7 @@ export function DocumentEditorPage({
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
   const [tocItems, setTocItems] = useState<TocItem[]>([])
+  const [stats, setStats] = useState<EditorStats | null>(null)
   // The scroll root needs to be a state value (not just a ref) so child
   // components can react when the DOM node mounts. The Tiptap TableOfContents
   // extension binds its scroll listener once during onCreate, so handing it a
@@ -111,6 +114,9 @@ export function DocumentEditorPage({
     // would otherwise inherit the previous doc's headings until the next
     // emit — which never comes if there are no headings to find.
     setTocItems([])
+    // Same for stats — the editor re-emits once it remounts and parses the new
+    // content, so clear stale counts from the previous doc in the meantime.
+    setStats(null)
 
     // When switching documents, seed from cache synchronously.
     if (cached) {
@@ -432,7 +438,11 @@ export function DocumentEditorPage({
                 documentId={doc.id}
                 onTocUpdate={setTocItems}
                 tocScrollRoot={scrollRoot}
+                onStatsUpdate={setStats}
               />
+
+              {/* Word count / character count / reading time */}
+              <DocumentStatsFooter stats={stats} />
             </div>
           </div>
         </div>

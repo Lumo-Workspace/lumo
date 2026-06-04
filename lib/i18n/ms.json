@@ -506,6 +506,8 @@
   "table.addRowBelow": "Tambah baris di bawah",
   "table.addColLeft": "Tambah lajur di kiri",
   "table.addColRight": "Tambah lajur di kanan",
+  "table.insertColumnHere": "Sisip lajur",
+  "table.insertRowHere": "Sisip baris",
   "table.deleteRow": "Padam baris",
   "table.deleteCol": "Padam lajur",
   "table.deleteTable": "Padam jadual",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
   "forecast.cycleHours": "{median} jam ({low}–{high} jam)",
   "forecast.insufficient": "Sejarah tidak mencukupi untuk ramalan yang boleh dipercayai",
-  "forecast.viewSources": "Lihat tugasan rujukan"
+  "forecast.viewSources": "Lihat tugasan rujukan",
+  "documentEditor.stats.words": "{count} perkataan",
+  "documentEditor.stats.characters": "{count} aksara",
+  "documentEditor.stats.readingTime": "{minutes} minit bacaan"
 }

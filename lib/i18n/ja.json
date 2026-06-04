@@ -506,6 +506,8 @@
   "table.addRowBelow": "下に行を追加",
   "table.addColLeft": "左に列を追加",
   "table.addColRight": "右に列を追加",
+  "table.insertColumnHere": "列を挿入",
+  "table.insertRowHere": "行を挿入",
   "table.deleteRow": "行を削除",
   "table.deleteCol": "列を削除",
   "table.deleteTable": "テーブルを削除",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median}日(目安 {low}–{high}日)",
   "forecast.cycleHours": "{median}時間(目安 {low}–{high}時間)",
   "forecast.insufficient": "信頼できる予測には履歴が不足しています",
-  "forecast.viewSources": "参照した履歴タスクを表示"
+  "forecast.viewSources": "参照した履歴タスクを表示",
+  "documentEditor.stats.words": "{count} 語",
+  "documentEditor.stats.characters": "{count} 文字",
+  "documentEditor.stats.readingTime": "約 {minutes} 分"
 }

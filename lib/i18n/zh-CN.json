@@ -548,6 +548,8 @@
   "table.addRowBelow": "在下方添加行",
   "table.addColLeft": "在左侧添加列",
   "table.addColRight": "在右侧添加列",
+  "table.insertColumnHere": "插入列",
+  "table.insertRowHere": "插入行",
   "table.deleteRow": "删除行",
   "table.deleteCol": "删除列",
   "table.deleteTable": "删除表格",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} 天(常见 {low}–{high} 天)",
   "forecast.cycleHours": "{median} 小时(常见 {low}–{high} 小时)",
   "forecast.insufficient": "历史数据不足,暂无可靠预测",
-  "forecast.viewSources": "查看依据的历史任务"
+  "forecast.viewSources": "查看依据的历史任务",
+  "documentEditor.stats.words": "{count} 字",
+  "documentEditor.stats.characters": "{count} 字符",
+  "documentEditor.stats.readingTime": "约 {minutes} 分钟"
 }

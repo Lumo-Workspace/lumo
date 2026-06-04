@@ -506,6 +506,8 @@
   "table.addRowBelow": "아래에 행 추가",
   "table.addColLeft": "왼쪽에 열 추가",
   "table.addColRight": "오른쪽에 열 추가",
+  "table.insertColumnHere": "열 삽입",
+  "table.insertRowHere": "행 삽입",
   "table.deleteRow": "행 삭제",
   "table.deleteCol": "열 삭제",
   "table.deleteTable": "테이블 삭제",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median}일 (보통 {low}–{high}일)",
   "forecast.cycleHours": "{median}시간 (보통 {low}–{high}시간)",
   "forecast.insufficient": "신뢰할 만한 예측을 위한 이력이 부족합니다",
-  "forecast.viewSources": "참고한 이력 작업 보기"
+  "forecast.viewSources": "참고한 이력 작업 보기",
+  "documentEditor.stats.words": "{count} 단어",
+  "documentEditor.stats.characters": "{count} 자",
+  "documentEditor.stats.readingTime": "약 {minutes}분 읽기"
 }

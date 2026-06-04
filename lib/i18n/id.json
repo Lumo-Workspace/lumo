@@ -506,6 +506,8 @@
   "table.addRowBelow": "Tambah baris di bawah",
   "table.addColLeft": "Tambah kolom di kiri",
   "table.addColRight": "Tambah kolom di kanan",
+  "table.insertColumnHere": "Sisipkan kolom",
+  "table.insertRowHere": "Sisipkan baris",
   "table.deleteRow": "Hapus baris",
   "table.deleteCol": "Hapus kolom",
   "table.deleteTable": "Hapus tabel",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} hari ({low}–{high} hari)",
   "forecast.cycleHours": "{median} jam ({low}–{high} jam)",
   "forecast.insufficient": "Riwayat tidak cukup untuk prakiraan yang andal",
-  "forecast.viewSources": "Lihat tugas rujukan"
+  "forecast.viewSources": "Lihat tugas rujukan",
+  "documentEditor.stats.words": "{count} kata",
+  "documentEditor.stats.characters": "{count} karakter",
+  "documentEditor.stats.readingTime": "{minutes} menit baca"
 }

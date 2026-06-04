@@ -506,6 +506,8 @@
   "table.addRowBelow": "Thêm hàng phía dưới",
   "table.addColLeft": "Thêm cột bên trái",
   "table.addColRight": "Thêm cột bên phải",
+  "table.insertColumnHere": "Chèn cột",
+  "table.insertRowHere": "Chèn hàng",
   "table.deleteRow": "Xóa hàng",
   "table.deleteCol": "Xóa cột",
   "table.deleteTable": "Xóa bảng",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} ngày ({low}–{high} ngày)",
   "forecast.cycleHours": "{median} giờ ({low}–{high} giờ)",
   "forecast.insufficient": "Không đủ lịch sử để dự báo đáng tin cậy",
-  "forecast.viewSources": "Xem công việc tham chiếu"
+  "forecast.viewSources": "Xem công việc tham chiếu",
+  "documentEditor.stats.words": "{count} từ",
+  "documentEditor.stats.characters": "{count} ký tự",
+  "documentEditor.stats.readingTime": "{minutes} phút đọc"
 }

@@ -506,6 +506,8 @@
   "table.addRowBelow": "नीचे पंक्ति जोड़ें",
   "table.addColLeft": "बाईं ओर कॉलम जोड़ें",
   "table.addColRight": "दाईं ओर कॉलम जोड़ें",
+  "table.insertColumnHere": "कॉलम डालें",
+  "table.insertRowHere": "पंक्ति डालें",
   "table.deleteRow": "पंक्ति हटाएं",
   "table.deleteCol": "कॉलम हटाएं",
   "table.deleteTable": "तालिका हटाएं",
@@ -1277,5 +1279,8 @@
   "forecast.cycleDays": "{median} दिन ({low}–{high} दिन)",
   "forecast.cycleHours": "{median} घंटे ({low}–{high} घंटे)",
   "forecast.insufficient": "विश्वसनीय पूर्वानुमान के लिए पर्याप्त इतिहास नहीं है",
-  "forecast.viewSources": "स्रोत कार्य देखें"
+  "forecast.viewSources": "स्रोत कार्य देखें",
+  "documentEditor.stats.words": "{count, plural, one {# शब्द} other {# शब्द}}",
+  "documentEditor.stats.characters": "{count, plural, one {# वर्ण} other {# वर्ण}}",
+  "documentEditor.stats.readingTime": "{minutes} मिनट पठन"
 }
