@@ -880,6 +880,8 @@
   "sprints.landing.empty": "暂无冲刺。请先在团队设置中启用冲刺，再新建一个。",
   "sprints.landing.noUpcoming": "当前没有待启动的冲刺。立即新建一个开始吧。",
   "sprints.landing.newSprint": "新建冲刺",
+  "sprints.teamSelector.placeholder": "选择团队",
+  "sprints.teamSelector.disabled": "（已禁用）",
   "sprints.create.title": "新建冲刺",
   "sprints.create.name": "名称（可选）",
   "sprints.create.namePlaceholder": "例如 Sprint 7",

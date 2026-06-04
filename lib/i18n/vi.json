@@ -809,6 +809,8 @@
   "sprints.landing.empty": "Chưa có sprint nào. Bật sprint trong cài đặt nhóm, sau đó tạo một sprint.",
   "sprints.landing.noUpcoming": "Không có sprint sắp tới. Tạo một sprint để bắt đầu.",
   "sprints.landing.newSprint": "Sprint mới",
+  "sprints.teamSelector.placeholder": "Chọn nhóm",
+  "sprints.teamSelector.disabled": "(đã tắt)",
   "sprints.create.title": "Sprint mới",
   "sprints.create.name": "Tên (tuỳ chọn)",
   "sprints.create.namePlaceholder": "vd. Sprint 7",

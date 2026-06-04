@@ -46,6 +46,8 @@
   "sprints.landing.empty": "尚無衝刺。請先在團隊設定中啟用衝刺，再新建一個。",
   "sprints.landing.noUpcoming": "目前沒有待啟動的衝刺。立即新建一個開始吧。",
   "sprints.landing.newSprint": "新建衝刺",
+  "sprints.teamSelector.placeholder": "選擇團隊",
+  "sprints.teamSelector.disabled": "（已停用）",
   "sprints.create.title": "新建衝刺",
   "sprints.create.name": "名稱（選填）",
   "sprints.create.namePlaceholder": "例如 Sprint 7",

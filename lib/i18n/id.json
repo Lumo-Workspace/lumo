@@ -809,6 +809,8 @@
   "sprints.landing.empty": "Belum ada sprint. Aktifkan sprint di pengaturan tim, lalu buat satu.",
   "sprints.landing.noUpcoming": "Tidak ada sprint mendatang. Buat satu untuk memulai.",
   "sprints.landing.newSprint": "Sprint baru",
+  "sprints.teamSelector.placeholder": "Pilih tim",
+  "sprints.teamSelector.disabled": "(nonaktif)",
   "sprints.create.title": "Sprint baru",
   "sprints.create.name": "Nama (opsional)",
   "sprints.create.namePlaceholder": "mis. Sprint 7",

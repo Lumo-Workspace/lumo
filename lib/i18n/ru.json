@@ -809,6 +809,8 @@
   "sprints.landing.empty": "Спринтов пока нет. Включите спринты в настройках команды и создайте первый.",
   "sprints.landing.noUpcoming": "Нет предстоящих спринтов. Создайте новый, чтобы начать.",
   "sprints.landing.newSprint": "Новый спринт",
+  "sprints.teamSelector.placeholder": "Выберите команду",
+  "sprints.teamSelector.disabled": "(отключено)",
   "sprints.create.title": "Новый спринт",
   "sprints.create.name": "Название (необязательно)",
   "sprints.create.namePlaceholder": "например, Sprint 7",

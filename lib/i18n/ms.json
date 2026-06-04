@@ -809,6 +809,8 @@
   "sprints.landing.empty": "Belum ada sprint. Dayakan sprint dalam tetapan pasukan, kemudian cipta satu.",
   "sprints.landing.noUpcoming": "Tiada sprint akan datang. Cipta satu untuk bermula.",
   "sprints.landing.newSprint": "Sprint baharu",
+  "sprints.teamSelector.placeholder": "Pilih pasukan",
+  "sprints.teamSelector.disabled": "(dilumpuhkan)",
   "sprints.create.title": "Sprint baharu",
   "sprints.create.name": "Nama (pilihan)",
   "sprints.create.namePlaceholder": "cth. Sprint 7",
