@@ -15,6 +15,8 @@ import {
   Code2,
   Quote,
   Minus,
+  Lightbulb,
+  ChevronRight,
 } from 'lucide-react'
 
 export interface SlashCommandItem {
@@ -25,9 +27,22 @@ export interface SlashCommandItem {
   command: (editor: Editor) => void
 }
 
+/** Localized-string lookup injected from the React layer (keeps this lib file
+ *  free of react-intl). Defaults to returning English for the new items. */
+export type SlashCommandTranslate = (id: string) => string
+
+const FALLBACK_LABELS: Record<string, string> = {
+  'editor.slash.callout.title': 'Callout',
+  'editor.slash.callout.description': 'Highlighted note block',
+  'editor.slash.toggle.title': 'Toggle',
+  'editor.slash.toggle.description': 'Collapsible block',
+}
+
 const ICON_SIZE = 16
 
-export function getSlashCommandItems(): SlashCommandItem[] {
+export function getSlashCommandItems(
+  t: SlashCommandTranslate = id => FALLBACK_LABELS[id] ?? id
+): SlashCommandItem[] {
   return [
     // Basic
     {
@@ -127,6 +142,20 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       category: 'Advanced',
       command: editor => editor.chain().focus().setHorizontalRule().run(),
     },
+    {
+      title: t('editor.slash.callout.title'),
+      description: t('editor.slash.callout.description'),
+      icon: <Lightbulb size={ICON_SIZE} />,
+      category: 'Advanced',
+      command: editor => editor.chain().focus().setCallout().run(),
+    },
+    {
+      title: t('editor.slash.toggle.title'),
+      description: t('editor.slash.toggle.description'),
+      icon: <ChevronRight size={ICON_SIZE} />,
+      category: 'Advanced',
+      command: editor => editor.chain().focus().setToggle().run(),
+    },
   ]
 }
 
@@ -142,9 +171,10 @@ export function buildSlashCommandSuggestion(
   onClose: () => void,
   listRef: React.RefObject<{
     onKeyDown: (props: { event: KeyboardEvent }) => boolean
-  } | null>
+  } | null>,
+  t?: SlashCommandTranslate | undefined
 ): Partial<SuggestionOptions> {
-  const allItems = getSlashCommandItems()
+  const allItems = getSlashCommandItems(t)
 
   return {
     char: '/',
