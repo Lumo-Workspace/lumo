@@ -27,7 +27,9 @@ import { isMac } from '@/lib/utils/keyboard'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
 import { useTocSync, type TocItem } from '../hooks/useTocSync'
+import { useEditorStats } from '../hooks/useEditorStats'
 import { useImageUploads } from '../hooks/useImageUploads'
+import type { EditorStats } from '@/lib/editor/reading-stats'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
@@ -80,6 +82,14 @@ interface DescriptionEditorProps {
    * risk a stale read on focused keyboard-submit and saves nothing.
    */
   onChangeDebounceMs?: number
+  /**
+   * When provided, reports word / character / reading-time stats so a parent
+   * can render a footer (see {@link useEditorStats}). Character count comes
+   * from the CharacterCount extension; the CJK-aware word count + reading time
+   * are derived from the editor's plain text. Recomputes are debounced to stay
+   * off the keystroke hot path.
+   */
+  onStatsUpdate?: (stats: EditorStats) => void
 }
 
 export function DescriptionEditor({
@@ -94,6 +104,7 @@ export function DescriptionEditor({
   onTocUpdate,
   tocScrollRoot,
   onChangeDebounceMs,
+  onStatsUpdate,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -142,6 +153,12 @@ export function DescriptionEditor({
   const emitTocRef = useRef<() => void>(() => {})
   const tocEnabled = !!onTocUpdate
 
+  // Ref the stats hook points at its live emitter, so the value-sync effect and
+  // extract-applied handler below can refresh the footer after a programmatic
+  // setContent({ emitUpdate: false }), which skips the editor's update event.
+  const emitStatsRef = useRef<() => void>(() => {})
+  const statsEnabled = !!onStatsUpdate
+
   // Stable DOM element for the bubble menu (created once, never changes)
   const [menuElement] = useState<HTMLDivElement | null>(() =>
     typeof document !== 'undefined' ? document.createElement('div') : null
@@ -184,7 +201,8 @@ export function DescriptionEditor({
           state => setSlashPopup(state),
           state => setSlashPopup(state),
           () => setSlashPopup(null),
-          slashListRef
+          slashListRef,
+          id => intl.formatMessage({ id })
         ),
       }),
       MentionWithType.configure({
@@ -293,6 +311,14 @@ export function DescriptionEditor({
     emitTocRef,
   })
 
+  // Feed word / character / reading-time stats to a parent footer.
+  useEditorStats({
+    editor,
+    enabled: statsEnabled,
+    onStatsUpdate,
+    emitStatsRef,
+  })
+
   // Open the hidden file picker when the toolbar image button is clicked
   const handleInsertImage = useCallback(() => {
     imageInputRef.current?.click()
@@ -372,6 +398,9 @@ export function DescriptionEditor({
       // a fresh TOC ourselves so the sidebar populates on doc switch instead
       // of staying empty until the first scroll.
       emitTocRef.current()
+      // Same reasoning for the stats footer: emitUpdate:false skips the
+      // update event the stats hook listens to, so push a fresh count here.
+      emitStatsRef.current()
     }
   }, [value, editor])
 
@@ -390,6 +419,8 @@ export function DescriptionEditor({
     (response: ExtractResponse) => {
       if (!editor) return
       editor.commands.setContent(response.updatedContent, { emitUpdate: false })
+      // emitUpdate:false skips the stats hook's update listener — refresh now.
+      emitStatsRef.current()
       const html = editor.isEmpty ? null : editor.getHTML()
       onCommit(html)
 

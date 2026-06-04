@@ -15,90 +15,149 @@ import {
   Code2,
   Quote,
   Minus,
+  Lightbulb,
+  ChevronRight,
 } from 'lucide-react'
 
 export interface SlashCommandItem {
   title: string
   description: string
   icon: React.ReactNode
+  /** Stable grouping key — never localized, used for grouping and React keys. */
+  categoryKey: 'basic' | 'media' | 'advanced'
+  /** Localized display label for the category section header. */
   category: string
   command: (editor: Editor) => void
 }
 
+/** Localized-string lookup injected from the React layer (keeps this lib file
+ *  free of react-intl). Defaults to returning English for the new items. */
+export type SlashCommandTranslate = (id: string) => string
+
+const FALLBACK_LABELS: Record<string, string> = {
+  // Categories
+  'editor.slash.category.basic': 'Basic',
+  'editor.slash.category.media': 'Media',
+  'editor.slash.category.advanced': 'Advanced',
+  // Basic items
+  'editor.slash.text.title': 'Text',
+  'editor.slash.text.description': 'Plain text block',
+  'editor.slash.heading1.title': 'Heading 1',
+  'editor.slash.heading1.description': 'Large heading',
+  'editor.slash.heading2.title': 'Heading 2',
+  'editor.slash.heading2.description': 'Medium heading',
+  'editor.slash.heading3.title': 'Heading 3',
+  'editor.slash.heading3.description': 'Small heading',
+  'editor.slash.bulletList.title': 'Bullet List',
+  'editor.slash.bulletList.description': 'Unordered list',
+  'editor.slash.numberedList.title': 'Numbered List',
+  'editor.slash.numberedList.description': 'Ordered list',
+  'editor.slash.taskList.title': 'Task List',
+  'editor.slash.taskList.description': 'Checklist with checkboxes',
+  // Media items
+  'editor.slash.image.title': 'Image',
+  'editor.slash.image.description': 'Insert an image',
+  'editor.slash.image.prompt': 'Image URL',
+  // Advanced items
+  'editor.slash.table.title': 'Table',
+  'editor.slash.table.description': 'Insert a table',
+  'editor.slash.codeBlock.title': 'Code Block',
+  'editor.slash.codeBlock.description': 'Code with syntax highlighting',
+  'editor.slash.blockquote.title': 'Blockquote',
+  'editor.slash.blockquote.description': 'Quoted text',
+  'editor.slash.divider.title': 'Divider',
+  'editor.slash.divider.description': 'Horizontal line',
+  'editor.slash.callout.title': 'Callout',
+  'editor.slash.callout.description': 'Highlighted note block',
+  'editor.slash.toggle.title': 'Toggle',
+  'editor.slash.toggle.description': 'Collapsible block',
+}
+
 const ICON_SIZE = 16
 
-export function getSlashCommandItems(): SlashCommandItem[] {
+export function getSlashCommandItems(
+  t: SlashCommandTranslate = id => FALLBACK_LABELS[id] ?? id
+): SlashCommandItem[] {
   return [
     // Basic
     {
-      title: 'Text',
-      description: 'Plain text block',
+      title: t('editor.slash.text.title'),
+      description: t('editor.slash.text.description'),
       icon: <Type size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor => editor.chain().focus().setParagraph().run(),
     },
     {
-      title: 'Heading 1',
-      description: 'Large heading',
+      title: t('editor.slash.heading1.title'),
+      description: t('editor.slash.heading1.description'),
       icon: <Heading1 size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
     {
-      title: 'Heading 2',
-      description: 'Medium heading',
+      title: t('editor.slash.heading2.title'),
+      description: t('editor.slash.heading2.description'),
       icon: <Heading2 size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
-      title: 'Heading 3',
-      description: 'Small heading',
+      title: t('editor.slash.heading3.title'),
+      description: t('editor.slash.heading3.description'),
       icon: <Heading3 size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor =>
         editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
-      title: 'Bullet List',
-      description: 'Unordered list',
+      title: t('editor.slash.bulletList.title'),
+      description: t('editor.slash.bulletList.description'),
       icon: <List size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor => editor.chain().focus().toggleBulletList().run(),
     },
     {
-      title: 'Numbered List',
-      description: 'Ordered list',
+      title: t('editor.slash.numberedList.title'),
+      description: t('editor.slash.numberedList.description'),
       icon: <ListOrdered size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor => editor.chain().focus().toggleOrderedList().run(),
     },
     {
-      title: 'Task List',
-      description: 'Checklist with checkboxes',
+      title: t('editor.slash.taskList.title'),
+      description: t('editor.slash.taskList.description'),
       icon: <ListTodo size={ICON_SIZE} />,
-      category: 'Basic',
+      categoryKey: 'basic',
+      category: t('editor.slash.category.basic'),
       command: editor => editor.chain().focus().toggleTaskList().run(),
     },
     // Media
     {
-      title: 'Image',
-      description: 'Insert an image',
+      title: t('editor.slash.image.title'),
+      description: t('editor.slash.image.description'),
       icon: <ImageIcon size={ICON_SIZE} />,
-      category: 'Media',
+      categoryKey: 'media',
+      category: t('editor.slash.category.media'),
       command: editor => {
-        const url = window.prompt('Image URL')
+        const url = window.prompt(t('editor.slash.image.prompt'))
         if (url) editor.chain().focus().setImage({ src: url }).run()
       },
     },
     // Advanced
     {
-      title: 'Table',
-      description: 'Insert a table',
+      title: t('editor.slash.table.title'),
+      description: t('editor.slash.table.description'),
       icon: <Table2 size={ICON_SIZE} />,
-      category: 'Advanced',
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
       command: editor =>
         editor
           .chain()
@@ -107,25 +166,44 @@ export function getSlashCommandItems(): SlashCommandItem[] {
           .run(),
     },
     {
-      title: 'Code Block',
-      description: 'Code with syntax highlighting',
+      title: t('editor.slash.codeBlock.title'),
+      description: t('editor.slash.codeBlock.description'),
       icon: <Code2 size={ICON_SIZE} />,
-      category: 'Advanced',
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
       command: editor => editor.chain().focus().toggleCodeBlock().run(),
     },
     {
-      title: 'Blockquote',
-      description: 'Quoted text',
+      title: t('editor.slash.blockquote.title'),
+      description: t('editor.slash.blockquote.description'),
       icon: <Quote size={ICON_SIZE} />,
-      category: 'Advanced',
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
       command: editor => editor.chain().focus().toggleBlockquote().run(),
     },
     {
-      title: 'Divider',
-      description: 'Horizontal line',
+      title: t('editor.slash.divider.title'),
+      description: t('editor.slash.divider.description'),
       icon: <Minus size={ICON_SIZE} />,
-      category: 'Advanced',
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
       command: editor => editor.chain().focus().setHorizontalRule().run(),
+    },
+    {
+      title: t('editor.slash.callout.title'),
+      description: t('editor.slash.callout.description'),
+      icon: <Lightbulb size={ICON_SIZE} />,
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
+      command: editor => editor.chain().focus().setCallout().run(),
+    },
+    {
+      title: t('editor.slash.toggle.title'),
+      description: t('editor.slash.toggle.description'),
+      icon: <ChevronRight size={ICON_SIZE} />,
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
+      command: editor => editor.chain().focus().setToggle().run(),
     },
   ]
 }
@@ -142,9 +220,10 @@ export function buildSlashCommandSuggestion(
   onClose: () => void,
   listRef: React.RefObject<{
     onKeyDown: (props: { event: KeyboardEvent }) => boolean
-  } | null>
+  } | null>,
+  t?: SlashCommandTranslate | undefined
 ): Partial<SuggestionOptions> {
-  const allItems = getSlashCommandItems()
+  const allItems = getSlashCommandItems(t)
 
   return {
     char: '/',
