@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Tooltip,
@@ -11,6 +12,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { tasksClient } from '@/lib/api-client'
+import {
+  shouldVirtualize,
+  LIST_VIRTUALIZE_THRESHOLD,
+} from '@/lib/utils/shouldVirtualize'
 import type {
   ApiPriority,
   ApiProject,
@@ -26,6 +31,7 @@ import {
   cmpString,
   useTableSort,
 } from '../../hooks/useTableSort'
+import { useFormatDate } from '../../hooks/useFormatDate'
 import { SortableHeader } from '../SortableHeader'
 import { AssigneeSelect } from '../fields/AssigneeSelect'
 import { PrioritySelect } from '../fields/PrioritySelect'
@@ -42,6 +48,9 @@ type TaskSortKey =
 
 const GHOST_TRIGGER =
   'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-xs'
+
+const COLUMN_TEMPLATE = '40px minmax(300px, 1fr) 160px 128px 96px 96px 140px'
+const ROW_HEIGHT = 49 // px — rows are single-line (TitleCell truncates)
 
 // ─── Inline title cell ─────────────────────────────────────────────────────────
 
@@ -163,6 +172,7 @@ export function TaskListTable({
   setSelected,
 }: Props) {
   const intl = useIntl()
+  const { fmtDate } = useFormatDate()
   const { sort, toggle } = useTableSort<TaskSortKey>()
 
   const memberByActorId = useMemo(
@@ -286,11 +296,91 @@ export function TaskListTable({
     [members]
   )
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const virtualize = shouldVirtualize(sorted.length, LIST_VIRTUALIZE_THRESHOLD)
+
+  const rowVirtualizer = useVirtualizer({
+    count: sorted.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+    enabled: virtualize,
+  })
+
+  const renderRow = (task: MyTask) => (
+    <div
+      role='row'
+      className='grid items-center hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors group border-b border-zinc-200 dark:border-zinc-800'
+      style={{ gridTemplateColumns: COLUMN_TEMPLATE, height: ROW_HEIGHT }}
+    >
+      <div role='cell' className='px-4' onClick={e => e.stopPropagation()}>
+        <Checkbox
+          checked={selected.has(task.id)}
+          onCheckedChange={() => toggleOne(task.id)}
+          aria-label={intl.formatMessage(
+            { id: 'task.selectOne', defaultMessage: 'Select {title}' },
+            { title: task.title }
+          )}
+        />
+      </div>
+      <div role='cell' className='px-8 min-w-0'>
+        <TitleCell
+          task={task}
+          onCommit={title => updateTask(task.id, { title })}
+          onDetailsClick={() => onTaskClick(task)}
+        />
+      </div>
+      <div
+        role='cell'
+        className='px-8 min-w-0'
+        onClick={e => e.stopPropagation()}
+      >
+        <ProjectSelect
+          value={task.projectId}
+          projects={projects}
+          onChange={projectId => updateTask(task.id, { projectId })}
+          triggerClassName={GHOST_TRIGGER}
+        />
+      </div>
+      <div role='cell' className='px-8' onClick={e => e.stopPropagation()}>
+        <StatusSelect
+          value={task.status}
+          onChange={status => updateTask(task.id, { status })}
+          triggerClassName={GHOST_TRIGGER}
+        />
+      </div>
+      <div role='cell' className='px-8' onClick={e => e.stopPropagation()}>
+        <PrioritySelect
+          value={task.priority}
+          onChange={priority => updateTask(task.id, { priority })}
+          triggerClassName={GHOST_TRIGGER}
+        />
+      </div>
+      <div role='cell' className='px-8' onClick={e => e.stopPropagation()}>
+        <AssigneeSelect
+          value={task.assigneeActorId}
+          onChange={assigneeActorId => updateTask(task.id, { assigneeActorId })}
+          members={assignableMembers}
+          assignee={task.assignee ?? null}
+          triggerClassName={GHOST_TRIGGER}
+        />
+      </div>
+      <div role='cell' className='px-8 pr-8 text-xs text-zinc-400 text-right'>
+        {fmtDate(task.updatedAt)}
+      </div>
+    </div>
+  )
+
   return (
-    <table className='w-full border-collapse'>
-      <thead className='sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm z-10'>
-        <tr>
-          <th className='py-2 px-4 w-10'>
+    <div ref={scrollRef} role='table' className='flex-1 min-h-0 overflow-auto'>
+      {/* Sticky header */}
+      <div role='rowgroup'>
+        <div
+          role='row'
+          className='grid sticky top-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm z-10 border-b border-zinc-200 dark:border-zinc-800'
+          style={{ gridTemplateColumns: COLUMN_TEMPLATE }}
+        >
+          <div role='columnheader' className='py-2 px-4'>
             <Checkbox
               checked={headerCheckboxState}
               onCheckedChange={toggleAll}
@@ -299,7 +389,7 @@ export function TaskListTable({
                 defaultMessage: 'Select all tasks',
               })}
             />
-          </th>
+          </div>
           <SortableHeader
             col='title'
             label={intl.formatMessage({
@@ -308,11 +398,12 @@ export function TaskListTable({
             })}
             sort={sort}
             onToggle={toggle}
-            className='text-left py-2 px-8 min-w-[300px]'
+            className='text-left py-2 px-8'
             tooltip={intl.formatMessage({
               id: 'tasks.tooltip.title',
               defaultMessage: 'Task title.',
             })}
+            as='div'
           />
           <SortableHeader
             col='project'
@@ -322,11 +413,12 @@ export function TaskListTable({
             })}
             sort={sort}
             onToggle={toggle}
-            className='text-left py-2 px-8 w-40'
+            className='text-left py-2 px-8'
             tooltip={intl.formatMessage({
               id: 'tasks.tooltip.project',
               defaultMessage: 'Project this task belongs to.',
             })}
+            as='div'
           />
           <SortableHeader
             col='status'
@@ -336,12 +428,13 @@ export function TaskListTable({
             })}
             sort={sort}
             onToggle={toggle}
-            className='text-left py-2 px-8 w-32'
+            className='text-left py-2 px-8'
             tooltip={intl.formatMessage({
               id: 'tasks.tooltip.status',
               defaultMessage:
                 'Workflow stage: To Do, In Progress, In Review, or Done.',
             })}
+            as='div'
           />
           <SortableHeader
             col='priority'
@@ -351,11 +444,12 @@ export function TaskListTable({
             })}
             sort={sort}
             onToggle={toggle}
-            className='text-left py-2 px-8 w-24'
+            className='text-left py-2 px-8'
             tooltip={intl.formatMessage({
               id: 'tasks.tooltip.priority',
               defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
             })}
+            as='div'
           />
           <SortableHeader
             col='assignee'
@@ -365,11 +459,12 @@ export function TaskListTable({
             })}
             sort={sort}
             onToggle={toggle}
-            className='text-left py-2 px-8 w-24'
+            className='text-left py-2 px-8'
             tooltip={intl.formatMessage({
               id: 'tasks.tooltip.assignee',
               defaultMessage: 'Person responsible for completing this task.',
             })}
+            as='div'
           />
           <SortableHeader
             col='updatedAt'
@@ -384,91 +479,46 @@ export function TaskListTable({
               id: 'tasks.tooltip.updated',
               defaultMessage: 'Last time this task was modified.',
             })}
+            as='div'
           />
-        </tr>
-      </thead>
-      <tbody className='divide-y divide-zinc-100 dark:divide-zinc-800'>
-        {sorted.map(task => (
-          <tr
-            key={task.id}
-            className='hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors group'
-          >
-            <td
-              className='py-2.5 px-4 border-b border-zinc-200 dark:border-zinc-800 w-10'
-              onClick={e => e.stopPropagation()}
-            >
-              <Checkbox
-                checked={selected.has(task.id)}
-                onCheckedChange={() => toggleOne(task.id)}
-                aria-label={intl.formatMessage(
-                  { id: 'task.selectOne', defaultMessage: 'Select {title}' },
-                  { title: task.title }
-                )}
-              />
-            </td>
-            <td className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'>
-              <TitleCell
-                task={task}
-                onCommit={title => updateTask(task.id, { title })}
-                onDetailsClick={() => onTaskClick(task)}
-              />
-            </td>
-            {/* Project — inline picker */}
-            <td
-              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
-              onClick={e => e.stopPropagation()}
-            >
-              <ProjectSelect
-                value={task.projectId}
-                projects={projects}
-                onChange={projectId => updateTask(task.id, { projectId })}
-                triggerClassName={GHOST_TRIGGER}
-              />
-            </td>
-            {/* Status — inline picker */}
-            <td
-              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
-              onClick={e => e.stopPropagation()}
-            >
-              <StatusSelect
-                value={task.status}
-                onChange={status => updateTask(task.id, { status })}
-                triggerClassName={GHOST_TRIGGER}
-              />
-            </td>
-            {/* Priority — inline picker */}
-            <td
-              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
-              onClick={e => e.stopPropagation()}
-            >
-              <PrioritySelect
-                value={task.priority}
-                onChange={priority => updateTask(task.id, { priority })}
-                triggerClassName={GHOST_TRIGGER}
-              />
-            </td>
-            {/* Assignee — inline picker */}
-            <td
-              className='py-2.5 px-8 border-b border-zinc-200 dark:border-zinc-800'
-              onClick={e => e.stopPropagation()}
-            >
-              <AssigneeSelect
-                value={task.assigneeActorId}
-                onChange={assigneeActorId =>
-                  updateTask(task.id, { assigneeActorId })
-                }
-                members={assignableMembers}
-                assignee={task.assignee ?? null}
-                triggerClassName={GHOST_TRIGGER}
-              />
-            </td>
-            {/* Updated — read-only */}
-            <td className='py-2.5 px-8 text-xs text-zinc-400 text-right border-b border-zinc-200 dark:border-zinc-800 pr-8'>
-              {new Date(task.updatedAt).toLocaleDateString()}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+        </div>
+      </div>
+
+      {/* Body */}
+      {virtualize ? (
+        <div
+          role='rowgroup'
+          style={{
+            height: rowVirtualizer.getTotalSize(),
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map(vi => {
+            const task = sorted[vi.index]
+            if (!task) return null
+            return (
+              <div
+                key={task.id}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${vi.start}px)`,
+                }}
+              >
+                {renderRow(task)}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div role='rowgroup'>
+          {sorted.map(task => (
+            <div key={task.id}>{renderRow(task)}</div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { cloneElement, isValidElement, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useRef, type ReactNode } from 'react'
 import {
   DndContext,
   closestCorners,
@@ -13,10 +13,15 @@ import {
   SensorOptions,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Plus } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import { StatusIcon } from '../StatusIcon'
 import { Button } from '@/components/ui/button'
+import {
+  shouldVirtualize,
+  BOARD_COLUMN_VIRTUALIZE_THRESHOLD,
+} from '@/lib/utils/shouldVirtualize'
 
 // ─── Droppable column wrapper ─────────────────────────────────────────────────
 
@@ -34,6 +39,68 @@ function DroppableColumn({
       className='board-col-scroll flex-1 overflow-y-auto space-y-3 min-h-[100px] pb-2'
     >
       {children}
+    </div>
+  )
+}
+
+// ─── Virtualized column body ─────────────────────────────────────────────────
+// One virtualizer per column. Rendered ONLY when the column is over threshold.
+// Outer wrapper handles translateY positioning; the inner card keeps its own
+// dnd-kit sortable transform (the two MUST stay on separate elements).
+function VirtualColumnBody<T extends { id: string }>({
+  columnId,
+  items,
+  renderCard,
+  footer,
+}: {
+  columnId: string
+  items: T[]
+  renderCard: (task: T, isOverlay: boolean) => React.ReactNode
+  footer?: React.ReactNode
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const { setNodeRef } = useDroppable({ id: columnId })
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 96, // card height + space-y-3 gap; refined by measureElement
+    overscan: 6,
+  })
+
+  const setRefs = (el: HTMLDivElement | null) => {
+    scrollRef.current = el
+    setNodeRef(el)
+  }
+
+  return (
+    <div
+      ref={setRefs}
+      className='board-col-scroll flex-1 overflow-y-auto min-h-[100px] pb-2'
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map(vi => {
+          const task = items[vi.index]
+          if (!task) return null
+          return (
+            <div
+              key={task.id}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${vi.start}px)`,
+                paddingBottom: 12, // matches space-y-3 gap
+              }}
+            >
+              {renderCard(task, false)}
+            </div>
+          )
+        })}
+      </div>
+      {footer}
     </div>
   )
 }
@@ -145,9 +212,8 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                 items={col.map(t => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <DroppableColumn id={column.id}>
-                  {col.map(task => keyedCard(task.id, renderCard(task, false)))}
-                  {onAddTask && (
+                {(() => {
+                  const addTaskButton = onAddTask ? (
                     <Button
                       variant='ghost'
                       size='sm'
@@ -160,8 +226,26 @@ export function BoardView<T extends { id: string; viewOrder: number | null }>({
                         defaultMessage: 'Add task',
                       })}
                     </Button>
-                  )}
-                </DroppableColumn>
+                  ) : null
+                  return shouldVirtualize(
+                    col.length,
+                    BOARD_COLUMN_VIRTUALIZE_THRESHOLD
+                  ) ? (
+                    <VirtualColumnBody
+                      columnId={column.id}
+                      items={col}
+                      renderCard={renderCard}
+                      footer={addTaskButton}
+                    />
+                  ) : (
+                    <DroppableColumn id={column.id}>
+                      {col.map(task =>
+                        keyedCard(task.id, renderCard(task, false))
+                      )}
+                      {addTaskButton}
+                    </DroppableColumn>
+                  )
+                })()}
               </SortableContext>
             </div>
           )
