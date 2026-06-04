@@ -43,6 +43,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { formatDueDate, isOverdue } from '../../utils'
 import { cn } from '@/lib/utils'
+import { useNow } from '@/hooks/use-now'
 
 export interface DueDatePickerProps {
   value: string | null
@@ -75,10 +76,12 @@ export function DueDatePicker({
     ms,
   }
   const calendarLocale = DATE_FNS_LOCALES[intl.locale] ?? enUS
+  const now = useNow()
   const [open, setOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDate, setDialogDate] = useState<Date | undefined>(undefined)
-  const [dialogMonth, setDialogMonth] = useState<Date>(new Date())
+  // Lazy initializer: read the clock once on mount, not on every render.
+  const [dialogMonth, setDialogMonth] = useState<Date>(() => new Date())
   const [dateInput, setDateInput] = useState('')
 
   const overdue = isOverdue(value)
@@ -94,9 +97,10 @@ export function DueDatePicker({
   }
 
   function computeQuickDate(
-    offset: 'today' | 'tomorrow' | 'endOfWeek' | 'inOneWeek'
+    offset: 'today' | 'tomorrow' | 'endOfWeek' | 'inOneWeek',
+    now: number
   ): Date {
-    const d = new Date()
+    const d = new Date(now)
     d.setHours(0, 0, 0, 0)
     switch (offset) {
       case 'today':
@@ -191,6 +195,26 @@ export function DueDatePicker({
     setDateInput(formatDateInput(d))
   }
 
+  // Days-from-today for a quick preset. Reads the clock, so call it only from
+  // event handlers (e.g. onClick) — never during render.
+  function quickPresetDays(
+    offset: 'today' | 'tomorrow' | 'endOfWeek' | 'inOneWeek'
+  ): number {
+    switch (offset) {
+      case 'today':
+        return 0
+      case 'tomorrow':
+        return 1
+      case 'inOneWeek':
+        return 7
+      case 'endOfWeek': {
+        const day = new Date().getDay() // 0=Sun
+        const diff = day === 0 ? 5 : 5 - day // nearest Friday
+        return diff <= 0 ? 7 + diff : diff
+      }
+    }
+  }
+
   const quickOptions = [
     { key: 'today' as const, msgId: 'dueDate.today' },
     { key: 'tomorrow' as const, msgId: 'dueDate.tomorrow' },
@@ -250,22 +274,23 @@ export function DueDatePicker({
               </span>
             </button>
             <div className='border-b border-zinc-200 dark:border-zinc-800 my-0.5' />
-            {quickOptions.map(({ key, msgId }) => {
-              const d = computeQuickDate(key)
-              return (
-                <button
-                  key={key}
-                  type='button'
-                  className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
-                  onClick={() => pickDate(d)}
-                >
-                  <span>{intl.formatMessage({ id: msgId })}</span>
-                  <span className='text-muted-foreground ml-4'>
-                    {formatShortDate(d)}
-                  </span>
-                </button>
-              )
-            })}
+            {now != null &&
+              quickOptions.map(({ key, msgId }) => {
+                const d = computeQuickDate(key, now)
+                return (
+                  <button
+                    key={key}
+                    type='button'
+                    className='flex items-center justify-between px-3 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors'
+                    onClick={() => pickDate(d)}
+                  >
+                    <span>{intl.formatMessage({ id: msgId })}</span>
+                    <span className='text-muted-foreground ml-4'>
+                      {formatShortDate(d)}
+                    </span>
+                  </button>
+                )
+              })}
           </div>
         </PopoverContent>
       </Popover>
@@ -310,31 +335,17 @@ export function DueDatePicker({
             />
           </div>
           <div className='flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-3'>
-            {quickOptions.map(({ key, msgId }) => {
-              const days =
-                key === 'today'
-                  ? 0
-                  : key === 'tomorrow'
-                    ? 1
-                    : key === 'endOfWeek'
-                      ? (() => {
-                          const day = new Date().getDay()
-                          const diff = day === 0 ? 5 : 5 - day
-                          return diff <= 0 ? 7 + diff : diff
-                        })()
-                      : 7
-              return (
-                <Button
-                  key={key}
-                  variant='outline'
-                  size='sm'
-                  className='flex-1'
-                  onClick={() => setDialogPreset(days)}
-                >
-                  {intl.formatMessage({ id: msgId })}
-                </Button>
-              )
-            })}
+            {quickOptions.map(({ key, msgId }) => (
+              <Button
+                key={key}
+                variant='outline'
+                size='sm'
+                className='flex-1'
+                onClick={() => setDialogPreset(quickPresetDays(key))}
+              >
+                {intl.formatMessage({ id: msgId })}
+              </Button>
+            ))}
           </div>
           <DialogFooter className='sm:justify-between'>
             <Button
