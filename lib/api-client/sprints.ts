@@ -14,6 +14,12 @@ interface SprintWithProgress {
   progress: SprintProgress
   risk?: RiskAssessment
   topBlockers?: TopBlockers
+  /**
+   * Present on the by-number response: the sprint's tasks (MyTask-shaped),
+   * returned alongside the sprint so the detail page can seed the
+   * tasks.bySprint cache and skip the second round trip (LUM-200).
+   */
+  tasks?: unknown[]
 }
 
 interface SprintListResult {

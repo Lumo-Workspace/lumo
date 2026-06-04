@@ -46,3 +46,57 @@ export function flattenTaskForListing<
     childrenDoneCount: Array.isArray(task.children) ? task.children.length : 0,
   }
 }
+
+/**
+ * Flatten a sprint task row (findBySprint-shaped Prisma output) into the
+ * MyTask shape the sprint board + list render. Like `flattenTaskForListing`
+ * but sprint-specific:
+ *  - `viewOrder` is null — sprints don't own a kanban view, so the board
+ *    falls back to status-bucket ordering and same-column reordering is
+ *    disabled in useBoardDrag when viewId is null.
+ *  - tolerates missing `team.identifier` (falls back to '') the way the
+ *    sprint route historically did.
+ *
+ * Shared by GET /api/sprints/[sprintId]/tasks and GET /api/sprints/by-number
+ * so a sprint detail load can seed the tasks cache with byte-identical rows
+ * (no waterfall: the second request is served from cache).
+ */
+export function shapeSprintTask<
+  T extends {
+    team?: { identifier?: string } | null
+    project: {
+      id: string
+      name: string
+      owner?: { actor?: { id: string } | null } | null
+    }
+    parent?: {
+      id: string
+      title: string
+      number: number
+      team?: { identifier?: string } | null
+    } | null
+    children?: { id: string }[]
+    _count?: unknown
+  },
+>(task: T) {
+  const { owner, ...projectFields } = task.project
+  return {
+    ...task,
+    project: {
+      ...projectFields,
+      ownerActorId: owner?.actor?.id ?? null,
+    },
+    teamIdentifier: task.team?.identifier ?? '',
+    viewOrder: null,
+    parent: task.parent
+      ? {
+          id: task.parent.id,
+          title: task.parent.title,
+          number: task.parent.number,
+          teamIdentifier: task.parent.team?.identifier ?? '',
+        }
+      : null,
+    _count: task._count,
+    childrenDoneCount: Array.isArray(task.children) ? task.children.length : 0,
+  }
+}
