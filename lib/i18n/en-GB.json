@@ -494,6 +494,8 @@
   "task.copyLink": "Copy link",
   "task.linkCopied": "Link copied",
   "task.imageUploadFailed": "Image upload failed",
+  "task.imageTooLarge": "Image must be 10 MB or smaller",
+  "task.imageInvalidType": "Unsupported image type — use PNG, JPEG, WebP, GIF, or SVG",
   "branch.searchRepos": "Search repositories…",
   "subtask.removeDraft": "Remove draft subtask",
   "subtask.addAll": "Add all",

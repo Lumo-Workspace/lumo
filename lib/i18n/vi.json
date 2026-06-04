@@ -494,6 +494,8 @@
   "task.copyLink": "Sao chép liên kết",
   "task.linkCopied": "Đã sao chép liên kết",
   "task.imageUploadFailed": "Tải lên ảnh thất bại",
+  "task.imageTooLarge": "Hình ảnh không được vượt quá 10 MB",
+  "task.imageInvalidType": "Định dạng ảnh không được hỗ trợ — hãy dùng PNG, JPEG, WebP, GIF hoặc SVG",
   "branch.searchRepos": "Tìm kiếm kho lưu trữ…",
   "subtask.removeDraft": "Xóa nhiệm vụ con nháp",
   "subtask.addAll": "Thêm tất cả",

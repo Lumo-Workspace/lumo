@@ -19,7 +19,10 @@ import {
 } from '@/lib/editor/doc-extract-context'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import { imagesClient } from '@/lib/api-client'
+import {
+  uploadImageFile,
+  validateImageFile,
+} from '@/lib/editor/image-upload'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -139,19 +142,6 @@ interface DescriptionEditorProps {
   tocScrollRoot?: HTMLElement | null
 }
 
-/** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
-async function uploadImageFile(
-  file: File,
-  documentId?: string
-): Promise<string | null> {
-  try {
-    const { url } = await imagesClient.upload(file, documentId)
-    return url ?? null
-  } catch {
-    return null
-  }
-}
-
 /**
  * Insert an image immediately using a local blob URL for instant preview,
  * upload in the background, then swap the src to the real CDN URL when done.
@@ -253,6 +243,10 @@ export function DescriptionEditor({
   const imageUploadFailedMsg = intl.formatMessage({
     id: 'task.imageUploadFailed',
   })
+  const imageTooLargeMsg = intl.formatMessage({ id: 'task.imageTooLarge' })
+  const imageInvalidTypeMsg = intl.formatMessage({
+    id: 'task.imageInvalidType',
+  })
   const isFocusedRef = useRef(false)
   const openLinkInputRef = useRef<(() => void) | null>(null)
   const mentionListRef = useRef<MentionListRef | null>(null)
@@ -264,6 +258,11 @@ export function DescriptionEditor({
   // Track in-flight uploads so we delay onCommit until all are settled.
   const pendingUploadsRef = useRef(0)
   const pendingCommitRef = useRef<(() => void) | null>(null)
+  // Validate + enqueue an image upload. Held in a ref so the editor's
+  // handlePaste (frozen at editor-creation time) always calls the latest.
+  const enqueueImageUploadRef = useRef<
+    (file: File, insertPos?: number) => void
+  >(() => {})
   // Fire undo-warning toast only once per session
   const hasShownUndoWarning = useRef(false)
   const [mentionPopup, setMentionPopup] = useState<MentionPopupState | null>(
@@ -372,21 +371,11 @@ export function DescriptionEditor({
         const files = Array.from(event.clipboardData?.files ?? [])
         const img = files.find(f => f.type.startsWith('image/'))
         if (!img) return false
+        // The pasted file is an image attempt — claim the event before
+        // ProseMirror's default handler runs, then validate (size + MIME
+        // whitelist) inside enqueueImageUpload, which toasts on rejection.
         event.preventDefault()
-        pendingUploadsRef.current++
-        insertImageWithUpload(
-          img,
-          documentId,
-          () => editorRef.current,
-          undefined,
-          imageUploadFailedMsg
-        ).finally(() => {
-          pendingUploadsRef.current--
-          if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-            pendingCommitRef.current()
-            pendingCommitRef.current = null
-          }
-        })
+        enqueueImageUploadRef.current(img)
         return true
       },
     },
@@ -416,6 +405,43 @@ export function DescriptionEditor({
   useEffect(() => {
     editorRef.current = editor ?? null
   }, [editor])
+
+  // Single entry point for all three upload paths (toolbar picker, paste,
+  // drop). Validates size + MIME whitelist up front — the picker's `accept`
+  // attribute only constrains the picker, and has no effect on paste/drop —
+  // then tracks the in-flight upload so onBlur can defer its commit.
+  const enqueueImageUpload = useCallback(
+    (file: File, insertPos?: number) => {
+      const check = validateImageFile(file)
+      if (!check.ok) {
+        toast.error(
+          check.reason === 'size' ? imageTooLargeMsg : imageInvalidTypeMsg
+        )
+        return
+      }
+      pendingUploadsRef.current++
+      insertImageWithUpload(
+        file,
+        documentId,
+        () => editorRef.current,
+        insertPos,
+        imageUploadFailedMsg
+      ).finally(() => {
+        pendingUploadsRef.current--
+        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
+          pendingCommitRef.current()
+          pendingCommitRef.current = null
+        }
+      })
+    },
+    [documentId, imageUploadFailedMsg, imageTooLargeMsg, imageInvalidTypeMsg]
+  )
+
+  // Mirror the latest enqueue fn into a ref so the editor's handlePaste
+  // (captured once at editor creation) never calls a stale version.
+  useEffect(() => {
+    enqueueImageUploadRef.current = enqueueImageUpload
+  }, [enqueueImageUpload])
 
   // Compute the active heading ourselves and push the TOC items upstream.
   //
@@ -541,20 +567,7 @@ export function DescriptionEditor({
       const coords = view?.posAtCoords({ left: e.clientX, top: e.clientY })
       const insertPos = coords?.pos
 
-      pendingUploadsRef.current++
-      insertImageWithUpload(
-        img,
-        documentId,
-        () => editorRef.current,
-        insertPos,
-        imageUploadFailedMsg
-      ).finally(() => {
-        pendingUploadsRef.current--
-        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-          pendingCommitRef.current()
-          pendingCommitRef.current = null
-        }
-      })
+      enqueueImageUpload(img, insertPos)
     }
 
     // capture: true → fires before any child handlers (including ProseMirror)
@@ -564,7 +577,7 @@ export function DescriptionEditor({
       el.removeEventListener('dragover', onDragOver, true)
       el.removeEventListener('drop', onDrop, true)
     }
-  }, [documentId])
+  }, [enqueueImageUpload])
 
   // Called when the user picks a file from the hidden input
   const handleImageFileChange = useCallback(
@@ -573,22 +586,9 @@ export function DescriptionEditor({
       if (!file) return
       // Reset so the same file can be picked again
       e.target.value = ''
-      pendingUploadsRef.current++
-      insertImageWithUpload(
-        file,
-        documentId,
-        () => editorRef.current,
-        undefined,
-        imageUploadFailedMsg
-      ).finally(() => {
-        pendingUploadsRef.current--
-        if (pendingUploadsRef.current === 0 && pendingCommitRef.current) {
-          pendingCommitRef.current()
-          pendingCommitRef.current = null
-        }
-      })
+      enqueueImageUpload(file)
     },
-    [documentId]
+    [enqueueImageUpload]
   )
 
   // Force the Placeholder decoration to redraw whenever the resolved string
