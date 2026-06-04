@@ -509,6 +509,7 @@
   "table.deleteRow": "Supprimer la ligne",
   "table.deleteCol": "Supprimer la colonne",
   "table.deleteTable": "Supprimer le tableau",
+  "table.deleteTableConfirm": "Cliquez à nouveau pour confirmer",
   "project.deleteProject": "Supprimer le projet",
   "project.deleteTitle": "Supprimer le projet ?",
   "project.deleteDesc": "« {name} » et toutes ses tâches seront définitivement supprimés. Cette action est irréversible.",

@@ -509,6 +509,7 @@
   "table.deleteRow": "Xóa hàng",
   "table.deleteCol": "Xóa cột",
   "table.deleteTable": "Xóa bảng",
+  "table.deleteTableConfirm": "Nhấp lại để xác nhận",
   "project.deleteProject": "Xóa dự án",
   "project.deleteTitle": "Xóa dự án?",
   "project.deleteDesc": "\"{name}\" và tất cả nhiệm vụ của dự án sẽ bị xóa vĩnh viễn. Không thể hoàn tác thao tác này.",

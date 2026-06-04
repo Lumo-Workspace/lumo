@@ -509,6 +509,7 @@
   "table.deleteRow": "Eliminar fila",
   "table.deleteCol": "Eliminar columna",
   "table.deleteTable": "Eliminar tabla",
+  "table.deleteTableConfirm": "Haz clic de nuevo para confirmar",
   "project.deleteProject": "Eliminar proyecto",
   "project.deleteTitle": "¿Eliminar proyecto?",
   "project.deleteDesc": "\"{name}\" y todas sus tareas se eliminarán permanentemente. Esta acción no se puede deshacer.",

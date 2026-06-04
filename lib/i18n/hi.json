@@ -509,6 +509,7 @@
   "table.deleteRow": "पंक्ति हटाएं",
   "table.deleteCol": "कॉलम हटाएं",
   "table.deleteTable": "तालिका हटाएं",
+  "table.deleteTableConfirm": "पुष्टि के लिए फिर से क्लिक करें",
   "project.deleteProject": "प्रोजेक्ट हटाएं",
   "project.deleteTitle": "प्रोजेक्ट हटाएं?",
   "project.deleteDesc": "\"{name}\" और उसके सभी कार्य स्थायी रूप से हटा दिए जाएंगे। यह क्रिया पूर्ववत नहीं की जा सकती।",

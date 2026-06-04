@@ -509,6 +509,7 @@
   "table.deleteRow": "Zeile löschen",
   "table.deleteCol": "Spalte löschen",
   "table.deleteTable": "Tabelle löschen",
+  "table.deleteTableConfirm": "Zum Bestätigen erneut klicken",
   "project.deleteProject": "Projekt löschen",
   "project.deleteTitle": "Projekt löschen?",
   "project.deleteDesc": "\"{name}\" und alle zugehörigen Aufgaben werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",

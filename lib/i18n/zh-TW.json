@@ -657,6 +657,7 @@
   "table.deleteRow": "刪除列",
   "table.deleteCol": "刪除欄",
   "table.deleteTable": "刪除表格",
+  "table.deleteTableConfirm": "再次點擊確認刪除",
   "project.deleteProject": "刪除專案",
   "project.deleteTitle": "刪除專案？",
   "project.deleteDesc": "“{name}”及其所有任務將被永久刪除，此操作無法復原。",

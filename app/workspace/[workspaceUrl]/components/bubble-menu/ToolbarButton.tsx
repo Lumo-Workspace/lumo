@@ -12,6 +12,12 @@ export interface ToolbarButtonProps {
   active?: boolean
   disabled?: boolean
   title: string
+  /**
+   * Visual variant. `destructive` marks an action that removes content:
+   * neutral when idle, red on hover, and solid red while `active` (e.g. armed
+   * for a two-step confirm).
+   */
+  variant?: 'default' | 'destructive'
   children: React.ReactNode
 }
 
@@ -20,6 +26,7 @@ export function ToolbarButton({
   active,
   disabled,
   title,
+  variant = 'default',
   children,
 }: ToolbarButtonProps) {
   return (
@@ -36,9 +43,13 @@ export function ToolbarButton({
             'flex items-center justify-center size-7 rounded transition-colors',
             disabled
               ? 'opacity-40 cursor-not-allowed text-zinc-400 dark:text-zinc-600'
-              : active
-                ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
+              : variant === 'destructive'
+                ? active
+                  ? 'bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'
+                  : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20 dark:hover:text-destructive'
+                : active
+                  ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100'
           )}
         >
           {children}
