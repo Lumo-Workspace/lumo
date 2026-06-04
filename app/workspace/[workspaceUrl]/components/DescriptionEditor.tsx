@@ -9,15 +9,10 @@ import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import { TableOfContents } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
-import { isMac } from '@/lib/utils/keyboard'
-import { useTocSync, type TocItem } from '../hooks/useTocSync'
 import {
   DocExtractProvider,
   buildStampPending,
 } from '@/lib/editor/doc-extract-context'
-import type { ExtractResponse } from '@/lib/api-client/documents-extract'
-import { ExtractTasksError } from '@/lib/api-client/documents-extract'
-import { useImageUploads } from '../hooks/useImageUploads'
 import {
   SlashCommandExtension,
   buildSlashCommandSuggestion,
@@ -27,6 +22,12 @@ import {
   SlashCommandList,
   type SlashCommandListRef,
 } from '@/lib/editor/slash-command-list'
+import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
+import { isMac } from '@/lib/utils/keyboard'
+import type { ExtractResponse } from '@/lib/api-client/documents-extract'
+import { ExtractTasksError } from '@/lib/api-client/documents-extract'
+import { useTocSync, type TocItem } from '../hooks/useTocSync'
+import { useImageUploads } from '../hooks/useImageUploads'
 import type { WorkspaceMemberInfo, ApiTask } from '../types'
 import { buildMentionSuggestion } from './mention-suggestion'
 import type { MentionPopupState } from './mention-suggestion'
@@ -35,7 +36,6 @@ import type { MentionListRef } from './MentionList'
 import { EditorSuggestionPopup } from './EditorSuggestionPopup'
 import { BubbleMenuBar } from './BubbleMenuBar'
 import { BatchExtractButton } from './extract/BatchExtractButton'
-import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
 import { toast } from 'sonner'
 
 // ─── Main editor ───────────────────────────────────────────────────────────────

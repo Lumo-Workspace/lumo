@@ -11,6 +11,20 @@ export type TocItem = {
   itemIndex: number
 }
 
+/**
+ * Args passed into {@link useTocSync}.
+ *
+ * The three ref params (`onTocUpdateRef`, `tocScrollRootRef`, `emitTocRef`)
+ * are **owned by the component, not this hook**, because Tiptap configures
+ * editor extensions exactly once at `useEditor` creation time. The
+ * `TableOfContents` extension reads `scrollParent` and `onUpdate` lazily via
+ * those refs, so the refs must exist BEFORE the editor is created — i.e. they
+ * must be declared in the component, above the `useEditor` call. This hook
+ * therefore receives them as params and is responsible for keeping them in sync
+ * (mirroring the latest `onTocUpdate` / `tocScrollRoot` values) and for
+ * assigning `emitTocRef.current` to the live `emit` closure each time the
+ * scroll-listener effect re-runs.
+ */
 interface UseTocSyncArgs {
   editor: Editor | null
   tocEnabled: boolean
@@ -21,6 +35,12 @@ interface UseTocSyncArgs {
   emitTocRef: MutableRefObject<() => void>
 }
 
+/**
+ * Manages the Table-of-Contents extension's scroll/update integration.
+ *
+ * See {@link UseTocSyncArgs} for why the three ref params are owned by the
+ * calling component rather than created inside this hook.
+ */
 export function useTocSync({
   editor,
   tocEnabled,
