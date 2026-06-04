@@ -1,4 +1,7 @@
-import { taskRepository } from '@/lib/repositories/task.repository'
+import {
+  taskRepository,
+  WORKSPACE_TASK_QUERY_LIMIT,
+} from '@/lib/repositories/task.repository'
 
 const mockTaskFindMany = jest.fn()
 
@@ -22,7 +25,7 @@ describe('taskRepository.findByWorkspaceWithFilters', () => {
       expect.objectContaining({
         where: { project: { workspaceId: 'w1' } },
         orderBy: { order: 'asc' },
-        take: 500,
+        take: WORKSPACE_TASK_QUERY_LIMIT,
       })
     )
   })
