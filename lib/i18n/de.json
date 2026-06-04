@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Dies kann nicht rückgängig gemacht werden.",
   "task.descriptionPlaceholder": "Beschreibung hinzufügen…",
   "task.copyLink": "Link kopieren",
+  "task.moreOptions": "Weitere Optionen",
   "task.linkCopied": "Link kopiert",
   "task.imageUploadFailed": "Bild-Upload fehlgeschlagen",
   "task.imageTooLarge": "Das Bild darf höchstens 10 MB groß sein",

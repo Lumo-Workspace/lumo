@@ -492,6 +492,7 @@
   "task.deleteCommentDesc": "Esta acción no se puede deshacer.",
   "task.descriptionPlaceholder": "Añadir una descripción…",
   "task.copyLink": "Copiar enlace",
+  "task.moreOptions": "Más opciones",
   "task.linkCopied": "Enlace copiado",
   "task.imageUploadFailed": "Error al subir la imagen",
   "task.imageTooLarge": "La imagen no puede superar los 10 MB",

@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { isMac } from '@/lib/utils/keyboard'
 import type { ApiTask, WorkspaceMemberInfo } from '../types'
 import { CommentEditor } from './comments/CommentEditor'
 import { CommentItem } from './comments/CommentItem'
@@ -50,9 +51,6 @@ export function CommentSection({
   tc,
 }: CommentSectionProps) {
   const intl = useIntl()
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/i.test(navigator.platform)
   const resolvedAgentActors = agentActors ?? []
 
   return (

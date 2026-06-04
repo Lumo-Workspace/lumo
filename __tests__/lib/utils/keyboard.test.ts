@@ -1,5 +1,10 @@
 import type { KeyboardEvent } from 'react'
-import { isMac, submitModLabel, isSubmitShortcut } from '@/lib/utils/keyboard'
+import {
+  isMac,
+  submitModLabel,
+  isSubmitShortcut,
+  detectMac,
+} from '@/lib/utils/keyboard'
 
 describe('keyboard helpers', () => {
   it('isMac is a boolean', () => {
@@ -8,6 +13,48 @@ describe('keyboard helpers', () => {
 
   it('submitModLabel is "⌘" on Mac and "Ctrl" elsewhere', () => {
     expect(submitModLabel).toBe(isMac ? '⌘' : 'Ctrl')
+  })
+})
+
+describe('detectMac (no deprecated navigator.platform when modern API present)', () => {
+  const realNavigator = globalThis.navigator
+
+  function stubNavigator(value: unknown) {
+    Object.defineProperty(globalThis, 'navigator', {
+      value,
+      configurable: true,
+      writable: true,
+    })
+  }
+
+  afterEach(() => {
+    stubNavigator(realNavigator)
+  })
+
+  it('prefers userAgentData.platform and detects macOS', () => {
+    // `platform` left undefined to prove the modern hint is the signal used.
+    stubNavigator({ userAgentData: { platform: 'macOS' } })
+    expect(detectMac()).toBe(true)
+  })
+
+  it('prefers userAgentData.platform and detects non-Mac', () => {
+    stubNavigator({ userAgentData: { platform: 'Windows' }, platform: 'MacIntel' })
+    expect(detectMac()).toBe(false)
+  })
+
+  it('falls back to navigator.platform when userAgentData is absent', () => {
+    stubNavigator({ platform: 'iPhone' })
+    expect(detectMac()).toBe(true)
+  })
+
+  it('falls back to navigator.platform for non-Mac when userAgentData is absent', () => {
+    stubNavigator({ platform: 'Linux x86_64' })
+    expect(detectMac()).toBe(false)
+  })
+
+  it('returns false when navigator is undefined (SSR)', () => {
+    stubNavigator(undefined)
+    expect(detectMac()).toBe(false)
   })
 })
 

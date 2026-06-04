@@ -1,5 +1,6 @@
 import { marked } from 'marked'
 import { isHtml } from './html-to-markdown'
+import { BLOCK_TAGS, tagGroup } from './html-tags'
 
 // `htmlToMarkdown` (turndown-based) lives in its own module so server callers
 // like the doc service can depend on it without pulling in marked.
@@ -30,13 +31,18 @@ export function markdownToHtml(md: string): string {
  * HTML), so a markdown body that merely mentions a tag inline (e.g.
  * "wrapped in `<p>`") is NOT mistaken for HTML.
  *
- * Kept private to this module — the existing `isHtml` is more permissive
- * and is intentionally left untouched for the document path.
+ * Derives from the shared {@link BLOCK_TAGS} core plus `img`, but stays
+ * intentionally stricter than the permissive `isHtml`: anchored at the
+ * string start (`^\s*`) and excluding inline tags. That divergence is
+ * load-bearing — see `normalizeRichText`.
  */
+const HTML_DOCUMENT_PREFIX = new RegExp(
+  `^\\s*<(${tagGroup(...BLOCK_TAGS, 'img')})\\b[^>]*>`,
+  'i'
+)
+
 function looksLikeHtmlDocument(text: string): boolean {
-  return /^\s*<(p|div|h[1-6]|ul|ol|pre|blockquote|table|img)\b[^>]*>/i.test(
-    text
-  )
+  return HTML_DOCUMENT_PREFIX.test(text)
 }
 
 /**
