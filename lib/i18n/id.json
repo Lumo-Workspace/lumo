@@ -509,6 +509,7 @@
   "table.deleteRow": "Hapus baris",
   "table.deleteCol": "Hapus kolom",
   "table.deleteTable": "Hapus tabel",
+  "table.deleteTableConfirm": "Klik lagi untuk konfirmasi",
   "project.deleteProject": "Hapus proyek",
   "project.deleteTitle": "Hapus proyek?",
   "project.deleteDesc": "\"{name}\" dan semua tugasnya akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.",

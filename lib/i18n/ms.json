@@ -509,6 +509,7 @@
   "table.deleteRow": "Padam baris",
   "table.deleteCol": "Padam lajur",
   "table.deleteTable": "Padam jadual",
+  "table.deleteTableConfirm": "Klik sekali lagi untuk sahkan",
   "project.deleteProject": "Padam projek",
   "project.deleteTitle": "Padam projek?",
   "project.deleteDesc": "\"{name}\" dan semua tugasannya akan dipadam secara kekal. Tindakan ini tidak boleh dibatalkan.",

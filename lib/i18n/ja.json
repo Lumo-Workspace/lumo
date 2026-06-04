@@ -509,6 +509,7 @@
   "table.deleteRow": "行を削除",
   "table.deleteCol": "列を削除",
   "table.deleteTable": "テーブルを削除",
+  "table.deleteTableConfirm": "もう一度クリックして確認",
   "project.deleteProject": "プロジェクトを削除",
   "project.deleteTitle": "プロジェクトを削除しますか？",
   "project.deleteDesc": "「{name}」とすべてのタスクが完全に削除されます。この操作は元に戻せません。",

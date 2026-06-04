@@ -25,6 +25,10 @@ import {
   AlignRight,
   Trash2,
   ListPlus,
+  BetweenHorizontalStart,
+  BetweenHorizontalEnd,
+  BetweenVerticalStart,
+  BetweenVerticalEnd,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/utils/keyboard'
@@ -105,10 +109,26 @@ export function BubbleMenuBar({
   const [listOpen, setListOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
+  // Two-step confirm for the destructive "delete whole table" action: the first
+  // click arms it, a second click within the timeout actually deletes.
+  const [confirmDeleteTable, setConfirmDeleteTable] = useState(false)
   const mod = isMac ? '⌘' : 'Ctrl+'
   const styleRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
+  const confirmDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+
+  // Clear any pending confirm timer on unmount
+  useEffect(
+    () => () => {
+      if (confirmDeleteTimerRef.current) {
+        clearTimeout(confirmDeleteTimerRef.current)
+      }
+    },
+    []
+  )
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -204,6 +224,23 @@ export function BubbleMenuBar({
     setLinkUrl('')
   }
 
+  function handleDeleteTableClick() {
+    if (confirmDeleteTable) {
+      if (confirmDeleteTimerRef.current) {
+        clearTimeout(confirmDeleteTimerRef.current)
+        confirmDeleteTimerRef.current = null
+      }
+      setConfirmDeleteTable(false)
+      editor.chain().focus().deleteTable().run()
+    } else {
+      setConfirmDeleteTable(true)
+      confirmDeleteTimerRef.current = setTimeout(() => {
+        setConfirmDeleteTable(false)
+        confirmDeleteTimerRef.current = null
+      }, 3000)
+    }
+  }
+
   const activeFlags = [
     state.isParagraph,
     state.isH1,
@@ -222,48 +259,52 @@ export function BubbleMenuBar({
           onClick={() => editor.chain().focus().addRowBefore().run()}
           title={intl.formatMessage({ id: 'table.addRowAbove' })}
         >
-          <span className='text-[10px] font-semibold leading-none'>↑</span>
+          <BetweenHorizontalStart size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().addRowAfter().run()}
           title={intl.formatMessage({ id: 'table.addRowBelow' })}
         >
-          <span className='text-[10px] font-semibold leading-none'>↓</span>
+          <BetweenHorizontalEnd size={14} />
         </ToolbarButton>
         <Divider />
         <ToolbarButton
           onClick={() => editor.chain().focus().addColumnBefore().run()}
           title={intl.formatMessage({ id: 'table.addColLeft' })}
         >
-          <span className='text-[10px] font-semibold leading-none'>←</span>
+          <BetweenVerticalStart size={14} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().addColumnAfter().run()}
           title={intl.formatMessage({ id: 'table.addColRight' })}
         >
-          <span className='text-[10px] font-semibold leading-none'>→</span>
+          <BetweenVerticalEnd size={14} />
         </ToolbarButton>
         <Divider />
         <ToolbarButton
           onClick={() => editor.chain().focus().deleteRow().run()}
           title={intl.formatMessage({ id: 'table.deleteRow' })}
+          variant='destructive'
         >
-          <span className='text-[10px] font-semibold leading-none text-zinc-500'>
-            −R
-          </span>
+          <Trash2 size={13} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().deleteColumn().run()}
           title={intl.formatMessage({ id: 'table.deleteCol' })}
+          variant='destructive'
         >
-          <span className='text-[10px] font-semibold leading-none text-zinc-500'>
-            −C
-          </span>
+          <Trash2 size={13} />
         </ToolbarButton>
         <Divider />
         <ToolbarButton
-          onClick={() => editor.chain().focus().deleteTable().run()}
-          title={intl.formatMessage({ id: 'table.deleteTable' })}
+          onClick={handleDeleteTableClick}
+          active={confirmDeleteTable}
+          variant='destructive'
+          title={intl.formatMessage({
+            id: confirmDeleteTable
+              ? 'table.deleteTableConfirm'
+              : 'table.deleteTable',
+          })}
         >
           <Trash2 size={13} />
         </ToolbarButton>
