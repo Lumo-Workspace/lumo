@@ -6,8 +6,6 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
-import Mention from '@tiptap/extension-mention'
-import { mergeAttributes } from '@tiptap/core'
 import {
   TableOfContents,
   type TableOfContentData,
@@ -40,70 +38,7 @@ import type { MentionListRef } from './MentionList'
 import { EditorSuggestionPopup } from './EditorSuggestionPopup'
 import { BubbleMenuBar } from './BubbleMenuBar'
 import { BatchExtractButton } from './extract/BatchExtractButton'
-
-/** Mention node extended with type / title / status attributes */
-const MentionWithType = Mention.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      mentionType: {
-        default: 'user',
-        parseHTML: el => el.getAttribute('data-mention-type') ?? 'user',
-        renderHTML: attrs => ({ 'data-mention-type': attrs.mentionType }),
-      },
-      mentionTitle: {
-        default: null,
-        parseHTML: el => el.getAttribute('data-mention-title') ?? null,
-        renderHTML: attrs =>
-          attrs.mentionTitle
-            ? { 'data-mention-title': attrs.mentionTitle }
-            : {},
-      },
-      mentionStatus: {
-        default: null,
-        parseHTML: el => el.getAttribute('data-mention-status') ?? null,
-        renderHTML: attrs =>
-          attrs.mentionStatus
-            ? { 'data-mention-status': attrs.mentionStatus }
-            : {},
-      },
-    }
-  },
-  renderHTML({ node, HTMLAttributes }) {
-    const isTask = node.attrs.mentionType === 'task'
-    if (isTask) {
-      const label = node.attrs.label ?? node.attrs.id
-      const title = node.attrs.mentionTitle ?? ''
-      const text = title ? `${label} ${title}` : label
-      return [
-        'span',
-        mergeAttributes(HTMLAttributes, {
-          class: 'mention mention-task',
-          'data-mention-type': 'task',
-          ...(node.attrs.mentionStatus
-            ? { 'data-mention-status': node.attrs.mentionStatus }
-            : {}),
-        }),
-        text,
-      ]
-    }
-    return [
-      'span',
-      mergeAttributes(HTMLAttributes, { class: 'mention' }),
-      `@${node.attrs.label ?? node.attrs.id}`,
-    ]
-  },
-  renderText({ node }) {
-    const isTask = node.attrs.mentionType === 'task'
-    if (isTask) {
-      const label = node.attrs.label ?? node.attrs.id
-      return node.attrs.mentionTitle
-        ? `${label} ${node.attrs.mentionTitle}`
-        : label
-    }
-    return `@${node.attrs.label ?? node.attrs.id}`
-  },
-})
+import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
 import { toast } from 'sonner'
 
 // ─── Main editor ───────────────────────────────────────────────────────────────
