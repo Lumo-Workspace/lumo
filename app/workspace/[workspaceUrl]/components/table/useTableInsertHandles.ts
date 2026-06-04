@@ -10,11 +10,16 @@ function computeMarker(
   clientX: number,
   clientY: number
 ): InsertMarker | null {
-  const firstRow = table.querySelector('tr')
+  // Only this table's own rows — `:scope >` prevents descending into a
+  // nested table inside a cell (which would over-collect rows and break
+  // boundary math).
+  const rows = Array.from(
+    table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr, :scope > tr')
+  ) as HTMLElement[]
+  const firstRow = rows[0]
   if (!firstRow) return null
   const headerCells = Array.from(firstRow.children) as HTMLElement[]
-  const rows = Array.from(table.querySelectorAll('tr')) as HTMLElement[]
-  if (headerCells.length === 0 || rows.length === 0) return null
+  if (headerCells.length === 0) return null
 
   const tableRect = table.getBoundingClientRect()
 
