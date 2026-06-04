@@ -17,6 +17,7 @@ interface SortableHeaderProps<K extends string> {
   onToggle: (key: K) => void
   className?: string
   tooltip?: string
+  as?: 'th' | 'div'
 }
 
 export function SortableHeader<K extends string>({
@@ -26,6 +27,7 @@ export function SortableHeader<K extends string>({
   onToggle,
   className,
   tooltip,
+  as = 'th',
 }: SortableHeaderProps<K>) {
   const active = sort.key === col
 
@@ -51,16 +53,22 @@ export function SortableHeader<K extends string>({
     </Button>
   )
 
-  return (
-    <th className={cn('border-b border-border', className)}>
-      {tooltip ? (
-        <Tooltip>
-          <TooltipTrigger asChild>{button}</TooltipTrigger>
-          <TooltipContent>{tooltip}</TooltipContent>
-        </Tooltip>
-      ) : (
-        button
-      )}
-    </th>
+  const content = tooltip ? (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  ) : (
+    button
   )
+
+  if (as === 'div') {
+    return (
+      <div role='columnheader' className={className}>
+        {content}
+      </div>
+    )
+  }
+
+  return <th className={cn('border-b border-border', className)}>{content}</th>
 }

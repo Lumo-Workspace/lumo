@@ -48,6 +48,9 @@ type TaskSortKey =
 const GHOST_TRIGGER =
   'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-xs'
 
+const COLUMN_TEMPLATE = '40px minmax(300px, 1fr) 160px 128px 96px 96px 140px'
+const ROW_HEIGHT = 49 // px — rows are single-line (TitleCell truncates)
+
 // ─── Inline title cell ─────────────────────────────────────────────────────────
 
 function TitleCell({
@@ -291,11 +294,6 @@ export function TaskListTable({
     [members]
   )
 
-  // Shared column widths drive both the header and the virtual rows so the
-  // grid stays aligned. Title is the flexible column; the rest are fixed px.
-  const COLUMN_TEMPLATE = '40px minmax(300px, 1fr) 160px 128px 96px 96px 140px'
-  const ROW_HEIGHT = 49 // px — rows are single-line (TitleCell truncates)
-
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualize = shouldVirtualize(sorted.length, LIST_VIRTUALIZE_THRESHOLD)
 
@@ -402,6 +400,7 @@ export function TaskListTable({
             id: 'tasks.tooltip.title',
             defaultMessage: 'Task title.',
           })}
+          as='div'
         />
         <SortableHeader
           col='project'
@@ -416,6 +415,7 @@ export function TaskListTable({
             id: 'tasks.tooltip.project',
             defaultMessage: 'Project this task belongs to.',
           })}
+          as='div'
         />
         <SortableHeader
           col='status'
@@ -431,6 +431,7 @@ export function TaskListTable({
             defaultMessage:
               'Workflow stage: To Do, In Progress, In Review, or Done.',
           })}
+          as='div'
         />
         <SortableHeader
           col='priority'
@@ -445,6 +446,7 @@ export function TaskListTable({
             id: 'tasks.tooltip.priority',
             defaultMessage: 'Priority level: Urgent, High, Medium, or Low.',
           })}
+          as='div'
         />
         <SortableHeader
           col='assignee'
@@ -459,6 +461,7 @@ export function TaskListTable({
             id: 'tasks.tooltip.assignee',
             defaultMessage: 'Person responsible for completing this task.',
           })}
+          as='div'
         />
         <SortableHeader
           col='updatedAt'
@@ -473,6 +476,7 @@ export function TaskListTable({
             id: 'tasks.tooltip.updated',
             defaultMessage: 'Last time this task was modified.',
           })}
+          as='div'
         />
       </div>
 
