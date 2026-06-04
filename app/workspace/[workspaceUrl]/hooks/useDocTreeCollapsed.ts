@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { isMac } from '@/lib/utils/keyboard'
 
 const STORAGE_KEY = 'lumo:docTreeCollapsed'
 
@@ -61,7 +62,6 @@ export function useDocTreeCollapsed(): {
   // Cmd/Ctrl + \ → toggle (Notion convention)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const isMac = /Mac|iPhone|iPad/i.test(navigator.platform)
       const modPressed = isMac ? e.metaKey : e.ctrlKey
       if (modPressed && e.key === '\\') {
         e.preventDefault()

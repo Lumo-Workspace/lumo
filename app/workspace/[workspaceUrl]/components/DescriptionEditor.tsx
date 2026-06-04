@@ -14,6 +14,7 @@ import {
 } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
+import { isMac } from '@/lib/utils/keyboard'
 import { computeActiveTocIndex } from '@/lib/editor/toc-active'
 import {
   DocExtractProvider,
@@ -396,9 +397,6 @@ export function DescriptionEditor({
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[80px]',
       },
       handleKeyDown: (_, event) => {
-        const isMac =
-          typeof navigator !== 'undefined' &&
-          /Mac|iPhone|iPad/i.test(navigator.platform)
         if ((isMac ? event.metaKey : event.ctrlKey) && event.key === 'k') {
           event.preventDefault()
           openLinkInputRef.current?.()
