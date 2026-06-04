@@ -1,4 +1,13 @@
 // __tests__/editor/toggle.test.ts
+// react-intl ships untranspiled ESM; stub it so the toggle-node-view import
+// chain doesn't blow up in jsdom. Mirrors the pattern in callout.test.ts.
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    locale: 'en',
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}))
+
 import {
   Toggle,
   ToggleSummary,
