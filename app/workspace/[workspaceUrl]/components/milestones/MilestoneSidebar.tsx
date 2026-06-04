@@ -1,42 +1,75 @@
 'use client'
 
+import { useId } from 'react'
 import { useIntl } from 'react-intl'
-import type { ApiMilestone } from '@/lib/api-client'
-import { useFormatDate } from '../../hooks/useFormatDate'
-import { STATUS_CLASS, DATE_OPTS } from './milestoneDisplay'
+import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { MilestoneStatus } from '@prisma/client'
+
+const STATUSES: MilestoneStatus[] = [
+  'PLANNED',
+  'ACTIVE',
+  'COMPLETED',
+  'CANCELLED',
+]
 
 interface MilestoneSidebarProps {
   status: ApiMilestone['status']
   startDate: string | null
   targetDate: string | null
-  description: string | null
   archived: boolean
+  onUpdate: (fields: MilestoneUpdateInput) => void
 }
 
-/** Milestone metadata rail. Receives only flat fields (ISP/LoD). */
+/**
+ * Milestone metadata rail. Inline-editable status + dates; receives only flat
+ * fields (ISP/LoD) and reports single-field patches via onUpdate. Read-only
+ * when archived.
+ */
 export function MilestoneSidebar({
   status,
   startDate,
   targetDate,
-  description,
   archived,
+  onUpdate,
 }: MilestoneSidebarProps) {
   const intl = useIntl()
-  const { fmtDate } = useFormatDate()
+  const fieldId = useId()
   return (
     <div className='flex flex-col gap-4 px-4 pb-6 text-sm lg:px-0'>
       <section>
-        <div className='text-xs font-medium text-muted-foreground'>
+        <label
+          htmlFor={`${fieldId}-status`}
+          className='text-xs font-medium text-muted-foreground'
+        >
           {intl.formatMessage({ id: 'milestone.field.status' })}
-        </div>
+        </label>
         <div className='mt-1 flex items-center gap-2'>
-          <span
-            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[status]}`}
+          <Select
+            value={status}
+            onValueChange={v => onUpdate({ status: v as MilestoneStatus })}
+            disabled={archived}
           >
-            {intl.formatMessage({ id: `milestone.status.${status}` })}
-          </span>
+            <SelectTrigger id={`${fieldId}-status`} className='h-7 w-full text-xs'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map(s => (
+                <SelectItem key={s} value={s}>
+                  {intl.formatMessage({ id: `milestone.status.${s}` })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {archived ? (
-            <span className='rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'>
+            <span className='shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'>
               {intl.formatMessage({ id: 'milestone.archived' })}
             </span>
           ) : null}
@@ -44,29 +77,38 @@ export function MilestoneSidebar({
       </section>
 
       <section>
-        <div className='text-xs font-medium text-muted-foreground'>
-          {intl.formatMessage({ id: 'milestone.field.targetDate' })}
-        </div>
-        <div className='mt-1 text-zinc-600 dark:text-zinc-300'>
-          {startDate ? <span>{fmtDate(startDate, DATE_OPTS)} → </span> : null}
-          <span>
-            {targetDate
-              ? fmtDate(targetDate, DATE_OPTS)
-              : intl.formatMessage({ id: 'milestone.targetDate.none' })}
-          </span>
-        </div>
+        <label
+          htmlFor={`${fieldId}-start`}
+          className='text-xs font-medium text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'milestone.field.startDate' })}
+        </label>
+        <Input
+          id={`${fieldId}-start`}
+          type='date'
+          className='mt-1 h-7 text-xs'
+          value={startDate?.slice(0, 10) ?? ''}
+          disabled={archived}
+          onChange={e => onUpdate({ startDate: e.target.value || null })}
+        />
       </section>
 
-      {description ? (
-        <section>
-          <div className='text-xs font-medium text-muted-foreground'>
-            {intl.formatMessage({ id: 'milestone.field.description' })}
-          </div>
-          <p className='mt-1 whitespace-pre-wrap text-zinc-600 dark:text-zinc-300'>
-            {description}
-          </p>
-        </section>
-      ) : null}
+      <section>
+        <label
+          htmlFor={`${fieldId}-target`}
+          className='text-xs font-medium text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'milestone.field.targetDate' })}
+        </label>
+        <Input
+          id={`${fieldId}-target`}
+          type='date'
+          className='mt-1 h-7 text-xs'
+          value={targetDate?.slice(0, 10) ?? ''}
+          disabled={archived}
+          onChange={e => onUpdate({ targetDate: e.target.value || null })}
+        />
+      </section>
     </div>
   )
 }
