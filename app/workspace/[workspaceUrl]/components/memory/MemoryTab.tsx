@@ -80,18 +80,23 @@ export function MemoryTab({ scope, parentId, enabled, memberNames }: MemoryTabPr
 
   return (
     <div className='space-y-3'>
-      <div className='flex items-center justify-between'>
-        <span className='text-xs text-zinc-400'>
-          {intl.formatMessage(
-            { id: 'memory.tab.count', defaultMessage: '{count} memories' },
-            { count: visibleMemories.length }
-          )}
-        </span>
-        <Button size='sm' variant='outline' onClick={() => setDialog({ open: true, mode: 'create' })}>
-          <Plus className='size-3.5 mr-1' />
-          {intl.formatMessage({ id: 'memory.action.add' })}
-        </Button>
-      </div>
+      {/* Header (count + add) is chrome for a populated list. When empty, the
+          empty state below owns the messaging and CTA — rendering the header
+          too would duplicate both the "no memories" label and the add action. */}
+      {visibleMemories.length > 0 && (
+        <div className='flex items-center justify-between'>
+          <span className='text-xs text-zinc-400'>
+            {intl.formatMessage(
+              { id: 'memory.tab.count', defaultMessage: '{count} memories' },
+              { count: visibleMemories.length }
+            )}
+          </span>
+          <Button size='sm' variant='outline' onClick={() => setDialog({ open: true, mode: 'create' })}>
+            <Plus className='size-3.5 mr-1' />
+            {intl.formatMessage({ id: 'memory.action.add' })}
+          </Button>
+        </div>
+      )}
 
       {visibleMemories.length === 0 ? (
         <div className='py-12 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500'>
