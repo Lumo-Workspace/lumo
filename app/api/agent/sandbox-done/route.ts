@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { agentRepository } from '@/lib/repositories/agent.repository'
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // Ignore duplicate callbacks (run already finished)
     if (run.status !== 'WORKING') {
-      console.warn(
+      logger.warn(
         `[agent/sandbox-done] Run ${parsed.data.runId} already in status ${run.status}, ignoring`
       )
       return NextResponse.json({ status: 'already_finished' })

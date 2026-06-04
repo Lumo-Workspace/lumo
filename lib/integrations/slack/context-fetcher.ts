@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import type {
   SlackContextSnapshot,
   SlackContextMessage,
@@ -56,7 +57,7 @@ async function slackPost(
     // .warnings (e.g. "team_id required", "channel migrated"). Log the full
     // payload alongside the params we sent so we can diagnose asymmetric
     // failures (e.g. history works but info fails) without redeploying.
-    console.warn(
+    logger.warn(
       `[slack-api] ${method} failed:`,
       JSON.stringify({ params: body, response: json })
     )
@@ -143,7 +144,7 @@ export async function resolveUsers(
         // to the user id. Log the cause so missing scopes / rate limits are
         // diagnosable; UI will render `@<userId>` until the user re-installs
         // the bot with the right scopes.
-        console.warn(
+        logger.warn(
           `[slack-fetcher] users.info failed for ${id}:`,
           e instanceof Error ? e.message : e
         )
@@ -167,7 +168,7 @@ export async function resolveChannelName(
   } catch (e) {
     // Falls back to the placeholder "#channel" label. Log the cause so
     // missing groups:read / channels:read scopes are visible server-side.
-    console.warn(
+    logger.warn(
       `[slack-fetcher] conversations.info failed for ${channelId}:`,
       e instanceof Error ? e.message : e
     )

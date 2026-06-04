@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { fetchOpenGraph } from '@/lib/integrations/og-metadata/fetch'
 import { fetchOpenGraphChromium } from '@/lib/integrations/og-metadata/fetch-chromium'
@@ -26,7 +27,7 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
   const fast = await fetchOpenGraph(url)
   if (fast.ok) return fast
   if (!shouldEscalateToChromium(fast.error)) return fast
-  console.info(
+  logger.info(
     `[og] escalating to chromium: ${new URL(url).hostname} reason=${fast.error}`
   )
   return fetchOpenGraphChromium(url)

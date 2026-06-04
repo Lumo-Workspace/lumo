@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 
@@ -15,7 +16,7 @@ async function resolveInstallationId(workspaceId?: string): Promise<number> {
     const row =
       await githubAppInstallationRepository.findByWorkspace(workspaceId)
     if (row) return row.installationId
-    console.warn(
+    logger.warn(
       `[github/auth] no GitHubAppInstallation for workspace ${workspaceId}; falling back to GITHUB_APP_INSTALLATION_ID`
     )
   }

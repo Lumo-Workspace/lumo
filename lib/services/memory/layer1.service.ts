@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { getLayer1Input } from './layer1-input'
 import { extractLayer1Operations } from './layer1-extract'
 import { applyLayer1Operations } from './layer1-apply'
@@ -23,19 +24,19 @@ export const layer1Service = {
   async triggerLayer1Extraction(input: TriggerLayer1Input): Promise<void> {
     try {
       if (!input.taskId) {
-        console.log(
+        logger.debug(
           `[memory.layer1] skip session=${input.sessionId} reason=no-task-tag`
         )
         return
       }
 
-      console.log(
+      logger.debug(
         `[memory.layer1] triggered session=${input.sessionId} task=${input.taskId}`
       )
 
       const layer1Input = await getLayer1Input(input.sessionId, input.taskId)
       if (!layer1Input) {
-        console.log(
+        logger.debug(
           `[memory.layer1] skip session=${input.sessionId} reason=no-input`
         )
         return
@@ -43,7 +44,7 @@ export const layer1Service = {
 
       const operations = await extractLayer1Operations(layer1Input)
       if (operations.length === 0) {
-        console.log(
+        logger.debug(
           `[memory.layer1] no-ops session=${input.sessionId} (LLM returned empty list)`
         )
         return
@@ -64,7 +65,7 @@ export const layer1Service = {
         })),
       })
 
-      console.log(
+      logger.debug(
         `[memory.layer1] applied session=${input.sessionId} task=${input.taskId}`,
         result
       )

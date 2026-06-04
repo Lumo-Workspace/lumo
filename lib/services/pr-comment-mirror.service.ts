@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { decrypt } from '@/lib/crypto'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
@@ -752,7 +753,7 @@ async function runInboundUpdate(
 
   if (T > L) {
     // GH timestamp is newer than local edit → GH wins
-    console.warn('pr-mirror conflict: inbound wins', {
+    logger.warn('pr-mirror conflict: inbound wins', {
       mirrorId: existing.id,
       L: L.toISOString(),
       M: M.toISOString(),

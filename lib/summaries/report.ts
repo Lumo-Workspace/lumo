@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -250,7 +251,7 @@ export async function generateProjectReport(
 
   const parsed = parseReport(object.report, ctx.locale)
   if (parsed.todayFocus.length === 0 && !parsed.riskNarrative) {
-    console.warn(
+    logger.warn(
       'generateProjectReport: report did not match two-section format',
       { locale: ctx.locale, projectName: ctx.projectName }
     )
@@ -277,7 +278,7 @@ export async function generateWorkspaceReport(
 
   const parsed = parseReport(object.report, ctx.locale)
   if (parsed.todayFocus.length === 0 && !parsed.riskNarrative) {
-    console.warn(
+    logger.warn(
       'generateWorkspaceReport: report did not match two-section format',
       { locale: ctx.locale, workspaceName: ctx.workspaceName }
     )
