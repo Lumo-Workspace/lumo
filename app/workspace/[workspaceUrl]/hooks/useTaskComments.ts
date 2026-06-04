@@ -45,7 +45,14 @@ export function useTaskComments({
     },
     initialData: () =>
       readCache<ApiComment[]>(CACHE_KEY.comments(taskId)) ?? undefined,
-    staleTime: 0,
+    // The localStorage seed is from a prior session and may be stale, so mark
+    // it as fetched-at-epoch: the first mount always refetches to freshen.
+    // A short staleTime then dedupes redundant refetches within a session —
+    // sibling observers and reopening the same task panel reuse the cache.
+    // Comments have no Pusher channel, so keep the window short (30s) to pick
+    // up other members' comments soon after they post.
+    initialDataUpdatedAt: 0,
+    staleTime: 30_000,
   })
 
   const comments = query.data ?? []
