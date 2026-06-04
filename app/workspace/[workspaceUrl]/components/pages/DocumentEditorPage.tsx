@@ -57,6 +57,16 @@ function formatRelativeTime(dateStr: string, locale: string = 'en'): string {
   })
 }
 
+/**
+ * Trailing-edge debounce for serializing the document into onChange. Documents
+ * can be large, so we keep the full-document getHTML() off the keystroke hot
+ * path. On blur the editor drops the pending serialize and onCommit
+ * (handleContentCommit → immediate save) finalizes, and the downstream save is
+ * debounced separately, so this only governs how often we serialize while
+ * actively typing.
+ */
+const CONTENT_SERIALIZE_DEBOUNCE_MS = 300
+
 export function DocumentEditorPage({
   documentId,
   onNavigateToDocument,
@@ -435,6 +445,7 @@ export function DocumentEditorPage({
                 value={doc.content}
                 onCommit={handleContentCommit}
                 onChange={handleContentChange}
+                onChangeDebounceMs={CONTENT_SERIALIZE_DEBOUNCE_MS}
                 placeholder={intl.formatMessage({
                   id: 'documents.editorPlaceholder',
                   defaultMessage: 'Type / for commands…',

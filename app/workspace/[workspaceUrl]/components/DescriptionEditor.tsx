@@ -13,6 +13,7 @@ import {
   type TableOfContentData,
 } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
+import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
 import {
   DocExtractProvider,
   buildStampPending,
@@ -137,6 +138,18 @@ interface DescriptionEditorProps {
    * onCreate, when the parent ref is typically still null.
    */
   tocScrollRoot?: HTMLElement | null
+  /**
+   * Debounce window (ms) for serializing the document into the `onChange`
+   * callback. Defaults to `0` = eager: `getHTML()` runs on every keystroke,
+   * preserving the original contract. Large-document callers (e.g. the doc
+   * editor) can opt into a trailing-edge debounce so the expensive full-document
+   * serialization stays off the hot keystroke path. The debounced `onChange` is
+   * a live/draft channel only: on blur the pending value is cancelled and the
+   * authoritative `onCommit` (always called with the latest `getHTML()`)
+   * finalizes. Leave unset for small editors (comments) where a debounce would
+   * risk a stale read on focused keyboard-submit and saves nothing.
+   */
+  onChangeDebounceMs?: number
 }
 
 /** Low-level: POST the file to Vercel Blob; returns the public CDN URL or null. */
@@ -239,6 +252,7 @@ export function DescriptionEditor({
   documentId,
   onTocUpdate,
   tocScrollRoot,
+  onChangeDebounceMs,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -299,6 +313,33 @@ export function DescriptionEditor({
   const [menuElement] = useState<HTMLDivElement | null>(() =>
     typeof document !== 'undefined' ? document.createElement('div') : null
   )
+
+  // Keep the latest onChange reachable from the (created-once) editor callbacks.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  // Coalesce the expensive full-document getHTML() out of the per-keystroke hot
+  // path. The serializer reads the *latest* editor lazily (only when a pending
+  // change flushes) so a doc-switch never serializes a stale instance.
+  // Recreated only when the debounce window changes; a ref keeps the once-built
+  // editor callbacks pointing at the current instance.
+  const serializer = useMemo(
+    () =>
+      createDebouncedSerializer(
+        () => {
+          const ed = editorRef.current
+          return !ed || ed.isEmpty ? null : ed.getHTML()
+        },
+        html => onChangeRef.current?.(html),
+        onChangeDebounceMs ?? 0
+      ),
+    [onChangeDebounceMs]
+  )
+  const serializerRef = useRef(serializer)
+  serializerRef.current = serializer
+  // Drop any pending timer when the serializer is replaced (debounce prop
+  // changed) or on unmount, so it can never fire into a torn-down editor.
+  useEffect(() => () => serializer.cancel(), [serializer])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -395,6 +436,12 @@ export function DescriptionEditor({
     },
     onBlur: ({ editor }) => {
       isFocusedRef.current = false
+      // Drop any pending debounced onChange — the onCommit below is the
+      // authoritative finalize and always reads the latest getHTML(). Flushing
+      // instead would deliver the same content through onChange first, which a
+      // dedupe-on-last-value commit handler would then treat as a no-op and skip
+      // the immediate save.
+      serializerRef.current.cancel()
       const commit = () => {
         const html = editor.isEmpty ? null : editor.getHTML()
         onCommit(html)
@@ -407,8 +454,12 @@ export function DescriptionEditor({
         commit()
       }
     },
-    onUpdate: ({ editor }) => {
-      onChange?.(editor.isEmpty ? null : editor.getHTML())
+    onUpdate: () => {
+      // Route serialization through the serializer so getHTML() stays off the
+      // keystroke hot path when a caller opts into onChangeDebounceMs. Skipped
+      // when there's no onChange listener (the optional call would no-op, and we
+      // must not pay for getHTML() — matching the original short-circuit).
+      if (onChangeRef.current) serializerRef.current.schedule()
     },
   })
 
