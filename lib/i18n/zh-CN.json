@@ -1139,6 +1139,8 @@
   "editor.alignRight": "右对齐",
   "editor.inlineCode": "行内代码",
   "editor.codeBlock": "代码块",
+  "editor.codeBlock.languageLabel": "代码语言",
+  "editor.codeBlock.plainText": "纯文本",
   "editor.quote": "引用",
   "editor.insertTable": "插入表格",
   "editor.insertImage": "插入图片",

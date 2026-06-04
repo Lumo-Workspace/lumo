@@ -1139,6 +1139,8 @@
   "editor.alignRight": "Rata kanan",
   "editor.inlineCode": "Kode sebaris",
   "editor.codeBlock": "Blok kode",
+  "editor.codeBlock.languageLabel": "Bahasa kode",
+  "editor.codeBlock.plainText": "Teks biasa",
   "editor.quote": "Kutipan",
   "editor.insertTable": "Sisipkan tabel",
   "editor.insertImage": "Sisipkan gambar",

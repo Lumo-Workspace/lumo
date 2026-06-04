@@ -1139,6 +1139,8 @@
   "editor.alignRight": "靠右對齊",
   "editor.inlineCode": "行內程式碼",
   "editor.codeBlock": "程式碼區塊",
+  "editor.codeBlock.languageLabel": "程式碼語言",
+  "editor.codeBlock.plainText": "純文字",
   "editor.quote": "引用",
   "editor.insertTable": "插入表格",
   "editor.insertImage": "插入圖片",

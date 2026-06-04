@@ -44,7 +44,7 @@ const customJestConfig = {
 module.exports = async () => {
   const config = await createJestConfig(customJestConfig)()
   config.transformIgnorePatterns = [
-    '/node_modules/(?!(marked|@lobehub/icons)/)',
+    '/node_modules/(?!(marked|@lobehub/icons|lowlight|highlight\\.js|devlop)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ]
   return config

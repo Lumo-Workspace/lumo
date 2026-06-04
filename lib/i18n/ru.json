@@ -1139,6 +1139,8 @@
   "editor.alignRight": "По правому краю",
   "editor.inlineCode": "Встроенный код",
   "editor.codeBlock": "Блок кода",
+  "editor.codeBlock.languageLabel": "Язык кода",
+  "editor.codeBlock.plainText": "Простой текст",
   "editor.quote": "Цитата",
   "editor.insertTable": "Вставить таблицу",
   "editor.insertImage": "Вставить изображение",

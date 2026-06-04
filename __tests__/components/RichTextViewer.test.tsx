@@ -1,5 +1,14 @@
 /** @jest-environment jsdom */
 
+// The code-block node view (reachable via getBaseExtensions) imports react-intl,
+// which ships untranspiled ESM; stub it. Mirrors other component suites.
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    locale: 'en',
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}))
+
 import { render, screen } from '@testing-library/react'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
