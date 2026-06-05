@@ -63,6 +63,27 @@ export const documentCommentService = {
 
     const isReply = !!input.parentId
 
+    if (isReply) {
+      const parentId = input.parentId
+      const parent = await documentCommentRepository.findById(parentId!)
+      if (!parent || parent.deletedAt) {
+        throw Object.assign(new Error('Parent comment not found'), {
+          status: 404,
+        })
+      }
+      if (parent.documentId !== documentId) {
+        throw Object.assign(
+          new Error('Parent comment belongs to another document'),
+          { status: 400 }
+        )
+      }
+      if (parent.parentId !== null) {
+        throw Object.assign(new Error('Cannot reply to a reply'), {
+          status: 400,
+        })
+      }
+    }
+
     if (!isReply) {
       if (!input.content) {
         throw Object.assign(

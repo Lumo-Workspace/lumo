@@ -155,6 +155,12 @@ describe('createCommentWithSideEffects (top-level)', () => {
 
 describe('createCommentWithSideEffects (reply)', () => {
   it('does not patch content for a reply', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      deletedAt: null,
+    } as never)
     repo.create.mockResolvedValue({ id: 'c2' } as never)
     await documentCommentService.createCommentWithSideEffects({
       documentId: 'd1',
@@ -168,6 +174,59 @@ describe('createCommentWithSideEffects (reply)', () => {
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'c2', parentId: 'c1' })
     )
+  })
+
+  it('rejects a reply whose parent is in another document (400)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'cX',
+      documentId: 'OTHER_DOC',
+      parentId: null,
+      deletedAt: null,
+    } as never)
+    await expect(
+      documentCommentService.createCommentWithSideEffects({
+        documentId: 'd1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        authorActorId: 'a-viewer',
+        input: { id: 'c2', body: 'reply', parentId: 'cX' },
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 400 })
+    expect(repo.create).not.toHaveBeenCalled()
+  })
+
+  it('rejects a reply to a reply (400)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'cR',
+      documentId: 'd1',
+      parentId: 'c1',
+      deletedAt: null,
+    } as never)
+    await expect(
+      documentCommentService.createCommentWithSideEffects({
+        documentId: 'd1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        authorActorId: 'a-viewer',
+        input: { id: 'c2', body: 'reply', parentId: 'cR' },
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects a reply to a missing/deleted parent (404)', async () => {
+    repo.findById.mockResolvedValue(null as never)
+    await expect(
+      documentCommentService.createCommentWithSideEffects({
+        documentId: 'd1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        authorActorId: 'a-viewer',
+        input: { id: 'c2', body: 'reply', parentId: 'cZ' },
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 404 })
   })
 })
 
