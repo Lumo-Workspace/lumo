@@ -62,7 +62,7 @@ export function DraftsPage({
     <div className='flex-1 flex flex-col overflow-hidden'>
       <PageBreadcrumb title={intl.formatMessage({ id: 'drafts.title' })} />
       <div className='flex-1 overflow-y-auto p-6'>
-        <div className='max-w-3xl mx-auto'>
+        <div className='max-w-3xl'>
           {/* Tabs */}
           <div className='flex gap-1 mb-6'>
             <button
