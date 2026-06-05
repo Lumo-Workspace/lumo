@@ -1372,6 +1372,7 @@
   "document.resolve": "解決",
   "document.reopen": "再開",
   "document.commentOrphaned": "元のテキストが削除されました",
+  "document.commentDeleted": "[削除済み]",
   "document.showResolved": "解決済みを表示",
   "document.outline": "アウトライン"
 }

@@ -93,6 +93,63 @@ it('optimistically edits a comment body', async () => {
   await waitFor(() => expect(result.current.comments[0]!.body).toBe('new'))
 })
 
+it('keeps replies when editing a parent whose server row omits replies (bug 1)', async () => {
+  // The update repo call only returns AUTHOR_SELECT (no replies). onSuccess must
+  // merge the fresh body while preserving the existing replies from cache, not
+  // wipe them by wholesale-replacing the node with the reply-less server row.
+  api.list.mockResolvedValue({
+    comments: [
+      {
+        id: 'c1',
+        body: 'old',
+        parentId: null,
+        replies: [{ id: 'r1', body: 'a reply', parentId: 'c1', replies: [] }],
+      },
+    ],
+  } as never)
+  api.update.mockResolvedValue({
+    comment: { id: 'c1', body: 'new', parentId: null }, // no replies field
+  } as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.updateComment('c1', 'new')
+  })
+  await waitFor(() => expect(result.current.comments[0]!.body).toBe('new'))
+  expect(result.current.comments[0]!.replies).toHaveLength(1)
+  expect(result.current.comments[0]!.replies![0]!.id).toBe('r1')
+})
+
+it('tombstones a deleted parent that has replies, keeping the replies (bug 3)', async () => {
+  api.list.mockResolvedValue({
+    comments: [
+      {
+        id: 'c1',
+        body: 'top',
+        parentId: null,
+        deletedAt: null,
+        replies: [{ id: 'r1', body: 'y', parentId: 'c1', replies: [] }],
+      },
+    ],
+  } as never)
+  api.remove.mockResolvedValue(undefined as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.deleteComment('c1')
+  })
+  // Parent stays (as a tombstone), replies preserved — not hard-removed.
+  await waitFor(() =>
+    expect(result.current.comments[0]!.deletedAt).toBeTruthy()
+  )
+  expect(result.current.comments).toHaveLength(1)
+  expect(result.current.comments[0]!.replies).toHaveLength(1)
+})
+
 it('optimistically removes a comment', async () => {
   api.list.mockResolvedValue({
     comments: [{ id: 'c1', body: 'x', parentId: null, replies: [] }],

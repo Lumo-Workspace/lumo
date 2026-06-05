@@ -27,7 +27,15 @@ const AUTHOR_SELECT = {
 export const documentCommentRepository = {
   async findByDocumentId(documentId: string) {
     return prisma.documentComment.findMany({
-      where: { documentId, parentId: null, deletedAt: null },
+      // Surface live top-level threads, plus soft-deleted parents that still
+      // have at least one live reply — those render as a "[deleted]" tombstone
+      // so their replies stay reachable instead of becoming orphan rows.
+      // Childless soft-deleted parents (OR both false) remain hidden.
+      where: {
+        documentId,
+        parentId: null,
+        OR: [{ deletedAt: null }, { replies: { some: { deletedAt: null } } }],
+      },
       include: {
         ...AUTHOR_SELECT,
         replies: {

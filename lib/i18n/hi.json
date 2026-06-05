@@ -1372,6 +1372,7 @@
   "document.resolve": "हल करें",
   "document.reopen": "फिर से खोलें",
   "document.commentOrphaned": "मूल पाठ हटा दिया गया",
+  "document.commentDeleted": "[हटाया गया]",
   "document.showResolved": "हल किए गए दिखाएँ",
   "document.outline": "रूपरेखा"
 }

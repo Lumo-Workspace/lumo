@@ -1372,6 +1372,7 @@
   "document.resolve": "Giải quyết",
   "document.reopen": "Mở lại",
   "document.commentOrphaned": "Văn bản gốc đã bị xóa",
+  "document.commentDeleted": "[Đã xóa]",
   "document.showResolved": "Hiện mục đã giải quyết",
   "document.outline": "Dàn ý"
 }

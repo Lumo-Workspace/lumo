@@ -1372,6 +1372,7 @@
   "document.resolve": "Selesaikan",
   "document.reopen": "Buka semula",
   "document.commentOrphaned": "Teks asal dipadam",
+  "document.commentDeleted": "[Dipadam]",
   "document.showResolved": "Tunjuk yang selesai",
   "document.outline": "Rangka"
 }

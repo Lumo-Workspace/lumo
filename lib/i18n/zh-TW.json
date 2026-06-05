@@ -1372,6 +1372,7 @@
   "document.resolve": "解決",
   "document.reopen": "重新開啟",
   "document.commentOrphaned": "原文已刪除",
+  "document.commentDeleted": "[已刪除]",
   "document.showResolved": "顯示已解決",
   "document.outline": "大綱"
 }

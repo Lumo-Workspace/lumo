@@ -292,7 +292,10 @@ export const documentCommentService = {
     )
     if (!doc) notFound()
 
-    if (existing.authorActorId && existing.authorActorId !== args.actorId) {
+    // Author-only. A null authorActorId means no owner can be established, so
+    // nobody may edit — the old `authorActorId && ...` guard short-circuited on
+    // null and let any workspace member through.
+    if (!existing.authorActorId || existing.authorActorId !== args.actorId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
 
@@ -326,7 +329,8 @@ export const documentCommentService = {
     )
     if (!doc) notFound()
 
-    if (existing.authorActorId && existing.authorActorId !== args.actorId) {
+    // Author-only — reject a null-author comment for everyone (see update above).
+    if (!existing.authorActorId || existing.authorActorId !== args.actorId) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
 
@@ -389,6 +393,9 @@ export const documentCommentService = {
     const orphanIds: string[] = []
     const healedIds: string[] = []
     for (const t of threads) {
+      // Tombstoned parents (kept alive only to host live replies) have had their
+      // anchor span stripped already — never flag them as orphaned.
+      if (t.deletedAt) continue
       if (!present.has(t.id) && !t.isOrphaned) orphanIds.push(t.id)
       if (present.has(t.id) && t.isOrphaned) healedIds.push(t.id)
     }

@@ -1372,6 +1372,7 @@
   "document.resolve": "Selesaikan",
   "document.reopen": "Buka kembali",
   "document.commentOrphaned": "Teks asli dihapus",
+  "document.commentDeleted": "[Dihapus]",
   "document.showResolved": "Tampilkan yang selesai",
   "document.outline": "Kerangka"
 }

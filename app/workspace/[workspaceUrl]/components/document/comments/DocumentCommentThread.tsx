@@ -46,7 +46,9 @@ function Row({
   const editRef = useRef<string | null>(null)
   const clearRef = useRef<(() => void) | null>(null)
   const author = resolveCommentAuthor(c, members, agentActors)
-  const isAuthor = !!currentActorId && c.authorActorId === currentActorId
+  const isDeleted = !!c.deletedAt
+  const isAuthor =
+    !isDeleted && !!currentActorId && c.authorActorId === currentActorId
   const memberProp = members.length ? { members } : {}
   return (
     <div className='py-1'>
@@ -57,7 +59,11 @@ function Row({
           initials={author.initials}
           size='sm'
         />
-        {editing ? (
+        {isDeleted ? (
+          <div className='text-sm italic text-muted-foreground'>
+            {intl.formatMessage({ id: 'document.commentDeleted' })}
+          </div>
+        ) : editing ? (
           <div className='flex-1'>
             <CommentEditor
               onCommit={h => {
