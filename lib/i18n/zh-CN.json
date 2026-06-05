@@ -1361,6 +1361,8 @@
   "documentHistory.close": "关闭",
   "documentHistory.loading": "加载中…",
   "documentHistory.selectPrompt": "选择一个版本与当前文档对比。",
+  "documentHistory.savedVersion": "已保存版本",
+  "documentHistory.saveFailed": "无法保存版本",
   "document.comments": "评论",
   "document.noComments": "还没有评论",
   "document.replies": "条回复",

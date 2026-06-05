@@ -1360,6 +1360,8 @@
   "documentHistory.close": "Закрыть",
   "documentHistory.loading": "Загрузка…",
   "documentHistory.selectPrompt": "Выберите версию для сравнения с текущим документом.",
+  "documentHistory.savedVersion": "Версия сохранена",
+  "documentHistory.saveFailed": "Не удалось сохранить версию",
   "editor.comment": "Комментировать",
   "document.comments": "Комментарии",
   "document.noComments": "Пока нет комментариев",

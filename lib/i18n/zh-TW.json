@@ -1360,6 +1360,8 @@
   "documentHistory.close": "關閉",
   "documentHistory.loading": "載入中…",
   "documentHistory.selectPrompt": "選擇一個版本與目前文件對比。",
+  "documentHistory.savedVersion": "已儲存版本",
+  "documentHistory.saveFailed": "無法儲存版本",
   "editor.comment": "評論",
   "document.comments": "評論",
   "document.noComments": "還沒有評論",
