@@ -46,7 +46,9 @@ export function parseTaskViewConfig(
     if (!parsed || typeof parsed !== 'object') return DEFAULT_TASK_VIEW_CONFIG
     const obj = parsed as Record<string, unknown>
     const filters =
-      obj.filters && typeof obj.filters === 'object'
+      obj.filters &&
+      typeof obj.filters === 'object' &&
+      !Array.isArray(obj.filters)
         ? (obj.filters as WorkspaceTaskFilterArgs)
         : {}
     return {

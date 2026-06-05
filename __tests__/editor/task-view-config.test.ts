@@ -35,4 +35,10 @@ describe('parseTaskViewConfig', () => {
     expect(parseTaskViewConfig(JSON.stringify({ filters: 5 })).filters).toEqual({})
     expect(parseTaskViewConfig(JSON.stringify({})).filters).toEqual({})
   })
+
+  it('rejects an array as filters (not a plain object)', () => {
+    expect(
+      parseTaskViewConfig(JSON.stringify({ filters: ['a', 'b'] })).filters
+    ).toEqual({})
+  })
 })
