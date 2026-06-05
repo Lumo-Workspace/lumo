@@ -70,6 +70,11 @@ export const API = {
     comments: (docId: string) => `/api/documents/${docId}/comments`,
     comment: (docId: string, commentId: string) =>
       `/api/documents/${docId}/comments/${commentId}`,
+    revisions: (docId: string) => `/api/documents/${docId}/revisions`,
+    revisionById: (docId: string, revId: string) =>
+      `/api/documents/${docId}/revisions/${revId}`,
+    revisionRestore: (docId: string, revId: string) =>
+      `/api/documents/${docId}/revisions/${revId}/restore`,
   },
   documentTemplates: {
     list: '/api/document-templates',

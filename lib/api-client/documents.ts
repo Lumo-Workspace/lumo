@@ -90,3 +90,26 @@ export const documentCommentsApi = {
     })
   },
 }
+
+export const documentRevisionsApi = {
+  list<T>(docId: string) {
+    return apiFetch<T>(API.documents.revisions(docId))
+  },
+
+  get<T>(docId: string, revId: string) {
+    return apiFetch<T>(API.documents.revisionById(docId, revId))
+  },
+
+  createManual<T>(docId: string, data: { label: string }) {
+    return apiFetch<T>(API.documents.revisions(docId), {
+      method: 'POST',
+      body: data,
+    })
+  },
+
+  restore<T>(docId: string, revId: string) {
+    return apiFetch<T>(API.documents.revisionRestore(docId, revId), {
+      method: 'POST',
+    })
+  },
+}

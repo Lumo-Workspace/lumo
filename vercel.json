@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/roll-sprints",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/prune-document-revisions",
+      "schedule": "0 3 * * *"
     }
   ]
 }

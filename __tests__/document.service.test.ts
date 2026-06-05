@@ -48,6 +48,13 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
   },
 }))
 
+const mockSnapshotOnSave = jest.fn()
+jest.mock('@/lib/services/documentRevision.service', () => ({
+  documentRevisionService: {
+    snapshotOnSave: (...a: any[]) => mockSnapshotOnSave(...a),
+  },
+}))
+
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findByWorkspaceIdentifier: (...args: any[]) =>
@@ -87,7 +94,12 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  // snapshotOnSave is awaited inside waitUntil(...).catch(); it must return a
+  // promise. clearAllMocks() resets the implementation each test, so re-arm it.
+  mockSnapshotOnSave.mockResolvedValue(undefined)
+})
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -265,6 +277,37 @@ describe('documentService', () => {
         undefined,
         undefined
       )
+    })
+  })
+
+  describe('updateDocument revision capture', () => {
+    it('schedules a snapshot when content changes', async () => {
+      mockFindWithPermission.mockResolvedValue({
+        id: 'd1', number: 1, createdById: 'm1', shares: [],
+      })
+      mockUpdateWithChildrenAndMentions.mockResolvedValue({
+        id: 'd1', title: 'T', emoji: null, content: '<p>new</p>',
+      })
+      await documentService.updateDocument('d1', 'm1', 'ws1', {
+        content: '<p>new</p>',
+      })
+      expect(mockSnapshotOnSave).toHaveBeenCalledWith(
+        'd1', 'ws1', 'm1',
+        expect.objectContaining({ content: '<p>new</p>', title: 'T', emoji: null }),
+        undefined,
+        { forceNewRevision: false }
+      )
+    })
+
+    it('does NOT schedule a snapshot for a title-only change', async () => {
+      mockFindWithPermission.mockResolvedValue({
+        id: 'd1', number: 1, createdById: 'm1', shares: [],
+      })
+      mockUpdateWithChildrenAndMentions.mockResolvedValue({
+        id: 'd1', title: 'T2', emoji: null, content: null,
+      })
+      await documentService.updateDocument('d1', 'm1', 'ws1', { title: 'T2' })
+      expect(mockSnapshotOnSave).not.toHaveBeenCalled()
     })
   })
 

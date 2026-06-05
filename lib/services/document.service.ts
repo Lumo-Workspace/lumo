@@ -15,6 +15,7 @@ import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { documentTemplateService } from '@/lib/services/document-template.service'
+import { documentRevisionService } from '@/lib/services/documentRevision.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
 
@@ -376,6 +377,16 @@ export const documentService = {
       // and cache it. Convert the stored HTML to markdown for the LLM.
       const bodyText = renderContentToMarkdown(content)
       if (bodyText) scheduleDocumentSummary(document.id, bodyText)
+      // Seed the first version (LUM-227) — the protected baseline.
+      waitUntil(
+        documentRevisionService
+          .snapshotOnSave(document.id, workspaceId, memberId, {
+            content,
+            title: document.title,
+            emoji: document.emoji ?? null,
+          })
+          .catch(() => {})
+      )
     }
 
     if (data.tagIds && data.tagIds.length > 0) {
@@ -412,7 +423,8 @@ export const documentService = {
     id: string,
     memberId: string,
     workspaceId: string,
-    data: UpdateDocumentInput
+    data: UpdateDocumentInput,
+    options: { forceNewRevision?: boolean } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
       id,
@@ -510,6 +522,24 @@ export const documentService = {
       // too). A null/empty body short-circuits inside the schedule helper.
       const bodyText = renderContentToMarkdown(data.content)
       if (bodyText) scheduleDocumentSummary(docId, bodyText)
+      // Capture a version snapshot in the background (LUM-227). Never blocks
+      // the response; snapshotOnSave no-ops when content is unchanged.
+      waitUntil(
+        documentRevisionService
+          .snapshotOnSave(
+            docId,
+            workspaceId,
+            memberId,
+            {
+              content: data.content,
+              title: updated.title,
+              emoji: updated.emoji,
+            },
+            undefined,
+            { forceNewRevision: options.forceNewRevision ?? false }
+          )
+          .catch(() => {})
+      )
     }
 
     // Attach tags to response — only query when tags were actually touched
