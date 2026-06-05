@@ -36,6 +36,35 @@ export interface CreateDocCommentArgs {
   content?: string | undefined
 }
 
+/** Apply fn to the matching comment anywhere in the thread tree; fn=>null deletes it. */
+export function mapThread(
+  list: ApiDocumentComment[],
+  id: string,
+  fn: (c: ApiDocumentComment) => ApiDocumentComment | null
+): ApiDocumentComment[] {
+  const out: ApiDocumentComment[] = []
+  for (const t of list) {
+    if (t.id === id) {
+      const next = fn(t)
+      if (next) out.push(next)
+      continue
+    }
+    const replies = t.replies ?? []
+    const idx = replies.findIndex(r => r.id === id)
+    if (idx >= 0) {
+      const r = replies[idx]!
+      const nr = fn(r)
+      const nextReplies = nr
+        ? replies.map(x => (x.id === id ? nr : x))
+        : replies.filter(x => x.id !== id)
+      out.push({ ...t, replies: nextReplies })
+    } else {
+      out.push(t)
+    }
+  }
+  return out
+}
+
 export function useDocumentComments(documentId: string, enabled = true) {
   const queryClient = useQueryClient()
   const key = queryKeys.documentComments(documentId)
@@ -115,11 +144,99 @@ export function useDocumentComments(documentId: string, enabled = true) {
     },
   })
 
+  const updateMutation = useMutation<
+    ApiDocumentComment,
+    Error,
+    { commentId: string; body: string },
+    { previous: ApiDocumentComment[] | undefined }
+  >({
+    mutationFn: async ({ commentId, body }) => {
+      const res = await documentCommentsApi.update<{
+        comment: ApiDocumentComment
+      }>(documentId, commentId, { body })
+      return res.comment
+    },
+    onMutate: async ({ commentId, body }) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<ApiDocumentComment[]>(key)
+      queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
+        mapThread(old ?? [], commentId, c => ({ ...c, body }))
+      )
+      return { previous }
+    },
+    onError: (_e, _args, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(key, ctx.previous)
+    },
+    onSuccess: real => {
+      queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
+        mapThread(old ?? [], real.id, () => real)
+      )
+    },
+  })
+
+  const deleteMutation = useMutation<
+    void,
+    Error,
+    { commentId: string },
+    { previous: ApiDocumentComment[] | undefined }
+  >({
+    mutationFn: async ({ commentId }) => {
+      await documentCommentsApi.remove(documentId, commentId)
+    },
+    onMutate: async ({ commentId }) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<ApiDocumentComment[]>(key)
+      queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
+        mapThread(old ?? [], commentId, () => null)
+      )
+      return { previous }
+    },
+    onError: (_e, _args, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(key, ctx.previous)
+    },
+  })
+
+  const statusMutation = useMutation<
+    ApiDocumentComment,
+    Error,
+    { commentId: string; status: 'OPEN' | 'RESOLVED' },
+    { previous: ApiDocumentComment[] | undefined }
+  >({
+    mutationFn: async ({ commentId, status }) => {
+      const res = await documentCommentsApi.setStatus<{
+        comment: ApiDocumentComment
+      }>(documentId, commentId, status)
+      return res.comment
+    },
+    onMutate: async ({ commentId, status }) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<ApiDocumentComment[]>(key)
+      queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
+        mapThread(old ?? [], commentId, c => ({ ...c, status }))
+      )
+      return { previous }
+    },
+    onError: (_e, _args, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(key, ctx.previous)
+    },
+    onSuccess: real => {
+      queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
+        mapThread(old ?? [], real.id, () => real)
+      )
+    },
+  })
+
   return {
     comments: query.data ?? [],
     isLoading: query.isLoading,
     error: query.error,
     create: createMutation.mutateAsync,
     refetch: query.refetch,
+    updateComment: (commentId: string, body: string) =>
+      updateMutation.mutateAsync({ commentId, body }),
+    deleteComment: (commentId: string) =>
+      deleteMutation.mutateAsync({ commentId }),
+    setStatus: (commentId: string, status: 'OPEN' | 'RESOLVED') =>
+      statusMutation.mutateAsync({ commentId, status }),
   }
 }

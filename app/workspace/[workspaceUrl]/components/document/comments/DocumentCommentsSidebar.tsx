@@ -1,11 +1,9 @@
 'use client'
+import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
-import { CommentAvatar } from '@/app/workspace/[workspaceUrl]/components/CommentAvatar'
-import {
-  resolveCommentAuthor,
-  type AgentActorInfo,
-} from '@/app/workspace/[workspaceUrl]/components/comment-utils'
+import { DocumentCommentThread } from '@/app/workspace/[workspaceUrl]/components/document/comments/DocumentCommentThread'
+import { type AgentActorInfo } from '@/app/workspace/[workspaceUrl]/components/comment-utils'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 
 export interface DocumentCommentsSidebarProps {
@@ -13,11 +11,17 @@ export interface DocumentCommentsSidebarProps {
   members: WorkspaceMemberInfo[]
   agentActors: AgentActorInfo[]
   currentActorId: string | null | undefined
-  onSelectThread?: (commentId: string) => void
+  onReply: (parentId: string, body: string) => void
+  onEdit: (id: string, body: string) => void
+  onDelete: (id: string) => void
+  onSetStatus: (id: string, status: 'OPEN' | 'RESOLVED') => void
+  onSelectThread: (id: string) => void
 }
 
 export function DocumentCommentsSidebar(props: DocumentCommentsSidebarProps) {
   const intl = useIntl()
+  const [showResolved, setShowResolved] = useState(false)
+
   if (props.comments.length === 0) {
     return (
       <div className='p-3 text-sm text-muted-foreground'>
@@ -25,43 +29,35 @@ export function DocumentCommentsSidebar(props: DocumentCommentsSidebarProps) {
       </div>
     )
   }
+
+  const visible = showResolved
+    ? props.comments
+    : props.comments.filter(c => c.status !== 'RESOLVED')
+
   return (
     <div className='flex flex-col gap-2 p-2'>
-      {props.comments.map(c => {
-        const author = resolveCommentAuthor(c, props.members, props.agentActors)
-        return (
-          <button
-            key={c.id}
-            type='button'
-            onClick={() => props.onSelectThread?.(c.id)}
-            className='rounded-md border p-2 text-left hover:bg-muted'
-          >
-            {c.quotedText && (
-              <div className='mb-1 line-clamp-2 border-l-2 border-primary/50 pl-2 text-xs text-muted-foreground'>
-                {c.quotedText}
-              </div>
-            )}
-            <div className='flex items-center gap-2'>
-              <CommentAvatar
-                isAgent={author.isAgent}
-                imageUrl={author.imageUrl}
-                initials={author.initials}
-                size='sm'
-              />
-              <div
-                className='prose-sm text-sm'
-                dangerouslySetInnerHTML={{ __html: c.body }}
-              />
-            </div>
-            {(c.replies?.length ?? 0) > 0 && (
-              <div className='mt-1 text-xs text-muted-foreground'>
-                {c.replies!.length}{' '}
-                {intl.formatMessage({ id: 'document.replies' })}
-              </div>
-            )}
-          </button>
-        )
-      })}
+      <button
+        type='button'
+        data-testid='show-resolved-toggle'
+        onClick={() => setShowResolved(v => !v)}
+        className='self-start text-xs text-muted-foreground underline-offset-2 hover:underline'
+      >
+        {intl.formatMessage({ id: 'document.showResolved' })}
+      </button>
+      {visible.map(c => (
+        <DocumentCommentThread
+          key={c.id}
+          thread={c}
+          members={props.members}
+          agentActors={props.agentActors}
+          currentActorId={props.currentActorId}
+          onReply={props.onReply}
+          onEdit={props.onEdit}
+          onDelete={props.onDelete}
+          onSetStatus={props.onSetStatus}
+          onSelect={props.onSelectThread}
+        />
+      ))}
     </div>
   )
 }
