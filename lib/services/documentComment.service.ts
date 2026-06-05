@@ -71,9 +71,15 @@ export const documentCommentService = {
         )
       }
       assertOnlyCommentMarksChanged(doc.content ?? '', input.content)
-      if (!extractCommentIds(input.content).includes(input.id)) {
+      const oldIds = new Set(extractCommentIds(doc.content ?? ''))
+      const newIds = new Set(extractCommentIds(input.content))
+      // The new content must add exactly the new comment id and nothing else.
+      const added = [...newIds].filter(id => !oldIds.has(id))
+      const removed = [...oldIds].filter(id => !newIds.has(id))
+      const addedId = added[0]
+      if (removed.length > 0 || added.length !== 1 || addedId !== input.id) {
         throw Object.assign(
-          new Error('content does not contain the new comment mark'),
+          new Error('content must add exactly the new comment mark'),
           { status: 400 }
         )
       }

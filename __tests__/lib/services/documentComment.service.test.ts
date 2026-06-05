@@ -84,6 +84,53 @@ describe('createCommentWithSideEffects (top-level)', () => {
     expect(docRepo.update).not.toHaveBeenCalled()
   })
 
+  it('rejects content that also removes an existing comment mark', async () => {
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: '<p>Hello <span data-comment-id="old">brave</span> world</p>',
+    } as never)
+    await expect(
+      documentCommentService.createCommentWithSideEffects({
+        documentId: 'd1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        authorActorId: 'a-viewer',
+        input: {
+          id: 'c1',
+          body: 'x',
+          from: 1,
+          to: 5,
+          quotedText: 'Hello',
+          // adds c1 but drops the pre-existing "old" mark
+          content: '<p><span data-comment-id="c1">Hello</span> brave world</p>',
+        },
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 400 })
+    expect(repo.create).not.toHaveBeenCalled()
+    expect(docRepo.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects content missing the new comment mark', async () => {
+    await expect(
+      documentCommentService.createCommentWithSideEffects({
+        documentId: 'd1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        authorActorId: 'a-viewer',
+        input: {
+          id: 'c1',
+          body: 'x',
+          from: 7,
+          to: 12,
+          quotedText: 'brave',
+          content: '<p>Hello brave world</p>', // no comment span at all
+        },
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
   it('denies a member with no access (404)', async () => {
     docRepo.findWithPermission.mockResolvedValue(null as never)
     await expect(
