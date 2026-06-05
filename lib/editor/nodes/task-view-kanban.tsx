@@ -23,6 +23,7 @@ interface TaskViewKanbanProps {
   tasks: ApiTask[]
   workspaceUrl: string
   editable: boolean
+  // eslint-disable-next-line no-unused-vars
   onStatusChange: (id: string, status: ApiStatus) => void
 }
 
