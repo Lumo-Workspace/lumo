@@ -91,6 +91,7 @@ enum NotificationType {
   AGENT_DONE // agent finished, PR created — informational
   SPRINT_STARTED
   SPRINT_CLOSED
+  DOCUMENT_COMMENT_MENTIONED
 }
 
 enum CommentType {
@@ -694,10 +695,12 @@ model Notification {
   workspaceId      String
   recipientActorId String // Actor.id — who receives this notification
   type             NotificationType
-  taskId           String?
-  commentId        String? // set for TASK_MENTIONED — scroll to comment
-  clarifyId        String? // set for AGENT_CLARIFY — link to AgentClarify
-  sprintId         String?
+  taskId                String?
+  commentId             String? // set for TASK_MENTIONED — scroll to comment
+  clarifyId             String? // set for AGENT_CLARIFY — link to AgentClarify
+  sprintId              String?
+  documentId            String?
+  documentCommentId     String?
   triggerActorId   String? // Actor.id — who/what triggered it; null for system
   read             Boolean          @default(false)
   requiresAction   Boolean          @default(false) // AGENT_CLARIFY / AGENT_AUTHORIZE / AGENT_VERIFY
