@@ -115,4 +115,23 @@ describe('RichTextViewer — task view block', () => {
     await waitFor(() => expect(screen.getByText(/Todo/)).toBeInTheDocument())
     expect(screen.getByText(/Done/)).toBeInTheDocument()
   })
+
+  it('does not render the configure panel in the read-only viewer', async () => {
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [],
+      truncated: false,
+      loading: false,
+      error: null,
+    })
+    render(<RichTextViewer value={STORED} />)
+    // Wait for the NodeView portal to mount, then assert the editing UI is absent.
+    await waitFor(() =>
+      expect(
+        screen.getByText('No tasks match these filters.')
+      ).toBeInTheDocument()
+    )
+    expect(
+      screen.queryByRole('button', { name: /Configure task view/ })
+    ).not.toBeInTheDocument()
+  })
 })
