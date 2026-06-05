@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "Lihat tugasan rujukan",
   "documentEditor.stats.words": "{count} perkataan",
   "documentEditor.stats.characters": "{count} aksara",
-  "documentEditor.stats.readingTime": "{minutes} minit bacaan"
+  "documentEditor.stats.readingTime": "{minutes} minit bacaan",
+  "editor.comment": "Komen",
+  "document.comments": "Komen",
+  "document.noComments": "Tiada komen lagi",
+  "document.replies": "balasan",
+  "document.reply": "Balas",
+  "document.resolve": "Selesaikan",
+  "document.reopen": "Buka semula",
+  "document.commentOrphaned": "Teks asal dipadam",
+  "document.showResolved": "Tunjuk yang selesai",
+  "document.outline": "Rangka"
 }

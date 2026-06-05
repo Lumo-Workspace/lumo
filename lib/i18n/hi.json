@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "स्रोत कार्य देखें",
   "documentEditor.stats.words": "{count, plural, one {# शब्द} other {# शब्द}}",
   "documentEditor.stats.characters": "{count, plural, one {# वर्ण} other {# वर्ण}}",
-  "documentEditor.stats.readingTime": "{minutes} मिनट पठन"
+  "documentEditor.stats.readingTime": "{minutes} मिनट पठन",
+  "editor.comment": "टिप्पणी करें",
+  "document.comments": "टिप्पणियाँ",
+  "document.noComments": "अभी तक कोई टिप्पणी नहीं",
+  "document.replies": "उत्तर",
+  "document.reply": "उत्तर दें",
+  "document.resolve": "हल करें",
+  "document.reopen": "फिर से खोलें",
+  "document.commentOrphaned": "मूल पाठ हटा दिया गया",
+  "document.showResolved": "हल किए गए दिखाएँ",
+  "document.outline": "रूपरेखा"
 }

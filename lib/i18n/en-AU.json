@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "View source tasks",
   "documentEditor.stats.words": "{count, plural, one {# word} other {# words}}",
   "documentEditor.stats.characters": "{count, plural, one {# character} other {# characters}}",
-  "documentEditor.stats.readingTime": "{minutes} min read"
+  "documentEditor.stats.readingTime": "{minutes} min read",
+  "editor.comment": "Comment",
+  "document.comments": "Comments",
+  "document.noComments": "No comments yet",
+  "document.replies": "replies",
+  "document.reply": "Reply",
+  "document.resolve": "Resolve",
+  "document.reopen": "Reopen",
+  "document.commentOrphaned": "Original text deleted",
+  "document.showResolved": "Show resolved",
+  "document.outline": "Outline"
 }

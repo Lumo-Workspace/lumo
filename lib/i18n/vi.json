@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "Xem công việc tham chiếu",
   "documentEditor.stats.words": "{count} từ",
   "documentEditor.stats.characters": "{count} ký tự",
-  "documentEditor.stats.readingTime": "{minutes} phút đọc"
+  "documentEditor.stats.readingTime": "{minutes} phút đọc",
+  "editor.comment": "Bình luận",
+  "document.comments": "Bình luận",
+  "document.noComments": "Chưa có bình luận",
+  "document.replies": "phản hồi",
+  "document.reply": "Trả lời",
+  "document.resolve": "Giải quyết",
+  "document.reopen": "Mở lại",
+  "document.commentOrphaned": "Văn bản gốc đã bị xóa",
+  "document.showResolved": "Hiện mục đã giải quyết",
+  "document.outline": "Dàn ý"
 }

@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "参照した履歴タスクを表示",
   "documentEditor.stats.words": "{count} 語",
   "documentEditor.stats.characters": "{count} 文字",
-  "documentEditor.stats.readingTime": "約 {minutes} 分"
+  "documentEditor.stats.readingTime": "約 {minutes} 分",
+  "editor.comment": "コメント",
+  "document.comments": "コメント",
+  "document.noComments": "まだコメントはありません",
+  "document.replies": "件の返信",
+  "document.reply": "返信",
+  "document.resolve": "解決",
+  "document.reopen": "再開",
+  "document.commentOrphaned": "元のテキストが削除されました",
+  "document.showResolved": "解決済みを表示",
+  "document.outline": "アウトライン"
 }

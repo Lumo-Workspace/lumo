@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "참고한 이력 작업 보기",
   "documentEditor.stats.words": "{count} 단어",
   "documentEditor.stats.characters": "{count} 자",
-  "documentEditor.stats.readingTime": "약 {minutes}분 읽기"
+  "documentEditor.stats.readingTime": "약 {minutes}분 읽기",
+  "editor.comment": "댓글",
+  "document.comments": "댓글",
+  "document.noComments": "아직 댓글이 없습니다",
+  "document.replies": "개의 답글",
+  "document.reply": "답글",
+  "document.resolve": "해결",
+  "document.reopen": "다시 열기",
+  "document.commentOrphaned": "원본 텍스트가 삭제됨",
+  "document.showResolved": "해결된 항목 표시",
+  "document.outline": "개요"
 }

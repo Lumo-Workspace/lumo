@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "Referenzaufgaben anzeigen",
   "documentEditor.stats.words": "{count, plural, one {# Wort} other {# Wörter}}",
   "documentEditor.stats.characters": "{count, plural, one {# Zeichen} other {# Zeichen}}",
-  "documentEditor.stats.readingTime": "{minutes} Min. Lesezeit"
+  "documentEditor.stats.readingTime": "{minutes} Min. Lesezeit",
+  "editor.comment": "Kommentieren",
+  "document.comments": "Kommentare",
+  "document.noComments": "Noch keine Kommentare",
+  "document.replies": "Antworten",
+  "document.reply": "Antworten",
+  "document.resolve": "Auflösen",
+  "document.reopen": "Wieder öffnen",
+  "document.commentOrphaned": "Originaltext gelöscht",
+  "document.showResolved": "Aufgelöste anzeigen",
+  "document.outline": "Gliederung"
 }

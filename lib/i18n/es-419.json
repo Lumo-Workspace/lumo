@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "Ver tareas de referencia",
   "documentEditor.stats.words": "{count, plural, one {# palabra} other {# palabras}}",
   "documentEditor.stats.characters": "{count, plural, one {# carácter} other {# caracteres}}",
-  "documentEditor.stats.readingTime": "{minutes} min de lectura"
+  "documentEditor.stats.readingTime": "{minutes} min de lectura",
+  "editor.comment": "Comentar",
+  "document.comments": "Comentarios",
+  "document.noComments": "Aún no hay comentarios",
+  "document.replies": "respuestas",
+  "document.reply": "Responder",
+  "document.resolve": "Resolver",
+  "document.reopen": "Reabrir",
+  "document.commentOrphaned": "Texto original eliminado",
+  "document.showResolved": "Mostrar resueltos",
+  "document.outline": "Esquema"
 }
