@@ -911,6 +911,8 @@
   "sprints.settings.cooldown.oneWeek": "1 неделя",
   "sprints.settings.autoCreate.off": "Выкл.",
   "sprints.settings.autoCreate.count": "{n, plural, one {1 спринт} few {# спринта} other {# спринтов}}",
+  "sprints.settings.autoAddCompleted": "Автоматически добавлять завершённые задачи в активный спринт",
+  "sprints.settings.autoAddCompleted.hint": "Когда задача без спринта помечается как выполненная, она добавляется в активный спринт команды.",
   "sprints.settings.weekday.sun": "Воскресенье",
   "sprints.settings.weekday.mon": "Понедельник",
   "sprints.settings.weekday.tue": "Вторник",

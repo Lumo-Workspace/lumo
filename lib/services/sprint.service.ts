@@ -198,6 +198,27 @@ export const sprintService = {
   },
 
   /**
+   * When a task transitions to DONE without any sprint binding, optionally pull
+   * it into the team's currently ACTIVE sprint so the completed work counts
+   * toward that sprint. Gated behind the team-level `sprintAutoAddCompleted`
+   * toggle. Silent no-op when the team opted out, sprints are disabled, or no
+   * sprint is currently active. Caller decides whether the task is sprintless.
+   */
+  async autoAddCompletedTaskToActiveSprint(
+    teamId: string,
+    taskId: string,
+    actor: ActorRef & { id?: string }
+  ) {
+    const team = await teamRepository.findSprintAutoAddConfig(teamId)
+    if (!team || !team.sprintsEnabled || !team.sprintAutoAddCompleted) return
+
+    const active = await sprintRepository.findActiveByTeam(teamId)
+    if (!active) return
+
+    await sprintRepository.addTaskAtomically(taskId, active.id, actor.id ?? null)
+  },
+
+  /**
    * Update sprint metadata. Validates date ordering and checks that the new
    * date range doesn't overlap any other sprint on the same team. Two ranges
    * overlap iff `aStart <= bEnd && bStart <= aEnd` (endpoints inclusive).
@@ -255,6 +276,7 @@ export const sprintService = {
       cooldownDays?: number
       startWeekday?: number
       autoCreate?: number
+      autoAddCompleted?: boolean
     },
     _actor: ActorRef
   ) {

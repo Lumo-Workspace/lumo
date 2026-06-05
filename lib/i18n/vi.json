@@ -911,6 +911,8 @@
   "sprints.settings.cooldown.oneWeek": "1 tuần",
   "sprints.settings.autoCreate.off": "Tắt",
   "sprints.settings.autoCreate.count": "{n} sprint",
+  "sprints.settings.autoAddCompleted": "Tự động thêm công việc đã hoàn thành vào sprint đang hoạt động",
+  "sprints.settings.autoAddCompleted.hint": "Khi một công việc không thuộc sprint nào được đánh dấu hoàn thành, nó sẽ được thêm vào sprint đang hoạt động của nhóm.",
   "sprints.settings.weekday.sun": "Chủ nhật",
   "sprints.settings.weekday.mon": "Thứ hai",
   "sprints.settings.weekday.tue": "Thứ ba",

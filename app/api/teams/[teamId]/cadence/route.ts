@@ -24,8 +24,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const parsed = cadenceSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    const { enabled, durationDays, cooldownDays, startWeekday, autoCreate } =
-      parsed.data
+    const {
+      enabled,
+      durationDays,
+      cooldownDays,
+      startWeekday,
+      autoCreate,
+      autoAddCompleted,
+    } = parsed.data
     const updated = await sprintService.configureCadence(
       teamId,
       {
@@ -34,6 +40,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...(cooldownDays !== undefined ? { cooldownDays } : {}),
         ...(startWeekday !== undefined ? { startWeekday } : {}),
         ...(autoCreate !== undefined ? { autoCreate } : {}),
+        ...(autoAddCompleted !== undefined ? { autoAddCompleted } : {}),
       },
       { memberId }
     )

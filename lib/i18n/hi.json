@@ -911,6 +911,8 @@
   "sprints.settings.cooldown.oneWeek": "1 सप्ताह",
   "sprints.settings.autoCreate.off": "बंद",
   "sprints.settings.autoCreate.count": "{n, plural, one {1 स्प्रिंट} other {# स्प्रिंट}}",
+  "sprints.settings.autoAddCompleted": "पूर्ण किए गए कार्य स्वतः सक्रिय स्प्रिंट में जोड़ें",
+  "sprints.settings.autoAddCompleted.hint": "जब बिना स्प्रिंट वाला कोई कार्य पूर्ण के रूप में चिह्नित किया जाता है, तो उसे टीम के सक्रिय स्प्रिंट में जोड़ दिया जाता है।",
   "sprints.settings.weekday.sun": "रविवार",
   "sprints.settings.weekday.mon": "सोमवार",
   "sprints.settings.weekday.tue": "मंगलवार",
