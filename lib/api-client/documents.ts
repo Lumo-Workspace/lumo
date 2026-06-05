@@ -57,3 +57,36 @@ export const documentsClient = {
     })
   },
 }
+
+export const documentCommentsApi = {
+  list<T>(docId: string) {
+    return apiFetch<T>(API.documents.comments(docId))
+  },
+
+  create<T>(docId: string, data: unknown) {
+    return apiFetch<T>(API.documents.comments(docId), {
+      method: 'POST',
+      body: data,
+    })
+  },
+
+  update<T>(docId: string, commentId: string, data: unknown) {
+    return apiFetch<T>(API.documents.comment(docId, commentId), {
+      method: 'PATCH',
+      body: data,
+    })
+  },
+
+  setStatus<T>(docId: string, commentId: string, status: 'OPEN' | 'RESOLVED') {
+    return apiFetch<T>(API.documents.comment(docId, commentId), {
+      method: 'PATCH',
+      body: { status },
+    })
+  },
+
+  remove(docId: string, commentId: string) {
+    return apiFetch<void>(API.documents.comment(docId, commentId), {
+      method: 'DELETE',
+    })
+  },
+}
