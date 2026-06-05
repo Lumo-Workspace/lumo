@@ -1353,5 +1353,10 @@
   "document.comments": "Comments",
   "document.noComments": "No comments yet",
   "document.replies": "replies",
-  "document.outline": "Outline"
+  "document.outline": "Outline",
+  "document.reply": "Reply",
+  "document.resolve": "Resolve",
+  "document.reopen": "Reopen",
+  "document.commentOrphaned": "Original text deleted",
+  "document.showResolved": "Show resolved"
 }

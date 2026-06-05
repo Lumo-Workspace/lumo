@@ -1353,5 +1353,10 @@
   "document.comments": "评论",
   "document.noComments": "还没有评论",
   "document.replies": "条回复",
-  "document.outline": "大纲"
+  "document.outline": "大纲",
+  "document.reply": "回复",
+  "document.resolve": "解决",
+  "document.reopen": "重新打开",
+  "document.commentOrphaned": "原文已删除",
+  "document.showResolved": "显示已解决"
 }

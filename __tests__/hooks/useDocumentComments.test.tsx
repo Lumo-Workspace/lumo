@@ -4,7 +4,13 @@ import { useDocumentComments } from '@/app/workspace/[workspaceUrl]/hooks/useDoc
 import { documentCommentsApi } from '@/lib/api-client/documents'
 
 jest.mock('@/lib/api-client/documents', () => ({
-  documentCommentsApi: { list: jest.fn(), create: jest.fn() },
+  documentCommentsApi: {
+    list: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    setStatus: jest.fn(),
+  },
 }))
 const api = documentCommentsApi as jest.Mocked<typeof documentCommentsApi>
 
@@ -68,4 +74,102 @@ it('rolls back the optimistic comment on create error', async () => {
       .catch(() => {})
   })
   await waitFor(() => expect(result.current.comments).toHaveLength(0))
+})
+
+it('optimistically edits a comment body', async () => {
+  api.list.mockResolvedValue({
+    comments: [{ id: 'c1', body: 'old', parentId: null, replies: [] }],
+  } as never)
+  api.update.mockResolvedValue({
+    comment: { id: 'c1', body: 'new', parentId: null, replies: [] },
+  } as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.updateComment('c1', 'new')
+  })
+  await waitFor(() => expect(result.current.comments[0]!.body).toBe('new'))
+})
+
+it('optimistically removes a comment', async () => {
+  api.list.mockResolvedValue({
+    comments: [{ id: 'c1', body: 'x', parentId: null, replies: [] }],
+  } as never)
+  api.remove.mockResolvedValue(undefined as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.deleteComment('c1')
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(0))
+})
+
+it('removes a reply optimistically (nested)', async () => {
+  api.list.mockResolvedValue({
+    comments: [
+      {
+        id: 'c1',
+        body: 'x',
+        parentId: null,
+        replies: [{ id: 'r1', body: 'y', parentId: 'c1', replies: [] }],
+      },
+    ],
+  } as never)
+  api.remove.mockResolvedValue(undefined as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.deleteComment('r1')
+  })
+  await waitFor(() =>
+    expect(result.current.comments[0]!.replies).toHaveLength(0)
+  )
+})
+
+it('optimistically sets status to RESOLVED', async () => {
+  api.list.mockResolvedValue({
+    comments: [
+      { id: 'c1', body: 'x', parentId: null, status: 'OPEN', replies: [] },
+    ],
+  } as never)
+  api.setStatus.mockResolvedValue({
+    comment: {
+      id: 'c1',
+      body: 'x',
+      parentId: null,
+      status: 'RESOLVED',
+      replies: [],
+    },
+  } as never)
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.setStatus('c1', 'RESOLVED')
+  })
+  await waitFor(() =>
+    expect(result.current.comments[0]!.status).toBe('RESOLVED')
+  )
+})
+
+it('rolls back an edit on error', async () => {
+  api.list.mockResolvedValue({
+    comments: [{ id: 'c1', body: 'old', parentId: null, replies: [] }],
+  } as never)
+  api.update.mockRejectedValue(new Error('boom'))
+  const { result } = renderHook(() => useDocumentComments('d1'), {
+    wrapper: makeWrapper(),
+  })
+  await waitFor(() => expect(result.current.comments).toHaveLength(1))
+  await act(async () => {
+    await result.current.updateComment('c1', 'new').catch(() => {})
+  })
+  await waitFor(() => expect(result.current.comments[0]!.body).toBe('old'))
 })
