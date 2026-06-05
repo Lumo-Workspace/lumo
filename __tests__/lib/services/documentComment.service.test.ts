@@ -266,6 +266,7 @@ describe('deleteCommentWithSideEffects', () => {
       id: 'c1',
       documentId: 'd1',
       parentId: null,
+      authorActorId: 'a-viewer',
     } as never)
     docRepo.findWithPermission.mockResolvedValue({
       ...DOC,
@@ -277,12 +278,95 @@ describe('deleteCommentWithSideEffects', () => {
       commentId: 'c1',
       memberId: 'm-viewer',
       workspaceId: 'w1',
+      actorId: 'a-viewer',
       waitUntil: noop,
     })
     expect(docRepo.update).toHaveBeenCalledWith(
       'd1',
       expect.objectContaining({ content: '<p>Hello brave world</p>' })
     )
+    expect(repo.softDelete).toHaveBeenCalledWith('c1')
+  })
+})
+
+describe('author-only edit/delete', () => {
+  it('rejects edit by a non-author (403)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-owner',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.updateCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-other',
+        body: 'x',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.update).not.toHaveBeenCalled()
+  })
+  it('allows edit by the author', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-me',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    repo.update.mockResolvedValue({ id: 'c1' } as never)
+    await documentCommentService.updateCommentWithSideEffects({
+      commentId: 'c1',
+      memberId: 'm-me',
+      workspaceId: 'w1',
+      actorId: 'a-me',
+      body: 'x',
+      waitUntil: noop,
+    })
+    expect(repo.update).toHaveBeenCalledWith('c1', { body: 'x' })
+  })
+  it('rejects delete by a non-author (403)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-owner',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.deleteCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-other',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.softDelete).not.toHaveBeenCalled()
+  })
+  it('allows delete by the author', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-me',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: '<p>x</p>',
+    } as never)
+    repo.softDelete.mockResolvedValue({} as never)
+    await documentCommentService.deleteCommentWithSideEffects({
+      commentId: 'c1',
+      memberId: 'm-me',
+      workspaceId: 'w1',
+      actorId: 'a-me',
+      waitUntil: noop,
+    })
     expect(repo.softDelete).toHaveBeenCalledWith('c1')
   })
 })

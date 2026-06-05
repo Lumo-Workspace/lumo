@@ -141,6 +141,7 @@ export const documentCommentService = {
     commentId: string
     memberId: string
     workspaceId: string
+    actorId: string | null
     body: string
     waitUntil: WaitUntil
   }) {
@@ -154,6 +155,10 @@ export const documentCommentService = {
       args.workspaceId
     )
     if (!doc) notFound()
+
+    if (existing.authorActorId && existing.authorActorId !== args.actorId) {
+      throw Object.assign(new Error('Forbidden'), { status: 403 })
+    }
 
     const updated = await documentCommentRepository.update(args.commentId, {
       body: args.body,
@@ -171,6 +176,7 @@ export const documentCommentService = {
     commentId: string
     memberId: string
     workspaceId: string
+    actorId: string | null
     waitUntil: WaitUntil
   }) {
     const existing = await documentCommentRepository.findById(args.commentId)
@@ -183,6 +189,10 @@ export const documentCommentService = {
       args.workspaceId
     )
     if (!doc) notFound()
+
+    if (existing.authorActorId && existing.authorActorId !== args.actorId) {
+      throw Object.assign(new Error('Forbidden'), { status: 403 })
+    }
 
     if (!existing.parentId && doc.content) {
       const stripped = removeCommentSpan(doc.content, args.commentId)

@@ -53,10 +53,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const parsed = updateDocumentCommentSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
+    const actorId = await getHumanActorId(identity.memberId)
     const comment = await documentCommentService.updateCommentWithSideEffects({
       commentId,
       memberId: identity.memberId,
       workspaceId: identity.workspaceId,
+      actorId,
       body: parsed.data.body,
       waitUntil,
     })
@@ -78,10 +80,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     const identity = await requireIdentity(request)
     if (identity instanceof NextResponse) return identity
     const { commentId } = await params
+    const actorId = await getHumanActorId(identity.memberId)
     await documentCommentService.deleteCommentWithSideEffects({
       commentId,
       memberId: identity.memberId,
       workspaceId: identity.workspaceId,
+      actorId,
       waitUntil,
     })
     return NextResponse.json({ ok: true })
