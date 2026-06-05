@@ -1,4 +1,5 @@
 import type { ApiTask } from '@/app/workspace/[workspaceUrl]/types'
+import { API_STATUS_LABEL } from '@/app/workspace/[workspaceUrl]/utils/taskStatus'
 
 export interface TaskGroup {
   key: string
@@ -7,12 +8,6 @@ export interface TaskGroup {
 }
 
 const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
-const STATUS_LABEL: Record<string, string> = {
-  TODO: 'Todo',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  DONE: 'Done',
-}
 
 /**
  * Bucket tasks for the task-view list. Pure + deterministic. `projectNames` /
@@ -32,7 +27,7 @@ export function groupTasks(
   if (groupBy === 'status') {
     return STATUS_ORDER.map(s => ({
       key: s,
-      label: STATUS_LABEL[s] ?? s,
+      label: API_STATUS_LABEL[s] ?? s,
       tasks: tasks.filter(t => t.status === s),
     })).filter(g => g.tasks.length > 0)
   }
