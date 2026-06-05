@@ -10,6 +10,12 @@ interface DetailLayoutProps {
   sidebar?: ReactNode
   /** When true, hide the sidebar (collapse is owned by the page). */
   sidebarCollapsed?: boolean
+  /**
+   * Flush the sidebar against the right edge (no inter-column gap / right
+   * padding) so a panel with its own `border-l` reads as a continuous rail —
+   * matching the task detail sidebar. Default keeps the floating-gap layout.
+   */
+  flushSidebar?: boolean
   /** Main content area. */
   children: ReactNode
 }
@@ -28,22 +34,32 @@ export function DetailLayout({
   actions,
   sidebar,
   sidebarCollapsed = false,
+  flushSidebar = false,
   children,
 }: DetailLayoutProps) {
   const showSidebar = sidebar != null && !sidebarCollapsed
+  // Flush variant drops the inter-column gap + right padding so a bordered
+  // panel sits edge-to-edge; the panel's own border is the column divider.
+  const bodyClass = !showSidebar
+    ? 'flex-1 min-h-0 overflow-hidden'
+    : flushSidebar
+      ? 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:overflow-hidden'
+      : 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:gap-4 lg:pr-4 lg:overflow-hidden'
   return (
     <div className='flex flex-col h-full overflow-hidden'>
       <PageBreadcrumb actions={actions}>{breadcrumb}</PageBreadcrumb>
-      <div
-        className={
-          showSidebar
-            ? 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:gap-4 lg:pr-4 lg:overflow-hidden'
-            : 'flex-1 min-h-0 overflow-hidden'
-        }
-      >
+      <div className={bodyClass}>
         {children}
         {showSidebar ? (
-          <aside className='lg:overflow-y-auto'>{sidebar}</aside>
+          <aside
+            className={
+              flushSidebar
+                ? 'lg:h-full lg:overflow-y-auto'
+                : 'lg:overflow-y-auto'
+            }
+          >
+            {sidebar}
+          </aside>
         ) : null}
       </div>
     </div>

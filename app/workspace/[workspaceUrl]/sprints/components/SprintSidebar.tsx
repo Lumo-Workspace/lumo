@@ -149,10 +149,10 @@ export function SprintSidebar({
   }
 
   return (
-    <aside className='flex flex-col gap-4 rounded-lg border bg-muted/10 p-4 overflow-y-auto'>
+    <div className='flex flex-col gap-4'>
       {/* Name + derived state badge */}
       <div>
-        <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5'>
+        <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5'>
           {sprint.name}
         </p>
         <span
@@ -200,9 +200,9 @@ export function SprintSidebar({
 
       {/* Health — risk level + reasons + top blockers */}
       {risk && (
-        <div className='flex flex-col gap-2 border-t pt-3'>
+        <div className='flex flex-col gap-2'>
           <div className='flex items-center justify-between gap-2'>
-            <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+            <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
               {intl.formatMessage({ id: 'sprints.detail.health' })}
             </p>
             <RiskBadge level={risk.level} size='sm' />
@@ -212,7 +212,7 @@ export function SprintSidebar({
           )}
           {blockerGroups.length > 0 && (
             <div className='flex flex-col gap-1.5 pt-1'>
-              <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+              <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
                 {intl.formatMessage({ id: 'summary.topBlockers' })}
               </p>
               {blockerGroups.map(g => (
@@ -233,8 +233,8 @@ export function SprintSidebar({
 
       {/* Priority breakdown — hidden when sprint has no tasks */}
       {byPriority.length > 0 && (
-        <div className='flex flex-col gap-2 border-t pt-3'>
-          <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+        <div className='flex flex-col gap-2'>
+          <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.detail.byPriority' })}
           </p>
           <div className='flex flex-col gap-2'>
@@ -261,8 +261,8 @@ export function SprintSidebar({
 
       {/* Member breakdown — hidden when no HUMAN assignees */}
       {byMember.length > 0 && (
-        <div className='flex flex-col gap-2 border-t pt-3'>
-          <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+        <div className='flex flex-col gap-2'>
+          <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
             {intl.formatMessage({ id: 'sprints.detail.byMember' })}
           </p>
           <div className='flex flex-col gap-2'>
@@ -286,6 +286,6 @@ export function SprintSidebar({
           </div>
         </div>
       )}
-    </aside>
+    </div>
   )
 }

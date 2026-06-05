@@ -53,6 +53,33 @@ test('hides sidebar when none provided', () => {
   expect(screen.queryByText('SIDE')).toBeNull()
 })
 
+test('default sidebar layout keeps the inter-column gap + right padding', () => {
+  const { container } = render(
+    <DetailLayout breadcrumb={<span>BC</span>} sidebar={<span>SIDE</span>}>
+      <span>BODY</span>
+    </DetailLayout>
+  )
+  const body = container.querySelector('div.lg\\:grid')!
+  expect(body.className).toContain('lg:gap-4')
+  expect(body.className).toContain('lg:pr-4')
+})
+
+test('flushSidebar drops the gap + padding and fills the rail height', () => {
+  const { container } = render(
+    <DetailLayout
+      breadcrumb={<span>BC</span>}
+      sidebar={<span>SIDE</span>}
+      flushSidebar
+    >
+      <span>BODY</span>
+    </DetailLayout>
+  )
+  const body = container.querySelector('div.lg\\:grid')!
+  expect(body.className).not.toContain('lg:gap-4')
+  expect(body.className).not.toContain('lg:pr-4')
+  expect(container.querySelector('aside')!.className).toContain('lg:h-full')
+})
+
 test('renders actions slot', () => {
   render(
     <DetailLayout breadcrumb={<span>BC</span>} actions={<span>ACT</span>}>
