@@ -2,17 +2,55 @@
 import { documentCommentService } from '@/lib/services/documentComment.service'
 import { documentCommentRepository } from '@/lib/repositories/documentComment.repository'
 import { documentRepository } from '@/lib/repositories/document.repository'
+import { memberRepository, notificationRepository } from '@/lib/repositories'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 
 jest.mock('@/lib/repositories/documentComment.repository')
 jest.mock('@/lib/repositories/document.repository')
 jest.mock('@/lib/integrations/pusher/server', () => ({
   pushDocumentEvent: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@/lib/repositories', () => ({
+  memberRepository: {
+    findByWorkspaceAndClerkIds: jest.fn().mockResolvedValue([]),
+  },
+  notificationRepository: {
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
+}))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findNameAndSlug: jest.fn().mockResolvedValue({ slug: 'acme' }),
+  },
+}))
+jest.mock('@/lib/services/notification.service', () => ({
+  shouldNotifyBatch: jest.fn().mockResolvedValue(new Set()),
+}))
+jest.mock('@/lib/integrations/slack', () => ({
+  sendDMNotification: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/actor', () => ({
+  getActorClerkId: jest.fn().mockResolvedValue(null),
+}))
+
+import { shouldNotifyBatch } from '@/lib/services/notification.service'
+import { sendDMNotification } from '@/lib/integrations/slack'
+import { getActorClerkId } from '@/lib/actor'
 
 const repo = documentCommentRepository as jest.Mocked<
   typeof documentCommentRepository
 >
 const docRepo = documentRepository as jest.Mocked<typeof documentRepository>
+const memberRepoMock = memberRepository as jest.Mocked<typeof memberRepository>
+const notificationRepoMock = notificationRepository as jest.Mocked<
+  typeof notificationRepository
+>
+const workspaceRepoMock = workspaceRepository as jest.Mocked<
+  typeof workspaceRepository
+>
+const shouldNotifyBatchMock = shouldNotifyBatch as jest.Mock
+const sendDMMock = sendDMNotification as jest.Mock
+const getActorClerkIdMock = getActorClerkId as jest.Mock
 
 const noop = (_p: Promise<unknown>) => {}
 
@@ -21,6 +59,8 @@ const DOC = {
   content: '<p>Hello brave world</p>',
   createdById: 'm-owner',
   shares: [{ memberId: 'm-viewer', role: 'VIEWER' }],
+  title: 'Spec',
+  slug: 'spec-3',
 }
 
 beforeEach(() => {
@@ -28,6 +68,14 @@ beforeEach(() => {
   docRepo.findWithPermission.mockResolvedValue(DOC as never)
   docRepo.update.mockResolvedValue({} as never)
   repo.create.mockResolvedValue({ id: 'c1' } as never)
+  // Default: notify deps no-op so existing create tests are unaffected
+  workspaceRepoMock.findNameAndSlug.mockResolvedValue({
+    name: 'Acme',
+    slug: 'acme',
+  })
+  memberRepoMock.findByWorkspaceAndClerkIds.mockResolvedValue([])
+  shouldNotifyBatchMock.mockResolvedValue(new Set())
+  getActorClerkIdMock.mockResolvedValue(null)
 })
 
 describe('createCommentWithSideEffects (top-level)', () => {
@@ -266,6 +314,7 @@ describe('deleteCommentWithSideEffects', () => {
       id: 'c1',
       documentId: 'd1',
       parentId: null,
+      authorActorId: 'a-viewer',
     } as never)
     docRepo.findWithPermission.mockResolvedValue({
       ...DOC,
@@ -277,12 +326,95 @@ describe('deleteCommentWithSideEffects', () => {
       commentId: 'c1',
       memberId: 'm-viewer',
       workspaceId: 'w1',
+      actorId: 'a-viewer',
       waitUntil: noop,
     })
     expect(docRepo.update).toHaveBeenCalledWith(
       'd1',
       expect.objectContaining({ content: '<p>Hello brave world</p>' })
     )
+    expect(repo.softDelete).toHaveBeenCalledWith('c1')
+  })
+})
+
+describe('author-only edit/delete', () => {
+  it('rejects edit by a non-author (403)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-owner',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.updateCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-other',
+        body: 'x',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.update).not.toHaveBeenCalled()
+  })
+  it('allows edit by the author', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-me',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    repo.update.mockResolvedValue({ id: 'c1' } as never)
+    await documentCommentService.updateCommentWithSideEffects({
+      commentId: 'c1',
+      memberId: 'm-me',
+      workspaceId: 'w1',
+      actorId: 'a-me',
+      body: 'x',
+      waitUntil: noop,
+    })
+    expect(repo.update).toHaveBeenCalledWith('c1', { body: 'x' })
+  })
+  it('rejects delete by a non-author (403)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-owner',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.deleteCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-other',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.softDelete).not.toHaveBeenCalled()
+  })
+  it('allows delete by the author', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: 'a-me',
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: '<p>x</p>',
+    } as never)
+    repo.softDelete.mockResolvedValue({} as never)
+    await documentCommentService.deleteCommentWithSideEffects({
+      commentId: 'c1',
+      memberId: 'm-me',
+      workspaceId: 'w1',
+      actorId: 'a-me',
+      waitUntil: noop,
+    })
     expect(repo.softDelete).toHaveBeenCalledWith('c1')
   })
 })
@@ -323,5 +455,105 @@ describe('getComments triggers orphan detection', () => {
       documentCommentService.getComments('d1', 'm-x', 'w1')
     ).rejects.toMatchObject({ status: 404 })
     expect(repo.setOrphaned).not.toHaveBeenCalled()
+  })
+})
+
+describe('notifyDocMentions', () => {
+  it('creates DOCUMENT_COMMENT_MENTIONED inbox notifications for mentioned non-authors', async () => {
+    getActorClerkIdMock.mockResolvedValue('author-clerk')
+    memberRepoMock.findByWorkspaceAndClerkIds.mockResolvedValue([
+      { clerkId: 'bob-clerk', actor: { id: 'a-bob' } },
+    ] as never)
+    shouldNotifyBatchMock.mockResolvedValue(new Set(['a-bob']))
+    notificationRepoMock.createMany.mockResolvedValue({ count: 1 } as never)
+
+    await documentCommentService.notifyDocMentions({
+      documentId: 'd1',
+      documentCommentId: 'c1',
+      body: '<span data-type="mention" data-id="bob-clerk">@Bob</span> hi',
+      authorActorId: 'a-me',
+      workspaceId: 'w1',
+      docTitle: 'Spec',
+      workspaceSlug: 'acme',
+      docSlug: 'spec-3',
+      waitUntil: noop,
+    })
+
+    expect(notificationRepoMock.createMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'DOCUMENT_COMMENT_MENTIONED',
+          recipientActorId: 'a-bob',
+          documentId: 'd1',
+          documentCommentId: 'c1',
+          triggerActorId: 'a-me',
+          workspaceId: 'w1',
+        }),
+      ])
+    )
+  })
+
+  it('sends Slack DM to users with slack mention enabled', async () => {
+    getActorClerkIdMock.mockResolvedValue('author-clerk')
+    memberRepoMock.findByWorkspaceAndClerkIds.mockResolvedValue([
+      { clerkId: 'bob-clerk', actor: { id: 'a-bob' } },
+    ] as never)
+    shouldNotifyBatchMock.mockResolvedValue(new Set(['a-bob']))
+    notificationRepoMock.createMany.mockResolvedValue({ count: 1 } as never)
+
+    await documentCommentService.notifyDocMentions({
+      documentId: 'd1',
+      documentCommentId: 'c1',
+      body: '<span data-type="mention" data-id="bob-clerk">@Bob</span> hi',
+      authorActorId: 'a-me',
+      workspaceId: 'w1',
+      docTitle: 'Spec',
+      workspaceSlug: 'acme',
+      docSlug: 'spec-3',
+      waitUntil: noop,
+    })
+
+    expect(sendDMMock).toHaveBeenCalledWith(
+      'w1',
+      'bob-clerk',
+      'comment_mention',
+      expect.objectContaining({
+        taskTitle: 'Spec',
+        taskUrl: expect.stringContaining('/workspace/acme/documents/spec-3'),
+      })
+    )
+  })
+
+  it('no-ops when there are no mentions', async () => {
+    await documentCommentService.notifyDocMentions({
+      documentId: 'd1',
+      documentCommentId: 'c1',
+      body: 'plain text',
+      authorActorId: 'a-me',
+      workspaceId: 'w1',
+      docTitle: 'S',
+      workspaceSlug: 'a',
+      docSlug: 's',
+      waitUntil: noop,
+    })
+    expect(notificationRepoMock.createMany).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when no members match the mentioned ids', async () => {
+    getActorClerkIdMock.mockResolvedValue('author-clerk')
+    memberRepoMock.findByWorkspaceAndClerkIds.mockResolvedValue([])
+
+    await documentCommentService.notifyDocMentions({
+      documentId: 'd1',
+      documentCommentId: 'c1',
+      body: '<span data-type="mention" data-id="unknown-clerk">@X</span>',
+      authorActorId: 'a-me',
+      workspaceId: 'w1',
+      docTitle: 'S',
+      workspaceSlug: 'a',
+      docSlug: 's',
+      waitUntil: noop,
+    })
+    expect(notificationRepoMock.createMany).not.toHaveBeenCalled()
   })
 })

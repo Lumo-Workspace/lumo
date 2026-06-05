@@ -97,6 +97,8 @@ export const notificationRepository = {
       sprintId?: string | null
       triggerActorId: string | null
       commentId?: string
+      documentId?: string | null
+      documentCommentId?: string | null
     }[]
   ) {
     return prisma.notification.createMany({ data })
