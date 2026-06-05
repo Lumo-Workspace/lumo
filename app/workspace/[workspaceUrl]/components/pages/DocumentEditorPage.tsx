@@ -29,6 +29,13 @@ import { readCache, writeCache } from '../../cache'
 import { useTags } from '../../hooks/useTags'
 import { useDocTocCollapsed } from '../../hooks/useDocTocCollapsed'
 import { useDocumentSave } from '../../hooks/useDocumentSave'
+import { useDocumentComments } from '../../hooks/useDocumentComments'
+import {
+  buildCreateCommentPayload,
+  newCommentId,
+} from '../document/comments/useCreateDocComment'
+import { NewCommentPopover } from '../document/comments/NewCommentPopover'
+import { DocumentCommentsSidebar } from '../document/comments/DocumentCommentsSidebar'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -101,6 +108,38 @@ export function DocumentEditorPage({
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null)
   const { tags: allTags, createTag } = useTags()
   const { collapsed: tocCollapsed, toggle: toggleToc } = useDocTocCollapsed()
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+  const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
+  const { comments, create } = useDocumentComments(documentId)
+  const [pending, setPending] = useState<{
+    from: number
+    to: number
+    quotedText: string
+  } | null>(null)
+  const [rightTab, setRightTab] = useState<'toc' | 'comments'>('toc')
+
+  const handleSubmitComment = useCallback(
+    async (body: string) => {
+      const editor = editorRef.current
+      if (!editor || !pending) return
+      const id = newCommentId()
+      const payload = buildCreateCommentPayload(editor, {
+        id,
+        body,
+        from: pending.from,
+        to: pending.to,
+        quotedText: pending.quotedText,
+      })
+      setPending(null)
+      try {
+        await create(payload)
+      } catch {
+        editor.commands.unsetComment(id)
+      }
+    },
+    [pending, create]
+  )
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -321,21 +360,63 @@ export function DocumentEditorPage({
         </div>
 
         <div className='flex'>
-          {/* Table of contents — sticky left rail, only visible on wide screens.
-              Hidden entirely when the document has no headings. */}
-          {tocItems.length > 0 && (
+          {/* Right rail — shows TOC (when headings exist) or Comments tab.
+              Always rendered when there are headings or comments so the
+              Comments tab is reachable even on a heading-free document. */}
+          {(tocItems.length > 0 || comments.length > 0) && (
             <aside
               className={cn(
                 'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
-                tocCollapsed ? 'w-12' : 'w-52'
+                tocCollapsed && rightTab === 'toc' ? 'w-12' : 'w-52'
               )}
             >
-              <DocumentToc
-                items={tocItems}
-                collapsed={tocCollapsed}
-                onToggle={toggleToc}
-                scrollRoot={scrollRoot}
-              />
+              {/* Tab toggle — Outline / Comments */}
+              <div className='mb-2 flex gap-1 border-b pb-1'>
+                {tocItems.length > 0 && (
+                  <button
+                    type='button'
+                    onClick={() => setRightTab('toc')}
+                    className={cn(
+                      'text-xs px-2 py-0.5 rounded',
+                      rightTab === 'toc'
+                        ? 'bg-muted font-medium'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {intl.formatMessage({ id: 'document.outline' })}
+                  </button>
+                )}
+                <button
+                  type='button'
+                  onClick={() => setRightTab('comments')}
+                  className={cn(
+                    'text-xs px-2 py-0.5 rounded',
+                    rightTab === 'comments'
+                      ? 'bg-muted font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {intl.formatMessage({ id: 'document.comments' })}
+                </button>
+              </div>
+
+              {rightTab === 'toc' && tocItems.length > 0 && (
+                <DocumentToc
+                  items={tocItems}
+                  collapsed={tocCollapsed}
+                  onToggle={toggleToc}
+                  scrollRoot={scrollRoot}
+                />
+              )}
+
+              {rightTab === 'comments' && (
+                <DocumentCommentsSidebar
+                  comments={comments}
+                  members={members}
+                  agentActors={[]}
+                  currentActorId={currentMemberId ?? null}
+                />
+              )}
             </aside>
           )}
           <div className='flex-1 min-w-0'>
@@ -439,7 +520,26 @@ export function DocumentEditorPage({
                 onTocUpdate={setTocItems}
                 tocScrollRoot={scrollRoot}
                 onStatsUpdate={setStats}
+                onEditorReady={e => {
+                  editorRef.current = e
+                }}
+                onRequestComment={(from, to, quotedText) =>
+                  setPending({ from, to, quotedText })
+                }
               />
+              {/* NewCommentPopover — inline below editor; precise anchor to the
+                  text selection is a follow-up refinement (Plan #6). */}
+              {pending && (
+                <div className='mt-2'>
+                  <NewCommentPopover
+                    open={!!pending}
+                    quotedText={pending.quotedText}
+                    members={members}
+                    onCancel={() => setPending(null)}
+                    onSubmit={handleSubmitComment}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
