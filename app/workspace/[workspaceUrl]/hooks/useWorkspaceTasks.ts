@@ -24,6 +24,9 @@ export function useWorkspaceTasks(filters: WorkspaceTaskFilterArgs) {
     queryKey: queryKeys.tasks.byWorkspace(workspaceUrl, JSON.stringify(filters)),
     queryFn: () =>
       tasksClient.listWorkspace<WorkspaceTasksResponse>(filters),
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   })
   return {
     tasks: query.data?.tasks ?? [],
@@ -32,5 +35,6 @@ export function useWorkspaceTasks(filters: WorkspaceTaskFilterArgs) {
     error: query.error
       ? ((query.error as Error).message ?? 'Could not load tasks.')
       : null,
+    refetch: query.refetch,
   }
 }

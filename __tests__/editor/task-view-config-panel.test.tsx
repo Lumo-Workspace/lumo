@@ -36,3 +36,11 @@ it('emits groupBy change', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Status' }))
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ groupBy: 'status' }))
 })
+
+it('emits a view change to kanban', async () => {
+  const onChange = jest.fn()
+  render(<TaskViewConfigPanel config={DEFAULT_TASK_VIEW_CONFIG} onChange={onChange} />)
+  await userEvent.click(screen.getByRole('button', { name: /configure/i }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Kanban' }))
+  expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ view: 'kanban' }))
+})

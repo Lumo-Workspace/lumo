@@ -35,7 +35,25 @@ jest.mock(
   () => ({ useWorkspaceMilestones: () => ({ milestones: [] }) })
 )
 
-import { render, screen, waitFor } from '@testing-library/react'
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWorkspaceTaskStatus', () => ({
+  useWorkspaceTaskStatus: () => ({ updateStatus: jest.fn() }),
+}))
+
+jest.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: { children: React.ReactNode }) => children,
+  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useDraggable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    isDragging: false,
+  }),
+  PointerSensor: class PointerSensor {},
+  useSensor: jest.fn(),
+  useSensors: jest.fn(() => []),
+}))
+
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
 const STORED =
@@ -133,5 +151,49 @@ describe('RichTextViewer — task view block', () => {
     expect(
       screen.queryByRole('button', { name: /Configure task view/ })
     ).not.toBeInTheDocument()
+  })
+
+  it('renders the kanban board when view is kanban', async () => {
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [
+        { id: 't1', title: 'Alpha', teamIdentifier: 'LUM', number: 1, status: 'TODO' },
+      ],
+      truncated: false,
+      loading: false,
+      error: null,
+    })
+    const stored =
+      '<div data-task-view data-task-view-config=\'{"version":1,"view":"kanban","groupBy":"none","filters":{}}\'></div>'
+    render(<RichTextViewer value={stored} />)
+    await waitFor(() => expect(screen.getByText('In Progress')).toBeInTheDocument())
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+  })
+
+  it('shows the truncated banner when the result is capped', async () => {
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [{ id: 't1', title: 'A', teamIdentifier: 'LUM', number: 1, status: 'TODO' }],
+      truncated: true,
+      loading: false,
+      error: null,
+    })
+    render(<RichTextViewer value={STORED} />)
+    await waitFor(() => expect(screen.getByText(/Showing the first/)).toBeInTheDocument())
+  })
+
+  it('refetches when the refresh button is clicked', async () => {
+    const refetch = jest.fn()
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [],
+      truncated: false,
+      loading: false,
+      error: null,
+      refetch,
+    })
+    render(<RichTextViewer value={STORED} />)
+    const btn = await waitFor(() =>
+      screen.getByRole('button', { name: 'Refresh' })
+    )
+    fireEvent.click(btn)
+    expect(refetch).toHaveBeenCalled()
   })
 })
