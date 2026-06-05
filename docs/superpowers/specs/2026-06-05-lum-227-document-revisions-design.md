@@ -130,7 +130,7 @@ cron 路由为内部触发，不在上表。
 ## 10. i18n
 
 - 新增 `documentHistory.*` 命名空间键。
-- **17 个 locale 文件全部补真实翻译**（en, en-AU, en-GB, zh-CN, zh-TW, es, es-419, fr, de, ru, ja, ko, hi, vi, id, ms）——遵守 CLAUDE.md i18n 规则 + `__tests__/i18n-locale-parity.test.ts` 严格校验（同 PR 补齐，非英文不得用英文兜底）。
+- **16 个 locale 文件全部补真实翻译**（en, en-AU, en-GB, zh-CN, zh-TW, es, es-419, fr, de, ru, ja, ko, hi, vi, id, ms）——遵守 CLAUDE.md i18n 规则 + `__tests__/i18n-locale-parity.test.ts` 严格校验（同 PR 补齐，非英文不得用英文兜底）。
 
 ## 11. 测试
 
