@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
-import { Link2, History } from 'lucide-react'
+import { Link2, History, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DescriptionEditor, type TocItem } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
@@ -39,6 +39,8 @@ import {
   newCommentId,
 } from '../document/comments/useCreateDocComment'
 import { CommentGutter } from '../document/comments/CommentGutter'
+import { CommentSheet } from '../document/comments/CommentSheet'
+import { NewCommentPopoverPortal } from '../document/comments/NewCommentPopoverPortal'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { queryKeys } from '@/lib/query/keys'
 import {
@@ -144,6 +146,8 @@ export function DocumentEditorPage({
   } | null>(null)
 
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
+  // Narrow-screen (<xl) comments drawer — the gutter rail is hidden there.
+  const [commentSheetOpen, setCommentSheetOpen] = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -469,6 +473,22 @@ export function DocumentEditorPage({
                 defaultMessage: 'Save as version',
               })}
             </button>
+            {/* Comments drawer trigger — narrow screens only; the xl gutter
+                rail is hidden below xl, so this is the way to reach threads. */}
+            {comments.some(c => c.status === 'OPEN') && (
+              <Button
+                size='sm'
+                variant='ghost'
+                className='gap-1.5 h-8 xl:hidden'
+                onClick={() => setCommentSheetOpen(true)}
+              >
+                <MessageSquare size={14} />
+                {intl.formatMessage({ id: 'document.comments' })}
+                <span className='text-muted-foreground'>
+                  {comments.filter(c => c.status === 'OPEN').length}
+                </span>
+              </Button>
+            )}
             <Button
               size='sm'
               variant='ghost'
@@ -627,12 +647,13 @@ export function DocumentEditorPage({
                 onCommentClick={id => {
                   setActiveCommentId(id)
                 }}
+                commentComposerOpen={!!pending}
               />
             </div>
           </div>
 
           {/* Right rail — comments gutter (Google-Docs style). */}
-          {(comments.some(c => c.status === 'OPEN') || pending) && (
+          {comments.some(c => c.status === 'OPEN') && (
             <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
               <CommentGutter
                 editor={editor}
@@ -640,7 +661,6 @@ export function DocumentEditorPage({
                 comments={comments}
                 members={members}
                 currentActorId={currentActorId}
-                pending={pending}
                 activeCommentId={activeCommentId}
                 onReply={(parentId, body) =>
                   create({ id: newCommentId(), body, parentId })
@@ -649,12 +669,42 @@ export function DocumentEditorPage({
                 onDelete={id => deleteComment(id)}
                 onSetStatus={(id, status) => setStatus(id, status)}
                 onSelectThread={scrollToAnchor}
-                onSubmitPending={handleSubmitComment}
-                onCancelPending={() => setPending(null)}
               />
             </aside>
           )}
         </div>
+
+        {/* New-comment composer — floats anchored to the selection (portal), so
+            it clamps into the viewport and works at every width, unlike the
+            xl-only gutter rail. */}
+        {pending && editor && (
+          <NewCommentPopoverPortal
+            editor={editor}
+            from={pending.from}
+            to={pending.to}
+            quotedText={pending.quotedText}
+            members={members}
+            onCancel={() => setPending(null)}
+            onSubmit={handleSubmitComment}
+          />
+        )}
+
+        {/* Narrow-screen comments drawer (gutter rail is hidden below xl). */}
+        <CommentSheet
+          open={commentSheetOpen}
+          onOpenChange={setCommentSheetOpen}
+          comments={comments}
+          members={members}
+          currentActorId={currentActorId}
+          activeCommentId={activeCommentId}
+          onReply={(parentId, body) =>
+            create({ id: newCommentId(), body, parentId })
+          }
+          onEdit={(id, body) => updateComment(id, body)}
+          onDelete={id => deleteComment(id)}
+          onSetStatus={(id, status) => setStatus(id, status)}
+          onSelectThread={scrollToAnchor}
+        />
 
         {/* Word count / character count / reading time — floating pill pinned
             to the bottom-right of the scroll pane (see DocumentStatsFooter).

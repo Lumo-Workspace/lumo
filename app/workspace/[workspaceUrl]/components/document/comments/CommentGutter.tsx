@@ -3,14 +3,7 @@ import type { Editor } from '@tiptap/core'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 import { DocumentCommentThread } from './DocumentCommentThread'
-import { NewCommentPopover } from './NewCommentPopover'
-import { useCommentGutterLayout, PENDING_ID } from './useCommentGutterLayout'
-
-export interface PendingComment {
-  from: number
-  to: number
-  quotedText: string
-}
+import { useCommentGutterLayout } from './useCommentGutterLayout'
 
 export interface CommentGutterProps {
   editor: Editor | null
@@ -19,15 +12,12 @@ export interface CommentGutterProps {
   comments: ApiDocumentComment[]
   members: WorkspaceMemberInfo[]
   currentActorId: string | null
-  pending: PendingComment | null
   activeCommentId: string | null
   onReply: (parentId: string, body: string) => void
   onEdit: (id: string, body: string) => void
   onDelete: (id: string) => void
   onSetStatus: (id: string, status: 'OPEN' | 'RESOLVED') => void
   onSelectThread: (id: string) => void
-  onSubmitPending: (body: string) => void
-  onCancelPending: () => void
 }
 
 export function CommentGutter(props: CommentGutterProps) {
@@ -35,8 +25,7 @@ export function CommentGutter(props: CommentGutterProps) {
   const { tops, height } = useCommentGutterLayout(
     props.editor,
     props.rowEl,
-    props.comments,
-    props.pending ? props.pending.from : null
+    props.comments
   )
 
   return (
@@ -62,21 +51,6 @@ export function CommentGutter(props: CommentGutterProps) {
           />
         </div>
       ))}
-      {props.pending && (
-        <div
-          data-testid='gutter-pos-pending'
-          className='absolute left-0 right-0'
-          style={{ top: tops[PENDING_ID] ?? 0 }}
-        >
-          <NewCommentPopover
-            open
-            quotedText={props.pending.quotedText}
-            members={props.members}
-            onCancel={props.onCancelPending}
-            onSubmit={props.onSubmitPending}
-          />
-        </div>
-      )}
     </div>
   )
 }
