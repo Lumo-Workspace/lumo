@@ -48,6 +48,21 @@ export const milestoneRepository = {
     })
   },
 
+  async findByWorkspace(
+    workspaceId: string,
+    filter: MilestoneListFilter = 'active'
+  ) {
+    const where: Prisma.MilestoneWhereInput = {
+      project: { workspaceId },
+    }
+    if (filter === 'active') where.archivedAt = null
+    else if (filter === 'archived') where.archivedAt = { not: null }
+    return prisma.milestone.findMany({
+      where,
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    })
+  },
+
   async findSlugsByProject(projectId: string): Promise<string[]> {
     const rows = await prisma.milestone.findMany({
       where: { projectId },
