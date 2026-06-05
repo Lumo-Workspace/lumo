@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "強調メモブロック",
   "editor.slash.toggle.title": "トグル",
   "editor.slash.toggle.description": "折りたたみブロック",
+  "editor.slash.taskView.title": "タスクビュー",
+  "editor.slash.taskView.description": "リアルタイムフィルタ付きタスク一覧",
   "editor.toggle.toggle": "展開または折りたたみ",
   "editor.taskView.heading": "タスクビュー",
   "editor.taskView.loading": "タスクを読み込み中…",

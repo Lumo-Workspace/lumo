@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Блок выделенной заметки",
   "editor.slash.toggle.title": "Переключатель",
   "editor.slash.toggle.description": "Сворачиваемый блок",
+  "editor.slash.taskView.title": "Просмотр задач",
+  "editor.slash.taskView.description": "Динамически фильтруемый список задач",
   "editor.toggle.toggle": "Развернуть или свернуть",
   "editor.taskView.heading": "Просмотр задач",
   "editor.taskView.loading": "Загрузка задач…",

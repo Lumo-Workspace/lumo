@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Hervorgehobener Notizblock",
   "editor.slash.toggle.title": "Umschalten",
   "editor.slash.toggle.description": "Einklappbarer Block",
+  "editor.slash.taskView.title": "Aufgabenansicht",
+  "editor.slash.taskView.description": "Live gefilterte Aufgabenliste",
   "editor.toggle.toggle": "Ein- oder ausklappen",
   "editor.taskView.heading": "Aufgabenansicht",
   "editor.taskView.loading": "Aufgaben werden geladen…",

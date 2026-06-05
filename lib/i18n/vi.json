@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Khối ghi chú nổi bật",
   "editor.slash.toggle.title": "Thu gọn",
   "editor.slash.toggle.description": "Khối có thể thu gọn",
+  "editor.slash.taskView.title": "Xem Tác vụ",
+  "editor.slash.taskView.description": "Danh sách tác vụ được lọc trực tiếp",
   "editor.toggle.toggle": "Mở rộng hoặc thu gọn",
   "editor.taskView.heading": "Xem Tác vụ",
   "editor.taskView.loading": "Đang tải tác vụ…",

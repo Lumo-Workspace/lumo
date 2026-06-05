@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "高亮提示區塊",
   "editor.slash.toggle.title": "摺疊區塊",
   "editor.slash.toggle.description": "可摺疊內容區塊",
+  "editor.slash.taskView.title": "任務視圖",
+  "editor.slash.taskView.description": "即時篩選的任務清單",
   "editor.toggle.toggle": "展開或摺疊",
   "editor.taskView.heading": "任務視圖",
   "editor.taskView.loading": "正在載入任務…",

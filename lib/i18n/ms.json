@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Blok nota disorot",
   "editor.slash.toggle.title": "Togol",
   "editor.slash.toggle.description": "Blok boleh lipat",
+  "editor.slash.taskView.title": "Paparan Tugas",
+  "editor.slash.taskView.description": "Senarai tugas yang ditapis secara langsung",
   "editor.toggle.toggle": "Kembang atau runtuhkan",
   "editor.taskView.heading": "Paparan Tugas",
   "editor.taskView.loading": "Memuatkan tugas…",

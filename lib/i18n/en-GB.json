@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Highlighted note block",
   "editor.slash.toggle.title": "Toggle",
   "editor.slash.toggle.description": "Collapsible block",
+  "editor.slash.taskView.title": "Task View",
+  "editor.slash.taskView.description": "Live filtered task list",
   "editor.toggle.toggle": "Expand or collapse",
   "editor.taskView.heading": "Task View",
   "editor.taskView.loading": "Loading tasks…",

@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "高亮提示块",
   "editor.slash.toggle.title": "折叠块",
   "editor.slash.toggle.description": "可折叠内容块",
+  "editor.slash.taskView.title": "任务视图",
+  "editor.slash.taskView.description": "实时筛选的任务列表",
   "editor.toggle.toggle": "展开或折叠",
   "editor.taskView.heading": "任务视图",
   "editor.taskView.loading": "加载任务中…",

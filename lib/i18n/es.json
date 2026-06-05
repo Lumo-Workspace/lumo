@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Bloque de nota destacada",
   "editor.slash.toggle.title": "Alternar",
   "editor.slash.toggle.description": "Bloque plegable",
+  "editor.slash.taskView.title": "Vista de tareas",
+  "editor.slash.taskView.description": "Lista de tareas filtradas en vivo",
   "editor.toggle.toggle": "Expandir o contraer",
   "editor.taskView.heading": "Vista de tareas",
   "editor.taskView.loading": "Cargando tareas…",

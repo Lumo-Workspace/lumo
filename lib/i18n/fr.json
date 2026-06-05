@@ -1199,6 +1199,8 @@
   "editor.slash.callout.description": "Bloc de note mis en évidence",
   "editor.slash.toggle.title": "Bascule",
   "editor.slash.toggle.description": "Bloc repliable",
+  "editor.slash.taskView.title": "Vue des tâches",
+  "editor.slash.taskView.description": "Liste de tâches filtrées en direct",
   "editor.toggle.toggle": "Développer ou réduire",
   "editor.taskView.heading": "Vue des tâches",
   "editor.taskView.loading": "Chargement des tâches…",
