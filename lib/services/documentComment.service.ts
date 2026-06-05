@@ -1,5 +1,7 @@
 import { documentCommentRepository } from '@/lib/repositories/documentComment.repository'
 import { documentRepository } from '@/lib/repositories/document.repository'
+import { memberRepository, notificationRepository } from '@/lib/repositories'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { pushDocumentEvent } from '@/lib/integrations/pusher/server'
 import {
   assertOnlyCommentMarksChanged,
@@ -7,6 +9,10 @@ import {
   removeCommentSpan,
 } from '@/lib/editor/comment-mark-html'
 import type { DocumentCommentStatus } from '@prisma/client'
+import { shouldNotifyBatch } from '@/lib/services/notification.service'
+import { sendDMNotification } from '@/lib/integrations/slack'
+import { getActorClerkId } from '@/lib/actor'
+import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
 
 type WaitUntil = (p: Promise<unknown>) => void
 
@@ -29,11 +35,116 @@ export interface CreateDocCommentArgs {
   waitUntil: WaitUntil
 }
 
+interface NotifyDocMentionsParams {
+  documentId: string
+  documentCommentId: string
+  body: string
+  authorActorId: string
+  workspaceId: string
+  docTitle: string
+  workspaceSlug: string
+  docSlug: string
+  waitUntil: WaitUntil
+}
+
+/** Parse @mention clerkIds from comment body HTML. Excludes author and __agent__. */
+function parseMentionedClerkIds(body: string, authorClerkId: string): string[] {
+  const mentionRegex = /data-type="mention"[^>]*data-id="([^"]+)"/g
+  const ids: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = mentionRegex.exec(body)) !== null) {
+    const clerkId = match[1]
+    if (
+      clerkId &&
+      clerkId !== authorClerkId &&
+      clerkId !== '__agent__' &&
+      !ids.includes(clerkId)
+    ) {
+      ids.push(clerkId)
+    }
+  }
+  return ids
+}
+
 function notFound(): never {
   throw Object.assign(new Error('Document not found'), { status: 404 })
 }
 
 export const documentCommentService = {
+  /**
+   * Process @mention notifications for a document comment.
+   * Sends inbox and Slack DM notifications to mentioned users.
+   */
+  async notifyDocMentions(params: NotifyDocMentionsParams): Promise<void> {
+    const {
+      documentId,
+      documentCommentId,
+      body,
+      authorActorId,
+      workspaceId,
+      docTitle,
+      workspaceSlug,
+      docSlug,
+      waitUntil,
+    } = params
+
+    const authorClerkId = await getActorClerkId(authorActorId)
+    const mentionedIds = parseMentionedClerkIds(body, authorClerkId ?? '')
+    if (mentionedIds.length === 0) return
+
+    const members = await memberRepository.findByWorkspaceAndClerkIds(
+      workspaceId,
+      mentionedIds
+    )
+    if (members.length === 0) return
+
+    const docUrl = buildDocumentUrl(workspaceSlug, docSlug)
+    const mentionPayload = {
+      taskTitle: docTitle,
+      taskUrl: docUrl,
+      commentBody: body.replace(/<[^>]+>/g, '').slice(0, 200),
+    }
+
+    const recipientActors = members
+      .map(m => m.actor?.id)
+      .filter((actorId): actorId is string => !!actorId)
+
+    // Batch preference checks for inApp and slack channels
+    const [inAppAllowed, slackAllowed] = await Promise.all([
+      shouldNotifyBatch(recipientActors, 'inApp', 'DOCUMENT_COMMENT_MENTIONED'),
+      shouldNotifyBatch(recipientActors, 'slack', 'DOCUMENT_COMMENT_MENTIONED'),
+    ])
+
+    // Slack DM — only to users who have slack mention enabled
+    for (const m of members) {
+      if (m.actor?.id && slackAllowed.has(m.actor.id)) {
+        waitUntil(
+          sendDMNotification(
+            workspaceId,
+            m.clerkId,
+            'comment_mention',
+            mentionPayload
+          )
+        )
+      }
+    }
+
+    // Inbox notifications — only for users who have inApp mention enabled
+    const inAppRecipients = recipientActors.filter(id => inAppAllowed.has(id))
+    if (inAppRecipients.length === 0) return
+
+    await notificationRepository.createMany(
+      inAppRecipients.map(recipientActorId => ({
+        workspaceId,
+        recipientActorId,
+        type: 'DOCUMENT_COMMENT_MENTIONED' as const,
+        documentId,
+        documentCommentId,
+        triggerActorId: authorActorId,
+      }))
+    )
+  },
+
   async getComments(documentId: string, memberId: string, workspaceId: string) {
     const doc = await documentRepository.findWithPermission(
       documentId,
@@ -134,6 +245,25 @@ export const documentCommentService = {
         commentId: comment.id,
       })
     )
+
+    // Fire-and-forget: DOCUMENT_COMMENT_MENTIONED notifications for @mention chips
+    const ws = await workspaceRepository.findNameAndSlug(workspaceId)
+    documentCommentService
+      .notifyDocMentions({
+        documentId,
+        documentCommentId: comment.id,
+        body: input.body,
+        authorActorId: authorActorId ?? '',
+        workspaceId,
+        docTitle: doc.title ?? '',
+        workspaceSlug: ws?.slug ?? '',
+        docSlug: doc.slug,
+        waitUntil,
+      })
+      .catch(err =>
+        console.error('[notify] DOCUMENT_COMMENT_MENTIONED failed:', err)
+      )
+
     return comment
   },
 
