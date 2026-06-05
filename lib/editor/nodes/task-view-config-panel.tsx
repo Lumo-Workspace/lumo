@@ -18,11 +18,12 @@ import {
   FilterCheckboxGroup,
   type FilterOption,
 } from './task-view-filter-group'
-import type { TaskViewConfig, TaskViewGroupBy } from './task-view-config'
+import type { TaskViewConfig, TaskViewGroupBy, TaskViewMode } from './task-view-config'
 
 const STATUS_ORDER = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 const PRIORITY_ORDER: ApiPriority[] = ['URGENT', 'HIGH', 'MEDIUM', 'LOW']
 const GROUP_BY_ORDER: TaskViewGroupBy[] = ['none', 'status', 'project', 'milestone']
+const VIEW_ORDER: TaskViewMode[] = ['list', 'kanban']
 
 interface TaskViewConfigPanelProps {
   config: TaskViewConfig
@@ -91,6 +92,29 @@ export function TaskViewConfigPanel({ config, onChange }: TaskViewConfigPanelPro
         contentEditable={false}
         onMouseDown={e => e.stopPropagation()}
       >
+        <div className='space-y-1'>
+          <p className='px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
+            {intl.formatMessage({ id: 'editor.taskView.viewLabel', defaultMessage: 'View' })}
+          </p>
+          <div className='flex flex-wrap gap-1'>
+            {VIEW_ORDER.map(v => (
+              <Button
+                key={v}
+                type='button'
+                size='sm'
+                variant={config.view === v ? 'default' : 'outline'}
+                className='h-6 px-2 text-xs'
+                onClick={() => onChange({ ...config, view: v })}
+              >
+                {intl.formatMessage({
+                  id: `editor.taskView.view.${v}`,
+                  defaultMessage: v === 'list' ? 'List' : 'Kanban',
+                })}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         <div className='space-y-1'>
           <p className='px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
             {intl.formatMessage({ id: 'editor.taskView.groupByLabel', defaultMessage: 'Group by' })}
