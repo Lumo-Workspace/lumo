@@ -109,6 +109,12 @@ export function DocumentEditorPage({
   const { tags: allTags, createTag } = useTags()
   const { collapsed: tocCollapsed, toggle: toggleToc } = useDocTocCollapsed()
 
+  // ── Actor id for comment author gating ───────────────────────────────────
+  // comments compare against comment.authorActorId (an Actor.id), not a
+  // Member.id, so we resolve the current member's actorId here.
+  const currentActorId =
+    members.find(m => m.id === currentMemberId)?.actorId ?? null
+
   // ── Comments ──────────────────────────────────────────────────────────────
   const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
   const { comments, create, updateComment, deleteComment, setStatus } =
@@ -432,7 +438,7 @@ export function DocumentEditorPage({
                   comments={comments}
                   members={members}
                   agentActors={[]}
-                  currentActorId={currentMemberId ?? null}
+                  currentActorId={currentActorId}
                   onReply={(parentId, body) =>
                     create({ id: newCommentId(), body, parentId })
                   }

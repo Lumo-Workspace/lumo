@@ -86,9 +86,18 @@ it('hides edit/delete for non-authors', () => {
   expect(screen.queryByTestId('delete-c1')).toBeNull()
 })
 
-it('calls onDelete for the author', () => {
+it('calls onDelete after confirmation (author)', () => {
+  const onDelete = jest.fn()
+  r({ onDelete })
+  fireEvent.click(screen.getByTestId('delete-c1')) // arm confirm
+  expect(onDelete).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByTestId('confirm-delete-c1'))
+  expect(onDelete).toHaveBeenCalledWith('c1')
+})
+it('cancels delete without calling onDelete', () => {
   const onDelete = jest.fn()
   r({ onDelete })
   fireEvent.click(screen.getByTestId('delete-c1'))
-  expect(onDelete).toHaveBeenCalledWith('c1')
+  fireEvent.click(screen.getByTestId('cancel-delete-c1'))
+  expect(onDelete).not.toHaveBeenCalled()
 })

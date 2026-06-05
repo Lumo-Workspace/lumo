@@ -40,6 +40,7 @@ function Row({
 }) {
   const intl = useIntl()
   const [editing, setEditing] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const editRef = useRef<string | null>(null)
   const clearRef = useRef<(() => void) | null>(null)
   const author = resolveCommentAuthor(c, members, agentActors)
@@ -80,20 +81,41 @@ function Row({
       </div>
       {isAuthor && !editing && (
         <div className='mt-0.5 flex gap-2 text-xs text-muted-foreground'>
-          <button
-            type='button'
-            data-testid={`edit-${c.id}`}
-            onClick={() => setEditing(true)}
-          >
-            {intl.formatMessage({ id: 'common.edit' })}
-          </button>
-          <button
-            type='button'
-            data-testid={`delete-${c.id}`}
-            onClick={() => onDelete(c.id)}
-          >
-            {intl.formatMessage({ id: 'common.delete' })}
-          </button>
+          {confirmingDelete ? (
+            <>
+              <button
+                type='button'
+                data-testid={`confirm-delete-${c.id}`}
+                onClick={() => onDelete(c.id)}
+              >
+                {intl.formatMessage({ id: 'common.confirm' })}
+              </button>
+              <button
+                type='button'
+                data-testid={`cancel-delete-${c.id}`}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                {intl.formatMessage({ id: 'common.cancel' })}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type='button'
+                data-testid={`edit-${c.id}`}
+                onClick={() => setEditing(true)}
+              >
+                {intl.formatMessage({ id: 'common.edit' })}
+              </button>
+              <button
+                type='button'
+                data-testid={`delete-${c.id}`}
+                onClick={() => setConfirmingDelete(true)}
+              >
+                {intl.formatMessage({ id: 'common.delete' })}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
