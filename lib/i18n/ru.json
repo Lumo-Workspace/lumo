@@ -1349,5 +1349,15 @@
   "forecast.viewSources": "Показать исходные задачи",
   "documentEditor.stats.words": "{count, plural, one {# слово} few {# слова} many {# слов} other {# слова}}",
   "documentEditor.stats.characters": "{count, plural, one {# символ} few {# символа} many {# символов} other {# символа}}",
-  "documentEditor.stats.readingTime": "{minutes} мин чтения"
+  "documentEditor.stats.readingTime": "{minutes} мин чтения",
+  "editor.comment": "Комментировать",
+  "document.comments": "Комментарии",
+  "document.noComments": "Пока нет комментариев",
+  "document.replies": "ответов",
+  "document.reply": "Ответить",
+  "document.resolve": "Решить",
+  "document.reopen": "Открыть заново",
+  "document.commentOrphaned": "Исходный текст удалён",
+  "document.showResolved": "Показать решённые",
+  "document.outline": "Структура"
 }
