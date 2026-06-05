@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "कार्य बोर्ड",
   "editor.taskView.truncated": "पहले {count} कार्य दिखाए जा रहे हैं।",
   "editor.taskView.statusUpdateError": "कार्य को नहीं ले जाया जा सका। कृपया पुनः प्रयास करें।",
+  "editor.taskView.refresh": "ताज़ा करें",
   "editor.quote": "उद्धरण",
   "editor.insertTable": "तालिका डालें",
   "editor.insertImage": "छवि डालें",

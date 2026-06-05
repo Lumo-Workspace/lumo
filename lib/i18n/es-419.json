@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Tablero de tareas",
   "editor.taskView.truncated": "Mostrando las primeras {count} tareas.",
   "editor.taskView.statusUpdateError": "No se pudo mover la tarea. Por favor, inténtalo de nuevo.",
+  "editor.taskView.refresh": "Actualizar",
   "editor.quote": "Cita",
   "editor.insertTable": "Insertar tabla",
   "editor.insertImage": "Insertar imagen",

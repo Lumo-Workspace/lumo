@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Aufgabentafel",
   "editor.taskView.truncated": "Es werden die ersten {count} Aufgaben angezeigt.",
   "editor.taskView.statusUpdateError": "Die Aufgabe konnte nicht verschoben werden. Bitte versuchen Sie es erneut.",
+  "editor.taskView.refresh": "Aktualisieren",
   "editor.quote": "Zitat",
   "editor.insertTable": "Tabelle einfügen",
   "editor.insertImage": "Bild einfügen",

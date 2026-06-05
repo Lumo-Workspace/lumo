@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import {
   DndContext,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   useDraggable,
@@ -16,6 +17,7 @@ import { API_STATUS_LABEL } from '@/app/workspace/[workspaceUrl]/utils/taskStatu
 import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 import {
   KANBAN_STATUSES,
+  sortColumnTasks,
   statusFromDropTarget,
 } from './task-view-kanban-drop'
 
@@ -114,7 +116,10 @@ export function TaskViewKanban({
 }: TaskViewKanbanProps) {
   const intl = useIntl()
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Keyboard a11y: Space to pick up, arrows to move, Space to drop. dnd-kit
+    // also emits ARIA live-region announcements for the drag.
+    useSensor(KeyboardSensor)
   )
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -130,7 +135,7 @@ export function TaskViewKanban({
   const columns = KANBAN_STATUSES.map(status => ({
     status,
     label: API_STATUS_LABEL[status] ?? status,
-    tasks: tasks.filter(t => t.status === status),
+    tasks: sortColumnTasks(tasks.filter(t => t.status === status)),
   }))
 
   return (

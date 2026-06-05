@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Tableau des tâches",
   "editor.taskView.truncated": "Affichage des {count} premières tâches.",
   "editor.taskView.statusUpdateError": "Impossible de déplacer la tâche. Veuillez réessayer.",
+  "editor.taskView.refresh": "Actualiser",
   "editor.quote": "Citation",
   "editor.insertTable": "Insérer un tableau",
   "editor.insertImage": "Insérer une image",

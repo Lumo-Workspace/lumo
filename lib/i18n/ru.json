@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Доска задач",
   "editor.taskView.truncated": "Отображаются первые {count} задач.",
   "editor.taskView.statusUpdateError": "Не удалось переместить задачу. Пожалуйста, попробуйте ещё раз.",
+  "editor.taskView.refresh": "Обновить",
   "editor.quote": "Цитата",
   "editor.insertTable": "Вставить таблицу",
   "editor.insertImage": "Вставить изображение",

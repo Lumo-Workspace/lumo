@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Task board",
   "editor.taskView.truncated": "Showing the first {count} tasks.",
   "editor.taskView.statusUpdateError": "Could not move the task. Please try again.",
+  "editor.taskView.refresh": "Refresh",
   "editor.quote": "Quote",
   "editor.insertTable": "Insert table",
   "editor.insertImage": "Insert image",
