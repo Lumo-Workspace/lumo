@@ -64,6 +64,16 @@ describe('snapshotOnSave', () => {
     expect(repo.updateContent).not.toHaveBeenCalled()
   })
 
+  it('stores a CJK-aware word count derived from the HTML body', async () => {
+    repo.findLatestForDocument.mockResolvedValue(null)
+    await documentRevisionService.snapshotOnSave(
+      'd1', 'w1', 'm1',
+      { content: '<p>one two three</p>', title: 'T', emoji: null },
+      NOW
+    )
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ wordCount: 3 }))
+  })
+
   it('merges into the latest revision for the same author within 10 min', async () => {
     repo.findLatestForDocument.mockResolvedValue({
       id: 'r1', authorId: 'm1', isManual: false, content: '<p>old</p>',
