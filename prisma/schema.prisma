@@ -98,6 +98,11 @@ enum CommentType {
   AGENT
 }
 
+enum DocumentCommentStatus {
+  OPEN
+  RESOLVED
+}
+
 enum AgentStatus {
   SUBMITTED      @map("IDLE")
   WORKING        @map("RUNNING")
@@ -334,11 +339,13 @@ model Actor {
   member    WorkspaceMember? @relation(fields: [memberId], references: [id], onDelete: Cascade)
   agent     AgentProfile?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  assignedTasks          Task[]         @relation("TaskAssignee")
-  comments               Comment[]      @relation("CommentAuthor")
-  activities             TaskActivity[]
-  receivedNotifications  Notification[] @relation("NotificationRecipient")
-  triggeredNotifications Notification[] @relation("NotificationTrigger")
+  assignedTasks            Task[]            @relation("TaskAssignee")
+  comments                 Comment[]         @relation("CommentAuthor")
+  activities               TaskActivity[]
+  receivedNotifications    Notification[]    @relation("NotificationRecipient")
+  triggeredNotifications   Notification[]    @relation("NotificationTrigger")
+  documentComments         DocumentComment[] @relation("DocumentCommentAuthor")
+  resolvedDocumentComments DocumentComment[] @relation("DocumentCommentResolver")
 
   @@unique([workspaceId, externalIdentity])
   @@index([workspaceId])
@@ -1016,6 +1023,7 @@ model Document {
   visibility DocVisibility     @default(PRIVATE)
   shares     DocumentShare[]
   mentions   DocumentMention[]
+  documentComments DocumentComment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1188,6 +1196,40 @@ model DocumentTag {
   @@id([documentId, tagId])
   @@index([tagId])
   @@map("document_tags")
+}
+
+model DocumentComment {
+  id         String @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  authorActorId String?
+  author        Actor?  @relation("DocumentCommentAuthor", fields: [authorActorId], references: [id], onDelete: SetNull)
+
+  body String @db.Text
+
+  parentId String?
+  parent   DocumentComment?  @relation("DocCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  DocumentComment[] @relation("DocCommentReplies")
+
+  quotedText  String? @db.Text
+  anchorStart Int?
+  anchorEnd   Int?
+  status      DocumentCommentStatus @default(OPEN)
+  isOrphaned  Boolean               @default(false)
+
+  resolvedByActorId String?
+  resolvedBy        Actor?  @relation("DocumentCommentResolver", fields: [resolvedByActorId], references: [id], onDelete: SetNull)
+  resolvedAt        DateTime?
+
+  type CommentType @default(USER)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([documentId, deletedAt])
+  @@index([parentId])
 }
 
 model GenerationJob {

@@ -275,6 +275,39 @@ export const updateCommentSchema = z.object({
   body: z.string().min(1, 'Comment cannot be empty').max(5000),
 })
 
+// ─── Document Comments ────────────────────────────────────────────────────────
+
+export const createDocumentCommentSchema = z
+  .object({
+    /** Client-generated cuid; matches the data-comment-id written into content. */
+    id: z.string().cuid(),
+    body: z.string().min(1, 'Comment cannot be empty').max(5000),
+    /** Present when posting a reply; references a top-level comment. */
+    parentId: z.string().cuid().optional(),
+    /** ProseMirror anchor positions (top-level only). */
+    from: z.number().int().min(0).optional(),
+    to: z.number().int().min(0).optional(),
+    /** Snapshot of the selected text (top-level only). */
+    quotedText: z.string().max(10000).optional(),
+    /**
+     * Full document HTML with the new comment mark applied client-side.
+     * Required for top-level (anchored) comments; omitted for replies.
+     */
+    content: z.string().max(500000).optional(),
+  })
+  .refine(v => v.from === undefined || v.to === undefined || v.to >= v.from, {
+    message: 'to must be >= from',
+    path: ['to'],
+  })
+
+export const updateDocumentCommentSchema = z.object({
+  body: z.string().min(1, 'Comment cannot be empty').max(5000),
+})
+
+export const resolveDocumentCommentSchema = z.object({
+  status: z.enum(['OPEN', 'RESOLVED']),
+})
+
 // ─── Invites ─────────────────────────────────────────────────────────────────
 
 export const sendInvitesSchema = z.object({

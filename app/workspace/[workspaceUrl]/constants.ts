@@ -67,6 +67,9 @@ export const API = {
       `/api/documents/${id}/shares/${shareId}`,
     move: (id: string) => `/api/documents/${id}/move`,
     tree: '/api/documents/tree',
+    comments: (docId: string) => `/api/documents/${docId}/comments`,
+    comment: (docId: string, commentId: string) =>
+      `/api/documents/${docId}/comments/${commentId}`,
   },
   documentTemplates: {
     list: '/api/document-templates',
