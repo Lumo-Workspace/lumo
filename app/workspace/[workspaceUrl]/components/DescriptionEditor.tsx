@@ -97,6 +97,13 @@ interface DescriptionEditorProps {
    * Task-description editors omit this prop, so the button will not render there.
    */
   onRequestComment?: (from: number, to: number, quotedText: string) => void
+  /**
+   * Called once with the Tiptap `Editor` instance as soon as it is ready.
+   * Use this to apply programmatic marks (e.g. comment highlights) from a
+   * parent without needing to reach into DescriptionEditor's internals.
+   * The prop is optional so all existing callers are unaffected.
+   */
+  onEditorReady?: (editor: import('@tiptap/core').Editor) => void
 }
 
 export function DescriptionEditor({
@@ -113,6 +120,7 @@ export function DescriptionEditor({
   onChangeDebounceMs,
   onStatsUpdate,
   onRequestComment,
+  onEditorReady,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -306,6 +314,13 @@ export function DescriptionEditor({
   useEffect(() => {
     editorRef.current = editor ?? null
   }, [editor])
+
+  // Notify parent that the editor instance is ready. Fires once the editor
+  // transitions from null → instance, giving callers a stable handle to apply
+  // programmatic marks (e.g. comment highlights) without internal coupling.
+  useEffect(() => {
+    if (editor) onEditorReady?.(editor)
+  }, [editor, onEditorReady])
 
   // Sync the TOC: wire the scroll listener, compute active heading, push items
   // upstream. Mirror effects for onTocUpdateRef/tocScrollRootRef also live here.
