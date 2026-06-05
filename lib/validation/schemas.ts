@@ -316,6 +316,7 @@ export const createDocumentSchema = z.object({
     .optional()
     .default('PRIVATE'),
   contentMarkdown: z.string().max(500000).optional(),
+  templateId: z.string().cuid().optional(),
   ...tagIdsShape,
 })
 

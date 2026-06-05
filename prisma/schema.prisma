@@ -196,6 +196,7 @@ model Workspace {
   googleDriveIntegrations GoogleDriveIntegration[]
   taskFigmaLinks     TaskFigmaLink[]
   taskArtifacts      TaskArtifact[]
+  documentTemplates  DocumentTemplate[]
 
   summaryFrequency SummaryFrequency @default(DAILY)
   summaryEnabled   Boolean          @default(true)
@@ -1026,6 +1027,21 @@ model Document {
   @@index([projectId])
   @@index([createdById])
   @@index([workspaceId, googleDocId])
+}
+
+model DocumentTemplate {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  emoji       String?
+  content     String     @db.Text
+  sortOrder   Float
+  isSystem    Boolean    @default(true)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([workspaceId])
 }
 
 model DocumentShare {
