@@ -51,7 +51,7 @@ export function flashEditorAnchor(editor: Editor, commentId: string): void {
   setTimeout(() => spans.forEach(s => s.classList.remove(ACTIVE_CLASS)), 1500)
 }
 
-type DocEventish = { type?: string }
+type DocEventish = { type?: string; [key: string]: unknown }
 /** True when a pusher document event concerns comments and should refetch. */
 export function docCommentEventNeedsRefetch(event: DocEventish): boolean {
   return (
