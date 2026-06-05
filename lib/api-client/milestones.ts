@@ -55,6 +55,12 @@ export interface MilestoneUpdateInput {
 export type MilestoneListFilter = 'active' | 'archived' | 'all'
 
 export const milestonesClient = {
+  listByWorkspace(filter: MilestoneListFilter = 'active') {
+    const base = API.milestones.workspace
+    const url = filter === 'active' ? base : `${base}?filter=${filter}`
+    return apiFetch<{ milestones: ApiMilestone[] }>(url)
+  },
+
   listByProject(projectId: string, filter: MilestoneListFilter = 'active') {
     const base = API.milestones.listByProject(projectId)
     // `active` is the server default — omit the param so the URL (and its
