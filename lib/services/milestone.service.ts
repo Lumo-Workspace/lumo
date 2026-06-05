@@ -275,6 +275,18 @@ export const milestoneService = {
     return milestoneRepository.unarchive(milestoneId)
   },
 
+  /**
+   * All milestones in the viewer's workspace (for the task-view config picker).
+   * Scope comes from the authenticated identity's workspaceId — no per-project
+   * authorization needed since it is the caller's own workspace.
+   */
+  async listByWorkspace(
+    workspaceId: string,
+    filter: MilestoneListFilter = 'active'
+  ) {
+    return milestoneRepository.findByWorkspace(workspaceId, filter)
+  },
+
   async listTasks(
     milestoneId: string,
     memberId: string,
