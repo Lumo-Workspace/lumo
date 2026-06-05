@@ -21,7 +21,8 @@ export function resolveGutterLayout(
   const tops: Record<string, number> = {}
   let prevBottom = Number.NEGATIVE_INFINITY
   for (const it of sorted) {
-    const top = Math.max(it.anchorY, prevBottom + gap)
+    const floor = Math.max(prevBottom + gap, 0)
+    const top = Number.isFinite(it.anchorY) ? Math.max(it.anchorY, floor) : floor
     tops[it.id] = top
     prevBottom = top + it.height
   }

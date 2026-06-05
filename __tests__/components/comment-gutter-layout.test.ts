@@ -34,3 +34,18 @@ it('cascades pushes across three tight anchors', () => {
   )
   expect(tops).toEqual({ a: 0, b: 28, c: 56 })
 })
+
+it('stacks a non-finite (orphaned) anchor directly below the previous card', () => {
+  // a at 0..20; orphan b has +Infinity anchor → floor = 20 + gap(8) = 28
+  const tops = resolveGutterLayout(
+    items([['a', 0, 20], ['b', Number.POSITIVE_INFINITY, 20]]),
+    8
+  )
+  expect(tops).toEqual({ a: 0, b: 28 })
+})
+
+it('places a lone orphaned anchor at 0 (no NaN/Infinity)', () => {
+  const tops = resolveGutterLayout(items([['x', Number.POSITIVE_INFINITY, 20]]), 8)
+  expect(tops).toEqual({ x: 0 })
+  expect(Number.isFinite(tops.x)).toBe(true)
+})

@@ -550,7 +550,7 @@ export function DocumentEditorPage({
 
           {/* Right rail — comments gutter (Google-Docs style). */}
           {(comments.some(c => c.status === 'OPEN') || pending) && (
-            <aside className='hidden xl:block shrink-0 self-start sticky top-0 max-h-screen w-64 overflow-y-auto pt-2 px-1'>
+            <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
               <CommentGutter
                 editor={editor}
                 rowEl={commentRow}
