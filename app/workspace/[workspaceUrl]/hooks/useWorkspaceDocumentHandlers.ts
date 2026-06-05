@@ -67,13 +67,16 @@ export function useWorkspaceDocumentHandlers({
   }, [workspaceUrl, setCurrentPage])
 
   const handleTreeCreateChild = useCallback(
-    (parentId: string | null) => {
+    (
+      parentId: string | null,
+      template?: { id: string; content: string; emoji: string | null }
+    ) => {
       const tempId = `temp-${crypto.randomUUID()}`
       const node: TreeNode = {
         id: tempId,
         slug: null,
         title: '',
-        emoji: null,
+        emoji: template?.emoji ?? null,
         parentId,
         sortOrder: Date.now(),
         childCount: 0,
@@ -92,9 +95,9 @@ export function useWorkspaceDocumentHandlers({
         number: 0,
         slug: tempId,
         title: '',
-        emoji: null,
+        emoji: template?.emoji ?? null,
         parentId,
-        content: null,
+        content: template?.content ?? null,
         children: [],
         shares: [],
         ancestors: [],
@@ -112,9 +115,11 @@ export function useWorkspaceDocumentHandlers({
           imageUrl: currentUser?.imageUrl ?? null,
         },
       })
-      // Background sync
+      // Background sync — carry templateId so the server injects the skeleton.
       documentsClient
-        .create<{ document: ApiDocument; ancestors?: unknown[] }>({ parentId })
+        .create<{ document: ApiDocument; ancestors?: unknown[] }>(
+          template ? { parentId, templateId: template.id } : { parentId }
+        )
         .then(data => {
           // Swap the optimistic identifier (`temp-uuid`) for the real slug.
           // We index the tree by id (stable cuid, never collides) and route

@@ -1,6 +1,7 @@
 'use client'
 
-import { Dispatch, SetStateAction } from 'react'
+import { Dispatch, SetStateAction, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type {
   ApiDraft,
   ApiProject,
@@ -26,6 +27,11 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
 import { SprintDetailClient } from '../sprints/[sprintId]/SprintDetailClient'
 import { GlobalDocTree, CollapsedDocTreeRail } from './document/GlobalDocTree'
+import {
+  DocumentTemplatePicker,
+  type PickerTemplate,
+} from './document/DocumentTemplatePicker'
+import { documentTemplatesClient } from '@/lib/api-client'
 
 type NotificationsBundle = Omit<
   ReturnType<typeof useRealtimeNotifications>,
@@ -179,6 +185,48 @@ export function WorkspacePageRouter(props: Props) {
     navigateTo,
   } = props
 
+  // ─── Document template picker ─────────────────────────────────────────────
+  // Intercepts the "new document" entry points: opening the picker lets the
+  // user start from a template (or blank) before the optimistic create fires.
+  const [templatePickerParentId, setTemplatePickerParentId] = useState<
+    string | null
+  >(null)
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
+
+  const { data: templateData, isLoading: templatesLoading } = useQuery({
+    queryKey: ['document-templates'],
+    queryFn: () =>
+      documentTemplatesClient.list<{ templates: PickerTemplate[] }>(),
+  })
+
+  const openTemplatePicker = useCallback((parentId: string | null) => {
+    setTemplatePickerParentId(parentId)
+    setTemplatePickerOpen(true)
+  }, [])
+
+  const handleTemplateSelected = useCallback(
+    (template: PickerTemplate | null) => {
+      setTemplatePickerOpen(false)
+      documentHandlers.handleTreeCreateChild(
+        templatePickerParentId,
+        template
+          ? { id: template.id, content: template.content, emoji: template.emoji }
+          : undefined
+      )
+    },
+    [documentHandlers, templatePickerParentId]
+  )
+
+  const templatePicker = (
+    <DocumentTemplatePicker
+      open={templatePickerOpen}
+      onOpenChange={setTemplatePickerOpen}
+      templates={templateData?.templates ?? []}
+      loading={templatesLoading}
+      onSelect={handleTemplateSelected}
+    />
+  )
+
   switch (currentPage) {
     case 'dashboard':
       return (
@@ -260,7 +308,7 @@ export function WorkspacePageRouter(props: Props) {
               currentDocId={null}
               onNavigate={documentHandlers.navigateToDocument}
               onExpandNode={docTree.expandNode}
-              onAddChild={documentHandlers.handleTreeCreateChild}
+              onAddChild={openTemplatePicker}
               onRenameDoc={doc => {
                 setTreeRenameValue(doc.title)
                 setTreeRenameDoc(doc)
@@ -276,12 +324,13 @@ export function WorkspacePageRouter(props: Props) {
             loading={documentsLoading}
             error={documentsError}
             onRetry={fetchDocuments}
-            onNewDocument={documentHandlers.handleNewDocument}
+            onNewDocument={() => openTemplatePicker(null)}
             onSelectDocument={doc =>
               documentHandlers.navigateToDocument(doc.slug)
             }
             onDeleteDocument={documentHandlers.handleDeleteDocument}
           />
+          {templatePicker}
         </div>
       )
 
@@ -297,7 +346,7 @@ export function WorkspacePageRouter(props: Props) {
               currentDocId={selectedDocumentId}
               onNavigate={documentHandlers.navigateToDocument}
               onExpandNode={docTree.expandNode}
-              onAddChild={documentHandlers.handleTreeCreateChild}
+              onAddChild={openTemplatePicker}
               onRenameDoc={doc => {
                 setTreeRenameValue(doc.title)
                 setTreeRenameDoc(doc)
@@ -319,6 +368,7 @@ export function WorkspacePageRouter(props: Props) {
               onEmojiChanged={(id, emoji) => docTree.updateNodeEmoji(id, emoji)}
             />
           ) : null}
+          {templatePicker}
         </div>
       )
 
