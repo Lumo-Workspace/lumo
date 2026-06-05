@@ -92,6 +92,8 @@ export const queryKeys = {
 
   documentComments: (docId: string) => ['document-comments', docId] as const,
 
+  documentRevisions: (docId: string) => ['document-revisions', docId] as const,
+
   taskFigmaLinks: (taskId: string) => ['task-figma-links', taskId] as const,
 
   taskArtifacts: (taskId: string) => ['task-artifacts', taskId] as const,

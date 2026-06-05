@@ -1,7 +1,7 @@
 export { apiFetch, apiFetchQuiet, ApiClientError } from './base'
 export { tasksClient } from './tasks'
 export { projectsClient } from './projects'
-export { documentsClient } from './documents'
+export { documentsClient, documentRevisionsApi } from './documents'
 export { documentTemplatesClient } from './document-templates'
 export { workspacesClient } from './workspaces'
 export { notificationsClient } from './notifications'
