@@ -111,7 +111,8 @@ export function DocumentEditorPage({
 
   // ── Comments ──────────────────────────────────────────────────────────────
   const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
-  const { comments, create } = useDocumentComments(documentId)
+  const { comments, create, updateComment, deleteComment, setStatus } =
+    useDocumentComments(documentId)
   const [pending, setPending] = useState<{
     from: number
     to: number
@@ -123,6 +124,13 @@ export function DocumentEditorPage({
   // rightTab; this only affects the effective active tab derived for rendering.
   const activeRightTab: 'toc' | 'comments' =
     tocItems.length === 0 ? 'comments' : rightTab
+
+  const scrollToAnchor = useCallback((commentId: string) => {
+    const dom = editorRef.current?.view.dom as HTMLElement | undefined
+    dom
+      ?.querySelector(`span[data-comment-id="${commentId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -425,6 +433,13 @@ export function DocumentEditorPage({
                   members={members}
                   agentActors={[]}
                   currentActorId={currentMemberId ?? null}
+                  onReply={(parentId, body) =>
+                    create({ id: newCommentId(), body, parentId })
+                  }
+                  onEdit={(id, body) => updateComment(id, body)}
+                  onDelete={id => deleteComment(id)}
+                  onSetStatus={(id, status) => setStatus(id, status)}
+                  onSelectThread={scrollToAnchor}
                 />
               )}
             </aside>

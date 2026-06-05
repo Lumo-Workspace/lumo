@@ -4,19 +4,30 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }))
 
-// Mock CommentAvatar — it uses Avatar/AvatarImage which need a DOM env; keep it
-// simple here as the rendering logic isn't what we test.
-jest.mock('@/app/workspace/[workspaceUrl]/components/CommentAvatar', () => ({
-  CommentAvatar: ({ initials }: { initials: string }) => (
-    <span data-testid='comment-avatar'>{initials}</span>
-  ),
-}))
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/document/comments/DocumentCommentThread',
+  () => ({
+    DocumentCommentThread: ({
+      thread,
+    }: {
+      thread: { id: string; status: string }
+    }) => <div data-testid={`thread-${thread.id}`}>{thread.status}</div>,
+  })
+)
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { DocumentCommentsSidebar } from '@/app/workspace/[workspaceUrl]/components/document/comments/DocumentCommentsSidebar'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 
-const baseComment: ApiDocumentComment = {
+const baseCallbacks = {
+  onReply: jest.fn(),
+  onEdit: jest.fn(),
+  onDelete: jest.fn(),
+  onSetStatus: jest.fn(),
+  onSelectThread: jest.fn(),
+}
+
+const openComment: ApiDocumentComment = {
   id: 'c1',
   documentId: 'd1',
   authorActorId: null,
@@ -32,63 +43,57 @@ const baseComment: ApiDocumentComment = {
   replies: [],
 }
 
-it('renders empty state', () => {
+const resolvedComment: ApiDocumentComment = {
+  ...openComment,
+  id: 'c2',
+  status: 'RESOLVED',
+}
+
+it('renders empty state when no comments', () => {
   render(
     <DocumentCommentsSidebar
       comments={[]}
       members={[]}
       agentActors={[]}
       currentActorId={null}
+      {...baseCallbacks}
     />
   )
   expect(screen.getByText('document.noComments')).toBeInTheDocument()
 })
 
-it('renders a thread with quoted text + body', () => {
+it('renders an OPEN thread by default', () => {
   render(
     <DocumentCommentsSidebar
-      comments={[baseComment]}
+      comments={[openComment]}
       members={[]}
       agentActors={[]}
       currentActorId={null}
+      {...baseCallbacks}
     />
   )
-  expect(screen.getByText(/the intro/)).toBeInTheDocument()
-  expect(screen.getByText(/looks good/)).toBeInTheDocument()
+  expect(screen.getByTestId('thread-c1')).toBeInTheDocument()
 })
 
-it('shows reply count when replies exist', () => {
-  const withReplies: ApiDocumentComment = {
-    ...baseComment,
-    replies: [{ ...baseComment, id: 'r1', parentId: 'c1', quotedText: null }],
-  }
+it('hides RESOLVED threads by default and shows them after toggling', () => {
   render(
     <DocumentCommentsSidebar
-      comments={[withReplies]}
+      comments={[openComment, resolvedComment]}
       members={[]}
       agentActors={[]}
       currentActorId={null}
+      {...baseCallbacks}
     />
   )
-  // The reply-count div renders "1 document.replies" split across text nodes
-  const replyDiv = screen.getByText(
-    (_, el) => el?.textContent?.trim() === '1 document.replies'
-  )
-  expect(replyDiv).toBeInTheDocument()
-})
 
-it('does not render quoted text section when quotedText is null', () => {
-  const noQuote: ApiDocumentComment = { ...baseComment, quotedText: null }
-  render(
-    <DocumentCommentsSidebar
-      comments={[noQuote]}
-      members={[]}
-      agentActors={[]}
-      currentActorId={null}
-    />
-  )
-  // Body still renders
-  expect(screen.getByText(/looks good/)).toBeInTheDocument()
-  // No blockquote div
-  expect(screen.queryByText(/the intro/)).not.toBeInTheDocument()
+  // OPEN visible, RESOLVED hidden by default
+  expect(screen.getByTestId('thread-c1')).toBeInTheDocument()
+  expect(screen.queryByTestId('thread-c2')).not.toBeInTheDocument()
+
+  // Toggle show-resolved
+  fireEvent.click(screen.getByTestId('show-resolved-toggle'))
+
+  // Both visible after toggle
+  expect(screen.getByTestId('thread-c1')).toBeInTheDocument()
+  expect(screen.getByTestId('thread-c2')).toBeInTheDocument()
 })

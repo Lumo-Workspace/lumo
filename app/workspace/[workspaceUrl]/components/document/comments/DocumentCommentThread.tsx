@@ -3,21 +3,18 @@ import { useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import { CommentAvatar } from '@/app/workspace/[workspaceUrl]/components/CommentAvatar'
-import { resolveCommentAuthor } from '@/app/workspace/[workspaceUrl]/components/comment-utils'
+import {
+  resolveCommentAuthor,
+  type AgentActorInfo,
+} from '@/app/workspace/[workspaceUrl]/components/comment-utils'
 import { CommentEditor } from '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor'
 import { Button } from '@/components/ui/button'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 
-interface AgentActor {
-  actorId: string
-  name: string
-  avatarColor: string
-}
-
 export interface DocumentCommentThreadProps {
   thread: ApiDocumentComment
   members: WorkspaceMemberInfo[]
-  agentActors: AgentActor[]
+  agentActors: AgentActorInfo[]
   currentActorId: string | null | undefined
   onReply: (parentId: string, body: string) => void
   onEdit: (commentId: string, body: string) => void
@@ -36,7 +33,7 @@ function Row({
 }: {
   c: ApiDocumentComment
   members: WorkspaceMemberInfo[]
-  agentActors: AgentActor[]
+  agentActors: AgentActorInfo[]
   currentActorId: string | null | undefined
   onEdit: (id: string, body: string) => void
   onDelete: (id: string) => void
