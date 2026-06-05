@@ -1209,6 +1209,7 @@
   "editor.quote": "引用",
   "editor.insertTable": "插入表格",
   "editor.insertImage": "插入图片",
+  "editor.comment": "评论",
   "editor.link.apply": "应用",
   "editor.link.remove": "移除链接",
   "sentry.connectTitle": "连接 Sentry",

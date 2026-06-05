@@ -21,6 +21,7 @@ import {
   Table2,
   ImageIcon,
   ListPlus,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isMac } from '@/lib/utils/keyboard'
@@ -92,10 +93,14 @@ export function BubbleMenuBar({
   editor,
   openLinkInputRef,
   onInsertImage,
+  onRequestComment,
 }: {
   editor: Editor
   openLinkInputRef: React.MutableRefObject<(() => void) | null>
   onInsertImage: () => void
+  onRequestComment?:
+    | ((from: number, to: number, quotedText: string) => void)
+    | undefined
 }) {
   const intl = useIntl()
   const extractCtx = useDocExtractContext()
@@ -378,7 +383,10 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {styleOpen && (
-          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+          <div
+            role='menu'
+            className='absolute top-full left-0 mt-1 z-50 min-w-[140px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+          >
             {TEXT_STYLES.map((style, i) => (
               <button
                 key={style.id}
@@ -519,7 +527,10 @@ export function BubbleMenuBar({
           </TooltipContent>
         </Tooltip>
         {listOpen && (
-          <div role='menu' className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'>
+          <div
+            role='menu'
+            className='absolute top-full left-0 mt-1 z-50 min-w-[150px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg py-1'
+          >
             {LIST_STYLES.map(style => {
               const active = style.isActive(editor)
               return (
@@ -595,6 +606,25 @@ export function BubbleMenuBar({
             title={bubbleLabel}
           >
             <ListPlus size={14} />
+          </ToolbarButton>
+        </>
+      )}
+
+      {onRequestComment && !state.selectionEmpty && (
+        <>
+          <Divider />
+
+          {/* Add comment on selected text */}
+          <ToolbarButton
+            data-testid='bubble-comment'
+            onClick={() => {
+              const { from, to } = editor.state.selection
+              const quotedText = editor.state.doc.textBetween(from, to, ' ')
+              onRequestComment(from, to, quotedText)
+            }}
+            title={intl.formatMessage({ id: 'editor.comment' })}
+          >
+            <MessageSquare size={14} />
           </ToolbarButton>
         </>
       )}

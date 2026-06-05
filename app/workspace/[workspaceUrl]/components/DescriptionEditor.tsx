@@ -90,6 +90,13 @@ interface DescriptionEditorProps {
    * off the keystroke hot path.
    */
   onStatsUpdate?: (stats: EditorStats) => void
+  /**
+   * When provided, a "Comment" button appears in the bubble menu whenever the
+   * user has a non-empty selection. On click it receives the selection range
+   * and the quoted text so a caller can open a comment thread UI.
+   * Task-description editors omit this prop, so the button will not render there.
+   */
+  onRequestComment?: (from: number, to: number, quotedText: string) => void
 }
 
 export function DescriptionEditor({
@@ -105,6 +112,7 @@ export function DescriptionEditor({
   tocScrollRoot,
   onChangeDebounceMs,
   onStatsUpdate,
+  onRequestComment,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -543,6 +551,7 @@ export function DescriptionEditor({
             editor={editor}
             openLinkInputRef={openLinkInputRef}
             onInsertImage={handleInsertImage}
+            onRequestComment={onRequestComment}
           />,
           menuElement
         )}

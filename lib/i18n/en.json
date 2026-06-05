@@ -1209,6 +1209,7 @@
   "editor.quote": "Quote",
   "editor.insertTable": "Insert table",
   "editor.insertImage": "Insert image",
+  "editor.comment": "Comment",
   "editor.link.apply": "Apply",
   "editor.link.remove": "Remove link",
   "sentry.connectTitle": "Connect Sentry",

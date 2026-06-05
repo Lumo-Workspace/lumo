@@ -18,6 +18,8 @@ export interface ToolbarButtonProps {
    * for a two-step confirm).
    */
   variant?: 'default' | 'destructive'
+  /** For targeting in tests. */
+  'data-testid'?: string
   children: React.ReactNode
 }
 
@@ -27,6 +29,7 @@ export function ToolbarButton({
   disabled,
   title,
   variant = 'default',
+  'data-testid': dataTestId,
   children,
 }: ToolbarButtonProps) {
   return (
@@ -35,6 +38,7 @@ export function ToolbarButton({
         <button
           type='button'
           disabled={disabled}
+          data-testid={dataTestId}
           onMouseDown={e => {
             e.preventDefault() // prevent editor blur
             if (!disabled) onClick()
