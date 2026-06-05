@@ -145,6 +145,7 @@ export const API = {
     cadence: (teamId: string) => `/api/teams/${teamId}/cadence`,
   },
   milestones: {
+    workspace: '/api/milestones/workspace',
     listByProject: (projectId: string) =>
       `/api/projects/${projectId}/milestones`,
     byId: (milestoneId: string) => `/api/milestones/${milestoneId}`,
