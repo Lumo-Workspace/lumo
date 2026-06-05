@@ -17,6 +17,7 @@ import {
   Minus,
   Lightbulb,
   ChevronRight,
+  LayoutList,
 } from 'lucide-react'
 
 export interface SlashCommandItem {
@@ -71,6 +72,8 @@ const FALLBACK_LABELS: Record<string, string> = {
   'editor.slash.callout.description': 'Highlighted note block',
   'editor.slash.toggle.title': 'Toggle',
   'editor.slash.toggle.description': 'Collapsible block',
+  'editor.slash.taskView.title': 'Task View',
+  'editor.slash.taskView.description': 'Live filtered task list',
 }
 
 const ICON_SIZE = 16
@@ -204,6 +207,14 @@ export function getSlashCommandItems(
       categoryKey: 'advanced',
       category: t('editor.slash.category.advanced'),
       command: editor => editor.chain().focus().setToggle().run(),
+    },
+    {
+      title: t('editor.slash.taskView.title'),
+      description: t('editor.slash.taskView.description'),
+      icon: <LayoutList size={ICON_SIZE} />,
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
+      command: editor => editor.chain().focus().setTaskView().run(),
     },
   ]
 }
