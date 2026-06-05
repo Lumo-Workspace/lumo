@@ -277,13 +277,16 @@ export const updateCommentSchema = z.object({
 
 // ─── Document Comments ────────────────────────────────────────────────────────
 
+// a client- (uuid) or server- (cuid) generated id
+const docCommentId = z.string().min(8).max(64)
+
 export const createDocumentCommentSchema = z
   .object({
-    /** Client-generated cuid; matches the data-comment-id written into content. */
-    id: z.string().cuid(),
+    /** Client-generated uuid or cuid; matches the data-comment-id written into content. */
+    id: docCommentId,
     body: z.string().min(1, 'Comment cannot be empty').max(5000),
     /** Present when posting a reply; references a top-level comment. */
-    parentId: z.string().cuid().optional(),
+    parentId: docCommentId.optional(),
     /** ProseMirror anchor positions (top-level only). */
     from: z.number().int().min(0).optional(),
     to: z.number().int().min(0).optional(),
