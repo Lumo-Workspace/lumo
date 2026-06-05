@@ -1,10 +1,10 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 /* Landing-scoped tokens (.landing). Imported here so Tailwind v4 picks up
    the landing-only @theme registrations and generates utilities like
    `bg-brand`. The `.landing { ... }` selectors keep the tokens isolated
    to landing DOM at runtime. */
-@import "../components/landing/landing.css";
+@import '../components/landing/landing.css';
 
 html {
   scroll-behavior: smooth;
@@ -314,13 +314,13 @@ html {
 }
 
 /* ── Task list — override prose's default list styling ───────────────────── */
-.ProseMirror ul[data-type="taskList"] {
+.ProseMirror ul[data-type='taskList'] {
   list-style: none !important;
   padding: 0 !important;
   margin: 0.75rem 0 !important;
 }
 
-.ProseMirror ul[data-type="taskList"] li {
+.ProseMirror ul[data-type='taskList'] li {
   display: flex !important;
   align-items: center;
   gap: 0.5rem;
@@ -328,13 +328,13 @@ html {
   list-style: none !important;
 }
 
-.ProseMirror ul[data-type="taskList"] li::before,
-.ProseMirror ul[data-type="taskList"] li::marker {
+.ProseMirror ul[data-type='taskList'] li::before,
+.ProseMirror ul[data-type='taskList'] li::marker {
   display: none !important;
   content: none !important;
 }
 
-.ProseMirror ul[data-type="taskList"] li > label {
+.ProseMirror ul[data-type='taskList'] li > label {
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -343,7 +343,7 @@ html {
   user-select: none;
 }
 
-.ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
+.ProseMirror ul[data-type='taskList'] li input[type='checkbox'] {
   flex-shrink: 0;
   cursor: pointer;
   width: 14px;
@@ -352,18 +352,18 @@ html {
   accent-color: var(--primary);
 }
 
-.ProseMirror ul[data-type="taskList"] li > div {
+.ProseMirror ul[data-type='taskList'] li > div {
   flex: 1;
   margin: 0;
   line-height: 1.5;
 }
 
 /* Zero out any prose paragraph margins inside task-list items */
-.ProseMirror ul[data-type="taskList"] li > div > p {
+.ProseMirror ul[data-type='taskList'] li > div > p {
   margin: 0 !important;
 }
 
-.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+.ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div {
   text-decoration: line-through;
   opacity: 0.5;
 }
@@ -400,10 +400,22 @@ html {
   margin-right: 3px;
   color: var(--status-todo);
 }
-.mention-task[data-mention-status='TODO']::before        { content: '○'; color: var(--status-todo); }
-.mention-task[data-mention-status='IN_PROGRESS']::before { content: '◑'; color: var(--status-in-progress); }
-.mention-task[data-mention-status='IN_REVIEW']::before   { content: '◕'; color: var(--status-in-review); }
-.mention-task[data-mention-status='DONE']::before        { content: '●'; color: var(--status-done); }
+.mention-task[data-mention-status='TODO']::before {
+  content: '○';
+  color: var(--status-todo);
+}
+.mention-task[data-mention-status='IN_PROGRESS']::before {
+  content: '◑';
+  color: var(--status-in-progress);
+}
+.mention-task[data-mention-status='IN_REVIEW']::before {
+  content: '◕';
+  color: var(--status-in-review);
+}
+.mention-task[data-mention-status='DONE']::before {
+  content: '●';
+  color: var(--status-done);
+}
 
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .ProseMirror table {
@@ -517,13 +529,13 @@ html {
      Same hex in :root and .dark; chosen for legibility against both
      backgrounds. Used by .mention-task chips, <StatusIcon>, and any
      future status indicator (e.g. board column headers). */
-  --status-todo: #d1d5dc;        /* brand neutral */
+  --status-todo: #d1d5dc; /* brand neutral */
   --status-in-progress: #2b7fff; /* brand blue */
-  --status-in-review: #bf2bff;   /* brand magenta */
-  --status-done: #41b40f;        /* brand green */
+  --status-in-review: #bf2bff; /* brand magenta */
+  --status-done: #41b40f; /* brand green */
 
-  --font-inter: "Inter", sans-serif;
-  --font-source-code-pro: "Source Code Pro", monospace;
+  --font-inter: 'Inter', sans-serif;
+  --font-source-code-pro: 'Source Code Pro', monospace;
 }
 
 .dark {
@@ -618,13 +630,29 @@ html {
   --breakpoint-xs: 30rem;
 
   @keyframes appear {
-    0% { opacity: 0; transform: translateY(1rem); filter: blur(0.5rem); }
-    50% { filter: blur(0); }
-    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+    0% {
+      opacity: 0;
+      transform: translateY(1rem);
+      filter: blur(0.5rem);
+    }
+    50% {
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
   }
   @keyframes appear-zoom {
-    0% { opacity: 0; transform: scale(0.5); }
-    100% { opacity: 1; transform: scale(1); }
+    0% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 }
 
@@ -675,10 +703,22 @@ body {
   @apply border-border border-b-input from-card/100 to-card/20 dark:border-border/10 dark:border-t-border/30 dark:from-primary/15 dark:to-primary/5 border bg-linear-to-b dark:border-b-0;
 }
 @utility fade-x {
-  mask-image: linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%);
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 25%,
+    black 75%,
+    transparent 100%
+  );
 }
 @utility fade-y {
-  mask-image: linear-gradient(to top, transparent 0%, black 25%, black 75%, transparent 100%);
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    black 25%,
+    black 75%,
+    transparent 100%
+  );
 }
 @utility fade-top {
   mask-image: linear-gradient(to bottom, transparent 0%, black 35%);
@@ -726,74 +766,163 @@ body {
 
 /* ── Landing page animations ─────────────────────────────────────────────── */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(30px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes wave-left {
-  0%, 100% { transform: translateX(0)   translateY(0);   opacity: 0.40; }
-  25%       { transform: translateX(-8px) translateY(-3px); opacity: 0.50; }
-  50%       { transform: translateX(-15px) translateY(-6px); opacity: 0.45; }
-  75%       { transform: translateX(-8px) translateY(-3px); opacity: 0.50; }
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+    opacity: 0.4;
+  }
+  25% {
+    transform: translateX(-8px) translateY(-3px);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(-15px) translateY(-6px);
+    opacity: 0.45;
+  }
+  75% {
+    transform: translateX(-8px) translateY(-3px);
+    opacity: 0.5;
+  }
 }
 
 @keyframes wave-right {
-  0%, 100% { transform: translateX(0)  translateY(0);   opacity: 0.35; }
-  25%       { transform: translateX(6px) translateY(-2px); opacity: 0.40; }
-  50%       { transform: translateX(12px) translateY(-4px); opacity: 0.38; }
-  75%       { transform: translateX(6px) translateY(-2px); opacity: 0.40; }
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+    opacity: 0.35;
+  }
+  25% {
+    transform: translateX(6px) translateY(-2px);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateX(12px) translateY(-4px);
+    opacity: 0.38;
+  }
+  75% {
+    transform: translateX(6px) translateY(-2px);
+    opacity: 0.4;
+  }
 }
 
 @keyframes float-slow {
-  0%, 100% { transform: translateY(0)    translateX(0);  opacity: 0.20; }
-  50%       { transform: translateY(-10px) translateX(5px); opacity: 0.15; }
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-10px) translateX(5px);
+    opacity: 0.15;
+  }
 }
 
 @keyframes float-medium {
-  0%, 100% { transform: translateY(0)   translateX(0);   opacity: 0.15; }
-  50%       { transform: translateY(-8px) translateX(-3px); opacity: 0.10; }
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translateY(-8px) translateX(-3px);
+    opacity: 0.1;
+  }
 }
 
 @keyframes blob {
-  0%   { transform: translate(0px, 0px)   scale(1);   }
-  33%  { transform: translate(30px, -50px) scale(1.1); }
-  66%  { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px)   scale(1);   }
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
 }
 
-.animate-fade-in-up   { animation: fade-in-up 0.8s ease-out forwards; opacity: 0; }
-.animate-wave-left    { animation: wave-left 12s ease-in-out infinite; }
-.animate-wave-right   { animation: wave-right 10s ease-in-out infinite; }
-.animate-float-slow   { animation: float-slow 12s ease-in-out infinite; }
-.animate-float-medium { animation: float-medium 10s ease-in-out infinite; }
-.animate-blob         { animation: blob 7s infinite; }
-.animation-delay-2000 { animation-delay: 2s; }
-.animation-delay-4000 { animation-delay: 4s; }
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out forwards;
+  opacity: 0;
+}
+.animate-wave-left {
+  animation: wave-left 12s ease-in-out infinite;
+}
+.animate-wave-right {
+  animation: wave-right 10s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: float-slow 12s ease-in-out infinite;
+}
+.animate-float-medium {
+  animation: float-medium 10s ease-in-out infinite;
+}
+.animate-blob {
+  animation: blob 7s infinite;
+}
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
 
 @keyframes fade-out {
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
-.animate-fade-out { animation: fade-out 2s ease-out forwards; }
+.animate-fade-out {
+  animation: fade-out 2s ease-out forwards;
+}
 
 .hover\:shadow-purple-500\/25:hover {
   box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.25);
 }
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
-  body { @apply bg-background text-foreground; }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 /* ── Board column scrollbar — hidden until hover ─────────────────────────── */
-.board-col-scroll::-webkit-scrollbar { width: 5px; }
-.board-col-scroll::-webkit-scrollbar-track { background: transparent; }
+.board-col-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.board-col-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 .board-col-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 3px;
 }
-.board-col-scroll:hover::-webkit-scrollbar-thumb { background: var(--border); }
+.board-col-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
 
 /* LUM-91: extracted taskItem rows — hide checkbox, show task link */
 li[data-type='taskItem'][data-task-id] > label {
@@ -809,4 +938,12 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
   margin-right: 0.25rem;
+}
+
+/* ── Comment highlight — semantic tokens; .dark inversion via --accent ── */
+.comment-highlight {
+  background-color: hsl(var(--primary) / 0.12);
+  border-bottom: 2px solid hsl(var(--primary) / 0.5);
+  cursor: pointer;
+  border-radius: 2px;
 }
