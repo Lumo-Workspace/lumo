@@ -8,6 +8,7 @@ import {
 
 const mockFindSprintGating = jest.fn()
 const mockFindSprintCadence = jest.fn()
+const mockFindSprintAutoAdd = jest.fn()
 const mockUpdateSprintCadence = jest.fn()
 
 const mockSprintFindById = jest.fn()
@@ -20,11 +21,13 @@ const mockStartAtomically = jest.fn()
 const mockCloseAtomically = jest.fn()
 const mockAddTaskAtomically = jest.fn()
 const mockRemoveTaskAtomically = jest.fn()
+const mockFindActiveByTeam = jest.fn()
 
 jest.mock('@/lib/repositories/team.repository', () => ({
   teamRepository: {
     findSprintGatingConfig: (...a: any[]) => mockFindSprintGating(...a),
     findSprintCadenceConfig: (...a: any[]) => mockFindSprintCadence(...a),
+    findSprintAutoAddConfig: (...a: any[]) => mockFindSprintAutoAdd(...a),
     updateSprintCadence: (...a: any[]) => mockUpdateSprintCadence(...a),
   },
 }))
@@ -41,6 +44,7 @@ jest.mock('@/lib/repositories/sprint.repository', () => ({
     closeAtomically: (...a: any[]) => mockCloseAtomically(...a),
     addTaskAtomically: (...a: any[]) => mockAddTaskAtomically(...a),
     removeTaskAtomically: (...a: any[]) => mockRemoveTaskAtomically(...a),
+    findActiveByTeam: (...a: any[]) => mockFindActiveByTeam(...a),
   },
 }))
 
@@ -551,6 +555,7 @@ describe('sprintService.configureCadence', () => {
         cooldownDays: 2,
         startWeekday: 1,
         autoCreate: 3,
+        autoAddCompleted: true,
       },
       ACTOR
     )
@@ -560,7 +565,77 @@ describe('sprintService.configureCadence', () => {
       cooldownDays: 2,
       startWeekday: 1,
       autoCreate: 3,
+      autoAddCompleted: true,
     })
+  })
+})
+
+// ── autoAddCompletedTaskToActiveSprint ──────────────────────────────────────
+
+describe('sprintService.autoAddCompletedTaskToActiveSprint', () => {
+  const CFG_ON = {
+    id: 't1',
+    sprintsEnabled: true,
+    sprintAutoAddCompleted: true,
+  }
+
+  it('adds the task to the active sprint when the team opted in', async () => {
+    mockFindSprintAutoAdd.mockResolvedValueOnce(CFG_ON)
+    mockFindActiveByTeam.mockResolvedValueOnce({ id: 'active-1' })
+    mockAddTaskAtomically.mockResolvedValueOnce({
+      taskId: 'task1',
+      sprintId: 'active-1',
+    })
+
+    await sprintService.autoAddCompletedTaskToActiveSprint('t1', 'task1', ACTOR)
+
+    expect(mockAddTaskAtomically).toHaveBeenCalledWith(
+      'task1',
+      'active-1',
+      'actor-x'
+    )
+  })
+
+  it('no-op when the team has the toggle off', async () => {
+    mockFindSprintAutoAdd.mockResolvedValueOnce({
+      ...CFG_ON,
+      sprintAutoAddCompleted: false,
+    })
+
+    await sprintService.autoAddCompletedTaskToActiveSprint('t1', 'task1', ACTOR)
+
+    expect(mockFindActiveByTeam).not.toHaveBeenCalled()
+    expect(mockAddTaskAtomically).not.toHaveBeenCalled()
+  })
+
+  it('no-op when sprints are disabled for the team', async () => {
+    mockFindSprintAutoAdd.mockResolvedValueOnce({
+      ...CFG_ON,
+      sprintsEnabled: false,
+    })
+
+    await sprintService.autoAddCompletedTaskToActiveSprint('t1', 'task1', ACTOR)
+
+    expect(mockFindActiveByTeam).not.toHaveBeenCalled()
+    expect(mockAddTaskAtomically).not.toHaveBeenCalled()
+  })
+
+  it('no-op when the team does not exist', async () => {
+    mockFindSprintAutoAdd.mockResolvedValueOnce(null)
+
+    await sprintService.autoAddCompletedTaskToActiveSprint('t1', 'task1', ACTOR)
+
+    expect(mockFindActiveByTeam).not.toHaveBeenCalled()
+    expect(mockAddTaskAtomically).not.toHaveBeenCalled()
+  })
+
+  it('no-op when there is no active sprint', async () => {
+    mockFindSprintAutoAdd.mockResolvedValueOnce(CFG_ON)
+    mockFindActiveByTeam.mockResolvedValueOnce(null)
+
+    await sprintService.autoAddCompletedTaskToActiveSprint('t1', 'task1', ACTOR)
+
+    expect(mockAddTaskAtomically).not.toHaveBeenCalled()
   })
 })
 

@@ -910,6 +910,8 @@
   "sprints.settings.cooldown.oneWeek": "1주",
   "sprints.settings.autoCreate.off": "꺼짐",
   "sprints.settings.autoCreate.count": "{n}개",
+  "sprints.settings.autoAddCompleted": "완료된 작업을 활성 스프린트에 자동 추가",
+  "sprints.settings.autoAddCompleted.hint": "스프린트가 없는 작업이 완료로 표시되면 팀의 활성 스프린트에 추가됩니다.",
   "sprints.settings.weekday.sun": "일요일",
   "sprints.settings.weekday.mon": "월요일",
   "sprints.settings.weekday.tue": "화요일",

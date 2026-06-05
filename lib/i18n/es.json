@@ -910,6 +910,8 @@
   "sprints.settings.cooldown.oneWeek": "1 semana",
   "sprints.settings.autoCreate.off": "Desactivado",
   "sprints.settings.autoCreate.count": "{n, plural, one {1 sprint} other {# sprints}}",
+  "sprints.settings.autoAddCompleted": "Añadir automáticamente las tareas completadas al sprint activo",
+  "sprints.settings.autoAddCompleted.hint": "Cuando una tarea sin sprint se marca como completada, se añade al sprint activo del equipo.",
   "sprints.settings.weekday.sun": "Domingo",
   "sprints.settings.weekday.mon": "Lunes",
   "sprints.settings.weekday.tue": "Martes",

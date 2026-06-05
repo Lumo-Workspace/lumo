@@ -6,6 +6,7 @@ export interface UpdateSprintCadenceInput {
   cooldownDays?: number
   startWeekday?: number
   autoCreate?: number
+  autoAddCompleted?: boolean
 }
 
 /** Field set returned by `listForMember` — kept in sync with the GET /api/teams contract. */
@@ -19,6 +20,7 @@ const TEAM_LIST_SELECT = {
   sprintCooldownDays: true,
   sprintStartWeekday: true,
   sprintAutoCreate: true,
+  sprintAutoAddCompleted: true,
 } as const
 
 export const teamRepository = {
@@ -74,6 +76,21 @@ export const teamRepository = {
   },
 
   /**
+   * Read the fields that gate auto-adding a just-completed task to the team's
+   * ACTIVE sprint. Returns null when the team does not exist.
+   */
+  async findSprintAutoAddConfig(teamId: string) {
+    return prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        sprintsEnabled: true,
+        sprintAutoAddCompleted: true,
+      },
+    })
+  },
+
+  /**
    * Read the cadence config used by sprintService.ensureFutureSprints().
    * Returns null when the team does not exist.
    */
@@ -110,6 +127,9 @@ export const teamRepository = {
           : {}),
         ...(input.autoCreate !== undefined
           ? { sprintAutoCreate: input.autoCreate }
+          : {}),
+        ...(input.autoAddCompleted !== undefined
+          ? { sprintAutoAddCompleted: input.autoAddCompleted }
           : {}),
       },
     })

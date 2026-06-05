@@ -27,6 +27,7 @@ interface Team {
   sprintCooldownDays: number
   sprintStartWeekday: number
   sprintAutoCreate: number
+  sprintAutoAddCompleted: boolean
 }
 
 const WEEKDAY_LABEL_IDS = [
@@ -46,6 +47,9 @@ export function CadencePanel({ team }: { team: Team }) {
   const [cooldownDays, setCooldownDays] = useState(team.sprintCooldownDays)
   const [startWeekday, setStartWeekday] = useState(team.sprintStartWeekday)
   const [autoCreate, setAutoCreate] = useState(team.sprintAutoCreate)
+  const [autoAddCompleted, setAutoAddCompleted] = useState(
+    team.sprintAutoAddCompleted
+  )
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -57,6 +61,7 @@ export function CadencePanel({ team }: { team: Team }) {
         cooldownDays,
         startWeekday,
         autoCreate,
+        autoAddCompleted,
       })
       toast.success(intl.formatMessage({ id: 'sprints.settings.saved' }))
     } catch (e: unknown) {
@@ -192,6 +197,28 @@ export function CadencePanel({ team }: { team: Team }) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className='flex flex-col gap-1'>
+          <div className='flex items-center justify-between gap-4'>
+            <Label
+              htmlFor={`autoadd-${team.id}`}
+              className='text-sm'
+            >
+              {intl.formatMessage({ id: 'sprints.settings.autoAddCompleted' })}
+            </Label>
+            <Switch
+              checked={autoAddCompleted}
+              onCheckedChange={setAutoAddCompleted}
+              id={`autoadd-${team.id}`}
+              disabled={disabled}
+            />
+          </div>
+          <p className='text-xs text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'sprints.settings.autoAddCompleted.hint',
+            })}
+          </p>
         </div>
       </div>
 

@@ -983,6 +983,8 @@
   "sprints.settings.cooldown.oneWeek": "1 周",
   "sprints.settings.autoCreate.off": "关闭",
   "sprints.settings.autoCreate.count": "{n} 个冲刺",
+  "sprints.settings.autoAddCompleted": "完成时自动并入当前冲刺",
+  "sprints.settings.autoAddCompleted.hint": "当一个未归属冲刺的任务被标记为完成时，自动将其并入该团队当前进行中的冲刺。",
   "sprints.settings.weekday.sun": "周日",
   "sprints.settings.weekday.mon": "周一",
   "sprints.settings.weekday.tue": "周二",

@@ -10,6 +10,7 @@ export interface ApiTeam {
   sprintCooldownDays: number
   sprintStartWeekday: number
   sprintAutoCreate: number
+  sprintAutoAddCompleted: boolean
 }
 
 interface TeamListResult {

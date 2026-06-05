@@ -243,6 +243,10 @@ model Team {
   sprintStartWeekday Int @default(1)
   sprintAutoCreate   Int @default(0)
 
+  // When a task transitions to DONE with no sprint binding, auto-add it to the
+  // team's currently ACTIVE sprint so the completed work counts toward it.
+  sprintAutoAddCompleted Boolean @default(false)
+
   workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projects  Project[]
   members   TeamMember[]

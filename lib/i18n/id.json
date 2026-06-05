@@ -911,6 +911,8 @@
   "sprints.settings.cooldown.oneWeek": "1 minggu",
   "sprints.settings.autoCreate.off": "Nonaktif",
   "sprints.settings.autoCreate.count": "{n} sprint",
+  "sprints.settings.autoAddCompleted": "Otomatis tambahkan tugas yang selesai ke sprint aktif",
+  "sprints.settings.autoAddCompleted.hint": "Ketika tugas tanpa sprint ditandai selesai, tugas tersebut ditambahkan ke sprint aktif tim.",
   "sprints.settings.weekday.sun": "Minggu",
   "sprints.settings.weekday.mon": "Senin",
   "sprints.settings.weekday.tue": "Selasa",

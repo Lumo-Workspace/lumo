@@ -63,6 +63,7 @@ export const cadenceSchema = z.object({
     .optional(),
   startWeekday: z.number().int().min(0).max(6).optional(),
   autoCreate: z.number().int().min(0).max(4).optional(),
+  autoAddCompleted: z.boolean().optional(),
 })
 
 export type CreateSprintInput = z.infer<typeof createSprintSchema>

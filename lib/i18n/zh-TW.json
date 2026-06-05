@@ -126,6 +126,8 @@
   "sprints.settings.cooldown.oneWeek": "1 週",
   "sprints.settings.autoCreate.off": "關閉",
   "sprints.settings.autoCreate.count": "{n} 個衝刺",
+  "sprints.settings.autoAddCompleted": "完成時自動併入目前衝刺",
+  "sprints.settings.autoAddCompleted.hint": "當一個未歸屬衝刺的任務被標記為完成時，自動將其併入該團隊目前進行中的衝刺。",
   "sprints.settings.weekday.sun": "週日",
   "sprints.settings.weekday.mon": "週一",
   "sprints.settings.weekday.tue": "週二",

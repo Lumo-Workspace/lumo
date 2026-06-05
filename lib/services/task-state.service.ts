@@ -304,6 +304,28 @@ export async function updateTaskWithSideEffects(
         )
       })()
     )
+
+    // Auto-add to the team's ACTIVE sprint when the task finished with no
+    // sprint binding and the team opted into `sprintAutoAddCompleted`. The
+    // service self-gates (toggle off / sprints disabled / no active sprint →
+    // no-op) and the underlying addTaskAtomically write carries its own
+    // SPRINT_CHANGED audit entry. Fire-and-forget — failures must not roll
+    // back the completion. Dynamic import keeps the sprint→repository→prisma
+    // chain out of every test module that imports task-state.
+    if (result.task.sprintId == null) {
+      const teamId = result.task.teamId as string
+      waitUntil(
+        (async () => {
+          const { sprintService } =
+            await import('@/lib/services/sprint.service')
+          await sprintService.autoAddCompletedTaskToActiveSprint(
+            teamId,
+            taskId,
+            { memberId: actorId, ...(actorId ? { id: actorId } : {}) }
+          )
+        })().catch(() => {})
+      )
+    }
   }
 
   return result

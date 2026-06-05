@@ -910,6 +910,8 @@
   "sprints.settings.cooldown.oneWeek": "1 週間",
   "sprints.settings.autoCreate.off": "オフ",
   "sprints.settings.autoCreate.count": "{n} 件",
+  "sprints.settings.autoAddCompleted": "完了したタスクをアクティブなスプリントに自動追加",
+  "sprints.settings.autoAddCompleted.hint": "スプリント未割り当てのタスクが完了としてマークされると、チームのアクティブなスプリントに追加されます。",
   "sprints.settings.weekday.sun": "日曜日",
   "sprints.settings.weekday.mon": "月曜日",
   "sprints.settings.weekday.tue": "火曜日",

@@ -25,6 +25,7 @@ const team = (id: string, name: string): ApiTeam => ({
   sprintCooldownDays: 0,
   sprintStartWeekday: 1,
   sprintAutoCreate: 0,
+  sprintAutoAddCompleted: false,
 })
 
 describe('TeamSelector', () => {

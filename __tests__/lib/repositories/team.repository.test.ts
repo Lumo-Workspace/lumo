@@ -86,6 +86,7 @@ describe('teamRepository.listForMember', () => {
       sprintCooldownDays: true,
       sprintStartWeekday: true,
       sprintAutoCreate: true,
+      sprintAutoAddCompleted: true,
     })
   })
 })
