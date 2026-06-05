@@ -302,3 +302,26 @@ describe('detectAndFlagOrphans', () => {
     expect(repo.setOrphaned).toHaveBeenCalledWith(['c2'], true)
   })
 })
+
+describe('getComments triggers orphan detection', () => {
+  it('flags comments whose id is absent from current doc content', async () => {
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: '<p>Hello brave world</p>', // no comment span
+    } as never)
+    repo.findByDocumentId.mockResolvedValue([
+      { id: 'c1', status: 'OPEN', isOrphaned: false },
+    ] as never)
+    repo.setOrphaned.mockResolvedValue({ count: 1 } as never)
+    await documentCommentService.getComments('d1', 'm-viewer', 'w1')
+    expect(repo.setOrphaned).toHaveBeenCalledWith(['c1'], true)
+  })
+
+  it('denies without doc access (404) and does not detect', async () => {
+    docRepo.findWithPermission.mockResolvedValue(null as never)
+    await expect(
+      documentCommentService.getComments('d1', 'm-x', 'w1')
+    ).rejects.toMatchObject({ status: 404 })
+    expect(repo.setOrphaned).not.toHaveBeenCalled()
+  })
+})
