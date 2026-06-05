@@ -1,6 +1,7 @@
 import Pusher from 'pusher'
 import type {
   AgentEvent,
+  DocumentEvent,
   TaskEvent,
   ProjectEvent,
   UserEvent,
@@ -97,5 +98,20 @@ export async function pushWorkspaceEvent(
     )
   } catch (err) {
     console.error('[pusher] Failed to push workspace event:', err)
+  }
+}
+
+export async function pushDocumentEvent(
+  documentId: string,
+  event: DocumentEvent
+): Promise<void> {
+  try {
+    await getPusher().trigger(
+      `document-${documentId}`,
+      'document-update',
+      event
+    )
+  } catch (err) {
+    console.error('[pusher] Failed to push document event:', err)
   }
 }

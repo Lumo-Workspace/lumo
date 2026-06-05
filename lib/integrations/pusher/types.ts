@@ -53,6 +53,18 @@ export type ActivityPusherEvent = {
   entry: Record<string, unknown>
 }
 
+// ── Document events (inline comments) ───────────────────────────────────────
+
+export type DocumentEvent =
+  | { type: 'doc-comment:created'; commentId: string }
+  | { type: 'doc-comment:updated'; commentId: string }
+  | { type: 'doc-comment:deleted'; commentId: string }
+  | {
+      type: 'doc-comment:status'
+      commentId: string
+      status: 'OPEN' | 'RESOLVED'
+    }
+
 // ── Workspace events (cross-member sidebar, etc.) ──────────────────────────
 
 export type WorkspaceEvent =
