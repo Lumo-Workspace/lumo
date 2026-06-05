@@ -561,3 +561,16 @@ export const listMilestonesQuerySchema = z.object({
   filter: z.enum(['active', 'archived', 'all']).default('active'),
   search: z.string().trim().max(120).optional(),
 })
+
+// ─── Workspace Task Filters ────────────────────────────────────────────────
+
+export const workspaceTaskFiltersSchema = z.object({
+  projectIds: z.array(z.string()).optional(),
+  milestoneIds: z.array(z.string()).optional(),
+  statuses: z
+    .array(z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']))
+    .optional(),
+  priorities: z.array(z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])).optional(),
+  assigneeActorIds: z.array(z.string()).optional(),
+  tagIds: z.array(z.string()).optional(),
+})
