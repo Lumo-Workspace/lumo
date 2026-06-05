@@ -3,12 +3,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
-import { Link2 } from 'lucide-react'
+import { Link2, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DescriptionEditor, type TocItem } from '../DescriptionEditor'
 import { EmojiPicker } from '../document/EmojiPicker'
 import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
+import { DocumentHistoryModal } from '../documents/DocumentHistoryModal'
+import { documentRevisionsApi } from '@/lib/api-client'
 import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { DocumentToc } from '../document/DocumentToc'
@@ -104,6 +106,8 @@ export function DocumentEditorPage({
   const [title, setTitle] = useState(initialCache?.title ?? '')
   const lastContentRef = useRef<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [editorReloadKey, setEditorReloadKey] = useState(0)
   const [docTags, setDocTags] = useState<ApiTag[]>(initialCache?.docTags ?? [])
   const [tocItems, setTocItems] = useState<TocItem[]>([])
   const [stats, setStats] = useState<EditorStats | null>(null)
@@ -245,6 +249,27 @@ export function DocumentEditorPage({
     },
     [documentId]
   )
+
+  const reloadDocument = useCallback(async () => {
+    try {
+      const data = await documentsClient.getById<{
+        document: ApiDocumentDetail & { docTags?: ApiTag[] }
+        ancestors?: ApiDocumentAncestor[]
+      }>(documentId)
+      const docWithAncestors = {
+        ...data.document,
+        ancestors: data.ancestors ?? [],
+      }
+      setDoc(docWithAncestors)
+      setTitle(data.document.title)
+      setAncestors(data.ancestors ?? [])
+      setDocTags(data.document.docTags ?? [])
+      lastContentRef.current = data.document.content ?? null
+      writeCache(CACHE_KEY.documentDetail(documentId), docWithAncestors)
+    } catch {
+      // ignore reload errors
+    }
+  }, [documentId])
 
   const { saveStatus, debouncedSave, saveNow, flushAsync } = useDocumentSave({
     documentId,
@@ -404,17 +429,56 @@ export function DocumentEditorPage({
               }}
             />
           </div>
-          <Button
-            size='sm'
-            className='gap-1.5 h-8'
-            onClick={() => setShareDialogOpen(true)}
-          >
-            <Link2 size={14} />
-            {intl.formatMessage({
-              id: 'share.button',
-              defaultMessage: 'Share',
-            })}
-          </Button>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              className='h-8 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground'
+              onClick={async () => {
+                const label = window.prompt(
+                  intl.formatMessage({
+                    id: 'documentHistory.namePrompt',
+                    defaultMessage: 'Name this version',
+                  })
+                )
+                if (!label || !label.trim()) return
+                await flushAsync()
+                await documentRevisionsApi.createManual(doc.id, {
+                  label: label.trim(),
+                })
+              }}
+            >
+              {intl.formatMessage({
+                id: 'documentHistory.saveAsVersion',
+                defaultMessage: 'Save as version',
+              })}
+            </button>
+            <Button
+              size='sm'
+              variant='ghost'
+              className='gap-1.5 h-8'
+              onClick={async () => {
+                await flushAsync()
+                setHistoryOpen(true)
+              }}
+            >
+              <History size={14} />
+              {intl.formatMessage({
+                id: 'documentHistory.openButton',
+                defaultMessage: 'History',
+              })}
+            </Button>
+            <Button
+              size='sm'
+              className='gap-1.5 h-8'
+              onClick={() => setShareDialogOpen(true)}
+            >
+              <Link2 size={14} />
+              {intl.formatMessage({
+                id: 'share.button',
+                defaultMessage: 'Share',
+              })}
+            </Button>
+          </div>
         </div>
 
         <div className='flex'>
@@ -574,6 +638,7 @@ export function DocumentEditorPage({
 
               {/* Editor */}
               <DescriptionEditor
+                key={`editor-${editorReloadKey}`}
                 value={doc.content}
                 onCommit={handleContentCommit}
                 onChange={handleContentChange}
@@ -637,6 +702,17 @@ export function DocumentEditorPage({
         onSharesChange={handleSharesChange}
         onVisibilityChange={handleVisibilityChange}
         onPublicTokenChange={handlePublicTokenChange}
+      />
+
+      <DocumentHistoryModal
+        open={historyOpen}
+        documentId={doc.id}
+        currentHtml={doc.content ?? null}
+        onClose={() => setHistoryOpen(false)}
+        onRestored={() => {
+          setHistoryOpen(false)
+          void reloadDocument().then(() => setEditorReloadKey(k => k + 1))
+        }}
       />
     </>
   )
