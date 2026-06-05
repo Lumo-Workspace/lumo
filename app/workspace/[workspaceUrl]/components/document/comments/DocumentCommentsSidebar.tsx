@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import { DocumentCommentThread } from '@/app/workspace/[workspaceUrl]/components/document/comments/DocumentCommentThread'
@@ -16,11 +16,21 @@ export interface DocumentCommentsSidebarProps {
   onDelete: (id: string) => void
   onSetStatus: (id: string, status: 'OPEN' | 'RESOLVED') => void
   onSelectThread: (id: string) => void
+  /** The id of the currently active comment thread (editor click or sidebar highlight). */
+  activeCommentId?: string | null
 }
 
 export function DocumentCommentsSidebar(props: DocumentCommentsSidebarProps) {
   const intl = useIntl()
   const [showResolved, setShowResolved] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!props.activeCommentId) return
+    containerRef.current
+      ?.querySelector(`[data-comment-thread="${props.activeCommentId}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [props.activeCommentId])
 
   if (props.comments.length === 0) {
     return (
@@ -35,7 +45,7 @@ export function DocumentCommentsSidebar(props: DocumentCommentsSidebarProps) {
     : props.comments.filter(c => c.status !== 'RESOLVED')
 
   return (
-    <div className='flex flex-col gap-2 p-2'>
+    <div ref={containerRef} className='flex flex-col gap-2 p-2'>
       <button
         type='button'
         data-testid='show-resolved-toggle'
@@ -56,6 +66,7 @@ export function DocumentCommentsSidebar(props: DocumentCommentsSidebarProps) {
           onDelete={props.onDelete}
           onSetStatus={props.onSetStatus}
           onSelect={props.onSelectThread}
+          active={c.id === props.activeCommentId}
         />
       ))}
     </div>
