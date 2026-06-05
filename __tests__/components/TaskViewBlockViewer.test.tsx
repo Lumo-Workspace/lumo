@@ -25,6 +25,16 @@ jest.mock(
   () => ({ useWorkspaceTasks: (...a: unknown[]) => mockUseWorkspaceTasks(...a) })
 )
 
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/hooks/useProjects',
+  () => ({ useProjects: () => ({ projects: [] }) })
+)
+
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/hooks/useWorkspaceMilestones',
+  () => ({ useWorkspaceMilestones: () => ({ milestones: [] }) })
+)
+
 import { render, screen, waitFor } from '@testing-library/react'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
@@ -87,5 +97,22 @@ describe('RichTextViewer — task view block', () => {
     await waitFor(() =>
       expect(screen.getByText('Could not load tasks.')).toBeInTheDocument()
     )
+  })
+
+  it('renders status group headers when groupBy is status', async () => {
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [
+        { id: 't1', title: 'A', teamIdentifier: 'LUM', number: 1, status: 'TODO' },
+        { id: 't2', title: 'B', teamIdentifier: 'LUM', number: 2, status: 'DONE' },
+      ],
+      truncated: false,
+      loading: false,
+      error: null,
+    })
+    const stored =
+      '<div data-task-view data-task-view-config=\'{"version":1,"view":"list","groupBy":"status","filters":{}}\'></div>'
+    render(<RichTextViewer value={stored} />)
+    await waitFor(() => expect(screen.getByText(/Todo/)).toBeInTheDocument())
+    expect(screen.getByText(/Done/)).toBeInTheDocument()
   })
 })
