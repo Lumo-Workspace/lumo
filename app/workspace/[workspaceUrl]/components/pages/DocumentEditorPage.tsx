@@ -35,8 +35,7 @@ import {
   buildCreateCommentPayload,
   newCommentId,
 } from '../document/comments/useCreateDocComment'
-import { NewCommentPopover } from '../document/comments/NewCommentPopover'
-import { DocumentCommentsSidebar } from '../document/comments/DocumentCommentsSidebar'
+import { CommentGutter } from '../document/comments/CommentGutter'
 import { usePusherEvent } from '../../hooks/usePusher'
 import { queryKeys } from '@/lib/query/keys'
 import {
@@ -125,6 +124,12 @@ export function DocumentEditorPage({
 
   // ── Comments ──────────────────────────────────────────────────────────────
   const editorRef = useRef<import('@tiptap/core').Editor | null>(null)
+  // Editor + flex-row exposed as state (not just refs) so the comment gutter
+  // re-measures once they mount.
+  const [editor, setEditor] = useState<import('@tiptap/core').Editor | null>(
+    null
+  )
+  const [commentRow, setCommentRow] = useState<HTMLDivElement | null>(null)
   const { comments, create, updateComment, deleteComment, setStatus } =
     useDocumentComments(documentId)
   const [pending, setPending] = useState<{
@@ -132,12 +137,6 @@ export function DocumentEditorPage({
     to: number
     quotedText: string
   } | null>(null)
-  const [rightTab, setRightTab] = useState<'toc' | 'comments'>('toc')
-  // When there are no TOC items default to the comments tab so the rail shows
-  // something useful right away. User-initiated tab switches are preserved via
-  // rightTab; this only affects the effective active tab derived for rendering.
-  const activeRightTab: 'toc' | 'comments' =
-    tocItems.length === 0 ? 'comments' : rightTab
 
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
 
@@ -417,72 +416,21 @@ export function DocumentEditorPage({
           </Button>
         </div>
 
-        <div className='flex'>
-          {/* Right rail — shows TOC (when headings exist) or Comments tab.
-              Always rendered when there are headings or comments so the
-              Comments tab is reachable even on a heading-free document. */}
-          {(tocItems.length > 0 || comments.length > 0) && (
+        <div className='flex' ref={setCommentRow}>
+          {/* Left rail — outline (TOC), collapsible. */}
+          {tocItems.length > 0 && (
             <aside
               className={cn(
                 'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
-                tocCollapsed && activeRightTab === 'toc' ? 'w-12' : 'w-52'
+                tocCollapsed ? 'w-12' : 'w-52'
               )}
             >
-              {/* Tab toggle — Outline / Comments */}
-              <div className='mb-2 flex gap-1 border-b pb-1'>
-                {tocItems.length > 0 && (
-                  <button
-                    type='button'
-                    onClick={() => setRightTab('toc')}
-                    className={cn(
-                      'text-xs px-2 py-0.5 rounded',
-                      activeRightTab === 'toc'
-                        ? 'bg-muted font-medium'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {intl.formatMessage({ id: 'document.outline' })}
-                  </button>
-                )}
-                <button
-                  type='button'
-                  onClick={() => setRightTab('comments')}
-                  className={cn(
-                    'text-xs px-2 py-0.5 rounded',
-                    activeRightTab === 'comments'
-                      ? 'bg-muted font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {intl.formatMessage({ id: 'document.comments' })}
-                </button>
-              </div>
-
-              {activeRightTab === 'toc' && tocItems.length > 0 && (
-                <DocumentToc
-                  items={tocItems}
-                  collapsed={tocCollapsed}
-                  onToggle={toggleToc}
-                  scrollRoot={scrollRoot}
-                />
-              )}
-
-              {activeRightTab === 'comments' && (
-                <DocumentCommentsSidebar
-                  comments={comments}
-                  members={members}
-                  agentActors={[]}
-                  currentActorId={currentActorId}
-                  onReply={(parentId, body) =>
-                    create({ id: newCommentId(), body, parentId })
-                  }
-                  onEdit={(id, body) => updateComment(id, body)}
-                  onDelete={id => deleteComment(id)}
-                  onSetStatus={(id, status) => setStatus(id, status)}
-                  onSelectThread={scrollToAnchor}
-                  activeCommentId={activeCommentId}
-                />
-              )}
+              <DocumentToc
+                items={tocItems}
+                collapsed={tocCollapsed}
+                onToggle={toggleToc}
+                scrollRoot={scrollRoot}
+              />
             </aside>
           )}
           <div className='flex-1 min-w-0'>
@@ -588,30 +536,41 @@ export function DocumentEditorPage({
                 onStatsUpdate={setStats}
                 onEditorReady={e => {
                   editorRef.current = e
+                  setEditor(e)
                 }}
                 onRequestComment={(from, to, quotedText) =>
                   setPending({ from, to, quotedText })
                 }
                 onCommentClick={id => {
                   setActiveCommentId(id)
-                  setRightTab('comments')
                 }}
               />
-              {/* NewCommentPopover — inline below editor; precise anchor to the
-                  text selection is a follow-up refinement (Plan #6). */}
-              {pending && (
-                <div className='mt-2'>
-                  <NewCommentPopover
-                    open={!!pending}
-                    quotedText={pending.quotedText}
-                    members={members}
-                    onCancel={() => setPending(null)}
-                    onSubmit={handleSubmitComment}
-                  />
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Right rail — comments gutter (Google-Docs style). */}
+          {(comments.some(c => c.status === 'OPEN') || pending) && (
+            <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
+              <CommentGutter
+                editor={editor}
+                rowEl={commentRow}
+                comments={comments}
+                members={members}
+                currentActorId={currentActorId}
+                pending={pending}
+                activeCommentId={activeCommentId}
+                onReply={(parentId, body) =>
+                  create({ id: newCommentId(), body, parentId })
+                }
+                onEdit={(id, body) => updateComment(id, body)}
+                onDelete={id => deleteComment(id)}
+                onSetStatus={(id, status) => setStatus(id, status)}
+                onSelectThread={scrollToAnchor}
+                onSubmitPending={handleSubmitComment}
+                onCancelPending={() => setPending(null)}
+              />
+            </aside>
+          )}
         </div>
 
         {/* Word count / character count / reading time — floating pill pinned
