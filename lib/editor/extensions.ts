@@ -16,6 +16,7 @@ import Typography from '@tiptap/extension-typography'
 import { CharacterCount } from '@tiptap/extension-character-count'
 import type { Extensions } from '@tiptap/core'
 import { TaskLink } from './marks/task-link'
+import { CommentMark } from './marks/comment-mark'
 import { CodeBlock } from './nodes/code-block'
 import { Callout } from './nodes/callout'
 import { ToggleExtensions } from './nodes/toggle'
@@ -52,6 +53,7 @@ export function getBaseExtensions(): Extensions {
     ...ToggleExtensions,
     TaskView,
     TaskLink,
+    CommentMark,
     // Storage-only: powers the word/character/reading-time footer. The
     // CJK-aware word + reading-time math lives in lib/editor/reading-stats.ts;
     // we read characters() from this extension's storage.
