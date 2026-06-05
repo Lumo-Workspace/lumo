@@ -53,7 +53,7 @@ jest.mock('@dnd-kit/core', () => ({
   useSensors: jest.fn(() => []),
 }))
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { RichTextViewer } from '@/app/workspace/[workspaceUrl]/components/RichTextViewer'
 
 const STORED =
@@ -178,5 +178,22 @@ describe('RichTextViewer — task view block', () => {
     })
     render(<RichTextViewer value={STORED} />)
     await waitFor(() => expect(screen.getByText(/Showing the first/)).toBeInTheDocument())
+  })
+
+  it('refetches when the refresh button is clicked', async () => {
+    const refetch = jest.fn()
+    mockUseWorkspaceTasks.mockReturnValue({
+      tasks: [],
+      truncated: false,
+      loading: false,
+      error: null,
+      refetch,
+    })
+    render(<RichTextViewer value={STORED} />)
+    const btn = await waitFor(() =>
+      screen.getByRole('button', { name: 'Refresh' })
+    )
+    fireEvent.click(btn)
+    expect(refetch).toHaveBeenCalled()
   })
 })

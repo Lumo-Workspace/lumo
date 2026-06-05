@@ -1,4 +1,4 @@
-import type { ApiStatus } from '@/app/workspace/[workspaceUrl]/types'
+import type { ApiStatus, ApiTask } from '@/app/workspace/[workspaceUrl]/types'
 
 export const KANBAN_STATUSES: readonly ApiStatus[] = [
   'TODO',
@@ -21,4 +21,13 @@ export function statusFromDropTarget(
   if (!(KANBAN_STATUSES as readonly string[]).includes(overId)) return null
   if (overId === currentStatus) return null
   return overId as ApiStatus
+}
+
+/**
+ * Deterministic within-column order so cards don't jump between renders /
+ * refetches. Sorted by task number ascending. Pure — returns a new array,
+ * never mutates the input.
+ */
+export function sortColumnTasks(tasks: ApiTask[]): ApiTask[] {
+  return [...tasks].sort((a, b) => a.number - b.number)
 }
