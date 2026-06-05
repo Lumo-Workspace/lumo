@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useIntl } from 'react-intl'
 import { FileText, X } from 'lucide-react'
@@ -23,6 +23,13 @@ interface Props {
   onAttached: () => void | Promise<void>
 }
 
+// CONTENT backlinks (mentioned in a doc body) lead; EXPLICIT manual binds
+// follow. Array.prototype.sort is stable, so same-source order is preserved.
+const SOURCE_ORDER: Record<TaskDocumentResource['source'], number> = {
+  CONTENT: 0,
+  EXPLICIT: 1,
+}
+
 export function DocumentsSection({
   documents,
   workspaceUrl,
@@ -30,6 +37,14 @@ export function DocumentsSection({
   onAttached,
 }: Props): React.ReactElement {
   const intl = useIntl()
+
+  const sorted = useMemo(
+    () =>
+      [...documents].sort(
+        (a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]
+      ),
+    [documents]
+  )
 
   const handleSearch = useCallback(async (q: string) => {
     const { documents: hits } = await taskDocumentsClient.search(q)
@@ -92,16 +107,16 @@ export function DocumentsSection({
       <p className='mb-2 text-[11px] text-muted-foreground'>
         {intl.formatMessage({ id: 'taskArtifact.docsRefOnly' })}
       </p>
-      {documents.length === 0 ? (
+      {sorted.length === 0 ? (
         <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'task.context.documents.empty',
-            defaultMessage: 'No documents linked',
+            defaultMessage: 'No documents mention this task',
           })}
         </div>
       ) : (
         <ul className='space-y-1.5'>
-          {documents.map(doc => (
+          {sorted.map(doc => (
             <li key={doc.id} className='group flex items-center gap-2 text-xs'>
               {doc.emoji ? (
                 <span>{doc.emoji}</span>
@@ -114,23 +129,36 @@ export function DocumentsSection({
               >
                 {doc.title}
               </Link>
-              <button
-                type='button'
-                onClick={() => {
-                  void handleDetach(doc.id)
-                }}
-                aria-label={intl.formatMessage({
-                  id: 'task.contextLink.doc.detachAction',
-                  defaultMessage: 'Remove document',
-                })}
-                title={intl.formatMessage({
-                  id: 'task.contextLink.doc.detachAction',
-                  defaultMessage: 'Remove document',
-                })}
-                className='p-0.5 rounded text-zinc-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-opacity'
-              >
-                <X size={12} />
-              </button>
+              <span className='shrink-0 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted'>
+                {doc.source === 'CONTENT'
+                  ? intl.formatMessage({
+                      id: 'task.context.documents.source.content',
+                      defaultMessage: 'In body',
+                    })
+                  : intl.formatMessage({
+                      id: 'task.context.documents.source.explicit',
+                      defaultMessage: 'Linked',
+                    })}
+              </span>
+              {doc.source === 'EXPLICIT' && (
+                <button
+                  type='button'
+                  onClick={() => {
+                    void handleDetach(doc.id)
+                  }}
+                  aria-label={intl.formatMessage({
+                    id: 'task.contextLink.doc.detachAction',
+                    defaultMessage: 'Remove document',
+                  })}
+                  title={intl.formatMessage({
+                    id: 'task.contextLink.doc.detachAction',
+                    defaultMessage: 'Remove document',
+                  })}
+                  className='p-0.5 rounded text-zinc-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-opacity'
+                >
+                  <X size={12} />
+                </button>
+              )}
             </li>
           ))}
         </ul>

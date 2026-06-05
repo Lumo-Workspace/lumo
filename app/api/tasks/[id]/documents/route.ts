@@ -59,7 +59,7 @@ export async function GET(
     identity.memberId
   )
 
-  const documents = mentions.map(m => m.document)
+  const documents = mentions.map(m => ({ ...m.document, source: m.source }))
 
   return NextResponse.json({ documents })
 }

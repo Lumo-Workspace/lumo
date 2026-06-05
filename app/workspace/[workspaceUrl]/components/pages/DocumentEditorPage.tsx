@@ -440,12 +440,16 @@ export function DocumentEditorPage({
                 tocScrollRoot={scrollRoot}
                 onStatsUpdate={setStats}
               />
-
-              {/* Word count / character count / reading time */}
-              <DocumentStatsFooter stats={stats} />
             </div>
           </div>
         </div>
+
+        {/* Word count / character count / reading time — floating pill pinned
+            to the bottom-right of the scroll pane (see DocumentStatsFooter).
+            Rendered here, as a direct child of the scroll container, so its
+            sticky layer anchors to the pane edge rather than the centered
+            text column. */}
+        <DocumentStatsFooter stats={stats} />
       </div>
 
       <ShareDialog

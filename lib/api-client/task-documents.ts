@@ -1,11 +1,16 @@
 import { apiFetch } from './base'
 
+/** Whether the backlink came from a `@task` mention in the document body
+ * (`CONTENT`, auto-synced on save) or an explicit manual bind (`EXPLICIT`). */
+export type TaskDocumentSource = 'CONTENT' | 'EXPLICIT'
+
 export interface TaskDocumentResource {
   id: string
   slug: string
   title: string
   emoji: string | null
   updatedAt: string
+  source: TaskDocumentSource
 }
 
 /** Minimal document shape returned by `GET /api/documents?search=...`.
