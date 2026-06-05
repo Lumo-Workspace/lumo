@@ -51,7 +51,8 @@ export const documentRevisionService = {
     workspaceId: string,
     authorId: string,
     snapshot: SnapshotInput,
-    now: Date = new Date()
+    now: Date = new Date(),
+    options: { forceNewRevision?: boolean } = {}
   ): Promise<void> {
     const latest =
       await documentRevisionRepository.findLatestForDocument(documentId)
@@ -59,6 +60,7 @@ export const documentRevisionService = {
     if (latest && latest.content === snapshot.content) return
 
     const withinWindow =
+      !options.forceNewRevision &&
       latest != null &&
       !latest.isManual &&
       latest.authorId === authorId &&
@@ -178,9 +180,13 @@ export const documentRevisionService = {
       throw Object.assign(new Error('Revision not found'), { status: 404 })
     }
     const { documentService: svc } = await import('@/lib/services/document.service')
-    return svc.updateDocument(doc.id, memberId, workspaceId, {
-      content: rev.content,
-    })
+    return svc.updateDocument(
+      doc.id,
+      memberId,
+      workspaceId,
+      { content: rev.content },
+      { forceNewRevision: true }
+    )
   },
 
   async pruneRevisions(now: Date = new Date()): Promise<{ deleted: number }> {

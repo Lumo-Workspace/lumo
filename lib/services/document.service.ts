@@ -423,7 +423,8 @@ export const documentService = {
     id: string,
     memberId: string,
     workspaceId: string,
-    data: UpdateDocumentInput
+    data: UpdateDocumentInput,
+    options: { forceNewRevision?: boolean } = {}
   ) {
     const doc = await documentRepository.findWithPermission(
       id,
@@ -525,11 +526,18 @@ export const documentService = {
       // the response; snapshotOnSave no-ops when content is unchanged.
       waitUntil(
         documentRevisionService
-          .snapshotOnSave(docId, workspaceId, memberId, {
-            content: data.content,
-            title: updated.title,
-            emoji: updated.emoji,
-          })
+          .snapshotOnSave(
+            docId,
+            workspaceId,
+            memberId,
+            {
+              content: data.content,
+              title: updated.title,
+              emoji: updated.emoji,
+            },
+            undefined,
+            { forceNewRevision: options.forceNewRevision ?? false }
+          )
           .catch(() => {})
       )
     }

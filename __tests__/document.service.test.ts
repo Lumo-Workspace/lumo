@@ -293,7 +293,9 @@ describe('documentService', () => {
       })
       expect(mockSnapshotOnSave).toHaveBeenCalledWith(
         'd1', 'ws1', 'm1',
-        expect.objectContaining({ content: '<p>new</p>', title: 'T', emoji: null })
+        expect.objectContaining({ content: '<p>new</p>', title: 'T', emoji: null }),
+        undefined,
+        { forceNewRevision: false }
       )
     })
 

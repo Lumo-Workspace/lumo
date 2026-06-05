@@ -103,6 +103,16 @@ describe('snapshotOnSave', () => {
     expect(repo.updateContent).not.toHaveBeenCalled()
   })
 
+  it('forceNewRevision skips the merge window and always creates', async () => {
+    repo.findLatestForDocument.mockResolvedValue({
+      id: 'r1', authorId: 'm1', isManual: false, content: '<p>old</p>',
+      updatedAt: new Date('2026-06-05T11:58:00Z'), // within window
+    })
+    await documentRevisionService.snapshotOnSave('d1', 'w1', 'm1', snap, NOW, { forceNewRevision: true })
+    expect(repo.create).toHaveBeenCalled()
+    expect(repo.updateContent).not.toHaveBeenCalled()
+  })
+
   it('skips entirely when content is identical to the latest revision', async () => {
     repo.findLatestForDocument.mockResolvedValue({
       id: 'r1', authorId: 'm1', isManual: false, content: '<p>new</p>',
@@ -127,7 +137,7 @@ describe('restoreRevision', () => {
     repo.findByIdWithContent.mockResolvedValue({ id: 'r1', content: '<p>old</p>' })
     updateDocument.mockResolvedValue({ id: 'd1' })
     await documentRevisionService.restoreRevision('d1', 'r1', 'm1', 'w1')
-    expect(updateDocument).toHaveBeenCalledWith('d1', 'm1', 'w1', { content: '<p>old</p>' })
+    expect(updateDocument).toHaveBeenCalledWith('d1', 'm1', 'w1', { content: '<p>old</p>' }, { forceNewRevision: true })
   })
 
   it('404s when the revision does not belong to the document', async () => {
