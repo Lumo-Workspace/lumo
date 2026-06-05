@@ -1372,6 +1372,7 @@
   "document.resolve": "Auflösen",
   "document.reopen": "Wieder öffnen",
   "document.commentOrphaned": "Originaltext gelöscht",
+  "document.commentDeleted": "[Gelöscht]",
   "document.showResolved": "Aufgelöste anzeigen",
   "document.outline": "Gliederung"
 }

@@ -27,15 +27,20 @@ const m = prisma as unknown as {
 beforeEach(() => jest.clearAllMocks())
 
 describe('documentCommentRepository', () => {
-  it('findByDocumentId filters top-level non-deleted + nests replies', async () => {
+  it('findByDocumentId surfaces live threads + tombstoned parents with live replies', async () => {
+    // A soft-deleted parent that still has non-deleted replies must remain
+    // reachable (rendered as a "[deleted]" tombstone) so its replies are not
+    // orphaned. Childless soft-deleted parents stay hidden.
     m.documentComment.findMany.mockResolvedValue([])
     await documentCommentRepository.findByDocumentId('d1')
     const arg = m.documentComment.findMany.mock.calls[0]![0]
     expect(arg.where).toMatchObject({
       documentId: 'd1',
       parentId: null,
-      deletedAt: null,
+      OR: [{ deletedAt: null }, { replies: { some: { deletedAt: null } } }],
     })
+    // Top-level filter must NOT hard-exclude deleted parents anymore.
+    expect(arg.where.deletedAt).toBeUndefined()
     expect(arg.include.replies.where).toMatchObject({ deletedAt: null })
   })
 

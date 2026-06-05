@@ -86,6 +86,34 @@ it('hides edit/delete for non-authors', () => {
   expect(screen.queryByTestId('delete-c1')).toBeNull()
 })
 
+it('renders a deleted parent as a tombstone with its replies, no edit/delete', () => {
+  r({
+    thread: {
+      ...base,
+      deletedAt: '2026-06-05T00:00:00Z',
+      body: '<p>top</p>',
+      replies: [
+        {
+          ...base,
+          id: 'r1',
+          parentId: 'c1',
+          body: '<p>still here</p>',
+          deletedAt: null,
+          replies: [],
+        },
+      ],
+    },
+  })
+  // Tombstone placeholder shown instead of the original body.
+  expect(screen.getByText('document.commentDeleted')).toBeInTheDocument()
+  expect(screen.queryByText(/^top$/)).toBeNull()
+  // Reply remains visible.
+  expect(screen.getByText(/still here/)).toBeInTheDocument()
+  // Author actions are gone on the deleted row.
+  expect(screen.queryByTestId('edit-c1')).toBeNull()
+  expect(screen.queryByTestId('delete-c1')).toBeNull()
+})
+
 it('calls onDelete after confirmation (author)', () => {
   const onDelete = jest.fn()
   r({ onDelete })

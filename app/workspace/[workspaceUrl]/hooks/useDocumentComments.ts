@@ -17,6 +17,8 @@ export interface ApiDocumentComment {
   isOrphaned: boolean
   type: 'USER' | 'AGENT'
   createdAt: string
+  /** Set when soft-deleted. A deleted parent kept for its replies renders as a tombstone. */
+  deletedAt?: string | null
   author?: {
     id: string
     type: string
@@ -168,8 +170,16 @@ export function useDocumentComments(documentId: string, enabled = true) {
       if (ctx?.previous) queryClient.setQueryData(key, ctx.previous)
     },
     onSuccess: real => {
+      // The server update row only carries AUTHOR_SELECT, never `replies`.
+      // Replacing the node wholesale would wipe a parent's replies from cache
+      // (onMutate already kept them via { ...c, body }). Merge the fresh fields
+      // over the cached node and preserve its existing replies.
       queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
-        mapThread(old ?? [], real.id, () => real)
+        mapThread(old ?? [], real.id, c => ({
+          ...c,
+          ...real,
+          replies: c.replies ?? [],
+        }))
       )
     },
   })
@@ -187,7 +197,14 @@ export function useDocumentComments(documentId: string, enabled = true) {
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<ApiDocumentComment[]>(key)
       queryClient.setQueryData<ApiDocumentComment[]>(key, old =>
-        mapThread(old ?? [], commentId, () => null)
+        mapThread(old ?? [], commentId, c =>
+          // A parent that still has replies becomes a "[deleted]" tombstone so
+          // its replies stay visible (the server keeps the soft-deleted row for
+          // the same reason). Replies and childless parents are removed.
+          (c.replies?.length ?? 0) > 0
+            ? { ...c, deletedAt: new Date().toISOString() }
+            : null
+        )
       )
       return { previous }
     },

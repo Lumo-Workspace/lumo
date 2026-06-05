@@ -1372,6 +1372,7 @@
   "document.resolve": "Решить",
   "document.reopen": "Открыть заново",
   "document.commentOrphaned": "Исходный текст удалён",
+  "document.commentDeleted": "[Удалено]",
   "document.showResolved": "Показать решённые",
   "document.outline": "Структура"
 }

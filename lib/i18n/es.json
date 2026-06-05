@@ -1372,6 +1372,7 @@
   "document.resolve": "Resolver",
   "document.reopen": "Reabrir",
   "document.commentOrphaned": "Texto original eliminado",
+  "document.commentDeleted": "[Eliminado]",
   "document.showResolved": "Mostrar resueltos",
   "document.outline": "Esquema"
 }

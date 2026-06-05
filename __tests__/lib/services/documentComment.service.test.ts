@@ -377,6 +377,28 @@ describe('author-only edit/delete', () => {
     })
     expect(repo.update).toHaveBeenCalledWith('c1', { body: 'x' })
   })
+  it('rejects edit on a null-author comment (403)', async () => {
+    // A comment whose authorActorId is null must not be editable by anyone —
+    // the old `authorActorId && ...` guard short-circuited and let everyone in.
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: null,
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.updateCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-anyone',
+        body: 'x',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.update).not.toHaveBeenCalled()
+  })
   it('rejects delete by a non-author (403)', async () => {
     repo.findById.mockResolvedValue({
       id: 'c1',
@@ -391,6 +413,25 @@ describe('author-only edit/delete', () => {
         memberId: 'm-viewer',
         workspaceId: 'w1',
         actorId: 'a-other',
+        waitUntil: noop,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(repo.softDelete).not.toHaveBeenCalled()
+  })
+  it('rejects delete on a null-author comment (403)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      documentId: 'd1',
+      parentId: null,
+      authorActorId: null,
+    } as never)
+    docRepo.findWithPermission.mockResolvedValue(DOC as never)
+    await expect(
+      documentCommentService.deleteCommentWithSideEffects({
+        commentId: 'c1',
+        memberId: 'm-viewer',
+        workspaceId: 'w1',
+        actorId: 'a-anyone',
         waitUntil: noop,
       })
     ).rejects.toMatchObject({ status: 403 })

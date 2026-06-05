@@ -1373,5 +1373,6 @@
   "document.resolve": "Resolve",
   "document.reopen": "Reopen",
   "document.commentOrphaned": "Original text deleted",
+  "document.commentDeleted": "[Deleted]",
   "document.showResolved": "Show resolved"
 }
