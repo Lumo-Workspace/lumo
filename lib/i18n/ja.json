@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "タスクボード",
   "editor.taskView.truncated": "最初の {count} 件のタスクを表示しています。",
   "editor.taskView.statusUpdateError": "タスクを移動できませんでした。もう一度お試しください。",
+  "editor.taskView.refresh": "更新",
   "editor.quote": "引用",
   "editor.insertTable": "テーブルを挿入",
   "editor.insertImage": "画像を挿入",

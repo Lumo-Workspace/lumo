@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "任務看板",
   "editor.taskView.truncated": "僅顯示前 {count} 個任務。",
   "editor.taskView.statusUpdateError": "無法移動任務，請重試。",
+  "editor.taskView.refresh": "重新整理",
   "editor.quote": "引用",
   "editor.insertTable": "插入表格",
   "editor.insertImage": "插入圖片",

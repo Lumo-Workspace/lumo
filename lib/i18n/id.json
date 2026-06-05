@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Papan tugas",
   "editor.taskView.truncated": "Menampilkan {count} tugas pertama.",
   "editor.taskView.statusUpdateError": "Tidak dapat memindahkan tugas. Silakan coba lagi.",
+  "editor.taskView.refresh": "Segarkan",
   "editor.quote": "Kutipan",
   "editor.insertTable": "Sisipkan tabel",
   "editor.insertImage": "Sisipkan gambar",

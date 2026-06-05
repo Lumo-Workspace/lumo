@@ -1225,6 +1225,7 @@
   "editor.taskView.kanbanLabel": "Papan tugas",
   "editor.taskView.truncated": "Menunjukkan {count} tugas pertama.",
   "editor.taskView.statusUpdateError": "Tidak dapat mengalihkan tugas. Sila cuba lagi.",
+  "editor.taskView.refresh": "Muat semula",
   "editor.quote": "Petikan",
   "editor.insertTable": "Sisipkan jadual",
   "editor.insertImage": "Sisipkan imej",
