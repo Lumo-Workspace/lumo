@@ -3,8 +3,16 @@ import { documentRevisionRepository } from '@/lib/repositories/documentRevision.
 import { documentRepository } from '@/lib/repositories/document.repository'
 import { documentService } from '@/lib/services/document.service'
 import { selectRevisionsToPrune } from '@/lib/services/revision-retention'
+import { computeReadingStats } from '@/lib/editor/reading-stats'
 
 const MERGE_WINDOW_MS = 10 * 60 * 1000
+
+/** Server-safe word count from an HTML body (strips tags, CJK-aware). */
+function htmlWordCount(content: string | null): number | null {
+  if (!content) return null
+  const text = content.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ')
+  return computeReadingStats(text).words
+}
 
 export interface SnapshotInput {
   content: string | null
@@ -59,6 +67,8 @@ export const documentRevisionService = {
 
     if (latest && latest.content === snapshot.content) return
 
+    const wordCount = htmlWordCount(snapshot.content)
+
     const withinWindow =
       !options.forceNewRevision &&
       latest != null &&
@@ -71,6 +81,7 @@ export const documentRevisionService = {
         content: snapshot.content,
         title: snapshot.title,
         emoji: snapshot.emoji,
+        wordCount,
       })
       return
     }
@@ -82,6 +93,7 @@ export const documentRevisionService = {
       content: snapshot.content,
       title: snapshot.title,
       emoji: snapshot.emoji,
+      wordCount,
     })
   },
 
@@ -102,6 +114,7 @@ export const documentRevisionService = {
       emoji: doc.emoji ?? null,
       label,
       isManual: true,
+      wordCount: htmlWordCount(doc.content ?? null),
     })
   },
 

@@ -1361,6 +1361,8 @@
   "documentHistory.close": "Close",
   "documentHistory.loading": "Loading…",
   "documentHistory.selectPrompt": "Select a version to compare with the current document.",
+  "documentHistory.savedVersion": "Version saved",
+  "documentHistory.saveFailed": "Could not save version",
   "document.comments": "Comments",
   "document.noComments": "No comments yet",
   "document.replies": "replies",

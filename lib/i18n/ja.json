@@ -1360,6 +1360,8 @@
   "documentHistory.close": "閉じる",
   "documentHistory.loading": "読み込み中…",
   "documentHistory.selectPrompt": "現在の文書と比較するバージョンを選択してください。",
+  "documentHistory.savedVersion": "バージョンを保存しました",
+  "documentHistory.saveFailed": "バージョンを保存できませんでした",
   "editor.comment": "コメント",
   "document.comments": "コメント",
   "document.noComments": "まだコメントはありません",

@@ -1360,6 +1360,8 @@
   "documentHistory.close": "Tutup",
   "documentHistory.loading": "Memuatkan…",
   "documentHistory.selectPrompt": "Pilih versi untuk dibandingkan dengan dokumen semasa.",
+  "documentHistory.savedVersion": "Versi disimpan",
+  "documentHistory.saveFailed": "Tidak dapat menyimpan versi",
   "editor.comment": "Komen",
   "document.comments": "Komen",
   "document.noComments": "Tiada komen lagi",

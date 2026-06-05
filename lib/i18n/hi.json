@@ -1360,6 +1360,8 @@
   "documentHistory.close": "बंद करें",
   "documentHistory.loading": "लोड हो रहा है…",
   "documentHistory.selectPrompt": "वर्तमान दस्तावेज़ से तुलना करने के लिए एक संस्करण चुनें।",
+  "documentHistory.savedVersion": "संस्करण सहेजा गया",
+  "documentHistory.saveFailed": "संस्करण सहेजा नहीं जा सका",
   "editor.comment": "टिप्पणी करें",
   "document.comments": "टिप्पणियाँ",
   "document.noComments": "अभी तक कोई टिप्पणी नहीं",

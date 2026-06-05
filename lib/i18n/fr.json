@@ -1360,6 +1360,8 @@
   "documentHistory.close": "Fermer",
   "documentHistory.loading": "Chargement…",
   "documentHistory.selectPrompt": "Sélectionnez une version à comparer avec le document actuel.",
+  "documentHistory.savedVersion": "Version enregistrée",
+  "documentHistory.saveFailed": "Impossible d'enregistrer la version",
   "editor.comment": "Commenter",
   "document.comments": "Commentaires",
   "document.noComments": "Aucun commentaire",

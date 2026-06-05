@@ -11,6 +11,7 @@ import { DocumentBreadcrumb } from '../document/DocumentBreadcrumb'
 import { ShareDialog } from '../document/ShareDialog'
 import { DocumentHistoryModal } from '../documents/DocumentHistoryModal'
 import { documentRevisionsApi } from '@/lib/api-client'
+import { toast } from 'sonner'
 import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { DocumentToc } from '../document/DocumentToc'
@@ -441,9 +442,26 @@ export function DocumentEditorPage({
                 )
                 if (!label || !label.trim()) return
                 await flushAsync()
-                await documentRevisionsApi.createManual(doc.id, {
-                  label: label.trim(),
-                })
+                try {
+                  await documentRevisionsApi.createManual(doc.id, {
+                    label: label.trim(),
+                  })
+                  toast.success(
+                    intl.formatMessage({
+                      id: 'documentHistory.savedVersion',
+                      defaultMessage: 'Version saved',
+                    })
+                  )
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error
+                      ? e.message
+                      : intl.formatMessage({
+                          id: 'documentHistory.saveFailed',
+                          defaultMessage: 'Could not save version',
+                        })
+                  )
+                }
               }}
             >
               {intl.formatMessage({

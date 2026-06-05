@@ -1360,6 +1360,8 @@
   "documentHistory.close": "Đóng",
   "documentHistory.loading": "Đang tải…",
   "documentHistory.selectPrompt": "Chọn một phiên bản để so sánh với tài liệu hiện tại.",
+  "documentHistory.savedVersion": "Đã lưu phiên bản",
+  "documentHistory.saveFailed": "Không thể lưu phiên bản",
   "editor.comment": "Bình luận",
   "document.comments": "Bình luận",
   "document.noComments": "Chưa có bình luận",
