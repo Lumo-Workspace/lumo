@@ -3,20 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import { resolveGutterLayout, type GutterItem } from './comment-gutter-layout'
-import {
-  collectOpenCommentAnchors,
-  measurePendingAnchor,
-} from './comment-gutter-dom'
+import { collectOpenCommentAnchors } from './comment-gutter-dom'
 
 const CARD_HEIGHT = 96
-const COMPOSER_HEIGHT = 140
 const GAP = 8
 
-/** Sentinel id for the in-flight (pending) comment composer. */
-export const PENDING_ID = '__pending__'
-
 export interface GutterLayout {
-  /** id → top (px). Includes PENDING_ID when a composer is open. */
+  /** id → top (px). */
   tops: Record<string, number>
   /** Total content height (px) so the gutter container reserves space. */
   height: number
@@ -29,8 +22,7 @@ export interface GutterLayout {
 export function useCommentGutterLayout(
   editor: Editor | null,
   rowEl: HTMLElement | null,
-  comments: ApiDocumentComment[],
-  pendingFrom: number | null
+  comments: ApiDocumentComment[]
 ): GutterLayout {
   const [layout, setLayout] = useState<GutterLayout>({ tops: {}, height: 0 })
   const frame = useRef<number | null>(null)
@@ -45,13 +37,6 @@ export function useCommentGutterLayout(
       rowEl,
       comments
     ).map(a => ({ id: a.id, anchorY: a.anchorY, height: CARD_HEIGHT }))
-    if (pendingFrom != null) {
-      items.push({
-        id: PENDING_ID,
-        anchorY: measurePendingAnchor(editor, rowEl, pendingFrom),
-        height: COMPOSER_HEIGHT,
-      })
-    }
     const tops = resolveGutterLayout(items, GAP)
     let height = 0
     for (const it of items) {
@@ -59,7 +44,7 @@ export function useCommentGutterLayout(
       height = Math.max(height, top + it.height)
     }
     setLayout({ tops, height })
-  }, [editor, rowEl, comments, pendingFrom])
+  }, [editor, rowEl, comments])
 
   const schedule = useCallback(() => {
     if (frame.current != null) return

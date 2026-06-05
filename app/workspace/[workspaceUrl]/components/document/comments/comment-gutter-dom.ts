@@ -1,4 +1,3 @@
-import type { Editor } from '@tiptap/core'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 
 /** Vertical offset (px) of `el`'s top relative to `rowEl`'s top. */
@@ -32,13 +31,4 @@ export function collectOpenCommentAnchors(
           : Number.POSITIVE_INFINITY,
       }
     })
-}
-
-/** Top (px) of the pending selection start, relative to `rowEl`. */
-export function measurePendingAnchor(
-  editor: Editor,
-  rowEl: Element,
-  from: number
-): number {
-  return editor.view.coordsAtPos(from).top - rowEl.getBoundingClientRect().top
 }

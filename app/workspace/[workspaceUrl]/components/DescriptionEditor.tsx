@@ -8,6 +8,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
 import { TableOfContents } from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
+import { shouldShowBubble } from '@/lib/editor/bubble-menu-visibility'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
 import {
   DocExtractProvider,
@@ -111,6 +112,12 @@ interface DescriptionEditorProps {
    * in the sidebar and switch to the comments tab.
    */
   onCommentClick?: (commentId: string) => void
+  /**
+   * When true, the selection bubble menu is force-hidden. The document editor
+   * sets this while the new-comment composer is open over the same selection so
+   * the two floating layers don't overlap.
+   */
+  commentComposerOpen?: boolean
 }
 
 export function DescriptionEditor({
@@ -129,6 +136,7 @@ export function DescriptionEditor({
   onRequestComment,
   onEditorReady,
   onCommentClick,
+  commentComposerOpen = false,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -199,6 +207,12 @@ export function DescriptionEditor({
     onCommentClickRef.current = onCommentClick
   }, [onCommentClick])
 
+  // The BubbleMenu's shouldShow closure is created once at editor construction,
+  // so route the composer-open flag through a ref it can read live. Toggling it
+  // alone won't re-run shouldShow (no editor transaction fires), so dispatch an
+  // empty transaction to force the bubble plugin to re-evaluate immediately.
+  const suppressBubbleRef = useRef(false)
+
   // Coalesce the expensive full-document getHTML() out of the per-keystroke hot
   // path. The serializer reads the *latest* editor lazily (only when a pending
   // change flushes) so a doc-switch never serializes a stale instance.
@@ -251,13 +265,13 @@ export function DescriptionEditor({
         ? [
             BubbleMenu.configure({
               element: menuElement,
-              shouldShow: ({ editor, state }) => {
-                if (!editor.isEditable) return false
-                // Always show when cursor is inside a table (for table ops)
-                if (editor.isActive('table')) return true
-                // Otherwise only show for non-empty text selections
-                return !state.selection.empty
-              },
+              shouldShow: ({ editor, state }) =>
+                shouldShowBubble({
+                  editable: editor.isEditable,
+                  isInTable: editor.isActive('table'),
+                  selectionEmpty: state.selection.empty,
+                  suppressed: suppressBubbleRef.current,
+                }),
             }),
           ]
         : []),
@@ -341,6 +355,14 @@ export function DescriptionEditor({
   useEffect(() => {
     if (editor) onEditorReady?.(editor)
   }, [editor, onEditorReady])
+
+  // Hide/restore the bubble menu when the comment composer opens/closes. The
+  // ref feeds shouldShow; the empty dispatch forces the bubble plugin to
+  // re-evaluate it now rather than on the next selection change.
+  useEffect(() => {
+    suppressBubbleRef.current = commentComposerOpen
+    if (editor) editor.view.dispatch(editor.state.tr)
+  }, [commentComposerOpen, editor])
 
   // Sync the TOC: wire the scroll listener, compute active heading, push items
   // upstream. Mirror effects for onTocUpdateRef/tocScrollRootRef also live here.
