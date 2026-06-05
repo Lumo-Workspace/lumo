@@ -40,11 +40,19 @@ export function DetailLayout({
   const showSidebar = sidebar != null && !sidebarCollapsed
   // Flush variant drops the inter-column gap + right padding so a bordered
   // panel sits edge-to-edge; the panel's own border is the column divider.
+  //
+  // `flex flex-col` (no-sidebar) and `lg:grid-rows-1` (two-column) are what
+  // give the content column a *bounded* height: without them the single
+  // grid/flow row is `auto`-sized to its content, so a tall child (e.g. the
+  // kanban BoardView) overflows and is clipped by `overflow-hidden` instead
+  // of scrolling internally. `grid-rows-1` == `grid-template-rows:
+  // minmax(0,1fr)`, pinning the row to the container height so each column
+  // scrolls on its own — matching the project task board.
   const bodyClass = !showSidebar
-    ? 'flex-1 min-h-0 overflow-hidden'
+    ? 'flex-1 min-h-0 flex flex-col overflow-hidden'
     : flushSidebar
-      ? 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:overflow-hidden'
-      : 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:gap-4 lg:pr-4 lg:overflow-hidden'
+      ? 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:grid-rows-1 lg:overflow-hidden'
+      : 'flex-1 min-h-0 flex flex-col overflow-y-auto lg:grid lg:grid-cols-[1fr_320px] lg:grid-rows-1 lg:gap-4 lg:pr-4 lg:overflow-hidden'
   return (
     <div className='flex flex-col h-full overflow-hidden'>
       <PageBreadcrumb actions={actions}>{breadcrumb}</PageBreadcrumb>

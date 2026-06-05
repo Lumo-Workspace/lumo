@@ -80,6 +80,44 @@ test('flushSidebar drops the gap + padding and fills the rail height', () => {
   expect(container.querySelector('aside')!.className).toContain('lg:h-full')
 })
 
+test('two-column body pins the grid row height so each column scrolls internally', () => {
+  // `lg:grid-rows-1` bounds the single grid row to the container height —
+  // without it a tall content column (the kanban board) overflows and is
+  // clipped instead of scrolling. Both grid variants must carry it.
+  for (const flush of [false, true]) {
+    const { container, unmount } = render(
+      <DetailLayout
+        breadcrumb={<span>BC</span>}
+        sidebar={<span>SIDE</span>}
+        {...(flush ? { flushSidebar: true } : {})}
+      >
+        <span>BODY</span>
+      </DetailLayout>
+    )
+    const body = container.querySelector('div.lg\\:grid')!
+    expect(body.className).toContain('lg:grid-rows-1')
+    unmount()
+  }
+})
+
+test('no-sidebar body is a flex column so the content fills/scrolls', () => {
+  // When the sidebar is collapsed the body must be a flex column, otherwise
+  // the single child's `flex-1` is inert and the board height is unbounded.
+  const { container } = render(
+    <DetailLayout
+      breadcrumb={<span>BC</span>}
+      sidebar={<span>SIDE</span>}
+      sidebarCollapsed
+    >
+      <span>BODY</span>
+    </DetailLayout>
+  )
+  const body = container.querySelector('div.flex-1.min-h-0')!
+  expect(body.className).toContain('flex')
+  expect(body.className).toContain('flex-col')
+  expect(body.className).toContain('overflow-hidden')
+})
+
 test('renders actions slot', () => {
   render(
     <DetailLayout breadcrumb={<span>BC</span>} actions={<span>ACT</span>}>
