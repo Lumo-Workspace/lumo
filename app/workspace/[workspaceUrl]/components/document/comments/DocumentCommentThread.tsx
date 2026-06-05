@@ -21,6 +21,8 @@ export interface DocumentCommentThreadProps {
   onDelete: (commentId: string) => void
   onSetStatus: (commentId: string, status: 'OPEN' | 'RESOLVED') => void
   onSelect: (commentId: string) => void
+  /** When true, highlights this thread as the currently selected comment. */
+  active?: boolean
 }
 
 function Row({
@@ -140,7 +142,10 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
   }
 
   return (
-    <div className={`rounded-md border p-2 ${resolved ? 'opacity-60' : ''}`}>
+    <div
+      data-comment-thread={thread.id}
+      className={`rounded-md border p-2 ${resolved ? 'opacity-60' : ''} ${props.active ? 'ring-1 ring-primary' : ''}`}
+    >
       <button
         type='button'
         onClick={() => props.onSelect(thread.id)}

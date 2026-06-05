@@ -9,9 +9,18 @@ jest.mock(
   () => ({
     DocumentCommentThread: ({
       thread,
+      active,
     }: {
       thread: { id: string; status: string }
-    }) => <div data-testid={`thread-${thread.id}`}>{thread.status}</div>,
+      active?: boolean
+    }) => (
+      <div
+        data-testid={`thread-${thread.id}`}
+        data-active={active ? 'true' : undefined}
+      >
+        {thread.status}
+      </div>
+    ),
   })
 )
 
@@ -96,4 +105,20 @@ it('hides RESOLVED threads by default and shows them after toggling', () => {
   // Both visible after toggle
   expect(screen.getByTestId('thread-c1')).toBeInTheDocument()
   expect(screen.getByTestId('thread-c2')).toBeInTheDocument()
+})
+
+it('passes active=true only to the thread matching activeCommentId', () => {
+  render(
+    <DocumentCommentsSidebar
+      comments={[openComment, { ...openComment, id: 'c2', status: 'OPEN' }]}
+      members={[]}
+      agentActors={[]}
+      currentActorId={null}
+      activeCommentId='c1'
+      {...baseCallbacks}
+    />
+  )
+
+  expect(screen.getByTestId('thread-c1')).toHaveAttribute('data-active', 'true')
+  expect(screen.getByTestId('thread-c2')).not.toHaveAttribute('data-active')
 })

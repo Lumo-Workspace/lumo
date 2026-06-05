@@ -41,6 +41,8 @@ export const documentCommentService = {
       workspaceId
     )
     if (!doc) notFound()
+    // Refresh orphan flags against the current document content before returning.
+    await documentCommentService.detectAndFlagOrphans(documentId, doc.content)
     return documentCommentRepository.findByDocumentId(documentId)
   },
 

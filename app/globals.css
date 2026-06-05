@@ -947,3 +947,8 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
   cursor: pointer;
   border-radius: 2px;
 }
+
+.comment-highlight--active {
+  background-color: hsl(var(--primary) / 0.3);
+  transition: background-color 0.3s ease;
+}

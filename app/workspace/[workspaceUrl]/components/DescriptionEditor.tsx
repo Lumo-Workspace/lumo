@@ -24,6 +24,7 @@ import {
 } from '@/lib/editor/slash-command-list'
 import { MentionWithType } from '@/lib/editor/nodes/mention-with-type'
 import { isMac } from '@/lib/utils/keyboard'
+import { commentIdFromEventTarget } from './document/comments/anchor-dom'
 import type { ExtractResponse } from '@/lib/api-client/documents-extract'
 import { ExtractTasksError } from '@/lib/api-client/documents-extract'
 import { useTocSync, type TocItem } from '../hooks/useTocSync'
@@ -104,6 +105,12 @@ interface DescriptionEditorProps {
    * The prop is optional so all existing callers are unaffected.
    */
   onEditorReady?: (editor: import('@tiptap/core').Editor) => void
+  /**
+   * Called when the user clicks on a comment-marked span in the editor.
+   * Receives the comment id so a parent can highlight the matching thread
+   * in the sidebar and switch to the comments tab.
+   */
+  onCommentClick?: (commentId: string) => void
 }
 
 export function DescriptionEditor({
@@ -121,6 +128,7 @@ export function DescriptionEditor({
   onStatsUpdate,
   onRequestComment,
   onEditorReady,
+  onCommentClick,
 }: DescriptionEditorProps) {
   const intl = useIntl()
   const placeholder =
@@ -183,6 +191,13 @@ export function DescriptionEditor({
   // Keep the latest onChange reachable from the (created-once) editor callbacks.
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+
+  // Stable ref for onCommentClick so the (created-once) editorProps closure
+  // always calls the latest callback without stale-closure issues.
+  const onCommentClickRef = useRef(onCommentClick)
+  useEffect(() => {
+    onCommentClickRef.current = onCommentClick
+  }, [onCommentClick])
 
   // Coalesce the expensive full-document getHTML() out of the per-keystroke hot
   // path. The serializer reads the *latest* editor lazily (only when a pending
@@ -264,6 +279,11 @@ export function DescriptionEditor({
       attributes: {
         class:
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[80px]',
+      },
+      handleClick: (_view, _pos, event) => {
+        const id = commentIdFromEventTarget(event.target as Node | null)
+        if (id) onCommentClickRef.current?.(id)
+        return false
       },
       handleKeyDown: (_, event) => {
         if ((isMac ? event.metaKey : event.ctrlKey) && event.key === 'k') {

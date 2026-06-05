@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useIntl } from 'react-intl'
 import { Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,13 @@ import {
 } from '../document/comments/useCreateDocComment'
 import { NewCommentPopover } from '../document/comments/NewCommentPopover'
 import { DocumentCommentsSidebar } from '../document/comments/DocumentCommentsSidebar'
+import { usePusherEvent } from '../../hooks/usePusher'
+import { queryKeys } from '@/lib/query/keys'
+import {
+  setActiveEditorAnchor,
+  flashEditorAnchor,
+  docCommentEventNeedsRefetch,
+} from '../document/comments/anchor-dom'
 
 interface DocumentEditorPageProps {
   documentId: string
@@ -131,11 +139,37 @@ export function DocumentEditorPage({
   const activeRightTab: 'toc' | 'comments' =
     tocItems.length === 0 ? 'comments' : rightTab
 
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null)
+
+  const queryClient = useQueryClient()
+
+  // Realtime: invalidate comments when a comment-related Pusher event arrives.
+  usePusherEvent(
+    `document-${documentId}`,
+    'document-update',
+    (event: { type?: string }) => {
+      if (docCommentEventNeedsRefetch(event)) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.documentComments(documentId),
+        })
+      }
+    }
+  )
+
+  // Keep the editor anchor highlight in sync with activeCommentId.
+  useEffect(() => {
+    if (editorRef.current)
+      setActiveEditorAnchor(editorRef.current, activeCommentId)
+  }, [activeCommentId])
+
   const scrollToAnchor = useCallback((commentId: string) => {
     const dom = editorRef.current?.view.dom as HTMLElement | undefined
     dom
       ?.querySelector(`span[data-comment-id="${commentId}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setActiveCommentId(commentId)
+    const editor = editorRef.current
+    if (editor) flashEditorAnchor(editor, commentId)
   }, [])
 
   // Fetch document (background refresh when cache exists)
@@ -446,6 +480,7 @@ export function DocumentEditorPage({
                   onDelete={id => deleteComment(id)}
                   onSetStatus={(id, status) => setStatus(id, status)}
                   onSelectThread={scrollToAnchor}
+                  activeCommentId={activeCommentId}
                 />
               )}
             </aside>
@@ -557,6 +592,10 @@ export function DocumentEditorPage({
                 onRequestComment={(from, to, quotedText) =>
                   setPending({ from, to, quotedText })
                 }
+                onCommentClick={id => {
+                  setActiveCommentId(id)
+                  setRightTab('comments')
+                }}
               />
               {/* NewCommentPopover — inline below editor; precise anchor to the
                   text selection is a follow-up refinement (Plan #6). */}
