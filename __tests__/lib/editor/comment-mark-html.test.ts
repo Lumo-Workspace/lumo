@@ -46,6 +46,11 @@ describe('removeCommentSpan', () => {
       '<p>a<span data-comment-id="c2">b</span></p>'
     )
   })
+
+  it('returns html unchanged when the comment id is absent', () => {
+    const html = '<p><span data-comment-id="c1">a</span></p>'
+    expect(removeCommentSpan(html, 'cZ')).toBe(html)
+  })
 })
 
 describe('assertOnlyCommentMarksChanged', () => {

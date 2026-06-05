@@ -1,11 +1,12 @@
 // lib/editor/comment-mark-html.ts
-import { parse, HTMLElement } from 'node-html-parser'
+import { parse } from 'node-html-parser'
+import type { HTMLElement } from 'node-html-parser'
 
 const COMMENT_SPAN_SELECTOR = 'span[data-comment-id]'
 
 /** Unwrap ALL comment spans (keep inner content), return serialized HTML. */
 export function stripCommentSpans(html: string): string {
-  if (!html) return html
+  if (!html) return ''
   const root = parse(html)
   let spans = root.querySelectorAll(COMMENT_SPAN_SELECTOR)
   while (spans.length > 0) {
@@ -19,7 +20,7 @@ export function stripCommentSpans(html: string): string {
 
 /** Unwrap only the comment span(s) carrying the given comment id. */
 export function removeCommentSpan(html: string, commentId: string): string {
-  if (!html) return html
+  if (!html) return ''
   const root = parse(html)
   const spans = root
     .querySelectorAll(COMMENT_SPAN_SELECTOR)
@@ -52,11 +53,13 @@ export function assertOnlyCommentMarksChanged(
   oldHtml: string,
   newHtml: string
 ): void {
-  const a = stripCommentSpans(oldHtml ?? '')
-  const b = stripCommentSpans(newHtml ?? '')
+  const a = stripCommentSpans(oldHtml)
+  const b = stripCommentSpans(newHtml)
   if (a !== b) {
     throw Object.assign(
-      new Error('Content change rejected: only comment marks may be added'),
+      new Error(
+        'Content change rejected: only comment mark additions and removals are permitted'
+      ),
       { status: 400 }
     )
   }
