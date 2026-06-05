@@ -94,11 +94,19 @@ export const documentCommentService = {
       assertOnlyCommentMarksChanged(doc.content ?? '', input.content)
       const oldIds = new Set(extractCommentIds(doc.content ?? ''))
       const newIds = new Set(extractCommentIds(input.content))
-      // The new content must add exactly the new comment id and nothing else.
-      const added = [...newIds].filter(id => !oldIds.has(id))
+      // No existing marks may be removed, no OTHER new marks may appear, and
+      // the target id must be present. We intentionally allow the target id to
+      // already be in stored content (autosave-won race: the debounced save
+      // already persisted the mark before this request arrived).
       const removed = [...oldIds].filter(id => !newIds.has(id))
-      const addedId = added[0]
-      if (removed.length > 0 || added.length !== 1 || addedId !== input.id) {
+      const addedOther = [...newIds].filter(
+        id => !oldIds.has(id) && id !== input.id
+      )
+      if (
+        removed.length > 0 ||
+        addedOther.length > 0 ||
+        !newIds.has(input.id)
+      ) {
         throw Object.assign(
           new Error('content must add exactly the new comment mark'),
           { status: 400 }

@@ -1343,5 +1343,9 @@
   "forecast.viewSources": "查看依据的历史任务",
   "documentEditor.stats.words": "{count} 字",
   "documentEditor.stats.characters": "{count} 字符",
-  "documentEditor.stats.readingTime": "约 {minutes} 分钟"
+  "documentEditor.stats.readingTime": "约 {minutes} 分钟",
+  "document.comments": "评论",
+  "document.noComments": "还没有评论",
+  "document.replies": "条回复",
+  "document.outline": "大纲"
 }

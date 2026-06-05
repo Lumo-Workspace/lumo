@@ -131,6 +131,36 @@ describe('createCommentWithSideEffects (top-level)', () => {
     ).rejects.toMatchObject({ status: 400 })
   })
 
+  it('succeeds (idempotent) when autosave already wrote the new mark into stored content', async () => {
+    // Simulate the autosave-won race: stored doc already contains the new
+    // comment span for "c1". The client sends the same content. The guard
+    // must not 400; it should create the DB row normally.
+    const contentWithMark =
+      '<p>Hello <span data-comment-id="c1">brave</span> world</p>'
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: contentWithMark,
+    } as never)
+    await documentCommentService.createCommentWithSideEffects({
+      documentId: 'd1',
+      memberId: 'm-viewer',
+      workspaceId: 'w1',
+      authorActorId: 'a-viewer',
+      input: {
+        id: 'c1',
+        body: 'nice',
+        from: 7,
+        to: 12,
+        quotedText: 'brave',
+        content: contentWithMark, // same as stored — target id already present
+      },
+      waitUntil: noop,
+    })
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'c1', documentId: 'd1' })
+    )
+  })
+
   it('denies a member with no access (404)', async () => {
     docRepo.findWithPermission.mockResolvedValue(null as never)
     await expect(

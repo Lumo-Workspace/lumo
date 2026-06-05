@@ -32,6 +32,11 @@ interface UseDocumentSave {
    *  the debounce timer). Used for blur-commit and emoji picks so any pending
    *  edits ride along instead of being left behind. */
   saveNow: (updates: DocumentSaveUpdates) => void
+  /** Cancel the debounce timer and await any in-flight or newly-started save.
+   *  Call this before operations that depend on the server having the latest
+   *  content (e.g. creating a comment anchor). Resolves when the save
+   *  completes or immediately if there was nothing pending. */
+  flushAsync: () => Promise<void>
 }
 
 /**
@@ -101,6 +106,17 @@ export function useDocumentSave({
     if (Object.keys(pending).length > 0) void save(pending)
   }, [save])
 
+  const flushAsync = useCallback((): Promise<void> => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    const pending = pendingRef.current
+    pendingRef.current = {}
+    if (Object.keys(pending).length > 0) return save(pending)
+    return Promise.resolve()
+  }, [save])
+
   const debouncedSave = useCallback(
     (updates: DocumentSaveUpdates) => {
       pendingRef.current = { ...pendingRef.current, ...updates }
@@ -127,5 +143,5 @@ export function useDocumentSave({
     }
   }, [])
 
-  return { saveStatus, debouncedSave, saveNow }
+  return { saveStatus, debouncedSave, saveNow, flushAsync }
 }

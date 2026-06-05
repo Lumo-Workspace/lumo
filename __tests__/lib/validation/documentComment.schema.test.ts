@@ -8,7 +8,7 @@ import {
 describe('createDocumentCommentSchema', () => {
   it('accepts a valid top-level anchored comment', () => {
     const r = createDocumentCommentSchema.safeParse({
-      id: 'ckxc0000000000000000000a',
+      id: '550e8400-e29b-41d4-a716-446655440000',
       body: 'hi',
       from: 1,
       to: 5,
@@ -20,16 +20,16 @@ describe('createDocumentCommentSchema', () => {
 
   it('accepts a reply (parentId, no anchor)', () => {
     const r = createDocumentCommentSchema.safeParse({
-      id: 'ckxc0000000000000000000a',
+      id: '550e8400-e29b-41d4-a716-446655440000',
       body: 'reply',
-      parentId: 'ckxc0000000000000000000b',
+      parentId: '550e8400-e29b-41d4-a716-446655440001',
     })
     expect(r.success).toBe(true)
   })
 
   it('rejects empty body', () => {
     const r = createDocumentCommentSchema.safeParse({
-      id: 'ckxc0000000000000000000a',
+      id: '550e8400-e29b-41d4-a716-446655440000',
       body: '',
     })
     expect(r.success).toBe(false)
@@ -37,12 +37,26 @@ describe('createDocumentCommentSchema', () => {
 
   it('rejects to < from', () => {
     const r = createDocumentCommentSchema.safeParse({
-      id: 'ckxc0000000000000000000a',
+      id: '550e8400-e29b-41d4-a716-446655440000',
       body: 'x',
       from: 5,
       to: 1,
     })
     expect(r.success).toBe(false)
+  })
+
+  it('accepts a client-generated uuid as id', () => {
+    const r = createDocumentCommentSchema.safeParse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      body: 'hi',
+    })
+    expect(r.success).toBe(true)
+  })
+
+  it('rejects an empty id', () => {
+    expect(
+      createDocumentCommentSchema.safeParse({ id: '', body: 'x' }).success
+    ).toBe(false)
   })
 })
 
