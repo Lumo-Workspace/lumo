@@ -118,28 +118,11 @@ export function DocumentEditorPage({
     quotedText: string
   } | null>(null)
   const [rightTab, setRightTab] = useState<'toc' | 'comments'>('toc')
-
-  const handleSubmitComment = useCallback(
-    async (body: string) => {
-      const editor = editorRef.current
-      if (!editor || !pending) return
-      const id = newCommentId()
-      const payload = buildCreateCommentPayload(editor, {
-        id,
-        body,
-        from: pending.from,
-        to: pending.to,
-        quotedText: pending.quotedText,
-      })
-      setPending(null)
-      try {
-        await create(payload)
-      } catch {
-        editor.commands.unsetComment(id)
-      }
-    },
-    [pending, create]
-  )
+  // When there are no TOC items default to the comments tab so the rail shows
+  // something useful right away. User-initiated tab switches are preserved via
+  // rightTab; this only affects the effective active tab derived for rendering.
+  const activeRightTab: 'toc' | 'comments' =
+    tocItems.length === 0 ? 'comments' : rightTab
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -215,10 +198,37 @@ export function DocumentEditorPage({
     [documentId]
   )
 
-  const { saveStatus, debouncedSave, saveNow } = useDocumentSave({
+  const { saveStatus, debouncedSave, saveNow, flushAsync } = useDocumentSave({
     documentId,
     applyResult,
   })
+
+  const handleSubmitComment = useCallback(
+    async (body: string) => {
+      const editor = editorRef.current
+      if (!editor || !pending) return
+      // Flush any pending debounced content save so the server has the current
+      // (pre-mark) content before we POST the new comment. Without this the
+      // server's assertOnlyCommentMarksChanged guard can 400 because the stored
+      // doc still has an older version of the text.
+      await flushAsync()
+      const id = newCommentId()
+      const payload = buildCreateCommentPayload(editor, {
+        id,
+        body,
+        from: pending.from,
+        to: pending.to,
+        quotedText: pending.quotedText,
+      })
+      setPending(null)
+      try {
+        await create(payload)
+      } catch {
+        editor.commands.unsetComment(id)
+      }
+    },
+    [pending, create, flushAsync]
+  )
 
   const handleContentChange = useCallback(
     (html: string | null) => {
@@ -367,7 +377,7 @@ export function DocumentEditorPage({
             <aside
               className={cn(
                 'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
-                tocCollapsed && rightTab === 'toc' ? 'w-12' : 'w-52'
+                tocCollapsed && activeRightTab === 'toc' ? 'w-12' : 'w-52'
               )}
             >
               {/* Tab toggle — Outline / Comments */}
@@ -378,7 +388,7 @@ export function DocumentEditorPage({
                     onClick={() => setRightTab('toc')}
                     className={cn(
                       'text-xs px-2 py-0.5 rounded',
-                      rightTab === 'toc'
+                      activeRightTab === 'toc'
                         ? 'bg-muted font-medium'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
@@ -391,7 +401,7 @@ export function DocumentEditorPage({
                   onClick={() => setRightTab('comments')}
                   className={cn(
                     'text-xs px-2 py-0.5 rounded',
-                    rightTab === 'comments'
+                    activeRightTab === 'comments'
                       ? 'bg-muted font-medium'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
@@ -400,7 +410,7 @@ export function DocumentEditorPage({
                 </button>
               </div>
 
-              {rightTab === 'toc' && tocItems.length > 0 && (
+              {activeRightTab === 'toc' && tocItems.length > 0 && (
                 <DocumentToc
                   items={tocItems}
                   collapsed={tocCollapsed}
@@ -409,7 +419,7 @@ export function DocumentEditorPage({
                 />
               )}
 
-              {rightTab === 'comments' && (
+              {activeRightTab === 'comments' && (
                 <DocumentCommentsSidebar
                   comments={comments}
                   members={members}
