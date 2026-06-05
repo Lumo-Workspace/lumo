@@ -13,6 +13,7 @@ export type {
   CreateDocumentInput,
   UpdateDocumentInput,
 } from './document.service'
+export { documentTemplateService } from './document-template.service'
 export { workspaceService } from './workspace.service'
 export type { UpdateWorkspaceInput } from './workspace.service'
 export { githubService } from './github.service'

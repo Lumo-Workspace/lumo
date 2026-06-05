@@ -1,6 +1,15 @@
 import { apiFetch, ApiClientError } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 
+export interface WorkspaceTaskFilterArgs {
+  projectIds?: string[]
+  milestoneIds?: string[]
+  statuses?: string[]
+  priorities?: string[]
+  assigneeActorIds?: string[]
+  tagIds?: string[]
+}
+
 export const tasksClient = {
   listMine<T>(opts: { sprintIds?: string[] } = {}) {
     const q = new URLSearchParams()
@@ -55,6 +64,22 @@ export const tasksClient = {
     const qs = params.toString()
     const url = `${API.teams.tasks(teamId)}${qs ? `?${qs}` : ''}`
     return apiFetch<T>(url)
+  },
+
+  listWorkspace<T>(filters: WorkspaceTaskFilterArgs = {}) {
+    const q = new URLSearchParams()
+    if (filters.projectIds?.length)
+      q.set('projectIds', filters.projectIds.join(','))
+    if (filters.milestoneIds?.length)
+      q.set('milestoneIds', filters.milestoneIds.join(','))
+    if (filters.statuses?.length) q.set('statuses', filters.statuses.join(','))
+    if (filters.priorities?.length)
+      q.set('priorities', filters.priorities.join(','))
+    if (filters.assigneeActorIds?.length)
+      q.set('assigneeActorIds', filters.assigneeActorIds.join(','))
+    if (filters.tagIds?.length) q.set('tagIds', filters.tagIds.join(','))
+    const qs = q.toString()
+    return apiFetch<T>(qs ? `${API.tasks.workspace}?${qs}` : API.tasks.workspace)
   },
 
   getById<T>(id: string) {

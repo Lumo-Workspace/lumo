@@ -12,6 +12,7 @@ export const API = {
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
+    workspace: '/api/tasks/workspace',
   },
   projects: {
     list: '/api/projects',
@@ -69,6 +70,9 @@ export const API = {
     comments: (docId: string) => `/api/documents/${docId}/comments`,
     comment: (docId: string, commentId: string) =>
       `/api/documents/${docId}/comments/${commentId}`,
+  },
+  documentTemplates: {
+    list: '/api/document-templates',
   },
   slack: {
     oauth: (workspaceUrl: string) =>

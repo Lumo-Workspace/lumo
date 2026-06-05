@@ -14,6 +14,7 @@ import { htmlToMarkdown } from '@/lib/utils/html-to-markdown'
 import { extractDocumentPreview } from '@/lib/utils/document-preview'
 import { buildDocumentSlug } from '@/lib/utils/document-slug'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
+import { documentTemplateService } from '@/lib/services/document-template.service'
 import { waitUntil } from '@vercel/functions'
 import { DocMentionSource } from '@prisma/client'
 
@@ -26,6 +27,7 @@ export interface CreateDocumentInput {
   projectId?: string | null
   visibility: 'WORKSPACE' | 'PRIVATE' | 'SHARED'
   contentMarkdown?: string
+  templateId?: string | undefined
   tagIds?: string[]
   // Google Docs import source (LUM-127). Null/absent for native docs.
   googleDocId?: string | null
@@ -336,14 +338,26 @@ export const documentService = {
     // string-as-HTML setContent and emits via getHTML(), so the storage
     // format is HTML. Anything else (e.g. a Tiptap JSON-string) gets
     // re-escaped as text and wrapped in <p> on the next render — see LUM-83.
-    const content =
-      data.contentMarkdown !== undefined
-        ? markdownToHtml(data.contentMarkdown)
-        : undefined
+    // Body resolution precedence: explicit contentMarkdown > template > none.
+    // Template content is already HTML (same format as Document.content), so
+    // it bypasses the markdown→HTML conversion. A template emoji only applies
+    // when the caller didn't specify one.
+    let content: string | undefined
+    let templateEmoji: string | null | undefined
+    if (data.contentMarkdown !== undefined) {
+      content = markdownToHtml(data.contentMarkdown)
+    } else if (data.templateId !== undefined) {
+      const template = await documentTemplateService.getTemplateForCreation(
+        workspaceId,
+        data.templateId
+      )
+      content = template.content
+      templateEmoji = template.emoji
+    }
 
     const document = await documentRepository.create({
       title: data.title,
-      emoji: data.emoji ?? null,
+      emoji: data.emoji ?? templateEmoji ?? null,
       parentId,
       projectId: data.projectId ?? null,
       workspaceId,
