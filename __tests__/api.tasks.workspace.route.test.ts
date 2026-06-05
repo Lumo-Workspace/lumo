@@ -9,6 +9,7 @@ jest.mock('@/lib/services/task-query.service', () => ({
 import type { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { taskQueryService } from '@/lib/services/task-query.service'
+import { WORKSPACE_TASK_QUERY_LIMIT } from '@/lib/repositories/task.repository'
 import { GET } from '@/app/api/tasks/workspace/route'
 
 const mockIdentity = requireIdentity as jest.Mock
@@ -53,5 +54,32 @@ describe('GET /api/tasks/workspace', () => {
     await GET(req(''))
 
     expect(mockFind).toHaveBeenCalledWith('w1', {})
+  })
+
+  it('parses tag filters through to the service', async () => {
+    mockIdentity.mockResolvedValueOnce({ workspaceId: 'w1' })
+    mockFind.mockResolvedValueOnce([])
+
+    await GET(req('?tagIds=t1,t2'))
+
+    expect(mockFind).toHaveBeenCalledWith(
+      'w1',
+      expect.objectContaining({ tagIds: ['t1', 't2'] })
+    )
+  })
+
+  it('flags truncated when the service returns the cap', async () => {
+    mockIdentity.mockResolvedValueOnce({ workspaceId: 'w1' })
+    mockFind.mockResolvedValueOnce(
+      Array.from({ length: WORKSPACE_TASK_QUERY_LIMIT }, (_, i) => ({
+        id: `t${i}`,
+      }))
+    )
+
+    const res = await GET(req(''))
+    const body = await res.json()
+
+    expect(body.truncated).toBe(true)
+    expect(body.tasks).toHaveLength(WORKSPACE_TASK_QUERY_LIMIT)
   })
 })
