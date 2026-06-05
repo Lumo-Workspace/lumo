@@ -41,5 +41,6 @@ describe('useWorkspaceTasks', () => {
     expect(result.current.tasks).toHaveLength(1)
     expect(result.current.truncated).toBe(false)
     expect(result.current.error).toBeNull()
+    expect(typeof result.current.refetch).toBe('function')
   })
 })
