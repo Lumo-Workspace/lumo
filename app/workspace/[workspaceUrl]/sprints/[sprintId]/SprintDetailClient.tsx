@@ -146,7 +146,7 @@ export function SprintDetailClient({
   )
 
   const sidePanel = (
-    <div className='flex flex-col gap-4 overflow-y-auto'>
+    <div className='flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
       <SprintSidebar
         sprint={sprint}
         progress={progress ?? { done: 0, total: 0 }}
@@ -178,6 +178,7 @@ export function SprintDetailClient({
       }
       sidebar={sidePanel}
       sidebarCollapsed={sidebarCollapsed}
+      flushSidebar
     >
       {workspace}
     </DetailLayout>
