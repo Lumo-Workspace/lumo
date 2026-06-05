@@ -28,7 +28,8 @@ export const TaskView = Node.create({
   group: 'block',
   atom: true,
   selectable: true,
-  draggable: true,
+  // false so dnd-kit card drag inside the kanban isn't hijacked by the editor's block drag
+  draggable: false,
 
   addAttributes() {
     return {
