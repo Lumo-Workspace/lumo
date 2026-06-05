@@ -152,9 +152,11 @@ export const documentCommentService = {
       workspaceId
     )
     if (!doc) notFound()
+    // findWithPermission accepts an id OR a slug, so `documentId` may be a slug.
+    // Use the resolved doc.id for all id-based repo lookups below.
     // Refresh orphan flags against the current document content before returning.
-    await documentCommentService.detectAndFlagOrphans(documentId, doc.content)
-    return documentCommentRepository.findByDocumentId(documentId)
+    await documentCommentService.detectAndFlagOrphans(doc.id, doc.content)
+    return documentCommentRepository.findByDocumentId(doc.id)
   },
 
   async createCommentWithSideEffects(args: CreateDocCommentArgs) {
@@ -173,6 +175,10 @@ export const documentCommentService = {
       workspaceId
     )
     if (!doc) notFound()
+    // findWithPermission accepts an id OR a slug, so `documentId` may be a slug.
+    // Resolve to the real doc.id for every id-based repo write/compare below —
+    // otherwise document.update({ where: { id: slug } }) throws Prisma P2025.
+    const docId = doc.id
 
     const isReply = !!input.parentId
 
@@ -184,7 +190,7 @@ export const documentCommentService = {
           status: 404,
         })
       }
-      if (parent.documentId !== documentId) {
+      if (parent.documentId !== docId) {
         throw Object.assign(
           new Error('Parent comment belongs to another document'),
           { status: 400 }
@@ -225,12 +231,12 @@ export const documentCommentService = {
           { status: 400 }
         )
       }
-      await documentRepository.update(documentId, { content: input.content })
+      await documentRepository.update(docId, { content: input.content })
     }
 
     const comment = await documentCommentRepository.create({
       id: input.id,
-      documentId,
+      documentId: docId,
       authorActorId,
       body: input.body,
       parentId: input.parentId ?? null,
@@ -240,7 +246,7 @@ export const documentCommentService = {
     })
 
     waitUntil(
-      pushDocumentEvent(documentId, {
+      pushDocumentEvent(docId, {
         type: 'doc-comment:created',
         commentId: comment.id,
       })
@@ -250,7 +256,7 @@ export const documentCommentService = {
     const ws = await workspaceRepository.findNameAndSlug(workspaceId)
     documentCommentService
       .notifyDocMentions({
-        documentId,
+        documentId: docId,
         documentCommentId: comment.id,
         body: input.body,
         authorActorId: authorActorId ?? '',

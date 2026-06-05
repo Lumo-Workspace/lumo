@@ -557,3 +557,47 @@ describe('notifyDocMentions', () => {
     expect(notificationRepoMock.createMany).not.toHaveBeenCalled()
   })
 })
+
+describe('slug-as-documentId (LUM-237)', () => {
+  // The client passes the URL slug as `documentId`. findWithPermission accepts
+  // {OR:[{id},{slug}]}, so it resolves the slug to the real doc (id 'd1'). Every
+  // downstream repo write/lookup must use the resolved doc.id, NOT the raw slug,
+  // or document.update({where:{id:slug}}) throws Prisma P2025 → 500.
+  it('create: patches content + creates row by resolved doc.id, not the slug', async () => {
+    docRepo.findWithPermission.mockResolvedValue(DOC as never) // DOC.id === 'd1'
+    await documentCommentService.createCommentWithSideEffects({
+      documentId: 'spec-3', // the slug, not the id
+      memberId: 'm-viewer',
+      workspaceId: 'w1',
+      authorActorId: 'a-viewer',
+      input: {
+        id: 'c1',
+        body: 'nice',
+        from: 7,
+        to: 12,
+        quotedText: 'brave',
+        content: '<p>Hello <span data-comment-id="c1">brave</span> world</p>',
+      },
+      waitUntil: noop,
+    })
+    expect(docRepo.update).toHaveBeenCalledWith('d1', expect.anything())
+    expect(docRepo.update).not.toHaveBeenCalledWith('spec-3', expect.anything())
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: 'd1' })
+    )
+  })
+
+  it('getComments: detects orphans + lists by resolved doc.id, not the slug', async () => {
+    docRepo.findWithPermission.mockResolvedValue({
+      ...DOC,
+      content: '<p>Hello brave world</p>',
+    } as never)
+    repo.findByDocumentId.mockResolvedValue([
+      { id: 'c1', status: 'OPEN', isOrphaned: false },
+    ] as never)
+    repo.setOrphaned.mockResolvedValue({ count: 1 } as never)
+    await documentCommentService.getComments('spec-3', 'm-viewer', 'w1')
+    expect(repo.findByDocumentId).toHaveBeenCalledWith('d1')
+    expect(repo.findByDocumentId).not.toHaveBeenCalledWith('spec-3')
+  })
+})
