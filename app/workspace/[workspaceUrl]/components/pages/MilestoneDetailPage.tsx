@@ -4,7 +4,6 @@ import { useEffect, useMemo } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { milestonesClient, type MilestoneUpdateInput } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import {
@@ -18,17 +17,10 @@ import {
 } from '../../hooks/useMilestone'
 import { useMilestoneArchive } from '../../hooks/useMilestoneArchive'
 import { useProjects } from '../../hooks/useProjects'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import { DetailLayout } from '../DetailLayout'
 import { MilestoneSidebar } from '../milestones/MilestoneSidebar'
 import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
+import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailTabs } from '../milestones/MilestoneDetailTabs'
 
 export function MilestoneDetailPage() {
@@ -145,25 +137,19 @@ export function MilestoneDetailPage() {
     updateMutation.mutate(fields)
 
   const projectName = project?.name ?? params.projectSlug
+  const projectsHref = `/workspace/${params.workspaceUrl}/projects`
   const projectHref = `/workspace/${params.workspaceUrl}/projects/${params.projectSlug}`
 
   // Kebab sits next to the breadcrumb (not in the right-aligned actions slot),
   // matching the sprint detail page's SprintActionsMenu placement.
   const breadcrumb = (
     <div className='flex items-center gap-1.5'>
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href={projectHref}>{projectName}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{milestone.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <MilestoneBreadcrumb
+        projectsHref={projectsHref}
+        projectHref={projectHref}
+        projectName={projectName}
+        milestoneName={milestone.name}
+      />
       <MilestoneActionsMenu
         archived={archived}
         disabled={mutating}
