@@ -32,7 +32,7 @@ interface UseTocSyncArgs {
   onTocUpdate: ((items: TocItem[]) => void) | undefined
   onTocUpdateRef: MutableRefObject<((items: TocItem[]) => void) | undefined>
   tocScrollRootRef: MutableRefObject<HTMLElement | null | undefined>
-  emitTocRef: MutableRefObject<() => void>
+  emitTocRef: MutableRefObject<(data?: TableOfContentData) => void>
 }
 
 /**
@@ -84,11 +84,21 @@ export function useTocSync({
       return el.offsetTop
     }
 
-    const emit = () => {
+    // `data` is the fresh heading list the TableOfContents extension hands to
+    // its `onUpdate` callback. We MUST prefer it over `editor.storage`, because
+    // the extension fires onUpdate *before* it assigns `storage.content` (see
+    // node_modules/@tiptap/extension-table-of-contents setTocData: onUpdate at
+    // line 66/162, storage.content = anchors at line 166). Re-reading storage
+    // here would yield the stale (often empty) previous value. For a reopened
+    // doc whose headings already carry `data-toc-id`, onCreate's id pass is a
+    // no-op so no later setTocData re-emits — the storage read would leave the
+    // outline blank until the first scroll. Scroll/value-sync callers pass no
+    // arg and fall back to storage, which is fully populated by then.
+    const emit = (data?: TableOfContentData) => {
       const tocStorage = editor.storage.tableOfContents as
         | { content?: TableOfContentData }
         | undefined
-      const items = tocStorage?.content ?? []
+      const items = data ?? tocStorage?.content ?? []
       if (!items.length) {
         onTocUpdateRef.current?.([])
         return
