@@ -157,7 +157,7 @@ export function TypographyLead({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={`text-muted-foreground text-heading${className ? ` ${className}` : ''}`} {...props}>
+    <p className={cn('text-muted-foreground text-heading', className)} {...props}>
       {children}
     </p>
   )
@@ -196,7 +196,7 @@ export function TypographyMuted({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={`text-muted-foreground text-caption${className ? ` ${className}` : ''}`} {...props}>
+    <p className={cn('text-muted-foreground text-caption', className)} {...props}>
       {children}
     </p>
   )
