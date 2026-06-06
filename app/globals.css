@@ -617,6 +617,45 @@ html {
   --color-status-in-review: var(--status-in-review);
   --color-status-done: var(--status-done);
 
+  /* ── Semantic typography scale (LUM-260) ────────────────────────────────
+     One Tailwind v4 font-size token per tier emits a `text-{tier}` utility
+     that bundles font-size + line-height + font-weight + letter-spacing.
+     COLOR IS ORTHOGONAL — apply text-muted-foreground / text-foreground etc.
+     separately. Migration mapping:
+       text-xs                       → text-caption
+       text-sm (body)                → text-body
+       text-sm font-medium/semibold  → text-body-strong (drop font-*)
+       text-base/lg title            → text-title
+       text-xl/2xl heading           → text-heading
+       text-3xl+ display             → text-display
+     Full reference: docs/design-system/typography-scale.md */
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 500;
+
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5;
+  --text-body--font-weight: 400;
+
+  --text-body-strong: 0.875rem;
+  --text-body-strong--line-height: 1.5;
+  --text-body-strong--font-weight: 600;
+
+  --text-title: 1rem;
+  --text-title--line-height: 1.4;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.3;
+  --text-heading--font-weight: 600;
+  --text-heading--letter-spacing: -0.01em;
+
+  --text-display: 1.875rem;
+  --text-display--line-height: 1.2;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+
   /* Landing-specific @theme registrations (--color-brand, --color-light,
      --shadow-mockup) live in components/landing/landing.css, alongside the
      landing-scoped --brand / --light / --shadow-strong values they depend on. */
