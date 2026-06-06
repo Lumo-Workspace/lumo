@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
-import { useIntl } from 'react-intl'
-import { CheckSquare, Plus } from 'lucide-react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { RowSelectionState } from '@tanstack/react-table'
+import { toast } from 'sonner'
 import {
   MyTask,
   ApiTask,
@@ -12,34 +11,25 @@ import {
   WorkspaceMemberInfo,
 } from '../../types'
 import { tasksClient } from '@/lib/api-client'
-import { toast } from 'sonner'
-import type { TaskPatch } from '../../components/data-table/task-columns'
-import type { ColumnId } from '../../components/data-table/columnTemplate'
-import { BoardView } from '../../components/board/BoardView'
-import { MyTaskCard } from '../../components/board/SortableTaskCard'
+import type { TaskPatch } from '../data-table/task-columns'
+import type { ColumnId } from '../data-table/columnTemplate'
+import { BoardView } from '../board/BoardView'
+import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
-import { AsyncContent } from '../../components/AsyncContent'
-import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
+import { AsyncContent } from '../AsyncContent'
 import { useBoardSensors } from '../../hooks/useBoardSensors'
 import { useDisplayOptions } from '../../hooks/useDisplayOptions'
 import { filterCompletedTasks } from '../../utils/filterCompletedTasks'
 import { sortTasks } from '../../utils/sortTasks'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
-import { BulkActionBar } from '../../components/task-list/BulkActionBar'
-import { BulkDeleteConfirm } from '../../components/task-list/BulkDeleteConfirm'
-import { TaskListView } from '../../components/task-list/TaskListView'
-import { TaskListToolbar } from '../../components/task-list/TaskListToolbar'
+import { BulkActionBar } from './BulkActionBar'
+import { BulkDeleteConfirm } from './BulkDeleteConfirm'
+import { TaskListView } from './TaskListView'
+import { TaskListToolbar } from './TaskListToolbar'
 
-// Stable reference so TaskListView's columns memo doesn't recompute each render.
-const SPRINT_COLUMNS: ColumnId[] = [
+// Default column set for a detail-page task workspace. A stable module-level
+// reference keeps TaskListView's columns memo from recomputing each render.
+const DEFAULT_COLUMNS: ColumnId[] = [
   'select',
   'identifier',
   'title',
@@ -52,24 +42,46 @@ const SPRINT_COLUMNS: ColumnId[] = [
   'actions',
 ]
 
-interface SprintTasksViewProps {
+interface TaskWorkspaceViewProps {
   tasks: MyTask[]
   setTasks: React.Dispatch<React.SetStateAction<MyTask[]>>
   loading: boolean
   error: string | null
   onRetry: () => void
   onTaskClick: (task: MyTask) => void
-  onNewTask: (status?: ApiStatus) => void
+  /**
+   * Open the new-task flow for a column. When omitted, no "Add task"
+   * affordances are shown — used by the milestone board, where NewTaskModal
+   * can't pre-bind a milestone, so creating from here would land tasks outside
+   * the milestone.
+   */
+  onNewTask?: (status?: ApiStatus) => void
   members: WorkspaceMemberInfo[]
   projects: ApiProject[]
-  /** Per-sprint localStorage key for display options. */
+  /** Per-scope localStorage key for display options. */
   displayOptionsKey: string
-  /** Show the sidebar collapse toggle (next to view toggle). */
+  /** Show + drive the properties-rail collapse toggle in the toolbar. */
   sidebarCollapsed: boolean
   onToggleSidebar: () => void
+  /** Scope-specific tooltip/aria copy for the collapse toggle. */
+  sidebarExpandLabel?: string
+  sidebarCollapseLabel?: string
+  /** Empty state for the list view when the scope has no tasks. */
+  emptyState: ReactNode
+  /** Columns for the list view. Defaults to the standard detail-page set. */
+  visibleColumns?: ColumnId[]
+  /** View mode on first mount. Defaults to 'board'. */
+  defaultViewMode?: 'list' | 'board'
 }
 
-export function SprintTasksView({
+/**
+ * Shared task workspace for detail pages (sprint / milestone): a toolbar with
+ * display options + board/list toggle + properties-rail collapse, over a kanban
+ * board or the unified list view. Cross-column drag changes a task's status;
+ * bulk actions and inline edits operate on the same local task set. The page
+ * owns the task data (so it can refetch) and the collapse state.
+ */
+export function TaskWorkspaceView({
   tasks,
   setTasks,
   loading,
@@ -82,10 +94,13 @@ export function SprintTasksView({
   displayOptionsKey,
   sidebarCollapsed,
   onToggleSidebar,
-}: SprintTasksViewProps) {
-  const intl = useIntl()
-  // Sprints are traditionally viewed as a kanban — default to board.
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('board')
+  sidebarExpandLabel,
+  sidebarCollapseLabel,
+  emptyState,
+  visibleColumns = DEFAULT_COLUMNS,
+  defaultViewMode = 'board',
+}: TaskWorkspaceViewProps) {
+  const [viewMode, setViewMode] = useState<'list' | 'board'>(defaultViewMode)
   const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
     useDisplayOptions(displayOptionsKey)
 
@@ -99,7 +114,7 @@ export function SprintTasksView({
 
   const sensors = useBoardSensors()
 
-  // viewId stays null — sprints don't own a kanban View, so same-column
+  // viewId stays null — these scopes don't own a kanban View, so same-column
   // reorder persistence is skipped inside useBoardDrag. Cross-column
   // status-change drag still works.
   const { activeId, onDragStart, onDragOver, onDragEnd } = useBoardDrag({
@@ -128,7 +143,7 @@ export function SprintTasksView({
     [setSelected]
   )
 
-  // ─── Single-row inline update (moved from TaskListTable) ─────────────────────
+  // ─── Single-row inline update (unified table's editable cells) ───────────────
   const updateTask = useCallback(
     async (id: string, patch: TaskPatch) => {
       setTasks(prev =>
@@ -188,7 +203,7 @@ export function SprintTasksView({
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
-      <div className='h-12 shrink-0 relative bg-white dark:bg-zinc-950'>
+      <div className='h-12 shrink-0 relative bg-background'>
         <TaskListToolbar
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}
@@ -200,6 +215,8 @@ export function SprintTasksView({
           onViewModeChange={setViewMode}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={onToggleSidebar}
+          {...(sidebarExpandLabel !== undefined && { sidebarExpandLabel })}
+          {...(sidebarCollapseLabel !== undefined && { sidebarCollapseLabel })}
         />
         {selected.size > 0 && (
           <BulkActionBar
@@ -220,37 +237,7 @@ export function SprintTasksView({
           empty={filteredTasks.length === 0 && viewMode !== 'board'}
           onRetry={onRetry}
           className='flex-1 flex flex-col overflow-hidden'
-          emptyState={
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant='icon'>
-                  <CheckSquare />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {intl.formatMessage({
-                    id: 'sprints.tasks.empty.title',
-                    defaultMessage: 'No tasks in this sprint yet',
-                  })}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {intl.formatMessage({
-                    id: 'sprints.tasks.empty.description',
-                    defaultMessage:
-                      'Click "Add task" or assign an existing task to this sprint from its detail page.',
-                  })}
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={() => onNewTask()}>
-                  <Plus size={16} />
-                  {intl.formatMessage({
-                    id: 'task.create',
-                    defaultMessage: 'Create Task',
-                  })}
-                </Button>
-              </EmptyContent>
-            </Empty>
-          }
+          emptyState={emptyState}
         >
           {viewMode === 'list' ? (
             <div className='flex-1 min-h-0 flex flex-col'>
@@ -258,7 +245,7 @@ export function SprintTasksView({
                 tasks={filteredTasks}
                 members={members}
                 projects={projects}
-                visibleColumns={SPRINT_COLUMNS}
+                visibleColumns={visibleColumns}
                 updateTask={updateTask}
                 onTaskClick={handleTaskClick}
                 onDeleteTask={handleDeleteTask}
@@ -282,7 +269,10 @@ export function SprintTasksView({
                   onClick={() => onTaskClick(task)}
                 />
               )}
-              onAddTask={columnId => onNewTask(columnId as ApiStatus)}
+              {...(onNewTask && {
+                onAddTask: (columnId: string) =>
+                  onNewTask(columnId as ApiStatus),
+              })}
             />
           )}
         </AsyncContent>

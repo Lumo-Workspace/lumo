@@ -154,6 +154,7 @@ export const API = {
     listByProject: (projectId: string) =>
       `/api/projects/${projectId}/milestones`,
     byId: (milestoneId: string) => `/api/milestones/${milestoneId}`,
+    tasks: (milestoneId: string) => `/api/milestones/${milestoneId}/tasks`,
     byProjectAndSlug: (projectId: string, slug: string) =>
       `/api/projects/${projectId}/milestones/by-slug/${encodeURIComponent(slug)}`,
     reorder: (projectId: string) =>
@@ -194,6 +195,7 @@ export const CACHE_KEY = {
   documentTree: 'lumo:document-tree',
   treeExpanded: 'lumo:tree-expanded',
   sprintSidebarCollapsed: 'lumo:sprint-sidebar-collapsed',
+  milestoneSidebarCollapsed: 'lumo:milestone-sidebar-collapsed',
   docViewMode: 'lumo:doc-view-mode',
   docSort: 'lumo:doc-sort',
   drafts: 'lumo:drafts',

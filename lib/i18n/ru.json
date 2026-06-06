@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Удалено]",
   "document.showResolved": "Показать решённые",
   "document.outline": "Структура",
-  "common.moreActions": "Дополнительные действия"
+  "common.moreActions": "Дополнительные действия",
+  "milestone.detail.collapseSidebar": "Скрыть детали вехи",
+  "milestone.detail.expandSidebar": "Показать детали вехи"
 }

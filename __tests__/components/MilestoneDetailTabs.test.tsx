@@ -37,15 +37,22 @@ const milestone = {
   sprintCoverage: null,
 } as never
 
+const baseProps = {
+  onUpdate: () => {},
+  sidebarCollapsed: false,
+  onToggleSidebar: () => {},
+  onOpenTask: () => {},
+}
+
 test('defaults to the overview tab', () => {
-  render(<MilestoneDetailTabs milestone={milestone} onUpdate={() => {}} />)
+  render(<MilestoneDetailTabs milestone={milestone} {...baseProps} />)
   expect(screen.getByTestId('overview-body')).toBeTruthy()
   expect(screen.queryByTestId('tasks-body')).toBeNull()
 })
 
 test('clicking Tasks switches to the tasks body, and back', async () => {
   const user = userEvent.setup()
-  render(<MilestoneDetailTabs milestone={milestone} onUpdate={() => {}} />)
+  render(<MilestoneDetailTabs milestone={milestone} {...baseProps} />)
 
   await user.click(screen.getByRole('button', { name: 'Tasks' }))
   expect(screen.getByTestId('tasks-body')).toBeTruthy()

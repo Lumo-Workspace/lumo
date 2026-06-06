@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[削除済み]",
   "document.showResolved": "解決済みを表示",
   "document.outline": "アウトライン",
-  "common.moreActions": "その他の操作"
+  "common.moreActions": "その他の操作",
+  "milestone.detail.collapseSidebar": "マイルストーンの詳細を非表示",
+  "milestone.detail.expandSidebar": "マイルストーンの詳細を表示"
 }

@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[हटाया गया]",
   "document.showResolved": "हल किए गए दिखाएँ",
   "document.outline": "रूपरेखा",
-  "common.moreActions": "अधिक क्रियाएँ"
+  "common.moreActions": "अधिक क्रियाएँ",
+  "milestone.detail.collapseSidebar": "माइलस्टोन विवरण छिपाएं",
+  "milestone.detail.expandSidebar": "माइलस्टोन विवरण दिखाएं"
 }

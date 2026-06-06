@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Supprimé]",
   "document.showResolved": "Afficher les résolus",
   "document.outline": "Plan",
-  "common.moreActions": "Plus d’actions"
+  "common.moreActions": "Plus d’actions",
+  "milestone.detail.collapseSidebar": "Masquer les détails du jalon",
+  "milestone.detail.expandSidebar": "Afficher les détails du jalon"
 }

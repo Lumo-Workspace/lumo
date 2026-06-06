@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[삭제됨]",
   "document.showResolved": "해결된 항목 표시",
   "document.outline": "개요",
-  "common.moreActions": "추가 작업"
+  "common.moreActions": "추가 작업",
+  "milestone.detail.collapseSidebar": "마일스톤 세부정보 숨기기",
+  "milestone.detail.expandSidebar": "마일스톤 세부정보 표시"
 }

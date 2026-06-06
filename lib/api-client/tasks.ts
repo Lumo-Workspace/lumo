@@ -50,6 +50,14 @@ export const tasksClient = {
   },
 
   /**
+   * Fetch all tasks attached to a milestone (MyTask-shaped, single project).
+   * Used by the Milestone detail task workspace.
+   */
+  listByMilestone<T>(milestoneId: string) {
+    return apiFetch<T>(API.milestones.tasks(milestoneId))
+  },
+
+  /**
    * Fetch tasks for a team (across all projects), with optional sprintId filter.
    * - sprintId: string  → tasks in that sprint
    * - sprintId: null    → backlog tasks (sprintId IS NULL)

@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { milestonesClient, type MilestoneUpdateInput } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import type { MyTask } from '../../types'
+import { CACHE_KEY } from '../../constants'
+import { readCache, writeCache } from '../../cache'
 import {
   findProjectForMilestoneSegment,
   getCanonicalMilestonePath,
@@ -23,7 +26,14 @@ import { MilestoneActionsMenu } from '../milestones/MilestoneActionsMenu'
 import { MilestoneBreadcrumb } from '../milestones/MilestoneBreadcrumb'
 import { MilestoneDetailTabs } from '../milestones/MilestoneDetailTabs'
 
-export function MilestoneDetailPage() {
+interface MilestoneDetailPageProps {
+  /** Open the global task drawer for a clicked task in the milestone board. */
+  onOpenTask?: (task: MyTask) => void
+}
+
+export function MilestoneDetailPage({
+  onOpenTask,
+}: MilestoneDetailPageProps = {}) {
   const intl = useIntl()
   const params = useParams<{
     workspaceUrl: string
@@ -92,6 +102,22 @@ export function MilestoneDetailPage() {
       })
     },
   })
+
+  // Collapse / expand the right-hand milestone properties rail. The preference
+  // is global across milestones (mirrors the sprint detail page) so users don't
+  // re-toggle on every visit.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    const cached = readCache<boolean>(CACHE_KEY.milestoneSidebarCollapsed)
+    if (cached !== null) setSidebarCollapsed(cached)
+  }, [])
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      writeCache(CACHE_KEY.milestoneSidebarCollapsed, next)
+      return next
+    })
+  }
 
   if (loading) {
     return (
@@ -173,16 +199,26 @@ export function MilestoneDetailPage() {
     <DetailLayout
       breadcrumb={breadcrumb}
       sidebar={
-        <MilestoneSidebar
-          status={milestone.status}
-          startDate={milestone.startDate}
-          targetDate={milestone.targetDate}
-          archived={archived}
-          onUpdate={handleUpdate}
-        />
+        <div className='flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-muted/30 px-5 py-6'>
+          <MilestoneSidebar
+            status={milestone.status}
+            startDate={milestone.startDate}
+            targetDate={milestone.targetDate}
+            archived={archived}
+            onUpdate={handleUpdate}
+          />
+        </div>
       }
+      sidebarCollapsed={sidebarCollapsed}
+      flushSidebar
     >
-      <MilestoneDetailTabs milestone={milestone} onUpdate={handleUpdate} />
+      <MilestoneDetailTabs
+        milestone={milestone}
+        onUpdate={handleUpdate}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={toggleSidebar}
+        onOpenTask={onOpenTask ?? (() => {})}
+      />
     </DetailLayout>
   )
 }
