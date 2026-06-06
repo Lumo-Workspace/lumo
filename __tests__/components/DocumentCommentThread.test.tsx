@@ -11,9 +11,15 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFormatDate', () => ({
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor',
   () => ({
-    CommentEditor: ({ onCommit }: { onCommit: (h: string) => void }) => {
+    CommentEditor: ({
+      onCommit,
+      placeholderId,
+    }: {
+      onCommit: (h: string) => void
+      placeholderId?: string
+    }) => {
       onCommit('typed body')
-      return <div data-testid='composer' />
+      return <div data-testid='composer' data-placeholder={placeholderId} />
     },
   })
 )
@@ -107,6 +113,34 @@ it('submits a reply', () => {
   fireEvent.click(screen.getByTestId('reply-btn'))
   fireEvent.click(screen.getByTestId('reply-submit'))
   expect(onReply).toHaveBeenCalledWith('c1', 'typed body')
+})
+
+it('hides the reply toggle while composing (no duplicate Reply)', () => {
+  r()
+  fireEvent.click(screen.getByTestId('reply-btn'))
+  // The toggle link is gone — only the submit button reads 回复 now.
+  expect(screen.queryByTestId('reply-btn')).toBeNull()
+  expect(screen.getByTestId('reply-cancel')).toBeInTheDocument()
+  expect(screen.getByTestId('reply-submit')).toBeInTheDocument()
+})
+
+it('cancel collapses the composer and restores the toggle', () => {
+  const onReply = jest.fn()
+  r({ onReply })
+  fireEvent.click(screen.getByTestId('reply-btn'))
+  fireEvent.click(screen.getByTestId('reply-cancel'))
+  expect(onReply).not.toHaveBeenCalled()
+  expect(screen.getByTestId('reply-btn')).toBeInTheDocument()
+  expect(screen.queryByTestId('reply-submit')).toBeNull()
+})
+
+it('reply composer uses the reply placeholder, not the comment one', () => {
+  r()
+  fireEvent.click(screen.getByTestId('reply-btn'))
+  expect(screen.getByTestId('composer')).toHaveAttribute(
+    'data-placeholder',
+    'task.replyPlaceholder'
+  )
 })
 
 it('edit/delete live behind a kebab menu, hidden until opened', () => {
