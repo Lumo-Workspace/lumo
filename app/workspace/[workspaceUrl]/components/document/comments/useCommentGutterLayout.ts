@@ -18,11 +18,17 @@ export interface GutterLayout {
 /**
  * Measure comment anchors in the editor and resolve their gutter positions.
  * Recomputes on editor scroll, content mutation, comment changes, and resize.
+ *
+ * `heights` carries each card's real measured height (id → px). Cards vary in
+ * height (quote, replies, edit mode), so an unmeasured card falls back to
+ * `CARD_HEIGHT` only for first paint — feeding a constant for all cards would
+ * under-reserve space and let tall cards overlap the next one.
  */
 export function useCommentGutterLayout(
   editor: Editor | null,
   rowEl: HTMLElement | null,
-  comments: ApiDocumentComment[]
+  comments: ApiDocumentComment[],
+  heights: Record<string, number> = {}
 ): GutterLayout {
   const [layout, setLayout] = useState<GutterLayout>({ tops: {}, height: 0 })
   const frame = useRef<number | null>(null)
@@ -36,7 +42,11 @@ export function useCommentGutterLayout(
       editor.view.dom as HTMLElement,
       rowEl,
       comments
-    ).map(a => ({ id: a.id, anchorY: a.anchorY, height: CARD_HEIGHT }))
+    ).map(a => ({
+      id: a.id,
+      anchorY: a.anchorY,
+      height: heights[a.id] ?? CARD_HEIGHT,
+    }))
     const tops = resolveGutterLayout(items, GAP)
     let height = 0
     for (const it of items) {
@@ -44,7 +54,7 @@ export function useCommentGutterLayout(
       height = Math.max(height, top + it.height)
     }
     setLayout({ tops, height })
-  }, [editor, rowEl, comments])
+  }, [editor, rowEl, comments, heights])
 
   const schedule = useCallback(() => {
     if (frame.current != null) return

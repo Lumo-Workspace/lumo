@@ -37,9 +37,36 @@ jest.mock(
   })
 )
 
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { CommentGutter } from '@/app/workspace/[workspaceUrl]/components/document/comments/CommentGutter'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
+
+// jsdom has no ResizeObserver and no layout; this mock lets a test drive
+// measured card heights deterministically via flush().
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = []
+  private cb: ResizeObserverCallback
+  private els: Element[] = []
+  constructor(cb: ResizeObserverCallback) {
+    this.cb = cb
+    MockResizeObserver.instances.push(this)
+  }
+  observe(el: Element) {
+    this.els.push(el)
+  }
+  unobserve(el: Element) {
+    this.els = this.els.filter(e => e !== el)
+  }
+  disconnect() {
+    this.els = []
+  }
+  flush() {
+    this.cb(
+      this.els.map(el => ({ target: el }) as ResizeObserverEntry),
+      this as unknown as ResizeObserver
+    )
+  }
+}
 
 const fakeEditor = {
   view: { dom: document.createElement('div'), coordsAtPos: () => ({ top: 0 }) },
@@ -102,4 +129,29 @@ it('positions the second card at its resolved top (200px, no overlap)', () => {
 it('renders nothing positioned when there are no OPEN comments', () => {
   render(<CommentGutter {...baseProps} comments={[]} />)
   expect(screen.queryByTestId(/^thread-/)).not.toBeInTheDocument()
+})
+
+it('reserves each card’s measured height so a tall card pushes the next down', () => {
+  const orig = global.ResizeObserver
+  global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+  MockResizeObserver.instances = []
+  try {
+    render(
+      <CommentGutter {...baseProps} comments={[comment('c1'), comment('c2')]} />
+    )
+    // c1's anchor is 0, c2's is 200. With a tall c1 (a thread with replies),
+    // c2 must clear c1's real bottom, not the old fixed 96px estimate.
+    const c1 = screen.getByTestId('gutter-pos-c1')
+    Object.defineProperty(c1, 'offsetHeight', {
+      value: 250,
+      configurable: true,
+    })
+    act(() => {
+      MockResizeObserver.instances.forEach(i => i.flush())
+    })
+    // c1 occupies 0..250, so c2 (anchor 200) is pushed to 250 + gap(8) = 258.
+    expect(screen.getByTestId('gutter-pos-c2')).toHaveStyle({ top: '258px' })
+  } finally {
+    global.ResizeObserver = orig
+  }
 })
