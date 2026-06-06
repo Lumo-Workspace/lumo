@@ -18,6 +18,7 @@ import {
   Lightbulb,
   ChevronRight,
   LayoutList,
+  Workflow,
 } from 'lucide-react'
 
 export interface SlashCommandItem {
@@ -74,6 +75,8 @@ const FALLBACK_LABELS: Record<string, string> = {
   'editor.slash.toggle.description': 'Collapsible block',
   'editor.slash.taskView.title': 'Task View',
   'editor.slash.taskView.description': 'Live filtered task list',
+  'editor.slash.mermaid.title': 'Mermaid Diagram',
+  'editor.slash.mermaid.description': 'Diagram from text',
 }
 
 const ICON_SIZE = 16
@@ -215,6 +218,14 @@ export function getSlashCommandItems(
       categoryKey: 'advanced',
       category: t('editor.slash.category.advanced'),
       command: editor => editor.chain().focus().setTaskView().run(),
+    },
+    {
+      title: t('editor.slash.mermaid.title'),
+      description: t('editor.slash.mermaid.description'),
+      icon: <Workflow size={ICON_SIZE} />,
+      categoryKey: 'advanced',
+      category: t('editor.slash.category.advanced'),
+      command: editor => editor.chain().focus().setMermaid().run(),
     },
   ]
 }
