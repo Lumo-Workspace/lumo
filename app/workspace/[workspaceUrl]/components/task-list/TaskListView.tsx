@@ -58,8 +58,15 @@ export function TaskListView(props: Props) {
         visibleColumns: props.visibleColumns,
         projects: props.projects ?? [],
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.onTaskClick, props.onDeleteTask, props.members, intl, props.visibleColumns]
+    [
+      props.onTaskClick,
+      props.onDeleteTask,
+      props.members,
+      intl,
+      props.updateTask,
+      props.visibleColumns,
+      props.projects,
+    ]
   )
 
   const columnTemplate = useMemo(
