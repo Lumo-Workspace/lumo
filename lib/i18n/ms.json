@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "Teks asal dipadam",
   "document.commentDeleted": "[Dipadam]",
   "document.showResolved": "Tunjuk yang selesai",
-  "document.outline": "Rangka"
+  "document.outline": "Rangka",
+  "common.moreActions": "Tindakan lain"
 }

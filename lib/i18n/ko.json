@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "원본 텍스트가 삭제됨",
   "document.commentDeleted": "[삭제됨]",
   "document.showResolved": "해결된 항목 표시",
-  "document.outline": "개요"
+  "document.outline": "개요",
+  "common.moreActions": "추가 작업"
 }
