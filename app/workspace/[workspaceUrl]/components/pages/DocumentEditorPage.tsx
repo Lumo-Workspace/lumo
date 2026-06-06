@@ -46,6 +46,8 @@ import { queryKeys } from '@/lib/query/keys'
 import {
   setActiveEditorAnchor,
   setResolvedEditorAnchors,
+  deleteCommentAndStripAnchor,
+  reconcileEditorOnDocCommentEvent,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
@@ -152,15 +154,20 @@ export function DocumentEditorPage({
 
   const queryClient = useQueryClient()
 
-  // Realtime: invalidate comments when a comment-related Pusher event arrives.
+  // Realtime: invalidate comments when a comment-related Pusher event arrives,
+  // and reconcile the editor on a remote delete — the server already stripped
+  // the anchor span from stored content, so drop the matching mark from the open
+  // editor or the highlight lingers until a reload (our own delete is handled by
+  // handleDeleteComment; this no-ops for it).
   usePusherEvent(
     `document-${documentId}`,
     'document-update',
-    (event: { type?: string }) => {
+    (event: { type?: string; commentId?: string }) => {
       if (docCommentEventNeedsRefetch(event)) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.documentComments(documentId),
         })
+        reconcileEditorOnDocCommentEvent(editorRef.current, event)
       }
     }
   )
@@ -191,6 +198,17 @@ export function DocumentEditorPage({
     const editor = editorRef.current
     if (editor) flashEditorAnchor(editor, commentId)
   }, [])
+
+  // Delete a comment, then clear its body highlight from the live editor. The
+  // server strips the anchor span from stored content on delete; this drops the
+  // matching mark from the open editor so the highlight doesn't linger until a
+  // remount. Stripping only after the await resolves keeps a failed delete from
+  // orphaning a still-live comment (see deleteCommentAndStripAnchor).
+  const handleDeleteComment = useCallback(
+    (id: string) =>
+      deleteCommentAndStripAnchor(editorRef.current, id, deleteComment),
+    [deleteComment]
+  )
 
   // Fetch document (background refresh when cache exists)
   useEffect(() => {
@@ -680,7 +698,7 @@ export function DocumentEditorPage({
                   create({ id: newCommentId(), body, parentId })
                 }
                 onEdit={(id, body) => updateComment(id, body)}
-                onDelete={id => deleteComment(id)}
+                onDelete={handleDeleteComment}
                 onSetStatus={(id, status) => setStatus(id, status)}
                 onSelectThread={scrollToAnchor}
               />
@@ -715,7 +733,7 @@ export function DocumentEditorPage({
             create({ id: newCommentId(), body, parentId })
           }
           onEdit={(id, body) => updateComment(id, body)}
-          onDelete={id => deleteComment(id)}
+          onDelete={handleDeleteComment}
           onSetStatus={(id, status) => setStatus(id, status)}
           onSelectThread={scrollToAnchor}
         />

@@ -3,6 +3,8 @@ import {
   commentIdFromEventTarget,
   setActiveEditorAnchor,
   setResolvedEditorAnchors,
+  deleteCommentAndStripAnchor,
+  reconcileEditorOnDocCommentEvent,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '@/app/workspace/[workspaceUrl]/components/document/comments/anchor-dom'
@@ -11,6 +13,11 @@ function makeEditor(html: string) {
   const dom = document.createElement('div')
   dom.innerHTML = html
   return { view: { dom } } as never
+}
+
+function makeEditorWithCommands() {
+  const unsetComment = jest.fn()
+  return { editor: { commands: { unsetComment } } as never, unsetComment }
 }
 
 describe('commentIdFromEventTarget', () => {
@@ -87,6 +94,72 @@ describe('setResolvedEditorAnchors', () => {
         .querySelector('[data-comment-id="c1"]')!
         .classList.contains('comment-highlight--resolved')
     ).toBe(true)
+  })
+})
+
+describe('deleteCommentAndStripAnchor', () => {
+  it('strips the editor mark after a successful delete', async () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    const deleteComment = jest.fn().mockResolvedValue(undefined)
+    await deleteCommentAndStripAnchor(editor, 'c1', deleteComment)
+    expect(deleteComment).toHaveBeenCalledWith('c1')
+    expect(unsetComment).toHaveBeenCalledWith('c1')
+  })
+
+  it('leaves the mark in place when the delete fails (no orphaned live comment)', async () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    const deleteComment = jest.fn().mockRejectedValue(new Error('boom'))
+    await expect(
+      deleteCommentAndStripAnchor(editor, 'c1', deleteComment)
+    ).rejects.toThrow('boom')
+    expect(unsetComment).not.toHaveBeenCalled()
+  })
+
+  it('tolerates a null editor — the delete still runs', async () => {
+    const deleteComment = jest.fn().mockResolvedValue(undefined)
+    await expect(
+      deleteCommentAndStripAnchor(null, 'c1', deleteComment)
+    ).resolves.toBeUndefined()
+    expect(deleteComment).toHaveBeenCalledWith('c1')
+  })
+})
+
+describe('reconcileEditorOnDocCommentEvent', () => {
+  it('strips the mark on a remote doc-comment:deleted event', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:deleted',
+      commentId: 'c1',
+    })
+    expect(unsetComment).toHaveBeenCalledWith('c1')
+  })
+
+  it('ignores non-delete events (resolve/create are reconciled by refetch)', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:status',
+      commentId: 'c1',
+    })
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:created',
+      commentId: 'c2',
+    })
+    expect(unsetComment).not.toHaveBeenCalled()
+  })
+
+  it('ignores a delete event with no commentId', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, { type: 'doc-comment:deleted' })
+    expect(unsetComment).not.toHaveBeenCalled()
+  })
+
+  it('tolerates a null editor', () => {
+    expect(() =>
+      reconcileEditorOnDocCommentEvent(null, {
+        type: 'doc-comment:deleted',
+        commentId: 'c1',
+      })
+    ).not.toThrow()
   })
 })
 
