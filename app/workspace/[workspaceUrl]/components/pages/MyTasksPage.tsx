@@ -14,6 +14,7 @@ import {
 } from '../../types'
 import { tasksClient } from '@/lib/api-client'
 import type { TaskPatch } from '../data-table/task-columns'
+import type { ColumnId } from '../data-table/columnTemplate'
 import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -38,6 +39,20 @@ import { BulkDeleteConfirm } from '../task-list/BulkDeleteConfirm'
 import { TaskListView } from '../task-list/TaskListView'
 import { TaskListToolbar } from '../task-list/TaskListToolbar'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
+
+// Stable reference so TaskListView's columns memo doesn't recompute each render.
+const MY_TASKS_COLUMNS: ColumnId[] = [
+  'select',
+  'identifier',
+  'title',
+  'project',
+  'status',
+  'priority',
+  'dueDate',
+  'assignee',
+  'updatedAt',
+  'actions',
+]
 
 interface MyTasksPageProps {
   tasks: MyTask[]
@@ -305,18 +320,7 @@ export function MyTasksPage({
                 tasks={filteredTasks}
                 members={members}
                 projects={projects}
-                visibleColumns={[
-                  'select',
-                  'identifier',
-                  'title',
-                  'project',
-                  'status',
-                  'priority',
-                  'dueDate',
-                  'assignee',
-                  'updatedAt',
-                  'actions',
-                ]}
+                visibleColumns={MY_TASKS_COLUMNS}
                 updateTask={updateTask}
                 onTaskClick={handleTaskClick}
                 onDeleteTask={handleDeleteTask}
