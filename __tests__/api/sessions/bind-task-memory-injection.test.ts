@@ -10,6 +10,7 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
+    findForMemberWithBinding: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
@@ -55,6 +56,9 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
       session: { id: 's-1', taskId: 'task-1' },
     })
     ;(
+      sessionRepository.findForMemberWithBinding as jest.Mock
+    ).mockResolvedValue(null)
+    ;(
       hookEventRepository.bulkSetTaskIdForNullEventsInSession as jest.Mock
     ).mockResolvedValue({ count: 0 })
     ;(
@@ -75,6 +79,7 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
       taskIdentifier: 'LUM-42',
     })
 
+    if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.memorySection).toBe(
       '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n'
     )
@@ -94,6 +99,7 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
       taskIdentifier: 'LUM-42',
     })
 
+    if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.memorySection).toBe('')
   })
 })

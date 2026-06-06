@@ -1375,5 +1375,12 @@
   "document.outline": "Outline",
   "common.moreActions": "More actions",
   "milestone.detail.collapseSidebar": "Hide milestone details",
-  "milestone.detail.expandSidebar": "Show milestone details"
+  "milestone.detail.expandSidebar": "Show milestone details",
+  "editor.slash.mermaid.title": "Mermaid Diagram",
+  "editor.slash.mermaid.description": "Diagram from text",
+  "editor.mermaid.edit": "Edit",
+  "editor.mermaid.done": "Done",
+  "editor.mermaid.error": "Diagram error",
+  "editor.mermaid.empty": "Empty diagram — click to edit",
+  "editor.mermaid.sourceLabel": "Mermaid diagram source"
 }

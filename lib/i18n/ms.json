@@ -1375,5 +1375,12 @@
   "document.outline": "Rangka",
   "common.moreActions": "Tindakan lain",
   "milestone.detail.collapseSidebar": "Sembunyikan butiran milestone",
-  "milestone.detail.expandSidebar": "Tunjukkan butiran milestone"
+  "milestone.detail.expandSidebar": "Tunjukkan butiran milestone",
+  "editor.slash.mermaid.title": "Rajah Mermaid",
+  "editor.slash.mermaid.description": "Rajah daripada teks",
+  "editor.mermaid.edit": "Edit",
+  "editor.mermaid.done": "Selesai",
+  "editor.mermaid.error": "Ralat rajah",
+  "editor.mermaid.empty": "Rajah kosong — klik untuk edit",
+  "editor.mermaid.sourceLabel": "Sumber rajah Mermaid"
 }

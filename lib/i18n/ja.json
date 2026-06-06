@@ -1375,5 +1375,12 @@
   "document.outline": "アウトライン",
   "common.moreActions": "その他の操作",
   "milestone.detail.collapseSidebar": "マイルストーンの詳細を非表示",
-  "milestone.detail.expandSidebar": "マイルストーンの詳細を表示"
+  "milestone.detail.expandSidebar": "マイルストーンの詳細を表示",
+  "editor.slash.mermaid.title": "Mermaid 図",
+  "editor.slash.mermaid.description": "テキストから図を作成",
+  "editor.mermaid.edit": "編集",
+  "editor.mermaid.done": "完了",
+  "editor.mermaid.error": "図のエラー",
+  "editor.mermaid.empty": "空の図 — クリックして編集",
+  "editor.mermaid.sourceLabel": "Mermaid 図のソース"
 }

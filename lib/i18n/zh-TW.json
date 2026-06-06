@@ -1375,5 +1375,12 @@
   "document.outline": "大綱",
   "common.moreActions": "更多操作",
   "milestone.detail.collapseSidebar": "隱藏里程碑詳情",
-  "milestone.detail.expandSidebar": "顯示里程碑詳情"
+  "milestone.detail.expandSidebar": "顯示里程碑詳情",
+  "editor.slash.mermaid.title": "Mermaid 圖表",
+  "editor.slash.mermaid.description": "用文字產生圖表",
+  "editor.mermaid.edit": "編輯",
+  "editor.mermaid.done": "完成",
+  "editor.mermaid.error": "圖表錯誤",
+  "editor.mermaid.empty": "空圖表 — 點擊編輯",
+  "editor.mermaid.sourceLabel": "Mermaid 圖表原始碼"
 }

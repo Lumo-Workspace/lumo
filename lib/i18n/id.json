@@ -1375,5 +1375,12 @@
   "document.outline": "Kerangka",
   "common.moreActions": "Tindakan lainnya",
   "milestone.detail.collapseSidebar": "Sembunyikan detail milestone",
-  "milestone.detail.expandSidebar": "Tampilkan detail milestone"
+  "milestone.detail.expandSidebar": "Tampilkan detail milestone",
+  "editor.slash.mermaid.title": "Diagram Mermaid",
+  "editor.slash.mermaid.description": "Diagram dari teks",
+  "editor.mermaid.edit": "Edit",
+  "editor.mermaid.done": "Selesai",
+  "editor.mermaid.error": "Kesalahan diagram",
+  "editor.mermaid.empty": "Diagram kosong — klik untuk mengedit",
+  "editor.mermaid.sourceLabel": "Sumber diagram Mermaid"
 }

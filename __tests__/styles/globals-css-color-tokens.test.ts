@@ -57,13 +57,22 @@ const COLOR_TOKENS = [
   'status-in-progress',
   'status-in-review',
   'status-done',
+  // LUM-258 semantic feedback colors (solid oklch accents + near-black foregrounds).
+  'info',
+  'info-foreground',
+  'warning',
+  'warning-foreground',
+  'success',
+  'success-foreground',
+  'danger',
+  'danger-foreground',
 ] as const
 
-describe.each(COLOR_TOKENS)('--%s', (token) => {
+describe.each(COLOR_TOKENS)('--%s', token => {
   // Every definition of the token (it appears in both :root and .dark).
-  const defs = [...css.matchAll(new RegExp(`--${token}:\\s*([^;]+);`, 'g'))].map((m) =>
-    (m[1] ?? '').trim()
-  )
+  const defs = [
+    ...css.matchAll(new RegExp(`--${token}:\\s*([^;]+);`, 'g')),
+  ].map(m => (m[1] ?? '').trim())
 
   it('is defined at least once', () => {
     expect(defs.length).toBeGreaterThan(0)
@@ -74,5 +83,64 @@ describe.each(COLOR_TOKENS)('--%s', (token) => {
       expect(value).toMatch(/^oklch\(/)
       expect(value).not.toMatch(/#[0-9a-fA-F]{3,8}/)
     }
+  })
+})
+
+// LUM-258: -subtle / -border are translucent color-mix of the accent, defined
+// ONCE in :root (no .dark override). Translucent so they composite over
+// --background and adapt to dark mode automatically — that's what lets the
+// duplicated .dark callout palette be deleted.
+describe.each(['info', 'warning', 'success', 'danger'])(
+  '--%s subtle/border',
+  c => {
+    it.each(['subtle', 'border'])(
+      `--${c}-%s is a single color-mix over var(--${c})`,
+      variant => {
+        const re = new RegExp(`--${c}-${variant}:\\s*([^;]+);`, 'g')
+        const defs = [...css.matchAll(re)].map(m => (m[1] ?? '').trim())
+        expect(defs).toHaveLength(1) // defined once, no per-mode duplicate
+        expect(defs[0]).toMatch(
+          new RegExp(
+            `^color-mix\\(in srgb, var\\(--${c}\\) \\d+%, transparent\\)$`
+          )
+        )
+      }
+    )
+  }
+)
+
+// LUM-258: the .dark block must brighten the four accents (regression guard so
+// the dark-mode accent override isn't lost in a future edit).
+describe('.dark feedback accent overrides', () => {
+  const darkBlock = css.slice(
+    css.indexOf('.dark {'),
+    css.indexOf('@theme inline')
+  )
+  it.each(['info', 'warning', 'success', 'danger'])(
+    '.dark redefines --%s',
+    c => {
+      expect(darkBlock).toMatch(new RegExp(`--${c}:\\s*oklch\\(`))
+    }
+  )
+})
+
+// LUM-258: callout variants are token-driven; the duplicated .dark callout
+// palette is gone (subtle/border are translucent and adapt on their own).
+describe('callout variants are token-driven', () => {
+  it('has no .dark .callout[data-variant] rules', () => {
+    expect(css).not.toMatch(/\.dark\s+\.callout\[data-variant/)
+  })
+
+  it.each([
+    ['info', 'info'],
+    ['warning', 'warning'],
+    ['success', 'success'],
+    ['error', 'danger'], // error variant maps to the danger token family
+  ])('callout[data-variant=%s] drives border-left from var(--%s)', (variant, token) => {
+    const rule =
+      css.match(new RegExp(`\\.callout\\[data-variant='${variant}'\\]\\s*\\{[^}]*\\}`))?.[0] ?? ''
+    expect(rule).toContain(`background-color: var(--${token}-subtle)`)
+    expect(rule).toContain(`border-color: var(--${token}-border)`)
+    expect(rule).toContain(`border-left-color: var(--${token})`)
   })
 })
