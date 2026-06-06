@@ -2,6 +2,7 @@
 import {
   commentIdFromEventTarget,
   setActiveEditorAnchor,
+  setResolvedEditorAnchors,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '@/app/workspace/[workspaceUrl]/components/document/comments/anchor-dom'
@@ -49,6 +50,43 @@ describe('setActiveEditorAnchor', () => {
         .querySelector('[data-comment-id="c1"]')!
         .classList.contains('comment-highlight--active')
     ).toBe(false)
+  })
+})
+
+describe('setResolvedEditorAnchors', () => {
+  it('marks resolved spans and clears spans no longer resolved', () => {
+    const editor = makeEditor(
+      '<span data-comment-id="c1">a</span><span data-comment-id="c2">b</span>'
+    )
+    const dom = (editor as { view: { dom: HTMLElement } }).view.dom
+    const cls = 'comment-highlight--resolved'
+
+    setResolvedEditorAnchors(editor, ['c1'])
+    expect(
+      dom.querySelector('[data-comment-id="c1"]')!.classList.contains(cls)
+    ).toBe(true)
+    expect(
+      dom.querySelector('[data-comment-id="c2"]')!.classList.contains(cls)
+    ).toBe(false)
+
+    // Reopening c1 (now empty set) clears the class again.
+    setResolvedEditorAnchors(editor, [])
+    expect(
+      dom.querySelector('[data-comment-id="c1"]')!.classList.contains(cls)
+    ).toBe(false)
+  })
+
+  it('accepts a Set and tolerates ids with no span in the doc', () => {
+    const editor = makeEditor('<span data-comment-id="c1">a</span>')
+    const dom = (editor as { view: { dom: HTMLElement } }).view.dom
+    expect(() =>
+      setResolvedEditorAnchors(editor, new Set(['c1', 'ghost']))
+    ).not.toThrow()
+    expect(
+      dom
+        .querySelector('[data-comment-id="c1"]')!
+        .classList.contains('comment-highlight--resolved')
+    ).toBe(true)
   })
 })
 
