@@ -554,7 +554,12 @@ export function DocumentEditorPage({
           </div>
         </div>
 
-        <div className='flex mx-auto w-full max-w-[1200px]' ref={setCommentRow}>
+        {/* Outline (TOC) + content. The TOC is a flush-left sticky rail that
+            hugs the scroll container's left edge (matching the breadcrumb
+            above) instead of floating in from the centered content column. The
+            editor + comments row keeps its own centering in the remaining
+            space, so the document body barely moves. */}
+        <div className='flex w-full'>
           {/* Left rail — outline (TOC), collapsible. */}
           {tocItems.length > 0 && (
             <aside
@@ -572,143 +577,150 @@ export function DocumentEditorPage({
               />
             </aside>
           )}
-          <div className='flex-1 min-w-0'>
-            <div className='max-w-3xl mx-auto px-8 pb-6'>
-              {/* Emoji + Title */}
-              <div className='flex items-start gap-3 mb-4'>
-                <EmojiPicker value={doc.emoji} onChange={handleEmojiChange} />
-                <input
-                  type='text'
-                  value={title}
-                  onChange={e => handleTitleChange(e.target.value)}
-                  className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
-                  placeholder={intl.formatMessage({ id: 'documents.untitled' })}
-                />
-              </div>
-
-              {/* Metadata */}
-              <div className='flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap'>
-                {/* Creator */}
-                <span className='flex items-center gap-1 shrink-0'>
-                  <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
-                    {doc.createdBy.imageUrl ? (
-                      <img
-                        src={doc.createdBy.imageUrl}
-                        alt={doc.createdBy.name}
-                        className='w-full h-full object-cover'
-                      />
-                    ) : (
-                      <span className='text-[8px] font-medium'>
-                        {getInitials(doc.createdBy.name)}
-                      </span>
-                    )}
-                  </span>
-                  <span>{doc.createdBy.name}</span>
-                </span>
-
-                <span className='text-border'>·</span>
-
-                {/* Updated time / Save status (save status temporarily replaces updated time) */}
-                <span className='shrink-0'>
-                  {saveStatus === 'saving' || saveStatus === 'saved'
-                    ? getSaveStatusText()
-                    : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt, intl.locale)}`}
-                </span>
-
-                {/* Project badge (if linked) */}
-                {doc.project && (
-                  <>
-                    <span className='text-border'>·</span>
-                    <span className='border border-border rounded px-1.5 py-px shrink-0'>
-                      {doc.project.name}
-                    </span>
-                  </>
-                )}
-
-                {/* Editor avatars (if any) */}
-                {doc.editors && doc.editors.length > 0 && (
-                  <>
-                    <span className='text-border'>·</span>
-                    <CollaboratorAvatars
-                      editors={doc.editors}
-                      max={3}
-                      size={18}
-                    />
-                  </>
-                )}
-
-                {/* Tags */}
-                {docTags.length > 0 && <span className='text-border'>·</span>}
-                <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
-                  <TagPicker
-                    selectedTags={docTags}
-                    allTags={allTags}
-                    onChange={handleTagsChange}
-                    onCreateTag={createTag}
+          <div
+            className='flex mx-auto w-full min-w-0 max-w-[1200px]'
+            ref={setCommentRow}
+          >
+            <div className='flex-1 min-w-0'>
+              <div className='max-w-3xl mx-auto px-8 pb-6'>
+                {/* Emoji + Title */}
+                <div className='flex items-start gap-3 mb-4'>
+                  <EmojiPicker value={doc.emoji} onChange={handleEmojiChange} />
+                  <input
+                    type='text'
+                    value={title}
+                    onChange={e => handleTitleChange(e.target.value)}
+                    className='flex-1 text-3xl font-bold bg-transparent border-none outline-none placeholder:text-muted-foreground'
+                    placeholder={intl.formatMessage({
+                      id: 'documents.untitled',
+                    })}
                   />
                 </div>
 
-                {/* Save error */}
-                {saveStatus === 'error' && (
-                  <>
-                    <span className='text-border'>·</span>
-                    <span className='italic text-destructive'>
-                      {getSaveStatusText()}
+                {/* Metadata */}
+                <div className='flex items-center gap-2 text-xs text-muted-foreground mb-3 flex-wrap'>
+                  {/* Creator */}
+                  <span className='flex items-center gap-1 shrink-0'>
+                    <span className='size-4 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0'>
+                      {doc.createdBy.imageUrl ? (
+                        <img
+                          src={doc.createdBy.imageUrl}
+                          alt={doc.createdBy.name}
+                          className='w-full h-full object-cover'
+                        />
+                      ) : (
+                        <span className='text-[8px] font-medium'>
+                          {getInitials(doc.createdBy.name)}
+                        </span>
+                      )}
                     </span>
-                  </>
-                )}
+                    <span>{doc.createdBy.name}</span>
+                  </span>
+
+                  <span className='text-border'>·</span>
+
+                  {/* Updated time / Save status (save status temporarily replaces updated time) */}
+                  <span className='shrink-0'>
+                    {saveStatus === 'saving' || saveStatus === 'saved'
+                      ? getSaveStatusText()
+                      : `${intl.formatMessage({ id: 'documentEditor.updated' })} ${formatRelativeTime(doc.updatedAt, intl.locale)}`}
+                  </span>
+
+                  {/* Project badge (if linked) */}
+                  {doc.project && (
+                    <>
+                      <span className='text-border'>·</span>
+                      <span className='border border-border rounded px-1.5 py-px shrink-0'>
+                        {doc.project.name}
+                      </span>
+                    </>
+                  )}
+
+                  {/* Editor avatars (if any) */}
+                  {doc.editors && doc.editors.length > 0 && (
+                    <>
+                      <span className='text-border'>·</span>
+                      <CollaboratorAvatars
+                        editors={doc.editors}
+                        max={3}
+                        size={18}
+                      />
+                    </>
+                  )}
+
+                  {/* Tags */}
+                  {docTags.length > 0 && <span className='text-border'>·</span>}
+                  <div className='shrink-0 [&_input]:min-w-[60px] [&_input]:flex-none [&_input]:w-auto'>
+                    <TagPicker
+                      selectedTags={docTags}
+                      allTags={allTags}
+                      onChange={handleTagsChange}
+                      onCreateTag={createTag}
+                    />
+                  </div>
+
+                  {/* Save error */}
+                  {saveStatus === 'error' && (
+                    <>
+                      <span className='text-border'>·</span>
+                      <span className='italic text-destructive'>
+                        {getSaveStatusText()}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Editor */}
+                <DescriptionEditor
+                  key={`editor-${editorReloadKey}`}
+                  value={doc.content}
+                  onCommit={handleContentCommit}
+                  onChange={handleContentChange}
+                  onChangeDebounceMs={CONTENT_SERIALIZE_DEBOUNCE_MS}
+                  placeholder={intl.formatMessage({
+                    id: 'documents.editorPlaceholder',
+                    defaultMessage: 'Type / for commands…',
+                  })}
+                  documentId={doc.id}
+                  onTocUpdate={setTocItems}
+                  tocScrollRoot={scrollRoot}
+                  onStatsUpdate={setStats}
+                  onEditorReady={e => {
+                    editorRef.current = e
+                    setEditor(e)
+                  }}
+                  onRequestComment={(from, to, quotedText) =>
+                    setPending({ from, to, quotedText })
+                  }
+                  onCommentClick={id => {
+                    setActiveCommentId(id)
+                  }}
+                  commentComposerOpen={!!pending}
+                />
               </div>
-
-              {/* Editor */}
-              <DescriptionEditor
-                key={`editor-${editorReloadKey}`}
-                value={doc.content}
-                onCommit={handleContentCommit}
-                onChange={handleContentChange}
-                onChangeDebounceMs={CONTENT_SERIALIZE_DEBOUNCE_MS}
-                placeholder={intl.formatMessage({
-                  id: 'documents.editorPlaceholder',
-                  defaultMessage: 'Type / for commands…',
-                })}
-                documentId={doc.id}
-                onTocUpdate={setTocItems}
-                tocScrollRoot={scrollRoot}
-                onStatsUpdate={setStats}
-                onEditorReady={e => {
-                  editorRef.current = e
-                  setEditor(e)
-                }}
-                onRequestComment={(from, to, quotedText) =>
-                  setPending({ from, to, quotedText })
-                }
-                onCommentClick={id => {
-                  setActiveCommentId(id)
-                }}
-                commentComposerOpen={!!pending}
-              />
             </div>
-          </div>
 
-          {/* Right rail — comments gutter (Google-Docs style). */}
-          {comments.length > 0 && (
-            <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
-              <CommentGutter
-                editor={editor}
-                rowEl={commentRow}
-                comments={comments}
-                members={members}
-                currentActorId={currentActorId}
-                activeCommentId={activeCommentId}
-                onReply={(parentId, body) =>
-                  create({ id: newCommentId(), body, parentId })
-                }
-                onEdit={(id, body) => updateComment(id, body)}
-                onDelete={handleDeleteComment}
-                onSetStatus={(id, status) => setStatus(id, status)}
-                onSelectThread={scrollToAnchor}
-              />
-            </aside>
-          )}
+            {/* Right rail — comments gutter (Google-Docs style). */}
+            {comments.length > 0 && (
+              <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
+                <CommentGutter
+                  editor={editor}
+                  rowEl={commentRow}
+                  comments={comments}
+                  members={members}
+                  currentActorId={currentActorId}
+                  activeCommentId={activeCommentId}
+                  onReply={(parentId, body) =>
+                    create({ id: newCommentId(), body, parentId })
+                  }
+                  onEdit={(id, body) => updateComment(id, body)}
+                  onDelete={handleDeleteComment}
+                  onSetStatus={(id, status) => setStatus(id, status)}
+                  onSelectThread={scrollToAnchor}
+                />
+              </aside>
+            )}
+          </div>
         </div>
 
         {/* New-comment composer — floats anchored to the selection (portal), so
