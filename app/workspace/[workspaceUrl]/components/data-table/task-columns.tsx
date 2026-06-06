@@ -51,6 +51,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Trash2 } from 'lucide-react'
 import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
+import { formatTimestamp } from '@/lib/utils/formatTimestamp'
 import { Spinner } from '@/components/ui/spinner'
 import { type ColumnId, orderColumns, COLUMN_GRID_WIDTH } from './columnTemplate'
 
@@ -345,6 +346,27 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
   const assignableMembers = members.filter(
     (m): m is WorkspaceMemberInfo & { actorId: string } => !!m.actorId
   )
+
+  // Locale + translated labels for the relative "updated" timestamp. Built from
+  // intl so the column follows the app language (not the runtime default).
+  const timeLocale = intl?.locale ?? 'en'
+  const timeMessages = {
+    justNow:
+      intl?.formatMessage({ id: 'time.justNow', defaultMessage: 'just now' }) ??
+      'just now',
+    mAgo: (m: number) =>
+      intl?.formatMessage(
+        { id: 'time.mAgo', defaultMessage: '{m}m ago' },
+        { m }
+      ) ?? `${m}m ago`,
+    today: intl?.formatMessage({ id: 'time.today', defaultMessage: 'Today' }) ??
+      'Today',
+    yesterday:
+      intl?.formatMessage({
+        id: 'time.yesterday',
+        defaultMessage: 'Yesterday',
+      }) ?? 'Yesterday',
+  }
 
   const byId: Record<ColumnId, ColumnDef<ApiTask>> = {
     // ── Checkbox ───────────────────────────────────────────────────────────
@@ -747,8 +769,8 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
         />
       ),
       cell: ({ row }) => (
-        <span className='text-xs text-muted-foreground'>
-          {new Date(row.original.updatedAt).toLocaleDateString()}
+        <span className='text-xs text-muted-foreground whitespace-nowrap'>
+          {formatTimestamp(row.original.updatedAt, timeLocale, timeMessages)}
         </span>
       ),
     },
