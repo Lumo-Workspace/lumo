@@ -11,9 +11,10 @@ jest.mock('mermaid', () => ({
   default: { initialize, parse, render },
 }))
 
-import { renderMermaid } from '@/lib/editor/mermaid-render'
+import { renderMermaid, _resetInitializedThemeForTest } from '@/lib/editor/mermaid-render'
 
 beforeEach(() => {
+  _resetInitializedThemeForTest()
   initialize.mockClear()
   parse.mockReset()
   render.mockReset()
@@ -60,5 +61,14 @@ describe('renderMermaid', () => {
 
     // default (1st) → cached (2nd, no re-init) → dark (3rd, re-init) = 2 calls
     expect(initialize).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns the error when render throws (post-parse failure)', async () => {
+    parse.mockResolvedValue(true)
+    render.mockRejectedValue(new Error('render DOM unavailable'))
+
+    const result = await renderMermaid('mermaid-4', 'graph TD\n A-->B', 'default')
+
+    expect(result).toEqual({ ok: false, error: 'render DOM unavailable' })
   })
 })

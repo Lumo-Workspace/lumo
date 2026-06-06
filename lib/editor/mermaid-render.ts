@@ -33,15 +33,24 @@ export async function renderMermaid(
 ): Promise<MermaidRenderResult> {
   try {
     const mermaid = await getMermaid()
+    // mermaid.initialize() mutates global state. Browser JS is single-threaded,
+    // so this check-then-set is safe; server-side concurrency would need a mutex.
     if (initializedTheme !== theme) {
       mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme })
       initializedTheme = theme
     }
     // parse() throws on invalid syntax with a human-readable message.
     await mermaid.parse(source)
+    // bindFunctions (interactive click handlers) is intentionally dropped:
+    // diagrams render as static SVG. Add it to MermaidRenderResult if needed.
     const { svg } = await mermaid.render(id, source)
     return { ok: true, svg }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
+}
+
+/** Test-only: clear the module-level init cache so test ordering is deterministic. */
+export function _resetInitializedThemeForTest() {
+  initializedTheme = null
 }
