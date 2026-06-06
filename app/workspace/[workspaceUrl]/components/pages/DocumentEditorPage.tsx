@@ -45,6 +45,7 @@ import { usePusherEvent } from '../../hooks/usePusher'
 import { queryKeys } from '@/lib/query/keys'
 import {
   setActiveEditorAnchor,
+  setResolvedEditorAnchors,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
@@ -169,6 +170,17 @@ export function DocumentEditorPage({
     if (editorRef.current)
       setActiveEditorAnchor(editorRef.current, activeCommentId)
   }, [activeCommentId])
+
+  // Resolved threads keep their span but should drop the body highlight. Re-runs
+  // when comments change (resolve/reopen) and when the editor (re)mounts, since
+  // a fresh ProseMirror render emits plain spans without the resolved class.
+  useEffect(() => {
+    if (!editor) return
+    const resolvedIds = comments
+      .filter(c => c.status === 'RESOLVED')
+      .map(c => c.id)
+    setResolvedEditorAnchors(editor, resolvedIds)
+  }, [comments, editor])
 
   const scrollToAnchor = useCallback((commentId: string) => {
     const dom = editorRef.current?.view.dom as HTMLElement | undefined

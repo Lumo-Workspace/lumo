@@ -952,3 +952,12 @@ li[data-type='taskItem'][data-task-id] a.task-link::before {
   background-color: color-mix(in srgb, var(--primary) 30%, transparent);
   transition: background-color 0.3s ease;
 }
+
+/* Resolved threads keep their span (resolve is reversible) but drop the visible
+   highlight. :not(--active) lets a click/flash from the resolved gutter section
+   still locate the anchor. */
+.comment-highlight--resolved:not(.comment-highlight--active) {
+  background-color: transparent;
+  border-bottom-color: transparent;
+  cursor: default;
+}
