@@ -924,6 +924,33 @@ body {
   background: var(--border);
 }
 
+/* ── Document outline scrollbar — auto-hide (macOS overlay style) ─────────────
+   Hidden when idle, revealed while scrolling. useAutoHideScrollbar toggles
+   .scrollbar-visible on scroll; we also reveal on hover. The WebKit track keeps
+   a constant 6px so showing/hiding the thumb never shifts layout. */
+.toc-scroll {
+  scrollbar-width: none; /* Firefox: hidden when idle */
+}
+.toc-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.toc-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toc-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.3s ease;
+}
+.toc-scroll.scrollbar-visible,
+.toc-scroll:hover {
+  scrollbar-width: thin;
+}
+.toc-scroll.scrollbar-visible::-webkit-scrollbar-thumb,
+.toc-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
 /* LUM-91: extracted taskItem rows — hide checkbox, show task link */
 li[data-type='taskItem'][data-task-id] > label {
   display: none;

@@ -3,6 +3,11 @@
 import { useIntl } from 'react-intl'
 import { AlignLeft, ChevronsLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  TOC_ROOT_ID,
+  tocLevelTier,
+  type TocLevelTier,
+} from '@/lib/editor/toc-display'
 import type { TocItem } from '../DescriptionEditor'
 
 interface DocumentTocProps {
@@ -12,6 +17,30 @@ interface DocumentTocProps {
   /** Container that owns the editor scroll. Used to scroll headings into view. */
   scrollRoot?: HTMLElement | null
 }
+
+/**
+ * Per-tier typography so the outline conveys hierarchy through size + weight,
+ * not indentation alone. Size is always applied; weight/colour only when the
+ * item is inactive (the active branch sets its own emphasis, see below).
+ */
+const TIER_SIZE: Record<TocLevelTier, string> = {
+  root: 'text-[13px]',
+  section: 'text-[13px]',
+  sub: 'text-[12px]',
+}
+const TIER_REST: Record<TocLevelTier, string> = {
+  root: 'font-semibold text-foreground',
+  section: 'font-medium text-foreground',
+  sub: 'font-normal text-muted-foreground',
+}
+
+// Active = reading-position highlight. Monochrome on purpose (brand --primary is
+// near-black, and hierarchy here is carried by type, not colour): a left bar +
+// semibold + a solid accent background, distinct from the plain accent hover.
+const TOC_ACTIVE =
+  'font-semibold text-foreground bg-accent ' +
+  'before:absolute before:left-0 before:top-1 before:bottom-1 ' +
+  'before:w-[2.5px] before:rounded-full before:bg-foreground'
 
 /**
  * Document table of contents sidebar.
@@ -32,6 +61,13 @@ export function DocumentToc({
   const intl = useIntl()
 
   const handleClick = (id: string) => {
+    // The synthetic title root isn't a heading — scroll to the very top instead
+    // of querying a non-existent data-toc-id.
+    if (id === TOC_ROOT_ID) {
+      const scroller = scrollRoot ?? window
+      scroller.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     const root = scrollRoot ?? document
     const target = root.querySelector(`[data-toc-id="${id}"]`)
     if (target instanceof HTMLElement) {
@@ -65,31 +101,38 @@ export function DocumentToc({
       </button>
       {!collapsed && (
         <ul className='mt-2 space-y-px'>
-          {items.map(item => (
-            <li key={item.id}>
-              <button
-                type='button'
-                onClick={() => handleClick(item.id)}
-                style={{ paddingLeft: `${(item.level - 1) * 10 + 12}px` }}
-                className={cn(
-                  'block w-full text-left text-[12px] leading-[1.4] py-1 pr-2 truncate rounded-sm transition-colors',
-                  item.isActive
-                    ? 'text-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={item.textContent}
-              >
-                {item.textContent || (
-                  <span className='italic opacity-60'>
-                    {intl.formatMessage({
-                      id: 'documentToc.untitledHeading',
-                      defaultMessage: 'Untitled heading',
-                    })}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
+          {items.map(item => {
+            const tier = tocLevelTier(item.level)
+            return (
+              <li key={item.id}>
+                <button
+                  type='button'
+                  onClick={() => handleClick(item.id)}
+                  style={{ paddingLeft: `${(item.level - 1) * 12 + 10}px` }}
+                  className={cn(
+                    'relative block w-full text-left leading-[1.45] py-1 pr-2 truncate rounded-sm transition-colors',
+                    TIER_SIZE[tier],
+                    item.isActive
+                      ? TOC_ACTIVE
+                      : cn(
+                          TIER_REST[tier],
+                          'hover:text-foreground hover:bg-accent'
+                        )
+                  )}
+                  title={item.textContent}
+                >
+                  {item.textContent || (
+                    <span className='italic opacity-60'>
+                      {intl.formatMessage({
+                        id: 'documentToc.untitledHeading',
+                        defaultMessage: 'Untitled heading',
+                      })}
+                    </span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </nav>

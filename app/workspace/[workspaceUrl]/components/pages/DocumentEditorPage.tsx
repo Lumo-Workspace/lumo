@@ -15,6 +15,8 @@ import { toast } from 'sonner'
 import { TagPicker } from '../document/TagPicker'
 import { CollaboratorAvatars } from '../document/CollaboratorAvatars'
 import { DocumentToc } from '../document/DocumentToc'
+import { withTitleRoot } from '@/lib/editor/toc-display'
+import { useAutoHideScrollbar } from '../../hooks/useAutoHideScrollbar'
 import { DocumentStatsFooter } from '../document/DocumentStatsFooter'
 import type { EditorStats } from '@/lib/editor/reading-stats'
 import { cn } from '@/lib/utils'
@@ -125,6 +127,8 @@ export function DocumentEditorPage({
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null)
   const { tags: allTags, createTag } = useTags()
   const { collapsed: tocCollapsed, toggle: toggleToc } = useDocTocCollapsed()
+  // Outline scroll container: its scrollbar shows only while scrolling.
+  const tocScrollRef = useAutoHideScrollbar<HTMLElement>()
 
   // ── Actor id for comment author gating ───────────────────────────────────
   // comments compare against comment.authorActorId (an Actor.id), not a
@@ -550,17 +554,18 @@ export function DocumentEditorPage({
           </div>
         </div>
 
-        <div className='flex' ref={setCommentRow}>
+        <div className='flex mx-auto w-full max-w-[1200px]' ref={setCommentRow}>
           {/* Left rail — outline (TOC), collapsible. */}
           {tocItems.length > 0 && (
             <aside
+              ref={tocScrollRef}
               className={cn(
-                'hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
-                tocCollapsed ? 'w-12' : 'w-52'
+                'toc-scroll hidden xl:block shrink-0 self-start sticky top-0 max-h-screen overflow-y-auto pt-2 px-2',
+                tocCollapsed ? 'w-12' : 'w-60'
               )}
             >
               <DocumentToc
-                items={tocItems}
+                items={withTitleRoot(tocItems, title)}
                 collapsed={tocCollapsed}
                 onToggle={toggleToc}
                 scrollRoot={scrollRoot}
