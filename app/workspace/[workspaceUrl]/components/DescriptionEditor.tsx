@@ -6,7 +6,10 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
 import { BubbleMenu } from '@tiptap/extension-bubble-menu'
-import { TableOfContents } from '@tiptap/extension-table-of-contents'
+import {
+  TableOfContents,
+  type TableOfContentData,
+} from '@tiptap/extension-table-of-contents'
 import { getBaseExtensions } from '@/lib/editor/extensions'
 import { shouldShowBubble } from '@/lib/editor/bubble-menu-visibility'
 import { createDebouncedSerializer } from '@/lib/editor/debounced-serializer'
@@ -182,7 +185,7 @@ export function DescriptionEditor({
   // heading once the container has scrolled to its bottom — the heading still
   // sits below scrollTop, just not far enough to make the container scroll any
   // further. Mirror effects + the big TOC effect live in useTocSync below.
-  const emitTocRef = useRef<() => void>(() => {})
+  const emitTocRef = useRef<(data?: TableOfContentData) => void>(() => {})
   const tocEnabled = !!onTocUpdate
 
   // Ref the stats hook points at its live emitter, so the value-sync effect and
@@ -280,10 +283,15 @@ export function DescriptionEditor({
             TableOfContents.configure({
               // Tiptap's scrollHandler still fires on its window listener
               // and writes into storage.content. We don't trust its
-              // `isActive`, so onUpdate just nudges our own emitter which
-              // re-derives the active heading from the current scrollTop.
+              // `isActive`, so onUpdate hands our own emitter the fresh heading
+              // list, from which we re-derive the active heading at the current
+              // scrollTop. We pass `data` through (rather than letting emit
+              // re-read editor.storage) because the extension fires onUpdate
+              // *before* it assigns storage.content, so a storage read here is
+              // stale — which left the outline blank on reopen until the first
+              // scroll. See useTocSync emit() for the full rationale.
               scrollParent: () => tocScrollRootRef.current ?? window,
-              onUpdate: () => emitTocRef.current(),
+              onUpdate: data => emitTocRef.current(data),
             }),
           ]
         : []),
