@@ -17,6 +17,8 @@
     "lint:tokens": "tsx scripts/lint-tokens.ts",
     "lint:tokens:audit": "tsx scripts/lint-tokens.ts --full",
     "lint:tokens:update": "tsx scripts/lint-tokens.ts --update",
+    "i18n:sync": "tsx scripts/i18n-sync-locales.ts",
+    "i18n:check": "tsx scripts/i18n-sync-locales.ts --check",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next out dist",
     "format": "prettier --write .",

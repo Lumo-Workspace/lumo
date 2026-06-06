@@ -1375,5 +1375,12 @@
   "document.outline": "Plan",
   "common.moreActions": "Plus d’actions",
   "milestone.detail.collapseSidebar": "Masquer les détails du jalon",
-  "milestone.detail.expandSidebar": "Afficher les détails du jalon"
+  "milestone.detail.expandSidebar": "Afficher les détails du jalon",
+  "editor.slash.mermaid.title": "Diagramme Mermaid",
+  "editor.slash.mermaid.description": "Diagramme à partir de texte",
+  "editor.mermaid.edit": "Modifier",
+  "editor.mermaid.done": "Terminé",
+  "editor.mermaid.error": "Erreur de diagramme",
+  "editor.mermaid.empty": "Diagramme vide — cliquez pour modifier",
+  "editor.mermaid.sourceLabel": "Source du diagramme Mermaid"
 }

@@ -1375,5 +1375,12 @@
   "document.outline": "रूपरेखा",
   "common.moreActions": "अधिक क्रियाएँ",
   "milestone.detail.collapseSidebar": "माइलस्टोन विवरण छिपाएं",
-  "milestone.detail.expandSidebar": "माइलस्टोन विवरण दिखाएं"
+  "milestone.detail.expandSidebar": "माइलस्टोन विवरण दिखाएं",
+  "editor.slash.mermaid.title": "Mermaid आरेख",
+  "editor.slash.mermaid.description": "टेक्स्ट से आरेख",
+  "editor.mermaid.edit": "संपादित करें",
+  "editor.mermaid.done": "हो गया",
+  "editor.mermaid.error": "आरेख त्रुटि",
+  "editor.mermaid.empty": "खाली आरेख — संपादित करने के लिए क्लिक करें",
+  "editor.mermaid.sourceLabel": "Mermaid आरेख स्रोत"
 }

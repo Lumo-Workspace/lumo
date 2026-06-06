@@ -6,6 +6,9 @@ const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 interface Body {
   taskIdentifier?: unknown
+  /** Set true to overwrite an existing binding to a different task without the
+   *  "already-bound" guard. The CLI sends this only after the user confirms. */
+  force?: unknown
 }
 
 export async function POST(
@@ -38,6 +41,7 @@ export async function POST(
       identity,
       sessionId,
       taskIdentifier,
+      force: body.force === true,
     })
     return NextResponse.json(result)
   } catch (error) {

@@ -1375,5 +1375,12 @@
   "document.outline": "Dàn ý",
   "common.moreActions": "Thao tác khác",
   "milestone.detail.collapseSidebar": "Ẩn chi tiết cột mốc",
-  "milestone.detail.expandSidebar": "Hiện chi tiết cột mốc"
+  "milestone.detail.expandSidebar": "Hiện chi tiết cột mốc",
+  "editor.slash.mermaid.title": "Sơ đồ Mermaid",
+  "editor.slash.mermaid.description": "Sơ đồ từ văn bản",
+  "editor.mermaid.edit": "Sửa",
+  "editor.mermaid.done": "Xong",
+  "editor.mermaid.error": "Lỗi sơ đồ",
+  "editor.mermaid.empty": "Sơ đồ trống — nhấp để chỉnh sửa",
+  "editor.mermaid.sourceLabel": "Mã nguồn sơ đồ Mermaid"
 }

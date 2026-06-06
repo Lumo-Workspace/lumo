@@ -18,6 +18,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 - All user-facing strings use react-intl (`intl.formatMessage`)
 - Locale files live in `lib/i18n/` — when adding or updating a key, update **every** locale file, not just en.json and zh-CN.json
 - Never use English as a fallback for non-English locales — provide a proper translation for each language
+- To scaffold the other locales after editing `en.json`, run `npm run i18n:sync` — it back-fills missing keys with `[TODO:<locale>] …` placeholders so the parity test passes; replace the `[TODO:…]` markers with real translations before shipping (never leave the English placeholder). Use `npm run i18n:check` to detect drift without writing.
 
 ## Testing
 
