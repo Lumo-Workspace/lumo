@@ -333,4 +333,106 @@ describe('taskContextService.getContextForIdentifier', () => {
     )
     expect(out?.sessions[0]?.unresolved).toEqual(['ok', 'also ok'])
   })
+
+  // ─── type-specific pending extraction (LUM-265) ───────────────────────────
+  // Each summaryType expresses "what's still open" in a different field; the
+  // service maps them all onto the single `unresolved` (pending) array.
+
+  async function pendingForSession(session: Record<string, unknown>) {
+    mockResolve.mockResolvedValueOnce(task)
+    mockFindById.mockResolvedValueOnce(task)
+    mockSessions.mockResolvedValueOnce([
+      {
+        id: 's1',
+        startedAt: new Date('2026-04-24T10:00:00Z'),
+        lastActivityAt: new Date('2026-04-24T10:05:00Z'),
+        eventCount: 5,
+        summaryGeneratedAt: null,
+        ...session,
+      },
+    ])
+    const out = await taskContextService.getContextForIdentifier(
+      'ws_1',
+      'member_1',
+      'LUM-30'
+    )
+    return out?.sessions[0]?.unresolved
+  }
+
+  it('extracts pending from exploration.nextSteps', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'exploration',
+      summary: {
+        whatExplored: 'auth flow',
+        nextSteps: ['Wire the callback', 'Add a test'],
+      },
+    })
+    expect(pending).toEqual(['Wire the callback', 'Add a test'])
+  })
+
+  it('extracts pending from refactor.followUps', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'refactor',
+      summary: {
+        refactorGoal: 'extract repo',
+        followUps: ['Split the fat service next'],
+      },
+    })
+    expect(pending).toEqual(['Split the fat service next'])
+  })
+
+  it('extracts pending from review.severity.critical only', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'review',
+      summary: {
+        reviewScope: 'PR #42',
+        severity: {
+          critical: ['SQL injection in search', 'Missing auth check'],
+          improvements: ['rename foo'],
+          notes: ['nice doc'],
+        },
+      },
+    })
+    expect(pending).toEqual(['SQL injection in search', 'Missing auth check'])
+  })
+
+  it('surfaces the problem when a debug session ended unresolved', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'debug',
+      summary: { problem: 'race in the queue', status: 'unresolved' },
+    })
+    expect(pending).toEqual(['Bug 未解决：race in the queue'])
+  })
+
+  it('surfaces the problem when a debug session ended partial', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'debug',
+      summary: { problem: 'race in the queue', status: 'partial' },
+    })
+    expect(pending).toEqual(['Bug 仅部分修复：race in the queue'])
+  })
+
+  it('reports no pending for a fixed debug session', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'debug',
+      summary: { problem: 'race in the queue', status: 'fixed' },
+    })
+    expect(pending).toEqual([])
+  })
+
+  it('falls back to a bare label when a debug session has no problem text', async () => {
+    const pending = await pendingForSession({
+      summaryType: 'debug',
+      summary: { problem: '', status: 'unresolved' },
+    })
+    expect(pending).toEqual(['Bug 未解决'])
+  })
+
+  it('falls back to summary.unresolved for null/unknown summaryType', async () => {
+    const pending = await pendingForSession({
+      summaryType: null,
+      summary: { unresolved: ['legacy pending'] },
+    })
+    expect(pending).toEqual(['legacy pending'])
+  })
 })

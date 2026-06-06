@@ -6,18 +6,14 @@ interface StatusDistributionChartProps {
   distribution: Record<string, number>
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  TODO: 'bg-zinc-400',
-  IN_PROGRESS: 'bg-blue-500',
-  IN_REVIEW: 'bg-purple-500',
-  DONE: 'bg-green-400',
-}
-
-const STATUS_DOT_COLORS: Record<string, string> = {
-  TODO: 'bg-zinc-400',
-  IN_PROGRESS: 'bg-blue-500',
-  IN_REVIEW: 'bg-purple-500',
-  DONE: 'bg-green-400',
+// Status colors come from the semantic --status-* tokens (single source of
+// truth, shared with <StatusIcon> and .mention-task chips). Bars and legend
+// dots use the same map.
+const STATUS_BG_CLASS: Record<string, string> = {
+  TODO: 'bg-status-todo',
+  IN_PROGRESS: 'bg-status-in-progress',
+  IN_REVIEW: 'bg-status-in-review',
+  DONE: 'bg-status-done',
 }
 
 const STATUS_KEYS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
@@ -53,7 +49,7 @@ export function StatusDistributionChart({
             return (
               <div
                 key={key}
-                className={STATUS_COLORS[key]}
+                className={STATUS_BG_CLASS[key]}
                 style={{ flex: count }}
                 title={`${STATUS_LABELS[key]}: ${count}`}
               />
@@ -70,7 +66,7 @@ export function StatusDistributionChart({
           return (
             <div key={key} className='flex items-center gap-1.5'>
               <span
-                className={`inline-block size-2 rounded-full ${STATUS_DOT_COLORS[key]}`}
+                className={`inline-block size-2 rounded-full ${STATUS_BG_CLASS[key]}`}
               />
               <span className='text-xs text-zinc-600 dark:text-zinc-400'>
                 {STATUS_LABELS[key]}
