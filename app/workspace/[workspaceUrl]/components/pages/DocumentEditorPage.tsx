@@ -475,7 +475,7 @@ export function DocumentEditorPage({
             </button>
             {/* Comments drawer trigger — narrow screens only; the xl gutter
                 rail is hidden below xl, so this is the way to reach threads. */}
-            {comments.some(c => c.status === 'OPEN') && (
+            {comments.length > 0 && (
               <Button
                 size='sm'
                 variant='ghost'
@@ -484,9 +484,11 @@ export function DocumentEditorPage({
               >
                 <MessageSquare size={14} />
                 {intl.formatMessage({ id: 'document.comments' })}
-                <span className='text-muted-foreground'>
-                  {comments.filter(c => c.status === 'OPEN').length}
-                </span>
+                {comments.some(c => c.status === 'OPEN') && (
+                  <span className='text-muted-foreground'>
+                    {comments.filter(c => c.status === 'OPEN').length}
+                  </span>
+                )}
               </Button>
             )}
             <Button
@@ -653,7 +655,7 @@ export function DocumentEditorPage({
           </div>
 
           {/* Right rail — comments gutter (Google-Docs style). */}
-          {comments.some(c => c.status === 'OPEN') && (
+          {comments.length > 0 && (
             <aside className='hidden xl:block shrink-0 self-start w-64 pt-2 px-1'>
               <CommentGutter
                 editor={editor}

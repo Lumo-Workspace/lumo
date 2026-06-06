@@ -9,6 +9,7 @@ import {
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 import { DocumentCommentThread } from './DocumentCommentThread'
+import { CommentResolvedSection } from './CommentResolvedSection'
 
 export interface CommentSheetProps {
   open: boolean
@@ -42,28 +43,43 @@ export function CommentSheet(props: CommentSheetProps) {
             {intl.formatMessage({ id: 'document.comments' })}
           </SheetTitle>
         </SheetHeader>
-        {open.length === 0 ? (
+        {props.comments.length === 0 ? (
           <p className='mt-4 text-sm text-muted-foreground'>
             {intl.formatMessage({ id: 'document.noComments' })}
           </p>
         ) : (
-          <div className='mt-4 flex flex-col gap-2'>
-            {open.map(c => (
-              <DocumentCommentThread
-                key={c.id}
-                thread={c}
-                members={props.members}
-                agentActors={[]}
-                currentActorId={props.currentActorId}
-                onReply={props.onReply}
-                onEdit={props.onEdit}
-                onDelete={props.onDelete}
-                onSetStatus={props.onSetStatus}
-                onSelect={props.onSelectThread}
-                active={props.activeCommentId === c.id}
-              />
-            ))}
-          </div>
+          <>
+            {open.length > 0 && (
+              <div className='mt-4 flex flex-col gap-2'>
+                {open.map(c => (
+                  <DocumentCommentThread
+                    key={c.id}
+                    thread={c}
+                    members={props.members}
+                    agentActors={[]}
+                    currentActorId={props.currentActorId}
+                    onReply={props.onReply}
+                    onEdit={props.onEdit}
+                    onDelete={props.onDelete}
+                    onSetStatus={props.onSetStatus}
+                    onSelect={props.onSelectThread}
+                    active={props.activeCommentId === c.id}
+                  />
+                ))}
+              </div>
+            )}
+            <CommentResolvedSection
+              comments={props.comments}
+              members={props.members}
+              currentActorId={props.currentActorId}
+              activeCommentId={props.activeCommentId ?? null}
+              onReply={props.onReply}
+              onEdit={props.onEdit}
+              onDelete={props.onDelete}
+              onSetStatus={props.onSetStatus}
+              onSelectThread={props.onSelectThread}
+            />
+          </>
         )}
       </SheetContent>
     </Sheet>
