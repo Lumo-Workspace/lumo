@@ -134,16 +134,6 @@ export const VALIDATION = {
   CONTENT_MAX_LENGTH: 10000,
 } as const
 
-// 状态颜色映射
-export const STATUS_COLORS = {
-  DRAFT: '#6B7280',
-  TODO: '#3B82F6',
-  IN_PROGRESS: '#F59E0B',
-  REVIEW: '#8B5CF6',
-  DONE: '#10B981',
-  CANCELED: '#EF4444',
-} as const
-
 // 优先级颜色映射
 export const PRIORITY_COLORS = {
   LOW: '#10B981',
@@ -361,7 +351,6 @@ export type Languages = typeof LANGUAGES
 export type Pagination = typeof PAGINATION
 export type FileUpload = typeof FILE_UPLOAD
 export type Validation = typeof VALIDATION
-export type StatusColors = typeof STATUS_COLORS
 export type PriorityColors = typeof PRIORITY_COLORS
 export type RolePermissions = typeof ROLE_PERMISSIONS
 export type NotificationTypes = typeof NOTIFICATION_TYPES
