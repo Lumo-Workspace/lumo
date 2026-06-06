@@ -25,7 +25,8 @@ function readGlobals(): string {
 function statusValuesIn(block: string): Record<string, string> {
   const out: Record<string, string> = {}
   for (const token of STATUS_TOKENS) {
-    const m = block.match(new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{3,8})`))
+    // Tokens are oklch() since LUM-257 (the trailing /* #hex */ is a comment).
+    const m = block.match(new RegExp(`--${token}:\\s*(oklch\\([^)]+\\))`))
     if (m?.[1]) out[token] = m[1].toLowerCase()
   }
   return out
@@ -46,8 +47,8 @@ describe('status color tokens (globals.css)', () => {
 
   it('defines all four status tokens in :root and .dark', () => {
     for (const token of STATUS_TOKENS) {
-      expect(root[token]).toMatch(/^#[0-9a-f]{3,8}$/)
-      expect(dark[token]).toMatch(/^#[0-9a-f]{3,8}$/)
+      expect(root[token]).toMatch(/^oklch\(/)
+      expect(dark[token]).toMatch(/^oklch\(/)
     }
   })
 
