@@ -38,10 +38,31 @@ describe('worktreeList', () => {
 
   it('lists only worktrees under .worktrees/ and shows the task id', async () => {
     expect(await worktreeList()).toBe(0)
-    const printed = logSpy.mock.calls.map(c => String(c[0])).join('\n')
-    expect(printed).toContain('LUM-267')
-    expect(printed).toContain('/repo/.worktrees/LUM-267-scaffold')
-    expect(printed).not.toContain('lumo/LUM-261') // the main checkout is excluded
+    const lines = logSpy.mock.calls.map(c => String(c[0]))
+    // Verify the TASK-ID COLUMN (first tab-separated field), not just a
+    // substring that the branch column (lumo/LUM-267-scaffold) also satisfies.
+    const row = lines.find(l => l.includes('/repo/.worktrees/LUM-267-scaffold'))
+    expect(row).toBeDefined()
+    expect(row!.startsWith('LUM-267\t')).toBe(true)
+    expect(lines.join('\n')).not.toContain('lumo/LUM-261') // main checkout excluded
+  })
+
+  it('renders dirty + node_modules:MISSING', async () => {
+    gitOutput.mockImplementation((args: string[]) => {
+      if (args[0] === 'worktree') return LIST
+      if (args[0] === 'status') return ' M cli/src/commands/worktree-list.ts'
+      return ''
+    })
+    mockFs.lstatSync.mockReturnValue({
+      isSymbolicLink: () => false,
+    } as never)
+    expect(await worktreeList()).toBe(0)
+    const row = logSpy.mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.includes('/repo/.worktrees/LUM-267-scaffold'))
+    expect(row).toBeDefined()
+    expect(row).toContain('dirty')
+    expect(row).toContain('node_modules:MISSING')
   })
 
   it('prints an empty notice when none exist', async () => {

@@ -4,8 +4,8 @@ import {
   getGitCommonDir,
   gitOutput,
   parseWorktreePorcelain,
-  normalizeTaskId,
 } from '../lib/worktree'
+import { matchTaskIdentifier } from '../lib/git-task'
 
 function nodeModulesLinked(dir: string): boolean {
   try {
@@ -18,8 +18,8 @@ function nodeModulesLinked(dir: string): boolean {
 /** Pull a LUM-N from a worktree dir basename or its branch, else '—'. */
 function taskIdOf(dirBase: string, branch: string | null): string {
   return (
-    normalizeTaskId(dirBase.replace(/-.*$/, '')) ??
-    (branch ? normalizeTaskId(branch.replace(/^lumo\//, '').replace(/-.*$/, '')) : null) ??
+    matchTaskIdentifier(dirBase) ??
+    (branch ? matchTaskIdentifier(branch) : null) ??
     '—'
   )
 }

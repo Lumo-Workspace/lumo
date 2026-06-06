@@ -71,6 +71,18 @@ describe('worktreeAdd', () => {
     )
   })
 
+  it('continues without symlinking when main has no node_modules', async () => {
+    // Nothing exists: target dir absent (no early-error) AND no node_modules src.
+    mockFs.existsSync.mockReturnValue(false)
+    runGit.mockImplementation((args: string[]) =>
+      args[0] === 'rev-parse'
+        ? { status: 1, stdout: '', stderr: '' }
+        : { status: 0, stdout: '', stderr: '' }
+    )
+    expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
+    expect(mockFs.symlinkSync).not.toHaveBeenCalled()
+  })
+
   it('reuses an existing branch (no -b) and skips fetch with --no-fetch', async () => {
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' }) // rev-parse → 0 = branch exists
     expect(await worktreeAdd('LUM-267', undefined, { noFetch: true })).toBe(0)
