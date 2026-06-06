@@ -136,15 +136,27 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 ## Radius
 
-| Token / utility              | Value                               |
-| ---------------------------- | ----------------------------------- |
-| `--radius`                   | `0.75rem`                           |
-| `rounded-sm` (`--radius-sm`) | `calc(--radius - 4px)` = `0.5rem`   |
-| `rounded-md` (`--radius-md`) | `calc(--radius - 2px)` = `0.625rem` |
-| `rounded-lg` (`--radius-lg`) | `var(--radius)` = `0.75rem`         |
-| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` = `1rem`     |
+单一来源 `--radius: 0.75rem`;`@theme inline` 派生干净的 4px 步进档位。
 
-Use `rounded-md` for inputs / chips, `rounded-lg` for cards.
+| Token / utility | calc | 值 |
+| --- | --- | --- |
+| `rounded-sm` (`--radius-sm`) | `calc(--radius − 8px)` | `0.25rem` |
+| `rounded-md` (`--radius-md`) | `calc(--radius − 4px)` | `0.5rem` |
+| `rounded-lg` (`--radius-lg`) | `var(--radius)` | `0.75rem` |
+| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `1rem` |
+
+**档位映射规则(哪类元素用哪档):**
+
+| 元素类 | 档位 |
+| --- | --- |
+| inline 小件:chip / tag / 内联 token | `rounded-sm` |
+| 控件:button / input / select / 菜单项 / 关闭按钮 | `rounded-md` |
+| 表面:card / dialog / popover / dropdown / sheet / panel | `rounded-lg` |
+| pill / badge / 头像 / 圆形图标按钮 | `rounded-full` |
+| 大容器 / 特例 | `rounded-xl` |
+
+裸 `rounded`(= `0.25rem`,与 `rounded-sm` 同值)**禁用** —— 由 `lint:tokens` 拦截。
+方向性圆角(`rounded-t/l/r/b/tl…`)与 arbitrary `rounded-[..]` 按需使用,不受档位约束。
 
 ## Focus rings
 
@@ -195,12 +207,24 @@ Observed convention (top of stack last):
 
 Avoid arbitrary `z-[1]` etc. — pick a tier above.
 
-## Shadows
+## Shadows / Elevation
 
-The full Tailwind scale (`shadow-sm` → `shadow-2xl`) is in use; no project
-shadow tokens beyond `--shadow-mockup` (landing-only, for the product
-mockup hero). Use `shadow-sm` for borders-without-borders subtlety,
-`shadow-md` for hovered cards, `shadow-lg` for modals & menus.
+阴影走 token 化的 elevation 分级 —— `:root` 与 `.dark` 各定义一组(暗色更强,
+因深色背景上阴影几乎不可见),`@theme inline` 注册成工具类。**禁止**直接用
+Tailwind 内置 `shadow` / `shadow-xs…2xl` 或硬编码 `shadow-[..]`(由 `lint:tokens`
+拦截);`shadow-none` 允许;`drop-shadow-*`(filter)不受此规则约束。
+
+| 工具类 | 用途 | 组件 |
+| --- | --- | --- |
+| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header |
+| `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu |
+| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast |
+
+底层值在 `app/globals.css` 的 `--elevation-1/2/3`(`:root`/`.dark`)。调整观感改
+那里即可,组件不碰。landing 专用的 `--shadow-mockup` 仍在 `landing.css`。
+
+1px 描边(border 替代)用 `ring-1 ring-<token>`,**不要**用 `shadow-[0_0_0_1px_…]`
+(且 `hsl(var(--token))` 在 oklch token 下是非法 CSS)。
 
 ## Utility cheat sheet
 
