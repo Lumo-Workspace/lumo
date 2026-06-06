@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "Simpan sebagai versi",
   "documentHistory.namePrompt": "Namakan versi ini",
   "documentHistory.restore": "Pulihkan versi ini",
-  "documentHistory.inline": "Sebaris",
-  "documentHistory.sideBySide": "Bersebelahan",
   "documentHistory.close": "Tutup",
   "documentHistory.loading": "Memuatkan…",
   "documentHistory.selectPrompt": "Pilih versi untuk dibandingkan dengan dokumen semasa.",

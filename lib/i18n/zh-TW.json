@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "儲存為版本",
   "documentHistory.namePrompt": "為此版本命名",
   "documentHistory.restore": "還原此版本",
-  "documentHistory.inline": "行內對比",
-  "documentHistory.sideBySide": "並排對比",
   "documentHistory.close": "關閉",
   "documentHistory.loading": "載入中…",
   "documentHistory.selectPrompt": "選擇一個版本與目前文件對比。",

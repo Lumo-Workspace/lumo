@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "Lưu thành phiên bản",
   "documentHistory.namePrompt": "Đặt tên cho phiên bản này",
   "documentHistory.restore": "Khôi phục phiên bản này",
-  "documentHistory.inline": "Cùng dòng",
-  "documentHistory.sideBySide": "Song song",
   "documentHistory.close": "Đóng",
   "documentHistory.loading": "Đang tải…",
   "documentHistory.selectPrompt": "Chọn một phiên bản để so sánh với tài liệu hiện tại.",

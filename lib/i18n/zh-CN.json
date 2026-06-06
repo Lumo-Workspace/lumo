@@ -1358,8 +1358,6 @@
   "documentHistory.saveAsVersion": "保存为版本",
   "documentHistory.namePrompt": "为此版本命名",
   "documentHistory.restore": "恢复此版本",
-  "documentHistory.inline": "行内对比",
-  "documentHistory.sideBySide": "并排对比",
   "documentHistory.close": "关闭",
   "documentHistory.loading": "加载中…",
   "documentHistory.selectPrompt": "选择一个版本与当前文档对比。",

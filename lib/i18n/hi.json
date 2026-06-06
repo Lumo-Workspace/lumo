@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "संस्करण के रूप में सहेजें",
   "documentHistory.namePrompt": "इस संस्करण को नाम दें",
   "documentHistory.restore": "यह संस्करण पुनर्स्थापित करें",
-  "documentHistory.inline": "इनलाइन",
-  "documentHistory.sideBySide": "साथ-साथ",
   "documentHistory.close": "बंद करें",
   "documentHistory.loading": "लोड हो रहा है…",
   "documentHistory.selectPrompt": "वर्तमान दस्तावेज़ से तुलना करने के लिए एक संस्करण चुनें।",

@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "Сохранить как версию",
   "documentHistory.namePrompt": "Назовите эту версию",
   "documentHistory.restore": "Восстановить эту версию",
-  "documentHistory.inline": "В строке",
-  "documentHistory.sideBySide": "Рядом",
   "documentHistory.close": "Закрыть",
   "documentHistory.loading": "Загрузка…",
   "documentHistory.selectPrompt": "Выберите версию для сравнения с текущим документом.",

@@ -7,7 +7,7 @@ import {
   useDocumentRevisions,
   type RevisionListItem,
 } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentRevisions'
-import { RevisionDiffView, type DiffMode } from './RevisionDiffView'
+import { RevisionDiffView } from './RevisionDiffView'
 
 interface DocumentHistoryModalProps {
   open: boolean
@@ -31,7 +31,6 @@ export function DocumentHistoryModal({
   )
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedHtml, setSelectedHtml] = useState<string | null>(null)
-  const [mode, setMode] = useState<DiffMode>('inline')
   const [restoring, setRestoring] = useState(false)
 
   useEffect(() => {
@@ -119,29 +118,7 @@ export function DocumentHistoryModal({
 
         {/* Right: diff + actions */}
         <section className='flex flex-1 flex-col'>
-          <header className='flex items-center justify-between border-b border-border px-4 py-2'>
-            <div className='flex gap-1 text-xs'>
-              <button
-                type='button'
-                onClick={() => setMode('inline')}
-                className={`rounded px-2 py-1 ${mode === 'inline' ? 'bg-muted font-medium' : ''}`}
-              >
-                {intl.formatMessage({
-                  id: 'documentHistory.inline',
-                  defaultMessage: 'Inline',
-                })}
-              </button>
-              <button
-                type='button'
-                onClick={() => setMode('split')}
-                className={`rounded px-2 py-1 ${mode === 'split' ? 'bg-muted font-medium' : ''}`}
-              >
-                {intl.formatMessage({
-                  id: 'documentHistory.sideBySide',
-                  defaultMessage: 'Side by side',
-                })}
-              </button>
-            </div>
+          <header className='flex items-center justify-end border-b border-border px-4 py-2'>
             <div className='flex gap-2'>
               <button
                 type='button'
@@ -168,11 +145,7 @@ export function DocumentHistoryModal({
           </header>
           <div className='flex-1 overflow-y-auto p-4'>
             {selectedId ? (
-              <RevisionDiffView
-                oldHtml={selectedHtml}
-                newHtml={currentHtml}
-                mode={mode}
-              />
+              <RevisionDiffView oldHtml={selectedHtml} newHtml={currentHtml} />
             ) : (
               <p className='text-sm text-muted-foreground'>
                 {intl.formatMessage({

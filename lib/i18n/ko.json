@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "버전으로 저장",
   "documentHistory.namePrompt": "이 버전의 이름 지정",
   "documentHistory.restore": "이 버전 복원",
-  "documentHistory.inline": "인라인",
-  "documentHistory.sideBySide": "나란히 보기",
   "documentHistory.close": "닫기",
   "documentHistory.loading": "불러오는 중…",
   "documentHistory.selectPrompt": "현재 문서와 비교할 버전을 선택하세요.",
