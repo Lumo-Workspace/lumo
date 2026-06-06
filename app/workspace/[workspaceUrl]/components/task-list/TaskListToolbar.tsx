@@ -36,6 +36,11 @@ export function TaskListToolbar({
   onToggleSidebar,
 }: Props) {
   const intl = useIntl()
+  const sidebarLabel = intl.formatMessage(
+    sidebarCollapsed
+      ? { id: 'sprints.detail.expandSidebar', defaultMessage: 'Show sprint details' }
+      : { id: 'sprints.detail.collapseSidebar', defaultMessage: 'Hide sprint details' }
+  )
 
   return (
     <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>
@@ -54,17 +59,8 @@ export function TaskListToolbar({
           <button
             type='button'
             onClick={onToggleSidebar}
-            aria-label={intl.formatMessage(
-              sidebarCollapsed
-                ? {
-                    id: 'sprints.detail.expandSidebar',
-                    defaultMessage: 'Show sprint details',
-                  }
-                : {
-                    id: 'sprints.detail.collapseSidebar',
-                    defaultMessage: 'Hide sprint details',
-                  }
-            )}
+            title={sidebarLabel}
+            aria-label={sidebarLabel}
             className='flex items-center justify-center size-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors'
           >
             {sidebarCollapsed ? (

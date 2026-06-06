@@ -48,6 +48,8 @@ describe('TaskListToolbar', () => {
   it('renders left-slot children', () => {
     render(<TaskListToolbar {...baseProps} leftSlot={<button>仅当前冲刺</button>} />)
     expect(screen.getByText('仅当前冲刺')).toBeInTheDocument()
+    expect(screen.getByTestId('display-options-menu')).toBeInTheDocument()
+    expect(screen.getByTestId('view-toggle')).toBeInTheDocument()
   })
 
   it('does not render the collapse button when onToggleSidebar is omitted', () => {
@@ -67,5 +69,12 @@ describe('TaskListToolbar', () => {
     )
     // sidebarCollapsed=false → sprints.detail.collapseSidebar → defaultMessage "Hide sprint details"
     expect(screen.getByLabelText(/hide sprint details/i)).toBeInTheDocument()
+  })
+
+  it('shows the expand label when sidebar is collapsed', () => {
+    render(
+      <TaskListToolbar {...baseProps} sidebarCollapsed={true} onToggleSidebar={() => {}} />
+    )
+    expect(screen.getByLabelText(/show sprint details/i)).toBeInTheDocument()
   })
 })
