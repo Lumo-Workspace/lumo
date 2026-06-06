@@ -537,6 +537,29 @@ html {
   --status-in-review: oklch(0.6232 0.2868 312.148); /* #bf2bff brand magenta */
   --status-done: oklch(0.6776 0.2108 139.367); /* #41b40f brand green */
 
+  /* Semantic feedback colors (LUM-258). Accent = left border / icon / emphasis;
+     -foreground = near-black text on a solid accent fill (AA-verified, never
+     var(--foreground) which would flip white and fail on a light accent);
+     -subtle / -border = translucent color-mix of the accent, defined once here
+     and auto-adapting to .dark because they composite over --background.
+     oklch values are exact equivalents of the Tailwind palette hex (in comments). */
+  --info: oklch(0.6231 0.188 259.813); /* #3b82f6 */
+  --info-foreground: oklch(0.2178 0 0); /* #1a1a1a */
+  --info-subtle: color-mix(in srgb, var(--info) 10%, transparent);
+  --info-border: color-mix(in srgb, var(--info) 28%, transparent);
+  --warning: oklch(0.7686 0.1647 70.073); /* #f59e0b */
+  --warning-foreground: oklch(0.2178 0 0); /* #1a1a1a */
+  --warning-subtle: color-mix(in srgb, var(--warning) 10%, transparent);
+  --warning-border: color-mix(in srgb, var(--warning) 28%, transparent);
+  --success: oklch(0.7227 0.192 149.577); /* #22c55e */
+  --success-foreground: oklch(0.2178 0 0); /* #1a1a1a */
+  --success-subtle: color-mix(in srgb, var(--success) 10%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 28%, transparent);
+  --danger: oklch(0.6369 0.2079 25.334); /* #ef4444 */
+  --danger-foreground: oklch(0.2178 0 0); /* #1a1a1a */
+  --danger-subtle: color-mix(in srgb, var(--danger) 10%, transparent);
+  --danger-border: color-mix(in srgb, var(--danger) 28%, transparent);
+
   --font-inter: 'Inter', sans-serif;
   --font-source-code-pro: 'Source Code Pro', monospace;
 }
@@ -576,6 +599,15 @@ html {
   --status-in-progress: oklch(0.6187 0.2067 259.232); /* #2b7fff */
   --status-in-review: oklch(0.6232 0.2868 312.148); /* #bf2bff */
   --status-done: oklch(0.6776 0.2108 139.367); /* #41b40f */
+
+  /* Semantic feedback accents — brighter in dark, mirroring the prior callout
+     dark palette. -foreground / -subtle / -border are NOT overridden: foreground
+     stays near-black, and subtle/border re-resolve through these accents +
+     --background automatically. */
+  --info: oklch(0.7137 0.1433 254.621); /* #60a5fa */
+  --warning: oklch(0.8369 0.1644 84.421); /* #fbbf24 */
+  --success: oklch(0.8003 0.1821 151.707); /* #4ade80 */
+  --danger: oklch(0.7106 0.1662 22.222); /* #f87171 */
 }
 
 @theme inline {
@@ -619,6 +651,25 @@ html {
   --color-status-in-progress: var(--status-in-progress);
   --color-status-in-review: var(--status-in-review);
   --color-status-done: var(--status-done);
+
+  /* Semantic feedback utilities: generates .text-info / .bg-success-subtle /
+     .border-warning-border / .text-danger-foreground / etc. */
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-border: var(--info-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-border: var(--danger-border);
 
   /* Landing-specific @theme registrations (--color-brand, --color-light,
      --shadow-mockup) live in components/landing/landing.css, alongside the
