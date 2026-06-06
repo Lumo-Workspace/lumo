@@ -80,6 +80,9 @@ import { docShareList } from './commands/doc-share-list'
 import { docMove } from './commands/doc-move'
 import { update } from './commands/update'
 import { setup } from './commands/setup'
+import { worktreeAdd } from './commands/worktree-add'
+import { worktreeRm } from './commands/worktree-rm'
+import { worktreeList } from './commands/worktree-list'
 import {
   maybeRefreshInBackground,
   printUpdateNoticeIfAny,
@@ -1191,6 +1194,55 @@ task
       taskUpdate(identifier as string, options as Record<string, string>)
     )
   )
+
+const worktree = program
+  .command('worktree')
+  .description(
+    'Scaffold, remove, and list parallel git worktrees under .worktrees/ (node_modules symlink + prisma/jest gotcha guidance). Local dev tooling; run from the main checkout.'
+  )
+
+worktree
+  .command('add <identifier> [slug]')
+  .description(
+    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout.'
+  )
+  .option('--base <ref>', 'Branch off this ref instead of origin/main (skips fetch)')
+  .option('--no-fetch', 'Do not `git fetch origin main` before branching')
+  .option('--verify', 'Run `npx jest` in the new worktree to confirm a clean baseline')
+  .action(
+    wrap((identifier, slug, options) => {
+      const o = options as { base?: string; fetch?: boolean; verify?: boolean }
+      return worktreeAdd(identifier as string, slug as string | undefined, {
+        base: o.base,
+        noFetch: o.fetch === false,
+        verify: o.verify,
+      })
+    })
+  )
+
+worktree
+  .command('rm <identifier>')
+  .description(
+    'Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch.'
+  )
+  .option('--yes', 'Confirm removal (required, no interactive prompt)')
+  .option('--force', 'Remove even with uncommitted changes')
+  .option('--delete-branch', 'Also delete the branch (git branch -d; refuses if unmerged)')
+  .action(
+    wrap((identifier, options) =>
+      worktreeRm(
+        identifier as string,
+        options as { yes?: boolean; force?: boolean; deleteBranch?: boolean }
+      )
+    )
+  )
+
+worktree
+  .command('list')
+  .description(
+    'List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked.'
+  )
+  .action(wrap(() => worktreeList()))
 
 // Claude Code invokes `lumo hook <type>` per tool call, so these handlers
 // must never crash the caller. Two invariants keep us safe:

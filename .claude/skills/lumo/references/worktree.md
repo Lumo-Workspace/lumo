@@ -1,0 +1,60 @@
+# Worktrees
+
+Local dev tooling that scaffolds parallel git worktrees. Unlike every other
+`lumo` command, these do **not** touch the Lumo server — they shell out to git
+and the local filesystem. **Run `add` and `rm` from the main checkout**, not from
+inside a worktree (the node_modules symlink source and `.worktrees/` both live
+there); `list` is read-only and runnable from anywhere.
+
+## `lumo worktree add <LUM-N> [slug]`
+
+Creates `.worktrees/<LUM-N>[-slug]` on branch `lumo/<LUM-N>[-slug]`, branched off
+`origin/main` (after a fetch), and symlinks its `node_modules` to the main
+checkout so jest/tsc work immediately. With no slug, the dir and branch use the
+bare `LUM-N` form. Prints next-step guidance plus the two gotchas it can't fix
+for you (shared prisma client, jest cwd).
+
+```bash
+lumo worktree add LUM-267 worktree-scaffold   # → .worktrees/LUM-267-worktree-scaffold
+lumo worktree add LUM-267                      # → .worktrees/LUM-267
+lumo worktree add LUM-267 --base main          # branch off local main, skip fetch
+lumo worktree add LUM-267 --no-fetch           # branch off existing origin/main
+lumo worktree add LUM-267 --verify             # run npx jest baseline after setup
+```
+
+Flags: `--base <ref>` (branch off a ref other than origin/main; skips the
+fetch), `--no-fetch` (skip `git fetch origin main`), `--verify` (run `npx jest`
+in the new worktree). Errors if the target dir already exists; reuses the branch
+if it already exists (adds the worktree without `-b`).
+
+**The prisma gotcha it warns about:** the generated client lives in the shared
+(symlinked) `node_modules`, so a `prisma generate` in one worktree clobbers the
+client every parallel worktree depends on. Verify with jest (SWC mocks Prisma);
+do `generate + tsc` atomically once at the end.
+
+**The jest gotcha it warns about:** always run jest from the worktree root (`cd`
+in first) — `cli/` has no jest config, and running from the main checkout hits
+the `cli/package.json` haste collision and silently runs the wrong tests.
+
+## `lumo worktree rm <LUM-N>`
+
+Removes the worktree for a task. Requires `--yes`. Refuses a dirty worktree
+unless `--force`. Keeps the branch by default (it may hold unpushed work / an
+open PR); `--delete-branch` removes it with `git branch -d` (which itself
+refuses an unmerged branch).
+
+```bash
+lumo worktree rm LUM-267 --yes
+lumo worktree rm LUM-267 --yes --force            # discard uncommitted changes
+lumo worktree rm LUM-267 --yes --delete-branch    # also delete lumo/LUM-267…
+```
+
+## `lumo worktree list`
+
+Lists worktrees under `.worktrees/` with task id, branch, dirty state, and
+whether `node_modules` is symlinked (a `MISSING` link is the first thing to
+check when jest/tsc misbehaves). Read-only; runnable from anywhere in the repo.
+
+```bash
+lumo worktree list
+```
