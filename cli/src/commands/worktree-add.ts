@@ -76,7 +76,9 @@ export async function worktreeAdd(
   if (!opts.noFetch && !opts.base) {
     console.log('Fetching origin/main …')
     if (runGit(['fetch', 'origin', 'main'], root).status !== 0) {
-      console.error(`Warning: git fetch failed; branching off local ${base}`)
+      console.error(
+        `Warning: git fetch failed; branching off the existing local ${base} (may be stale)`
+      )
     }
   }
 
