@@ -1,9 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useIntl } from 'react-intl'
 import { CheckSquare, Plus } from 'lucide-react'
-import { MyTask, ApiStatus, ApiProject, WorkspaceMemberInfo } from '../../types'
+import type { RowSelectionState } from '@tanstack/react-table'
+import {
+  MyTask,
+  ApiTask,
+  ApiStatus,
+  ApiProject,
+  WorkspaceMemberInfo,
+} from '../../types'
+import { tasksClient } from '@/lib/api-client'
+import { toast } from 'sonner'
+import type { TaskPatch } from '../../components/data-table/task-columns'
+import type { ColumnId } from '../../components/data-table/columnTemplate'
 import { BoardView } from '../../components/board/BoardView'
 import { MyTaskCard } from '../../components/board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -24,8 +35,22 @@ import { sortTasks } from '../../utils/sortTasks'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
 import { BulkActionBar } from '../../components/task-list/BulkActionBar'
 import { BulkDeleteConfirm } from '../../components/task-list/BulkDeleteConfirm'
-import { TaskListTable } from '../../components/task-list/TaskListTable'
-import { SprintTasksToolbar } from './SprintTasksToolbar'
+import { TaskListView } from '../../components/task-list/TaskListView'
+import { TaskListToolbar } from '../../components/task-list/TaskListToolbar'
+
+// Stable reference so TaskListView's columns memo doesn't recompute each render.
+const SPRINT_COLUMNS: ColumnId[] = [
+  'select',
+  'identifier',
+  'title',
+  'project',
+  'status',
+  'priority',
+  'dueDate',
+  'assignee',
+  'updatedAt',
+  'actions',
+]
 
 interface SprintTasksViewProps {
   tasks: MyTask[]
@@ -92,11 +117,79 @@ export function SprintTasksView({
     runBulkDelete,
   } = useTaskBulkMutations({ tasks, selected, setSelected, setTasks, onRetry })
 
+  // ─── Selection bridge: Set (source of truth) ↔ table RowSelectionState ───────
+  const rowSelection = useMemo<RowSelectionState>(
+    () => Object.fromEntries([...selected].map(id => [id, true])),
+    [selected]
+  )
+  const handleRowSelectionChange = useCallback(
+    (next: RowSelectionState) =>
+      setSelected(new Set(Object.keys(next).filter(id => next[id]))),
+    [setSelected]
+  )
+
+  // ─── Single-row inline update (moved from TaskListTable) ─────────────────────
+  const updateTask = useCallback(
+    async (id: string, patch: TaskPatch) => {
+      setTasks(prev =>
+        prev.map(t => {
+          if (t.id !== id) return t
+          // When project changes, also refresh the embedded { id, name, ownerActorId }
+          // so the row updates without waiting for a refetch.
+          if (patch.projectId && patch.projectId !== t.projectId) {
+            const np = projects.find(p => p.id === patch.projectId)
+            return {
+              ...t,
+              ...patch,
+              project: np
+                ? {
+                    id: np.id,
+                    name: np.name,
+                    ownerActorId:
+                      (np as { ownerActorId?: string | null }).ownerActorId ??
+                      null,
+                  }
+                : t.project,
+            }
+          }
+          return { ...t, ...patch }
+        })
+      )
+      try {
+        await tasksClient.update(id, patch)
+      } catch {
+        toast.error('Failed to update task')
+        onRetry()
+      }
+    },
+    [setTasks, projects, onRetry]
+  )
+
+  // ─── Single-row delete (unified table's actions column) ──────────────────────
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      try {
+        await tasksClient.delete(taskId)
+      } catch {
+        toast.error('Failed to delete task')
+        onRetry()
+      }
+    },
+    [setTasks, onRetry]
+  )
+
+  // ─── onTaskClick adapter (rows are MyTask, table types as ApiTask) ───────────
+  const handleTaskClick = useCallback(
+    (task: ApiTask) => onTaskClick(task as MyTask),
+    [onTaskClick]
+  )
+
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
       <div className='h-12 shrink-0 relative bg-white dark:bg-zinc-950'>
-        <SprintTasksToolbar
+        <TaskListToolbar
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}
           ordering={options.ordering}
@@ -160,16 +253,17 @@ export function SprintTasksView({
           }
         >
           {viewMode === 'list' ? (
-            <div className='flex-1 overflow-auto'>
-              <TaskListTable
+            <div className='flex-1 min-h-0 flex flex-col'>
+              <TaskListView
                 tasks={filteredTasks}
-                setTasks={setTasks}
                 members={members}
                 projects={projects}
-                onTaskClick={onTaskClick}
-                onRetry={onRetry}
-                selected={selected}
-                setSelected={setSelected}
+                visibleColumns={SPRINT_COLUMNS}
+                updateTask={updateTask}
+                onTaskClick={handleTaskClick}
+                onDeleteTask={handleDeleteTask}
+                rowSelection={rowSelection}
+                onRowSelectionChange={handleRowSelectionChange}
               />
             </div>
           ) : (
