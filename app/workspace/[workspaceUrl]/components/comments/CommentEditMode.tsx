@@ -21,6 +21,9 @@ interface Props {
   onChange: (html: string | null) => void
   onSave: () => void
   onCancel: () => void
+  /** i18n id for the confirm button label. Defaults to the literal "Save"
+   * (task comments). Doc comments pass `common.confirm` to render 确认. */
+  confirmLabelId?: string | undefined
 }
 
 /**
@@ -43,6 +46,7 @@ export function CommentEditMode({
   onChange,
   onSave,
   onCancel,
+  confirmLabelId,
 }: Props) {
   const intl = useIntl()
   return (
@@ -85,7 +89,7 @@ export function CommentEditMode({
           disabled={!draftBody?.trim() || saving}
           onClick={onSave}
         >
-          Save
+          {confirmLabelId ? intl.formatMessage({ id: confirmLabelId }) : 'Save'}
         </Button>
       </div>
     </div>

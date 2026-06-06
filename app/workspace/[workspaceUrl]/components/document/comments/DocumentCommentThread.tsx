@@ -9,6 +9,7 @@ import {
   type AgentActorInfo,
 } from '@/app/workspace/[workspaceUrl]/components/comment-utils'
 import { CommentEditor } from '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor'
+import { CommentEditMode } from '@/app/workspace/[workspaceUrl]/components/comments/CommentEditMode'
 import { useFormatDate } from '@/app/workspace/[workspaceUrl]/hooks/useFormatDate'
 import { Button } from '@/components/ui/button'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
@@ -45,15 +46,27 @@ function Row({
   const intl = useIntl()
   const { fmtTimestamp } = useFormatDate()
   const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const editRef = useRef<string | null>(null)
-  const clearRef = useRef<(() => void) | null>(null)
   const author = resolveCommentAuthor(c, members, agentActors)
   const isDeleted = !!c.deletedAt
   const isAuthor =
     !isDeleted && !!currentActorId && c.authorActorId === currentActorId
-  const memberProp = members.length ? { members } : {}
+
+  const startEditing = () => {
+    setDraft(c.body)
+    setEditing(true)
+  }
+  const cancelEditing = () => {
+    setEditing(false)
+    setDraft(null)
+  }
+  const saveEditing = () => {
+    const b = draft?.trim()
+    if (b) onEdit(c.id, b)
+    cancelEditing()
+  }
 
   return (
     <div className='py-1'>
@@ -79,19 +92,17 @@ function Row({
             </div>
           ) : editing ? (
             <div className='mt-1'>
-              <CommentEditor
-                onCommit={h => {
-                  editRef.current = h
-                }}
-                onSubmit={() => {
-                  const b = editRef.current?.trim()
-                  if (b) {
-                    onEdit(c.id, b)
-                    setEditing(false)
-                  }
-                }}
-                clearRef={clearRef}
-                {...memberProp}
+              <CommentEditMode
+                editorKey={`edit-${c.id}`}
+                initialBody={c.body}
+                draftBody={draft}
+                saving={false}
+                placeholderId='task.editCommentPlaceholder'
+                mentionableMembers={members}
+                confirmLabelId='common.confirm'
+                onChange={setDraft}
+                onSave={saveEditing}
+                onCancel={cancelEditing}
               />
             </div>
           ) : (
@@ -100,7 +111,7 @@ function Row({
               dangerouslySetInnerHTML={{ __html: c.body }}
             />
           )}
-          {confirmingDelete && !editing && (
+          {confirmingDelete && !editing && !isDeleted && (
             <div className='mt-1 flex items-center gap-3 text-xs'>
               <button
                 type='button'
@@ -150,7 +161,7 @@ function Row({
                     role='menuitem'
                     data-testid={`edit-${c.id}`}
                     onClick={() => {
-                      setEditing(true)
+                      startEditing()
                       setMenuOpen(false)
                     }}
                     className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-popover-foreground hover:bg-accent'

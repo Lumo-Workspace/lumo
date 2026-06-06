@@ -17,6 +17,25 @@ jest.mock(
     },
   })
 )
+// Stub the rich-text edit block — its tiptap editor can't mount in jsdom.
+// We only need its Cancel/Confirm wiring for the cancelable-edit test.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/comments/CommentEditMode',
+  () => ({
+    CommentEditMode: ({
+      onCancel,
+      onSave,
+    }: {
+      onCancel: () => void
+      onSave: () => void
+    }) => (
+      <div data-testid='edit-mode'>
+        <button onClick={onCancel}>common.cancel</button>
+        <button onClick={onSave}>common.confirm</button>
+      </div>
+    ),
+  })
+)
 
 const base = {
   id: 'c1',
@@ -108,11 +127,23 @@ it('hides the menu (and edit/delete) for non-authors', () => {
   expect(screen.queryByTestId('delete-c1')).toBeNull()
 })
 
-it('opens the editor from the menu', () => {
+it('opens the cancelable editor from the menu', () => {
   r()
   fireEvent.click(screen.getByTestId('comment-menu-c1'))
   fireEvent.click(screen.getByTestId('edit-c1'))
-  expect(screen.getByTestId('composer')).toBeInTheDocument()
+  expect(screen.getByTestId('edit-mode')).toBeInTheDocument()
+})
+
+it('edit mode is cancelable — Cancel returns to read-only without saving', () => {
+  const onEdit = jest.fn()
+  r({ onEdit })
+  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  fireEvent.click(screen.getByTestId('edit-c1'))
+  expect(screen.getByText('common.cancel')).toBeInTheDocument()
+  fireEvent.click(screen.getByText('common.cancel'))
+  // Back to read-only: editor gone, nothing was saved.
+  expect(screen.queryByTestId('edit-mode')).toBeNull()
+  expect(onEdit).not.toHaveBeenCalled()
 })
 
 it('renders a deleted parent as a tombstone with its replies, no menu', () => {
@@ -150,6 +181,30 @@ it('calls onDelete after confirmation (author)', () => {
   expect(onDelete).not.toHaveBeenCalled()
   fireEvent.click(screen.getByTestId('confirm-delete-c1'))
   expect(onDelete).toHaveBeenCalledWith('c1')
+})
+
+it('drops the delete confirm/cancel once the comment becomes a tombstone', () => {
+  const { rerender } = r()
+  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  fireEvent.click(screen.getByTestId('delete-c1'))
+  expect(screen.getByTestId('confirm-delete-c1')).toBeInTheDocument()
+  // The delete lands: the parent (with live replies) becomes a tombstone.
+  rerender(
+    <DocumentCommentThread
+      thread={{ ...base, deletedAt: '2026-06-05T00:00:00Z' } as never}
+      members={members as never}
+      agentActors={[]}
+      currentActorId='a1'
+      onReply={jest.fn()}
+      onEdit={jest.fn()}
+      onDelete={jest.fn()}
+      onSetStatus={jest.fn()}
+      onSelect={jest.fn()}
+    />
+  )
+  expect(screen.queryByTestId('confirm-delete-c1')).toBeNull()
+  expect(screen.queryByTestId('cancel-delete-c1')).toBeNull()
+  expect(screen.getByText('document.commentDeleted')).toBeInTheDocument()
 })
 
 it('cancels delete without calling onDelete', () => {
