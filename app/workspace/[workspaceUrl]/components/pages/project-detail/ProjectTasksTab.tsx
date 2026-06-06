@@ -11,8 +11,6 @@ import {
 } from '../../../types'
 import { BoardView } from '../../board/BoardView'
 import { ProjectTaskCard } from '../../board/SortableTaskCard'
-import { ViewToggle } from '../../ViewToggle'
-import { DisplayOptionsMenu } from '../../DisplayOptionsMenu'
 import { ORDERING_LABELS, TaskOrdering } from '../../../utils/sortTasks'
 import { CompletedFilter } from '../../../utils/filterCompletedTasks'
 import { AsyncContent } from '../../AsyncContent'
@@ -25,13 +23,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { DataTable } from '../../data-table/data-table'
-import { buildColumnTemplate } from '../../data-table/columnTemplate'
-import { createTaskColumns, TaskPatch } from '../../data-table/task-columns'
-import { TaskSelectionBar } from '../../data-table/TaskSelectionBar'
+import { TaskPatch } from '../../data-table/task-columns'
 import { tasksClient } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { MilestoneFilterPicker } from '../../milestones/MilestoneFilterPicker'
+import { TaskListToolbar } from '../../task-list/TaskListToolbar'
+import { TaskListView } from '../../task-list/TaskListView'
+import { BulkActionBar } from '../../task-list/BulkActionBar'
+import { BulkDeleteConfirm } from '../../task-list/BulkDeleteConfirm'
 import type {
   SensorDescriptor,
   SensorOptions,
@@ -121,6 +120,10 @@ export function ProjectTasksTab({
   )
   const selectedCount = selectedIds.length
 
+  // ─── Bulk delete confirmation state ────────────────────────────────────────
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   // ─── Single-row inline update ───────────────────────────────────────────────
   const updateTask = useCallback(
     async (id: string, patch: TaskPatch) => {
@@ -135,7 +138,7 @@ export function ProjectTasksTab({
     [setTasks, onRetry]
   )
 
-  // ─── Memoised columns ───────────────────────────────────────────────────────
+  // ─── Memoised column list ───────────────────────────────────────────────────
   const visibleColumns = useMemo(
     () =>
       [
@@ -150,24 +153,6 @@ export function ProjectTasksTab({
         'actions',
       ] as const,
     []
-  )
-  const columnTemplate = useMemo(
-    () => buildColumnTemplate([...visibleColumns]),
-    [visibleColumns]
-  )
-
-  const taskColumns = useMemo(
-    () =>
-      createTaskColumns({
-        onTaskClick,
-        onDeleteTask,
-        members,
-        intl,
-        updateTask,
-        visibleColumns: [...visibleColumns],
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onTaskClick, onDeleteTask, members, intl, visibleColumns]
   )
 
   // ─── Bulk actions ───────────────────────────────────────────────────────────
@@ -212,53 +197,60 @@ export function ProjectTasksTab({
   }
 
   const runBulkDelete = async () => {
-    const ids = selectedIds
-    const results = await Promise.allSettled(
-      ids.map(id => tasksClient.delete(id))
-    )
-    const failed = results.filter(r => r.status === 'rejected').length
-    if (failed > 0) {
-      toast.error(
-        `Failed to delete ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+    setDeleting(true)
+    try {
+      const ids = selectedIds
+      const results = await Promise.allSettled(
+        ids.map(id => tasksClient.delete(id))
       )
-      onRetry()
-    } else {
-      const idSet = new Set(ids)
-      setTasks(prev => prev.filter(t => !idSet.has(t.id)))
-      toast.success(`Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+      const failed = results.filter(r => r.status === 'rejected').length
+      if (failed > 0) {
+        toast.error(
+          `Failed to delete ${failed} of ${ids.length} task${ids.length === 1 ? '' : 's'}`
+        )
+        onRetry()
+      } else {
+        const idSet = new Set(ids)
+        setTasks(prev => prev.filter(t => !idSet.has(t.id)))
+        toast.success(`Deleted ${ids.length} task${ids.length === 1 ? '' : 's'}`)
+      }
+    } finally {
+      setDeleting(false)
+      setConfirmDeleteOpen(false)
+      setRowSelection({})
     }
-    setRowSelection({})
   }
 
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Toolbar */}
       <div className='h-12 shrink-0 relative'>
-        <div className='h-12 flex items-center justify-end gap-2 px-4 md:px-8'>
-          <MilestoneFilterPicker
-            projectId={projectId}
-            value={milestoneFilter}
-            onChange={setMilestoneFilter}
-          />
-          <DisplayOptionsMenu
-            completedFilter={displayOptions.completedFilter}
-            onCompletedFilterChange={setCompletedFilter}
-            ordering={displayOptions.ordering}
-            onOrderingChange={setOrdering}
-            showSubtasks={displayOptions.showSubtasks}
-            onShowSubtasksChange={setShowSubtasks}
-          />
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-        </div>
-        <TaskSelectionBar
-          selectedCount={selectedCount}
-          members={members}
-          onStatusPick={status => runBulkUpdate({ status })}
-          onPriorityPick={priority => runBulkUpdate({ priority })}
-          onAssigneePick={assigneeActorId => runBulkUpdate({ assigneeActorId })}
-          onDelete={runBulkDelete}
-          onCancel={() => setRowSelection({})}
+        <TaskListToolbar
+          completedFilter={displayOptions.completedFilter}
+          onCompletedFilterChange={setCompletedFilter}
+          ordering={displayOptions.ordering}
+          onOrderingChange={setOrdering}
+          showSubtasks={displayOptions.showSubtasks}
+          onShowSubtasksChange={setShowSubtasks}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          leftSlot={
+            <MilestoneFilterPicker
+              projectId={projectId}
+              value={milestoneFilter}
+              onChange={setMilestoneFilter}
+            />
+          }
         />
+        {selectedCount > 0 && (
+          <BulkActionBar
+            count={selectedCount}
+            members={members}
+            onBulkUpdate={runBulkUpdate}
+            onRequestDelete={() => setConfirmDeleteOpen(true)}
+            onClearSelection={() => setRowSelection({})}
+          />
+        )}
       </div>
 
       {/* Content */}
@@ -301,22 +293,26 @@ export function ProjectTasksTab({
         }
       >
         {viewMode === 'list' ? (
-          <div className='flex flex-col flex-1 min-h-0'>
-            <DataTable
-              columns={taskColumns}
-              data={visibleTasks}
-              columnTemplate={columnTemplate}
-              enableSelection
+          <div className='flex-1 min-h-0 flex flex-col'>
+            <TaskListView
+              tasks={visibleTasks}
+              members={members}
+              visibleColumns={[...visibleColumns]}
+              updateTask={updateTask}
+              onTaskClick={onTaskClick}
+              onDeleteTask={onDeleteTask}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
-              getRowId={(row: ApiTask) => row.id}
-              {...(displayOptions.showSubtasks && {
-                treeConfig: {
-                  getParentId: (task: ApiTask) => task.parentTaskId,
-                  getChildCount: (task: ApiTask) => task._count?.children ?? 0,
-                  getRowId: (task: ApiTask) => task.id,
-                },
-              })}
+              {...(displayOptions.showSubtasks
+                ? {
+                    treeConfig: {
+                      getParentId: (task: ApiTask) => task.parentTaskId,
+                      getChildCount: (task: ApiTask) =>
+                        task._count?.children ?? 0,
+                      getRowId: (task: ApiTask) => task.id,
+                    },
+                  }
+                : {})}
             />
           </div>
         ) : (
@@ -351,6 +347,14 @@ export function ProjectTasksTab({
           />
         )}
       </AsyncContent>
+
+      <BulkDeleteConfirm
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        count={selectedCount}
+        deleting={deleting}
+        onConfirm={runBulkDelete}
+      />
     </div>
   )
 }
