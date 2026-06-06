@@ -49,6 +49,21 @@ What it does:
 
 **After attaching, always run `lumo task context <identifier>` to load the task background.**
 
+#### Overwriting an existing binding (LUM-266)
+
+Re-attaching a session that's already bound to a **different** task no longer silently clobbers the binding. The server returns the current binding instead of overwriting, and the CLI decides what to do:
+
+- **On a TTY** (a human running it directly): prompts `已绑定 LUM-X，覆盖为 LUM-Y? [y/N]`. Answering `y`/`yes` re-binds to `LUM-Y`; anything else (including bare Enter) cancels and leaves `LUM-X` bound.
+- **Off a TTY** (the usual agent case — `stdin` is not interactive): the command **refuses** and prints `Session already bound to LUM-X … Re-run with --force …` without overwriting. Exit code is `0` (a safe refusal, not an error).
+- **`--force`**: skips the prompt/refusal and overwrites unconditionally. Re-attaching to the **same** task is always a no-op re-bind (never prompts).
+
+```bash
+lumo session attach LUM-42            # already on LUM-7 → prompts (TTY) / refuses (agent)
+lumo session attach LUM-42 --force    # overwrite without confirmation
+```
+
+**Agent guidance:** when `session attach` reports the session is already bound to a different task, **ask the user** whether to switch before re-running with `--force`. Don't auto-`--force` — the existing binding may be intentional (e.g. an auto-bind from the branch name). Alternatively run `lumo session detach` first, then a clean `session attach`.
+
 ### Parallel sessions
 
 Each Claude Code session has its own `CLAUDE_CODE_SESSION_ID`. Two terminals running `claude code` and binding to different tasks will not interfere with each other — the bindings are scoped per session row server-side.
