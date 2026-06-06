@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "Original text deleted",
   "document.commentDeleted": "[Deleted]",
   "document.showResolved": "Show resolved",
-  "document.outline": "Outline"
+  "document.outline": "Outline",
+  "common.moreActions": "More actions"
 }

@@ -1374,5 +1374,6 @@
   "document.reopen": "重新打开",
   "document.commentOrphaned": "原文已删除",
   "document.commentDeleted": "[已删除]",
-  "document.showResolved": "显示已解决"
+  "document.showResolved": "显示已解决",
+  "common.moreActions": "更多操作"
 }

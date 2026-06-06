@@ -5,6 +5,9 @@ import { DocumentCommentThread } from '@/app/workspace/[workspaceUrl]/components
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useFormatDate', () => ({
+  useFormatDate: () => ({ fmtTimestamp: () => '2h ago' }),
+}))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor',
   () => ({
@@ -30,11 +33,12 @@ const base = {
   createdAt: '2026-06-04T00:00:00Z',
   replies: [],
 }
+const members = [{ actorId: 'a1', name: 'Chao Li', imageUrl: null }]
 function r(props = {}) {
   return render(
     <DocumentCommentThread
       thread={base as never}
-      members={[]}
+      members={members as never}
       agentActors={[]}
       currentActorId='a1'
       onReply={jest.fn()}
@@ -51,6 +55,12 @@ it('renders quoted text + body', () => {
   r()
   expect(screen.getByText(/intro/)).toBeInTheDocument()
   expect(screen.getByText(/top/)).toBeInTheDocument()
+})
+
+it('renders author name and timestamp in the header', () => {
+  r()
+  expect(screen.getByText('Chao Li')).toBeInTheDocument()
+  expect(screen.getByText(/2h ago/)).toBeInTheDocument()
 })
 
 it('shows orphaned label when isOrphaned', () => {
@@ -80,13 +90,32 @@ it('submits a reply', () => {
   expect(onReply).toHaveBeenCalledWith('c1', 'typed body')
 })
 
-it('hides edit/delete for non-authors', () => {
+it('edit/delete live behind a kebab menu, hidden until opened', () => {
+  r()
+  // Collapsed by default — no edit/delete in the DOM yet.
+  expect(screen.queryByTestId('edit-c1')).toBeNull()
+  expect(screen.queryByTestId('delete-c1')).toBeNull()
+  // Open the menu → both actions appear.
+  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  expect(screen.getByTestId('edit-c1')).toBeInTheDocument()
+  expect(screen.getByTestId('delete-c1')).toBeInTheDocument()
+})
+
+it('hides the menu (and edit/delete) for non-authors', () => {
   r({ currentActorId: 'someone-else' })
+  expect(screen.queryByTestId('comment-menu-c1')).toBeNull()
   expect(screen.queryByTestId('edit-c1')).toBeNull()
   expect(screen.queryByTestId('delete-c1')).toBeNull()
 })
 
-it('renders a deleted parent as a tombstone with its replies, no edit/delete', () => {
+it('opens the editor from the menu', () => {
+  r()
+  fireEvent.click(screen.getByTestId('comment-menu-c1'))
+  fireEvent.click(screen.getByTestId('edit-c1'))
+  expect(screen.getByTestId('composer')).toBeInTheDocument()
+})
+
+it('renders a deleted parent as a tombstone with its replies, no menu', () => {
   r({
     thread: {
       ...base,
@@ -110,21 +139,23 @@ it('renders a deleted parent as a tombstone with its replies, no edit/delete', (
   // Reply remains visible.
   expect(screen.getByText(/still here/)).toBeInTheDocument()
   // Author actions are gone on the deleted row.
-  expect(screen.queryByTestId('edit-c1')).toBeNull()
-  expect(screen.queryByTestId('delete-c1')).toBeNull()
+  expect(screen.queryByTestId('comment-menu-c1')).toBeNull()
 })
 
 it('calls onDelete after confirmation (author)', () => {
   const onDelete = jest.fn()
   r({ onDelete })
+  fireEvent.click(screen.getByTestId('comment-menu-c1')) // open menu
   fireEvent.click(screen.getByTestId('delete-c1')) // arm confirm
   expect(onDelete).not.toHaveBeenCalled()
   fireEvent.click(screen.getByTestId('confirm-delete-c1'))
   expect(onDelete).toHaveBeenCalledWith('c1')
 })
+
 it('cancels delete without calling onDelete', () => {
   const onDelete = jest.fn()
   r({ onDelete })
+  fireEvent.click(screen.getByTestId('comment-menu-c1'))
   fireEvent.click(screen.getByTestId('delete-c1'))
   fireEvent.click(screen.getByTestId('cancel-delete-c1'))
   expect(onDelete).not.toHaveBeenCalled()

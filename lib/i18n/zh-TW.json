@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "原文已刪除",
   "document.commentDeleted": "[已刪除]",
   "document.showResolved": "顯示已解決",
-  "document.outline": "大綱"
+  "document.outline": "大綱",
+  "common.moreActions": "更多操作"
 }

@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "Texte d'origine supprimé",
   "document.commentDeleted": "[Supprimé]",
   "document.showResolved": "Afficher les résolus",
-  "document.outline": "Plan"
+  "document.outline": "Plan",
+  "common.moreActions": "Plus d’actions"
 }

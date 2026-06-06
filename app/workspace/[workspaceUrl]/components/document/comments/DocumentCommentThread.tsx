@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
+import { Check, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import { CommentAvatar } from '@/app/workspace/[workspaceUrl]/components/CommentAvatar'
 import {
@@ -8,6 +9,7 @@ import {
   type AgentActorInfo,
 } from '@/app/workspace/[workspaceUrl]/components/comment-utils'
 import { CommentEditor } from '@/app/workspace/[workspaceUrl]/components/comments/CommentEditor'
+import { useFormatDate } from '@/app/workspace/[workspaceUrl]/hooks/useFormatDate'
 import { Button } from '@/components/ui/button'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -41,7 +43,9 @@ function Row({
   onDelete: (id: string) => void
 }) {
   const intl = useIntl()
+  const { fmtTimestamp } = useFormatDate()
   const [editing, setEditing] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const editRef = useRef<string | null>(null)
   const clearRef = useRef<(() => void) | null>(null)
@@ -50,6 +54,7 @@ function Row({
   const isAuthor =
     !isDeleted && !!currentActorId && c.authorActorId === currentActorId
   const memberProp = members.length ? { members } : {}
+
   return (
     <div className='py-1'>
       <div className='flex items-start gap-2'>
@@ -59,41 +64,48 @@ function Row({
           initials={author.initials}
           size='sm'
         />
-        {isDeleted ? (
-          <div className='text-sm italic text-muted-foreground'>
-            {intl.formatMessage({ id: 'document.commentDeleted' })}
+        <div className='min-w-0 flex-1'>
+          <div className='flex items-baseline gap-2'>
+            <span className='truncate text-xs font-semibold text-foreground'>
+              {author.name}
+            </span>
+            <span className='shrink-0 text-[11px] text-muted-foreground'>
+              {fmtTimestamp(c.createdAt)}
+            </span>
           </div>
-        ) : editing ? (
-          <div className='flex-1'>
-            <CommentEditor
-              onCommit={h => {
-                editRef.current = h
-              }}
-              onSubmit={() => {
-                const b = editRef.current?.trim()
-                if (b) {
-                  onEdit(c.id, b)
-                  setEditing(false)
-                }
-              }}
-              clearRef={clearRef}
-              {...memberProp}
+          {isDeleted ? (
+            <div className='mt-0.5 text-sm italic text-muted-foreground'>
+              {intl.formatMessage({ id: 'document.commentDeleted' })}
+            </div>
+          ) : editing ? (
+            <div className='mt-1'>
+              <CommentEditor
+                onCommit={h => {
+                  editRef.current = h
+                }}
+                onSubmit={() => {
+                  const b = editRef.current?.trim()
+                  if (b) {
+                    onEdit(c.id, b)
+                    setEditing(false)
+                  }
+                }}
+                clearRef={clearRef}
+                {...memberProp}
+              />
+            </div>
+          ) : (
+            <div
+              className='prose-sm mt-0.5 text-sm'
+              dangerouslySetInnerHTML={{ __html: c.body }}
             />
-          </div>
-        ) : (
-          <div
-            className='prose-sm text-sm'
-            dangerouslySetInnerHTML={{ __html: c.body }}
-          />
-        )}
-      </div>
-      {isAuthor && !editing && (
-        <div className='mt-0.5 flex gap-2 text-xs text-muted-foreground'>
-          {confirmingDelete ? (
-            <>
+          )}
+          {confirmingDelete && !editing && (
+            <div className='mt-1 flex items-center gap-3 text-xs'>
               <button
                 type='button'
                 data-testid={`confirm-delete-${c.id}`}
+                className='font-medium text-destructive'
                 onClick={() => onDelete(c.id)}
               >
                 {intl.formatMessage({ id: 'common.confirm' })}
@@ -101,31 +113,70 @@ function Row({
               <button
                 type='button'
                 data-testid={`cancel-delete-${c.id}`}
+                className='text-muted-foreground'
                 onClick={() => setConfirmingDelete(false)}
               >
                 {intl.formatMessage({ id: 'common.cancel' })}
               </button>
-            </>
-          ) : (
-            <>
-              <button
-                type='button'
-                data-testid={`edit-${c.id}`}
-                onClick={() => setEditing(true)}
-              >
-                {intl.formatMessage({ id: 'common.edit' })}
-              </button>
-              <button
-                type='button'
-                data-testid={`delete-${c.id}`}
-                onClick={() => setConfirmingDelete(true)}
-              >
-                {intl.formatMessage({ id: 'common.delete' })}
-              </button>
-            </>
+            </div>
           )}
         </div>
-      )}
+        {isAuthor && !editing && (
+          <div className='relative shrink-0'>
+            <button
+              type='button'
+              data-testid={`comment-menu-${c.id}`}
+              aria-label={intl.formatMessage({ id: 'common.moreActions' })}
+              onClick={() => setMenuOpen(o => !o)}
+              className='flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+            >
+              <MoreHorizontal className='size-4' />
+            </button>
+            {menuOpen && (
+              <>
+                <button
+                  type='button'
+                  aria-hidden='true'
+                  tabIndex={-1}
+                  className='fixed inset-0 z-10 cursor-default'
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div
+                  role='menu'
+                  className='absolute right-0 z-20 mt-1 min-w-[7rem] overflow-hidden rounded-md border bg-popover py-1 shadow-md'
+                >
+                  <button
+                    type='button'
+                    role='menuitem'
+                    data-testid={`edit-${c.id}`}
+                    onClick={() => {
+                      setEditing(true)
+                      setMenuOpen(false)
+                    }}
+                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-popover-foreground hover:bg-accent'
+                  >
+                    <Pencil className='size-3.5' />
+                    {intl.formatMessage({ id: 'common.edit' })}
+                  </button>
+                  <button
+                    type='button'
+                    role='menuitem'
+                    data-testid={`delete-${c.id}`}
+                    onClick={() => {
+                      setConfirmingDelete(true)
+                      setMenuOpen(false)
+                    }}
+                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-destructive hover:bg-accent'
+                  >
+                    <Trash2 className='size-3.5' />
+                    {intl.formatMessage({ id: 'common.delete' })}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -150,12 +201,12 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
   return (
     <div
       data-comment-thread={thread.id}
-      className={`rounded-md border p-2 ${resolved ? 'opacity-60' : ''} ${props.active ? 'ring-1 ring-primary' : ''}`}
+      className={`rounded-md border p-2.5 ${resolved ? 'opacity-60' : ''} ${props.active ? 'ring-1 ring-primary' : ''}`}
     >
       <button
         type='button'
         onClick={() => props.onSelect(thread.id)}
-        className='mb-1 block w-full text-left'
+        className='mb-1.5 block w-full text-left'
       >
         {thread.isOrphaned ? (
           <div className='text-xs italic text-muted-foreground'>
@@ -178,7 +229,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
       />
 
       {(thread.replies ?? []).map(rep => (
-        <div key={rep.id} className='ml-4 border-l pl-2'>
+        <div key={rep.id} className='ml-3 border-l pl-2'>
           <Row
             c={rep}
             members={props.members}
@@ -190,12 +241,12 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
         </div>
       ))}
 
-      <div className='mt-1 flex items-center gap-2 text-xs'>
+      <div className='mt-2 flex items-center gap-3 border-t pt-2 text-xs'>
         <button
           type='button'
           data-testid='reply-btn'
           onClick={() => setReplying(v => !v)}
-          className='text-muted-foreground'
+          className='text-muted-foreground transition-colors hover:text-foreground'
         >
           {intl.formatMessage({ id: 'document.reply' })}
         </button>
@@ -205,8 +256,9 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
           onClick={() =>
             props.onSetStatus(thread.id, resolved ? 'OPEN' : 'RESOLVED')
           }
-          className='text-muted-foreground'
+          className='ml-auto inline-flex items-center gap-1 rounded-md border px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-accent'
         >
+          <Check className='size-3.5' />
           {intl.formatMessage({
             id: resolved ? 'document.reopen' : 'document.resolve',
           })}
@@ -214,7 +266,7 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
       </div>
 
       {replying && (
-        <div className='mt-1'>
+        <div className='mt-2'>
           <CommentEditor
             onCommit={h => {
               replyRef.current = h

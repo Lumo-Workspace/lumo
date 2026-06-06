@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "元のテキストが削除されました",
   "document.commentDeleted": "[削除済み]",
   "document.showResolved": "解決済みを表示",
-  "document.outline": "アウトライン"
+  "document.outline": "アウトライン",
+  "common.moreActions": "その他の操作"
 }

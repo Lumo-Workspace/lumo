@@ -1374,5 +1374,6 @@
   "document.commentOrphaned": "Văn bản gốc đã bị xóa",
   "document.commentDeleted": "[Đã xóa]",
   "document.showResolved": "Hiện mục đã giải quyết",
-  "document.outline": "Dàn ý"
+  "document.outline": "Dàn ý",
+  "common.moreActions": "Thao tác khác"
 }
