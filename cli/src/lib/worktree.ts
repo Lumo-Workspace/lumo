@@ -104,10 +104,19 @@ export function runGit(
   args: string[],
   cwd?: string
 ): SpawnSyncReturns<string> {
-  return spawnSync('git', args, { cwd, encoding: 'utf8' })
+  // 120s is a safety net against a genuine hang (e.g. an index.lock deadlock),
+  // NOT a tight bound: this wrapper runs legitimately-slow ops like `git fetch`
+  // and `git worktree add`, which must not be killed prematurely. On timeout
+  // spawnSync populates `r.error`, which gitOutput already rethrows.
+  return spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 120_000 })
 }
 
-/** Run git and return trimmed stdout; throw with stderr on failure. */
+/**
+ * Run git and return trimmed stdout; THROWS with stderr on non-zero exit or
+ * spawn error. NOTE: unlike the same-named `gitOutput` in `cli/src/lib/git-task.ts`
+ * (which swallows failures and returns `''`), this one surfaces failures by
+ * throwing — callers must handle/expect the throw.
+ */
 export function gitOutput(args: string[], cwd?: string): string {
   const r = runGit(args, cwd)
   if (r.error) throw r.error

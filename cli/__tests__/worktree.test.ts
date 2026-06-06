@@ -41,6 +41,10 @@ describe('deriveBranchName / deriveWorktreeDirName', () => {
     expect(deriveWorktreeDirName('LUM-267')).toBe('LUM-267')
     expect(deriveBranchName('LUM-267', '')).toBe('lumo/LUM-267')
   })
+  it('falls back to the bare id when the slug slugifies to empty', () => {
+    expect(deriveBranchName('LUM-267', '///')).toBe('lumo/LUM-267')
+    expect(deriveWorktreeDirName('LUM-267', '///')).toBe('LUM-267')
+  })
 })
 
 import {
@@ -107,7 +111,13 @@ describe('findWorktreeByTaskId', () => {
 })
 
 import { spawnSync } from 'child_process'
-import { gitOutput, isMainCheckout } from '../src/lib/worktree'
+import {
+  gitOutput,
+  isMainCheckout,
+  getGitCommonDir,
+  runGit,
+  getRepoRoot,
+} from '../src/lib/worktree'
 
 jest.mock('child_process', () => ({ spawnSync: jest.fn() }))
 const mockSpawn = spawnSync as jest.MockedFunction<typeof spawnSync>
@@ -141,5 +151,32 @@ describe('isMainCheckout', () => {
       .mockReturnValueOnce({ status: 0, stdout: '/repo/.git/worktrees/LUM-1\n', stderr: '' } as never)
       .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never)
     expect(isMainCheckout()).toBe(false)
+  })
+})
+
+describe('getGitCommonDir', () => {
+  afterEach(() => mockSpawn.mockReset())
+
+  it('resolves a relative --git-common-dir against the cwd', () => {
+    mockSpawn.mockReturnValue({ status: 0, stdout: '.git\n', stderr: '' } as never)
+    expect(getGitCommonDir('/repo/sub')).toBe('/repo/sub/.git')
+  })
+})
+
+describe('runGit', () => {
+  afterEach(() => mockSpawn.mockReset())
+
+  it('returns the raw spawn result without throwing on non-zero status', () => {
+    mockSpawn.mockReturnValue({ status: 1, stdout: '', stderr: 'boom' } as never)
+    expect(runGit(['x']).status).toBe(1)
+  })
+})
+
+describe('getRepoRoot', () => {
+  afterEach(() => mockSpawn.mockReset())
+
+  it('returns the trimmed toplevel path', () => {
+    mockSpawn.mockReturnValue({ status: 0, stdout: '/repo\n', stderr: '' } as never)
+    expect(getRepoRoot()).toBe('/repo')
   })
 })
