@@ -1375,5 +1375,12 @@
   "document.outline": "Gliederung",
   "common.moreActions": "Weitere Aktionen",
   "milestone.detail.collapseSidebar": "Meilenstein-Details ausblenden",
-  "milestone.detail.expandSidebar": "Meilenstein-Details anzeigen"
+  "milestone.detail.expandSidebar": "Meilenstein-Details anzeigen",
+  "editor.slash.mermaid.title": "Mermaid-Diagramm",
+  "editor.slash.mermaid.description": "Diagramm aus Text",
+  "editor.mermaid.edit": "Bearbeiten",
+  "editor.mermaid.done": "Fertig",
+  "editor.mermaid.error": "Diagrammfehler",
+  "editor.mermaid.empty": "Leeres Diagramm – zum Bearbeiten klicken",
+  "editor.mermaid.sourceLabel": "Mermaid-Diagrammquelltext"
 }

@@ -218,9 +218,17 @@ const session = program
 session
   .command('attach <identifier>')
   .description(
-    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events.'
+    'Attach the currently-running Claude Code session (CLAUDE_CODE_SESSION_ID) to a task. Sets Session.taskId server-side and re-tags untagged hook events. If the session is already bound to a different task, confirms before overwriting (use --force to skip).'
   )
-  .action(wrap(identifier => sessionAttach(identifier as string)))
+  .option(
+    '--force',
+    'Overwrite an existing binding to a different task without confirmation (skips the [y/N] prompt).'
+  )
+  .action(
+    wrap((identifier, options) =>
+      sessionAttach(identifier as string, options as { force?: boolean })
+    )
+  )
 
 session
   .command('status')

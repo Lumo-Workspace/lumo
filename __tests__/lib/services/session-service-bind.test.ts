@@ -4,6 +4,7 @@
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
+    findForMemberWithBinding: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
@@ -59,6 +60,8 @@ beforeEach(() => {
     ownedByOther: false,
     session: { id: 'sess_1', taskId: 'task_1' },
   } as never)
+  // Default: session has no current binding → no override conflict.
+  sessRepo.findForMemberWithBinding.mockResolvedValue(null as never)
   hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
   ;(taskContextService.buildMemorySectionForTask as jest.Mock).mockResolvedValue('')
   ;(taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock).mockResolvedValue(null)
@@ -87,6 +90,7 @@ describe('sessionService.bindSessionToTask', () => {
       'task_1'
     )
     expect(result).toEqual({
+      status: 'bound',
       taskId: 'task_1',
       taskIdentifier: 'LUM-42',
       taskTitle: 'Fix login bug',
@@ -105,6 +109,7 @@ describe('sessionService.bindSessionToTask', () => {
       sessionId: 'sess_1',
       taskIdentifier: 'LUM-42',
     })
+    if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.retaggedEventCount).toBe(0)
     // The upsert call is what makes attach-before-any-hook work — the
     // session row is created by attach itself, not by a hook event.
@@ -163,11 +168,78 @@ describe('sessionService.bindSessionToTask', () => {
       'task_1',
       'sess_1'
     )
+    if (result.status !== 'bound') throw new Error('expected bound result')
     expect(result.previousSession).toEqual({
       headline: 'prev headline',
       unresolved: ['carry over'],
       durationMs: 60_000,
       lastActivityAt: '2026-06-01T10:00:00.000Z',
     })
+  })
+
+  // LUM-266: refuse a silent overwrite of an existing binding.
+  const boundToOther = {
+    id: 'sess_1',
+    startedAt: new Date(),
+    lastActivityAt: new Date(),
+    eventCount: 0,
+    task: {
+      id: 'task_99',
+      number: 7,
+      title: 'Other task',
+      team: { identifier: 'LUM' },
+    },
+  }
+
+  it('returns already-bound without overwriting when bound to a different task and force is unset', async () => {
+    sessRepo.findForMemberWithBinding.mockResolvedValue(boundToOther as never)
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+
+    expect(result).toEqual({
+      status: 'already-bound',
+      currentTaskIdentifier: 'LUM-7',
+      currentTaskTitle: 'Other task',
+    })
+    // The whole point: no write, no re-tag.
+    expect(sessRepo.upsertWithTaskId).not.toHaveBeenCalled()
+    expect(hookRepo.bulkSetTaskIdForNullEventsInSession).not.toHaveBeenCalled()
+  })
+
+  it('overwrites and returns bound when force is set, skipping the conflict read', async () => {
+    sessRepo.findForMemberWithBinding.mockResolvedValue(boundToOther as never)
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+      force: true,
+    })
+
+    if (result.status !== 'bound') throw new Error('expected bound result')
+    expect(result.taskIdentifier).toBe('LUM-42')
+    // force short-circuits the conflict check — no read, straight to upsert.
+    expect(sessRepo.findForMemberWithBinding).not.toHaveBeenCalled()
+    expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
+  })
+
+  it('re-attaching to the same task is not a conflict (idempotent, no prompt)', async () => {
+    sessRepo.findForMemberWithBinding.mockResolvedValue({
+      ...boundToOther,
+      task: { ...boundToOther.task, id: 'task_1', number: 42 },
+    } as never)
+
+    const result = await sessionService.bindSessionToTask({
+      identity,
+      sessionId: 'sess_1',
+      taskIdentifier: 'LUM-42',
+    })
+
+    expect(result.status).toBe('bound')
+    expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
   })
 })

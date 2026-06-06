@@ -1375,5 +1375,12 @@
   "document.outline": "Структура",
   "common.moreActions": "Дополнительные действия",
   "milestone.detail.collapseSidebar": "Скрыть детали вехи",
-  "milestone.detail.expandSidebar": "Показать детали вехи"
+  "milestone.detail.expandSidebar": "Показать детали вехи",
+  "editor.slash.mermaid.title": "Диаграмма Mermaid",
+  "editor.slash.mermaid.description": "Диаграмма из текста",
+  "editor.mermaid.edit": "Изменить",
+  "editor.mermaid.done": "Готово",
+  "editor.mermaid.error": "Ошибка диаграммы",
+  "editor.mermaid.empty": "Пустая диаграмма — нажмите, чтобы изменить",
+  "editor.mermaid.sourceLabel": "Исходный код диаграммы Mermaid"
 }
