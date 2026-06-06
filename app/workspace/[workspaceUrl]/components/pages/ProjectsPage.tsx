@@ -70,11 +70,14 @@ interface ProjectsPageProps {
   onBulkDelete: (projectIds: string[]) => Promise<void> | void
 }
 
+// Status dot colors come from the semantic --status-* tokens (single source of
+// truth, shared with <StatusIcon>); the tokens carry their own light/dark
+// values, so no per-class dark: variant is needed.
 const STATUS_DOT_CLS = {
-  TODO: 'bg-zinc-300 dark:bg-zinc-600',
-  IN_PROGRESS: 'bg-blue-500',
-  IN_REVIEW: 'bg-purple-500',
-  DONE: 'bg-green-500',
+  TODO: 'bg-status-todo',
+  IN_PROGRESS: 'bg-status-in-progress',
+  IN_REVIEW: 'bg-status-in-review',
+  DONE: 'bg-status-done',
 } as const
 
 function StatusCell({

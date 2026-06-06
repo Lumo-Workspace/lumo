@@ -525,14 +525,16 @@ html {
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #2563eb;
 
-  /* Semantic task-status colors — Lumo brand palette.
-     Same hex in :root and .dark; chosen for legibility against both
-     backgrounds. Used by .mention-task chips, <StatusIcon>, and any
-     future status indicator (e.g. board column headers). */
-  --status-todo: #d1d5dc; /* brand neutral */
-  --status-in-progress: #2b7fff; /* brand blue */
-  --status-in-review: #bf2bff; /* brand magenta */
-  --status-done: #41b40f; /* brand green */
+  /* Semantic task-status colors — single source of truth for .mention-task
+     chips, <StatusIcon>, status dots/chips, and any future status indicator.
+     Tuned per mode to clear the WCAG 3:1 graphics threshold (these render as
+     small dots/strokes). Light values are darkened for todo (#d1d5dc was
+     ~1.5:1 on white) and done (#41b40f was ~2.7:1); blue/magenta already pass.
+     The bright .dark counterparts live in the .dark block below — keep both. */
+  --status-todo: #8a8f98; /* light: neutral grey, 3.3:1 on #fff */
+  --status-in-progress: #2b7fff; /* brand blue, 3.8:1 */
+  --status-in-review: #bf2bff; /* brand magenta, 4.2:1 */
+  --status-done: #16a34a; /* light: green, 3.3:1 on #fff */
 
   --font-inter: 'Inter', sans-serif;
   --font-source-code-pro: 'Source Code Pro', monospace;
@@ -567,12 +569,13 @@ html {
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #2563eb;
 
-  /* Status colors — brand palette (identical to :root). Keep these
-     in sync; if a value diverges, update both. */
-  --status-todo: #d1d5dc;
-  --status-in-progress: #2b7fff;
-  --status-in-review: #bf2bff;
-  --status-done: #41b40f;
+  /* Status colors — brand palette on the dark background (#0a0a0a). todo and
+     done keep their bright brand hex here (~13:1 / ~7:1); the darkened light
+     values in :root would be too dim on dark. blue/magenta are shared. */
+  --status-todo: #d1d5dc; /* dark: brand neutral, ~13:1 on #0a0a0a */
+  --status-in-progress: #2b7fff; /* shared, 5.3:1 */
+  --status-in-review: #bf2bff; /* shared, 4.7:1 */
+  --status-done: #41b40f; /* dark: brand green, ~7:1 on #0a0a0a */
 }
 
 @theme inline {
