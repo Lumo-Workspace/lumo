@@ -22,3 +22,39 @@ describe('radius tokens (LUM-261)', () => {
     expect(css).toMatch(/--radius-xl:\s*calc\(var\(--radius\)\s*\+\s*4px\);/)
   })
 })
+
+describe('elevation tokens (LUM-261)', () => {
+  const defs = (name: string) =>
+    [...css.matchAll(new RegExp(`--${name}:\\s*([^;]+);`, 'g'))].map((m) =>
+      (m[1] ?? '').trim()
+    )
+
+  it.each(['elevation-1', 'elevation-2', 'elevation-3'])(
+    '--%s is defined in both :root and .dark',
+    (name) => {
+      expect(defs(name).length).toBe(2)
+    }
+  )
+
+  it('dark elevations are stronger (higher max alpha) than light', () => {
+    const maxAlpha = (v: string) =>
+      Math.max(
+        ...[...v.matchAll(/rgb\(0 0 0 \/ ([\d.]+)\)/g)].map((m) =>
+          parseFloat(m[1] ?? '0')
+        )
+      )
+    for (const name of ['elevation-1', 'elevation-2', 'elevation-3']) {
+      const [light, dark] = defs(name)
+      expect(maxAlpha(dark ?? '')).toBeGreaterThan(maxAlpha(light ?? ''))
+    }
+  })
+
+  it.each(['1', '2', '3'])(
+    '@theme registers --shadow-elevation-%s -> utility',
+    (n) => {
+      expect(css).toMatch(
+        new RegExp(`--shadow-elevation-${n}:\\s*var\\(--elevation-${n}\\);`)
+      )
+    }
+  )
+})
