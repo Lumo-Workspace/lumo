@@ -28,7 +28,7 @@ export function CommentTimelineItem({
       />
       <div className='flex-1 min-w-0'>
         <div className='flex items-baseline gap-2 mb-1'>
-          <span className='text-xs font-semibold text-zinc-800 dark:text-zinc-200'>
+          <span className='text-caption font-semibold text-zinc-800 dark:text-zinc-200'>
             {ca.name}
           </span>
           <span className='text-[11px] text-zinc-400 dark:text-zinc-500'>

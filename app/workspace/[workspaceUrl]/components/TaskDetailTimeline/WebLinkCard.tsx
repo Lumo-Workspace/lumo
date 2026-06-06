@@ -82,7 +82,7 @@ export function WebLinkCard({
           )}
           <div className='flex-1 min-w-0'>
             <div className='flex items-start justify-between gap-1'>
-              <p className='text-sm font-medium text-zinc-800 dark:text-zinc-100 truncate'>
+              <p className='text-body-strong text-zinc-800 dark:text-zinc-100 truncate'>
                 {link.title}
               </p>
               <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
@@ -117,11 +117,11 @@ export function WebLinkCard({
               </div>
             </div>
             {(link.note ?? link.description) && (
-              <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2'>
+              <p className='mt-0.5 text-caption text-zinc-500 dark:text-zinc-400 line-clamp-2'>
                 {link.note ?? link.description}
               </p>
             )}
-            <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
               {link.domain}
               {now != null &&
                 ` · ${relativeAgo(new Date(link.createdAt), now)}`}
@@ -144,14 +144,14 @@ export function WebLinkCard({
           <div className='flex-1 min-w-0'>
             <div className='flex items-start justify-between gap-1'>
               <div className='min-w-0'>
-                <p className='text-xs font-medium text-zinc-600 dark:text-zinc-400'>
+                <p className='text-caption text-zinc-600 dark:text-zinc-400'>
                   {link.domain}
                 </p>
-                <p className='text-xs text-zinc-400 dark:text-zinc-500 truncate'>
+                <p className='text-caption text-zinc-400 dark:text-zinc-500 truncate'>
                   {link.url}
                 </p>
                 <p
-                  className={`mt-0.5 text-xs ${
+                  className={`mt-0.5 text-caption ${
                     link.loading
                       ? 'text-zinc-400 dark:text-zinc-500'
                       : 'text-amber-600 dark:text-amber-400'
@@ -201,7 +201,7 @@ export function WebLinkCard({
                 </div>
               )}
             </div>
-            <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
               {now != null ? relativeAgo(new Date(link.createdAt), now) : ''}
             </p>
           </div>

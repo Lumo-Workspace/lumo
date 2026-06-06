@@ -108,7 +108,7 @@ export function DocumentsSection({
         {intl.formatMessage({ id: 'taskArtifact.docsRefOnly' })}
       </p>
       {sorted.length === 0 ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'task.context.documents.empty',
             defaultMessage: 'No documents mention this task',
@@ -117,7 +117,7 @@ export function DocumentsSection({
       ) : (
         <ul className='space-y-1.5'>
           {sorted.map(doc => (
-            <li key={doc.id} className='group flex items-center gap-2 text-xs'>
+            <li key={doc.id} className='group flex items-center gap-2 text-caption'>
               {doc.emoji ? (
                 <span>{doc.emoji}</span>
               ) : (

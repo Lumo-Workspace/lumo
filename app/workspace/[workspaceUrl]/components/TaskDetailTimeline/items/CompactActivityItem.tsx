@@ -398,7 +398,7 @@ export function CompactActivityItem({
   )
 
   return (
-    <div className='flex gap-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400'>
+    <div className='flex gap-2.5 py-2 text-caption text-zinc-500 dark:text-zinc-400'>
       <CommentAvatar
         isAgent={actor.isAgent}
         imageUrl={actor.imageUrl}

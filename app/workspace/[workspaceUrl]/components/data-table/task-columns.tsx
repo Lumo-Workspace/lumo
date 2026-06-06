@@ -57,7 +57,7 @@ import { type ColumnId, orderColumns, COLUMN_GRID_WIDTH } from './columnTemplate
 
 // ─── Ghost trigger style for inline pickers ───────────────────────────────────
 const GHOST_TRIGGER =
-  'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-xs'
+  'h-7 px-2 border-0 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none text-caption'
 
 // ─── Update patch type ────────────────────────────────────────────────────────
 export type TaskPatch = Partial<{
@@ -166,7 +166,7 @@ function TitleCell({
             cancel()
           }
         }}
-        className='w-full text-sm font-medium bg-transparent border-0 outline-none focus:ring-0'
+        className='w-full text-body-strong bg-transparent border-0 outline-none focus:ring-0'
         onClick={e => e.stopPropagation()}
       />
     )
@@ -458,7 +458,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
               <span className='size-4 shrink-0' />
             )}
             {task.number ? (
-              <span className='text-xs font-mono text-muted-foreground'>
+              <span className='text-caption font-mono text-muted-foreground'>
                 {task.teamIdentifier}-{task.number}
               </span>
             ) : (
@@ -539,7 +539,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
             />
           )
         }
-        return <span className='text-xs text-muted-foreground'>{task.project?.name ?? '—'}</span>
+        return <span className='text-caption text-muted-foreground'>{task.project?.name ?? '—'}</span>
       },
     },
 
@@ -584,7 +584,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
         }
         return (
           <div className='flex items-center gap-2 text-muted-foreground'>
-            <span className='text-xs'>
+            <span className='text-caption'>
               {API_STATUS_LABEL[task.status] ?? task.status}
             </span>
           </div>
@@ -631,7 +631,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
           )
         }
         return (
-          <span className='text-xs text-muted-foreground'>{task.priority}</span>
+          <span className='text-caption text-muted-foreground'>{task.priority}</span>
         )
       },
     },
@@ -676,7 +676,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
               onChange={v => updateTask(task.id, { dueDate: v })}
               triggerClassName={cn(
                 GHOST_TRIGGER,
-                'text-xs',
+                'text-caption',
                 !dueDate && 'text-muted-foreground',
                 dueDate && isOverdue(dueDate) && 'text-red-500 font-medium'
               )}
@@ -684,12 +684,12 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
           )
         }
         if (!dueDate) {
-          return <span className='text-xs text-muted-foreground'>—</span>
+          return <span className='text-caption text-muted-foreground'>—</span>
         }
         return (
           <span
             className={cn(
-              'text-xs',
+              'text-caption',
               isOverdue(dueDate)
                 ? 'text-red-500 font-medium'
                 : 'text-muted-foreground'
@@ -737,9 +737,9 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
           ? memberByActorId.get(assigneeActorId)
           : null
         return member ? (
-          <span className='text-xs text-muted-foreground'>{member.name}</span>
+          <span className='text-caption text-muted-foreground'>{member.name}</span>
         ) : (
-          <span className='text-xs text-muted-foreground'>—</span>
+          <span className='text-caption text-muted-foreground'>—</span>
         )
       },
     },
@@ -769,7 +769,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
         />
       ),
       cell: ({ row }) => (
-        <span className='text-xs text-muted-foreground whitespace-nowrap'>
+        <span className='text-caption text-muted-foreground whitespace-nowrap'>
           {formatTimestamp(row.original.updatedAt, timeLocale, timeMessages)}
         </span>
       ),

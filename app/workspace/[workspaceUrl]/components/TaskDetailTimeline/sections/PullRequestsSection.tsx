@@ -52,7 +52,7 @@ export function PullRequestsSection({
       addSlot={addSlot}
     >
       {pullRequests.length === 0 ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({ id: 'task.noPullRequests' })}
         </div>
       ) : (
@@ -65,7 +65,7 @@ export function PullRequestsSection({
                   href={pr.url}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-xs text-zinc-700 dark:text-zinc-300 hover:underline font-medium leading-snug block'
+                  className='text-caption text-zinc-700 dark:text-zinc-300 hover:underline leading-snug block'
                 >
                   #{pr.number} {pr.title}
                 </a>

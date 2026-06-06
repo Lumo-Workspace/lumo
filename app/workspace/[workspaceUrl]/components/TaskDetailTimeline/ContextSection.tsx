@@ -43,12 +43,12 @@ export function ContextSection({
         className='flex items-center pr-2 cursor-pointer'
         onClick={handleRowClick}
       >
-        <AccordionTrigger className='flex-1 cursor-pointer px-3 py-2 text-sm hover:no-underline'>
+        <AccordionTrigger className='flex-1 cursor-pointer px-3 py-2 text-body hover:no-underline'>
           <span className='flex items-center gap-2'>
             {icon}
             <span className='font-medium'>{label}</span>
             <span
-              className='text-xs text-zinc-500 tabular-nums'
+              className='text-caption text-zinc-500 tabular-nums'
               aria-label={`${count} items`}
             >
               {count}

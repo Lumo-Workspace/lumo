@@ -48,14 +48,14 @@ export function SlackContextSection({
       addSlot={addSlot}
     >
       {!slackConnected ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'slackContext.notConnected.title',
             defaultMessage: 'Slack not connected',
           })}
         </div>
       ) : contexts.length === 0 ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'slackContext.empty.noContexts',
             defaultMessage: 'No Slack messages',

@@ -37,14 +37,14 @@ export function FigmaSection({ taskId }: Props): React.ReactElement {
       addSlot={addSlot}
     >
       {loading ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'common.loading',
             defaultMessage: 'Loading…',
           })}
         </div>
       ) : figmaLinks.length === 0 ? (
-        <div className='py-4 text-xs text-zinc-400 dark:text-zinc-500 text-center'>
+        <div className='py-4 text-caption text-zinc-400 dark:text-zinc-500 text-center'>
           {intl.formatMessage({
             id: 'task.figma.empty',
             defaultMessage: 'No Figma designs',
