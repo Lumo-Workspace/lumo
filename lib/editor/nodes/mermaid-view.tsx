@@ -32,7 +32,8 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
   useEffect(() => {
     if (editing || source.trim() === '') return
     let cancelled = false
-    void renderMermaid(domId, source, theme).then(result => {
+    ;(async () => {
+      const result = await renderMermaid(domId, source, theme)
       if (cancelled) return
       if (result.ok) {
         setSvg(result.svg)
@@ -41,11 +42,17 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
         setSvg(null)
         setError(result.error)
       }
-    })
+    })()
     return () => {
       cancelled = true
     }
   }, [source, theme, editing, domId])
+
+  // Keep the draft in sync if the source changes externally (undo, collab)
+  // while not actively editing.
+  useEffect(() => {
+    if (!editing) setDraft(source)
+  }, [source, editing])
 
   function openEditor() {
     if (!editor.isEditable) return
@@ -67,8 +74,8 @@ export function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
             value={draft}
             autoFocus
             aria-label={intl.formatMessage({
-              id: 'editor.mermaid.edit',
-              defaultMessage: 'Edit',
+              id: 'editor.mermaid.sourceLabel',
+              defaultMessage: 'Mermaid diagram source',
             })}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}

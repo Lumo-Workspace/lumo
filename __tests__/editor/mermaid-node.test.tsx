@@ -57,4 +57,25 @@ describe('Mermaid node', () => {
     )
     expect(container.textContent).toContain('Parse error on line 1')
   })
+
+  it('renders the empty-state placeholder for blank source', async () => {
+    const { container } = render(
+      <RichTextViewer value='<pre data-type="mermaid"><code></code></pre>' />
+    )
+    await waitFor(() =>
+      expect(container.querySelector('.mermaid-empty')).not.toBeNull()
+    )
+    // renderMermaid is never called for empty source.
+    expect(renderMermaid).not.toHaveBeenCalled()
+  })
+
+  it('does not show an Edit button in the read-only viewer error state', async () => {
+    renderMermaid.mockResolvedValue({ ok: false, error: 'bad syntax' })
+    const { container } = render(<RichTextViewer value={STORED} />)
+    await waitFor(() =>
+      expect(container.querySelector('.mermaid-error')).not.toBeNull()
+    )
+    // RichTextViewer is not editable, so no Edit button is rendered.
+    expect(container.querySelector('.mermaid-edit-button')).toBeNull()
+  })
 })
