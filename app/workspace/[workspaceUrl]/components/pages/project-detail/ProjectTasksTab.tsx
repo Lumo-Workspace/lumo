@@ -26,6 +26,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { DataTable } from '../../data-table/data-table'
+import { buildColumnTemplate } from '../../data-table/columnTemplate'
 import { createTaskColumns, TaskPatch } from '../../data-table/task-columns'
 import { TaskSelectionBar } from '../../data-table/TaskSelectionBar'
 import { tasksClient } from '@/lib/api-client'
@@ -135,6 +136,26 @@ export function ProjectTasksTab({
   )
 
   // ─── Memoised columns ───────────────────────────────────────────────────────
+  const visibleColumns = useMemo(
+    () =>
+      [
+        'select',
+        'identifier',
+        'title',
+        'status',
+        'priority',
+        'dueDate',
+        'assignee',
+        'updatedAt',
+        'actions',
+      ] as const,
+    []
+  )
+  const columnTemplate = useMemo(
+    () => buildColumnTemplate([...visibleColumns]),
+    [visibleColumns]
+  )
+
   const taskColumns = useMemo(
     () =>
       createTaskColumns({
@@ -143,10 +164,10 @@ export function ProjectTasksTab({
         members,
         intl,
         updateTask,
-        visibleColumns: ['select','identifier','title','status','priority','dueDate','assignee','updatedAt','actions'],
+        visibleColumns: [...visibleColumns],
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onTaskClick, onDeleteTask, members, intl]
+    [onTaskClick, onDeleteTask, members, intl, visibleColumns]
   )
 
   // ─── Bulk actions ───────────────────────────────────────────────────────────
@@ -284,6 +305,7 @@ export function ProjectTasksTab({
             <DataTable
               columns={taskColumns}
               data={visibleTasks}
+              columnTemplate={columnTemplate}
               enableSelection
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
