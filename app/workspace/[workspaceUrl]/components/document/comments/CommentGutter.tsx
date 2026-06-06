@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/core'
 import type { ApiDocumentComment } from '@/app/workspace/[workspaceUrl]/hooks/useDocumentComments'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 import { DocumentCommentThread } from './DocumentCommentThread'
+import { CommentResolvedSection } from './CommentResolvedSection'
 import { useCommentGutterLayout } from './useCommentGutterLayout'
 
 export interface CommentGutterProps {
@@ -29,28 +30,41 @@ export function CommentGutter(props: CommentGutterProps) {
   )
 
   return (
-    <div className='relative w-full' style={{ height }}>
-      {open.map(c => (
-        <div
-          key={c.id}
-          data-testid={`gutter-pos-${c.id}`}
-          className='absolute left-0 right-0'
-          style={{ top: tops[c.id] ?? 0 }}
-        >
-          <DocumentCommentThread
-            thread={c}
-            members={props.members}
-            agentActors={[]}
-            currentActorId={props.currentActorId}
-            onReply={props.onReply}
-            onEdit={props.onEdit}
-            onDelete={props.onDelete}
-            onSetStatus={props.onSetStatus}
-            onSelect={props.onSelectThread}
-            active={props.activeCommentId === c.id}
-          />
-        </div>
-      ))}
+    <div className='w-full'>
+      <div className='relative w-full' style={{ height }}>
+        {open.map(c => (
+          <div
+            key={c.id}
+            data-testid={`gutter-pos-${c.id}`}
+            className='absolute left-0 right-0'
+            style={{ top: tops[c.id] ?? 0 }}
+          >
+            <DocumentCommentThread
+              thread={c}
+              members={props.members}
+              agentActors={[]}
+              currentActorId={props.currentActorId}
+              onReply={props.onReply}
+              onEdit={props.onEdit}
+              onDelete={props.onDelete}
+              onSetStatus={props.onSetStatus}
+              onSelect={props.onSelectThread}
+              active={props.activeCommentId === c.id}
+            />
+          </div>
+        ))}
+      </div>
+      <CommentResolvedSection
+        comments={props.comments}
+        members={props.members}
+        currentActorId={props.currentActorId}
+        activeCommentId={props.activeCommentId}
+        onReply={props.onReply}
+        onEdit={props.onEdit}
+        onDelete={props.onDelete}
+        onSetStatus={props.onSetStatus}
+        onSelectThread={props.onSelectThread}
+      />
     </div>
   )
 }

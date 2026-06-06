@@ -96,12 +96,20 @@ it('lists OPEN threads and hides RESOLVED when open', () => {
   expect(screen.queryByTestId('thread-c2')).not.toBeInTheDocument()
 })
 
-it('shows the empty state when there are no OPEN comments', () => {
+it('shows the empty state only when there are no comments at all', () => {
+  render(<CommentSheet {...baseProps} open comments={[]} />)
+  expect(screen.getByText('document.noComments')).toBeInTheDocument()
+  expect(screen.queryByTestId(/^thread-/)).not.toBeInTheDocument()
+})
+
+it('offers the resolved section (not the empty state) when only resolved exist', () => {
   render(
     <CommentSheet {...baseProps} open comments={[comment('c1', 'RESOLVED')]} />
   )
-  expect(screen.getByText('document.noComments')).toBeInTheDocument()
-  expect(screen.queryByTestId(/^thread-/)).not.toBeInTheDocument()
+  expect(screen.queryByText('document.noComments')).not.toBeInTheDocument()
+  expect(screen.getByTestId('resolved-section-toggle')).toBeInTheDocument()
+  // Collapsed by default — the resolved thread is not rendered yet.
+  expect(screen.queryByTestId('thread-c1')).not.toBeInTheDocument()
 })
 
 it('marks the active thread', () => {
