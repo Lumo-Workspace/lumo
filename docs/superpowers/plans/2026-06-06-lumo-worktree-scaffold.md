@@ -664,8 +664,8 @@ export async function worktreeAdd(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd cli && npx jest __tests__/worktree-add.test.ts`
-Expected: PASS (5 tests).
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx jest cli/__tests__/worktree-add.test.ts`
+Expected: PASS (5 tests). (Run jest from the worktree ROOT, not `cd cli` — `cli/` has no jest config; the root next/jest+SWC config is the one that transpiles TS.)
 
 - [ ] **Step 5: Register the command in `cli/src/index.ts`**
 
@@ -722,8 +722,8 @@ worktree
 
 - [ ] **Step 6: Verify it compiles and the command is wired**
 
-Run: `cd cli && npx tsc --noEmit && node -e "require('child_process').execSync('npx tsx src/index.ts worktree add --help', {stdio:'inherit'})" 2>/dev/null || npx tsc --noEmit`
-Expected: tsc clean. (If tsx is unavailable, the `tsc --noEmit` pass is the gate.)
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx tsc --noEmit`
+Expected: tsc clean for the files you touched (`cli/src/commands/worktree-add.ts`, `cli/src/index.ts`). tsc checks the whole repo; ignore unrelated errors from parallel work / a stale prisma client.
 
 - [ ] **Step 7: Commit**
 
@@ -951,8 +951,8 @@ export async function worktreeRm(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd cli && npx jest __tests__/worktree-rm.test.ts`
-Expected: PASS (5 tests).
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx jest cli/__tests__/worktree-rm.test.ts`
+Expected: PASS (5 tests). (Run jest from the worktree ROOT, not `cd cli`.)
 
 - [ ] **Step 5: Register in `cli/src/index.ts`**
 
@@ -979,8 +979,8 @@ worktree
 
 - [ ] **Step 6: Verify compiles**
 
-Run: `cd cli && npx tsc --noEmit`
-Expected: clean.
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx tsc --noEmit`
+Expected: clean for the files you touched (ignore unrelated whole-repo errors).
 
 - [ ] **Step 7: Commit**
 
@@ -1132,8 +1132,8 @@ export async function worktreeList(): Promise<number> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd cli && npx jest __tests__/worktree-list.test.ts`
-Expected: PASS (2 tests).
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx jest cli/__tests__/worktree-list.test.ts`
+Expected: PASS (2 tests). (Run jest from the worktree ROOT, not `cd cli`.)
 
 - [ ] **Step 5: Register in `cli/src/index.ts`**
 
@@ -1150,8 +1150,8 @@ worktree
 
 - [ ] **Step 6: Verify compiles + full CLI test suite green**
 
-Run: `cd cli && npx tsc --noEmit && npx jest`
-Expected: tsc clean; all jest suites pass (including the three new worktree suites).
+Run: `cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267 && npx tsc --noEmit && npx jest cli/__tests__/worktree.test.ts cli/__tests__/worktree-add.test.ts cli/__tests__/worktree-rm.test.ts cli/__tests__/worktree-list.test.ts`
+Expected: tsc clean (for touched files); all four worktree jest suites pass. (Run jest from the worktree ROOT.)
 
 - [ ] **Step 7: Commit**
 
@@ -1296,10 +1296,11 @@ the duration of the check:
 Run:
 ```bash
 cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-267
-npx prisma generate && npx tsc --noEmit && (cd cli && npx jest)
+npx prisma generate && npx tsc --noEmit && npx jest cli/__tests__/worktree.test.ts cli/__tests__/worktree-add.test.ts cli/__tests__/worktree-rm.test.ts cli/__tests__/worktree-list.test.ts
 ```
-Expected: prisma generate succeeds; root `tsc --noEmit` clean; all CLI jest
-suites pass. If `tsc` reports columns from another branch, a parallel worktree
+Expected: prisma generate succeeds; root `tsc --noEmit` clean; all four worktree
+jest suites pass. Run jest from the worktree ROOT (not `cd cli` — `cli/` has no
+jest config). If `tsc` reports columns from another branch, a parallel worktree
 re-ran `prisma generate` — re-run this atomic block.
 
 - [ ] **Step 3: Confirm no console.log lint / forbidden patterns**
