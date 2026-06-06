@@ -1,3 +1,4 @@
+import '@/lib/editor/marks/comment-mark'
 import type { Editor } from '@tiptap/core'
 
 const ACTIVE_CLASS = 'comment-highlight--active'
@@ -60,6 +61,30 @@ export function setResolvedEditorAnchors(
     const id = span.getAttribute('data-comment-id')
     span.classList.toggle(RESOLVED_CLASS, !!id && resolved.has(id))
   })
+}
+
+/**
+ * Delete a comment, then drop its inline mark from the live editor — the
+ * delete-path twin of setResolvedEditorAnchors. The server strips the anchor
+ * span from stored content on a successful delete, but the open ProseMirror
+ * instance keeps the mark until it remounts, so the body highlight would linger.
+ *
+ * Two deliberate choices:
+ * - Unlike resolve (a reversible class toggle), a delete is permanent, so we
+ *   remove the mark from the document model via editor.commands.unsetComment. A
+ *   pure DOM unwrap would desync ProseMirror state and the span would reappear.
+ * - We strip ONLY after the server confirms the delete (the await rejects
+ *   otherwise). unsetComment dispatches a transaction that persists a content
+ *   save; stripping optimistically would orphan a still-live comment if the
+ *   delete then failed.
+ */
+export async function deleteCommentAndStripAnchor(
+  editor: Editor | null,
+  commentId: string,
+  deleteComment: (commentId: string) => Promise<void>
+): Promise<void> {
+  await deleteComment(commentId)
+  editor?.commands.unsetComment(commentId)
 }
 
 /** Briefly flash the given comment's spans (mirrors the task-comment 1.5s flash). */
