@@ -1,16 +1,12 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import type { RowSelectionState } from '@tanstack/react-table'
 import { DataTable } from '../data-table/data-table'
 import { createTaskColumns, type TaskPatch } from '../data-table/task-columns'
 import { buildColumnTemplate, type ColumnId } from '../data-table/columnTemplate'
-import { TaskListToolbar } from './TaskListToolbar'
 import type { ApiTask, ApiProject, WorkspaceMemberInfo } from '../../types'
-import type { CompletedFilter } from '../../utils/filterCompletedTasks'
-import type { TaskOrdering } from '../../utils/sortTasks'
 
 interface TreeConfig {
   getParentId: (t: ApiTask) => string | null
@@ -21,29 +17,28 @@ interface TreeConfig {
 interface Props {
   tasks: ApiTask[]
   members: WorkspaceMemberInfo[]
+  /** Required when `visibleColumns` includes 'project' (feeds ProjectSelect). */
   projects?: ApiProject[]
   visibleColumns: ColumnId[]
+  /** Must be a stable reference (useCallback) — it's a dependency of the columns memo. */
   updateTask: (id: string, patch: TaskPatch) => Promise<void> | void
+  /** Must be a stable reference (useCallback). */
   onTaskClick: (task: ApiTask) => void
+  /** Must be a stable reference (useCallback). */
   onDeleteTask: (taskId: string) => Promise<void>
   rowSelection: RowSelectionState
   onRowSelectionChange: (s: RowSelectionState) => void
+  /** Project-tasks only — enables the subtask expand/collapse tree. */
   treeConfig?: TreeConfig
-  completedFilter: CompletedFilter
-  onCompletedFilterChange: (v: CompletedFilter) => void
-  ordering: TaskOrdering
-  onOrderingChange: (v: TaskOrdering) => void
-  showSubtasks: boolean
-  onShowSubtasksChange: (v: boolean) => void
-  viewMode: 'list' | 'board'
-  onViewModeChange: (m: 'list' | 'board') => void
-  leftSlot?: ReactNode
-  sidebarCollapsed?: boolean
-  onToggleSidebar?: () => void
-  /** Rendered between toolbar and table when selection is non-empty (BulkActionBar). */
-  selectionBar?: ReactNode
+  emptyLabel?: string
 }
 
+/**
+ * Unified task-list table: builds the column set + grid template from
+ * `visibleColumns` and renders the virtualized {@link DataTable}. Pages own
+ * their own toolbar ({@link TaskListToolbar}) and bulk-action overlay, and
+ * place this inside their async/content region.
+ */
 export function TaskListView(props: Props) {
   const intl = useIntl()
 
@@ -76,21 +71,6 @@ export function TaskListView(props: Props) {
 
   return (
     <div className='flex flex-col flex-1 min-h-0'>
-      <TaskListToolbar
-        completedFilter={props.completedFilter}
-        onCompletedFilterChange={props.onCompletedFilterChange}
-        ordering={props.ordering}
-        onOrderingChange={props.onOrderingChange}
-        showSubtasks={props.showSubtasks}
-        onShowSubtasksChange={props.onShowSubtasksChange}
-        viewMode={props.viewMode}
-        onViewModeChange={props.onViewModeChange}
-        leftSlot={props.leftSlot}
-        {...(props.onToggleSidebar
-          ? { sidebarCollapsed: props.sidebarCollapsed, onToggleSidebar: props.onToggleSidebar }
-          : {})}
-      />
-      {props.selectionBar}
       <DataTable
         columns={columns}
         data={props.tasks}
@@ -101,6 +81,7 @@ export function TaskListView(props: Props) {
         onRowSelectionChange={props.onRowSelectionChange}
         getRowId={(row: ApiTask) => row.id}
         {...(props.treeConfig ? { treeConfig: props.treeConfig } : {})}
+        {...(props.emptyLabel ? { emptyLabel: props.emptyLabel } : {})}
       />
     </div>
   )
