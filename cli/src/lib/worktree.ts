@@ -96,3 +96,44 @@ export function findWorktreeByTaskId(
     }) ?? null
   )
 }
+
+import { spawnSync, type SpawnSyncReturns } from 'child_process'
+
+/** Low-level git runner — returns the raw spawn result, never throws on exit. */
+export function runGit(
+  args: string[],
+  cwd?: string
+): SpawnSyncReturns<string> {
+  return spawnSync('git', args, { cwd, encoding: 'utf8' })
+}
+
+/** Run git and return trimmed stdout; throw with stderr on failure. */
+export function gitOutput(args: string[], cwd?: string): string {
+  const r = runGit(args, cwd)
+  if (r.error) throw r.error
+  if (r.status !== 0) {
+    throw new Error((r.stderr || '').trim() || `git ${args.join(' ')} failed`)
+  }
+  return (r.stdout ?? '').trim()
+}
+
+/** Absolute path to the worktree-local `.git` (file or dir). */
+export function getGitDir(cwd?: string): string {
+  return gitOutput(['rev-parse', '--absolute-git-dir'], cwd)
+}
+
+/** Absolute path to the shared `.git` (same as git-dir in the main checkout). */
+export function getGitCommonDir(cwd?: string): string {
+  const common = gitOutput(['rev-parse', '--git-common-dir'], cwd)
+  return path.resolve(cwd ?? process.cwd(), common)
+}
+
+/** True only in the main checkout (git-dir === common-dir). */
+export function isMainCheckout(cwd?: string): boolean {
+  return getGitDir(cwd) === getGitCommonDir(cwd)
+}
+
+/** Absolute repo root of the current working tree. */
+export function getRepoRoot(cwd?: string): string {
+  return gitOutput(['rev-parse', '--show-toplevel'], cwd)
+}

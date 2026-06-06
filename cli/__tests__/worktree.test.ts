@@ -73,15 +73,15 @@ describe('parseWorktreePorcelain', () => {
       head: 'aaaa1111',
       branch: 'lumo/LUM-261-radius',
     })
-    expect(entries[1].branch).toBe('lumo/LUM-256-mermaid-diagrams')
-    expect(entries[2].branch).toBeNull()
+    expect(entries[1]!.branch).toBe('lumo/LUM-256-mermaid-diagrams')
+    expect(entries[2]!.branch).toBeNull()
   })
   it('parses a final record with no trailing blank line', () => {
     const entries = parseWorktreePorcelain(
       'worktree /repo/main\nHEAD deadbeef\nbranch refs/heads/main'
     )
     expect(entries).toHaveLength(1)
-    expect(entries[0].branch).toBe('main')
+    expect(entries[0]!.branch).toBe('main')
   })
 })
 
@@ -103,5 +103,43 @@ describe('findWorktreeByTaskId', () => {
   })
   it('returns null when absent', () => {
     expect(findWorktreeByTaskId(entries, 'LUM-999')).toBeNull()
+  })
+})
+
+import { spawnSync } from 'child_process'
+import { gitOutput, isMainCheckout } from '../src/lib/worktree'
+
+jest.mock('child_process', () => ({ spawnSync: jest.fn() }))
+const mockSpawn = spawnSync as jest.MockedFunction<typeof spawnSync>
+
+describe('gitOutput', () => {
+  afterEach(() => mockSpawn.mockReset())
+
+  it('returns trimmed stdout on success', () => {
+    mockSpawn.mockReturnValue({ status: 0, stdout: '  hello\n', stderr: '' } as never)
+    expect(gitOutput(['rev-parse', 'HEAD'])).toBe('hello')
+  })
+
+  it('throws with stderr on non-zero exit', () => {
+    mockSpawn.mockReturnValue({ status: 128, stdout: '', stderr: 'fatal: nope\n' } as never)
+    expect(() => gitOutput(['bad'])).toThrow('fatal: nope')
+  })
+})
+
+describe('isMainCheckout', () => {
+  afterEach(() => mockSpawn.mockReset())
+
+  it('true when git-dir equals common-dir', () => {
+    mockSpawn
+      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never) // --absolute-git-dir
+      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never) // --git-common-dir
+    expect(isMainCheckout()).toBe(true)
+  })
+
+  it('false inside a linked worktree', () => {
+    mockSpawn
+      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git/worktrees/LUM-1\n', stderr: '' } as never)
+      .mockReturnValueOnce({ status: 0, stdout: '/repo/.git\n', stderr: '' } as never)
+    expect(isMainCheckout()).toBe(false)
   })
 })
