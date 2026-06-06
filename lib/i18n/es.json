@@ -1375,5 +1375,12 @@
   "document.outline": "Esquema",
   "common.moreActions": "Más acciones",
   "milestone.detail.collapseSidebar": "Ocultar detalles del hito",
-  "milestone.detail.expandSidebar": "Mostrar detalles del hito"
+  "milestone.detail.expandSidebar": "Mostrar detalles del hito",
+  "editor.slash.mermaid.title": "Diagrama Mermaid",
+  "editor.slash.mermaid.description": "Diagrama a partir de texto",
+  "editor.mermaid.edit": "Editar",
+  "editor.mermaid.done": "Listo",
+  "editor.mermaid.error": "Error del diagrama",
+  "editor.mermaid.empty": "Diagrama vacío: haz clic para editar",
+  "editor.mermaid.sourceLabel": "Código del diagrama Mermaid"
 }

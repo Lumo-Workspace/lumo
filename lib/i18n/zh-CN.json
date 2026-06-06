@@ -1375,5 +1375,12 @@
   "document.showResolved": "显示已解决",
   "common.moreActions": "更多操作",
   "milestone.detail.collapseSidebar": "隐藏里程碑详情",
-  "milestone.detail.expandSidebar": "显示里程碑详情"
+  "milestone.detail.expandSidebar": "显示里程碑详情",
+  "editor.slash.mermaid.title": "Mermaid 图表",
+  "editor.slash.mermaid.description": "用文本生成图表",
+  "editor.mermaid.edit": "编辑",
+  "editor.mermaid.done": "完成",
+  "editor.mermaid.error": "图表错误",
+  "editor.mermaid.empty": "空图表 — 点击编辑",
+  "editor.mermaid.sourceLabel": "Mermaid 图表源码"
 }

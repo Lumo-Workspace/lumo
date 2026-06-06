@@ -57,6 +57,26 @@ describe('getSlashCommandItems', () => {
       }
     })
 
+    it('includes a localized Mermaid item in the advanced category', () => {
+      const mermaid = items.find(i => i.title === 'editor.slash.mermaid.title')
+      expect(mermaid).toBeDefined()
+      expect(mermaid?.description).toBe('editor.slash.mermaid.description')
+      expect(mermaid?.categoryKey).toBe('advanced')
+      expect(typeof mermaid?.command).toBe('function')
+    })
+
+    it('mermaid command calls editor.chain().focus().setMermaid().run()', () => {
+      const mermaid = items.find(i => i.title === 'editor.slash.mermaid.title')
+      expect(mermaid).toBeDefined()
+      const run = jest.fn()
+      const setMermaid = jest.fn(() => ({ run }))
+      const focus = jest.fn(() => ({ setMermaid }))
+      const chain = jest.fn(() => ({ focus }))
+      mermaid?.command({ chain } as never)
+      expect(setMermaid).toHaveBeenCalled()
+      expect(run).toHaveBeenCalled()
+    })
+
     it('category display label uses message id via t fn', () => {
       const text = items.find(i => i.title === 'editor.slash.text.title')
       expect(text?.category).toBe('editor.slash.category.basic')
@@ -86,6 +106,10 @@ describe('getSlashCommandItems', () => {
 
     it('Toggle uses English fallback', () => {
       expect(fallback.find(i => i.title === 'Toggle')).toBeDefined()
+    })
+
+    it('Mermaid Diagram uses English fallback', () => {
+      expect(fallback.find(i => i.title === 'Mermaid Diagram')).toBeDefined()
     })
 
     it('categories use English fallback', () => {

@@ -19,6 +19,7 @@ import { TaskLink } from './marks/task-link'
 import { CommentMark } from './marks/comment-mark'
 import { CodeBlock } from './nodes/code-block'
 import { Callout } from './nodes/callout'
+import { Mermaid } from './nodes/mermaid'
 import { ToggleExtensions } from './nodes/toggle'
 import { TaskView } from './nodes/task-view'
 
@@ -50,6 +51,7 @@ export function getBaseExtensions(): Extensions {
     Highlight.configure({ multicolor: true }),
     Typography,
     Callout,
+    Mermaid,
     ...ToggleExtensions,
     TaskView,
     TaskLink,
