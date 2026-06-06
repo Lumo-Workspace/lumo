@@ -1,10 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import {
-  diffDocumentText,
-  htmlToPlainText,
-} from '@/lib/editor/revision-diff'
+import { diffDocumentText, htmlToPlainText } from '@/lib/editor/revision-diff'
 
 export type DiffMode = 'inline' | 'split'
 
@@ -20,8 +17,7 @@ export function RevisionDiffView({
   mode,
 }: RevisionDiffViewProps) {
   const segments = useMemo(
-    () =>
-      diffDocumentText(htmlToPlainText(oldHtml), htmlToPlainText(newHtml)),
+    () => diffDocumentText(htmlToPlainText(oldHtml), htmlToPlainText(newHtml)),
     [oldHtml, newHtml]
   )
 
@@ -30,12 +26,12 @@ export function RevisionDiffView({
       <div className='grid grid-cols-2 gap-4 text-sm'>
         <div
           data-testid='diff-old-pane'
-          className='prose prose-sm max-w-none rounded-md border border-border p-3'
+          className='prose prose-sm min-w-0 max-w-none break-words rounded-md border border-border p-3'
           dangerouslySetInnerHTML={{ __html: oldHtml ?? '' }}
         />
         <div
           data-testid='diff-new-pane'
-          className='prose prose-sm max-w-none rounded-md border border-border p-3'
+          className='prose prose-sm min-w-0 max-w-none break-words rounded-md border border-border p-3'
           dangerouslySetInnerHTML={{ __html: newHtml ?? '' }}
         />
       </div>
@@ -45,7 +41,7 @@ export function RevisionDiffView({
   return (
     <div
       data-testid='diff-inline'
-      className='whitespace-pre-wrap text-sm leading-relaxed'
+      className='whitespace-pre-wrap break-words text-sm leading-relaxed'
     >
       {segments.map((seg, i) => {
         if (seg.added) {
