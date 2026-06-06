@@ -10,7 +10,7 @@
 
 - **裸 `rounded`**(= Tailwind 内置默认 `0.25rem`,绕过 token)有 **130 处**,而它比 `rounded-sm`(`0.5rem`)还小 —— 档位倒挂、语义不清。
 - 圆角档位无"哪类元素用哪档"的规则;`landing.css` 另用 `--radius: 0.625rem` 分叉。
-- 阴影**完全没有 token / elevation 语义**(仅 landing 的 `--shadow-mockup`):全部直接用 Tailwind 内置 `shadow-xs`…`shadow-2xl`,凭感觉选;另有 **3 处硬编码 `shadow-[...]`**。
+- 阴影**完全没有 token / elevation 语义**(仅 landing 的 `--shadow-mockup`):全部直接用 Tailwind 内置 `shadow-xs`…`shadow-2xl`,凭感觉选;另有 **2 处硬编码 box-shadow `shadow-[...]`**(均在 `sidebar/menu.tsx:50`)。`components/landing/.../stats/default.tsx:58` 的 `drop-shadow-[2px_1px_24px_var(--brand-foreground)]` 是 **filter**(非 box-shadow)、已正确用 `var()`,不在收敛范围。
 
 阴影使用分布(app+components+lib):`shadow-lg`×22、`shadow-md`×16、`shadow-xs`×12、`shadow-sm`×12、裸 `shadow`×11、`shadow-xl`×6、`shadow-2xl`×4。
 
@@ -102,14 +102,13 @@
 - ❌ 硬编码 `shadow-[...]`。
 - ❌ Tailwind 内置 `shadow` / `shadow-xs` / `shadow-sm` / `shadow-md` / `shadow-lg` / `shadow-xl` / `shadow-2xl` —— 改用 `shadow-elevation-*`(`shadow-none` 允许)。
 
-实现注意:正则需精确匹配 class token 边界,避免误伤 `rounded-md`(对裸 `rounded`)、`shadow-elevation-1` 与 `shadow-none`(对裸 shadow 族)、`shadow-brand-glow`/`shadow-mockup`(landing token 工具类)。先跑 `lint:tokens:update` 重建 baseline 吸收存量,再确认核心组件改动不引入新增。
+实现注意:正则需精确匹配 class token 边界,避免误伤 `rounded-md`(对裸 `rounded`)、`shadow-elevation-1`/`shadow-none`/`shadow-mockup`(对裸 shadow 族)、以及 `drop-shadow-*`(filter,前缀有 `-`,用负向后顾 `(?<![-\w])` 排除)。`rounded-[..]` / `drop-shadow-[..]` 等带前缀或方向的 arbitrary 值不在禁用之列。先跑 `lint:tokens:update` 重建 baseline 吸收存量,再确认核心组件改动不引入新增。
 
 ### ⑥ 迁移范围(本 PR)
 
 - `components/ui/*` 核心原子组件改用新档位 + `shadow-elevation-*`:card / dialog / popover / dropdown-menu / sheet / button / input / badge / sidebar/menu / tooltip / command 等(凡含 radius/shadow 的原子组件)。
-- 修 3 处硬编码 `shadow-[...]`:
-  - `components/ui/sidebar/menu.tsx:50` ×2 → 改 `ring-1 ring-sidebar-border` + `hover:ring-sidebar-accent`(同时修掉 oklch 后 `hsl(var())` 失效的描边 bug)。
-  - `components/landing/sections/stats/default.tsx:58` ×1 → 在 `landing.css` 注册 `--shadow-brand-glow`(品牌辉光)token → `shadow-brand-glow` 工具类。
+- 修 2 处硬编码 box-shadow `shadow-[...]`:`components/ui/sidebar/menu.tsx:50` ×2 → 改 `ring-1 ring-sidebar-border` + `hover:ring-sidebar-accent`(同时修掉 oklch 后 `hsl(var())` 失效的描边 bug)。
+- landing `stats/default.tsx` 的 `drop-shadow-[...]`(filter,用 var 合法)保持不动。
 - 其余存量进 baseline,后续渐进收敛。
 
 ### ⑦ 文档(`docs/design-system.md`)
@@ -129,6 +128,6 @@
 - [ ] `--radius-sm/md/lg/xl` 调为 4px 步进;裸 `rounded` 不再用于核心组件。
 - [ ] `shadow-elevation-1/2/3` token + 工具类落地,暗色单独调强。
 - [ ] 核心原子组件改用规范档位 + elevation。
-- [ ] 3 处硬编码 `shadow-[...]` 消除(含 sidebar oklch 描边 bug)。
+- [ ] 2 处硬编码 box-shadow `shadow-[...]` 消除(含 sidebar oklch 描边 bug)。
 - [ ] lint-tokens 接入新规则 + baseline;新增违规被拦截。
 - [ ] 守护测试 + lint 单测通过;`tsc --noEmit` 干净。
