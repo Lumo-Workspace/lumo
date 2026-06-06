@@ -233,10 +233,12 @@ function TaskRowActions({
   task,
   onTaskClick,
   onDeleteTask,
+  intl,
 }: {
   task: ApiTask
   onTaskClick: (task: ApiTask) => void
   onDeleteTask: (taskId: string) => Promise<void>
+  intl?: IntlShape | undefined
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -255,14 +257,20 @@ function TaskRowActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-44'>
           <DropdownMenuItem onClick={() => onTaskClick(task)}>
-            Open task
+            {intl?.formatMessage({
+              id: 'task.openDetails',
+              defaultMessage: 'Open details',
+            }) ?? 'Open details'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className='text-destructive focus:text-destructive'
             onClick={() => setDeleteOpen(true)}
           >
-            Delete task
+            {intl?.formatMessage({
+              id: 'task.deleteTask',
+              defaultMessage: 'Delete task',
+            }) ?? 'Delete task'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -274,19 +282,39 @@ function TaskRowActions({
             <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
               <Trash2 />
             </AlertDialogMedia>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl?.formatMessage({
+                id: 'task.deleteTitle',
+                defaultMessage: 'Delete task?',
+              }) ?? 'Delete task?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{task.title}&rdquo; will be permanently deleted. This
-              cannot be undone.
+              {intl?.formatMessage(
+                {
+                  id: 'task.deleteDesc',
+                  defaultMessage:
+                    '"{title}" will be permanently deleted. This action cannot be undone.',
+                },
+                { title: task.title }
+              ) ??
+                `"${task.title}" will be permanently deleted. This action cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl?.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              }) ?? 'Cancel'}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={() => onDeleteTask(task.id)}
             >
-              Delete
+              {intl?.formatMessage({
+                id: 'common.delete',
+                defaultMessage: 'Delete',
+              }) ?? 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -339,14 +367,24 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
                 : false
           }
           onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all tasks'
+          aria-label={
+            intl?.formatMessage({
+              id: 'task.selectAll',
+              defaultMessage: 'Select all tasks',
+            }) ?? 'Select all tasks'
+          }
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={value => row.toggleSelected(!!value)}
-          aria-label={`Select ${(row.original as ApiTask).title}`}
+          aria-label={
+            intl?.formatMessage(
+              { id: 'task.selectOne', defaultMessage: 'Select {title}' },
+              { title: (row.original as ApiTask).title }
+            ) ?? `Select ${(row.original as ApiTask).title}`
+          }
         />
       ),
     },
@@ -653,7 +691,10 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
       },
       header: () => (
         <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-          Assignee
+          {intl?.formatMessage({
+            id: 'task.assignee',
+            defaultMessage: 'Assignee',
+          }) ?? 'Assignee'}
         </span>
       ),
       cell: ({ row }) => {
@@ -728,6 +769,7 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
           task={row.original}
           onTaskClick={onTaskClick}
           onDeleteTask={onDeleteTask}
+          intl={intl}
         />
       ),
     },
