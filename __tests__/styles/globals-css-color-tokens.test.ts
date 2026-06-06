@@ -94,7 +94,7 @@ describe.each(['info', 'warning', 'success', 'danger'])(
   '--%s subtle/border',
   c => {
     it.each(['subtle', 'border'])(
-      '--%s-%s is a single color-mix over var(--%s)',
+      `--${c}-%s is a single color-mix over var(--${c})`,
       variant => {
         const re = new RegExp(`--${c}-${variant}:\\s*([^;]+);`, 'g')
         const defs = [...css.matchAll(re)].map(m => (m[1] ?? '').trim())
@@ -122,4 +122,25 @@ describe('.dark feedback accent overrides', () => {
       expect(darkBlock).toMatch(new RegExp(`--${c}:\\s*oklch\\(`))
     }
   )
+})
+
+// LUM-258: callout variants are token-driven; the duplicated .dark callout
+// palette is gone (subtle/border are translucent and adapt on their own).
+describe('callout variants are token-driven', () => {
+  it('has no .dark .callout[data-variant] rules', () => {
+    expect(css).not.toMatch(/\.dark\s+\.callout\[data-variant/)
+  })
+
+  it.each([
+    ['info', 'info'],
+    ['warning', 'warning'],
+    ['success', 'success'],
+    ['error', 'danger'], // error variant maps to the danger token family
+  ])('callout[data-variant=%s] drives border-left from var(--%s)', (variant, token) => {
+    const rule =
+      css.match(new RegExp(`\\.callout\\[data-variant='${variant}'\\]\\s*\\{[^}]*\\}`))?.[0] ?? ''
+    expect(rule).toContain(`background-color: var(--${token}-subtle)`)
+    expect(rule).toContain(`border-color: var(--${token}-border)`)
+    expect(rule).toContain(`border-left-color: var(--${token})`)
+  })
 })
