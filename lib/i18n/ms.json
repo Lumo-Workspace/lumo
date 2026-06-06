@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Dipadam]",
   "document.showResolved": "Tunjuk yang selesai",
   "document.outline": "Rangka",
-  "common.moreActions": "Tindakan lain"
+  "common.moreActions": "Tindakan lain",
+  "milestone.detail.collapseSidebar": "Sembunyikan butiran milestone",
+  "milestone.detail.expandSidebar": "Tunjukkan butiran milestone"
 }

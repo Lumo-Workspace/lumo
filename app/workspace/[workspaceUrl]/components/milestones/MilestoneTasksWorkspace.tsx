@@ -1,0 +1,85 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useIntl } from 'react-intl'
+import { CheckSquare } from 'lucide-react'
+import type { MyTask } from '../../types'
+import { useMilestoneTasks } from '../../hooks/useMilestoneTasks'
+import { useMembers } from '../../hooks/useMembers'
+import { useProjects } from '../../hooks/useProjects'
+import { TaskWorkspaceView } from '../task-list/TaskWorkspaceView'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+
+interface MilestoneTasksWorkspaceProps {
+  milestoneId: string
+  /** Collapse state of the milestone properties rail (owned by the page). */
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
+  /** Open the task drawer for a clicked card/row. */
+  onOpenTask: (task: MyTask) => void
+}
+
+/**
+ * The milestone detail board/list. Loads the milestone's tasks (MyTask-shaped)
+ * and renders the shared {@link TaskWorkspaceView} so it looks and behaves like
+ * the sprint board — board/list toggle, cross-column status drag, bulk actions,
+ * inline edits. No "Add task" affordance: NewTaskModal can't pre-bind a
+ * milestone, so tasks join a milestone from task detail or the CLI.
+ */
+export function MilestoneTasksWorkspace({
+  milestoneId,
+  sidebarCollapsed,
+  onToggleSidebar,
+  onOpenTask,
+}: MilestoneTasksWorkspaceProps) {
+  const intl = useIntl()
+  const { tasks, isLoading, error, refetch } = useMilestoneTasks(milestoneId)
+  const { members, fetchMembers } = useMembers()
+  const { projects, fetchProjects } = useProjects()
+
+  // Mirror fetched tasks into local state so the workspace owns the source of
+  // truth for inline edits + DnD between refetches (same as the sprint page).
+  const [localTasks, setLocalTasks] = useState<MyTask[]>([])
+  useEffect(() => {
+    setLocalTasks((tasks ?? []) as MyTask[])
+  }, [tasks])
+
+  useEffect(() => {
+    void fetchMembers()
+    void fetchProjects()
+  }, [fetchMembers, fetchProjects])
+
+  return (
+    <TaskWorkspaceView
+      tasks={localTasks}
+      setTasks={setLocalTasks}
+      loading={isLoading}
+      error={error ? (error.message ?? 'Could not load tasks.') : null}
+      onRetry={refetch}
+      onTaskClick={onOpenTask}
+      members={members}
+      projects={projects}
+      displayOptionsKey={`lumo:display:milestone:${milestoneId}`}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={onToggleSidebar}
+      sidebarExpandLabel={intl.formatMessage({
+        id: 'milestone.detail.expandSidebar',
+      })}
+      sidebarCollapseLabel={intl.formatMessage({
+        id: 'milestone.detail.collapseSidebar',
+      })}
+      emptyState={
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <CheckSquare />
+            </EmptyMedia>
+            <EmptyTitle>
+              {intl.formatMessage({ id: 'milestone.tasks.empty' })}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      }
+    />
+  )
+}

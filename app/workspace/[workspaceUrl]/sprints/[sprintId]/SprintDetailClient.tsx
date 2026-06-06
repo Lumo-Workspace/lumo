@@ -7,8 +7,9 @@ import { useIntl } from 'react-intl'
 import { useSprintByNumber, useSprintTasks } from '../../hooks/useSprints'
 import { useMembers } from '../../hooks/useMembers'
 import { useProjects } from '../../hooks/useProjects'
+import { CheckSquare, Plus } from 'lucide-react'
 import type { ApiStatus, MyTask } from '../../types'
-import { SprintTasksView } from '../components/SprintTasksView'
+import { TaskWorkspaceView } from '../../components/task-list/TaskWorkspaceView'
 import { SprintSidebar } from '../components/SprintSidebar'
 import { SprintActionsMenu } from '../components/SprintActionsMenu'
 import { SprintProgressChart } from '../components/SprintProgressChart'
@@ -23,6 +24,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 
 interface SprintDetailClientProps {
   /** Open the global NewTaskModal with the current sprint pre-selected. */
@@ -50,7 +60,7 @@ export function SprintDetailClient({
   const { members, fetchMembers } = useMembers()
   const { projects, fetchProjects } = useProjects()
   // Mirror the fetched sprint tasks into a local state tuple so
-  // SprintTasksView (which drives inline edits + DnD) owns the source of
+  // TaskWorkspaceView (which drives inline edits + DnD) owns the source of
   // truth for list updates between refetches.
   const [localTasks, setLocalTasks] = useState<MyTask[]>([])
   useEffect(() => {
@@ -127,7 +137,7 @@ export function SprintDetailClient({
   }
 
   const workspace = (
-    <SprintTasksView
+    <TaskWorkspaceView
       tasks={localTasks}
       setTasks={setLocalTasks}
       loading={false}
@@ -142,6 +152,37 @@ export function SprintDetailClient({
       displayOptionsKey={`lumo:display:sprint:${sprint.id}`}
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={toggleSidebar}
+      sidebarExpandLabel={intl.formatMessage({
+        id: 'sprints.detail.expandSidebar',
+      })}
+      sidebarCollapseLabel={intl.formatMessage({
+        id: 'sprints.detail.collapseSidebar',
+      })}
+      emptyState={
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <CheckSquare />
+            </EmptyMedia>
+            <EmptyTitle>
+              {intl.formatMessage({ id: 'sprints.tasks.empty.title' })}
+            </EmptyTitle>
+            <EmptyDescription>
+              {intl.formatMessage({ id: 'sprints.tasks.empty.description' })}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              onClick={() => {
+                if (onNewTask) onNewTask(sprint.id, sprint.teamId)
+              }}
+            >
+              <Plus size={16} />
+              {intl.formatMessage({ id: 'task.create' })}
+            </Button>
+          </EmptyContent>
+        </Empty>
+      }
     />
   )
 

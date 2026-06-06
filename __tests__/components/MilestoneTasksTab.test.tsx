@@ -10,25 +10,27 @@ jest.mock(
 )
 
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/milestones/TaskListByMilestone',
+  '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneTasksWorkspace',
   () => ({
-    TaskListByMilestone: ({
-      projectId,
-      milestoneId,
-    }: {
-      projectId: string
-      milestoneId: string
-    }) => <div data-testid='tasklist'>{`${projectId}:${milestoneId}`}</div>,
+    MilestoneTasksWorkspace: ({ milestoneId }: { milestoneId: string }) => (
+      <div data-testid='workspace'>{milestoneId}</div>
+    ),
   })
 )
 
 import { render, screen } from '@testing-library/react'
 import { MilestoneTasksTab } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneTasksTab'
 
-test('renders sprint coverage and the milestone task list', () => {
+test('renders sprint coverage and the milestone task workspace', () => {
   render(
-    <MilestoneTasksTab projectId='p1' milestoneId='m1' sprintCoverage={null} />
+    <MilestoneTasksTab
+      milestoneId='m1'
+      sprintCoverage={null}
+      sidebarCollapsed={false}
+      onToggleSidebar={() => {}}
+      onOpenTask={() => {}}
+    />
   )
   expect(screen.getByTestId('coverage').textContent).toBe('no-coverage')
-  expect(screen.getByTestId('tasklist').textContent).toBe('p1:m1')
+  expect(screen.getByTestId('workspace').textContent).toBe('m1')
 })

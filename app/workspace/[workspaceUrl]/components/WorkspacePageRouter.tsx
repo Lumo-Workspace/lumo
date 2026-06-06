@@ -399,7 +399,7 @@ export function WorkspacePageRouter(props: Props) {
       )
 
     case 'milestone-detail':
-      return <MilestoneDetailPage />
+      return <MilestoneDetailPage onOpenTask={handleOpenTask} />
 
     case 'inbox':
       return (

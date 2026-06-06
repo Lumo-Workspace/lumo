@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Đã xóa]",
   "document.showResolved": "Hiện mục đã giải quyết",
   "document.outline": "Dàn ý",
-  "common.moreActions": "Thao tác khác"
+  "common.moreActions": "Thao tác khác",
+  "milestone.detail.collapseSidebar": "Ẩn chi tiết cột mốc",
+  "milestone.detail.expandSidebar": "Hiện chi tiết cột mốc"
 }

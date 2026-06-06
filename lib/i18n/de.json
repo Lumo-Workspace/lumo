@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Gelöscht]",
   "document.showResolved": "Aufgelöste anzeigen",
   "document.outline": "Gliederung",
-  "common.moreActions": "Weitere Aktionen"
+  "common.moreActions": "Weitere Aktionen",
+  "milestone.detail.collapseSidebar": "Meilenstein-Details ausblenden",
+  "milestone.detail.expandSidebar": "Meilenstein-Details anzeigen"
 }

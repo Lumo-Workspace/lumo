@@ -31,6 +31,8 @@ export const queryKeys = {
     byWorkspace: (workspaceId: string, filtersKey: string) =>
       ['tasks', 'byWorkspace', workspaceId, filtersKey] as const,
     bySprint: (sprintId: string) => ['tasks', 'bySprint', sprintId] as const,
+    byMilestone: (milestoneId: string) =>
+      ['tasks', 'byMilestone', milestoneId] as const,
     backlog: (teamId: string) => ['tasks', 'backlog', teamId] as const,
   },
 

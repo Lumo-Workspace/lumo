@@ -20,6 +20,12 @@ interface Props {
   leftSlot?: ReactNode
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
+  /**
+   * Scope-specific tooltip/aria copy for the collapse toggle. Defaults to the
+   * sprint wording so existing sprint callers keep their copy untouched.
+   */
+  sidebarExpandLabel?: string
+  sidebarCollapseLabel?: string
 }
 
 export function TaskListToolbar({
@@ -34,13 +40,18 @@ export function TaskListToolbar({
   leftSlot,
   sidebarCollapsed,
   onToggleSidebar,
+  sidebarExpandLabel,
+  sidebarCollapseLabel,
 }: Props) {
   const intl = useIntl()
-  const sidebarLabel = intl.formatMessage(
+  const defaultSidebarLabel = intl.formatMessage(
     sidebarCollapsed
       ? { id: 'sprints.detail.expandSidebar', defaultMessage: 'Show sprint details' }
       : { id: 'sprints.detail.collapseSidebar', defaultMessage: 'Hide sprint details' }
   )
+  const sidebarLabel =
+    (sidebarCollapsed ? sidebarExpandLabel : sidebarCollapseLabel) ??
+    defaultSidebarLabel
 
   return (
     <div className='h-12 flex items-center justify-between gap-2 px-4 md:px-8'>

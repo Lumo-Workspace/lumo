@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Deleted]",
   "document.showResolved": "Show resolved",
   "document.outline": "Outline",
-  "common.moreActions": "More actions"
+  "common.moreActions": "More actions",
+  "milestone.detail.collapseSidebar": "Hide milestone details",
+  "milestone.detail.expandSidebar": "Show milestone details"
 }

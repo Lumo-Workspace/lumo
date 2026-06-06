@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[已刪除]",
   "document.showResolved": "顯示已解決",
   "document.outline": "大綱",
-  "common.moreActions": "更多操作"
+  "common.moreActions": "更多操作",
+  "milestone.detail.collapseSidebar": "隱藏里程碑詳情",
+  "milestone.detail.expandSidebar": "顯示里程碑詳情"
 }

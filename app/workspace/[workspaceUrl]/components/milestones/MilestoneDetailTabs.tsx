@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { cn } from '@/lib/utils'
 import type { ApiMilestone, MilestoneUpdateInput } from '@/lib/api-client'
+import type { MyTask } from '../../types'
 import { MilestoneOverviewTab } from './MilestoneOverviewTab'
 import { MilestoneTasksTab } from './MilestoneTasksTab'
 
@@ -12,19 +13,27 @@ type Tab = 'overview' | 'tasks'
 interface MilestoneDetailTabsProps {
   milestone: ApiMilestone
   onUpdate: (fields: MilestoneUpdateInput) => void
+  /** Collapse state of the milestone properties rail (owned by the page). */
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
+  /** Open the task drawer for a clicked card/row in the tasks board. */
+  onOpenTask: (task: MyTask) => void
 }
 
 /** Tab nav + bodies for the milestone detail page (overview / tasks). */
 export function MilestoneDetailTabs({
   milestone,
   onUpdate,
+  sidebarCollapsed,
+  onToggleSidebar,
+  onOpenTask,
 }: MilestoneDetailTabsProps) {
   const intl = useIntl()
   const [tab, setTab] = useState<Tab>('overview')
   const archived = !!milestone.archivedAt
 
   return (
-    <div className='flex flex-1 flex-col lg:overflow-y-auto'>
+    <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
       <div className='mt-4 flex shrink-0 items-center gap-1 px-4 md:px-8'>
         {(['overview', 'tasks'] as const).map(t => (
           <button
@@ -43,12 +52,20 @@ export function MilestoneDetailTabs({
       </div>
 
       {tab === 'overview' ? (
-        <MilestoneOverviewTab milestone={milestone} onUpdate={onUpdate} archived={archived} />
+        <div className='min-h-0 flex-1 overflow-y-auto'>
+          <MilestoneOverviewTab
+            milestone={milestone}
+            onUpdate={onUpdate}
+            archived={archived}
+          />
+        </div>
       ) : (
         <MilestoneTasksTab
-          projectId={milestone.projectId}
           milestoneId={milestone.id}
           sprintCoverage={milestone.sprintCoverage}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={onToggleSidebar}
+          onOpenTask={onOpenTask}
         />
       )}
     </div>

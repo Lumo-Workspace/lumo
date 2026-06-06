@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Dihapus]",
   "document.showResolved": "Tampilkan yang selesai",
   "document.outline": "Kerangka",
-  "common.moreActions": "Tindakan lainnya"
+  "common.moreActions": "Tindakan lainnya",
+  "milestone.detail.collapseSidebar": "Sembunyikan detail milestone",
+  "milestone.detail.expandSidebar": "Tampilkan detail milestone"
 }

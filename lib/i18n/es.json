@@ -1373,5 +1373,7 @@
   "document.commentDeleted": "[Eliminado]",
   "document.showResolved": "Mostrar resueltos",
   "document.outline": "Esquema",
-  "common.moreActions": "Más acciones"
+  "common.moreActions": "Más acciones",
+  "milestone.detail.collapseSidebar": "Ocultar detalles del hito",
+  "milestone.detail.expandSidebar": "Mostrar detalles del hito"
 }

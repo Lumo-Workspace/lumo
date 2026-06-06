@@ -1373,5 +1373,7 @@
   "document.commentOrphaned": "原文已删除",
   "document.commentDeleted": "[已删除]",
   "document.showResolved": "显示已解决",
-  "common.moreActions": "更多操作"
+  "common.moreActions": "更多操作",
+  "milestone.detail.collapseSidebar": "隐藏里程碑详情",
+  "milestone.detail.expandSidebar": "显示里程碑详情"
 }
