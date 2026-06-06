@@ -1375,5 +1375,12 @@
   "document.outline": "개요",
   "common.moreActions": "추가 작업",
   "milestone.detail.collapseSidebar": "마일스톤 세부정보 숨기기",
-  "milestone.detail.expandSidebar": "마일스톤 세부정보 표시"
+  "milestone.detail.expandSidebar": "마일스톤 세부정보 표시",
+  "editor.slash.mermaid.title": "Mermaid 다이어그램",
+  "editor.slash.mermaid.description": "텍스트로 만드는 다이어그램",
+  "editor.mermaid.edit": "편집",
+  "editor.mermaid.done": "완료",
+  "editor.mermaid.error": "다이어그램 오류",
+  "editor.mermaid.empty": "빈 다이어그램 — 클릭하여 편집",
+  "editor.mermaid.sourceLabel": "Mermaid 다이어그램 소스"
 }
