@@ -135,20 +135,69 @@ function summaryHeadline(summary: unknown): string {
   return NO_SUMMARY
 }
 
+/** Keep only the non-empty string entries of a possibly-untyped array. */
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((x): x is string => typeof x === 'string' && x.length > 0)
+}
+
 /**
- * Pull the `unresolved` array from a structured summary. implementation and
- * mixed templates both emit this field; other types (exploration, debug,
- * refactor, review) either lack it or express pendings differently — callers
- * that care about those can add type-specific paths later. For Day 7 we
- * follow the user's guidance: "直接用 summary.unresolved, 不加新字段".
+ * The debug template carries its pending signal as a status enum rather than a
+ * list (fixed | partial | unresolved). Surface the `problem` so the next agent
+ * knows what's still open; `fixed` produces nothing.
  */
-function summaryUnresolved(summary: unknown): string[] {
+function debugPending(s: Record<string, unknown>): string[] {
+  const status = s.status
+  if (status !== 'unresolved' && status !== 'partial') return []
+  const prefix = status === 'unresolved' ? 'Bug 未解决' : 'Bug 仅部分修复'
+  const problem = typeof s.problem === 'string' ? s.problem.trim() : ''
+  return [problem.length > 0 ? `${prefix}：${problem}` : prefix]
+}
+
+/**
+ * Pull the pending/follow-up items from a structured summary, mapped by
+ * `summaryType`. Each session-summary template expresses "what's still open"
+ * in a different field, so we route on the type:
+ *   - implementation / mixed → `unresolved`
+ *   - exploration            → `nextSteps`
+ *   - refactor               → `followUps`
+ *   - review                 → `severity.critical` (blocking issues only)
+ *   - debug                  → `status` enum → a synthesized line (see {@link debugPending})
+ * Unknown or null types fall back to `unresolved`, preserving the original
+ * Day-7 behavior ("直接用 summary.unresolved"). Non-string / empty entries are
+ * always dropped.
+ */
+function summaryUnresolved(
+  summary: unknown,
+  summaryType?: string | null
+): string[] {
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
     return []
   }
-  const u = (summary as Record<string, unknown>).unresolved
-  if (!Array.isArray(u)) return []
-  return u.filter((x): x is string => typeof x === 'string' && x.length > 0)
+  const s = summary as Record<string, unknown>
+  switch (summaryType) {
+    case 'exploration':
+      return stringList(s.nextSteps)
+    case 'refactor':
+      return stringList(s.followUps)
+    case 'review': {
+      const severity = s.severity
+      if (
+        !severity ||
+        typeof severity !== 'object' ||
+        Array.isArray(severity)
+      ) {
+        return []
+      }
+      return stringList((severity as Record<string, unknown>).critical)
+    }
+    case 'debug':
+      return debugPending(s)
+    case 'implementation':
+    case 'mixed':
+    default:
+      return stringList(s.unresolved)
+  }
 }
 
 const FIGMA_STALE_MS = 25 * 24 * 3600 * 1000
@@ -430,7 +479,7 @@ export const taskContextService = {
       if (headline === NO_SUMMARY) continue
       return {
         headline,
-        unresolved: summaryUnresolved(s.summary),
+        unresolved: summaryUnresolved(s.summary, s.summaryType),
         durationMs: Math.max(
           0,
           s.lastActivityAt.getTime() - s.startedAt.getTime()
@@ -617,7 +666,7 @@ export const taskContextService = {
         eventCount: s.eventCount,
         summaryType: s.summaryType,
         headline: summaryHeadline(s.summary),
-        unresolved: summaryUnresolved(s.summary),
+        unresolved: summaryUnresolved(s.summary, s.summaryType),
       })),
     }
   },
