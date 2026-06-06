@@ -137,7 +137,14 @@ export function ProjectTasksTab({
   // ─── Memoised columns ───────────────────────────────────────────────────────
   const taskColumns = useMemo(
     () =>
-      createTaskColumns(onTaskClick, onDeleteTask, members, intl, updateTask),
+      createTaskColumns({
+        onTaskClick,
+        onDeleteTask,
+        members,
+        intl,
+        updateTask,
+        visibleColumns: ['select','identifier','title','status','priority','dueDate','assignee','updatedAt','actions'],
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onTaskClick, onDeleteTask, members, intl]
   )
