@@ -92,6 +92,54 @@ describe('lint-tokens / detectViolations', () => {
     expect(v).toHaveLength(1)
     expect(v[0]).toMatchObject({ line: 2, col: 3, match: '#deadbe' })
   })
+  it('flags bare `rounded` (no tier suffix)', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `<div className="rounded border p-2" />`
+    )
+    expect(v).toHaveLength(1)
+    expect(v[0]).toMatchObject({ match: 'rounded', rule: 'radius' })
+  })
+
+  it('does NOT flag tiered/directional/arbitrary rounded', () => {
+    const v = detectViolations(
+      'app/foo.tsx',
+      `<div className="rounded-md rounded-full rounded-l-lg rounded-[2px]" />`
+    )
+    expect(v).toEqual([])
+  })
+
+  it('does NOT flag `rounded` inside another word (surrounded)', () => {
+    const v = detectViolations('lib/foo.ts', `const s = 'surrounded'`)
+    expect(v).toEqual([])
+  })
+
+  it('flags Tailwind built-in shadow scale and arbitrary shadow', () => {
+    const v = detectViolations(
+      'components/foo.tsx',
+      `<div className="shadow shadow-md hover:shadow-lg shadow-[0_0_0_1px_red]" />`
+    )
+    expect(v.map((x) => x.match).sort()).toEqual([
+      'shadow',
+      'shadow-[0_0_0_1px_red]',
+      'shadow-lg',
+      'shadow-md',
+    ])
+    expect(v.every((x) => x.rule === 'shadow')).toBe(true)
+  })
+
+  it('does NOT flag shadow-elevation-*, shadow-none, shadow-mockup, drop-shadow', () => {
+    const v = detectViolations(
+      'app/foo.tsx',
+      `<div className="shadow-elevation-1 shadow-none shadow-mockup drop-shadow-[2px_1px_24px_var(--x)]" />`
+    )
+    expect(v).toEqual([])
+  })
+
+  it('does NOT flag the `shadow` inside box-shadow CSS property', () => {
+    const v = detectViolations('components/foo.css', `.x { box-shadow: 0 0 0; }`)
+    expect(v).toEqual([])
+  })
 })
 
 describe('lint-tokens / isAllowed', () => {

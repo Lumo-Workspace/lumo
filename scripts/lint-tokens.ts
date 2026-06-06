@@ -27,7 +27,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 
-export type Rule = 'hex' | 'palette'
+export type Rule = 'hex' | 'palette' | 'radius' | 'shadow'
 
 export type Violation = {
   file: string
@@ -74,6 +74,22 @@ const HEX_RE = /(?<!\w)#[0-9a-fA-F]{3,8}\b/g
 // palettes (zinc/slate/gray/neutral/stone) which overlap with token semantics.
 const PALETTE_CLASS_RE =
   /\b(?:text|bg|border|ring|fill|stroke|shadow|from|to|via|outline|divide|placeholder|accent|caret|decoration)-(?:zinc|slate|gray|neutral|stone)-(?:50|[1-9]00|950)(?:\/\d+)?\b/g
+
+// Bare `rounded` (no tier suffix) bypasses the radius scale — its value
+// (0.25rem) now equals rounded-sm, so it's semantically redundant. Tiered
+// (rounded-md), directional (rounded-l), and arbitrary (rounded-[2px])
+// forms are allowed. `(?![-\w])` blocks rounded-md / roundedness; the
+// leading `\b` blocks `surrounded`.
+const BARE_ROUNDED_RE = /\brounded(?![-\w])/g
+
+// Tailwind built-in shadow scale (`shadow`, `shadow-xs|sm|md|lg|xl|2xl`)
+// and arbitrary `shadow-[...]` bypass the elevation system — use
+// shadow-elevation-{1,2,3} (shadow-none stays allowed). `(?<![-\w])`
+// skips drop-shadow / box-shadow; the optional group means a bare
+// `shadow` matches only when NOT followed by another `-segment`, so
+// shadow-elevation-1 / shadow-none / shadow-mockup are left alone.
+const SHADOW_RE =
+  /(?<![-\w])shadow(?:-(?:xs|sm|md|lg|xl|2xl)|-\[[^\]]*\])?(?![-\w])/g
 
 const BASELINE_FILE = 'scripts/lint-tokens.baseline.json'
 
@@ -124,8 +140,35 @@ export function detectViolations(
         rule: 'palette',
       })
     }
+    BARE_ROUNDED_RE.lastIndex = 0
+    while ((m = BARE_ROUNDED_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'radius',
+      })
+    }
+    SHADOW_RE.lastIndex = 0
+    while ((m = SHADOW_RE.exec(line)) !== null) {
+      out.push({
+        file: relPath,
+        line: i + 1,
+        col: m.index + 1,
+        match: m[0],
+        rule: 'shadow',
+      })
+    }
   }
   return out
+}
+
+const RULE_LABELS: Record<Rule, string> = {
+  hex: 'hex literal  ',
+  palette: 'palette class',
+  radius: 'bare rounded ',
+  shadow: 'raw shadow   ',
 }
 
 export function countByFile(violations: Violation[]): Baseline {
@@ -219,7 +262,7 @@ function main(): void {
       process.stdout.write(JSON.stringify(violations, null, 2) + '\n')
     } else {
       for (const v of violations) {
-        const label = v.rule === 'hex' ? 'hex literal  ' : 'palette class'
+        const label = RULE_LABELS[v.rule]
         process.stdout.write(
           `${v.file}:${v.line}:${v.col}  ${label}  ${v.match}\n`
         )
@@ -258,7 +301,7 @@ function main(): void {
   const offending = new Set(regressions.map(r => r.file))
   for (const v of violations) {
     if (!offending.has(v.file)) continue
-    const label = v.rule === 'hex' ? 'hex literal  ' : 'palette class'
+    const label = RULE_LABELS[v.rule]
     process.stderr.write(`${v.file}:${v.line}:${v.col}  ${label}  ${v.match}\n`)
   }
   process.stderr.write('\nRegressions vs. baseline:\n')
