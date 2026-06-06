@@ -47,6 +47,7 @@ import {
   setActiveEditorAnchor,
   setResolvedEditorAnchors,
   deleteCommentAndStripAnchor,
+  reconcileEditorOnDocCommentEvent,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '../document/comments/anchor-dom'
@@ -153,15 +154,20 @@ export function DocumentEditorPage({
 
   const queryClient = useQueryClient()
 
-  // Realtime: invalidate comments when a comment-related Pusher event arrives.
+  // Realtime: invalidate comments when a comment-related Pusher event arrives,
+  // and reconcile the editor on a remote delete — the server already stripped
+  // the anchor span from stored content, so drop the matching mark from the open
+  // editor or the highlight lingers until a reload (our own delete is handled by
+  // handleDeleteComment; this no-ops for it).
   usePusherEvent(
     `document-${documentId}`,
     'document-update',
-    (event: { type?: string }) => {
+    (event: { type?: string; commentId?: string }) => {
       if (docCommentEventNeedsRefetch(event)) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.documentComments(documentId),
         })
+        reconcileEditorOnDocCommentEvent(editorRef.current, event)
       }
     }
   )

@@ -87,6 +87,25 @@ export async function deleteCommentAndStripAnchor(
   editor?.commands.unsetComment(commentId)
 }
 
+/**
+ * Reconcile the open editor with a server-confirmed doc-comment Pusher event.
+ * A `doc-comment:deleted` event means the server already stripped the anchor
+ * span from stored content, so we drop the matching mark from the live editor —
+ * this is what clears a REMOTE delete's lingering highlight (our own delete is
+ * already handled synchronously by deleteCommentAndStripAnchor, for which this
+ * no-ops since the mark is gone). Only deletes strip; create/resolve/reopen are
+ * reconciled by the comments refetch. The event is server-confirmed (the comment
+ * is truly gone), so unsetComment here can't orphan a live comment.
+ */
+export function reconcileEditorOnDocCommentEvent(
+  editor: Editor | null,
+  event: { type?: string; commentId?: string }
+): void {
+  if (event.type === 'doc-comment:deleted' && event.commentId) {
+    editor?.commands.unsetComment(event.commentId)
+  }
+}
+
 /** Briefly flash the given comment's spans (mirrors the task-comment 1.5s flash). */
 export function flashEditorAnchor(editor: Editor, commentId: string): void {
   const dom = editorDom(editor)

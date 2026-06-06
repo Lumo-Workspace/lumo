@@ -4,6 +4,7 @@ import {
   setActiveEditorAnchor,
   setResolvedEditorAnchors,
   deleteCommentAndStripAnchor,
+  reconcileEditorOnDocCommentEvent,
   flashEditorAnchor,
   docCommentEventNeedsRefetch,
 } from '@/app/workspace/[workspaceUrl]/components/document/comments/anchor-dom'
@@ -120,6 +121,45 @@ describe('deleteCommentAndStripAnchor', () => {
       deleteCommentAndStripAnchor(null, 'c1', deleteComment)
     ).resolves.toBeUndefined()
     expect(deleteComment).toHaveBeenCalledWith('c1')
+  })
+})
+
+describe('reconcileEditorOnDocCommentEvent', () => {
+  it('strips the mark on a remote doc-comment:deleted event', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:deleted',
+      commentId: 'c1',
+    })
+    expect(unsetComment).toHaveBeenCalledWith('c1')
+  })
+
+  it('ignores non-delete events (resolve/create are reconciled by refetch)', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:status',
+      commentId: 'c1',
+    })
+    reconcileEditorOnDocCommentEvent(editor, {
+      type: 'doc-comment:created',
+      commentId: 'c2',
+    })
+    expect(unsetComment).not.toHaveBeenCalled()
+  })
+
+  it('ignores a delete event with no commentId', () => {
+    const { editor, unsetComment } = makeEditorWithCommands()
+    reconcileEditorOnDocCommentEvent(editor, { type: 'doc-comment:deleted' })
+    expect(unsetComment).not.toHaveBeenCalled()
+  })
+
+  it('tolerates a null editor', () => {
+    expect(() =>
+      reconcileEditorOnDocCommentEvent(null, {
+        type: 'doc-comment:deleted',
+        commentId: 'c1',
+      })
+    ).not.toThrow()
   })
 })
 
