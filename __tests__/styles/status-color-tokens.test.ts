@@ -23,20 +23,19 @@ function readGlobals(): string {
 
 /**
  * Extract the `--status-*` values from a single `:root {…}` / `.dark {…}` block.
- * Captures the raw color value (the app palette is `oklch(…)`; hex is also
- * accepted) up to the trailing `;`, ignoring any trailing explanatory comment.
+ * Accepts both hex and `oklch(…)` — the app standardized on oklch in LUM-257,
+ * so the values are `oklch(L C H)` with the hex kept only in a trailing comment.
  */
 function statusValuesIn(block: string): Record<string, string> {
   const out: Record<string, string> = {}
   for (const token of STATUS_TOKENS) {
-    const m = block.match(new RegExp(`--${token}:\\s*([^;]+?)\\s*;`))
-    if (m?.[1]) out[token] = m[1].trim().toLowerCase()
+    const m = block.match(
+      new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{3,8}|oklch\\([^)]*\\))`)
+    )
+    if (m?.[1]) out[token] = m[1].toLowerCase()
   }
   return out
 }
-
-/** A CSS color value we recognize: oklch(), hex, rgb()/hsl(), or var(). */
-const COLOR_VALUE = /^(oklch\(|#[0-9a-f]{3,8}|rgba?\(|hsla?\(|var\()/
 
 function blockBody(css: string, selector: string): string {
   // First `{ … }` group following the selector at column 0.
@@ -53,8 +52,8 @@ describe('status color tokens (globals.css)', () => {
 
   it('defines all four status tokens in :root and .dark', () => {
     for (const token of STATUS_TOKENS) {
-      expect(root[token]).toMatch(COLOR_VALUE)
-      expect(dark[token]).toMatch(COLOR_VALUE)
+      expect(root[token]).toMatch(/^(#[0-9a-f]{3,8}|oklch\([^)]*\))$/)
+      expect(dark[token]).toMatch(/^(#[0-9a-f]{3,8}|oklch\([^)]*\))$/)
     }
   })
 
