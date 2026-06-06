@@ -1357,8 +1357,6 @@
   "documentHistory.saveAsVersion": "Enregistrer comme version",
   "documentHistory.namePrompt": "Nommer cette version",
   "documentHistory.restore": "Restaurer cette version",
-  "documentHistory.inline": "En ligne",
-  "documentHistory.sideBySide": "Côte à côte",
   "documentHistory.close": "Fermer",
   "documentHistory.loading": "Chargement…",
   "documentHistory.selectPrompt": "Sélectionnez une version à comparer avec le document actuel.",
