@@ -11,9 +11,13 @@ import {
   type SortingState,
   type Updater,
 } from '@tanstack/react-table'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '@/lib/utils'
-import { TableBody, TableCell, TableRow } from '@/components/ui/table'
+import {
+  shouldVirtualize,
+  LIST_VIRTUALIZE_THRESHOLD,
+} from '@/lib/utils/shouldVirtualize'
 
 // ─── ColumnMeta type augmentation ────────────────────────────────────────────
 declare module '@tanstack/react-table' {
@@ -27,6 +31,8 @@ declare module '@tanstack/react-table' {
      * onClick handler — use for action/control columns.
      */
     stopPropagation?: boolean
+    /** CSS grid track for this column (used by the grid renderer). */
+    gridWidth?: string
   }
 
   interface TableMeta<TData extends RowData> {
@@ -53,7 +59,13 @@ interface DataTableProps<TData, TValue> {
   rowSelection?: RowSelectionState
   onRowSelectionChange?: (selection: RowSelectionState) => void
   getRowId?: (row: TData) => string
+  /** grid-template-columns; one track per visible column. */
+  columnTemplate: string
+  /** Empty-state text. */
+  emptyLabel?: string
 }
+
+const ROW_HEIGHT = 49 // px — rows are single-line
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export function DataTable<TData, TValue>({
@@ -65,9 +77,12 @@ export function DataTable<TData, TValue>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  columnTemplate,
+  emptyLabel,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const toggleExpand = useCallback((id: string) => {
     setExpanded(prev => {
@@ -139,76 +154,123 @@ export function DataTable<TData, TValue>({
       : {},
   })
 
-  return (
-    <table className='w-full text-sm'>
-      {/* ── Sticky header ────────────────────────────────────────────────── */}
-      <thead className='sticky top-0 bg-background/95 backdrop-blur-sm z-10'>
-        {table.getHeaderGroups().map(headerGroup => (
-          <tr key={headerGroup.id}>
-            {headerGroup.headers.map(header => (
-              <th
-                key={header.id}
-                className={cn(
-                  'border-b border-border py-2.5 text-left',
-                  header.column.columnDef.meta?.headerClassName
-                )}
-              >
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-              </th>
-            ))}
-          </tr>
+  const rows = table.getRowModel().rows
+  const virtualize = shouldVirtualize(rows.length, LIST_VIRTUALIZE_THRESHOLD)
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+    enabled: virtualize,
+  })
+
+  const headerGroup = table.getHeaderGroups()[0]
+
+  const renderRow = (row: (typeof rows)[number]) => {
+    const isChild = getParentId?.(row.original) != null
+    return (
+      <div
+        role='row'
+        className={cn(
+          'grid items-center group border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
+          isChild && 'bg-muted/40'
+        )}
+        style={{ gridTemplateColumns: columnTemplate, height: ROW_HEIGHT }}
+        onClick={() => onRowClick?.(row.original)}
+      >
+        {row.getVisibleCells().map(cell => (
+          <div
+            role='cell'
+            key={cell.id}
+            className={cn('px-0', cell.column.columnDef.meta?.cellClassName)}
+            onClick={
+              cell.column.columnDef.meta?.stopPropagation
+                ? e => e.stopPropagation()
+                : undefined
+            }
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </div>
         ))}
-      </thead>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      role='table'
+      className='flex-1 min-h-0 overflow-auto text-sm'
+    >
+      {/* ── Sticky header ────────────────────────────────────────────────── */}
+      <div role='rowgroup'>
+        <div
+          role='row'
+          className='grid sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border'
+          style={{ gridTemplateColumns: columnTemplate }}
+        >
+          {headerGroup?.headers.map(header => (
+            <div
+              role='columnheader'
+              key={header.id}
+              className={cn(
+                'py-2.5',
+                header.column.columnDef.meta?.headerClassName
+              )}
+            >
+              {header.isPlaceholder
+                ? null
+                : flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <TableBody>
-        {table.getRowModel().rows.length > 0 ? (
-          table.getRowModel().rows.map(row => {
-            const isChild = getParentId?.(row.original) != null
+      {rows.length === 0 ? (
+        <div role='rowgroup'>
+          <div className='h-24 flex items-center justify-center text-center text-muted-foreground'>
+            {emptyLabel ?? 'No tasks found.'}
+          </div>
+        </div>
+      ) : virtualize ? (
+        <div
+          role='rowgroup'
+          style={{
+            height: rowVirtualizer.getTotalSize(),
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map(vi => {
+            const row = rows[vi.index]
+            if (!row) return null
             return (
-              <TableRow
+              <div
                 key={row.id}
-                onClick={() => onRowClick?.(row.original)}
-                className={cn(
-                  'cursor-pointer group',
-                  isChild && 'bg-zinc-50/50 dark:bg-zinc-900/50'
-                )}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${vi.start}px)`,
+                }}
               >
-                {row.getVisibleCells().map(cell => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      'py-3',
-                      cell.column.columnDef.meta?.cellClassName
-                    )}
-                    onClick={
-                      cell.column.columnDef.meta?.stopPropagation
-                        ? e => e.stopPropagation()
-                        : undefined
-                    }
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+                {renderRow(row)}
+              </div>
             )
-          })
-        ) : (
-          <TableRow>
-            <TableCell
-              colSpan={columns.length}
-              className='h-24 text-center text-muted-foreground'
-            >
-              No tasks found.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </table>
+          })}
+        </div>
+      ) : (
+        <div role='rowgroup'>
+          {rows.map(row => (
+            <div key={row.id}>{renderRow(row)}</div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

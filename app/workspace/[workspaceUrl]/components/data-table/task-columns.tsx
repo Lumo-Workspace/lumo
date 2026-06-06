@@ -16,12 +16,14 @@ import {
   ApiStatus,
   ApiPriority,
   WorkspaceMemberInfo,
+  ApiProject,
 } from '../../types'
 import { API_STATUS_LABEL, formatDueDate, isOverdue } from '../../utils'
 import { StatusSelect } from '../fields/StatusSelect'
 import { PrioritySelect } from '../fields/PrioritySelect'
 import { AssigneeSelect } from '../fields/AssigneeSelect'
 import { DueDatePicker } from '../fields/DueDatePicker'
+import { ProjectSelect } from '../fields/ProjectSelect'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import {
@@ -50,6 +52,7 @@ import {
 import { Trash2 } from 'lucide-react'
 import { cmpStatus, cmpPriority } from '../../hooks/useTableSort'
 import { Spinner } from '@/components/ui/spinner'
+import { type ColumnId, orderColumns, COLUMN_GRID_WIDTH } from './columnTemplate'
 
 // ─── Ghost trigger style for inline pickers ───────────────────────────────────
 const GHOST_TRIGGER =
@@ -62,6 +65,7 @@ export type TaskPatch = Partial<{
   priority: ApiPriority
   assigneeActorId: string | null
   dueDate: string | null
+  projectId: string
 }>
 
 // ─── Sortable column header ───────────────────────────────────────────────────
@@ -229,10 +233,12 @@ function TaskRowActions({
   task,
   onTaskClick,
   onDeleteTask,
+  intl,
 }: {
   task: ApiTask
   onTaskClick: (task: ApiTask) => void
   onDeleteTask: (taskId: string) => Promise<void>
+  intl?: IntlShape | undefined
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -251,14 +257,20 @@ function TaskRowActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-44'>
           <DropdownMenuItem onClick={() => onTaskClick(task)}>
-            Open task
+            {intl?.formatMessage({
+              id: 'task.openDetails',
+              defaultMessage: 'Open details',
+            }) ?? 'Open details'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className='text-destructive focus:text-destructive'
             onClick={() => setDeleteOpen(true)}
           >
-            Delete task
+            {intl?.formatMessage({
+              id: 'task.deleteTask',
+              defaultMessage: 'Delete task',
+            }) ?? 'Delete task'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -270,19 +282,39 @@ function TaskRowActions({
             <AlertDialogMedia className='bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'>
               <Trash2 />
             </AlertDialogMedia>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {intl?.formatMessage({
+                id: 'task.deleteTitle',
+                defaultMessage: 'Delete task?',
+              }) ?? 'Delete task?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{task.title}&rdquo; will be permanently deleted. This
-              cannot be undone.
+              {intl?.formatMessage(
+                {
+                  id: 'task.deleteDesc',
+                  defaultMessage:
+                    '"{title}" will be permanently deleted. This action cannot be undone.',
+                },
+                { title: task.title }
+              ) ??
+                `"${task.title}" will be permanently deleted. This action cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>Cancel</AlertDialogCancel>
+            <AlertDialogCancel variant='outline'>
+              {intl?.formatMessage({
+                id: 'common.cancel',
+                defaultMessage: 'Cancel',
+              }) ?? 'Cancel'}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant='destructive'
               onClick={() => onDeleteTask(task.id)}
             >
-              Delete
+              {intl?.formatMessage({
+                id: 'common.delete',
+                defaultMessage: 'Delete',
+              }) ?? 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -291,14 +323,21 @@ function TaskRowActions({
   )
 }
 
-// ─── Column definitions ───────────────────────────────────────────────────────
-export function createTaskColumns(
-  onTaskClick: (task: ApiTask) => void,
-  onDeleteTask: (taskId: string) => Promise<void>,
-  members: WorkspaceMemberInfo[] = [],
-  intl?: IntlShape,
+// ─── Column factory options ───────────────────────────────────────────────────
+export interface CreateTaskColumnsOptions {
+  onTaskClick: (task: ApiTask) => void
+  onDeleteTask: (taskId: string) => Promise<void>
+  members: WorkspaceMemberInfo[]
+  intl?: IntlShape
   updateTask?: (id: string, patch: TaskPatch) => Promise<void> | void
-): ColumnDef<ApiTask>[] {
+  visibleColumns: ColumnId[]
+  projects?: ApiProject[]
+}
+
+// ─── Column definitions ───────────────────────────────────────────────────────
+export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<ApiTask>[] {
+  const { onTaskClick, onDeleteTask, members, intl, updateTask, visibleColumns, projects = [] } = options
+
   const memberByActorId = new Map(
     members.filter(m => m.actorId).map(m => [m.actorId!, m])
   )
@@ -307,15 +346,16 @@ export function createTaskColumns(
     (m): m is WorkspaceMemberInfo & { actorId: string } => !!m.actorId
   )
 
-  return [
+  const byId: Record<ColumnId, ColumnDef<ApiTask>> = {
     // ── Checkbox ───────────────────────────────────────────────────────────
-    {
+    select: {
       id: 'select',
       enableSorting: false,
       meta: {
         headerClassName: 'w-10 px-4',
         cellClassName: 'px-4',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.select,
       },
       header: ({ table }) => (
         <Checkbox
@@ -327,25 +367,36 @@ export function createTaskColumns(
                 : false
           }
           onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all tasks'
+          aria-label={
+            intl?.formatMessage({
+              id: 'task.selectAll',
+              defaultMessage: 'Select all tasks',
+            }) ?? 'Select all tasks'
+          }
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={value => row.toggleSelected(!!value)}
-          aria-label={`Select ${(row.original as ApiTask).title}`}
+          aria-label={
+            intl?.formatMessage(
+              { id: 'task.selectOne', defaultMessage: 'Select {title}' },
+              { title: (row.original as ApiTask).title }
+            ) ?? `Select ${(row.original as ApiTask).title}`
+          }
         />
       ),
     },
 
     // ── ID ─────────────────────────────────────────────────────────────────
-    {
+    identifier: {
       id: 'identifier',
       accessorFn: row => `${row.teamIdentifier}-${row.number}`,
       meta: {
         headerClassName: 'w-24 px-8',
         cellClassName: 'px-3',
+        gridWidth: COLUMN_GRID_WIDTH.identifier,
       },
       header: () => (
         <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
@@ -397,12 +448,13 @@ export function createTaskColumns(
     },
 
     // ── Title ──────────────────────────────────────────────────────────────
-    {
+    title: {
       accessorKey: 'title',
       meta: {
         headerClassName: 'min-w-[300px] px-8',
         cellClassName: 'px-8',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.title,
       },
       header: ({ column }) => (
         <SortableColHeader
@@ -433,13 +485,50 @@ export function createTaskColumns(
       },
     },
 
+    // ── Project ────────────────────────────────────────────────────────────
+    project: {
+      id: 'project',
+      enableSorting: true,
+      meta: {
+        gridWidth: COLUMN_GRID_WIDTH.project,
+        headerClassName: 'px-8',
+        cellClassName: 'px-8',
+        stopPropagation: true,
+      },
+      sortingFn: (a, b) =>
+        (a.original.project?.name ?? '').localeCompare(b.original.project?.name ?? ''),
+      header: ({ column }) => (
+        <SortableColHeader
+          label={intl?.formatMessage({ id: 'task.project', defaultMessage: 'Project' }) ?? 'Project'}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({ id: 'tasks.tooltip.project', defaultMessage: 'Project this task belongs to.' })}
+        />
+      ),
+      cell: ({ row }) => {
+        const task = row.original
+        if (updateTask) {
+          return (
+            <ProjectSelect
+              value={task.projectId}
+              projects={projects}
+              onChange={projectId => updateTask(task.id, { projectId })}
+              triggerClassName={GHOST_TRIGGER}
+            />
+          )
+        }
+        return <span className='text-xs text-muted-foreground'>{task.project?.name ?? '—'}</span>
+      },
+    },
+
     // ── Status ─────────────────────────────────────────────────────────────
-    {
+    status: {
       accessorKey: 'status',
       meta: {
         headerClassName: 'w-36 px-8',
         cellClassName: 'px-8',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.status,
       },
       sortingFn: (rowA, rowB) =>
         cmpStatus(rowA.original.status, rowB.original.status),
@@ -482,12 +571,13 @@ export function createTaskColumns(
     },
 
     // ── Priority ───────────────────────────────────────────────────────────
-    {
+    priority: {
       accessorKey: 'priority',
       meta: {
         headerClassName: 'w-28 px-8',
         cellClassName: 'px-8',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.priority,
       },
       sortingFn: (rowA, rowB) =>
         cmpPriority(rowA.original.priority, rowB.original.priority),
@@ -525,12 +615,13 @@ export function createTaskColumns(
     },
 
     // ── Due Date ──────────────────────────────────────────────────────────
-    {
+    dueDate: {
       accessorKey: 'dueDate',
       meta: {
         headerClassName: 'w-28 px-8',
         cellClassName: 'px-8',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.dueDate,
       },
       sortingFn: (rowA, rowB) => {
         const a = rowA.original.dueDate
@@ -588,48 +679,22 @@ export function createTaskColumns(
       },
     },
 
-    // ── Updated At ─────────────────────────────────────────────────────────
-    {
-      accessorKey: 'updatedAt',
-      meta: {
-        headerClassName: 'w-32 px-8 text-right',
-        cellClassName: 'px-8 text-right',
-      },
-      header: ({ column }) => (
-        <SortableColHeader
-          label={
-            intl?.formatMessage({
-              id: 'common.updated',
-              defaultMessage: 'Updated',
-            }) ?? 'Updated'
-          }
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          sorted={column.getIsSorted()}
-          tooltip={intl?.formatMessage({
-            id: 'tasks.tooltip.updated',
-            defaultMessage: 'Last time this task was modified.',
-          })}
-        />
-      ),
-      cell: ({ row }) => (
-        <span className='text-xs text-muted-foreground'>
-          {new Date(row.original.updatedAt).toLocaleDateString()}
-        </span>
-      ),
-    },
-
     // ── Assignee ───────────────────────────────────────────────────────────
-    {
+    assignee: {
       id: 'assignee',
       enableSorting: false,
       meta: {
         headerClassName: 'w-24 px-8',
         cellClassName: 'px-8',
         stopPropagation: true,
+        gridWidth: COLUMN_GRID_WIDTH.assignee,
       },
       header: () => (
         <span className='text-[11px] font-medium uppercase tracking-wider text-muted-foreground'>
-          Assignee
+          {intl?.formatMessage({
+            id: 'task.assignee',
+            defaultMessage: 'Assignee',
+          }) ?? 'Assignee'}
         </span>
       ),
       cell: ({ row }) => {
@@ -657,14 +722,46 @@ export function createTaskColumns(
       },
     },
 
+    // ── Updated At ─────────────────────────────────────────────────────────
+    updatedAt: {
+      accessorKey: 'updatedAt',
+      meta: {
+        headerClassName: 'w-32 px-8 text-right',
+        cellClassName: 'px-8 text-right',
+        gridWidth: COLUMN_GRID_WIDTH.updatedAt,
+      },
+      header: ({ column }) => (
+        <SortableColHeader
+          label={
+            intl?.formatMessage({
+              id: 'common.updated',
+              defaultMessage: 'Updated',
+            }) ?? 'Updated'
+          }
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          sorted={column.getIsSorted()}
+          tooltip={intl?.formatMessage({
+            id: 'tasks.tooltip.updated',
+            defaultMessage: 'Last time this task was modified.',
+          })}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className='text-xs text-muted-foreground'>
+          {new Date(row.original.updatedAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+
     // ── Row actions ────────────────────────────────────────────────────────
-    {
+    actions: {
       id: 'actions',
       enableSorting: false,
       meta: {
         stopPropagation: true,
         headerClassName: 'w-12 pr-4',
         cellClassName: 'w-12 pr-4',
+        gridWidth: COLUMN_GRID_WIDTH.actions,
       },
       header: () => null,
       cell: ({ row }) => (
@@ -672,8 +769,11 @@ export function createTaskColumns(
           task={row.original}
           onTaskClick={onTaskClick}
           onDeleteTask={onDeleteTask}
+          intl={intl}
         />
       ),
     },
-  ]
+  }
+
+  return orderColumns(visibleColumns).map(id => byId[id])
 }

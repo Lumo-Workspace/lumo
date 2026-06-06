@@ -1,9 +1,20 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useIntl } from 'react-intl'
-import { Plus, CheckSquare } from 'lucide-react'
-import { MyTask, ApiStatus, ApiProject, WorkspaceMemberInfo } from '../../types'
+import { Plus, CheckSquare, CalendarClock } from 'lucide-react'
+import { toast } from 'sonner'
+import type { RowSelectionState } from '@tanstack/react-table'
+import {
+  MyTask,
+  ApiTask,
+  ApiStatus,
+  ApiProject,
+  WorkspaceMemberInfo,
+} from '../../types'
+import { tasksClient } from '@/lib/api-client'
+import type { TaskPatch } from '../data-table/task-columns'
+import type { ColumnId } from '../data-table/columnTemplate'
 import { BoardView } from '../board/BoardView'
 import { MyTaskCard } from '../board/SortableTaskCard'
 import { useBoardDrag } from '../../hooks/useBoardDrag'
@@ -25,9 +36,23 @@ import { CACHE_KEY } from '../../constants'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { BulkActionBar } from '../task-list/BulkActionBar'
 import { BulkDeleteConfirm } from '../task-list/BulkDeleteConfirm'
-import { TaskListTable } from '../task-list/TaskListTable'
-import { MyTasksToolbar } from './my-tasks/MyTasksToolbar'
+import { TaskListView } from '../task-list/TaskListView'
+import { TaskListToolbar } from '../task-list/TaskListToolbar'
 import { useTaskBulkMutations } from '../../hooks/useTaskBulkMutations'
+
+// Stable reference so TaskListView's columns memo doesn't recompute each render.
+const MY_TASKS_COLUMNS: ColumnId[] = [
+  'select',
+  'identifier',
+  'title',
+  'project',
+  'status',
+  'priority',
+  'dueDate',
+  'assignee',
+  'updatedAt',
+  'actions',
+]
 
 interface MyTasksPageProps {
   tasks: MyTask[]
@@ -116,6 +141,74 @@ export function MyTasksPage({
     runBulkDelete,
   } = useTaskBulkMutations({ tasks, selected, setSelected, setTasks, onRetry })
 
+  // ─── Selection bridge: Set (source of truth) ↔ table RowSelectionState ───────
+  const rowSelection = useMemo<RowSelectionState>(
+    () => Object.fromEntries([...selected].map(id => [id, true])),
+    [selected]
+  )
+  const handleRowSelectionChange = useCallback(
+    (next: RowSelectionState) =>
+      setSelected(new Set(Object.keys(next).filter(id => next[id]))),
+    [setSelected]
+  )
+
+  // ─── Single-row inline update (moved from TaskListTable) ─────────────────────
+  const updateTask = useCallback(
+    async (id: string, patch: TaskPatch) => {
+      setTasks(prev =>
+        prev.map(t => {
+          if (t.id !== id) return t
+          // When project changes, also refresh the embedded { id, name, ownerActorId }
+          // so the row updates without waiting for a refetch.
+          if (patch.projectId && patch.projectId !== t.projectId) {
+            const np = projects.find(p => p.id === patch.projectId)
+            return {
+              ...t,
+              ...patch,
+              project: np
+                ? {
+                    id: np.id,
+                    name: np.name,
+                    ownerActorId:
+                      (np as { ownerActorId?: string | null }).ownerActorId ??
+                      null,
+                  }
+                : t.project,
+            }
+          }
+          return { ...t, ...patch }
+        })
+      )
+      try {
+        await tasksClient.update(id, patch)
+      } catch {
+        toast.error('Failed to update task')
+        onRetry()
+      }
+    },
+    [setTasks, projects, onRetry]
+  )
+
+  // ─── Single-row delete (unified table's actions column) ──────────────────────
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      try {
+        await tasksClient.delete(taskId)
+      } catch {
+        toast.error('Failed to delete task')
+        onRetry()
+      }
+    },
+    [setTasks, onRetry]
+  )
+
+  // ─── onTaskClick adapter (rows are MyTask, table types as ApiTask) ───────────
+  const handleTaskClick = useCallback(
+    (task: ApiTask) => onTaskClick(task as MyTask),
+    [onTaskClick]
+  )
+
   return (
     <div className='flex-1 flex flex-col overflow-hidden'>
       {/* Breadcrumb */}
@@ -134,13 +227,7 @@ export function MyTasksPage({
 
       {/* Toolbar — relative so the selection bar can absolute-overlay it */}
       <div className='h-12 shrink-0 relative bg-white dark:bg-zinc-950'>
-        <MyTasksToolbar
-          sprintsAvailable={sprintsAvailable}
-          currentSprintOnly={currentSprintOnly}
-          onToggleCurrentSprintOnly={() =>
-            setCurrentSprintOnly(!currentSprintOnly)
-          }
-          noActiveSprint={noActiveSprint}
+        <TaskListToolbar
           completedFilter={options.completedFilter}
           onCompletedFilterChange={setCompletedFilter}
           ordering={options.ordering}
@@ -149,6 +236,33 @@ export function MyTasksPage({
           onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          leftSlot={
+            sprintsAvailable ? (
+              <>
+                <Button
+                  variant={currentSprintOnly ? 'default' : 'outline'}
+                  size='sm'
+                  className='gap-1.5 h-7 text-xs'
+                  onClick={() => setCurrentSprintOnly(!currentSprintOnly)}
+                >
+                  <CalendarClock className='h-3 w-3' />
+                  {intl.formatMessage({
+                    id: 'myTasks.currentSprintOnly',
+                    defaultMessage: 'Current sprint only',
+                  })}
+                </Button>
+                {currentSprintOnly && noActiveSprint && (
+                  <span className='text-xs text-muted-foreground'>
+                    {intl.formatMessage({
+                      id: 'myTasks.noActiveSprint',
+                      defaultMessage:
+                        'No active sprint — start one from the Sprints page.',
+                    })}
+                  </span>
+                )}
+              </>
+            ) : null
+          }
         />
         {selected.size > 0 && (
           <BulkActionBar
@@ -202,15 +316,16 @@ export function MyTasksPage({
         >
           {viewMode === 'list' ? (
             <div className='flex-1 min-h-0 flex flex-col'>
-              <TaskListTable
+              <TaskListView
                 tasks={filteredTasks}
-                setTasks={setTasks}
                 members={members}
                 projects={projects}
-                onTaskClick={onTaskClick}
-                onRetry={onRetry}
-                selected={selected}
-                setSelected={setSelected}
+                visibleColumns={MY_TASKS_COLUMNS}
+                updateTask={updateTask}
+                onTaskClick={handleTaskClick}
+                onDeleteTask={handleDeleteTask}
+                rowSelection={rowSelection}
+                onRowSelectionChange={handleRowSelectionChange}
               />
             </div>
           ) : (
