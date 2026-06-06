@@ -173,8 +173,8 @@ export function DataTable<TData, TValue>({
       <div
         role='row'
         className={cn(
-          'grid items-center group border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer',
-          isChild && 'bg-zinc-50/50 dark:bg-zinc-900/50'
+          'grid items-center group border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
+          isChild && 'bg-muted/40'
         )}
         style={{ gridTemplateColumns: columnTemplate, height: ROW_HEIGHT }}
         onClick={() => onRowClick?.(row.original)}
@@ -207,7 +207,7 @@ export function DataTable<TData, TValue>({
       <div role='rowgroup'>
         <div
           role='row'
-          className='grid sticky top-0 z-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800'
+          className='grid sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border'
           style={{ gridTemplateColumns: columnTemplate }}
         >
           {headerGroup?.headers.map(header => (
