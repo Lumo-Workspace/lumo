@@ -12,7 +12,7 @@ export type ColumnId =
   | 'actions'
 
 /** Canonical left-to-right order. Column visibility is a subset of this. */
-export const ALL_COLUMN_IDS: ColumnId[] = [
+export const ALL_COLUMN_IDS: readonly ColumnId[] = [
   'select',
   'identifier',
   'title',
