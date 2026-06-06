@@ -236,7 +236,7 @@ export function ActivityTimeline({
 
   if (entries.length === 0) {
     return (
-      <p className='text-xs text-zinc-400 dark:text-zinc-500 py-4'>
+      <p className='text-caption text-zinc-400 dark:text-zinc-500 py-4'>
         {intl.formatMessage({
           id: 'activity.empty',
           defaultMessage: 'No activity yet',
@@ -276,7 +276,7 @@ export function ActivityTimeline({
           <Button
             variant='ghost'
             size='sm'
-            className='text-xs text-zinc-400 hover:text-zinc-600'
+            className='text-caption text-zinc-400 hover:text-zinc-600'
             disabled={loadingMore}
             onClick={onLoadMore}
           >
@@ -317,7 +317,7 @@ export function ActivityTimeline({
 
       {/* Empty filter result */}
       {filteredEntries.length === 0 && entries.length > 0 && (
-        <p className='text-xs text-zinc-400 dark:text-zinc-500 py-4 text-center'>
+        <p className='text-caption text-zinc-400 dark:text-zinc-500 py-4 text-center'>
           {intl.formatMessage({
             id: 'activity.filter.noResults',
             defaultMessage: 'No matching activities',

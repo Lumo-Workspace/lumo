@@ -57,7 +57,7 @@ export function SlackContextCard({
 
   return (
     <div className='border border-zinc-200 dark:border-zinc-800 rounded-md p-3 bg-white dark:bg-zinc-950'>
-      <div className='flex items-center gap-2 text-xs text-zinc-500'>
+      <div className='flex items-center gap-2 text-caption text-zinc-500'>
         <MessageSquare size={14} />
         <a
           href={context.permalink}
@@ -103,7 +103,7 @@ export function SlackContextCard({
       </div>
 
       {root && (
-        <div className='mt-2 text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
+        <div className='mt-2 text-body text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap'>
           <SlackMrkdwn text={root.text} userMap={userMap} />
         </div>
       )}
@@ -112,7 +112,7 @@ export function SlackContextCard({
         <div className='mt-2'>
           <button
             onClick={() => setExpanded(e => !e)}
-            className='text-xs text-zinc-500 hover:text-zinc-700'
+            className='text-caption text-zinc-500 hover:text-zinc-700'
           >
             {expanded ? '▼' : '▶'}{' '}
             {intl.formatMessage(
@@ -126,7 +126,7 @@ export function SlackContextCard({
           {expanded && (
             <div className='mt-2 pl-3 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2'>
               {replies.map(m => (
-                <div key={m.ts} className='text-sm'>
+                <div key={m.ts} className='text-body'>
                   <span className='font-medium'>
                     {m.userName ?? `@${m.userId}`}
                   </span>
@@ -141,7 +141,7 @@ export function SlackContextCard({
       )}
 
       {context.refreshError && (
-        <div className='mt-2 text-xs text-amber-600 dark:text-amber-400'>
+        <div className='mt-2 text-caption text-amber-600 dark:text-amber-400'>
           {intl.formatMessage(
             {
               id: 'slackContext.refresh.failedBanner',

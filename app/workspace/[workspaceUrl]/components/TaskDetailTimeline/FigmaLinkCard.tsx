@@ -100,7 +100,7 @@ export function FigmaLinkCard({
         <div className='flex-1 min-w-0'>
           <div className='flex items-start justify-between gap-1'>
             <div className='min-w-0'>
-              <p className='text-sm font-medium text-zinc-800 dark:text-zinc-100 truncate'>
+              <p className='text-body-strong text-zinc-800 dark:text-zinc-100 truncate'>
                 {link.loading ? (
                   <span className='text-zinc-400 dark:text-zinc-500'>
                     {intl.formatMessage({
@@ -115,7 +115,7 @@ export function FigmaLinkCard({
                 )}
               </p>
               {!link.loading && (
-                <p className='text-xs text-zinc-500 dark:text-zinc-400 truncate'>
+                <p className='text-caption text-zinc-500 dark:text-zinc-400 truncate'>
                   {frameName}
                 </p>
               )}
@@ -158,13 +158,13 @@ export function FigmaLinkCard({
           </div>
 
           {!link.loading && link.lastSyncError && (
-            <p className='mt-0.5 text-xs text-amber-600 dark:text-amber-400'>
+            <p className='mt-0.5 text-caption text-amber-600 dark:text-amber-400'>
               {link.lastSyncError}
             </p>
           )}
 
           {!link.loading && (
-            <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
+            <p className='mt-1 text-caption text-zinc-400 dark:text-zinc-500'>
               {intl.formatMessage(
                 {
                   id: 'task.figma.lastSynced',

@@ -274,7 +274,7 @@ export function TaskDetailPage({
                   e.currentTarget.blur()
                 }
               }}
-              className='text-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none cursor-text mb-6 leading-tight'
+              className='text-heading font-bold text-zinc-900 dark:text-zinc-100 outline-none cursor-text mb-6 leading-tight'
             >
               {task.title}
             </h1>
@@ -300,7 +300,7 @@ export function TaskDetailPage({
             {/* Sub-tasks */}
             {(initialTask.children?.length ?? 0) > 0 && (
               <div className='mt-8'>
-                <p className='text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
+                <p className='text-caption font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3'>
                   {intl.formatMessage({ id: 'task.subtasks' })}
                 </p>
                 <div className='space-y-1'>
@@ -317,7 +317,7 @@ export function TaskDetailPage({
                             `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${childIdentifier}`
                           )
                         }
-                        className={`w-full text-left text-sm py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors ${isDone ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-600 dark:text-zinc-400'}`}
+                        className={`w-full text-left text-body py-1.5 px-2 rounded hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors ${isDone ? 'line-through text-zinc-400 dark:text-zinc-500' : 'text-zinc-600 dark:text-zinc-400'}`}
                       >
                         {childIdentifier} · {child.title}
                       </button>
