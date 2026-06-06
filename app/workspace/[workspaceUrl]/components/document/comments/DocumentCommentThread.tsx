@@ -253,14 +253,16 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
       ))}
 
       <div className='mt-2 flex items-center gap-3 border-t pt-2 text-xs'>
-        <button
-          type='button'
-          data-testid='reply-btn'
-          onClick={() => setReplying(v => !v)}
-          className='text-muted-foreground transition-colors hover:text-foreground'
-        >
-          {intl.formatMessage({ id: 'document.reply' })}
-        </button>
+        {!replying && (
+          <button
+            type='button'
+            data-testid='reply-btn'
+            onClick={() => setReplying(true)}
+            className='text-muted-foreground transition-colors hover:text-foreground'
+          >
+            {intl.formatMessage({ id: 'document.reply' })}
+          </button>
+        )}
         <button
           type='button'
           data-testid='resolve-toggle'
@@ -284,9 +286,18 @@ export function DocumentCommentThread(props: DocumentCommentThreadProps) {
             }}
             onSubmit={submitReply}
             clearRef={replyClearRef}
+            placeholderId='task.replyPlaceholder'
             {...memberProp}
           />
-          <div className='mt-1 flex justify-end'>
+          <div className='mt-1 flex items-center justify-end gap-2'>
+            <Button
+              size='sm'
+              variant='ghost'
+              data-testid='reply-cancel'
+              onClick={() => setReplying(false)}
+            >
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </Button>
             <Button size='sm' data-testid='reply-submit' onClick={submitReply}>
               {intl.formatMessage({ id: 'document.reply' })}
             </Button>

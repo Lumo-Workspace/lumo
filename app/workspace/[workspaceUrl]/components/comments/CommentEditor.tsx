@@ -15,6 +15,9 @@ interface Props {
   members?: WorkspaceMemberInfo[]
   tasks?: ApiTask[] | undefined
   agentActors?: { actorId: string; name: string; avatarColor: string }[]
+  /** i18n id for the editor placeholder. Defaults to the new-comment copy
+   * ("添加评论…"); reply inputs pass `task.replyPlaceholder` ("添加回复…"). */
+  placeholderId?: string | undefined
 }
 
 /**
@@ -32,6 +35,7 @@ export function CommentEditor({
   members,
   tasks,
   agentActors,
+  placeholderId,
 }: Props) {
   const intl = useIntl()
   const [key, setKey] = useState(0)
@@ -55,7 +59,9 @@ export function CommentEditor({
         value={null}
         onCommit={onCommit}
         onChange={onCommit}
-        placeholder={intl.formatMessage({ id: 'task.commentPlaceholder' })}
+        placeholder={intl.formatMessage({
+          id: placeholderId ?? 'task.commentPlaceholder',
+        })}
         {...(members ? { members } : {})}
         {...(tasks ? { tasks } : {})}
         {...(agentActors ? { agentActors } : {})}
