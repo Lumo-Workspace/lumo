@@ -42,3 +42,66 @@ describe('deriveBranchName / deriveWorktreeDirName', () => {
     expect(deriveBranchName('LUM-267', '')).toBe('lumo/LUM-267')
   })
 })
+
+import {
+  parseWorktreePorcelain,
+  findWorktreeByTaskId,
+  type WorktreeEntry,
+} from '../src/lib/worktree'
+
+const PORCELAIN = [
+  'worktree /repo/main',
+  'HEAD aaaa1111',
+  'branch refs/heads/lumo/LUM-261-radius',
+  '',
+  'worktree /repo/main/.worktrees/LUM-256',
+  'HEAD bbbb2222',
+  'branch refs/heads/lumo/LUM-256-mermaid-diagrams',
+  '',
+  'worktree /repo/main/.worktrees/detached-one',
+  'HEAD cccc3333',
+  'detached',
+  '',
+].join('\n')
+
+describe('parseWorktreePorcelain', () => {
+  it('parses path/head/branch and handles detached + trailing record', () => {
+    const entries = parseWorktreePorcelain(PORCELAIN)
+    expect(entries).toHaveLength(3)
+    expect(entries[0]).toEqual({
+      path: '/repo/main',
+      head: 'aaaa1111',
+      branch: 'lumo/LUM-261-radius',
+    })
+    expect(entries[1].branch).toBe('lumo/LUM-256-mermaid-diagrams')
+    expect(entries[2].branch).toBeNull()
+  })
+  it('parses a final record with no trailing blank line', () => {
+    const entries = parseWorktreePorcelain(
+      'worktree /repo/main\nHEAD deadbeef\nbranch refs/heads/main'
+    )
+    expect(entries).toHaveLength(1)
+    expect(entries[0].branch).toBe('main')
+  })
+})
+
+describe('findWorktreeByTaskId', () => {
+  const entries: WorktreeEntry[] = [
+    { path: '/repo/main', head: 'a', branch: 'lumo/LUM-261-radius' },
+    { path: '/repo/main/.worktrees/LUM-256', head: 'b', branch: 'lumo/LUM-256-mermaid-diagrams' },
+    { path: '/repo/main/.worktrees/LUM-267', head: 'c', branch: 'lumo/LUM-267' },
+  ]
+  it('matches by branch prefix', () => {
+    expect(findWorktreeByTaskId(entries, 'LUM-256')?.path).toBe(
+      '/repo/main/.worktrees/LUM-256'
+    )
+  })
+  it('matches the bare-id branch exactly', () => {
+    expect(findWorktreeByTaskId(entries, 'LUM-267')?.path).toBe(
+      '/repo/main/.worktrees/LUM-267'
+    )
+  })
+  it('returns null when absent', () => {
+    expect(findWorktreeByTaskId(entries, 'LUM-999')).toBeNull()
+  })
+})
