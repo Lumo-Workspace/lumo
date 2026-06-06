@@ -19,19 +19,34 @@ interface BindSessionToTaskInput {
   identity: VerifyApiKeyResult
   sessionId: string
   taskIdentifier: string
+  /** When the session is already bound to a *different* task, the bind is
+   *  refused (returns `status: 'already-bound'`) unless force is set. The CLI
+   *  flips this to true only after the user confirms the override prompt.
+   *  Defaults to false. */
+  force?: boolean | undefined
 }
 
-interface BindSessionToTaskResult {
-  taskId: string
-  taskIdentifier: string
-  taskTitle: string
-  /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
-  retaggedEventCount: number
-  /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
-  memorySection: string
-  /** Recovery card data from the previous session on this task, or null if there is no prior session. */
-  previousSession: PreviousSessionRecovery | null
-}
+export type BindSessionToTaskResult =
+  | {
+      status: 'bound'
+      taskId: string
+      taskIdentifier: string
+      taskTitle: string
+      /** Number of HookEvent rows whose null taskId was just filled in by this call. Zero means the session had no untagged events (often the case on re-attach or first-time attach before any hook fires). */
+      retaggedEventCount: number
+      /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
+      memorySection: string
+      /** Recovery card data from the previous session on this task, or null if there is no prior session. */
+      previousSession: PreviousSessionRecovery | null
+    }
+  | {
+      status: 'already-bound'
+      /** The task the session is currently bound to. Surfaced (instead of
+       *  silently clobbering Session.taskId) so the CLI can prompt
+       *  `已绑定 LUM-X，覆盖为 LUM-Y? [y/N]` before re-binding. */
+      currentTaskIdentifier: string
+      currentTaskTitle: string
+    }
 
 interface SessionScopedInput {
   identity: VerifyApiKeyResult
@@ -118,6 +133,7 @@ export const sessionService = {
     identity,
     sessionId,
     taskIdentifier,
+    force,
   }: BindSessionToTaskInput): Promise<BindSessionToTaskResult> {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -136,6 +152,27 @@ export const sessionService = {
         new Error(`Task ${taskIdentifier} not found in workspace`),
         { status: 404 }
       )
+    }
+
+    // Refuse a silent overwrite: if the session is already bound to a
+    // *different* task and the caller hasn't confirmed (force), return the
+    // current binding so the CLI can prompt before clobbering Session.taskId.
+    // Member-scoped read — a session owned by another member reads back as
+    // "no binding" here and is rejected by the ownedByOther guard below, so
+    // this never leaks another member's binding. Re-attaching to the same
+    // task is not a conflict (idempotent), so it falls through to the upsert.
+    if (!force) {
+      const current = await sessionRepository.findForMemberWithBinding(
+        sessionId,
+        memberId
+      )
+      if (current?.task && current.task.id !== task.id) {
+        return {
+          status: 'already-bound',
+          currentTaskIdentifier: `${current.task.team.identifier}-${current.task.number}`,
+          currentTaskTitle: current.task.title,
+        }
+      }
     }
 
     // Upsert the session row so attach can run before any hook fires.
@@ -169,6 +206,7 @@ export const sessionService = {
     ])
 
     return {
+      status: 'bound',
       taskId: task.id,
       taskIdentifier: task.identifier,
       taskTitle: task.title,
