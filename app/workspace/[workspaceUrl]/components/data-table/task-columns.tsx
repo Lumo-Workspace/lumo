@@ -748,8 +748,8 @@ export function createTaskColumns(options: CreateTaskColumnsOptions): ColumnDef<
     updatedAt: {
       accessorKey: 'updatedAt',
       meta: {
-        headerClassName: 'w-32 px-8 text-right',
-        cellClassName: 'px-8 text-right',
+        headerClassName: 'w-32 px-8',
+        cellClassName: 'px-8',
         gridWidth: COLUMN_GRID_WIDTH.updatedAt,
       },
       header: ({ column }) => (
