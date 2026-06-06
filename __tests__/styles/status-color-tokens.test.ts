@@ -21,11 +21,17 @@ function readGlobals(): string {
   return readFileSync(join(__dirname, '../../app/globals.css'), 'utf8')
 }
 
-/** Extract the `--status-*` values from a single `:root {…}` / `.dark {…}` block. */
+/**
+ * Extract the `--status-*` values from a single `:root {…}` / `.dark {…}` block.
+ * Accepts both hex and `oklch(…)` — the app standardized on oklch in LUM-257,
+ * so the values are `oklch(L C H)` with the hex kept only in a trailing comment.
+ */
 function statusValuesIn(block: string): Record<string, string> {
   const out: Record<string, string> = {}
   for (const token of STATUS_TOKENS) {
-    const m = block.match(new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{3,8})`))
+    const m = block.match(
+      new RegExp(`--${token}:\\s*(#[0-9a-fA-F]{3,8}|oklch\\([^)]*\\))`)
+    )
     if (m?.[1]) out[token] = m[1].toLowerCase()
   }
   return out
@@ -46,8 +52,8 @@ describe('status color tokens (globals.css)', () => {
 
   it('defines all four status tokens in :root and .dark', () => {
     for (const token of STATUS_TOKENS) {
-      expect(root[token]).toMatch(/^#[0-9a-f]{3,8}$/)
-      expect(dark[token]).toMatch(/^#[0-9a-f]{3,8}$/)
+      expect(root[token]).toMatch(/^(#[0-9a-f]{3,8}|oklch\([^)]*\))$/)
+      expect(dark[token]).toMatch(/^(#[0-9a-f]{3,8}|oklch\([^)]*\))$/)
     }
   })
 
