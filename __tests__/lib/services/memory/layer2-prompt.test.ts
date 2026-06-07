@@ -156,4 +156,9 @@ describe('buildLayer2Prompt', () => {
       expect(system).toMatch(/redundant by definition/i)
     })
   })
+
+  it('system prompt instructs ADD to cite sourceMemoryIds', () => {
+    const { system } = buildLayer2Prompt(input())
+    expect(system).toContain('sourceMemoryIds')
+  })
 })

@@ -1552,6 +1552,28 @@ model Memory {
   @@map("memories")
 }
 
+/// Provenance edges for Layer-2 memory consolidation (LUM-280). When
+/// consolidation promotes recurring TASK lessons into a new PROJECT memory,
+/// it records which source TASK memories fed the promotion. `resolveCanonicalFragment`
+/// walks parent→child so a LineageEdge keyed by an old TASK cuid still rolls up
+/// to the promoted PROJECT cuid. FK-less on purpose (mirrors LineageEdge): a
+/// deleted parent memory must NOT cascade away the redirect, and source rows
+/// are consolidated/edited/deleted independently (deletion propagation is
+/// milestone known-debt).
+model MemoryProvenance {
+  id             String   @id @default(cuid())
+  // The PROJECT memory created by consolidation (the promoted lesson).
+  childMemoryId  String
+  // A source TASK memory the promotion was synthesized from. Validated to be
+  // in the consolidation input window before insert — hallucinated ids dropped.
+  parentMemoryId String
+  createdAt      DateTime @default(now())
+
+  @@unique([childMemoryId, parentMemoryId])
+  @@index([parentMemoryId])
+  @@map("memory_provenance")
+}
+
 // ─── Task Slack Context ──────────────────────────────────────────────────────
 
 model TaskSlackContext {

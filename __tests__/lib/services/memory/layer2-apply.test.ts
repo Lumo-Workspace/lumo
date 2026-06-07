@@ -15,12 +15,21 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     ),
   },
 }))
+jest.mock('@/lib/repositories/memory-provenance.repository', () => ({
+  memoryProvenanceRepository: {
+    createMany: jest.fn(),
+  },
+}))
 
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { applyLayer2Operations } from '@/lib/services/memory/layer2-apply'
 import type { Layer2Operation } from '@/lib/services/memory/layer2-extract'
 
 const repo = memoryRepository as jest.Mocked<typeof memoryRepository>
+const provRepo = memoryProvenanceRepository as jest.Mocked<
+  typeof memoryProvenanceRepository
+>
 
 const baseInput = {
   projectId: 'proj_1',
@@ -186,5 +195,75 @@ describe('applyLayer2Operations', () => {
       operations: ops,
     })
     expect(result).toMatchObject({ added: 1, noop: 2 })
+  })
+})
+
+describe('applyLayer2Operations provenance (LUM-280)', () => {
+  it('writes provenance for an ADD citing ids inside the input window', async () => {
+    const result = await applyLayer2Operations({
+      ...baseInput,
+      validSourceMemoryIds: ['mem_1', 'mem_2', 'mem_3'],
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 't', outcome: 'o' },
+          sourceMemoryIds: ['mem_1', 'mem_2'],
+        },
+      ],
+    })
+    expect(result.added).toBe(1)
+    expect(provRepo.createMany).toHaveBeenCalledWith(
+      'new_mem',
+      ['mem_1', 'mem_2'],
+      expect.anything()
+    )
+  })
+
+  it('drops cited ids not in the input window (hallucination guard)', async () => {
+    await applyLayer2Operations({
+      ...baseInput,
+      validSourceMemoryIds: ['mem_1'],
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 't', outcome: 'o' },
+          sourceMemoryIds: ['mem_1', 'ghost_999'],
+        },
+      ],
+    })
+    expect(provRepo.createMany).toHaveBeenCalledWith(
+      'new_mem',
+      ['mem_1'],
+      expect.anything()
+    )
+  })
+
+  it('writes no provenance when every cited id is hallucinated', async () => {
+    await applyLayer2Operations({
+      ...baseInput,
+      validSourceMemoryIds: ['mem_1'],
+      operations: [
+        {
+          type: 'ADD',
+          category: 'TRAP',
+          content: { trigger: 't', outcome: 'o' },
+          sourceMemoryIds: ['ghost_1', 'ghost_2'],
+        },
+      ],
+    })
+    expect(provRepo.createMany).not.toHaveBeenCalled()
+  })
+
+  it('writes no provenance when the ADD cites nothing', async () => {
+    await applyLayer2Operations({
+      ...baseInput,
+      validSourceMemoryIds: ['mem_1'],
+      operations: [
+        { type: 'ADD', category: 'TRAP', content: { trigger: 't', outcome: 'o' } },
+      ],
+    })
+    expect(provRepo.createMany).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import type { MemoryCategory, Prisma } from '@prisma/client'
 import type { Layer2Operation } from './layer2-extract'
@@ -22,6 +23,13 @@ interface ApplyOperationsInput {
    * unattributable, which is acceptable since there's no session to review.
    */
   sourceSessionId?: string | null | undefined
+  /**
+   * Ids of the TASK memories that fed this consolidation (the input window).
+   * LUM-280: an ADD's `sourceMemoryIds` are intersected with this set before
+   * provenance is written, so a hallucinated id can never create a dangling
+   * provenance edge. Omitted/empty → no provenance is written for any ADD.
+   */
+  validSourceMemoryIds?: string[]
 }
 
 export interface ApplyOperationsResult {
@@ -60,6 +68,7 @@ export async function applyLayer2Operations(
   const knownCategoryById = new Map(
     input.existingProjectMemories.map(m => [m.id, m.category])
   )
+  const validSourceIds = new Set(input.validSourceMemoryIds ?? [])
   type Plan = (tx: Prisma.TransactionClient) => Promise<void>
   const plans: Plan[] = []
 
@@ -81,8 +90,11 @@ export async function applyLayer2Operations(
         continue
       }
       const category = op.category
+      const citedSourceIds = (op.sourceMemoryIds ?? []).filter(id =>
+        validSourceIds.has(id)
+      )
       plans.push(async tx => {
-        await memoryRepository.create(
+        const created = await memoryRepository.create(
           {
             workspaceId: input.workspaceId,
             projectId: input.projectId,
@@ -96,6 +108,13 @@ export async function applyLayer2Operations(
           tx
         )
         result.added++
+        if (citedSourceIds.length > 0) {
+          await memoryProvenanceRepository.createMany(
+            created.id,
+            citedSourceIds,
+            tx
+          )
+        }
       })
       continue
     }
