@@ -1,6 +1,6 @@
 'use client'
 
-import { useIntl } from 'react-intl'
+import { useIntl, type IntlShape } from 'react-intl'
 import type { ModelCost } from '../types'
 
 export interface CostChip {
@@ -58,48 +58,27 @@ const SEGMENTS: {
   },
 ]
 
-export function TokenCostBreakdown({
-  models,
-  loopCount,
-  variant,
-  chips,
-}: TokenCostBreakdownProps) {
-  const intl = useIntl()
+// One per-model block: total heading (2xl when single model, smaller when
+// stacked), the proportional bar, and the four detail rows. Hoisted to module
+// scope so it keeps a stable component identity across renders (defining it
+// inside the parent would remount the subtree on every render).
+function ModelGroup({
+  m,
+  multi,
+  intl,
+}: {
+  m: ModelCost
+  multi: boolean
+  intl: IntlShape
+}) {
   const fmt = (n: number) =>
     intl.formatNumber(n, { notation: 'compact', maximumFractionDigits: 1 })
-
-  if (models.length === 0) {
-    return (
-      <div className='text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'tokenCost.none',
-          defaultMessage: 'No captured cost on this trail',
-        })}
-      </div>
-    )
-  }
-
-  const multi = models.length > 1
   const unit = intl.formatMessage({
     id: 'tokenCost.unit',
     defaultMessage: 'tok',
   })
 
-  const loopChip =
-    typeof loopCount === 'number'
-      ? intl.formatMessage(
-          {
-            id: 'tokenCost.loops',
-            defaultMessage: '{n, plural, one {# loop} other {# loops}}',
-          },
-          { n: loopCount }
-        )
-      : intl.formatMessage({
-          id: 'tokenCost.loopsNa',
-          defaultMessage: 'loops n/a',
-        })
-
-  const Group = ({ m }: { m: ModelCost }) => (
+  return (
     <div className='py-2 first:pt-0 border-t border-border/60 first:border-t-0'>
       <div className='flex items-center gap-2'>
         {m.model && <span className='text-xs font-semibold'>{m.model}</span>}
@@ -147,6 +126,42 @@ export function TokenCostBreakdown({
       </div>
     </div>
   )
+}
+
+export function TokenCostBreakdown({
+  models,
+  loopCount,
+  variant,
+  chips,
+}: TokenCostBreakdownProps) {
+  const intl = useIntl()
+
+  if (models.length === 0) {
+    return (
+      <div className='text-muted-foreground'>
+        {intl.formatMessage({
+          id: 'tokenCost.none',
+          defaultMessage: 'No captured cost on this trail',
+        })}
+      </div>
+    )
+  }
+
+  const multi = models.length > 1
+
+  const loopChip =
+    typeof loopCount === 'number'
+      ? intl.formatMessage(
+          {
+            id: 'tokenCost.loops',
+            defaultMessage: '{n, plural, one {# loop} other {# loops}}',
+          },
+          { n: loopCount }
+        )
+      : intl.formatMessage({
+          id: 'tokenCost.loopsNa',
+          defaultMessage: 'loops n/a',
+        })
 
   return (
     <div className={variant === 'full' ? 'px-3 py-3' : ''}>
@@ -157,7 +172,7 @@ export function TokenCostBreakdown({
         })}
       </div>
       {models.map(m => (
-        <Group key={m.model || 'single'} m={m} />
+        <ModelGroup key={m.model || 'single'} m={m} multi={multi} intl={intl} />
       ))}
       <div className='mt-2 flex flex-wrap gap-1'>
         <span className='rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground'>
