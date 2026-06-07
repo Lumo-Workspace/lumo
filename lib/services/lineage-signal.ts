@@ -21,18 +21,31 @@ export interface LineageSignalEntry {
   mergedTasks: number
 }
 
-/** Pure render: gate + format. Returns "" when nothing qualifies. */
-export function renderLineageSection(entries: LineageSignalEntry[]): string {
+/** Pure render: cold-start gate + format + transparency note. */
+export function renderLineageSection(
+  entries: LineageSignalEntry[],
+  excludedCount: number
+): string {
   const qualifying = entries.filter(
     e => e.resolvedTasks >= LINEAGE_MIN_RESOLVED_TASKS
   )
-  if (qualifying.length === 0) return ''
+  if (qualifying.length === 0 && excludedCount === 0) return ''
+
+  const note =
+    excludedCount > 0
+      ? [
+          '',
+          `> 已排除 ${excludedCount} 个全量加载(零存在方差)的 fragment:它们出现在每个已闭合任务里,merge 率等于团队 base rate,无判别力。`,
+        ]
+      : []
+
   return [
     '## 飞轮信号 · 历史 merge 贡献',
     '',
     '> 口径:分母 = 该片段出现过且 outcome 已确定(merged/否)的去重任务数;分子 = 其中已 merged 的。仅显示样本 ≥ 3 个已闭合任务。这是历史相关性,非因果。',
     '',
     ...qualifying.map(formatLineageSignalLine),
+    ...note,
   ].join('\n')
 }
 
@@ -62,6 +75,7 @@ function fragmentLabel(
 export interface LineageSignalDeps {
   resolveCanonicalFragment: (type: string, id: string) => Promise<string>
   mergeRateByFragments: (refs: FragmentRef[]) => Promise<FragmentMergeRate[]>
+  countResolvedTasks: () => Promise<number>
 }
 
 /**
@@ -94,7 +108,10 @@ export async function assembleLineageSection(
       stats.map(s => [`${s.fragmentType}::${s.fragmentId}`, s])
     )
 
+    const universe = await deps.countResolvedTasks()
+
     const entries: LineageSignalEntry[] = []
+    let excludedCount = 0
     const seen = new Set<string>()
     for (const input of inputs) {
       const key = `${input.ref.fragmentType}::${input.ref.fragmentId}`
@@ -102,13 +119,19 @@ export async function assembleLineageSection(
       seen.add(key)
       const stat = statByKey.get(key)
       if (!stat) continue
+      // Zero presence-variance: appears in EVERY resolved task → its merge rate
+      // is the base rate, carries no signal. Exclude (count it for the note).
+      if (universe > 0 && stat.resolvedTasks === universe) {
+        excludedCount++
+        continue
+      }
       entries.push({
         label: input.label,
         resolvedTasks: stat.resolvedTasks,
         mergedTasks: stat.mergedTasks,
       })
     }
-    return renderLineageSection(entries)
+    return renderLineageSection(entries, excludedCount)
   } catch (err) {
     logger.error('assembleLineageSection failed; omitting flywheel signal', err)
     return ''
