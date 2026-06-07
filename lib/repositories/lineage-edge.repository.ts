@@ -67,6 +67,23 @@ export interface FragmentMergeRate {
   mergedTasks: number
 }
 
+/** One edge born in a session — the candidate set for LUM-300 usage voting. */
+export interface SessionFragmentEdge {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  used: boolean | null
+  usedAt: Date | null
+}
+
+/** Per-fragment merge rate computed ONLY over tasks where the fragment was
+ * actually used (used=true), task-deduped. Backs the LUM-300 usage signal. */
+export interface FragmentUsageRate {
+  fragmentType: LineageFragmentType
+  fragmentId: string
+  usedResolvedTasks: number
+  usedMergedTasks: number
+}
+
 function emptyByOutcome(): Record<LineageOutcome, number> {
   return { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 }
 }
@@ -242,6 +259,127 @@ export const lineageEdgeRepository = {
       where: { outcome: { not: 'UNKNOWN' } },
     })
     return rows.length
+  },
+
+  /** All edges born in a session — the candidate set for usage voting (LUM-300). */
+  async findSessionFragmentEdges(
+    sessionId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<SessionFragmentEdge[]> {
+    const client = tx ?? prisma
+    return client.lineageEdge.findMany({
+      where: { sessionId },
+      select: {
+        fragmentType: true,
+        fragmentId: true,
+        used: true,
+        usedAt: true,
+      },
+    })
+  },
+
+  /**
+   * Record an agent usage vote over a session's edges: the voted refs get
+   * used=true, every other edge of the session gets used=false, all stamped
+   * usedAt=now. Last write wins (re-voting overwrites). Returns counts.
+   */
+  async applyUsageVote(
+    sessionId: string,
+    usedRefs: FragmentRef[],
+    tx?: Prisma.TransactionClient
+  ): Promise<{ used: number; unused: number }> {
+    const client = tx ?? prisma
+    const now = new Date()
+    if (usedRefs.length === 0) {
+      const r = await client.lineageEdge.updateMany({
+        where: { sessionId },
+        data: { used: false, usedAt: now },
+      })
+      return { used: 0, unused: r.count }
+    }
+    const or = usedRefs.map(r => ({
+      fragmentType: r.fragmentType,
+      fragmentId: r.fragmentId,
+    }))
+    const usedRes = await client.lineageEdge.updateMany({
+      where: { sessionId, OR: or },
+      data: { used: true, usedAt: now },
+    })
+    const unusedRes = await client.lineageEdge.updateMany({
+      where: { sessionId, NOT: { OR: or } },
+      data: { used: false, usedAt: now },
+    })
+    return { used: usedRes.count, unused: unusedRes.count }
+  },
+
+  /**
+   * Usage-gated merge rate: same task-dedupe as mergeRateByFragments, but a
+   * (fragment, task) pair only counts when the fragment was voted used=true.
+   * Cold-start gating (min sample) is the caller's responsibility.
+   */
+  async usageMergeRateByFragments(
+    fragments: FragmentRef[],
+    tx?: Prisma.TransactionClient
+  ): Promise<FragmentUsageRate[]> {
+    if (fragments.length === 0) return []
+    const client = tx ?? prisma
+    const rows = await client.lineageEdge.groupBy({
+      by: ['fragmentType', 'fragmentId', 'taskId', 'outcome'],
+      where: {
+        used: true,
+        OR: fragments.map(f => ({
+          fragmentType: f.fragmentType,
+          fragmentId: f.fragmentId,
+        })),
+      },
+      _count: { _all: true },
+    })
+
+    const perFragment = new Map<
+      string,
+      {
+        fragmentType: LineageFragmentType
+        fragmentId: string
+        tasks: Map<string, { resolved: boolean; merged: boolean }>
+      }
+    >()
+    for (const row of rows) {
+      const fKey = fragmentKey(row.fragmentType, row.fragmentId)
+      let entry = perFragment.get(fKey)
+      if (!entry) {
+        entry = {
+          fragmentType: row.fragmentType,
+          fragmentId: row.fragmentId,
+          tasks: new Map(),
+        }
+        perFragment.set(fKey, entry)
+      }
+      let task = entry.tasks.get(row.taskId)
+      if (!task) {
+        task = { resolved: false, merged: false }
+        entry.tasks.set(row.taskId, task)
+      }
+      if (row.outcome !== 'UNKNOWN') task.resolved = true
+      if (row.outcome === 'MERGED') task.merged = true
+    }
+
+    return fragments
+      .map(f => perFragment.get(fragmentKey(f.fragmentType, f.fragmentId)))
+      .filter((e): e is NonNullable<typeof e> => e !== undefined)
+      .map(e => {
+        let usedResolvedTasks = 0
+        let usedMergedTasks = 0
+        for (const task of e.tasks.values()) {
+          if (task.resolved) usedResolvedTasks++
+          if (task.merged) usedMergedTasks++
+        }
+        return {
+          fragmentType: e.fragmentType,
+          fragmentId: e.fragmentId,
+          usedResolvedTasks,
+          usedMergedTasks,
+        }
+      })
   },
 
   /**

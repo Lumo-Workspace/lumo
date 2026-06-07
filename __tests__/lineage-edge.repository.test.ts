@@ -428,4 +428,88 @@ describe('lineageEdgeRepository', () => {
       ])
     })
   })
+
+  describe('findSessionFragmentEdges', () => {
+    it('returns this session edges with current used/usedAt flags', async () => {
+      mockFindMany.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'm1', used: null, usedAt: null },
+        { fragmentType: 'WEB_LINK', fragmentId: 'w1', used: true, usedAt: new Date() },
+      ])
+      const rows = await lineageEdgeRepository.findSessionFragmentEdges('sess-1')
+      expect(rows).toHaveLength(2)
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: { sessionId: 'sess-1' },
+        select: {
+          fragmentType: true,
+          fragmentId: true,
+          used: true,
+          usedAt: true,
+        },
+      })
+    })
+  })
+
+  describe('applyUsageVote', () => {
+    it('stamps used=true for voted refs and used=false for the rest, with usedAt', async () => {
+      mockUpdateMany.mockResolvedValue({ count: 1 })
+      const res = await lineageEdgeRepository.applyUsageVote('sess-1', [
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: {
+          sessionId: 'sess-1',
+          OR: [{ fragmentType: 'MEMORY', fragmentId: 'm1' }],
+        },
+        data: { used: true, usedAt: expect.any(Date) },
+      })
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: {
+          sessionId: 'sess-1',
+          NOT: { OR: [{ fragmentType: 'MEMORY', fragmentId: 'm1' }] },
+        },
+        data: { used: false, usedAt: expect.any(Date) },
+      })
+      expect(res).toEqual({ used: 1, unused: 1 })
+    })
+
+    it('marks all session edges used=false when no refs voted', async () => {
+      mockUpdateMany.mockResolvedValue({ count: 3 })
+      const res = await lineageEdgeRepository.applyUsageVote('sess-1', [])
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: { sessionId: 'sess-1' },
+        data: { used: false, usedAt: expect.any(Date) },
+      })
+      expect(res).toEqual({ used: 0, unused: 3 })
+    })
+  })
+
+  describe('usageMergeRateByFragments', () => {
+    it('counts only used=true (fragment,task) pairs, task-deduped', async () => {
+      mockGroupBy.mockResolvedValue([
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tA', outcome: 'MERGED', _count: { _all: 1 } },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tB', outcome: 'REJECTED', _count: { _all: 1 } },
+        { fragmentType: 'MEMORY', fragmentId: 'm1', taskId: 'tC', outcome: 'UNKNOWN', _count: { _all: 1 } },
+      ])
+      const [rate] = await lineageEdgeRepository.usageMergeRateByFragments([
+        { fragmentType: 'MEMORY', fragmentId: 'm1' },
+      ])
+      expect(rate).toEqual({
+        fragmentType: 'MEMORY',
+        fragmentId: 'm1',
+        usedResolvedTasks: 2,
+        usedMergedTasks: 1,
+      })
+      expect(mockGroupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['fragmentType', 'fragmentId', 'taskId', 'outcome'],
+          where: expect.objectContaining({ used: true }),
+        })
+      )
+    })
+
+    it('returns [] for empty input', async () => {
+      expect(await lineageEdgeRepository.usageMergeRateByFragments([])).toEqual([])
+      expect(mockGroupBy).not.toHaveBeenCalled()
+    })
+  })
 })
