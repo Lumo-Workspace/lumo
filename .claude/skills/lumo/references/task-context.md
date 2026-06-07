@@ -107,3 +107,28 @@ require the GitHub integration, so the command ends with a `note:` saying so.
 ```bash
 lumo task pr show LUM-42 128
 ```
+
+## `lumo task lineage <id>`
+
+Read-only audit view over the task's `LineageEdge` rows. Given a task
+identifier (`LUM-N`), prints the causal trail:
+
+- **Totals banner** — distinct runs/sessions, fragment count, edge count,
+  total tokens (input/output/cache split) and loops, and the outcome
+  distribution.
+- **One block per run/session** — the group's cost shown **once** (token/loop),
+  the date it consumed context, then each context fragment as
+  `[OUTCOME] TYPE — <source label>`, plus a per-group outcome summary.
+
+Cost is attributed once per run/session (a run that injected many fragments is
+not double-counted). Fragment ids are canonical — MEMORY fragments survive
+consolidation drift.
+
+**Cold start:** a task with no edges prints a friendly note (lineage is captured
+when a session-bound run consumes the task's context), not an error.
+
+**When to suggest:** the user wants to audit "what context did the AI actually
+use, and what did it cost" for a task / merged PR — CFO / compliance / trust
+narratives.
+
+Entry point is the task identifier only; PR-number lookup is a future addition.
