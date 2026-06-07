@@ -128,10 +128,10 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-8 py-10'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1'>
+        <h1 className='text-xl font-semibold text-foreground mb-1'>
           {intl.formatMessage({ id: 'integrations.title' })}
         </h1>
-        <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-8'>
+        <p className='text-sm text-muted-foreground mb-8'>
           {intl.formatMessage({ id: 'integrations.description' })}
         </p>
 

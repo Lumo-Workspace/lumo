@@ -308,7 +308,7 @@ export function WorkspaceSettingsPage() {
   if (loading) {
     return (
       <div className='h-full flex items-center justify-center'>
-        <span className='text-sm text-zinc-400'>
+        <span className='text-sm text-muted-foreground'>
           {intl.formatMessage({ id: 'common.loading' })}
         </span>
       </div>
@@ -318,19 +318,19 @@ export function WorkspaceSettingsPage() {
   return (
     <div className='h-full overflow-y-auto'>
       <div className='max-w-2xl mx-auto px-6 py-8'>
-        <h1 className='text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-8'>
+        <h1 className='text-xl font-semibold text-foreground mb-8'>
           {intl.formatMessage({ id: 'workspaceSettings.title' })}
         </h1>
 
         {/* Settings card */}
-        <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-8'>
+        <div className='rounded-lg border border-border overflow-hidden mb-8'>
           {/* Logo row */}
-          <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
+          <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
             <div>
-              <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+              <p className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'workspaceSettings.logo' })}
               </p>
-              <p className='text-xs text-zinc-400 mt-0.5'>
+              <p className='text-xs text-muted-foreground mt-0.5'>
                 {intl.formatMessage({ id: 'workspaceSettings.logoHint' })}
               </p>
             </div>
@@ -346,8 +346,8 @@ export function WorkspaceSettingsPage() {
           </div>
 
           {/* Name row */}
-          <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
-            <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0 w-16'>
+          <div className='flex items-center justify-between gap-4 px-5 py-4 border-b border-border'>
+            <label className='text-sm font-medium text-foreground shrink-0 w-16'>
               {intl.formatMessage({ id: 'workspaceSettings.name' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
@@ -357,7 +357,7 @@ export function WorkspaceSettingsPage() {
                 onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                 disabled={!isOwner || savingName}
-                className='h-8 w-64 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                className='h-8 w-64 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
               />
               {name !== workspace?.name && (
                 <Button
@@ -375,12 +375,12 @@ export function WorkspaceSettingsPage() {
 
           {/* URL row */}
           <div className='flex items-center justify-between gap-4 px-5 py-4'>
-            <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200 shrink-0 w-16'>
+            <label className='text-sm font-medium text-foreground shrink-0 w-16'>
               {intl.formatMessage({ id: 'workspaceSettings.url' })}
             </label>
             <div className='flex items-center gap-2 flex-1 justify-end'>
-              <div className='flex items-center h-8 rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden w-64'>
-                <span className='px-2.5 text-xs text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-700 h-full flex items-center shrink-0'>
+              <div className='flex items-center h-8 rounded-md border border-border overflow-hidden w-64'>
+                <span className='px-2.5 text-xs text-muted-foreground bg-muted border-r border-border h-full flex items-center shrink-0'>
                   /workspace/
                 </span>
                 <input
@@ -393,7 +393,7 @@ export function WorkspaceSettingsPage() {
                   }
                   onKeyDown={e => e.key === 'Enter' && handleSaveSlug()}
                   disabled={!isOwner || savingSlug}
-                  className='flex-1 px-2.5 text-sm text-zinc-800 dark:text-zinc-200 bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+                  className='flex-1 px-2.5 text-sm text-foreground bg-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed'
                 />
               </div>
               {slug !== workspace?.slug && (
@@ -413,22 +413,22 @@ export function WorkspaceSettingsPage() {
 
         {/* Summary settings */}
         {isOwner && (
-          <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-8'>
-            <div className='px-5 py-3 border-b border-zinc-100 dark:border-zinc-800'>
-              <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <div className='px-5 py-3 border-b border-border'>
+              <p className='text-sm font-semibold text-foreground'>
                 {intl.formatMessage({ id: 'workspaceSettings.summaryTitle' })}
               </p>
             </div>
 
             {/* Enable toggle */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
+            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
               <div>
-                <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                <p className='text-sm font-medium text-foreground'>
                   {intl.formatMessage({
                     id: 'workspaceSettings.summaryEnable',
                   })}
                 </p>
-                <p className='text-xs text-zinc-400 mt-0.5'>
+                <p className='text-xs text-muted-foreground mt-0.5'>
                   {intl.formatMessage({ id: 'workspaceSettings.summaryDesc' })}
                 </p>
               </div>
@@ -440,12 +440,12 @@ export function WorkspaceSettingsPage() {
                 disabled={savingSummary}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
                   summaryEnabled
-                    ? 'bg-zinc-900 dark:bg-zinc-100'
-                    : 'bg-zinc-200 dark:bg-zinc-700'
+                    ? 'bg-primary'
+                    : 'bg-input'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white dark:bg-zinc-900 shadow-lg transition-transform ${
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-card shadow-elevation-3 transition-transform ${
                     summaryEnabled ? 'translate-x-4' : 'translate-x-0'
                   }`}
                 />
@@ -453,8 +453,8 @@ export function WorkspaceSettingsPage() {
             </div>
 
             {/* Frequency selector */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
-              <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
+              <label className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({
                   id: 'workspaceSettings.summaryFrequency',
                 })}
@@ -465,7 +465,7 @@ export function WorkspaceSettingsPage() {
                   setSummaryFrequency(e.target.value as SummaryFrequency)
                 }
                 disabled={savingSummary || !summaryEnabled}
-                className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 <option value='DAILY'>
                   {intl.formatMessage({ id: 'workspaceSettings.freqDaily' })}
@@ -482,15 +482,15 @@ export function WorkspaceSettingsPage() {
             </div>
 
             {/* Language selector */}
-            <div className='flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800'>
-              <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+            <div className='flex items-center justify-between px-5 py-4 border-b border-border'>
+              <label className='text-sm font-medium text-foreground'>
                 {intl.formatMessage({ id: 'workspaceSettings.reportLanguage' })}
               </label>
               <select
                 value={summaryLocale}
                 onChange={e => setSummaryLocale(e.target.value)}
                 disabled={savingSummary || !summaryEnabled}
-                className='h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 <option value='en'>
                   {intl.formatMessage({ id: 'workspaceSettings.langEn' })}
@@ -518,12 +518,12 @@ export function WorkspaceSettingsPage() {
 
         {/* Risk thresholds */}
         {isOwner && (
-          <div className='rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-8'>
-            <div className='px-5 py-3 border-b border-zinc-100 dark:border-zinc-800'>
-              <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-200'>
+          <div className='rounded-lg border border-border overflow-hidden mb-8'>
+            <div className='px-5 py-3 border-b border-border'>
+              <p className='text-sm font-semibold text-foreground'>
                 {intl.formatMessage({ id: 'summary.riskThresholds' })}
               </p>
-              <p className='text-xs text-zinc-400 mt-0.5'>
+              <p className='text-xs text-muted-foreground mt-0.5'>
                 {intl.formatMessage({
                   id: 'summary.riskThresholds.description',
                 })}
@@ -584,9 +584,9 @@ export function WorkspaceSettingsPage() {
             ).map(([key, labelId, kind, min, max, step]) => (
               <div
                 key={key}
-                className='flex items-center justify-between gap-4 px-5 py-3 border-b border-zinc-100 dark:border-zinc-800'
+                className='flex items-center justify-between gap-4 px-5 py-3 border-b border-border'
               >
-                <label className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                <label className='text-sm font-medium text-foreground'>
                   {intl.formatMessage({ id: labelId })}
                 </label>
                 <input
@@ -605,7 +605,7 @@ export function WorkspaceSettingsPage() {
                     }))
                   }}
                   disabled={savingRisk}
-                  className='w-24 h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-2 text-sm text-right text-zinc-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 disabled:opacity-50'
+                  className='w-24 h-8 rounded-md border border-border bg-transparent px-2 text-sm text-right text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50'
                 />
               </div>
             ))}
@@ -644,10 +644,10 @@ export function WorkspaceSettingsPage() {
             </div>
             <div className='flex items-center justify-between px-5 py-4'>
               <div>
-                <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                <p className='text-sm font-medium text-foreground'>
                   {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
                 </p>
-                <p className='text-xs text-zinc-400 mt-0.5'>
+                <p className='text-xs text-muted-foreground mt-0.5'>
                   {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
                 </p>
               </div>
@@ -691,7 +691,7 @@ export function WorkspaceSettingsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className='px-1 pb-2'>
-            <p className='text-xs text-zinc-500 mb-1.5'>
+            <p className='text-xs text-muted-foreground mb-1.5'>
               {intl.formatMessage(
                 { id: 'workspaceSettings.deleteTypePrompt' },
                 { name: workspace?.name ?? '' }
@@ -702,7 +702,7 @@ export function WorkspaceSettingsPage() {
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
               placeholder={workspace?.name}
-              className='w-full h-9 rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-700'
+              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-700'
             />
           </div>
           <AlertDialogFooter>
